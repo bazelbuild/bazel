@@ -1,12 +1,17 @@
 load("@rules_java//java:defs.bzl", "java_binary")
 
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//:__pkg__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/tools/execlog/src/main/java/com/google/devtools/build/execlog:srcs",
         "//src/tools/execlog/test/main/java/com/google/devtools/build/execlog:srcs",
     ],
-    visibility = ["//src:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_binary(

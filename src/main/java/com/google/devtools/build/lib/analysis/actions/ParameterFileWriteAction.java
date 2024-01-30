@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -139,7 +140,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     final Iterable<String> arguments;
     try {
       ArtifactExpander artifactExpander = Preconditions.checkNotNull(ctx.getArtifactExpander());
-      arguments = commandLine.arguments(artifactExpander);
+      arguments = commandLine.arguments(artifactExpander, PathMapper.NOOP);
     } catch (CommandLineExpansionException e) {
       throw new UserExecException(
           e,

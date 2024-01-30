@@ -81,7 +81,9 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
   @Before
   public void createBasePkg() throws IOException {
     scratch.overwriteFile(
-        "base/BUILD", "cc_library(name = 'system_malloc', visibility = ['//visibility:public'])");
+        "base/BUILD",
+        "cc_library(name = 'system_malloc', visibility = ['//visibility:public'])",
+        "cc_library(name = 'empty_lib', visibility = ['//visibility:public'])");
   }
 
   public void createBuildFiles(String... extraCcBinaryParameters) throws Exception {
@@ -93,6 +95,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         "          srcs = ['binfile.cc', ],",
         "          deps = [ ':lib' ], ",
         String.join("", extraCcBinaryParameters),
+        "          link_extra_lib = '//base:empty_lib', ",
         "          malloc = '//base:system_malloc')",
         "cc_library(name = 'lib',",
         "        srcs = ['libfile.cc'],",
@@ -116,6 +119,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         "    srcs = ['bin_test.cc', ],",
         "    deps = [ ':lib' ], ",
         extraTestParameters,
+        "    link_extra_lib = '//base:empty_lib', ",
         "    malloc = '//base:system_malloc'",
         ")",
         "cc_test(",
@@ -123,6 +127,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         "    srcs = ['bin_test2.cc', ],",
         "    deps = [ ':lib' ], ",
         extraTestParameters,
+        "    link_extra_lib = '//base:empty_lib', ",
         "    malloc = '//base:system_malloc'",
         ")",
         "cc_library(",
@@ -161,9 +166,9 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.getFirstArtifactEndingWith(linkAction.getInputs(), "linkstamp.o"))
         .isNotNull();
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
-    String prefix = getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN)
-        .getExecPathString();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
+    String prefix =
+        getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
     assertThat(commandLine)
         .containsAtLeast(
             prefix + "/bin/pkg/bin.lto.merged.o",
@@ -181,7 +186,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         .containsAtLeast(
             "bin pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o",
             "bin pkg/bin.lto/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o",
-            "bin pkg/bin-2.params",
             "bin pkg/bin-lto-final.params");
 
     LtoBackendAction backendAction =
@@ -217,8 +221,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
                     ConfiguredTargetKey.builder()
                         .setLabel(pkg.getLabel())
                         .setConfiguration(getConfiguration(pkg))
-                        .build()
-                        .toKey())
+                        .build())
                 .getValue();
     ImmutableList<ActionAnalysisMetadata> linkstampCompileActions =
         configuredTargetValue.getActions().stream()
@@ -299,9 +302,9 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     CppLinkAction linkAction = getLinkAction();
     String rootExecPath = getRootExecPath();
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
-    String prefix = getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN)
-        .getExecPathString();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
+    String prefix =
+        getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
 
     assertThat(commandLine).contains("-Wl,@" + prefix + "/bin/pkg/bin-lto-final.params");
 
@@ -316,7 +319,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         .containsAtLeast(
             "bin pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o",
             "bin _solib_k8/libpkg_Sliblib.ifso",
-            "bin pkg/bin-2.params",
             "bin pkg/bin-lto-final.params");
 
     SolibSymlinkAction solibSymlinkAction =
@@ -399,7 +401,13 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
       List<String> expectedInputs)
       throws Exception {
     SpawnAction dwpAction = (SpawnAction) getGeneratingAction(dwpFile);
-    String dwpToolPath = toolchain.getToolPathFragment(Tool.DWP, ruleContext).getPathString();
+    String dwpToolPath =
+        CcToolchainProvider.getToolPathString(
+            toolchain.getToolPaths(),
+            Tool.DWP,
+            toolchain.getCcToolchainLabel(),
+            toolchain.getToolchainIdentifier(),
+            ruleContext);
     assertThat(dwpAction.getMnemonic()).isEqualTo("CcGenerateDwp");
     assertThat(dwpToolPath).isEqualTo(dwpAction.getCommandFilename());
     List<String> commandArgs = dwpAction.getArguments();
@@ -446,8 +454,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     Artifact dwpFile = getFileConfiguredTarget(pkg.getLabel() + ".dwp").getArtifact();
     PathFragment rootPrefix = dwpRootPrefix(dwpFile);
     RuleContext ruleContext = getRuleContext(pkg);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
         ruleContext,
         dwpFile,
@@ -497,8 +504,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     Artifact dwpFile = getFileConfiguredTarget(pkg.getLabel() + ".dwp").getArtifact();
     PathFragment rootPrefix = dwpRootPrefix(dwpFile);
     RuleContext ruleContext = getRuleContext(pkg);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
         ruleContext,
         dwpFile,
@@ -554,8 +560,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     Artifact dwpFile = getFileConfiguredTarget(pkg.getLabel() + ".dwp").getArtifact();
     PathFragment rootPrefix = dwpRootPrefix(dwpFile);
     RuleContext ruleContext = getRuleContext(pkg);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
         ruleContext,
         dwpFile,
@@ -1734,7 +1739,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.baseArtifactNames(linkAction.getInputs()))
         .contains("ld_profile.txt");
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(commandLine.toString())
         .containsMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
@@ -1919,7 +1924,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         (CppLinkAction) getPredecessorByInputName(genruleAction, "pkg/gen_lib");
     assertThat(ActionsTestUtil.baseArtifactNames(hostLinkAction.getInputs()))
         .doesNotContain("ld_profile.txt");
-    assertThat(hostLinkAction.getLinkCommandLineForTesting().getRawLinkArgv().toString())
+    assertThat(hostLinkAction.getLinkCommandLineForTesting().arguments().toString())
         .doesNotContainMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
     // The hostLinkAction inputs has a different root from the backendAction.
@@ -1939,7 +1944,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(hostIndexAction).isNotNull();
     assertThat(ActionsTestUtil.baseArtifactNames(hostIndexAction.getInputs()))
         .doesNotContain("ld_profile.txt");
-    assertThat(hostIndexAction.getLinkCommandLineForTesting().getRawLinkArgv().toString())
+    assertThat(hostIndexAction.getLinkCommandLineForTesting().arguments().toString())
         .doesNotContainMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
     CppCompileAction hostBitcodeAction =
@@ -1977,7 +1982,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(commandLine.toString())
         .containsMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 

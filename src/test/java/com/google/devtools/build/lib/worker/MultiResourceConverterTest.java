@@ -28,12 +28,12 @@ import org.junit.runners.JUnit4;
 public class MultiResourceConverterTest {
 
   public MultiResourceConverter multiResourceConverter;
-  public ResourceConverter resourceConverter;
+  public ResourceConverter<?> resourceConverter;
 
   @Before
   public void setUp() {
     multiResourceConverter = new MultiResourceConverter();
-    resourceConverter = new ResourceConverter(() -> null);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 1, Integer.MAX_VALUE);
   }
 
   @Test

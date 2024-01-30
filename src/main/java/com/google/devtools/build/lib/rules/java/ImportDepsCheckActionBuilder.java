@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.stream.Collectors;
@@ -97,7 +98,7 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
-  public void buildAndRegister(RuleContext ruleContext) {
+  public void buildAndRegister(RuleContext ruleContext) throws RuleErrorException {
     checkNotNull(jarsToCheck);
     checkNotNull(bootclasspath);
     checkNotNull(declaredDeps);

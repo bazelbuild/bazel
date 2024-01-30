@@ -18,9 +18,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
@@ -562,15 +564,42 @@ public interface QueryEnvironment<T> {
       throws QueryException;
 
   /**
-   * Returns the set of BUILD, and optionally Starlark files that define the given set of targets.
-   * Each such file is itself represented as a target in the result.
+   * Helper for {@link #transitiveLoadFiles}. Encapsulates the differences between the different
+   * {@link QueryEnvironment} implementations.
    */
-  ThreadSafeMutableSet<T> getBuildFiles(
-      QueryExpression caller,
-      ThreadSafeMutableSet<T> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<T> context)
+  interface TransitiveLoadFilesHelper<T> {
+    PackageIdentifier getPkgId(T target);
+
+    void visitLoads(
+        T originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
+        throws QueryException, InterruptedException;
+
+    T getBuildFileTarget(T originalTarget);
+
+    T getLoadFileTarget(T originalTarget, Label bzlLabel);
+
+    @Nullable
+    T maybeGetBuildFileTargetForLoadFileTarget(T originalTarget, Label bzlLabel)
+        throws QueryException, InterruptedException;
+  }
+
+  TransitiveLoadFilesHelper<T> getTransitiveLoadFilesHelper() throws QueryException;
+
+  /**
+   * Feeds to the given {@code callback} the transitive bzl files loaded (and BUILD files too, if
+   * {@code alsoAddBuildFiles} says to), represented as make-believe targets corresponding to their
+   * load labels, across all unique packages in {@code targets}, using {@code seenPackages} and
+   * {@code seenBzlLabels} to avoid duplicate work and using {@code uniquifier} to avoid feeding
+   * duplicate results.
+   */
+  void transitiveLoadFiles(
+      Iterable<T> targets,
+      boolean alsoAddBuildFiles,
+      Set<PackageIdentifier> seenPackages,
+      Set<Label> seenBzlLabels,
+      Uniquifier<T> uniquifier,
+      TransitiveLoadFilesHelper<T> helper,
+      Callback<T> callback)
       throws QueryException, InterruptedException;
 
   /**
@@ -581,12 +610,7 @@ public interface QueryEnvironment<T> {
    */
   TargetAccessor<T> getAccessor();
 
-  /**
-   * Returns the {@link RepositoryMapping} of the main repository so that output formatters can
-   * resolve canonical repository names in labels back to the more readable local names used by the
-   * main repository.
-   */
-  RepositoryMapping getMainRepoMapping();
+  LabelPrinter getLabelPrinter();
 
   /**
    * Whether the given setting is enabled. The code should default to return {@code false} for all
@@ -623,7 +647,10 @@ public interface QueryEnvironment<T> {
     NO_NODEP_DEPS,
 
     /** Include aspect-generated output. No-op for query, which always follows aspects. */
-    INCLUDE_ASPECTS;
+    INCLUDE_ASPECTS,
+
+    /** Include configured aspect targets in cquery output. */
+    EXPLICIT_ASPECTS;
   }
 
   /**

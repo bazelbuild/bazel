@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Objects;
@@ -33,9 +34,9 @@ import java.util.Objects;
  */
 @ThreadSafe
 public class RecursivePkgKey {
-  private final RepositoryName repositoryName;
-  private final RootedPath rootedPath;
-  private final ImmutableSet<PathFragment> excludedPaths;
+  @VisibleForSerialization final RepositoryName repositoryName;
+  @VisibleForSerialization final RootedPath rootedPath;
+  @VisibleForSerialization final ImmutableSet<PathFragment> excludedPaths;
 
   public RecursivePkgKey(
       RepositoryName repositoryName,

@@ -85,7 +85,7 @@ tokens:
   and the special characters `*/@.-_:$~[]` (asterisk, forward slash, at, period,
   hyphen, underscore, colon, dollar sign, tilde, left square brace, right square
   brace). However, unquoted words may not start with a hyphen `-` or asterisk `*`
-  even though relative [target names][(/concepts/labels#target-names) may start
+  even though relative [target names](/concepts/labels#target-names) may start
   with those characters.
 
   Unquoted words also may not include the characters plus sign `+` or equals
@@ -1193,6 +1193,52 @@ Like `label`, this output format prints the labels of
 each target in the resulting graph, in topological order, but it
 additionally precedes the label by the [_kind_](#kind) of the target.
 
+### Print targets in protocol buffer format {:#print-target-proto}
+
+```
+--output proto
+```
+
+Prints the query output as a
+[`QueryResult`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffer.
+
+### Print targets in length-delimited protocol buffer format {:#print-target-length-delimited-proto}
+
+```
+--output streamed_proto
+```
+
+Prints a
+[length-delimited](https://protobuf.dev/programming-guides/encoding/#size-limit)
+stream of
+[`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffers. This is useful to _(i)_ get around
+[size limitations](https://protobuf.dev/programming-guides/encoding/#size-limit)
+of protocol buffers when there are too many targets to fit in a single
+`QueryResult` or _(ii)_ to start processing while Bazel is still outputting.
+
+### Print targets in text proto format {:#print-target-textproto}
+
+```
+--output textproto
+```
+
+Similar to `--output proto`, prints the
+[`QueryResult`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffer but in
+[text format](https://protobuf.dev/reference/protobuf/textformat-spec/).
+
+### Print targets in ndjson format {:#print-target-streamed-jsonproto}
+
+```
+--output streamed_jsonproto
+```
+
+Similar to `--output streamed_proto`, prints a stream of
+[`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffers but in [ndjson](https://github.com/ndjson/ndjson-spec) format.
+
 ### Print the label of each target, in rank order {:#print-target-label-rank-order}
 
 ```
@@ -1456,24 +1502,8 @@ full syntax for
 
 ### Querying with external repositories {:#querying-external-repositories}
 
-If the build depends on rules from external repositories (defined in the
-WORKSPACE file) then query results will include these dependencies. For
-example, if `//foo:bar` depends on `//external:some-lib`
-and `//external:some-lib` is bound to `@other-repo//baz:lib`, then
-`bazel query 'deps(//foo:bar)'` will list both `@other-repo//baz:lib` and
-`//external:some-lib` as dependencies.
-
-External repositories themselves are not dependencies of a build. That is, in
-the example above, `//external:other-repo` is not a dependency. It
-can be queried for as a member of the `//external` package, though,
-for example:
-
-```
-  # Querying over all members of //external returns the repository.
-  bazel query 'kind(http_archive, //external:*)'
-  //external:other-repo
-
-  # ...but the repository is not a dependency.
-  bazel query 'kind(http_archive, deps(//foo:bar))'
-  INFO: Empty results
-```
+If the build depends on rules from [external repositories](/external/overview)
+then query results will include these dependencies. For
+example, if `//foo:bar` depends on `@other-repo//baz:lib`, then
+`bazel query 'deps(//foo:bar)'` will list `@other-repo//baz:lib` as a
+dependency.

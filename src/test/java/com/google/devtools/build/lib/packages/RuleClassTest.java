@@ -184,16 +184,16 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         .isEqualTo(ruleClassA.getAttribute(7));
 
     // default based on type
-    assertThat(ruleClassA.getAttribute(0).getDefaultValue()).isEqualTo("");
-    assertThat(ruleClassA.getAttribute(1).getDefaultValue()).isEqualTo("");
-    assertThat(ruleClassA.getAttribute(2).getDefaultValue())
+    assertThat(ruleClassA.getAttribute(0).getDefaultValue(null)).isEqualTo("");
+    assertThat(ruleClassA.getAttribute(1).getDefaultValue(null)).isEqualTo("");
+    assertThat(ruleClassA.getAttribute(2).getDefaultValue(null))
         .isEqualTo(Label.parseCanonical("//default:label"));
-    assertThat(ruleClassA.getAttribute(3).getDefaultValue()).isEqualTo(ImmutableList.of());
-    assertThat(ruleClassA.getAttribute(4).getDefaultValue()).isEqualTo(StarlarkInt.of(42));
+    assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(ImmutableList.of());
+    assertThat(ruleClassA.getAttribute(4).getDefaultValue(null)).isEqualTo(StarlarkInt.of(42));
     // default explicitly specified
-    assertThat(ruleClassA.getAttribute(5).getDefaultValue()).isNull();
-    assertThat(ruleClassA.getAttribute(6).getDefaultValue()).isEqualTo(ImmutableList.of());
-    assertThat(ruleClassA.getAttribute(7).getDefaultValue()).isEqualTo(ImmutableList.of());
+    assertThat(ruleClassA.getAttribute(5).getDefaultValue(null)).isNull();
+    assertThat(ruleClassA.getAttribute(6).getDefaultValue(null)).isEqualTo(ImmutableList.of());
+    assertThat(ruleClassA.getAttribute(7).getDefaultValue(null)).isEqualTo(ImmutableList.of());
   }
 
   @Test
@@ -252,16 +252,18 @@ public final class RuleClassTest extends PackageLoadingTestCase {
   }
 
   private Package.Builder createDummyPackageBuilder() {
-    return packageFactory
-        .newPackageBuilder(
-            PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
-            "TESTING",
-            Optional.empty(),
-            Optional.empty(),
-            StarlarkSemantics.DEFAULT,
-            RepositoryMapping.ALWAYS_FALLBACK,
-            RepositoryMapping.ALWAYS_FALLBACK)
-        .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
+    return packageFactory.newPackageBuilder(
+        PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
+        RootedPath.toRootedPath(root, testBuildfilePath),
+        "TESTING",
+        Optional.empty(),
+        Optional.empty(),
+        StarlarkSemantics.DEFAULT,
+        /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
+        /* cpuBoundSemaphore= */ null,
+        /* generatorMap= */ null,
+        /* configSettingVisibilityPolicy= */ null,
+        /* globber= */ null);
   }
 
   @Test
@@ -929,13 +931,16 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException("Rule has illegal label", e);
     }
-    return ruleClass.createRule(
-        pkgBuilder,
-        ruleLabel,
-        new BuildLangTypedAttributeValuesMap(attributeValues),
-        reporter,
-        ImmutableList.of(
-            StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, testRuleLocation)));
+    Rule rule =
+        ruleClass.createRule(
+            pkgBuilder,
+            ruleLabel,
+            new BuildLangTypedAttributeValuesMap(attributeValues),
+            true,
+            ImmutableList.of(
+                StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, testRuleLocation)));
+    pkgBuilder.getLocalEventHandler().replayOn(reporter);
+    return rule;
   }
 
   @Test
@@ -1022,7 +1027,12 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         DUMMY_STACK,
         /* key= */ name,
         RuleClassType.NORMAL,
+        /* starlarkParent= */ null,
+        /* initializer= */ null,
+        /* labelConverterForInitializer= */ null,
         /* isStarlark= */ starlarkExecutable,
+        /* extendable= */ false,
+        /* extendableAllowlist= */ null,
         /* starlarkTestable= */ false,
         documented,
         binaryOutput,
@@ -1058,7 +1068,8 @@ public final class RuleClassTest extends PackageLoadingTestCase {
                 .add(RuleClass.NAME_ATTRIBUTE)
                 .add(attributes)
                 .build(),
-        /* buildSetting= */ null);
+        /* buildSetting= */ null,
+        /* subrules= */ ImmutableList.of());
   }
 
   private static RuleClass createParentRuleClass() {
@@ -1114,7 +1125,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     ValidityPredicate checker =
         new ValidityPredicate() {
           @Override
-          public String checkValid(Rule from, String toRuleClass, Set<String> toRuleTags) {
+          public String checkValid(Rule from, String toRuleClass) {
             assertThat(from.getName()).isEqualTo("top");
             switch (toRuleClass) {
               case "dep1class":
@@ -1141,13 +1152,13 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             topClass
                 .getAttributeByName("deps")
                 .getValidityPredicate()
-                .checkValid(topRule, dep1.getRuleClass(), dep1.getRuleTags()))
+                .checkValid(topRule, dep1.getRuleClass()))
         .isEqualTo("pear");
     assertThat(
             topClass
                 .getAttributeByName("deps")
                 .getValidityPredicate()
-                .checkValid(topRule, dep2.getRuleClass(), dep2.getRuleTags()))
+                .checkValid(topRule, dep2.getRuleClass()))
         .isNull();
   }
 
@@ -1328,5 +1339,21 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     assertThat(expected)
         .hasMessageThat()
         .matches("Attribute myclass\\.x{150}'s name is too long \\(150 > 128\\)");
+  }
+
+  @Test
+  public void testPackageMetadataAlternateName() throws Exception {
+    RuleClass noopClass =
+        new RuleClass.Builder("noop", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .add(attr(RuleClass.APPLICABLE_METADATA_ATTR, LABEL_LIST).legacyAllowAnyFileType())
+            .build();
+    Map<String, Object> attributeValues = new LinkedHashMap<>();
+    attributeValues.put("applicable_licenses", Lists.newArrayList(":info"));
+    Rule noopRule = createRule(noopClass, "noop", attributeValues);
+
+    assertThat(noopRule.getAttr(RuleClass.APPLICABLE_METADATA_ATTR, LABEL_LIST))
+        .isEqualTo(Lists.newArrayList(Label.parseCanonical("//testpackage:info")));
   }
 }

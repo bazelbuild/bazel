@@ -20,3 +20,9 @@
 function get_python_runtime_runfiles() {
   :;
 }
+
+# Additional repo mapping manifest file.
+function get_repo_mapping_manifest_file() {
+  echo ""
+  echo "../repo_mapping file"
+}

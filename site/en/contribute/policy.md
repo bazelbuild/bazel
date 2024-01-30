@@ -1,6 +1,5 @@
 Project: /_project.yaml
 Book: /_book.yaml
-
 translation: human
 page_type: lcat
 

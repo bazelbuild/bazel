@@ -17,28 +17,21 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.errorprone.annotations.Keep;
+import javax.annotation.Nullable;
 
 /**
  * A {@link BlazeModule} that installs a {@link MemoryPressureListener} that reacts to memory
  * pressure events.
  */
 public final class MemoryPressureModule extends BlazeModule {
-  private RetainedHeapLimiter retainedHeapLimiter;
-  private MemoryPressureListener memoryPressureListener;
-  private HighWaterMarkLimiter highWaterMarkLimiter;
-  private EventBus eventBus;
+  private final MemoryPressureListener memoryPressureListener = MemoryPressureListener.create();
 
-  @Override
-  public void workspaceInit(
-      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    retainedHeapLimiter = RetainedHeapLimiter.create(runtime.getBugReporter());
-    memoryPressureListener = MemoryPressureListener.create(retainedHeapLimiter);
-  }
+  // Null between commands.
+  @Nullable private HighWaterMarkLimiter highWaterMarkLimiter;
+  @Nullable private EventBus eventBus;
 
   @Override
   public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -54,7 +47,6 @@ public final class MemoryPressureModule extends BlazeModule {
     highWaterMarkLimiter =
         new HighWaterMarkLimiter(env.getSkyframeExecutor(), env.getSyscallCache(), options);
     memoryPressureListener.setGcThrashingDetector(GcThrashingDetector.createForCommand(options));
-    retainedHeapLimiter.setOptions(options);
 
     eventBus.register(this);
     eventBus.register(highWaterMarkLimiter);
@@ -76,9 +68,12 @@ public final class MemoryPressureModule extends BlazeModule {
   }
 
   private void postStats() {
-    MemoryPressureStats.Builder stats = MemoryPressureStats.newBuilder();
-    retainedHeapLimiter.addStatsAndReset(stats);
-    highWaterMarkLimiter.addStatsAndReset(stats);
-    eventBus.post(stats.build());
+    // Guard against crashes between commands or an async crash racing with afterCommand().
+    var highWaterMarkLimiter = this.highWaterMarkLimiter;
+    var eventBus = this.eventBus;
+    if (highWaterMarkLimiter == null || eventBus == null) {
+      return;
+    }
+    eventBus.post(highWaterMarkLimiter.getStats());
   }
 }

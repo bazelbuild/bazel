@@ -31,8 +31,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -41,6 +42,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -601,30 +603,6 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testOnlyExtraMiddlemenNotConsideredEmpty() {
-    ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(
-            scratch.resolve("execroot"), RootType.Middleman, PathFragment.create("out"));
-    Artifact mm = ActionsTestUtil.createArtifact(root, "a-middleman");
-    Runfiles runfiles = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm).build();
-    assertThat(runfiles.isEmpty()).isFalse();
-  }
-
-  @Test
-  public void testMergingExtraMiddlemen() {
-    ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(
-            scratch.resolve("execroot"), RootType.Middleman, PathFragment.create("out"));
-    Artifact mm1 = ActionsTestUtil.createArtifact(root, "middleman-1");
-    Artifact mm2 = ActionsTestUtil.createArtifact(root, "middleman-2");
-    Runfiles runfiles1 = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm1).build();
-    Runfiles runfiles2 = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm2).build();
-    Runfiles runfilesMerged =
-        new Runfiles.Builder("TESTING").merge(runfiles1).merge(runfiles2).build();
-    assertThat(runfilesMerged.getExtraMiddlemen().toList()).containsExactly(mm1, mm2);
-  }
-
-  @Test
   public void testGetEmptyFilenames() {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifact = ActionsTestUtil.createArtifact(root, "my-artifact");
@@ -634,11 +612,18 @@ public class RunfilesTest extends FoundationTestCase {
             .addSymlink(PathFragment.create("my-symlink"), artifact)
             .addRootSymlink(PathFragment.create("my-root-symlink"), artifact)
             .setEmptyFilesSupplier(
-                (manifestPaths) ->
-                    manifestPaths
-                        .stream()
+                new Runfiles.EmptyFilesSupplier() {
+                  @Override
+                  public ImmutableList<PathFragment> getExtraPaths(
+                      Set<PathFragment> manifestPaths) {
+                    return manifestPaths.stream()
                         .map((f) -> f.replaceName(f.getBaseName() + "-empty"))
-                        .collect(ImmutableList.toImmutableList()))
+                        .collect(ImmutableList.toImmutableList());
+                  }
+
+                  @Override
+                  public void fingerprint(Fingerprint fingerprint) {}
+                })
             .build();
     assertThat(runfiles.getEmptyFilenames().toList())
         .containsExactly("my-artifact-empty", "my-symlink-empty");

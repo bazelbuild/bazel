@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 
@@ -117,6 +116,10 @@ public class RemoteAction {
     return command;
   }
 
+  public RemotePathResolver getRemotePathResolver() {
+    return remotePathResolver;
+  }
+
   @Nullable
   public MerkleTree getMerkleTree() {
     return merkleTree;
@@ -127,7 +130,7 @@ public class RemoteAction {
    * ActionInput}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMap(boolean willAccessRepeatedly)
-      throws IOException, ForbiddenActionInputException {
+      throws ForbiddenActionInputException {
     return remotePathResolver.getInputMapping(spawnExecutionContext, willAccessRepeatedly);
   }
 

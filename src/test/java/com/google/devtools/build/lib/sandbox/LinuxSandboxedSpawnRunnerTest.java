@@ -165,40 +165,6 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void exec_statisticsCollectionDisabled_returnsEmptyStatistics() throws Exception {
-    CommandEnvironment commandEnvironment =
-        getCommandEnvironmentWithExecutionStatisticsOptionDisabled("workspace");
-    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
-    Path cpuTimeSpenderPath =
-        SpawnRunnerTestUtil.copyCpuTimeSpenderIntoPath(commandEnvironment.getExecRoot());
-    Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
-    // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
-    Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration minimumSystemTimeToSpend = Duration.ZERO;
-    Spawn spawn =
-        new SpawnBuilder(
-                cpuTimeSpenderPath.getPathString(),
-                String.valueOf(minimumUserTimeToSpend.getSeconds()),
-                String.valueOf(minimumSystemTimeToSpend.getSeconds()))
-            .build();
-    SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
-
-    SpawnResult spawnResult = runner.exec(spawn, policy);
-
-    assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
-    assertThat(spawnResult.exitCode()).isEqualTo(0);
-    assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTimeInMs()).isAtLeast((int) minimumWallTimeToSpend.toMillis());
-    assertThat(spawnResult.getWallTimeInMs()).isAtMost((int) maximumWallTimeToSpend.toMillis());
-    assertThat(spawnResult.getUserTimeInMs()).isEqualTo(0);
-    assertThat(spawnResult.getSystemTimeInMs()).isEqualTo(0);
-    assertThat(spawnResult.getNumBlockOutputOperations()).isNull();
-    assertThat(spawnResult.getNumBlockInputOperations()).isNull();
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isNull();
-  }
-
-  @Test
   public void hermeticTmp_tmpCreatedAndMounted() throws Exception {
     runtimeWrapper.addOptions("--incompatible_sandbox_hermetic_tmp");
     CommandEnvironment commandEnvironment = createCommandEnvironment();
@@ -237,27 +203,6 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(args).doesNotContain("-m /tmp");
   }
 
-  @Test
-  public void hermeticTmp_sandboxTmpfsUnderTmp_tmpNotCreatedOrMounted() throws Exception {
-    runtimeWrapper.addOptions(
-        "--incompatible_sandbox_hermetic_tmp", "--sandbox_tmpfs_path=/tmp/subdir");
-    CommandEnvironment commandEnvironment = createCommandEnvironment();
-    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
-    Spawn spawn = new SpawnBuilder().build();
-    SandboxedSpawn sandboxedSpawn = runner.prepareSpawn(spawn, createSpawnExecutionContext(spawn));
-
-    Path sandboxPath =
-        sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
-    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
-    assertThat(hermeticTmpPath.isDirectory()).isFalse();
-
-    assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
-    String args = String.join(" ", sandboxedSpawn.getArguments());
-    assertThat(args).contains("-w /tmp");
-    assertThat(args).contains("-e /tmp");
-    assertThat(args).doesNotContain("-m /tmp");
-  }
-
   private static LinuxSandboxedSpawnRunner setupSandboxAndCreateRunner(
       CommandEnvironment commandEnvironment) throws IOException {
     Path execRoot = commandEnvironment.getExecRoot();
@@ -273,8 +218,6 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
         commandEnvironment,
         sandboxBase,
         /*timeoutKillDelay=*/ Duration.ofSeconds(2),
-        /*sandboxfsProcess=*/ null,
-        /*sandboxfsMapSymlinkTargets=*/ false,
         treeDeleter);
   }
 

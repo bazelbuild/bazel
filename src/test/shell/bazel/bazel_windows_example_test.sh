@@ -75,6 +75,25 @@ function set_up() {
   setup_bazelrc
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
+  mkdir platforms
+  cat >platforms/BUILD <<EOF
+platform(
+    name = "x64_windows-mingw-gcc",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@bazel_tools//tools/cpp:mingw",
+    ],
+)
+platform(
+    name = "x64_windows-msys-gcc",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@bazel_tools//tools/cpp:msys",
+    ],
+)
+EOF
 }
 
 # An assertion that execute a binary from a sub directory (to test runfiles)
@@ -117,11 +136,13 @@ function test_cpp_with_msys_gcc() {
   local cpp_pkg=examples/cpp
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys \
+    --extra_execution_platforms=//platforms:x64_windows-msys-gcc \
     --compiler=msys-gcc
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib_fbaaaedd.so ${cpp_pkg}:hello-lib\
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys \
+    --extra_execution_platforms=//platforms:x64_windows-msys-gcc \
     --compiler=msys-gcc --output_groups=dynamic_library
   assert_build ${cpp_pkg}:hello-world --compiler=msys-gcc
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
@@ -138,24 +159,29 @@ function test_cpp_with_mingw_gcc() {
   export PATH="/mingw64/bin:$PATH"
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw \
+    --extra_execution_platforms=//platforms:x64_windows-mingw-gcc \
     --compiler=mingw-gcc --experimental_strict_action_env
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib_fbaaaedd.so ${cpp_pkg}:hello-lib\
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw \
+    --extra_execution_platforms=//platforms:x64_windows-mingw-gcc \
     --compiler=mingw-gcc --output_groups=dynamic_library \
     --experimental_strict_action_env
   assert_build ${cpp_pkg}:hello-world --compiler=mingw-gcc \
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw \
+    --extra_execution_platforms=//platforms:x64_windows-mingw-gcc \
     --experimental_strict_action_env
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
     || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
   expect_log "Hello foo"
   assert_test_ok "//examples/cpp:hello-success_test" --compiler=mingw-gcc \
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw \
+    --extra_execution_platforms=//platforms:x64_windows-mingw-gcc \
     --experimental_strict_action_env --test_env=PATH
   assert_test_fails "//examples/cpp:hello-fail_test" --compiler=mingw-gcc \
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw \
+    --extra_execution_platforms=//platforms:x64_windows-mingw-gcc \
     --experimental_strict_action_env --test_env=PATH)
 }
 

@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TransitiveLoadFilesHelper;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A loadfiles(x) query expression, which computes the set of .bzl files
@@ -37,27 +40,32 @@ public class LoadFilesFunction implements QueryEnvironment.QueryFunction {
 
   @Override
   public <T> QueryTaskFuture<Void> eval(
-      final QueryEnvironment<T> env,
+      QueryEnvironment<T> env,
       QueryExpressionContext<T> context,
-      final QueryExpression expression,
+      QueryExpression expression,
       List<QueryEnvironment.Argument> args,
-      final Callback<T> callback) {
-    final Uniquifier<T> uniquifier = env.createUniquifier();
+      Callback<T> callback) {
+    Set<PackageIdentifier> seenPackages = Sets.newConcurrentHashSet();
+    Set<Label> seenBzlLabels = Sets.newConcurrentHashSet();
+    Uniquifier<T> uniquifier = env.createUniquifier();
+    TransitiveLoadFilesHelper<T> helper;
+    try {
+      helper = env.getTransitiveLoadFilesHelper();
+    } catch (QueryException e) {
+      return env.immediateFailedFuture(e);
+    }
     return env.eval(
         args.get(0).getExpression(),
         context,
-        new Callback<T>() {
-          @Override
-          public void process(Iterable<T> partialResult)
-              throws QueryException, InterruptedException {
-            ThreadSafeMutableSet<T> result = env.createThreadSafeMutableSet();
-            Iterables.addAll(result, partialResult);
-            callback.process(
-                uniquifier.unique(
-                    env.getBuildFiles(
-                        expression, result, /*buildFiles=*/ false, /*loads=*/ true, context)));
-          }
-        });
+        partialResult ->
+            env.transitiveLoadFiles(
+                partialResult,
+                /* alsoAddBuildFiles= */ false,
+                seenPackages,
+                seenBzlLabels,
+                uniquifier,
+                helper,
+                callback));
   }
 
   @Override

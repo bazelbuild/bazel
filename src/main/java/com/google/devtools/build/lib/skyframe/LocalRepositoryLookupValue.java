@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -34,7 +35,7 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
     return Key.create(directory);
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<RootedPath> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -43,10 +44,14 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(RootedPath arg) {
+    private static Key create(RootedPath arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
@@ -162,7 +167,7 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
 
     @Override
     public String toString() {
-      return "SuccessfulLocalRepositoryLookupValue(" + repositoryName.getNameWithAt() + ")";
+      return "SuccessfulLocalRepositoryLookupValue(" + repositoryName + ")";
     }
 
     @Override

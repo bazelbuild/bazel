@@ -15,14 +15,14 @@
 import os
 import re
 import time
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
 class BazelCleanTest(test_base.TestBase):
 
   def testBazelClean(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
         '  name = "x",',
@@ -57,10 +57,10 @@ class BazelCleanTest(test_base.TestBase):
           os.path.join(bazel_genfiles, 'foo/x.out')))
       self.assertFalse(os.path.exists(output_base))
 
-  @unittest.skipIf(not test_base.TestBase.IsLinux(),
+  @absltest.skipIf(not test_base.TestBase.IsLinux(),
                    'Async clean only supported on Linux')
   def testBazelAsyncClean(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     _, _, stderr = self.RunBazel(['clean', '--async'])
     matcher = self._findMatch(' moved to (.*) for deletion', stderr)
     self.assertTrue(matcher, stderr)
@@ -76,10 +76,10 @@ class BazelCleanTest(test_base.TestBase):
     # Two directories should be different.
     self.assertNotEqual(second_temp, first_temp, stderr)
 
-  @unittest.skipIf(not test_base.TestBase.IsLinux(),
+  @absltest.skipIf(not test_base.TestBase.IsLinux(),
                    'Async clean only supported on Linux')
   def testBazelAsyncCleanWithReadonlyDirectories(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.RunBazel(['build'])
     _, stdout, _ = self.RunBazel(['info', 'execution_root'])
     execroot = stdout[0]
@@ -108,4 +108,4 @@ class BazelCleanTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

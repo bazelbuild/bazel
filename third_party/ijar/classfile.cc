@@ -53,22 +53,23 @@ std::string ToString(const T& value) {
 
 namespace devtools_ijar {
 
-// See Table 4.3 in JVM Spec.
+// See Table 4.4 in JVM 17 Spec.
 enum CONSTANT {
-  CONSTANT_Class              = 7,
-  CONSTANT_FieldRef           = 9,
-  CONSTANT_Methodref          = 10,
+  CONSTANT_Class = 7,
+  CONSTANT_FieldRef = 9,
+  CONSTANT_Methodref = 10,
   CONSTANT_Interfacemethodref = 11,
-  CONSTANT_String             = 8,
-  CONSTANT_Integer            = 3,
-  CONSTANT_Float              = 4,
-  CONSTANT_Long               = 5,
-  CONSTANT_Double             = 6,
-  CONSTANT_NameAndType        = 12,
-  CONSTANT_Utf8               = 1,
-  CONSTANT_MethodHandle       = 15,
-  CONSTANT_MethodType         = 16,
-  CONSTANT_InvokeDynamic      = 18
+  CONSTANT_String = 8,
+  CONSTANT_Integer = 3,
+  CONSTANT_Float = 4,
+  CONSTANT_Long = 5,
+  CONSTANT_Double = 6,
+  CONSTANT_NameAndType = 12,
+  CONSTANT_Utf8 = 1,
+  CONSTANT_MethodHandle = 15,
+  CONSTANT_MethodType = 16,
+  CONSTANT_Dynamic = 17,
+  CONSTANT_InvokeDynamic = 18
 };
 
 // See Tables 4.1, 4.4, 4.5 in JVM Spec.
@@ -390,12 +391,32 @@ struct Constant_MethodType : Constant
 };
 
 // See sec.4.4.10 of JVM spec.
-struct Constant_InvokeDynamic : Constant
-{
-  Constant_InvokeDynamic(u2 bootstrap_method_attr_index, u2 name_and_type_index) :
-      Constant(CONSTANT_InvokeDynamic),
-      bootstrap_method_attr_index_(bootstrap_method_attr_index),
-      name_and_type_index_(name_and_type_index) {}
+struct Constant_Dynamic : Constant {
+  Constant_Dynamic(u2 bootstrap_method_attr_index, u2 name_and_type_index)
+      : Constant(CONSTANT_Dynamic),
+        bootstrap_method_attr_index_(bootstrap_method_attr_index),
+        name_and_type_index_(name_and_type_index) {}
+
+  void Write(u1 *&p) {
+    put_u1(p, tag_);
+    put_u2be(p, bootstrap_method_attr_index_);
+    put_u2be(p, name_and_type_index_);
+  }
+
+  std::string Display() {
+    return "Constant_Dynamic::" + ToString(bootstrap_method_attr_index_) +
+           "::" + constant(name_and_type_index_)->Display();
+  }
+
+  u2 bootstrap_method_attr_index_;
+  u2 name_and_type_index_;
+};
+
+struct Constant_InvokeDynamic : Constant {
+  Constant_InvokeDynamic(u2 bootstrap_method_attr_index, u2 name_and_type_index)
+      : Constant(CONSTANT_InvokeDynamic),
+        bootstrap_method_attr_index_(bootstrap_method_attr_index),
+        name_and_type_index_(name_and_type_index) {}
 
   void Write(u1 *&p) {
     put_u1(p, tag_);
@@ -1677,6 +1698,13 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
         const_pool_in.push_back(new Constant_MethodType(descriptor_index));
         break;
       }
+      case CONSTANT_Dynamic: {
+        u2 bootstrap_method_attr = get_u2be(p);
+        u2 name_name_type_index = get_u2be(p);
+        const_pool_in.push_back(
+            new Constant_Dynamic(bootstrap_method_attr, name_name_type_index));
+        break;
+      }
       case CONSTANT_InvokeDynamic: {
         u2 bootstrap_method_attr = get_u2be(p);
         u2 name_name_type_index = get_u2be(p);
@@ -1685,7 +1713,7 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
         break;
       }
       default: {
-        fprintf(stderr, "Unknown constant: %02x. Passing class through.\n",
+        fprintf(stderr, "Unknown constant: %hhu. Passing class through.\n",
                 tag);
         return false;
       }

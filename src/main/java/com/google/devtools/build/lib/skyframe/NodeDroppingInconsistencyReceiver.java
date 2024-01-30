@@ -61,7 +61,15 @@ public class NodeDroppingInconsistencyReceiver implements GraphInconsistencyRece
    */
   public static boolean isExpectedInconsistency(
       SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
-    SkyFunctionName expectedMissingChildType = EXPECTED_MISSING_CHILDREN.get(key.functionName());
+    return isExpectedInconsistency(key, otherKeys, inconsistency, EXPECTED_MISSING_CHILDREN);
+  }
+
+  static boolean isExpectedInconsistency(
+      SkyKey key,
+      @Nullable Collection<SkyKey> otherKeys,
+      Inconsistency inconsistency,
+      ImmutableMap<SkyFunctionName, SkyFunctionName> expectedMissingChildrenTypes) {
+    SkyFunctionName expectedMissingChildType = expectedMissingChildrenTypes.get(key.functionName());
     if (expectedMissingChildType == null) {
       return false;
     }

@@ -1,5 +1,5 @@
+load("//:workspace_deps.bzl", "gen_workspace_stanza")
 load("@rules_java//java:defs.bzl", "java_library")
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -35,7 +35,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -44,8 +43,8 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -54,12 +53,12 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
@@ -208,14 +207,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ImmutableList<Artifact> getBuildInfo(
-        boolean stamp, BuildInfoKey key, BuildConfigurationValue config)
-        throws InterruptedException {
-      return original.getBuildInfo(stamp, key, config);
-    }
-
-    @Override
-    public ActionLookupKeyOrProxy getOwner() {
+    public ActionLookupKey getOwner() {
       return original.getOwner();
     }
 
@@ -445,12 +437,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ImmutableList<Artifact> getBuildInfo(
-        boolean stamp, BuildInfoKey key, BuildConfigurationValue config) {
-      return ImmutableList.of();
-    }
-
-    @Override
     public ActionLookupKey getOwner() {
       return DUMMY_KEY;
     }
@@ -545,20 +531,23 @@ public final class AnalysisTestUtil {
     return new SingleRunfilesSupplier(
         runfilesDir,
         runfiles,
-        /*manifest=*/ null,
-        /*repoMappingManifest=*/ null,
-        /*buildRunfileLinks=*/ false,
-        /*runfileLinksEnabled=*/ false);
+        /* repoMappingManifest= */ null,
+        RunfileSymlinksMode.SKIP,
+        /* buildRunfileLinks= */ false);
   }
 
-  public static BuildOptions execOptions(BuildOptions targetOptions, EventHandler handler)
-      throws InterruptedException {
+  public static BuildOptions execOptions(
+      BuildOptions targetOptions, SkyframeExecutor skyframeExecutor, ExtendedEventHandler handler)
+      throws Exception {
     return Iterables.getOnlyElement(
         ExecutionTransitionFactory.createFactory()
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(Label.parseCanonicalUnchecked("//platform:exec"))
+                    .executionPlatform(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL))
+                    .analysisData(
+                        skyframeExecutor.getStarlarkExecTransitionForTesting(
+                            targetOptions, handler))
                     .build())
             .apply(new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()), handler)
             .values());

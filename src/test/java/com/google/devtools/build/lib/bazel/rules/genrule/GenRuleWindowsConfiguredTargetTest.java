@@ -15,14 +15,14 @@
 package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.util.OS;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,6 +56,20 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
 
   private static String getWindowsPath(Artifact artifact) {
     return artifact.getExecPathString().replace('/', '\\');
+  }
+
+  @Before
+  public void assumeBazel() throws Exception {
+    // The cmd_{bash,bat,ps} attributes don't exist in Blaze.
+    assumeTrue(analysisMock.isThisBazel());
+  }
+
+  @Before
+  public void createWindowsPlatform() throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        "platform(name = 'windows', constraint_values = ['@platforms//os:windows'])");
+    useConfiguration("--host_platform=//platforms:windows");
   }
 
   @Test
@@ -163,8 +177,7 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
     assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
 
     String expected = "echo \"Hello, Bash cmd.\" >" + messageArtifact.getExecPathString();
-    assertThat(shellAction.getArguments().get(0))
-        .isEqualTo(ShToolchain.getPathForHost(targetConfig).getPathString());
+    assertThat(shellAction.getArguments().get(0)).isEqualTo("c:/tools/msys64/usr/bin/bash.exe");
     assertThat(shellAction.getArguments().get(1)).isEqualTo("-c");
     assertBashCommandEquals(expected, shellAction.getArguments().get(2));
   }
@@ -181,9 +194,11 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testMissingCmdAttributeErrorOnNonWindowsPlatform() throws Exception {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        "platform(name = 'nonwindows', constraint_values = ['@platforms//os:linux'])");
+    useConfiguration("--host_platform=//platforms:nonwindows");
+
     checkError(
         "foo",
         "bar",

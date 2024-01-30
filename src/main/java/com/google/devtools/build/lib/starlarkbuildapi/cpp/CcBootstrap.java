@@ -45,18 +45,10 @@ public class CcBootstrap implements Bootstrap {
               ? extends StarlarkActionFactoryApi,
               ? extends FileApi,
               ? extends FdoContextApi<?>,
-              ? extends
-                  CcToolchainProviderApi<
-                      ? extends FeatureConfigurationApi,
-                      ?,
-                      ? extends FdoContextApi<?>,
-                      ?,
-                      ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
-                      ?,
-                      ? extends CppConfigurationApi<?>,
-                      ?>,
               ? extends FeatureConfigurationApi,
-              ? extends CcCompilationContextApi<? extends FileApi>,
+              ? extends
+                  CcCompilationContextApi<
+                      ? extends FileApi, ? extends CppModuleMapApi<? extends FileApi>>,
               ? extends LtoBackendArtifactsApi<? extends FileApi>,
               ? extends
                   LinkerInputApi<

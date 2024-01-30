@@ -25,12 +25,14 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
+import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
@@ -46,6 +48,7 @@ public class WorkerModule extends BlazeModule {
   private CommandEnvironment env;
 
   private WorkerFactory workerFactory;
+  private TreeDeleter treeDeleter;
   @VisibleForTesting WorkerPoolImpl workerPool;
   @Nullable private WorkerLifecycleManager workerLifecycleManager;
 
@@ -60,6 +63,7 @@ public class WorkerModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
     env.getEventBus().register(this);
+    WorkerProcessMetricsCollector.instance().beforeCommand();
     WorkerMultiplexerManager.beforeCommand(env.getReporter());
   }
 
@@ -68,7 +72,6 @@ public class WorkerModule extends BlazeModule {
     if (workerPool != null) {
       WorkerOptions options = event.getOptionsProvider().getOptions(WorkerOptions.class);
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
-      workerFactory.setEventBus(env.getEventBus());
       shutdownPool(
           "Clean command is running, shutting down worker pool...",
           /* alwaysLog= */ false,
@@ -86,7 +89,6 @@ public class WorkerModule extends BlazeModule {
     WorkerOptions options = checkNotNull(event.request().getOptions(WorkerOptions.class));
     if (workerFactory != null) {
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
-      workerFactory.setEventBus(env.getEventBus());
     }
     Path workerDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
@@ -108,7 +110,12 @@ public class WorkerModule extends BlazeModule {
     } else {
       workerSandboxOptions = null;
     }
-    WorkerFactory newWorkerFactory = new WorkerFactory(workerDir, workerSandboxOptions);
+    Path trashBase = workerDir.getRelative("_moved_trash_dir");
+    if (treeDeleter == null) {
+      treeDeleter = new AsynchronousTreeDeleter(trashBase);
+    }
+    WorkerFactory newWorkerFactory =
+        new WorkerFactory(workerDir, workerSandboxOptions, treeDeleter);
     if (!newWorkerFactory.equals(workerFactory)) {
       if (workerDir.exists()) {
         try {
@@ -143,7 +150,6 @@ public class WorkerModule extends BlazeModule {
           options.workerVerbose);
       workerFactory = newWorkerFactory;
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
-      workerFactory.setEventBus(env.getEventBus());
     }
 
     WorkerPoolConfig newConfig =
@@ -161,21 +167,17 @@ public class WorkerModule extends BlazeModule {
     if (workerPool == null) {
       workerPool = new WorkerPoolImpl(newConfig);
       // If workerPool is restarted then we should recreate metrics.
-      WorkerMetricsCollector.instance().clear();
+      WorkerProcessMetricsCollector.instance().clear();
     }
 
     // Start collecting after a pool is defined
     workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
-    if (options.workerVerbose) {
-      workerLifecycleManager.setReporter(env.getReporter());
-    }
-    workerLifecycleManager.setEventBus(env.getEventBus());
+    workerLifecycleManager.setReporter(env.getReporter());
     workerLifecycleManager.setDaemon(true);
     workerLifecycleManager.start();
 
-    workerPool.setEventBus(env.getEventBus());
-    // Clean doomed workers on the beginning of a build.
-    workerPool.clearDoomedWorkers();
+    // Reset the pool at the beginning of each build.
+    workerPool.reset();
   }
 
   @Override
@@ -193,11 +195,9 @@ public class WorkerModule extends BlazeModule {
             localEnvProvider,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
-            // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-            RunfilesTreeUpdater.INSTANCE,
+            RunfilesTreeUpdater.forCommandEnvironment(env),
             env.getOptions().getOptions(WorkerOptions.class),
-            WorkerMetricsCollector.instance(),
-            env.getXattrProvider(),
+            WorkerProcessMetricsCollector.instance(),
             env.getClock());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
@@ -219,6 +219,7 @@ public class WorkerModule extends BlazeModule {
       workerLifecycleManager.interrupt();
       workerLifecycleManager = null;
     }
+    WorkerProcessMetricsCollector.instance().clearKilledWorkerProcessMetrics();
   }
 
   /** Shuts down the worker pool and sets {#code workerPool} to null. */
@@ -240,10 +241,6 @@ public class WorkerModule extends BlazeModule {
 
     if (this.workerFactory != null) {
       this.workerFactory.setReporter(null);
-      this.workerFactory.setEventBus(null);
-    }
-    if (this.workerPool != null) {
-      this.workerPool.setEventBus(null);
     }
     WorkerMultiplexerManager.afterCommand();
   }

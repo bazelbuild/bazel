@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertAbout;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.FailureMetadata;
-import com.google.common.truth.MapSubject;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,21 +35,11 @@ public class StarlarkDefinedAspectSubject extends Subject {
     return assertAbout(StarlarkDefinedAspectSubject::new).that(starlarkDefinedAspect);
   }
 
-  /** Static method for getting the subject factory (for use with assertAbout()). */
-  public static Subject.Factory<StarlarkDefinedAspectSubject, StarlarkDefinedAspect>
-      starlarkDefinedAspects() {
-    return StarlarkDefinedAspectSubject::new;
-  }
-
-  // Instance fields.
-
-  private final StarlarkDefinedAspect actual;
   private final Map<Label, ToolchainTypeRequirement> toolchainTypesMap;
 
   protected StarlarkDefinedAspectSubject(
       FailureMetadata failureMetadata, StarlarkDefinedAspect subject) {
     super(failureMetadata, subject);
-    this.actual = subject;
     this.toolchainTypesMap = makeToolchainTypesMap(subject);
   }
 
@@ -58,10 +47,6 @@ public class StarlarkDefinedAspectSubject extends Subject {
       StarlarkDefinedAspect subject) {
     return subject.getToolchainTypes().stream()
         .collect(toImmutableMap(ToolchainTypeRequirement::toolchainType, Functions.identity()));
-  }
-
-  public MapSubject toolchainTypes() {
-    return check("getToolchainTypes()").that(toolchainTypesMap);
   }
 
   public ToolchainTypeRequirementSubject toolchainType(String toolchainTypeLabel) {
@@ -76,10 +61,6 @@ public class StarlarkDefinedAspectSubject extends Subject {
 
   public void hasToolchainType(String toolchainTypeLabel) {
     toolchainType(toolchainTypeLabel).isNotNull();
-  }
-
-  public void hasToolchainType(Label toolchainType) {
-    toolchainType(toolchainType).isNotNull();
   }
 
   // TODO(blaze-team): Add more useful methods.

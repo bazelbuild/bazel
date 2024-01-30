@@ -287,6 +287,9 @@ public class CppRuleClasses {
   /** A string constant for the LTO indexing bitcode feature. */
   public static final String NO_USE_LTO_INDEXING_BITCODE_FILE = "no_use_lto_indexing_bitcode_file";
 
+  /** A string constant for the LTO separate native object directory feature. */
+  public static final String USE_LTO_NATIVE_OBJECT_DIRECTORY = "use_lto_native_object_directory";
+
   /*
    * A string constant for allowing implicit ThinLTO enablement for AFDO.
    */
@@ -401,6 +404,9 @@ public class CppRuleClasses {
   /** A string constant for /showIncludes parsing feature, should only be used for MSVC toolchain */
   public static final String PARSE_SHOWINCLUDES = "parse_showincludes";
 
+  /** A string constant for a feature that, if enabled, disables .d file handling. */
+  public static final String NO_DOTD_FILE = "no_dotd_file";
+
   /*
    * A string constant for the fdo_instrument feature.
    */
@@ -420,6 +426,9 @@ public class CppRuleClasses {
 
   /** A string constant for the propeller optimize feature. */
   public static final String PROPELLER_OPTIMIZE = "propeller_optimize";
+
+  /** A string constant for the memprof profile optimization feature. */
+  public static final String MEMPROF_OPTIMIZE = "memprof_optimize";
 
   /**
    * A string constant for the propeller_optimize_thinlto_compile_actions feature.

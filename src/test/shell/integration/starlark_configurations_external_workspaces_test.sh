@@ -149,6 +149,7 @@ local_repository(
   name = "sub",
   path = "./sub")
 EOF
+  write_default_lockfile "$pkg/MODULE.bazel.lock"
 
   ## set up inner repo
   cat > $subpkg/BUILD <<EOF
@@ -194,8 +195,6 @@ rule_with_transition = rule(
     cfg = my_transition,
     attrs = {
         "src": attr.label(allow_files = True),
-        "_whitelist_function_transition":
-            attr.label(default = "@bazel_tools//tools/whitelists/function_transition_whitelist"),
     },
 )
 EOF
@@ -203,6 +202,7 @@ EOF
   cat > $subpkg/WORKSPACE <<EOF
 workspace(name = "sub")
 EOF
+  write_default_lockfile "$subpkg/MODULE.bazel.lock"
 
   # from the outer repo
   cd $pkg

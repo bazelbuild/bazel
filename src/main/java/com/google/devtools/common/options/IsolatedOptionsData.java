@@ -83,22 +83,22 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
 
   /**
    * Mapping from each options class to its no-arg constructor. Entries appear in the same order
-   * that they were passed to {@link #from(Collection)}.
+   * that they were passed to {@link #from(Collection, boolean)}.
    */
   private final ImmutableMap<Class<? extends OptionsBase>, Constructor<?>> optionsClasses;
 
   /**
    * Mapping from option name to {@code OptionDefinition}. Entries appear ordered first by their
-   * options class (the order in which they were passed to {@link #from(Collection)}, and then in
-   * alphabetic order within each options class.
+   * options class (the order in which they were passed to {@link #from(Collection, boolean)}, and
+   * then in alphabetic order within each options class.
    */
   private final ImmutableMap<String, OptionDefinition> nameToField;
 
   /**
    * For options that have an "OldName", this is a mapping from old name to its corresponding {@code
    * OptionDefinition}. Entries appear ordered first by their options class (the order in which they
-   * were passed to {@link #from(Collection)}, and then in alphabetic order within each options
-   * class.
+   * were passed to {@link #from(Collection, boolean)}, and then in alphabetic order within each
+   * options class.
    */
   private final ImmutableMap<String, OptionDefinition> oldNameToField;
 
@@ -136,7 +136,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
 
   /**
    * Returns all options classes indexed by this options data object, in the order they were passed
-   * to {@link #from(Collection)}.
+   * to {@link #from(Collection, boolean)}.
    */
   public Collection<Class<? extends OptionsBase>> getOptionsClasses() {
     return optionsClasses.keySet();
@@ -158,7 +158,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
   /**
    * Returns all {@link OptionDefinition} objects loaded, mapped by their canonical names. Entries
    * appear ordered first by their options class (the order in which they were passed to {@link
-   * #from(Collection)}, and then in alphabetic order within each options class.
+   * #from(Collection, boolean)}, and then in alphabetic order within each options class.
    */
   public Iterable<Map.Entry<String, OptionDefinition>> getAllOptionDefinitions() {
     return nameToField.entrySet();
@@ -177,9 +177,18 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * both single-character abbreviations and full names.
    */
   private static <A> void checkForCollisions(
-      Map<A, OptionDefinition> aFieldMap, A optionName, String description)
+      Map<A, OptionDefinition> aFieldMap,
+      A optionName,
+      OptionDefinition definition,
+      String description,
+      boolean allowDuplicatesParsingEquivalently)
       throws DuplicateOptionDeclarationException {
     if (aFieldMap.containsKey(optionName)) {
+      OptionDefinition otherDefinition = aFieldMap.get(optionName);
+      if (allowDuplicatesParsingEquivalently
+          && OptionsParserImpl.equivalentForParsing(otherDefinition, definition)) {
+        return;
+      }
       throw new DuplicateOptionDeclarationException(
           "Duplicate option name, due to " + description + ": --" + optionName);
     }
@@ -212,11 +221,23 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
       Map<String, OptionDefinition> nameToFieldMap,
       Map<String, OptionDefinition> oldNameToFieldMap,
       Map<String, String> booleanAliasMap,
-      String optionName)
+      String optionName,
+      OptionDefinition optionDefinition,
+      boolean allowDuplicatesParsingEquivalently)
       throws DuplicateOptionDeclarationException {
     // Check that the negating alias does not conflict with existing flags.
-    checkForCollisions(nameToFieldMap, "no" + optionName, "boolean option alias");
-    checkForCollisions(oldNameToFieldMap, "no" + optionName, "boolean option alias");
+    checkForCollisions(
+        nameToFieldMap,
+        "no" + optionName,
+        optionDefinition,
+        "boolean option alias",
+        allowDuplicatesParsingEquivalently);
+    checkForCollisions(
+        oldNameToFieldMap,
+        "no" + optionName,
+        optionDefinition,
+        "boolean option alias",
+        allowDuplicatesParsingEquivalently);
 
     // Record that the boolean option takes up additional namespace for its negating alias.
     booleanAliasMap.put("no" + optionName, optionName);
@@ -226,8 +247,13 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * Constructs an {@link IsolatedOptionsData} object for a parser that knows about the given {@link
    * OptionsBase} classes. No inter-option analysis is done. Performs basic validity checks on each
    * option in isolation.
+   *
+   * <p>If {@code allowDuplicatesParsingEquivalently} is true, then options that collide in name but
+   * parse equivalently (e.g. both of them accept a value or both of them do not), are allowed.
    */
-  static IsolatedOptionsData from(Collection<Class<? extends OptionsBase>> classes) {
+  static IsolatedOptionsData from(
+      Collection<Class<? extends OptionsBase>> classes,
+      boolean allowDuplicatesParsingEquivalently) {
     // Mind which fields have to preserve order.
     Map<Class<? extends OptionsBase>, Constructor<?>> constructorBuilder = new LinkedHashMap<>();
     Map<String, OptionDefinition> nameToFieldBuilder = new LinkedHashMap<>();
@@ -256,15 +282,27 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
       for (OptionDefinition optionDefinition : optionDefinitions) {
         try {
           String optionName = optionDefinition.getOptionName();
-          checkForCollisions(nameToFieldBuilder, optionName, "option name collision");
+          checkForCollisions(
+              nameToFieldBuilder,
+              optionName,
+              optionDefinition,
+              "option name collision",
+              allowDuplicatesParsingEquivalently);
           checkForCollisions(
               oldNameToFieldBuilder,
               optionName,
-              "option name collision with another option's old name");
+              optionDefinition,
+              "option name collision with another option's old name",
+              allowDuplicatesParsingEquivalently);
           checkForBooleanAliasCollisions(booleanAliasMap, optionName, "option");
           if (optionDefinition.usesBooleanValueSyntax()) {
             checkAndUpdateBooleanAliases(
-                nameToFieldBuilder, oldNameToFieldBuilder, booleanAliasMap, optionName);
+                nameToFieldBuilder,
+                oldNameToFieldBuilder,
+                booleanAliasMap,
+                optionName,
+                optionDefinition,
+                allowDuplicatesParsingEquivalently);
           }
           nameToFieldBuilder.put(optionName, optionDefinition);
 
@@ -273,23 +311,36 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
             checkForCollisions(
                 nameToFieldBuilder,
                 oldName,
-                "old option name collision with another option's canonical name");
+                optionDefinition,
+                "old option name collision with another option's canonical name",
+                allowDuplicatesParsingEquivalently);
             checkForCollisions(
                 oldNameToFieldBuilder,
                 oldName,
-                "old option name collision with another old option name");
+                optionDefinition,
+                "old option name collision with another old option name",
+                allowDuplicatesParsingEquivalently);
             checkForBooleanAliasCollisions(booleanAliasMap, oldName, "old option name");
             // If boolean, repeat the alias dance for the old name.
             if (optionDefinition.usesBooleanValueSyntax()) {
               checkAndUpdateBooleanAliases(
-                  nameToFieldBuilder, oldNameToFieldBuilder, booleanAliasMap, oldName);
+                  nameToFieldBuilder,
+                  oldNameToFieldBuilder,
+                  booleanAliasMap,
+                  oldName,
+                  optionDefinition,
+                  allowDuplicatesParsingEquivalently);
             }
             // Now that we've checked for conflicts, confidently store the old name.
             oldNameToFieldBuilder.put(oldName, optionDefinition);
           }
           if (optionDefinition.getAbbreviation() != '\0') {
             checkForCollisions(
-                abbrevToFieldBuilder, optionDefinition.getAbbreviation(), "option abbreviation");
+                abbrevToFieldBuilder,
+                optionDefinition.getAbbreviation(),
+                optionDefinition,
+                "option abbreviation",
+                allowDuplicatesParsingEquivalently);
             abbrevToFieldBuilder.put(optionDefinition.getAbbreviation(), optionDefinition);
           }
         } catch (DuplicateOptionDeclarationException e) {

@@ -54,7 +54,7 @@ public final class StarlarkTransitionCache {
    * @param eventHandler handler for errors evaluating the transition.
    * @return transition output
    */
-  Map<String, BuildOptions> computeIfAbsent(
+  public Map<String, BuildOptions> computeIfAbsent(
       BuildOptions fromOptions,
       ConfigurationTransition transition,
       StarlarkBuildSettingsDetailsValue details,

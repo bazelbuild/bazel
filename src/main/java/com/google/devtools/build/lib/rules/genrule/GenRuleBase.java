@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -94,8 +92,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   private static Pair<CommandType, String> determineCommandTypeAndAttribute(
       RuleContext ruleContext) {
     AttributeMap attributeMap = ruleContext.attributes();
-    // TODO(pcloudy): This should match the execution platform instead of using OS.getCurrent()
-    if (OS.getCurrent() == OS.WINDOWS) {
+    if (ruleContext.isExecutedOnWindows()) {
       if (attributeMap.isAttributeValueExplicitlySpecified("cmd_ps")) {
         return Pair.of(CommandType.WINDOWS_POWERSHELL, "cmd_ps");
       }
@@ -214,9 +211,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     inputs.addTransitive(resolvedSrcs);
     inputs.addTransitive(commandHelper.getResolvedTools());
     if (cmdType == CommandType.BASH) {
-      FilesToRunProvider genruleSetup =
-          ruleContext.getPrerequisite("$genrule_setup", FilesToRunProvider.class);
-      inputs.addTransitive(genruleSetup.getFilesToRun());
+      FileProvider genruleSetup = ruleContext.getPrerequisite("$genrule_setup", FileProvider.class);
+      inputs.addTransitive(genruleSetup.getFilesToBuild());
     }
     if (ruleContext.hasErrors()) {
       return null;
@@ -286,7 +282,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   protected CommandHelper.Builder commandHelperBuilder(RuleContext ruleContext) {
     return CommandHelper.builder(ruleContext)
         .addToolDependencies("tools")
-        .addToolDependencies("exec_tools")
         .addToolDependencies("toolchains");
   }
 
@@ -335,7 +330,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public String lookupVariable(String variableName) throws ExpansionException {
+    public String lookupVariable(String variableName)
+        throws ExpansionException, InterruptedException {
       String val = lookupVariableImpl(variableName);
       if (windowsPath) {
         return val.replace('/', '\\');
@@ -343,7 +339,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       return val;
     }
 
-    private String lookupVariableImpl(String variableName) throws ExpansionException {
+    private String lookupVariableImpl(String variableName)
+        throws ExpansionException, InterruptedException {
       if (variableName.equals("SRCS")) {
         return Artifact.joinExecPaths(" ", resolvedSrcs.toList());
       }

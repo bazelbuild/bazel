@@ -13,22 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -37,9 +40,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -72,6 +76,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -87,6 +92,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * {@link QueryEnvironment} that runs queries based on results from the analysis phase.
@@ -119,8 +125,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings) {
-    super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
+      Set<Setting> settings,
+      LabelPrinter labelPrinter) {
+    super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions, labelPrinter);
     this.topLevelConfigurations = topLevelConfigurations;
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.pkgPath = pkgPath;
@@ -133,13 +140,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           ExtendedEventHandler eventHandler,
           OutputStream outputStream,
           SkyframeExecutor skyframeExecutor,
-          @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
-          PackageManager packageManager)
+          RuleClassProvider ruleClassProvider,
+          PackageManager packageManager,
+          StarlarkSemantics starlarkSemantics)
           throws QueryException, InterruptedException;
 
   public abstract String getOutputFormat();
 
-  protected abstract KeyExtractor<T, ConfiguredTargetKey> getConfiguredTargetKeyExtractor();
+  protected abstract KeyExtractor<T, ActionLookupKey> getConfiguredTargetKeyExtractor();
 
   @Override
   public QueryEvalResult evaluateQuery(
@@ -212,12 +220,18 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   protected abstract T getNullConfiguredTarget(Label label) throws InterruptedException;
 
   @Nullable
-  public ConfiguredTargetValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
-    return (ConfiguredTargetValue) walkableGraphSupplier.get().getValue(key);
+  public SkyValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
+    return walkableGraphSupplier.get().getValue(key);
+  }
+
+  @Nullable
+  public AspectValue getAspectValue(SkyKey key) throws InterruptedException {
+    return (AspectValue) walkableGraphSupplier.get().getValue(key);
   }
 
   private boolean isAliasConfiguredTarget(ConfiguredTargetKey key) throws InterruptedException {
-    return AliasProvider.isAlias(getConfiguredTargetValue(key.toKey()).getConfiguredTarget());
+    return AliasProvider.isAlias(
+        ((ConfiguredTargetValue) getConfiguredTargetValue(key)).getConfiguredTarget());
   }
 
   public InterruptibleSupplier<ImmutableSet<PathFragment>>
@@ -240,14 +254,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   }
 
   @Override
-  public RepositoryMapping getMainRepoMapping() {
-    return mainRepoTargetParser.getRepoMapping();
+  public LabelPrinter getLabelPrinter() {
+    return labelPrinter;
   }
 
   public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {
     Map<SkyKey, T> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (T target : targets) {
-      targetsByKey.put(getConfiguredTargetKey(target).toKey(), target);
+      targetsByKey.put(getConfiguredTargetKey(target), target);
     }
     Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> directDeps =
         targetifyValues(targetsByKey, graph.getDirectDeps(targetsByKey.keySet()));
@@ -284,10 +298,12 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       throws InterruptedException {
     Map<SkyKey, T> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (T target : targets) {
-      targetsByKey.put(getConfiguredTargetKey(target).toKey(), target);
+      targetsByKey.put(getConfiguredTargetKey(target), target);
     }
     Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> reverseDepsByKey =
-        targetifyValues(targetsByKey, graph.getReverseDeps(targetsByKey.keySet()));
+        targetifyValues(
+            targetsByKey,
+            skipDelegatingAncestors(graph.getReverseDeps(targetsByKey.keySet())).asMap());
     if (targetsByKey.size() != reverseDepsByKey.size()) {
       Iterable<ConfiguredTargetKey> missingTargets =
           Sets.difference(targetsByKey.keySet(), reverseDepsByKey.keySet()).stream()
@@ -321,6 +337,74 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       result.addAll(getAllowedDeps(targetAndRdeps.getKey(), ruleDeps.build()));
     }
     return result;
+  }
+
+  /**
+   * Expands any delegating ancestors when computing reverse dependencies.
+   *
+   * <p>The {@link ConfiguredTargetKey} graph contains <i>delegation</i> entries where instead of
+   * computing its own value, it delegates to a child with the same labels but a different
+   * configuration. This causes problems in reverse dependency traversal because traversal stops at
+   * duplicate values. The delegating parent has the same value as the delegate child.
+   *
+   * <p>This method replaces any delegating ancestor in the set of reverse dependencies with the
+   * reverse dependencies of the ancestor.
+   */
+  private ImmutableListMultimap<SkyKey, SkyKey> skipDelegatingAncestors(
+      Map<SkyKey, Iterable<SkyKey>> reverseDeps) throws InterruptedException {
+    var result = ImmutableListMultimap.<SkyKey, SkyKey>builder();
+    for (Map.Entry<SkyKey, Iterable<SkyKey>> entry : reverseDeps.entrySet()) {
+      SkyKey child = entry.getKey();
+      Iterable<SkyKey> rdeps = entry.getValue();
+      Set<SkyKey> unwoundRdeps = unwindReverseDependencyDelegationLayersIfFound(child, rdeps);
+      result.putAll(child, unwoundRdeps == null ? rdeps : unwoundRdeps);
+    }
+    return result.build();
+  }
+
+  @Nullable
+  private Set<SkyKey> unwindReverseDependencyDelegationLayersIfFound(
+      SkyKey child, Iterable<SkyKey> rdeps) throws InterruptedException {
+    // Most rdeps will not be delegating. Performs an optimistic pass that avoids copying.
+    boolean foundDelegatingRdep = false;
+    for (SkyKey rdep : rdeps) {
+      if (!rdep.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+        continue;
+      }
+      var actualParentKey = getConfiguredTargetKey(getValueFromKey(rdep));
+      if (actualParentKey.equals(child)) {
+        // The parent has the same value as the child because it is delegating.
+        foundDelegatingRdep = true;
+        break;
+      }
+    }
+    if (!foundDelegatingRdep) {
+      return null;
+    }
+    var logicalParents = new HashSet<SkyKey>();
+    unwindReverseDependencyDelegationLayers(child, rdeps, logicalParents);
+    return logicalParents;
+  }
+
+  private void unwindReverseDependencyDelegationLayers(
+      SkyKey child, Iterable<SkyKey> rdeps, Set<SkyKey> output) throws InterruptedException {
+    // Checks the value of each rdep to see if it is delegating to `child`. If so, fetches its rdeps
+    // and processes those, applying the same expansion as needed.
+    for (SkyKey rdep : rdeps) {
+      if (!rdep.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+        output.add(rdep);
+        continue;
+      }
+      var actualParentKey = getConfiguredTargetKey(getValueFromKey(rdep));
+      if (!actualParentKey.equals(child)) {
+        output.add(rdep);
+        continue;
+      }
+      // Otherwise `rdep` is delegating to child and needs to be unwound.
+      Iterable<SkyKey> rdepParents = graph.getReverseDeps(ImmutableList.of(rdep)).get(rdep);
+      // Applies this recursively in case there are multiple layers of delegation.
+      unwindReverseDependencyDelegationLayers(child, rdepParents, output);
+    }
   }
 
   /**
@@ -404,20 +488,24 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       }
     }
 
+    boolean explicitAspects =
+        settings.containsAll(ImmutableSet.of(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS));
+
     ImmutableList.Builder<ClassifiedDependency<T>> values = ImmutableList.builder();
-    // TODO(bazel-team): An even better approach would be to treat aspects and toolchains as
+    // TODO(bazel-team): The end-goal approach is to treat aspects and toolchains as
     // first-class query nodes just like targets. In other words, let query expressions reference
     // them (they also have identifying labels) and make the graph connections between targets,
     // aspects, and toolchains explicit. That would permit more detailed queries and eliminate the
-    // per-key-type special casing below. The challenge is to generalize all query code that
-    // currently assumes its inputs are configured targets. Toolchains may have additional caveats:
-    // see b/148550864.
+    // per-key-type special casing below.
+    // This is being experimentally implemented in phases. Currently support for aspects has been
+    // implemented behind the --experimental_explicit_aspects flag.
+    // See https://github.com/bazelbuild/bazel/issues/16310 for details.
     for (SkyKey key : dependencies) {
       if (knownCtDeps.contains(key)) {
         continue;
       }
-      if (key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-        ConfiguredTargetKey ctkey = (ConfiguredTargetKey) key.argument();
+      if (key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)
+          || (explicitAspects && key.functionName().equals(SkyFunctions.ASPECT))) {
         T dependency = getValueFromKey(key);
         Preconditions.checkState(
             dependency != null,
@@ -427,12 +515,24 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                 + " configurability team.",
             key);
 
-        boolean implicit = implicitDeps == null || implicitDeps.contains(ctkey);
+        boolean implicitConfiguredTarget =
+            // Check both the original guess key and the second correct key. In the case of the
+            // target platform, Util.findImplicitDeps also uses the original guess key.
+            implicitDeps == null
+                || implicitDeps.contains(key)
+                || implicitDeps.contains(getConfiguredTargetKey(dependency));
+
+        boolean implicit =
+            !(key.argument() instanceof ConfiguredTargetKey) || implicitConfiguredTarget;
+
         values.add(new ClassifiedDependency<>(dependency, implicit));
         knownCtDeps.add(key);
       } else if (settings.contains(Setting.INCLUDE_ASPECTS)
-          && key.functionName().equals(SkyFunctions.ASPECT)
-          && !resolvedAspectClasses.contains(((AspectKey) key).getAspectClass())) {
+          && key.functionName().equals(SkyFunctions.ASPECT)) {
+        Preconditions.checkState(!settings.contains(Setting.EXPLICIT_ASPECTS));
+        if (resolvedAspectClasses.contains(((AspectKey) key).getAspectClass())) {
+          continue;
+        }
         // When an aspect is attached to an alias configured target, it bypasses standard dependency
         // resolution and just Skyframe-loads the same aspect for the alias' referent. That means
         // the original aspect's attribute deps aren't Skyframe-resolved through AspectFunction's
@@ -471,8 +571,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           targetifyValues(
               fromTargetsByKey.get(fromKey),
               entry.getValue(),
-              /*knownCtDeps=*/ new HashSet<>(),
-              /*resolvedAspectClasses=*/ new HashSet<>()));
+              /* knownCtDeps= */ new HashSet<>(),
+              /* resolvedAspectClasses= */ new HashSet<>()));
     }
     return result;
   }
@@ -487,6 +587,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       this.implicit = implicit;
       this.dependency = dependency;
     }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this)
+          .add("implicit", implicit)
+          .add("dependency", dependency)
+          .toString();
+    }
   }
 
   private static <T> ImmutableList<T> getDependencies(
@@ -499,7 +607,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   @Nullable
   protected abstract BuildConfigurationValue getConfiguration(T target);
 
-  protected abstract ConfiguredTargetKey getConfiguredTargetKey(T target);
+  protected abstract ActionLookupKey getConfiguredTargetKey(T target);
 
   @Override
   public ThreadSafeMutableSet<T> getTransitiveClosure(
@@ -541,13 +649,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns) {}
 
   @Override
-  public ThreadSafeMutableSet<T> getBuildFiles(
-      QueryExpression caller,
-      ThreadSafeMutableSet<T> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<T> context)
-      throws QueryException {
+  public TransitiveLoadFilesHelper<T> getTransitiveLoadFilesHelper() throws QueryException {
     throw new QueryException(
         "buildfiles() doesn't make sense for the configured target graph",
         ConfigurableQuery.Code.BUILDFILES_FUNCTION_NOT_SUPPORTED);
@@ -568,11 +670,13 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
     /** A map of non-null configured top-level targets sorted by configuration checksum. */
     private final ImmutableMap<Label, BuildConfigurationValue> nonNulls;
+
     /**
      * {@code nonNulls} may often have many duplicate values in its value set so we store a sorted
      * set of all the non-null configurations here.
      */
     private final ImmutableSortedSet<BuildConfigurationValue> nonNullConfigs;
+
     /** A list of null configured top-level targets. */
     private final ImmutableList<Label> nulls;
 

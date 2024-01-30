@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -20,21 +20,24 @@ class BazelWindowsSymlinksTest(test_base.TestBase):
 
   def createProjectFiles(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'genrule(',
-        '    name = "x",',
-        '    srcs = ["sample"],',
-        '    outs = ["link"],',
-        '    exec_tools = ["sym.bat"],',
-        '    cmd = "$(location sym.bat) $< $@",',
-        ')',
-        'genrule(',
-        '    name = "y",',
-        '    outs = ["dangling-link"],',
-        '    exec_tools = ["sym.bat"],',
-        '    cmd = "$(location sym.bat) does-not-exist $@",',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'genrule(',
+            '    name = "x",',
+            '    srcs = ["sample"],',
+            '    outs = ["link"],',
+            '    tools = ["sym.bat"],',
+            '    cmd = "$(location sym.bat) $< $@",',
+            ')',
+            'genrule(',
+            '    name = "y",',
+            '    outs = ["dangling-link"],',
+            '    tools = ["sym.bat"],',
+            '    cmd = "$(location sym.bat) does-not-exist $@",',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/sym.bat', [
             '@set IN=%1',
@@ -59,4 +62,4 @@ class BazelWindowsSymlinksTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

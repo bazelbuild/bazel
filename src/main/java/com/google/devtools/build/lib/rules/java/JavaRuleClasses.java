@@ -32,8 +32,6 @@ public class JavaRuleClasses {
   private static final String JAVA_TOOLCHAIN_ATTRIBUTE_NAME = "$java_toolchain";
 
   public static final String JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME = "$java_toolchain_type";
-  public static final String JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME =
-      "$java_runtime_toolchain_type";
   private static final String TOOLCHAIN_TYPE_LABEL = "//tools/jdk:toolchain_type";
   private static final String RUNTIME_TOOLCHAIN_TYPE_LABEL = "//tools/jdk:runtime_toolchain_type";
 
@@ -83,9 +81,6 @@ public class JavaRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .addToolchainTypes(javaRuntimeToolchainTypeRequirement(env))
-          .add(
-              attr(JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
-                  .value(javaRuntimeToolchainTypeRequirement(env).toolchainType()))
           .build();
     }
 

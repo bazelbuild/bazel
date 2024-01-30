@@ -31,11 +31,20 @@ final class OptionsData extends IsolatedOptionsData {
   /** Mapping from each option to the (unparsed) options it expands to, if any. */
   private final ImmutableMap<OptionDefinition, ImmutableList<String>> evaluatedExpansions;
 
+  /**
+   * Whether this options data has been created with duplicate options definitions allowed as long
+   * as those options are parsed (but not necessarily evaluated) equivalently.
+   */
+  private final boolean allowDuplicatesParsingEquivalently;
+
   /** Construct {@link OptionsData} by extending an {@link IsolatedOptionsData} with new info. */
   private OptionsData(
-      IsolatedOptionsData base, Map<OptionDefinition, ImmutableList<String>> evaluatedExpansions) {
+      IsolatedOptionsData base,
+      Map<OptionDefinition, ImmutableList<String>> evaluatedExpansions,
+      boolean allowDuplicatesParsingEquivalently) {
     super(base);
     this.evaluatedExpansions = ImmutableMap.copyOf(evaluatedExpansions);
+    this.allowDuplicatesParsingEquivalently = allowDuplicatesParsingEquivalently;
   }
 
   private static final ImmutableList<String> EMPTY_EXPANSION = ImmutableList.<String>of();
@@ -50,13 +59,24 @@ final class OptionsData extends IsolatedOptionsData {
   }
 
   /**
+   * Returns whether this options data has been created with duplicate options definitions allowed
+   * as long as those options are parsed (but not necessarily evaluated) equivalently.
+   */
+  public boolean createdWithAllowDuplicatesParsingEquivalently() {
+    return allowDuplicatesParsingEquivalently;
+  }
+
+  /**
    * Constructs an {@link OptionsData} object for a parser that knows about the given {@link
    * OptionsBase} classes. In addition to the work done to construct the {@link
    * IsolatedOptionsData}, this also computes expansion information. If an option has an expansion,
    * try to precalculate its here.
    */
-  static OptionsData from(Collection<Class<? extends OptionsBase>> classes) {
-    IsolatedOptionsData isolatedData = IsolatedOptionsData.from(classes);
+  static OptionsData from(
+      Collection<Class<? extends OptionsBase>> classes,
+      boolean allowDuplicatesParsingEquivalently) {
+    IsolatedOptionsData isolatedData =
+        IsolatedOptionsData.from(classes, allowDuplicatesParsingEquivalently);
 
     // All that's left is to compute expansions.
     ImmutableMap.Builder<OptionDefinition, ImmutableList<String>> evaluatedExpansionsBuilder =
@@ -68,6 +88,9 @@ final class OptionsData extends IsolatedOptionsData {
         evaluatedExpansionsBuilder.put(optionDefinition, ImmutableList.copyOf(constExpansion));
       }
     }
-    return new OptionsData(isolatedData, evaluatedExpansionsBuilder.build());
+    return new OptionsData(
+        isolatedData,
+        evaluatedExpansionsBuilder.buildOrThrow(),
+        allowDuplicatesParsingEquivalently);
   }
 }

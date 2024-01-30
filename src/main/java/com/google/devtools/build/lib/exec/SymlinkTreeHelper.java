@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +22,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -55,6 +56,7 @@ public final class SymlinkTreeHelper {
   private final Path inputManifest;
   private final Path symlinkTreeRoot;
   private final boolean filesetTree;
+  private final String workspaceName;
 
   /**
    * Creates SymlinkTreeHelper instance. Can be used independently of SymlinkTreeAction.
@@ -63,11 +65,14 @@ public final class SymlinkTreeHelper {
    * @param symlinkTreeRoot the root of the symlink tree to be created
    * @param filesetTree true if this is fileset symlink tree, false if this is a runfiles symlink
    *     tree.
+   * @param workspaceName the name of the workspace, used to create the workspace subdirectory
    */
-  public SymlinkTreeHelper(Path inputManifest, Path symlinkTreeRoot, boolean filesetTree) {
+  public SymlinkTreeHelper(
+      Path inputManifest, Path symlinkTreeRoot, boolean filesetTree, String workspaceName) {
     this.inputManifest = inputManifest;
     this.symlinkTreeRoot = symlinkTreeRoot;
     this.filesetTree = filesetTree;
+    this.workspaceName = workspaceName;
   }
 
   private Path getOutputManifest() {
@@ -77,7 +82,6 @@ public final class SymlinkTreeHelper {
   /** Creates a symlink tree by making VFS calls. */
   public void createSymlinksDirectly(Path symlinkTreeRoot, Map<PathFragment, Artifact> symlinks)
       throws IOException {
-    Preconditions.checkState(!filesetTree);
     // Our strategy is to minimize mutating file system operations as much as possible. Ideally, if
     // there is an existing symlink tree with the expected contents, we don't make any changes. Our
     // algorithm goes as follows:
@@ -108,43 +112,61 @@ public final class SymlinkTreeHelper {
     //
     // 3. For every remaining entry in the node, create the corresponding file, symlink, or
     //    directory on disk. If it is a directory, recurse into that directory.
-    Directory root = new Directory();
-    for (Map.Entry<PathFragment, Artifact> entry : symlinks.entrySet()) {
-      // This creates intermediate directory nodes as a side effect.
-      Directory parentDir = root.walk(entry.getKey().getParentDirectory());
-      parentDir.addSymlink(entry.getKey().getBaseName(), entry.getValue());
+    try (SilentCloseable c = Profiler.instance().profile("Create symlink tree in-process")) {
+      Preconditions.checkState(!filesetTree);
+      Directory root = new Directory();
+      for (Map.Entry<PathFragment, Artifact> entry : symlinks.entrySet()) {
+        // This creates intermediate directory nodes as a side effect.
+        Directory parentDir = root.walk(entry.getKey().getParentDirectory());
+        parentDir.addSymlink(entry.getKey().getBaseName(), entry.getValue());
+      }
+      root.syncTreeRecursively(symlinkTreeRoot);
+      createWorkspaceSubdirectory();
     }
-    root.syncTreeRecursively(symlinkTreeRoot);
   }
 
   /**
-   * Creates symlink tree and output manifest using the {@code build-runfiles.cc} tool.
-   *
-   * @param enableRunfiles If {@code false} only the output manifest is created.
+   * Ensures that the runfiles directory is empty except for the symlinked MANIFEST and the
+   * workspace subdirectory. This is the expected state with --noenable_runfiles.
    */
-  public void createSymlinks(
-      Path execRoot,
-      OutErr outErr,
-      BinTools binTools,
-      Map<String, String> shellEnvironment,
-      boolean enableRunfiles)
-      throws ExecException, InterruptedException {
-    if (enableRunfiles) {
-      createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
-    } else {
-      copyManifest();
+  public void clearRunfilesDirectory() throws ExecException {
+    deleteRunfilesDirectory();
+    linkManifest();
+    try {
+      createWorkspaceSubdirectory();
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
     }
   }
 
-  /** Copies the input manifest to the output manifest. */
-  public void copyManifest() throws ExecException {
-    // Pretend we created the runfiles tree by copying the manifest
+  /** Deletes the contents of the runfiles directory. */
+  private void deleteRunfilesDirectory() throws ExecException {
+    try (SilentCloseable c = Profiler.instance().profile("Clear symlink tree")) {
+      symlinkTreeRoot.deleteTreesBelow();
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_DELETION_IO_EXCEPTION);
+    }
+  }
+
+  /** Links the output manifest to the input manifest. */
+  private void linkManifest() throws ExecException {
+    // Pretend we created the runfiles tree by symlinking the output manifest to the input manifest.
+    Path outputManifest = getOutputManifest();
     try {
       symlinkTreeRoot.createDirectoryAndParents();
-      FileSystemUtils.copyFile(inputManifest, getOutputManifest());
+      outputManifest.delete();
+      outputManifest.createSymbolicLink(inputManifest);
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION);
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);
     }
+  }
+
+  private void createWorkspaceSubdirectory() throws IOException {
+    // Always create the subdirectory corresponding to the workspace (i.e., the main repository).
+    // This is required by tests as their working directory, even with --noenable_runfiles. But if
+    // the test action creates the directory and then proceeds to execute the test spawn, this logic
+    // would remove it. For the sake of consistency, always create the directory instead.
+    symlinkTreeRoot.getRelative(workspaceName).createDirectory();
   }
 
   /**
@@ -157,21 +179,28 @@ public final class SymlinkTreeHelper {
   public void createSymlinksUsingCommand(
       Path execRoot, BinTools binTools, Map<String, String> shellEnvironment, OutErr outErr)
       throws EnvironmentalExecException, InterruptedException {
-    Command command = createCommand(execRoot, binTools, shellEnvironment);
-    try {
-      if (outErr != null) {
-        command.execute(outErr.getOutputStream(), outErr.getErrorStream());
-      } else {
-        command.execute();
+    try (SilentCloseable c = Profiler.instance().profile("Create symlink tree out-of-process")) {
+      Command command = createCommand(execRoot, binTools, shellEnvironment);
+      try {
+        if (outErr != null) {
+          command.execute(outErr.getOutputStream(), outErr.getErrorStream());
+        } else {
+          command.execute();
+        }
+      } catch (CommandException e) {
+        throw new EnvironmentalExecException(
+            e,
+            FailureDetail.newBuilder()
+                .setMessage(CommandUtils.describeCommandFailure(true, e))
+                .setExecution(
+                    Execution.newBuilder().setCode(Code.SYMLINK_TREE_CREATION_COMMAND_EXCEPTION))
+                .build());
       }
-    } catch (CommandException e) {
-      throw new EnvironmentalExecException(
-          e,
-          FailureDetail.newBuilder()
-              .setMessage(CommandUtils.describeCommandFailure(true, e))
-              .setExecution(
-                  Execution.newBuilder().setCode(Code.SYMLINK_TREE_CREATION_COMMAND_EXCEPTION))
-              .build());
+      try {
+        createWorkspaceSubdirectory();
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
+      }
     }
   }
 

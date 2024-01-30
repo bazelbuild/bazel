@@ -94,19 +94,19 @@ public class SymlinkActionTest extends BuildViewTestCase {
         action.execute(
             new ActionExecutionContext(
                 executor,
-                /*actionInputFileCache=*/ null,
+                /* inputMetadataProvider= */ null,
                 ActionInputPrefetcher.NONE,
                 actionKeyContext,
-                /*metadataHandler=*/ null,
-                /*rewindingEnabled=*/ false,
+                /* outputMetadataStore= */ null,
+                /* rewindingEnabled= */ false,
                 LostInputsCheck.NONE,
-                /*fileOutErr=*/ null,
+                /* fileOutErr= */ null,
                 new StoredEventHandler(),
-                /*clientEnv=*/ ImmutableMap.of(),
-                /*topLevelFilesets=*/ ImmutableMap.of(),
-                /*artifactExpander=*/ null,
-                /*actionFileSystem=*/ null,
-                /*skyframeDepsResult=*/ null,
+                /* clientEnv= */ ImmutableMap.of(),
+                /* topLevelFilesets= */ ImmutableMap.of(),
+                /* artifactExpander= */ null,
+                /* actionFileSystem= */ null,
+                /* skyframeDepsResult= */ null,
                 DiscoveredModulesPruner.DEFAULT,
                 SyscallCache.NO_CACHE,
                 ThreadStateReceiver.NULL_INSTANCE));
@@ -116,10 +116,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
     assertThat(action.getPrimaryInput()).isEqualTo(inputArtifact);
     assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
     assertThat(action.getProgressMessage())
-        .isEqualTo(
-            "Symlinking test: //null/action:owner: input.txt -> "
-                + getAnalysisMock().getProductName()
-                + "-out/k8-fastbuild/bin/destination.txt");
+        .isEqualTo("Symlinking test: //null/action:owner: input.txt -> destination.txt");
   }
 
   @Test

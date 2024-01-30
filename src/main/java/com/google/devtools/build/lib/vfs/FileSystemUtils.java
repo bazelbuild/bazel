@@ -600,6 +600,9 @@ public class FileSystemUtils {
       throw new IllegalArgumentException(to + " is a subdirectory of " + from);
     }
 
+    // Actions can make output directories non-writable, which would cause the move to fail.
+    from.setWritable(true);
+
     Collection<Path> entries = from.getDirectoryEntries();
     for (Path entry : entries) {
       if (entry.isDirectory(Symlinks.NOFOLLOW)) {
@@ -708,8 +711,8 @@ public class FileSystemUtils {
   }
 
   /**
-   * Writes lines to file using the given encoding, ending every line with a line break '\n'
-   * character.
+   * Writes lines to file using the given encoding, ending every line with a system specific line
+   * break character.
    */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, String... lines) throws IOException {
@@ -717,8 +720,8 @@ public class FileSystemUtils {
   }
 
   /**
-   * Writes lines to file using the given encoding, ending every line with a line break '\n'
-   * character.
+   * Writes lines to file using the given encoding, ending every line with a system specific line
+   * break character.
    */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
@@ -728,8 +731,19 @@ public class FileSystemUtils {
   }
 
   /**
-   * Appends lines to file using the given encoding, ending every line with a line break '\n'
+   * Writes lines to file using the given encoding, ending every line with a given line break
    * character.
+   */
+  @ThreadSafe // but not atomic
+  public static void writeLinesAs(
+      Path file, Charset charset, Iterable<String> lines, String lineBreak) throws IOException {
+    file.getParentDirectory().createDirectoryAndParents();
+    asByteSink(file).asCharSink(charset).writeLines(lines, lineBreak);
+  }
+
+  /**
+   * Appends lines to file using the given encoding, ending every line with a system specific line
+   * break character.
    */
   @ThreadSafe // but not atomic
   public static void appendLinesAs(Path file, Charset charset, String... lines) throws IOException {
@@ -737,8 +751,8 @@ public class FileSystemUtils {
   }
 
   /**
-   * Appends lines to file using the given encoding, ending every line with a line break '\n'
-   * character.
+   * Appends lines to file using the given encoding, ending every line with a system specific line
+   * break character.
    */
   @ThreadSafe // but not atomic
   public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)

@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,6 +51,32 @@ public abstract class BazelDepGraphValue implements SkyValue {
         extensionUniqueNames);
   }
 
+  public static BazelDepGraphValue createEmptyDepGraph() {
+    Module root =
+        Module.builder()
+            .setName("")
+            .setVersion(Version.EMPTY)
+            .setRepoName("")
+            .setKey(ModuleKey.ROOT)
+            .setExtensionUsages(ImmutableList.of())
+            .setExecutionPlatformsToRegister(ImmutableList.of())
+            .setToolchainsToRegister(ImmutableList.of())
+            .build();
+
+    ImmutableMap<ModuleKey, Module> emptyDepGraph = ImmutableMap.of(ModuleKey.ROOT, root);
+
+    ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
+        emptyDepGraph.keySet().stream()
+            .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
+
+    return BazelDepGraphValue.create(
+        emptyDepGraph,
+        canonicalRepoNameLookup,
+        ImmutableList.of(),
+        ImmutableTable.of(),
+        ImmutableMap.of());
+  }
+
   /**
    * The post-selection dep graph. Must have BFS iteration order, starting from the root module. For
    * any KEY in the returned map, it's guaranteed that {@code depGraph[KEY].getKey() == KEY}.
@@ -66,6 +94,8 @@ public abstract class BazelDepGraphValue implements SkyValue {
    * usage occurs. For each extension identifier ID, extensionUsagesTable[ID][moduleKey] is the
    * ModuleExtensionUsage of ID in the module keyed by moduleKey.
    */
+  // Note: Equality of BazelDepGraphValue does not check for equality of the order of the rows of
+  // this table, but it is tracked implicitly via the order of the abridged modules.
   public abstract ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
       getExtensionUsagesTable();
 

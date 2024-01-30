@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_JOBS;
 
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Objects;
 
 /** Represents the traversal of the ActionLookupValues in a build. */
 public class ActionLookupValuesTraversal {
@@ -43,7 +44,7 @@ public class ActionLookupValuesTraversal {
 
   public ActionLookupValuesTraversal() {}
 
-  void accumulate(ActionLookupKeyOrProxy keyForDebugging, SkyValue value) {
+  void accumulate(ActionLookupKey key, SkyValue value) {
     boolean isConfiguredTarget = value instanceof ConfiguredTargetValue;
     boolean isActionLookupValue = value instanceof ActionLookupValue;
     if (!isConfiguredTarget && !isActionLookupValue) {
@@ -52,7 +53,16 @@ public class ActionLookupValuesTraversal {
               String.format(
                   "Should only be called with ConfiguredTargetValue or ActionLookupValue: %s %s"
                       + " %s",
-                  value.getClass(), keyForDebugging, value)));
+                  value.getClass(), key, value)));
+      return;
+    }
+    if (isConfiguredTarget
+        && !Objects.equals(
+            key.getConfigurationKey(),
+            ((ConfiguredTargetValue) value).getConfiguredTarget().getConfigurationKey())) {
+      // The configuration of the key doesn't match the configuration of the value. This means that
+      // the ConfiguredTargetValue is delegated from a different key. This ConfiguredTargetValue
+      // will show up again under its own key. Avoids double counting by skipping accumulation.
       return;
     }
     configuredObjectCount++;
@@ -72,8 +82,7 @@ public class ActionLookupValuesTraversal {
     if (!(value instanceof NonRuleConfiguredTargetValue)) {
       BugReport.sendBugReport(
           new IllegalStateException(
-              String.format(
-                  "Unexpected value type: %s %s %s", value.getClass(), keyForDebugging, value)));
+              String.format("Unexpected value type: %s %s %s", value.getClass(), key, value)));
       return;
     }
     ConfiguredTarget configuredTarget =

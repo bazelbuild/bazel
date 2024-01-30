@@ -26,10 +26,11 @@ import java.util.List;
 
 /** A build event reporting the original commandline by which bazel was invoked. */
 public class OriginalUnstructuredCommandLineEvent implements BuildEventWithOrderConstraint {
-
+  static final OriginalUnstructuredCommandLineEvent REDACTED_UNSTRUCTURED_COMMAND_LINE_EVENT =
+      new OriginalUnstructuredCommandLineEvent(ImmutableList.of("REDACTED"));
   private final ImmutableList<String> args;
 
-  public OriginalUnstructuredCommandLineEvent(List<String> args) {
+  OriginalUnstructuredCommandLineEvent(List<String> args) {
     this.args = ImmutableList.copyOf(args);
   }
 

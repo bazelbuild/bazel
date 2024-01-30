@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
+
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -63,9 +65,7 @@ public final class ShToolchain {
 
     if (platformInfo != null) {
       for (OS os : ShellConfiguration.getShellExecutables().keySet()) {
-        if (platformInfo
-            .constraints()
-            .hasConstraintValue(ShellConfiguration.OS_TO_CONSTRAINTS.get(os))) {
+        if (platformInfo.constraints().hasConstraintValue(OS_TO_CONSTRAINTS.get(os))) {
           return ShellConfiguration.getShellExecutables().get(os);
         }
       }

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -95,7 +96,7 @@ import javax.annotation.Nullable;
 public final class CoverageReportActionBuilder {
 
   private static final ResourceSet LOCAL_RESOURCES =
-      ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpuUsage= */ 1);
+      ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
 
   private static final ActionOwner ACTION_OWNER = ActionOwner.SYSTEM_ACTION_OWNER;
 
@@ -129,7 +130,7 @@ public final class CoverageReportActionBuilder {
         throws ActionExecutionException, InterruptedException {
       try {
         ImmutableMap<String, String> executionInfo =
-            remotable ? ImmutableMap.of() : ImmutableMap.of("local", "");
+            remotable ? ImmutableMap.of() : ImmutableMap.of(ExecutionRequirements.NO_REMOTE, "");
         Spawn spawn =
             new BaseSpawn(
                 command, ImmutableMap.of(), executionInfo, runfilesSupplier, this, LOCAL_RESOURCES);

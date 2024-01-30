@@ -193,4 +193,3 @@ To avoid this, either remove the ability to set the repository name directly,
 or only allow the root module to do so. It's OK to allow the root module this
 ability because nothing will depend on it, so it doesn't have to worry about
 another module creating a conflicting name.
-

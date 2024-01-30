@@ -19,6 +19,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
+import static java.util.Locale.ENGLISH;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -54,6 +55,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
@@ -69,6 +72,15 @@ import javax.tools.StandardLocation;
  * warnings.
  */
 public class BlazeJavacMain {
+
+  private static final Pattern INCOMPATIBLE_SYSTEM_CLASS_PATH_ERROR =
+      Pattern.compile(
+          "(?s)bad class file: /modules/.*class file has wrong version (?<version>[4-9][0-9])\\.");
+
+  private static final Pattern UNSUPPORTED_CLASS_VERSION_ERROR =
+      Pattern.compile(
+          "^(?<class>[^ ]*) has been compiled by a more recent version of the Java Runtime "
+              + "\\(class file version (?<version>[4-9][0-9])\\.");
 
   /**
    * Sets up a BlazeJavaCompiler with the given plugins within the given context.
@@ -118,8 +130,7 @@ public class BlazeJavacMain {
     options.put("expandJarClassPaths", "false");
 
     try (ClassloaderMaskingFileManager fileManager =
-        new ClassloaderMaskingFileManager(
-            context, arguments.builtinProcessors(), getMatchingBootFileManager(arguments))) {
+        new ClassloaderMaskingFileManager(context, getMatchingBootFileManager(arguments))) {
 
       setLocations(fileManager, arguments);
 
@@ -140,8 +151,23 @@ public class BlazeJavacMain {
         throw e.getCause();
       }
     } catch (Exception t) {
-      if (t.getCause() instanceof CancelRequestException) {
-        return BlazeJavacResult.cancelled(t.getCause().getMessage());
+      Throwable cause = t.getCause();
+      if (cause instanceof CancelRequestException) {
+        return BlazeJavacResult.cancelled(cause.getMessage());
+      }
+      Matcher matcher;
+      if (cause instanceof UnsupportedClassVersionError
+          && (matcher = UNSUPPORTED_CLASS_VERSION_ERROR.matcher(cause.getMessage())).find()) {
+        // Java 8 corresponds to class file major version 52.
+        int processorVersion = Integer.parseUnsignedInt(matcher.group("version")) - 44;
+        errWriter.printf(
+            "The Java %d runtime used to run javac is not recent enough to run the processor %s, "
+                + "which has been compiled targeting Java %d. Either register a Java toolchain "
+                + "with a newer java_runtime or, if this processor has been built with Bazel, "
+                + "specify a lower --tool_java_language_version.%n",
+            Runtime.version().feature(),
+            matcher.group("class").replace('/', '.'),
+            processorVersion);
       }
       t.printStackTrace(errWriter);
       status = Status.CRASH;
@@ -161,6 +187,12 @@ public class BlazeJavacMain {
     }
     errWriter.flush();
     ImmutableList<FormattedDiagnostic> diagnostics = diagnosticsBuilder.build();
+
+    diagnostics.stream()
+        .map(d -> maybeGetJavaConfigurationError(arguments, d))
+        .flatMap(Optional::stream)
+        .findFirst()
+        .ifPresent(errOutput::append);
 
     boolean werror =
         diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
@@ -258,6 +290,33 @@ public class BlazeJavacMain {
     return false;
   }
 
+  private static Optional<String> maybeGetJavaConfigurationError(
+      BlazeJavacArguments arguments, Diagnostic<?> diagnostic) {
+    if (!diagnostic.getKind().equals(Diagnostic.Kind.ERROR)) {
+      return Optional.empty();
+    }
+    Matcher matcher;
+    if (!diagnostic.getCode().equals("compiler.err.cant.access")
+        || arguments.system() == null
+        || !(matcher = INCOMPATIBLE_SYSTEM_CLASS_PATH_ERROR.matcher(diagnostic.getMessage(ENGLISH)))
+            .find()) {
+      return Optional.empty();
+    }
+    // The output path is of the form $PRODUCT-out/$CPU-$MODE[-exec-...]/bin/...
+    boolean isForTool = arguments.classOutput().subpath(1, 2).toString().contains("-exec-");
+    // Java 8 corresponds to class file major version 52.
+    int systemClasspathVersion = Integer.parseUnsignedInt(matcher.group("version")) - 44;
+    return Optional.of(
+        String.format(
+            "error: [BazelJavaConfiguration] The Java %d runtime used to run javac is not recent "
+                + "enough to compile for the Java %d runtime in %s. Either register a Java "
+                + "toolchain with a newer java_runtime or specify a lower %s.\n",
+            Runtime.version().feature(),
+            systemClasspathVersion,
+            arguments.system(),
+            isForTool ? "--tool_java_runtime_version" : "--java_runtime_version"));
+  }
+
   /** Processes Plugin-specific arguments and removes them from the args array. */
   @VisibleForTesting
   static void processPluginArgs(
@@ -295,7 +354,7 @@ public class BlazeJavacMain {
                 .filter(f -> f.getFileName().toString().equals("module-info.java"))
                 .collect(toImmutableList());
         if (moduleInfos.size() == 1) {
-          sourcePath = ImmutableList.of(getOnlyElement(moduleInfos).getParent());
+          sourcePath = ImmutableList.of(getOnlyElement(moduleInfos).toAbsolutePath().getParent());
         }
       }
       fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcePath);
@@ -367,16 +426,12 @@ public class BlazeJavacMain {
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
-    private final ImmutableSet<String> builtinProcessors;
     /** the BootClassPathCachingFileManager instance used for BootClassPaths only. */
     private final BootClassPathCachingFileManager bootFileManger;
 
     public ClassloaderMaskingFileManager(
-        Context context,
-        ImmutableSet<String> builtinProcessors,
-        BootClassPathCachingFileManager bootFileManager) {
+        Context context, BootClassPathCachingFileManager bootFileManager) {
       super(context, true, UTF_8);
-      this.builtinProcessors = builtinProcessors;
       this.bootFileManger = bootFileManager;
     }
 
@@ -401,15 +456,11 @@ public class BlazeJavacMain {
                   || name.startsWith("com.google.common.collect.")
                   || name.startsWith("com.google.common.base.")
                   || name.startsWith("com.google.common.graph.")
-                  || name.startsWith("org.checkerframework.shaded.dataflow.")
+                  || name.startsWith("com.google.common.regex.")
                   || name.startsWith("org.checkerframework.errorprone.dataflow.")
                   || name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
-                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
-                  || name.startsWith("dagger.model.")
-                  // TODO(b/191812726): Include dagger.spi.model before releasing it to SPI users.
-                  || (name.startsWith("dagger.spi.") && !name.startsWith("dagger.spi.model."))
-                  || builtinProcessors.contains(name)) {
+                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
                 return Class.forName(name);
               }
               throw new ClassNotFoundException(name);

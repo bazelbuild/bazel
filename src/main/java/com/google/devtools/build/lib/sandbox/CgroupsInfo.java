@@ -48,12 +48,14 @@ public class CgroupsInfo {
   @Nullable private static volatile CgroupsInfo instance;
 
   private final boolean isCgroupsV2;
-  private final File blazeDir;
+  // This is the directory where the cgroup is in, any related files pertaining to limits / resource
+  // usage or child cgroups (nested directories) are found here.
+  private final File cgroupDir;
   private final File mountPoint;
 
-  private CgroupsInfo(boolean isCgroupsV2, File blazeDir, File mountPoint) {
+  private CgroupsInfo(boolean isCgroupsV2, File cgroupDir, File mountPoint) {
     this.isCgroupsV2 = isCgroupsV2;
-    this.blazeDir = blazeDir;
+    this.cgroupDir = cgroupDir;
     this.mountPoint = mountPoint;
   }
 
@@ -68,37 +70,39 @@ public class CgroupsInfo {
    *     sub-processes. The Blaze process itself is not moved into this directory.
    * @throws IOException If there are errors reading any of the required files.
    */
-  public static CgroupsInfo create() throws IOException {
-    return create(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH);
+  public static CgroupsInfo createBlazeSpawnsCgroup() throws IOException {
+    return createBlazeSpawnsCgroup(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH);
   }
 
   @VisibleForTesting
-  static CgroupsInfo create(String procSelfMountsPath, String procSelfCgroupPath)
+  static CgroupsInfo createBlazeSpawnsCgroup(String procSelfMountsPath, String procSelfCgroupPath)
       throws IOException {
-    Pair<File, Boolean> cgroupsMount = getMemoryCgroupInfo(new File(procSelfMountsPath));
-    File blazeDir;
+    Pair<File, Boolean> cgroupsMount = getCgroupMountInfo(new File(procSelfMountsPath));
+    File blazeSpawnsDir;
     File cgroupsMountPoint = cgroupsMount.first;
     if (cgroupsMount.second) {
-      File cgroupsNode = getBlazeMemoryCgroup(cgroupsMountPoint, 0, procSelfCgroupPath);
+      File blazeProcessCgroupDir =
+          getBlazeProcessCgroupDir(cgroupsMountPoint, 0, procSelfCgroupPath);
       // In cgroups v2, we need to step back from the leaf node to make a further hierarchy.
-      blazeDir =
+      blazeSpawnsDir =
           new File(
-              cgroupsNode.getParentFile(),
+              blazeProcessCgroupDir.getParentFile(),
               "blaze_" + ProcessHandle.current().pid() + "_spawns.slice");
-      blazeDir.mkdirs();
-      blazeDir.deleteOnExit();
-      setSubtreeControllers(blazeDir);
-      logger.atInfo().log("Creating cgroups v2 node at %s", blazeDir);
-      return new CgroupsInfo(true, blazeDir, cgroupsMountPoint);
+      blazeSpawnsDir.mkdirs();
+      blazeSpawnsDir.deleteOnExit();
+      setSubtreeControllers(blazeSpawnsDir);
+      logger.atInfo().log("Creating cgroups v2 node at %s", blazeSpawnsDir);
+      return new CgroupsInfo(true, blazeSpawnsDir, cgroupsMountPoint);
     } else {
       int memoryHierarchy = getMemoryHierarchy(new File(procSelfCgroupPath));
-      File cgroupsNode =
-          getBlazeMemoryCgroup(cgroupsMountPoint, memoryHierarchy, procSelfCgroupPath);
-      blazeDir = new File(cgroupsNode, "blaze_" + ProcessHandle.current().pid() + "_spawns");
-      blazeDir.mkdirs();
-      blazeDir.deleteOnExit();
-      logger.atInfo().log("Creating cgroups v1 node at %s", blazeDir);
-      return new CgroupsInfo(false, blazeDir, cgroupsMountPoint);
+      File blazeProcessCgroupDir =
+          getBlazeProcessCgroupDir(cgroupsMountPoint, memoryHierarchy, procSelfCgroupPath);
+      blazeSpawnsDir =
+          new File(blazeProcessCgroupDir, "blaze_" + ProcessHandle.current().pid() + "_spawns");
+      blazeSpawnsDir.mkdirs();
+      blazeSpawnsDir.deleteOnExit();
+      logger.atInfo().log("Creating cgroups v1 node at %s", blazeSpawnsDir);
+      return new CgroupsInfo(false, blazeSpawnsDir, cgroupsMountPoint);
     }
   }
 
@@ -133,8 +137,8 @@ public class CgroupsInfo {
   }
 
   /** A cgroups directory for this Blaze instance to put sandboxes in. */
-  public File getBlazeDir() {
-    return blazeDir;
+  public File getCgroupDir() {
+    return cgroupDir;
   }
 
   /** The place where the cgroups (memory) file system is mounted. */
@@ -168,7 +172,7 @@ public class CgroupsInfo {
    * @throws IOException If there are errors reading the given file.
    */
   @VisibleForTesting
-  static Pair<File, Boolean> getMemoryCgroupInfo(File procMountsPath) throws IOException {
+  static Pair<File, Boolean> getCgroupMountInfo(File procMountsPath) throws IOException {
     var procMountContents = Files.readLines(procMountsPath, UTF_8);
     Pair<File, Boolean> v1 = null;
     Pair<File, Boolean> v2 = null;
@@ -244,7 +248,7 @@ public class CgroupsInfo {
    * @throws IOException If the given file cannot be read.
    */
   @VisibleForTesting
-  static File getBlazeMemoryCgroup(File mountPoint, int memoryHierarchyId, String procSelfPath)
+  static File getBlazeProcessCgroupDir(File mountPoint, int memoryHierarchyId, String procSelfPath)
       throws IOException {
     var procSelfCgroupContents = Files.readLines(new File(procSelfPath), UTF_8);
     if (procSelfCgroupContents.isEmpty()) {
@@ -277,11 +281,11 @@ public class CgroupsInfo {
     return cgroupsNode;
   }
 
-  public static CgroupsInfo getInstance() throws IOException {
+  public static CgroupsInfo getBlazeSpawnsCgroup() throws IOException {
     if (instance == null) {
       synchronized (CgroupsInfo.class) {
         if (instance == null) {
-          instance = create();
+          instance = createBlazeSpawnsCgroup();
         }
       }
     }
@@ -295,10 +299,11 @@ public class CgroupsInfo {
    * @param dirName Base name of the directory created. In cgroups v2, <code>.scope</code> gets
    *     appended.
    */
-  public String createMemoryLimitCgroupDir(String dirName, int memoryLimit) throws IOException {
+  public static CgroupsInfo createMemoryLimitCgroupDir(
+      CgroupsInfo blazeSpawnsCgroup, String dirName, int memoryLimit) throws IOException {
     File cgroupsDir;
-    if (isCgroupsV2) {
-      cgroupsDir = new File(blazeDir, dirName + ".scope");
+    if (blazeSpawnsCgroup.isCgroupsV2()) {
+      cgroupsDir = new File(blazeSpawnsCgroup.getCgroupDir(), dirName + ".scope");
       cgroupsDir.mkdirs();
       cgroupsDir.deleteOnExit();
       // In cgroups v2, we need to propagate the controllers into new subdirs.
@@ -306,12 +311,13 @@ public class CgroupsInfo {
       Files.asCharSink(new File(cgroupsDir, "memory.max"), UTF_8)
           .write(Long.toString(memoryLimit * 1024L * 1024L));
     } else {
-      cgroupsDir = new File(getBlazeDir(), dirName);
+      cgroupsDir = new File(blazeSpawnsCgroup.getCgroupDir(), dirName);
       cgroupsDir.mkdirs();
       cgroupsDir.deleteOnExit();
       Files.asCharSink(new File(cgroupsDir, "memory.limit_in_bytes"), UTF_8)
           .write(Long.toString(memoryLimit * 1024L * 1024L));
     }
-    return cgroupsDir.toString();
+    return new CgroupsInfo(
+        blazeSpawnsCgroup.isCgroupsV2(), cgroupsDir, blazeSpawnsCgroup.getMountPoint());
   }
 }

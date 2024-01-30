@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Optional;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,23 +29,18 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -61,10 +56,14 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Tuple;
 
 /**
@@ -82,7 +81,8 @@ public final class CcCompilationHelper {
    * according to the FDO configuration. This method does nothing If FDO is disabled.
    */
   private void configureFdoBuildVariables(
-      Map<String, String> variablesBuilder, String fdoInstrument, String csFdoInstrument) {
+      Map<String, String> variablesBuilder, String fdoInstrument, String csFdoInstrument)
+      throws EvalException {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       variablesBuilder.put(
           CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
@@ -118,6 +118,12 @@ public final class CcCompilationHelper {
       }
     }
 
+    if (fdoContext.getMemProfProfileArtifact() != null) {
+      variablesBuilder.put(
+          CompileBuildVariables.MEMPROF_PROFILE_PATH.getVariableName(),
+          fdoContext.getMemProfProfileArtifact().getExecPathString());
+    }
+
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // Optimization phase
     if (branchFdoProfile != null) {
@@ -140,7 +146,7 @@ public final class CcCompilationHelper {
   }
 
   /** Returns whether Propeller profiles should be passed to a compile action. */
-  private boolean shouldPassPropellerProfiles() {
+  private boolean shouldPassPropellerProfiles() throws EvalException {
     if (ccToolchain.isToolConfiguration()) {
       // Propeller doesn't make much sense for host builds.
       return false;
@@ -157,7 +163,7 @@ public final class CcCompilationHelper {
   }
 
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private NestedSet<Artifact> getAuxiliaryFdoInputs() {
+  private NestedSet<Artifact> getAuxiliaryFdoInputs() throws EvalException {
     NestedSetBuilder<Artifact> auxiliaryInputs = NestedSetBuilder.stableOrder();
 
     if (fdoContext.getPrefetchHintsArtifact() != null) {
@@ -170,6 +176,9 @@ public final class CcCompilationHelper {
       if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
         auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
       }
+    }
+    if (fdoContext.getMemProfProfileArtifact() != null) {
+      auxiliaryInputs.add(fdoContext.getMemProfProfileArtifact());
     }
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // If --fdo_optimize was not specified, we don't have any additional inputs.
@@ -267,13 +276,10 @@ public final class CcCompilationHelper {
   private final Set<String> localDefines = new LinkedHashSet<>();
   private final List<CcCompilationContext> deps = new ArrayList<>();
   private final List<CcCompilationContext> implementationDeps = new ArrayList<>();
-  private Set<PathFragment> looseIncludeDirs = ImmutableSet.of();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> quoteIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
   private final List<PathFragment> frameworkIncludeDirs = new ArrayList<>();
-
-  private HeadersCheckingMode headersCheckingMode = HeadersCheckingMode.STRICT;
 
   private final SourceCategory sourceCategory;
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
@@ -323,10 +329,10 @@ public final class CcCompilationHelper {
     this.configuration = buildConfiguration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     setGenerateNoPicAction(
-        !ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+        !CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
             || !CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration));
     setGeneratePicAction(
-        ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+        CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
             || CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration));
     this.ruleErrorConsumer = actionConstructionContext.getRuleErrorConsumer();
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
@@ -428,6 +434,7 @@ public final class CcCompilationHelper {
    * Add the corresponding files as public textual header files. These files will not be compiled
    * into a target's header module, but will be made visible as textual includes to dependent rules.
    */
+  @CanIgnoreReturnValue
   public CcCompilationHelper addPublicTextualHeaders(NestedSet<Artifact> textualHeaders) {
     return addPublicTextualHeaders(textualHeaders.toList());
   }
@@ -471,7 +478,7 @@ public final class CcCompilationHelper {
     Preconditions.checkState(isHeader || isTextualInclude);
 
     if (shouldProcessHeaders
-        && ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
+        && CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration)
         && !shouldProvideHeaderModules()
         && !isTextualInclude) {
       compilationUnitSources.put(
@@ -510,6 +517,7 @@ public final class CcCompilationHelper {
    * Add the corresponding files as source files. These may also be header files, in which case they
    * will not be compiled, but also not made visible as includes to dependent rules.
    */
+  @CanIgnoreReturnValue
   public CcCompilationHelper addSources(Artifact... sources) {
     return addSources(Arrays.asList(sources));
   }
@@ -534,7 +542,7 @@ public final class CcCompilationHelper {
     if (!shouldProcessHeaders
         || isTextualInclude
         || !isHeader
-        || !ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
+        || !CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration)
         || shouldProvideHeaderModules()) {
       return;
     }
@@ -630,14 +638,6 @@ public final class CcCompilationHelper {
   }
 
   /**
-   * Sets the given directories to by loose include directories that are only allowed to be
-   * referenced when headers checking is {@link HeadersCheckingMode#LOOSE}.
-   */
-  public void setLooseIncludeDirs(Set<PathFragment> looseIncludeDirs) {
-    this.looseIncludeDirs = Preconditions.checkNotNull(looseIncludeDirs);
-  }
-
-  /**
    * Adds the given directories to the system include directories (they are passed with {@code
    * "-isystem"} to the compiler); these are also passed to dependent rules.
    */
@@ -700,13 +700,6 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  /** Sets the given headers checking mode. The default is {@link HeadersCheckingMode#LOOSE}. */
-  @CanIgnoreReturnValue
-  public CcCompilationHelper setHeadersCheckingMode(HeadersCheckingMode headersCheckingMode) {
-    this.headersCheckingMode = Preconditions.checkNotNull(headersCheckingMode);
-    return this;
-  }
-
   /** Whether to generate no-PIC actions. */
   @CanIgnoreReturnValue
   public CcCompilationHelper setGenerateNoPicAction(boolean generateNoPicAction) {
@@ -759,11 +752,73 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  /**
-   * Create the C++ compile actions, and the corresponding compilation related providers.
-   *
-   * @throws RuleErrorException
-   */
+  private static StarlarkList<String> convertPathFragmentsToStarlarkList(
+      Iterable<PathFragment> pathFragments) {
+    ImmutableList.Builder<String> pathStrings = ImmutableList.builder();
+    for (PathFragment pathFragment : pathFragments) {
+      pathStrings.add(pathFragment.getPathString());
+    }
+    return StarlarkList.immutableCopyOf(pathStrings.build());
+  }
+
+  private Tuple callStarlarkInit(RuleContext ruleContext)
+      throws RuleErrorException, InterruptedException {
+    StarlarkFunction initCcCompilationContext =
+        (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("init_cc_compilation_context");
+    ruleContext.initStarlarkRuleContext();
+    try {
+      return (Tuple)
+          ruleContext.callStarlarkOrThrowRuleError(
+              initCcCompilationContext,
+              ImmutableList.of(
+                  /* ctx */ ruleContext.getStarlarkRuleContext(),
+                  /* binfiles_dir */ ruleContext.getBinFragment().getPathString(),
+                  /* genfiles_dir */ ruleContext.getGenfilesFragment().getPathString(),
+                  /* label */ label,
+                  /* config */ configuration,
+                  /* quote_include_dirs */ convertPathFragmentsToStarlarkList(quoteIncludeDirs),
+                  /* framework_include_dirs */ convertPathFragmentsToStarlarkList(
+                      frameworkIncludeDirs),
+                  /* system_include_dirs */ convertPathFragmentsToStarlarkList(systemIncludeDirs),
+                  /* include_dirs */ convertPathFragmentsToStarlarkList(includeDirs),
+                  /* feature_configuration */ FeatureConfigurationForStarlark.from(
+                      featureConfiguration,
+                      cppConfiguration,
+                      ruleContext.getConfiguration().getOptions()),
+                  /* public_headers_artifacts */ StarlarkList.immutableCopyOf(publicHeaders),
+                  /* include_prefix */ includePrefix == null ? Starlark.NONE : includePrefix,
+                  /* strip_include_prefix */ stripIncludePrefix == null
+                      ? Starlark.NONE
+                      : stripIncludePrefix,
+                  /* non_module_map_headers */ StarlarkList.immutableCopyOf(nonModuleMapHeaders),
+                  /* cc_toolchain_compilation_context */ ccToolchain == null
+                      ? Starlark.NONE
+                      : ccToolchain.getCcInfo().getCcCompilationContext(),
+                  /* defines */ StarlarkList.immutableCopyOf(defines),
+                  /* local_defines */ StarlarkList.immutableCopyOf(localDefines),
+                  /* public_textual_headers */ StarlarkList.immutableCopyOf(publicTextualHeaders),
+                  /* private_headers_artifacts */ StarlarkList.immutableCopyOf(privateHeaders),
+                  /* additional_inputs */ StarlarkList.immutableCopyOf(additionalInputs),
+                  /* separate_module_headers */ StarlarkList.immutableCopyOf(separateModuleHeaders),
+                  /* generate_module_map */ generateModuleMap,
+                  /* generate_pic_action */ generatePicAction,
+                  /* generate_no_pic_action */ generateNoPicAction,
+                  /* module_map */ cppModuleMap == null ? Starlark.NONE : cppModuleMap,
+                  /* propagate_module_map_to_compile_action */ propagateModuleMapToCompileAction,
+                  /* additional_exported_headers */ convertPathFragmentsToStarlarkList(
+                      additionalExportedHeaders),
+                  /* deps */ StarlarkList.immutableCopyOf(deps),
+                  /* purpose */ purpose,
+                  /* implementation_deps */ StarlarkList.immutableCopyOf(implementationDeps),
+                  /* additional_cpp_module_maps */ StarlarkList.immutableCopyOf(
+                      additionalCppModuleMaps)),
+              ImmutableMap.of());
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
+  }
+
+  /** Create the C++ compile actions, and the corresponding compilation related providers. */
   public CompilationInfo compile(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
 
@@ -771,15 +826,18 @@ public final class CcCompilationHelper {
       ruleErrorConsumer.ruleError("Either PIC or no PIC actions have to be created.");
     }
 
-    CcCompilationContext.Builder contextBuilder = initializeCcCompilationContext(ruleContext);
-    CcCompilationContext publicCompilationContext = contextBuilder.build();
+    Tuple ccCompilationContextObjectsTuple = callStarlarkInit(ruleContext);
+
+    CcCompilationContext publicCompilationContext =
+        (CcCompilationContext) ccCompilationContextObjectsTuple.get(0);
     ccCompilationContext = publicCompilationContext;
     if (!implementationDeps.isEmpty()) {
       // We set a different purpose so that the middleman doesn't clash with the one from propagated
       // ccCompilationContext.
-      contextBuilder.addDependentCcCompilationContexts(implementationDeps);
-      contextBuilder.setPurpose(purpose + "_impl");
-      ccCompilationContext = contextBuilder.build();
+      Preconditions.checkState(
+          ccCompilationContextObjectsTuple.get(1) != Starlark.NONE,
+          "Compilation context for implementation deps was not created");
+      ccCompilationContext = (CcCompilationContext) ccCompilationContextObjectsTuple.get(1);
     }
 
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
@@ -788,309 +846,20 @@ public final class CcCompilationHelper {
         "All cc rules must support module maps.");
 
     // Create compile actions (both PIC and no-PIC).
-    CcCompilationOutputs ccOutputs = createCcCompileActions();
+    try {
+      CcCompilationOutputs ccOutputs = createCcCompileActions();
 
-    if (cppConfiguration.processHeadersInDependencies()) {
-      return new CompilationInfo(
-          CcCompilationContext.createWithExtraHeaderTokens(
-              publicCompilationContext, ccOutputs.getHeaderTokenFiles()),
-          ccOutputs);
-    } else {
-      return new CompilationInfo(publicCompilationContext, ccOutputs);
-    }
-  }
-
-  @Immutable
-  private static class PublicHeaders {
-    private final ImmutableList<Artifact> headers;
-    private final ImmutableList<Artifact> moduleMapHeaders;
-    private final @Nullable PathFragment virtualIncludePath;
-    private final NestedSet<Tuple> virtualToOriginalHeaders;
-
-    private PublicHeaders(
-        ImmutableList<Artifact> headers,
-        ImmutableList<Artifact> moduleMapHeaders,
-        PathFragment virtualIncludePath,
-        NestedSet<Tuple> virtualToOriginalHeaders) {
-      this.headers = headers;
-      this.moduleMapHeaders = moduleMapHeaders;
-      this.virtualIncludePath = virtualIncludePath;
-      this.virtualToOriginalHeaders = virtualToOriginalHeaders;
-    }
-
-    private ImmutableList<Artifact> getHeaders() {
-      return headers;
-    }
-
-    private ImmutableList<Artifact> getModuleMapHeaders() {
-      return moduleMapHeaders;
-    }
-
-    @Nullable
-    private PathFragment getVirtualIncludePath() {
-      return virtualIncludePath;
-    }
-  }
-
-  private PublicHeaders computePublicHeaders(List<Artifact> headers) throws InterruptedException {
-    PathFragment prefix = null;
-    if (includePrefix != null) {
-      prefix = PathFragment.create(includePrefix);
-      if (PathFragment.containsUplevelReferences(includePrefix)) {
-        ruleErrorConsumer.ruleError("include prefix should not contain uplevel references");
-      }
-      if (prefix.isAbsolute()) {
-        ruleErrorConsumer.ruleError("include prefix should be a relative path");
-      }
-    }
-
-    PathFragment stripPrefix;
-    if (stripIncludePrefix != null) {
-      if (PathFragment.containsUplevelReferences(stripIncludePrefix)) {
-        ruleErrorConsumer.ruleError("strip include prefix should not contain uplevel references");
-      }
-      stripPrefix = PathFragment.create(stripIncludePrefix);
-      if (stripPrefix.isAbsolute()) {
-        stripPrefix = stripPrefix.toRelative();
+      if (cppConfiguration.processHeadersInDependencies()) {
+        return new CompilationInfo(
+            CcCompilationContext.createWithExtraHeaderTokens(
+                publicCompilationContext, ccOutputs.getHeaderTokenFiles()),
+            ccOutputs);
       } else {
-        stripPrefix = label.getPackageFragment().getRelative(stripPrefix);
+        return new CompilationInfo(publicCompilationContext, ccOutputs);
       }
-    } else if (prefix != null) {
-      stripPrefix = label.getPackageFragment();
-    } else {
-      stripPrefix = null;
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
     }
-
-    if (stripPrefix == null && prefix == null) {
-      // Simple case, no magic needed
-      return new PublicHeaders(
-          ImmutableList.copyOf(Iterables.concat(headers, nonModuleMapHeaders)),
-          ImmutableList.copyOf(headers),
-          /*virtualIncludePath=*/ null,
-          /* virtualToOriginalHeaders= */ NestedSetBuilder.create(Order.STABLE_ORDER));
-    }
-
-    if (ruleErrorConsumer.hasErrors()) {
-      return new PublicHeaders(
-          /* headers= */ ImmutableList.of(),
-          /* moduleMapHeaders */ ImmutableList.of(),
-          /* virtualIncludePath */ null,
-          /* virtualToOriginalHeaders */ NestedSetBuilder.create(Order.STABLE_ORDER));
-    }
-
-    ImmutableList.Builder<Artifact> moduleHeadersBuilder = ImmutableList.builder();
-    NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
-    for (Artifact originalHeader : headers) {
-      if (!originalHeader.getRepositoryRelativePath().startsWith(stripPrefix)) {
-        ruleErrorConsumer.ruleError(
-            String.format(
-                "header '%s' is not under the specified strip prefix '%s'",
-                originalHeader.getExecPathString(), stripPrefix.getPathString()));
-        continue;
-      }
-
-      PathFragment includePath = originalHeader.getRepositoryRelativePath().relativeTo(stripPrefix);
-      if (prefix != null) {
-        includePath = prefix.getRelative(includePath);
-      }
-
-      if (!originalHeader.getExecPath().equals(includePath)) {
-        Artifact virtualHeader =
-            actionConstructionContext.getUniqueDirectoryArtifact(
-                "_virtual_includes",
-                includePath,
-                actionConstructionContext.getBinOrGenfilesDirectory());
-        actionRegistry.registerAction(
-            SymlinkAction.toArtifact(
-                actionConstructionContext.getActionOwner(),
-                originalHeader,
-                virtualHeader,
-                "Symlinking virtual headers for " + label,
-                /* useExecRootForSource= */ true));
-        moduleHeadersBuilder.add(virtualHeader);
-        if (configuration.isCodeCoverageEnabled()) {
-          virtualToOriginalHeaders.add(
-              Tuple.of(virtualHeader.getExecPathString(), originalHeader.getExecPathString()));
-        }
-      }
-
-      moduleHeadersBuilder.add(originalHeader);
-    }
-
-    ImmutableList<Artifact> moduleMapHeaders = moduleHeadersBuilder.build();
-    ImmutableList<Artifact> virtualHeaders =
-        ImmutableList.<Artifact>builder()
-            .addAll(moduleMapHeaders)
-            .addAll(nonModuleMapHeaders)
-            .build();
-
-    return new PublicHeaders(
-        virtualHeaders,
-        moduleMapHeaders,
-        actionConstructionContext
-            .getBinOrGenfilesDirectory()
-            .getExecPath()
-            .getRelative(
-                actionConstructionContext.getUniqueDirectory(
-                    PathFragment.create("_virtual_includes"))),
-        virtualToOriginalHeaders.build());
-  }
-
-  /** Create {@code CcCompilationContext} for cc compile action from generated inputs. */
-  @SuppressWarnings("LenientFormatStringValidation")
-  private CcCompilationContext.Builder initializeCcCompilationContext(RuleContext ruleContext)
-      throws InterruptedException {
-    CcCompilationContext.Builder ccCompilationContextBuilder =
-        CcCompilationContext.builder(actionConstructionContext, configuration, label);
-
-    // Setup the include path; local include directories come before those inherited from deps or
-    // from the toolchain; in case of aliasing (same include file found on different entries),
-    // prefer the local include rather than the inherited one.
-
-    // Add in the roots for well-formed include names for source files and
-    // generated files. It is important that the execRoot (EMPTY_FRAGMENT) comes
-    // before the genfilesFragment to preferably pick up source files. Otherwise
-    // we might pick up stale generated files.
-    boolean siblingRepositoryLayout = configuration.isSiblingRepositoryLayout();
-    RepositoryName repositoryName = label.getRepository();
-    PathFragment repositoryPath = repositoryName.getExecPath(siblingRepositoryLayout);
-    PathFragment genIncludeDir =
-        siblingRepositoryLayout
-            ? ruleContext.getGenfilesFragment()
-            : ruleContext.getGenfilesFragment().getRelative(repositoryPath);
-    PathFragment binIncludeDir =
-        siblingRepositoryLayout
-            ? ruleContext.getBinFragment()
-            : ruleContext.getBinFragment().getRelative(repositoryPath);
-
-    ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
-    ccCompilationContextBuilder.addQuoteIncludeDir(genIncludeDir);
-    ccCompilationContextBuilder.addQuoteIncludeDir(binIncludeDir);
-    ccCompilationContextBuilder.addQuoteIncludeDirs(quoteIncludeDirs);
-    ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkIncludeDirs);
-
-    boolean external =
-        !repositoryName.isMain()
-            && featureConfiguration.isEnabled(CppRuleClasses.EXTERNAL_INCLUDE_PATHS);
-
-    if (external) {
-      ccCompilationContextBuilder.addExternalIncludeDir(repositoryPath);
-      ccCompilationContextBuilder.addExternalIncludeDir(genIncludeDir);
-      ccCompilationContextBuilder.addExternalIncludeDir(binIncludeDir);
-      ccCompilationContextBuilder.addExternalIncludeDirs(quoteIncludeDirs);
-      ccCompilationContextBuilder.addExternalIncludeDirs(systemIncludeDirs);
-      ccCompilationContextBuilder.addExternalIncludeDirs(includeDirs);
-    } else {
-      ccCompilationContextBuilder.addSystemIncludeDirs(systemIncludeDirs);
-      ccCompilationContextBuilder.addIncludeDirs(includeDirs);
-    }
-
-    PublicHeaders publicHeaders = computePublicHeaders(this.publicHeaders);
-    if (publicHeaders.getVirtualIncludePath() != null) {
-      if (external) {
-        ccCompilationContextBuilder.addExternalIncludeDir(publicHeaders.getVirtualIncludePath());
-      } else {
-        ccCompilationContextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
-      }
-    }
-
-    if (configuration.isCodeCoverageEnabled()) {
-      // Populate the map only when code coverage collection is enabled, to report the actual source
-      // file name in the coverage output file.
-      ccCompilationContextBuilder.addVirtualToOriginalHeaders(
-          publicHeaders.virtualToOriginalHeaders);
-    }
-
-    mergeToolchainDependentCcCompilationContext(ccToolchain, ccCompilationContextBuilder);
-
-    ccCompilationContextBuilder.addDefines(defines);
-
-    ccCompilationContextBuilder.addNonTransitiveDefines(localDefines);
-
-    // There are no ordering constraints for declared include dirs/srcs.
-    ccCompilationContextBuilder.addDeclaredIncludeSrcs(publicHeaders.getHeaders());
-    ccCompilationContextBuilder.addDeclaredIncludeSrcs(publicTextualHeaders);
-    ccCompilationContextBuilder.addDeclaredIncludeSrcs(privateHeaders);
-    ccCompilationContextBuilder.addDeclaredIncludeSrcs(additionalInputs);
-    ccCompilationContextBuilder.addNonCodeInputs(additionalInputs);
-    ccCompilationContextBuilder.addModularPublicHdrs(publicHeaders.getHeaders());
-    ccCompilationContextBuilder.addModularPrivateHdrs(privateHeaders);
-    ccCompilationContextBuilder.addTextualHdrs(publicTextualHeaders);
-
-    // Add this package's dir to declaredIncludeDirs, & this rule's headers to declaredIncludeSrcs
-    // Note: no include dir for STRICT mode.
-    if (headersCheckingMode == HeadersCheckingMode.LOOSE) {
-      ccCompilationContextBuilder.addLooseHdrsDir(label.getPackageFragment());
-      for (PathFragment looseIncludeDir : looseIncludeDirs) {
-        ccCompilationContextBuilder.addLooseHdrsDir(looseIncludeDir);
-      }
-      ccCompilationContextBuilder.setHeadersCheckingMode(headersCheckingMode);
-    }
-
-    if (!separateModuleHeaders.isEmpty()) {
-      // Expected 0 args, but got 1.
-      Preconditions.checkState(
-          featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)
-              && generateModuleMap
-              && (getGeneratesPicHeaderModule() || getGeneratesNoPicHeaderModule()),
-          "Should use separate headers only when building modules",
-          label);
-    }
-    PublicHeaders separatePublicHeaders = computePublicHeaders(separateModuleHeaders);
-
-    if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
-      if (cppModuleMap == null) {
-        cppModuleMap =
-            CppHelper.createDefaultCppModuleMap(actionConstructionContext, configuration, label);
-      }
-
-      ccCompilationContextBuilder.setPropagateCppModuleMapAsActionInput(
-          propagateModuleMapToCompileAction);
-      ccCompilationContextBuilder.setCppModuleMap(cppModuleMap);
-      // There are different modes for module compilation:
-      // 1. We create the module map and compile the module so that libraries depending on us can
-      //    use the resulting module artifacts in their compilation (compiled is true).
-      // 2. We create the module map so that libraries depending on us will include the headers
-      //    textually (compiled is false).
-      boolean compiled =
-          featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
-              || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES);
-      List<CppModuleMap> dependentModuleMaps = collectModuleMaps();
-
-      if (generateModuleMap) {
-        Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
-        if (umbrellaHeader.isPresent()) {
-          actionRegistry.registerAction(
-              createUmbrellaHeaderAction(umbrellaHeader.get(), publicHeaders));
-        }
-
-        actionRegistry.registerAction(
-            createModuleMapAction(
-                cppModuleMap, publicHeaders, separatePublicHeaders, dependentModuleMaps, compiled));
-      }
-      Artifact mapArtifact = cppModuleMap.getArtifact();
-      if (getGeneratesPicHeaderModule()) {
-        ccCompilationContextBuilder.setPicHeaderModule(getPicHeaderModule(mapArtifact, ""));
-      }
-      if (getGeneratesNoPicHeaderModule()) {
-        ccCompilationContextBuilder.setHeaderModule(getHeaderModule(mapArtifact, ""));
-      }
-      if (!separateModuleHeaders.isEmpty()) {
-        ccCompilationContextBuilder.addDeclaredIncludeSrcs(separatePublicHeaders.getHeaders());
-        if (configuration.isCodeCoverageEnabled()) {
-          ccCompilationContextBuilder.addVirtualToOriginalHeaders(
-              publicHeaders.virtualToOriginalHeaders);
-        }
-        String suffix = CppModuleMap.SEPARATE_MODULE_SUFFIX;
-        ccCompilationContextBuilder.setSeparateModuleHdrs(
-            separatePublicHeaders.getHeaders(),
-            getGeneratesNoPicHeaderModule() ? getHeaderModule(mapArtifact, suffix) : null,
-            getGeneratesPicHeaderModule() ? getPicHeaderModule(mapArtifact, suffix) : null);
-      }
-    }
-    ccCompilationContextBuilder.setPurpose(purpose);
-    ccCompilationContextBuilder.addDependentCcCompilationContexts(deps);
-    return ccCompilationContextBuilder;
   }
 
   public void registerAdditionalModuleMap(CppModuleMap cppModuleMap) {
@@ -1117,108 +886,10 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  private UmbrellaHeaderAction createUmbrellaHeaderAction(
-      Artifact umbrellaHeader, PublicHeaders publicHeaders) {
-    return new UmbrellaHeaderAction(
-        actionConstructionContext.getActionOwner(),
-        umbrellaHeader,
-        featureConfiguration.isEnabled(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
-            ? Iterables.filter(publicHeaders.getModuleMapHeaders(), CppFileTypes.MODULE_MAP_HEADER)
-            : publicHeaders.getModuleMapHeaders(),
-        additionalExportedHeaders);
-  }
-
-  private CppModuleMapAction createModuleMapAction(
-      CppModuleMap moduleMap,
-      PublicHeaders publicHeaders,
-      PublicHeaders separateModuleHeaders,
-      List<CppModuleMap> dependentModuleMaps,
-      boolean compiledModule) {
-    return new CppModuleMapAction(
-        actionConstructionContext.getActionOwner(),
-        moduleMap,
-        featureConfiguration.isEnabled(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
-            ? ImmutableList.of()
-            : privateHeaders,
-        featureConfiguration.isEnabled(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
-            ? Iterables.filter(publicHeaders.getModuleMapHeaders(), CppFileTypes.MODULE_MAP_HEADER)
-            : publicHeaders.getModuleMapHeaders(),
-        dependentModuleMaps,
-        additionalExportedHeaders,
-        separateModuleHeaders.getModuleMapHeaders(),
-        compiledModule,
-        featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
-        featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
-        !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
-  }
-
-  private List<CppModuleMap> collectModuleMaps() {
-    ImmutableList.Builder<CppModuleMap> builder = ImmutableList.<CppModuleMap>builder();
-    // TODO(bazel-team): Here we use the implementationDeps to build the dependents of this rule's
-    // module map. This is technically incorrect for the following reasons:
-    //  - Clang will not issue a layering_check warning if headers from implementation deps are
-    //    included from headers of this library.
-    //  - If we were to ever build with modules, Clang might store this dependency inside the .pcm
-    // It should be evaluated whether this is ok.  If this turned into a problem at some
-    // point, we could probably just declare two different modules with different use-declarations
-    // in the module map file.
-    for (CcCompilationContext ccCompilationContext : Iterables.concat(deps, implementationDeps)) {
-      CppModuleMap moduleMap = ccCompilationContext.getCppModuleMap();
-      // Cpp module maps may be null for some rules.
-      if (moduleMap != null) {
-        builder.add(moduleMap);
-      }
-      // These can't be null which is enforced before adding to exportingModuleMaps.
-      builder.addAll(ccCompilationContext.getExportingModuleMaps());
-    }
-
-    if (ccToolchain != null) {
-      CppModuleMap toolchainModuleMap =
-          ccToolchain.getCcInfo().getCcCompilationContext().getCppModuleMap();
-      if (toolchainModuleMap != null) {
-        builder.add(toolchainModuleMap);
-      }
-    }
-    for (CppModuleMap additionalCppModuleMap : additionalCppModuleMaps) {
-      // These can't be null which is enforced before adding to additionalCppModuleMaps.
-      builder.add(additionalCppModuleMap);
-    }
-
-    return builder.build();
-  }
-
-  /** @return whether this target needs to generate a pic header module. */
-  private boolean getGeneratesPicHeaderModule() {
-    return shouldProvideHeaderModules() && generatePicAction;
-  }
-
-  /** @return whether this target needs to generate a no-PIC header module. */
-  private boolean getGeneratesNoPicHeaderModule() {
-    return shouldProvideHeaderModules() && generateNoPicAction;
-  }
-
   /** @return whether we want to provide header modules for the current target. */
   private boolean shouldProvideHeaderModules() {
     return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
         && (!publicHeaders.isEmpty() || !privateHeaders.isEmpty());
-  }
-
-  /** @return the no-PIC header module artifact for the current target. */
-  private Artifact.DerivedArtifact getHeaderModule(Artifact moduleMapArtifact, String suffix) {
-    PathFragment objectDir =
-        CppHelper.getObjDirectory(label, configuration.isSiblingRepositoryLayout());
-    PathFragment outputName =
-        objectDir.getRelative(moduleMapArtifact.getRootRelativePath().getBaseName());
-    return actionConstructionContext.getRelatedArtifact(outputName, suffix + ".pcm");
-  }
-
-  /** @return the pic header module artifact for the current target. */
-  private Artifact.DerivedArtifact getPicHeaderModule(Artifact moduleMapArtifact, String suffix) {
-    PathFragment objectDir =
-        CppHelper.getObjDirectory(label, configuration.isSiblingRepositoryLayout());
-    PathFragment outputName =
-        objectDir.getRelative(moduleMapArtifact.getRootRelativePath().getBaseName());
-    return actionConstructionContext.getRelatedArtifact(outputName, suffix + ".pic.pcm");
   }
 
   /**
@@ -1241,23 +912,25 @@ public final class CcCompilationHelper {
    * </ol>
    */
   private ImmutableMap<Artifact, String> calculateOutputNameMap(
-      NestedSet<Artifact> sourceArtifacts, String prefixDir) {
+      ImmutableSet<Artifact> sourceArtifacts, String prefixDir) {
     ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
 
     HashMap<String, Integer> count = new LinkedHashMap<>();
     HashMap<String, Integer> number = new LinkedHashMap<>();
-    for (Artifact source : sourceArtifacts.toList()) {
+    for (Artifact source : sourceArtifacts) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
-      count.put(outputName.toLowerCase(), count.getOrDefault(outputName.toLowerCase(), 0) + 1);
+      count.put(
+          outputName.toLowerCase(Locale.ROOT),
+          count.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0) + 1);
     }
 
-    for (Artifact source : sourceArtifacts.toList()) {
+    for (Artifact source : sourceArtifacts) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
-      if (count.getOrDefault(outputName.toLowerCase(), 0) > 1) {
-        int num = number.getOrDefault(outputName.toLowerCase(), 0);
-        number.put(outputName.toLowerCase(), num + 1);
+      if (count.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0) > 1) {
+        int num = number.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0);
+        number.put(outputName.toLowerCase(Locale.ROOT), num + 1);
         outputName = num + "/" + outputName;
       }
       // If prefixDir is set, prepend it to the outputName
@@ -1290,14 +963,14 @@ public final class CcCompilationHelper {
     return builder.buildOrThrow();
   }
 
-  private NestedSet<Artifact> getSourceArtifactsByType(
+  private ImmutableSet<Artifact> getSourceArtifactsByType(
       Map<Artifact, CppSource> sources, CppSource.Type type) {
-    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    result.addAll(
-        sources.values().stream()
-            .filter(source -> source.getType().equals(type))
-            .map(CppSource::getSource)
-            .collect(Collectors.toList()));
+    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
+    for (CppSource source : sources.values()) {
+      if (source.getType().equals(type)) {
+        result.add(source.getSource());
+      }
+    }
     return result.build();
   }
 
@@ -1306,15 +979,16 @@ public final class CcCompilationHelper {
    * file. It takes into account coverage, and PIC, in addition to using the settings specified on
    * the current object. This method should only be called once.
    */
-  private CcCompilationOutputs createCcCompileActions() throws RuleErrorException {
+  private CcCompilationOutputs createCcCompileActions()
+      throws RuleErrorException, EvalException, InterruptedException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
 
     if (shouldProvideHeaderModules()) {
       CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
       Label moduleMapLabel = Label.parseCanonicalUnchecked(cppModuleMap.getName());
-      Collection<Artifact> modules = createModuleAction(result, cppModuleMap);
-      Collection<Artifact> separateModules = ImmutableList.of();
+      ImmutableList<Artifact> modules = createModuleAction(result, cppModuleMap);
+      ImmutableList<Artifact> separateModules = ImmutableList.of();
       if (!separateModuleHeaders.isEmpty()) {
         CppModuleMap separateMap =
             new CppModuleMap(
@@ -1331,7 +1005,6 @@ public final class CcCompilationHelper {
       }
     }
 
-    ImmutableMap<Artifact, String> outputNameMap;
     String outputNamePrefixDir = null;
     // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
     // Here we use it to distinguish arc and non-arc compilation.
@@ -1339,7 +1012,8 @@ public final class CcCompilationHelper {
     if (purpose.endsWith("_objc_arc")) {
       outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
     }
-    outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
+    ImmutableMap<Artifact, String> outputNameMap =
+        calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
 
     Set<String> compiledBasenames = new HashSet<>();
     for (CppSource source : compilationUnitSources.values()) {
@@ -1383,7 +1057,8 @@ public final class CcCompilationHelper {
             // The source action does not generate dwo when it has bitcode
             // output (since it isn't generating a native object with debug
             // info). In that case the LtoBackendAction will generate the dwo.
-            ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
+            CcToolchainProvider.shouldCreatePerObjectDebugInfo(
+                featureConfiguration, cppConfiguration),
             bitcodeOutput);
       } else {
         switch (source.getType()) {
@@ -1393,10 +1068,12 @@ public final class CcCompilationHelper {
                     source,
                     outputName,
                     builder,
+                    result,
                     ImmutableList.of(
                         ArtifactCategory.GENERATED_HEADER, ArtifactCategory.PROCESSED_HEADER),
                     // If we generate pic actions, we prefer the header actions to use the pic mode.
-                    generatePicAction);
+                    generatePicAction,
+                    bitcodeOutput);
             result.addHeaderTokenFile(headerTokenFile);
             break;
           case SOURCE:
@@ -1406,8 +1083,10 @@ public final class CcCompilationHelper {
                       source,
                       outputName,
                       builder,
+                      result,
                       ImmutableList.of(ArtifactCategory.OBJECT_FILE),
-                      /*usePic=*/ false);
+                      /* usePic= */ false,
+                      featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO));
               result.addObjectFile(objectFile);
             }
 
@@ -1417,8 +1096,10 @@ public final class CcCompilationHelper {
                       source,
                       outputName,
                       builder,
+                      result,
                       ImmutableList.of(ArtifactCategory.PIC_OBJECT_FILE),
-                      /*usePic=*/ true);
+                      /* usePic= */ true,
+                      featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO));
               result.addPicObjectFile(picObjectFile);
             }
             break;
@@ -1455,8 +1136,11 @@ public final class CcCompilationHelper {
       CppSource source,
       String outputName,
       CppCompileActionBuilder builder,
+      CcCompilationOutputs.Builder result,
       ImmutableList<ArtifactCategory> outputCategories,
-      boolean usePic) {
+      boolean usePic,
+      boolean bitcodeOutput)
+      throws RuleErrorException, EvalException, InterruptedException {
     if (usePic) {
       builder = new CppCompileActionBuilder(builder).setPicMode(true);
     }
@@ -1494,22 +1178,45 @@ public final class CcCompilationHelper {
               actionConstructionContext, label, sourceArtifact, outputName, usePic);
     }
 
+    // Currently we do not generate minimized bitcode files for tree artifacts because of issues
+    // with the indexing step.
+    // If ltoIndexTreeArtifact is set to a tree artifact, the minimized bitcode files will be
+    // properly generated and will be an input to the indexing step. However, the lto indexing step
+    // fails. The indexing step finds the full bitcode file by replacing the suffix of the
+    // minimized bitcode file, therefore they have to be in the same directory.
+    // Since the files are in the same directory, the command line artifact expander expands the
+    // tree artifact to both the minimized bitcode files and the full bitcode files, causing an
+    // error that functions are defined twice.
+    // TODO(b/289071777): support for minimized bitcode files.
+    SpecialArtifact ltoIndexTreeArtifact = null;
+
+    if (bitcodeOutput) {
+      Label sourceLabel = source.getLabel();
+      result.addLtoBitcodeFile(
+          outputFiles, ltoIndexTreeArtifact, getCopts(sourceArtifact, sourceLabel));
+    }
+
     ActionOwner actionOwner = null;
     if (actionConstructionContext instanceof RuleContext
         && ((RuleContext) actionConstructionContext).useAutoExecGroups()) {
       actionOwner = actionConstructionContext.getActionOwner(semantics.getCppToolchainType());
     }
-    CppCompileActionTemplate actionTemplate =
-        new CppCompileActionTemplate(
-            sourceArtifact,
-            outputFiles,
-            dotdTreeArtifact,
-            diagnosticsTreeArtifact,
-            builder,
-            ccToolchain,
-            outputCategories,
-            actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner);
-    actionRegistry.registerAction(actionTemplate);
+    try {
+      CppCompileActionTemplate actionTemplate =
+          new CppCompileActionTemplate(
+              sourceArtifact,
+              outputFiles,
+              dotdTreeArtifact,
+              diagnosticsTreeArtifact,
+              ltoIndexTreeArtifact,
+              builder,
+              ccToolchain,
+              outputCategories,
+              actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner);
+      actionRegistry.registerAction(actionTemplate);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
 
     return outputFiles;
   }
@@ -1566,7 +1273,8 @@ public final class CcCompilationHelper {
       boolean isUsingFission,
       Artifact dwoFile,
       Artifact ltoIndexingFile,
-      ImmutableMap<String, String> additionalBuildVariables) {
+      ImmutableMap<String, String> additionalBuildVariables)
+      throws RuleErrorException, EvalException, InterruptedException {
     Artifact sourceFile = builder.getSourceFile();
     String dotdFileExecPath = null;
     if (builder.getDotdFile() != null) {
@@ -1603,9 +1311,13 @@ public final class CcCompilationHelper {
             cppConfiguration.getFdoInstrument(),
             cppConfiguration.getCSFdoInstrument());
       }
-      buildVariables =
-          CcToolchainVariables.builder(
-              ccToolchain.getBuildVariables(configuration.getOptions(), cppConfiguration));
+      CcToolchainVariables cctoolchainVariables;
+      try {
+        cctoolchainVariables = ccToolchain.getBuildVars();
+      } catch (EvalException e) {
+        throw new RuleErrorException(e.getMessage());
+      }
+      buildVariables = CcToolchainVariables.builder(cctoolchainVariables);
       CompileBuildVariables.setupCommonVariables(
           buildVariables,
           featureConfiguration,
@@ -1679,7 +1391,7 @@ public final class CcCompilationHelper {
 
   private void createModuleCodegenAction(
       CcCompilationOutputs.Builder result, Label sourceLabel, Artifact module)
-      throws RuleErrorException {
+      throws RuleErrorException, EvalException, InterruptedException {
     String outputName = module.getRootRelativePath().getBaseName();
 
     // TODO(djasper): Make this less hacky after refactoring how the PIC/noPIC actions are created.
@@ -1706,7 +1418,7 @@ public final class CcCompilationHelper {
             : null;
 
     boolean generateDwo =
-        ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration);
+        CcToolchainProvider.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration);
     Artifact dwoFile = generateDwo ? getDwoFile(builder.getOutputFile()) : null;
     // TODO(tejohnson): Add support for ThinLTO if needed.
     boolean bitcodeOutput =
@@ -1747,7 +1459,7 @@ public final class CcCompilationHelper {
       String outputName,
       CcCompilationOutputs.Builder result,
       CppCompileActionBuilder builder)
-      throws RuleErrorException {
+      throws RuleErrorException, EvalException, InterruptedException {
     String outputNameBase =
         CppHelper.getArtifactNameForCategory(
             ccToolchain, ArtifactCategory.GENERATED_HEADER, outputName);
@@ -1782,7 +1494,8 @@ public final class CcCompilationHelper {
   }
 
   private ImmutableList<Artifact> createModuleAction(
-      CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap) throws RuleErrorException {
+      CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap)
+      throws RuleErrorException, EvalException, InterruptedException {
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
     CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact);
 
@@ -1805,6 +1518,7 @@ public final class CcCompilationHelper {
         /* bitcodeOutput= */ false);
   }
 
+  @CanIgnoreReturnValue
   private ImmutableList<Artifact> createSourceAction(
       Label sourceLabel,
       String outputName,
@@ -1817,7 +1531,7 @@ public final class CcCompilationHelper {
       boolean enableCoverage,
       boolean generateDwo,
       boolean bitcodeOutput)
-      throws RuleErrorException {
+      throws RuleErrorException, EvalException, InterruptedException {
     ImmutableList.Builder<Artifact> directOutputs = new ImmutableList.Builder<>();
     PathFragment ccRelativeName = sourceArtifact.getRootRelativePath();
 
@@ -1845,7 +1559,7 @@ public final class CcCompilationHelper {
               picBuilder,
               sourceLabel,
               /* usePic= */ true,
-              /* needsFdoBuildVariables= */ ccRelativeName != null,
+              /* needsFdoBuildVariables= */ ccRelativeName != null && addObject,
               cppModuleMap,
               gcnoFile,
               generateDwo,
@@ -1885,6 +1599,9 @@ public final class CcCompilationHelper {
       }
       if (gcnoFile != null) {
         result.addPicGcnoFile(gcnoFile);
+      }
+      if (outputCategory == ArtifactCategory.CPP_MODULE) {
+        result.addModuleFile(picAction.getPrimaryOutput());
       }
     }
 
@@ -1956,6 +1673,9 @@ public final class CcCompilationHelper {
       }
       if (gcnoFile != null) {
         result.addGcnoFile(gcnoFile);
+      }
+      if (outputCategory == ArtifactCategory.CPP_MODULE) {
+        result.addModuleFile(compileAction.getPrimaryOutput());
       }
     }
     return directOutputs.build();
@@ -2052,7 +1772,7 @@ public final class CcCompilationHelper {
       CppCompileActionBuilder builder,
       boolean usePic,
       PathFragment ccRelativeName)
-      throws RuleErrorException {
+      throws RuleErrorException, EvalException, InterruptedException {
     if (!cppConfiguration.getSaveTemps()) {
       return ImmutableList.of();
     }
@@ -2121,17 +1841,5 @@ public final class CcCompilationHelper {
     actionRegistry.registerAction(sdAction);
 
     return ImmutableList.of(dAction.getPrimaryOutput(), sdAction.getPrimaryOutput());
-  }
-
-  /**
-   * Merges the STL and toolchain contexts into context builder. The STL is automatically determined
-   * using the "$stl" (or, historically, ":stl") attribute.
-   */
-  private static void mergeToolchainDependentCcCompilationContext(
-      CcToolchainProvider toolchain, CcCompilationContext.Builder ccCompilationContextBuilder) {
-    if (toolchain != null) {
-      ccCompilationContextBuilder.addDependentCcCompilationContext(
-          toolchain.getCcCompilationContext());
-    }
   }
 }

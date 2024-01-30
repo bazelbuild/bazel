@@ -10,10 +10,9 @@ which publishes metadata about other modules that it depends on. This is
 analogous to familiar concepts in other dependency management systems, such as a
 Maven *artifact*, an npm *package*, a Go *module*, or a Cargo *crate*.
 
-A module must have a `MODULE.bazel` file at its repo root (next to the
-`WORKSPACE` file). This file is the module's manifest, declaring its name,
-version, list of direct dependencies, and other information. For a basic
-example:
+A module must have a `MODULE.bazel` file at its repo root. This file is the
+module's manifest, declaring its name, version, list of direct dependencies, and
+other information. For a basic example:
 
 ```python
 module(name = "my-module", version = "1.0")
@@ -22,14 +21,15 @@ bazel_dep(name = "rules_cc", version = "0.0.1")
 bazel_dep(name = "protobuf", version = "3.19.0")
 ```
 
-See the [full list](/rules/lib/globals/module) of directives available in `MODULE.bazel` files.
+See the [full list](/rules/lib/globals/module) of directives available in
+`MODULE.bazel` files.
 
 To perform module resolution, Bazel starts by reading the root module's
 `MODULE.bazel` file, and then repeatedly requests any dependency's
 `MODULE.bazel` file from a [Bazel registry](/external/registry) until it
 discovers the entire dependency graph.
 
-By default, Bazel then [selects](#version_selection) one version of each module
+By default, Bazel then [selects](#version-selection) one version of each module
 to use. Bazel represents each module with a repo, and consults the registry
 again to learn how to define each of the repos.
 
@@ -58,7 +58,7 @@ Any valid SemVer version is a valid Bazel module version. Additionally, two
 SemVer versions `a` and `b` compare `a < b` if and only if the same holds when
 they're compared as Bazel module versions.
 
-## Version selection
+## Version selection {:#version-selection}
 
 Consider the diamond dependency problem, a staple in the versioned dependency
 management space. Suppose you have the dependency graph:
@@ -173,18 +173,33 @@ Bazel supports the following non-registry overrides:
 *   [`git_override`](/rules/lib/globals/module#git_override)
 *   [`local_path_override`](/rules/lib/globals/module#local_path_override)
 
+## Define repos that don't represent Bazel modules {:#use_repo_rule}
+
+With `bazel_dep`, you can define repos that represent other Bazel modules.
+Sometimes there is a need to define a repo that does _not_ represent a Bazel
+module; for example, one that contains a plain JSON file to be read as data.
+
+In this case, you could use the [`use_repo_rule`
+directive](/rules/lib/globals/module#use_repo_rule) to directly define a repo
+by invoking a repo rule. This repo will only be visible to the module it's
+defined in.
+
+Under the hood, this is implemented using the same mechanism as [module
+extensions](/external/extension), which lets you define repos with more
+flexibility.
+
 ## Repository names and strict deps
 
-The [canonical name](/external/overview#canonical_repository_name) of a repo
-backing a module is `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>"
-}}version{{ "</var>" }}` (for example, `bazel_skylib~1.0.3`). For modules with a
+The [canonical name](/external/overview#canonical-repo-name) of a repo backing a
+module is `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{
+"</var>" }}` (for example, `bazel_skylib~1.0.3`). For modules with a
 non-registry override, replace the `{{ "<var>" }}version{{ "</var>" }}` part
 with the string `override`. Note that the canonical name format is not an API
 you should depend on and is subject to change at any time.
 
-The [apparent name](/external/overview#apparent_repository_name) of a repo
-backing a module to its direct dependents defaults to its module name, unless
-the `repo_name` attribute of the [`bazel_dep`](/rules/lib/globals/module#bazel_dep)
+The [apparent name](/external/overview#apparent-repo-name) of a repo backing a
+module to its direct dependents defaults to its module name, unless the
+`repo_name` attribute of the [`bazel_dep`](/rules/lib/globals/module#bazel_dep)
 directive says otherwise. Note that this means a module can only find its direct
 dependencies. This helps prevent accidental breakages due to changes in
 transitive dependencies.

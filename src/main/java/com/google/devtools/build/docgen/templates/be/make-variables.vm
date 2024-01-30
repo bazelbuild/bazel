@@ -356,7 +356,7 @@
 <p>
   <code>execpaths</code>, <code>rootpaths</code>, <code>rlocationpaths</code>,
   and <code>locations</code> are the plural variations of <code>execpath</code>,
-  <code>rootpath</code>, <code>rlocationpaths</code>, and<code>location</code>,
+  <code>rootpath</code>, <code>rlocationpath</code>, and<code>location</code>,
   respectively. They support labels producing multiple outputs, in which case
   each output is listed separated by a space. Zero-output rules and malformed
   labels produce build errors.
@@ -412,7 +412,7 @@
 <p>
   These variables are a fallback mechanism to be used by language experts in
   rare cases. If you are tempted to use them, please <a
-  href="https://bazel.build/contribute/support">contact the Bazel devs</a> first.
+  href="https://bazel.build/help">contact the Bazel devs</a> first.
 </p>
 
 <ul><!--  keep alphabetically sorted  -->
@@ -463,7 +463,7 @@
 <p>
   These variables are a fallback mechanism to be used by language experts in
   rare cases. If you are tempted to use them, please <a
-  href="https://bazel.build/contribute/support">contact the Bazel devs</a> first.
+  href="https://bazel.build/help">contact the Bazel devs</a> first.
 </p>
 
 <ul><!--  keep alphabetically sorted  -->

@@ -53,7 +53,11 @@ public final class MapBasedActionGraph implements MutableActionGraph {
             actionKeyContext, action, previousAction)) {
           return; // All outputs can be shared. No need to register the remaining outputs.
         }
-        throw new ActionConflictException(actionKeyContext, artifact, previousAction, action);
+        // TODO(blaze-configurability-team): May be possible to do some inspection here and provide
+        // advice on possible known-common reasons for conflicts.
+        // e.g. If only config diffs where one is missing TestOptions: --trim_test_configuration
+        //   or, if the --platforms differ but have same shortname
+        throw ActionConflictException.create(actionKeyContext, artifact, previousAction, action);
       }
     }
   }

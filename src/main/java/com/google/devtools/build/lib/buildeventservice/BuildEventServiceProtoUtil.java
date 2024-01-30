@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished.FinishType.FINISHED;
 
@@ -48,6 +49,7 @@ public final class BuildEventServiceProtoUtil {
   private final String commandName;
   private final Set<String> additionalKeywords;
   private final boolean checkPrecedingLifecycleEvents;
+  private final int attemptNumber;
 
   private BuildEventServiceProtoUtil(
       String buildRequestId,
@@ -55,13 +57,17 @@ public final class BuildEventServiceProtoUtil {
       @Nullable String projectId,
       String commandName,
       Set<String> additionalKeywords,
-      boolean checkPrecedingLifecycleEvents) {
+      boolean checkPrecedingLifecycleEvents,
+      int attemptNumber) {
+    checkArgument(attemptNumber >= 1);
+
     this.buildRequestId = buildRequestId;
     this.buildInvocationId = buildInvocationId;
     this.projectId = projectId;
     this.commandName = commandName;
     this.additionalKeywords = ImmutableSet.copyOf(additionalKeywords);
     this.checkPrecedingLifecycleEvents = checkPrecedingLifecycleEvents;
+    this.attemptNumber = attemptNumber;
   }
 
   public PublishLifecycleEventRequest buildEnqueued(Timestamp timestamp) {
@@ -93,7 +99,7 @@ public final class BuildEventServiceProtoUtil {
             com.google.devtools.build.v1.BuildEvent.newBuilder()
                 .setEventTime(timestamp)
                 .setInvocationAttemptStarted(
-                    InvocationAttemptStarted.newBuilder().setAttemptNumber(1)))
+                    InvocationAttemptStarted.newBuilder().setAttemptNumber(attemptNumber)))
         .build();
   }
 
@@ -219,6 +225,7 @@ public final class BuildEventServiceProtoUtil {
     private Set<String> keywords;
     @Nullable private String projectId;
     private boolean checkPrecedingLifecycleEvents;
+    private int attemptNumber;
 
     @CanIgnoreReturnValue
     public Builder buildRequestId(String value) {
@@ -256,6 +263,12 @@ public final class BuildEventServiceProtoUtil {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder attemptNumber(int attemptNumber) {
+      this.attemptNumber = attemptNumber;
+      return this;
+    }
+
     public BuildEventServiceProtoUtil build() {
       return new BuildEventServiceProtoUtil(
           checkNotNull(buildRequestId),
@@ -263,7 +276,8 @@ public final class BuildEventServiceProtoUtil {
           projectId,
           checkNotNull(commandName),
           checkNotNull(keywords),
-          checkPrecedingLifecycleEvents);
+          checkPrecedingLifecycleEvents,
+          attemptNumber);
     }
   }
 }

@@ -16,14 +16,14 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -146,53 +146,52 @@ class Memoizer {
         SerializationContext context,
         T obj,
         ObjectCodec<? super T> codec,
-        CodedOutputStream codedOut,
-        MemoizationStrategy strategy)
+        CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
-        codec.serialize(context, obj, codedOut);
-      } else {
-        // The caller already checked the table, so this is definitely a new value.
-        serializeMemoContent(context, obj, codec, codedOut, strategy);
-      }
+      // The caller already checked the table, so this is definitely a new value.
+      serializeMemoContent(context, obj, codec, codedOut);
     }
 
-    @Nullable
-    Integer getMemoizedIndex(Object obj) {
-      return memo.lookupNullable(obj);
+    int getMemoizedIndex(Object obj) {
+      return memo.lookup(obj);
     }
 
     // Corresponds to MemoContent in the abstract grammar.
     private <T> void serializeMemoContent(
-        SerializationContext context,
-        T obj,
-        ObjectCodec<T> codec,
-        CodedOutputStream codedOut,
-        MemoizationStrategy strategy)
+        SerializationContext context, T obj, ObjectCodec<T> codec, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      switch(strategy) {
-        case MEMOIZE_BEFORE: {
-          int id = memo.memoize(obj);
-          codedOut.writeInt32NoTag(id);
+      switch (codec.getStrategy()) {
+        case MEMOIZE_BEFORE:
+          {
+            int id = memo.memoize(obj);
+            codedOut.writeInt32NoTag(id);
             codec.serialize(context, obj, codedOut);
-          break;
-        }
-        case MEMOIZE_AFTER: {
+            break;
+          }
+        case MEMOIZE_AFTER:
+          {
             codec.serialize(context, obj, codedOut);
-          // If serializing the children caused the parent object itself to be serialized due to a
-          // cycle, then there's now a memo entry for the parent. Don't overwrite it with a new id.
-          Integer cylicallyCreatedId = memo.lookupNullable(obj);
-          int id = (cylicallyCreatedId != null) ? cylicallyCreatedId : memo.memoize(obj);
-          codedOut.writeInt32NoTag(id);
-          break;
-        }
-        default:
-          throw new AssertionError("Unreachable (strategy=" + strategy + ")");
+            // If serializing the children caused the parent object itself to be serialized due to a
+            // cycle, then there's now a memo entry for the parent. Don't overwrite it with a new
+            // id.
+            int cylicallyCreatedId = memo.lookup(obj);
+            int id = (cylicallyCreatedId != -1) ? cylicallyCreatedId : memo.memoize(obj);
+            codedOut.writeInt32NoTag(id);
+            break;
+          }
       }
     }
 
     private static class SerializingMemoTable {
-      private final IdentityHashMap<Object, Integer> table = new IdentityHashMap<>();
+      private final Reference2IntOpenHashMap<Object> table = new Reference2IntOpenHashMap<>();
+
+      /** Table for types memoized using values equality, currently only {@link String}. */
+      private final Object2IntOpenHashMap<Object> valuesTable = new Object2IntOpenHashMap<>();
+
+      SerializingMemoTable() {
+        table.defaultReturnValue(-1);
+        valuesTable.defaultReturnValue(-1);
+      }
 
       /**
        * Adds a new value to the memo table and returns its id. The value must not already be
@@ -200,22 +199,25 @@ class Memoizer {
        */
       private int memoize(Object value) {
         Preconditions.checkArgument(
-            !table.containsKey(value),
-            "Tried to memoize object '%s' multiple times", value);
+            lookup(value) == -1, "Tried to memoize object '%s' multiple times", value);
         // Ids count sequentially from 0.
-        int newId = table.size();
-        table.put(value, newId);
+        int newId = table.size() + valuesTable.size();
+        if (value instanceof String) {
+          valuesTable.put(value, newId);
+        } else {
+          table.put(value, newId);
+        }
         return newId;
       }
 
       /**
-       * If the value is already memoized, return its on-the-wire id; otherwise return null. Opaque.
-       *
-       * <p>Beware accidental unboxing of a null result.
+       * If the value is already memoized, return its on-the-wire id; otherwise returns {@code -1}.
        */
-      @Nullable
-      private Integer lookupNullable(Object value) {
-        return table.get(value);
+      private int lookup(Object value) {
+        if (value instanceof String) {
+          return valuesTable.getInt(value);
+        }
+        return table.getInt(value);
       }
     }
   }
@@ -225,7 +227,7 @@ class Memoizer {
    */
   static class Deserializer {
     private final DeserializingMemoTable memo = new DeserializingMemoTable();
-    @Nullable private Integer tagForMemoizedBefore = null;
+    private int tagForMemoizedBefore = -1;
     private final Deque<Object> memoizedBeforeStackForSanityChecking = new ArrayDeque<>();
 
     /**
@@ -237,26 +239,20 @@ class Memoizer {
     <T> T deserialize(
         DeserializationContext context,
         ObjectCodec<? extends T> codec,
-        MemoizationStrategy strategy,
         CodedInputStream codedIn)
         throws SerializationException, IOException {
       Preconditions.checkState(
-          tagForMemoizedBefore == null,
+          tagForMemoizedBefore == -1,
           "non-null memoized-before tag %s (%s)",
           tagForMemoizedBefore,
           codec);
-      if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
-        return codec.deserialize(context, codedIn);
-      } else {
-          switch (strategy) {
-            case MEMOIZE_BEFORE:
-              return deserializeMemoBeforeContent(context, codec, codedIn);
-            case MEMOIZE_AFTER:
-              return deserializeMemoAfterContent(context, codec, codedIn);
-            default:
-              throw new AssertionError("Unreachable (strategy=" + strategy + ")");
-          }
-        }
+      switch (codec.getStrategy()) {
+        case MEMOIZE_BEFORE:
+          return deserializeMemoBeforeContent(context, codec, codedIn);
+        case MEMOIZE_AFTER:
+          return deserializeMemoAfterContent(context, codec, codedIn);
+      }
+      throw new AssertionError("Unreachable (strategy=" + codec.getStrategy() + ")");
     }
 
     Object getMemoized(int memoIndex) {
@@ -302,10 +298,10 @@ class Memoizer {
     }
 
     <T> void registerInitialValue(T initialValue) {
-      int tag =
-          Preconditions.checkNotNull(
-              tagForMemoizedBefore, " Not called with memoize before: %s", initialValue);
-      tagForMemoizedBefore = null;
+      Preconditions.checkState(
+          tagForMemoizedBefore != -1, "Not called with memoize before: %s", initialValue);
+      int tag = tagForMemoizedBefore;
+      tagForMemoizedBefore = -1;
       memo.memoize(tag, initialValue);
       memoizedBeforeStackForSanityChecking.addLast(initialValue);
     }
@@ -348,7 +344,7 @@ class Memoizer {
 
     private static class DeserializingMemoTable {
 
-      private HashMap<Integer, Object> table = new HashMap<>();
+      private final Int2ObjectOpenHashMap<Object> table = new Int2ObjectOpenHashMap<>();
 
       /**
        * Adds a new id -> object maplet to the memo table. The value must not already be present.
@@ -356,10 +352,13 @@ class Memoizer {
       private void memoize(int id, Object value) {
         Preconditions.checkNotNull(value);
         Object prev = table.put(id, value);
-        Preconditions.checkArgument(
-            prev == null,
-            "Tried to memoize id %s to object '%s', when it is already memoized to object '%s'",
-            id, value, prev);
+        if (prev != null) { // Avoid boxing int with checkArgument.
+          throw new IllegalArgumentException(
+              String.format(
+                  "Tried to memoize id %s to object '%s', when it is already memoized to object"
+                      + " '%s'",
+                  id, value, prev));
+        }
       }
 
       /** If the id has been memoized, returns its corresponding object. Otherwise returns null. */

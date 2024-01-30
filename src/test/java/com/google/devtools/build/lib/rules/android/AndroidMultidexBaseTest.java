@@ -26,7 +26,7 @@ import java.util.Set;
 import org.junit.Before;
 
 /** Base class for testing the multidex code of android_binary and android_test. */
-public class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
+public abstract class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
 
   @Before
   public final void createFiles() throws Exception {

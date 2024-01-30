@@ -51,25 +51,25 @@ commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
 bazel_version=$(bazel info release | cut -d' ' -f2)
 
-JAVA_BUILD_OPTS="--tool_java_language_version=8 --java_language_version=8"
+RELEASE_BUILD_OPTS="-c opt --tool_java_language_version=8 --java_language_version=8"
 
 # Passing the same commit_hash and timestamp to all targets to mark all the artifacts
 # uploaded on GCS with the same identifier.
 
-bazel build ${JAVA_BUILD_OPTS} //src:java_tools_zip
+bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_zip
 zip_path=${PWD}/bazel-bin/src/java_tools.zip
 
-bazel build ${JAVA_BUILD_OPTS} //src:java_tools_prebuilt_zip
+bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_prebuilt_zip
 prebuilt_zip_path=${PWD}/bazel-bin/src/java_tools_prebuilt.zip
 
+# copy zips out of bazel-bin so we don't lose them on later bazel invocations
+cp -f ${zip_path} ${prebuilt_zip_path} ./
+zip_path=${PWD}/java_tools.zip
+prebuilt_zip_path=${PWD}/java_tools_prebuilt.zip
+
 if [[ "$platform" == "windows" ]]; then
-    # Windows needs "file:///c:/foo/bar".
-    file_url="file:///$(cygpath -m ${zip_path})"
-    prebuilt_file_url="file:///$(cygpath -m ${prebuilt_zip_path})"
-else
-    # Non-Windows needs "file:///foo/bar".
-    file_url="file://${zip_path}"
-    prebuilt_file_url="file://${prebuilt_zip_path}"
+    zip_path="$(cygpath -m "${zip_path}")"
+    prebuilt_zip_path="$(cygpath -m "${prebuilt_zip_path}")"
 fi
 
 # Skip for now, as the test is broken on Windows.
@@ -79,23 +79,23 @@ if [[ "$platform" != "windows" ]]; then
     for java_version in $JAVA_VERSIONS; do
         bazel test --verbose_failures --test_output=all --nocache_test_results \
             //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version} \
-            --define=LOCAL_JAVA_TOOLS_ZIP_URL="${file_url}" \
-            --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_URL="${prebuilt_file_url}"
+            --define=LOCAL_JAVA_TOOLS_ZIP_PATH="${zip_path}" \
+            --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_PATH="${prebuilt_zip_path}"
     done
 fi
 
-bazel run ${JAVA_BUILD_OPTS} //src:upload_java_tools_prebuilt -- \
+bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools_prebuilt -- \
     --commit_hash ${commit_hash} \
     --timestamp ${timestamp} \
     --bazel_version ${bazel_version}
 
 if [[ "$platform" == "linux" ]]; then
-    bazel run ${JAVA_BUILD_OPTS} //src:upload_java_tools -- \
+    bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools -- \
         --commit_hash ${commit_hash} \
         --timestamp ${timestamp} \
         --bazel_version ${bazel_version}
 
-    bazel run ${JAVA_BUILD_OPTS} //src:upload_java_tools_dist -- \
+    bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools_dist -- \
         --commit_hash ${commit_hash} \
         --timestamp ${timestamp} \
         --bazel_version ${bazel_version}

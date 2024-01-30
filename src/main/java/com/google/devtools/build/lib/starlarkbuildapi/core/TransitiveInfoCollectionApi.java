@@ -41,11 +41,6 @@ import net.starlark.java.eval.StarlarkValue;
             + " outputs for this target. Equivalent to <code><a"
             + " href='../providers/DefaultInfo.html#files'>target[DefaultInfo].files</a></code>.</li>\n" //
             //
-            + "<li><h3 id='modules.Target.aspect_ids'>aspect_ids</h3>\n" //
-            + "<code><a href='../core/list.html'>list</a> Target.aspect_ids </code><br/>\n" //
-            + "The list of <code><a href='../builtins/ctx.html#aspect_ids'>aspect_ids</a></code> "
-            + "applied to this target.</li>\n" //
-            //
             + "<li><h3 id='modules.Target.providers'>Providers</h3>\n" //
             + "The <a href='https://bazel.build/extending/rules#providers'>providers</a> of a rule"
             + " target can be accessed by type using index notation"

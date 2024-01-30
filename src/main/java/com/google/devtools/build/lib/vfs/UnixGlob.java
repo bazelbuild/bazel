@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -227,7 +228,7 @@ public final class UnixGlob {
     StringBuilder regexp = new StringBuilder();
     for (int i = 0, len = pattern.length(); i < len; i++) {
       char c = pattern.charAt(i);
-      switch(c) {
+      switch (c) {
         case '*':
           int toIncrement = 0;
           if (len > i + 1 && pattern.charAt(i + 1) == '*') {
@@ -737,15 +738,30 @@ public final class UnixGlob {
      */
     private void reallyGlob(Path base, boolean baseIsDir, int idx, GlobTaskContext context)
         throws IOException {
-
-      if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
+      if (idx == context.patternParts.length) { // Base case.
         maybeAddResult(context, base, baseIsDir);
         return;
       }
 
-      if (idx == context.patternParts.length) { // Base case.
-        maybeAddResult(context, base, baseIsDir);
+      // Do an early readdir() call here if the pattern contains a wildcard (* or ?). The reason is
+      // that we'll do so later anyway and doing this early avoids an additional stat to determine
+      // the existence of a build file as part of the shouldTraverseDirectory() call below (globs
+      // will no recurse into sub-packages, i.e. directories that contain a build file). This
+      // optimizes for the common case where there is no build file in the sub directory.
+      String pattern = context.patternParts[idx];
+      boolean patternContainsWildcard = pattern.contains("*") || pattern.contains("?");
+      Collection<Dirent> dents = null;
+      if (baseIsDir && patternContainsWildcard) {
+        dents = context.syscalls.readdir(base);
+      }
 
+      if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
+        if (areAllRemainingPatternsDoubleStar(context, idx)) {
+          // For SUBPACKAGES, we encounter this when all remaining patterns in the glob expression
+          // are `**`s. In that case we should include the subpackage's PathFragment (relative to
+          // the package fragment) in the matching results.
+          maybeAddResult(context, base, baseIsDir);
+        }
         return;
       }
 
@@ -754,15 +770,13 @@ public final class UnixGlob {
         return;
       }
 
-      String pattern = context.patternParts[idx];
-
       // ** is special: it can match nothing at all.
       // For example, x/** matches x, **/y matches y, and x/**/y matches x/y.
       if (isRecursivePattern(pattern)) {
         context.queueGlob(base, baseIsDir, idx + 1);
       }
 
-      if (!pattern.contains("*") && !pattern.contains("?")) {
+      if (!patternContainsWildcard) {
         // We do not need to do a readdir in this case, just a stat.
         Path child = base.getChild(pattern);
         FileStatus status = context.syscalls.statIfFound(child, Symlinks.FOLLOW);
@@ -775,7 +789,6 @@ public final class UnixGlob {
         return;
       }
 
-      Collection<Dirent> dents = context.syscalls.readdir(base);
       for (Dirent dent : dents) {
         Dirent.Type childType = dent.getType();
         if (childType == Dirent.Type.UNKNOWN) {
@@ -798,6 +811,12 @@ public final class UnixGlob {
       if (context.pathDiscriminator.shouldIncludePathInResult(base, isDirectory)) {
         results.add(base);
       }
+    }
+
+    private static boolean areAllRemainingPatternsDoubleStar(
+        GlobTaskContext context, int startIdx) {
+      return Arrays.stream(context.patternParts, startIdx, context.patternParts.length)
+          .allMatch("**"::equals);
     }
 
     /**

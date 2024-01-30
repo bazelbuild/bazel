@@ -16,17 +16,14 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -38,16 +35,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -160,7 +156,6 @@ public final class JavaCompileActionBuilder {
   private JavaToolchainTool javaBuilder;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private JavaPluginData plugins = JavaPluginData.empty();
-  private ImmutableSet<String> builtinProcessorNames = ImmutableSet.of();
   private NestedSet<Artifact> extraData = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private Label targetLabel;
   @Nullable private String injectingRuleKind;
@@ -177,11 +172,9 @@ public final class JavaCompileActionBuilder {
     this.execGroup = execGroup;
   }
 
-  public JavaCompileAction build() {
+  public JavaCompileAction build() throws RuleErrorException {
     // TODO(bazel-team): all the params should be calculated before getting here, and the various
     // aggregation code below should go away.
-    ImmutableList<String> internedJcopts =
-        javacOpts.stream().map(StringCanonicalizer::intern).collect(toImmutableList());
 
     // Invariant: if strictJavaDeps is OFF, then directJars and
     // dependencyArtifacts are ignored
@@ -230,7 +223,7 @@ public final class JavaCompileActionBuilder {
             plugins.processorClasses(),
             sourceJars,
             sourceFiles,
-            internedJcopts);
+            javacOpts);
 
     // TODO(b/123076347): outputDepsProto should never be null if SJD is enabled
     if (strictJavaDeps == StrictDepsMode.OFF || outputs.depsProto() == null) {
@@ -255,15 +248,7 @@ public final class JavaCompileActionBuilder {
     mandatoryInputsBuilder.addTransitive(tools);
     NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
 
-    boolean stripOutputPaths =
-        JavaCompilationHelper.stripOutputPaths(
-            JavaCompileAction.allInputs(
-                mandatoryInputs, classpathEntries, compileTimeDependencyArtifacts),
-            ruleContext.getConfiguration());
-    CustomCommandLine executableLine =
-        javaBuilder.getCommandLine(
-            toolchain,
-            stripOutputPaths ? JavaCompilationHelper.outputBase(outputs.output()) : null);
+    CustomCommandLine executableLine = javaBuilder.getCommandLine(toolchain);
 
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
@@ -282,7 +267,7 @@ public final class JavaCompileActionBuilder {
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
         /* executableLine= */ executableLine,
-        /* flagLine= */ buildParamFileContents(internedJcopts, stripOutputPaths),
+        /* flagLine= */ buildParamFileContents(javacOpts),
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
         /* outputDepsProto= */ outputs.depsProto(),
@@ -300,13 +285,10 @@ public final class JavaCompileActionBuilder {
     return result.build();
   }
 
-  private CustomCommandLine buildParamFileContents(
-      ImmutableList<String> javacOpts, boolean stripOutputPaths) {
+  private CustomCommandLine buildParamFileContents(ImmutableList<String> javacOpts)
+      throws RuleErrorException {
 
     CustomCommandLine.Builder result = CustomCommandLine.builder();
-    if (stripOutputPaths) {
-      result.stripOutputPaths(JavaCompilationHelper.outputBase(outputs.output()));
-    }
 
     result.addExecPath("--output", outputs.output());
     result.addExecPath("--native_header_output", outputs.nativeHeader());
@@ -323,27 +305,10 @@ public final class JavaCompileActionBuilder {
     result.addExecPaths("--sourcepath", sourcePathEntries);
     result.addExecPaths("--processorpath", plugins.processorClasspath());
     result.addAll("--processors", plugins.processorClasses());
-    result.addAll(
-        "--builtin_processors",
-        Sets.intersection(plugins.processorClasses().toSet(), builtinProcessorNames));
-    result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
+    result.addExecPaths("--source_jars", sourceJars);
     result.addExecPaths("--sources", sourceFiles);
     if (!javacOpts.isEmpty()) {
-      if (stripOutputPaths) {
-        // Use textual search/replace to remove configuration prefixes from javacopts. This should
-        // ideally be constructed directly from artifact exec paths. In this case, targets with
-        // make variables like $(execpath ...)" stringify those paths before we get to this class.
-        // TODO(https://github.com/bazelbuild/bazel/issues/6526): provide direct path stripping
-        //   support for make variable expansion.
-        PathStripper.StringStripper coptStripper =
-            new PathStripper.StringStripper(
-                ruleContext.getConfiguration().getDirectories().getRelativeOutputPath());
-        result.addAll(
-            "--javacopts",
-            javacOpts.stream().map(coptStripper::strip).collect(Collectors.toList()));
-      } else {
-        result.addAll("--javacopts", javacOpts);
-      }
+      result.add("--javacopts").addObject(javacOpts);
       // terminate --javacopts with `--` to support javac flags that start with `--`
       result.add("--");
     }
@@ -467,14 +432,6 @@ public final class JavaCompileActionBuilder {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
     this.plugins = plugins;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public JavaCompileActionBuilder setBuiltinProcessorNames(
-      ImmutableSet<String> builtinProcessorNames) {
-    this.builtinProcessorNames =
-        checkNotNull(builtinProcessorNames, "builtinProcessorNames must not be null");
     return this;
   }
 

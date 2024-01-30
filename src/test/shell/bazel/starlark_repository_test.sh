@@ -68,6 +68,11 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
+mock_rules_java_to_avoid_downloading
+
+# Make sure no repository cache is used in this test
+add_to_bazelrc "build --repository_cache="
+
 # Basic test.
 function test_macro_local_repository() {
   create_new_workspace
@@ -293,7 +298,7 @@ EOF
   [ $exitCode != 0 ] || fail "building @foo//:data.txt succeed while expected failure"
 
   expect_not_log "PACKAGE"
-  expect_log "Failed to load Starlark extension '@foo//:ext.bzl'"
+  expect_log "Failed to load Starlark extension '@@foo//:ext.bzl'"
 }
 
 function test_load_nonexistent_with_subworkspace() {
@@ -311,7 +316,7 @@ EOF
   [ $exitCode != 0 ] || fail "building //... succeed while expected failure"
 
   expect_not_log "PACKAGE"
-  expect_log "Failed to load Starlark extension '@does_not_exist//:random.bzl'"
+  expect_log "Failed to load Starlark extension '@@does_not_exist//:random.bzl'"
 
   # Retest with query //...
   bazel clean --expunge
@@ -319,7 +324,7 @@ EOF
   [ $exitCode != 0 ] || fail "querying //... succeed while expected failure"
 
   expect_not_log "PACKAGE"
-  expect_log "Failed to load Starlark extension '@does_not_exist//:random.bzl'"
+  expect_log "Failed to load Starlark extension '@@does_not_exist//:random.bzl'"
 }
 
 function test_starlark_local_repository() {
@@ -1801,12 +1806,12 @@ function test_auth_from_credential_helper() {
   bazel build //:it \
       && fail "Expected failure when downloading repo without credential helper"
 
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success when downloading repo with credential helper"
 
   expect_credential_helper_calls 1
 
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success when downloading repo with credential helper"
 
   expect_credential_helper_calls 1 # expect credentials to have been cached
@@ -1822,7 +1827,7 @@ function test_auth_from_credential_helper_overrides_starlark() {
 
   setup_auth baduser badpass
 
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success when downloading repo with credential helper overriding basic auth"
 }
 
@@ -2217,7 +2222,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success despite needing a file behind credential helper"
 }
 
@@ -2264,7 +2269,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --noenable_bzlmod --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success despite needing a file behind credential helper"
 }
 
@@ -2297,7 +2302,7 @@ EOF
 
   bazel build --repository_disable_download //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
-  expect_log "Failed to download repository @ext: download is disabled"
+  expect_log "Failed to download repository @.*: download is disabled"
 }
 
 function test_disable_download_should_allow_distdir() {
@@ -2327,7 +2332,8 @@ genrule(
 )
 EOF
 
-  bazel build --distdir="." --repository_disable_download //:it || fail "Failed to build"
+  # for some reason --repository_disable_download fails with bzlmod trying to download @platforms.
+  bazel build --distdir="." --repository_disable_download --noenable_bzlmod //:it || fail "Failed to build"
 }
 
 function test_disable_download_should_allow_local_repository() {
@@ -2352,8 +2358,261 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
+  # for some reason --repository_disable_download fails with bzlmod trying to download @platforms.
+  bazel build --repository_disable_download --noenable_bzlmod //:it || fail "Failed to build"
+}
 
-  bazel build --repository_disable_download //:it || fail "Failed to build"
+function test_no_restarts_fetching_with_worker_thread() {
+  setup_starlark_repository
+
+  echo foo > file1
+  echo bar > file2
+
+  cat >test.bzl <<EOF
+def _impl(rctx):
+  print("hello world!")
+  print(rctx.read(Label("//:file1")))
+  print(rctx.read(Label("//:file2")))
+  rctx.file("BUILD", "filegroup(name='bar')")
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  # no worker thread, restarts twice
+  bazel build @foo//:bar --experimental_worker_for_repo_fetching=off >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log_n "hello world!" 3
+
+  # platform worker thread, never restarts
+  bazel shutdown
+  bazel build @foo//:bar --experimental_worker_for_repo_fetching=platform >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log_n "hello world!" 1
+
+  # virtual worker thread, never restarts
+  bazel shutdown
+  bazel build @foo//:bar --experimental_worker_for_repo_fetching=virtual >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log_n "hello world!" 1
+}
+
+function test_duplicate_value_in_environ() {
+  cat >> WORKSPACE <<EOF
+load('//:def.bzl', 'repo')
+repo(name='foo')
+EOF
+
+  touch BUILD
+  cat > def.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("WORKSPACE")
+  repository_ctx.file("BUILD", """filegroup(name="bar",srcs=[])""")
+
+repo = repository_rule(
+    implementation=_impl,
+    environ=["FOO", "FOO"],
+)
+EOF
+
+  FOO=bar bazel build @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+}
+
+
+function test_cred_helper_overrides_starlark_headers() {
+  if "$is_windows"; then
+    # Skip on Windows: credential helper is a Python script.
+    return
+  fi
+
+  setup_credential_helper
+
+  filename="cred_helper_starlark.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename credhelper_headers.json
+
+  setup_starlark_repository
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "test.txt",
+    sha256 = "$sha256",
+    headers = {
+      "Authorization": ["should be overidden"],
+      "X-Custom-Token": ["foo"]
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" @foo//:all || fail "expected bazel to succeed"
+
+  headers="${TEST_TMPDIR}/credhelper_headers.json"
+  assert_contains '"Authorization": "Bearer TOKEN"' "$headers"
+  assert_contains '"X-Custom-Token": "foo"' "$headers"
+  assert_not_contains "should be overidden" "$headers"
+}
+
+function test_netrc_overrides_starlark_headers() {
+  filename="netrc_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename netrc_headers.json
+
+  setup_starlark_repository
+
+  cat > .netrc <<EOF
+machine 127.0.0.1
+login foo
+password bar
+EOF
+
+  cat > test.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
+
+def _impl(repository_ctx):
+  url = "http://127.0.0.1:$nc_port/$filename"
+  netrc = read_netrc(repository_ctx, repository_ctx.attr.netrc)
+  auth = use_netrc(netrc, [url], {})
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = url,
+    output = "$filename",
+    sha256 = "$sha256",
+    headers = {
+      "Authorization": ["should be overidden"],
+      "X-Custom-Token": ["foo"]
+    },
+    auth = auth
+  )
+
+repo = repository_rule(implementation=_impl, attrs = {"netrc": attr.label(default = ":.netrc")})
+EOF
+
+
+  bazel build @foo//:all || fail "expected bazel to succeed"
+
+  headers="${TEST_TMPDIR}/netrc_headers.json"
+  assert_contains '"Authorization": "Basic Zm9vOmJhcg=="' "$headers"
+  assert_contains '"X-Custom-Token": "foo"' "$headers"
+  assert_not_contains "should be overidden" "$headers"
+}
+
+
+function test_starlark_headers_override_default_headers() {
+
+  filename="default_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename default_headers.json
+
+  setup_starlark_repository
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "$filename",
+    sha256 = "$sha256",
+    headers = {
+      "Accept": ["application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json"],
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:all || fail "expected bazel to succeed"
+
+  headers="${TEST_TMPDIR}/default_headers.json"
+  assert_contains '"Accept": "application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json"' "$headers"
+  assert_not_contains '"Accept": "text/html, image/gif, image/jpeg, */*"' "$headers"
+}
+
+function test_invalid_starlark_headers() {
+
+  filename="invalid_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename invalid_headers.json
+
+  setup_starlark_repository
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "$filename",
+    sha256 = "$sha256",
+    headers = {
+      "Accept": 1,
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:all >& $TEST_log && fail "expected bazel to fail" || :
+  expect_log "headers argument must be a dict whose keys are string and whose values are either string or sequence of string"
+}
+
+function test_string_starlark_headers() {
+
+  filename="string_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename string_headers.json
+
+  setup_starlark_repository
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "$filename",
+    sha256 = "$sha256",
+    headers = {
+      "Accept": "application/text",
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:all || fail "expected bazel to succeed"
+  headers="${TEST_TMPDIR}/string_headers.json"
+  assert_contains '"Accept": "application/text"' "$headers"
+}
+
+function test_repo_boundary_files() {
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r', srcs=glob(['*']))")
+r = repository_rule(_r)
+EOF
+
+  bazel query --noenable_workspace --output=build @r > output || fail "expected bazel to succeed"
+  assert_contains 'REPO.bazel' output
+  assert_not_contains 'WORKSPACE' output
+
+  bazel query --enable_workspace --output=build @r > output || fail "expected bazel to succeed"
+  assert_contains 'REPO.bazel' output
+  assert_contains 'WORKSPACE' output
 }
 
 run_suite "local repository tests"

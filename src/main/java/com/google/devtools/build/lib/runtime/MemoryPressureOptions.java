@@ -30,25 +30,6 @@ import java.time.Duration;
 public final class MemoryPressureOptions extends OptionsBase {
 
   @Option(
-      name = "experimental_oom_more_eagerly_threshold",
-      defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      converter = PercentageConverter.class,
-      help =
-          "If this flag is set to a value less than 100, Bazel will OOM if, after two full GC's, "
-              + "more than this percentage of the (old gen) heap is still occupied.")
-  public int oomMoreEagerlyThreshold;
-
-  @Option(
-      name = "min_time_between_triggered_gc",
-      defaultValue = "1m",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "The minimum amount of time between GCs triggered by RetainedHeapLimiter.")
-  public Duration minTimeBetweenTriggeredGc;
-
-  @Option(
       name = "skyframe_high_water_mark_threshold",
       defaultValue = "85",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -97,30 +78,35 @@ public final class MemoryPressureOptions extends OptionsBase {
   public int skyframeHighWaterMarkFullGcDropsPerInvocation;
 
   @Option(
-      name = "experimental_gc_thrashing_limits",
-      defaultValue = "",
+      name = "gc_thrashing_limits",
+      oldName = "experimental_gc_thrashing_limits",
+      oldNameWarning = false,
+      defaultValue = "1s:2,20s:3,1m:5",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = GcThrashingLimitsConverter.class,
       help =
           "Limits which, if reached, cause GcThrashingDetector to crash Bazel with an OOM. Each"
               + " limit is specified as <period>:<count> where period is a duration and count is a"
-              + " positive integer. If more than --experimental_oom_more_eagerly_threshold percent"
-              + " of tenured space (old gen heap) remains occupied after <count> consecutive full"
-              + " GCs within <period>, an OOM is triggered. Multiple limits can be specified"
-              + " separated by commas.")
+              + " positive integer. If more than --gc_thrashing_threshold percent of tenured space"
+              + " (old gen heap) remains occupied after <count> consecutive full GCs within"
+              + " <period>, an OOM is triggered. Multiple limits can be specified separated by"
+              + " commas.")
   public ImmutableList<GcThrashingDetector.Limit> gcThrashingLimits;
 
   @Option(
-      name = "gc_thrashing_limits_retained_heap_limiter_mutually_exclusive",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      name = "gc_thrashing_threshold",
+      oldName = "experimental_oom_more_eagerly_threshold",
+      oldNameWarning = false,
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = PercentageConverter.class,
       help =
-          "If true, specifying non-empty --experimental_gc_thrashing_limits deactivates"
-              + " RetainedHeapLimiter to make it mutually exclusive with GcThrashingDetector."
-              + " Setting to false permits both to be active for the same command.")
-  public boolean gcThrashingLimitsRetainedHeapLimiterMutuallyExclusive;
+          "The percent of tenured space occupied (0-100) above which GcThrashingDetector considers"
+              + " memory pressure events against its limits (--gc_thrashing_limits). If set to 100,"
+              + " GcThrashingDetector is disabled.")
+  public int gcThrashingThreshold;
 
   static final class NonNegativeIntegerConverter extends RangeConverter {
     NonNegativeIntegerConverter() {

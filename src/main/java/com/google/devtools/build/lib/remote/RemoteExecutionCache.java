@@ -22,8 +22,8 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import com.google.common.base.Throwables;
@@ -60,11 +60,10 @@ import java.util.concurrent.atomic.AtomicReference;
 public class RemoteExecutionCache extends RemoteCache {
 
   public RemoteExecutionCache(
-      CacheCapabilities cacheCapabilities,
       RemoteCacheClient protocolImpl,
       RemoteOptions options,
       DigestUtil digestUtil) {
-    super(cacheCapabilities, protocolImpl, options, digestUtil);
+    super(protocolImpl, options, digestUtil);
   }
 
   /**
@@ -114,7 +113,10 @@ public class RemoteExecutionCache extends RemoteCache {
                         }));
 
     try {
-      mergeBulkTransfer(uploads).blockingAwait();
+      // Workaround for https://github.com/bazelbuild/bazel/issues/19513.
+      if (!mergeBulkTransfer(uploads).blockingAwait(options.remoteTimeout.getSeconds(), SECONDS)) {
+        throw new IOException("Timed out when waiting for uploads");
+      }
     } catch (RuntimeException e) {
       Throwable cause = e.getCause();
       if (cause != null) {

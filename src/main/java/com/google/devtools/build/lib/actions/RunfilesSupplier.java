@@ -15,59 +15,74 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Convenience wrapper around runfiles allowing lazy expansion. */
-// TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
-// structure makes this difficult. Consider moving things around to make this possible.
-//
 // RunfilesSuppliers appear to be Starlark values;
 // they are exposed through ctx.resolve_tools[2], for example.
 public interface RunfilesSupplier extends StarlarkValue {
+  /** Lazy wrapper for a single runfiles tree. */
+  // TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
+  // structure makes this difficult. Consider moving things around to make this possible.
+  interface RunfilesTree {
+    /**
+     * Returns the exec path of the root directory of the runfiles tree.
+     *
+     * <p>Should only ever be called indirectly through {@link
+     * RunfilesSupplier#getExecPathForTree(RunfilesSupplier, RunfilesTree)} because {@link
+     * RunfilesSupplier} may override it.
+     */
+    // TODO(lberki): Remove this method once RunfilesSupplier.getRunfilesTrees() is gone.
+    PathFragment getPossiblyIncorrectExecPath();
 
-  /** @return the contained artifacts */
-  NestedSet<Artifact> getArtifacts();
+    /** Returns the mapping from the location in the runfiles tree to the artifact that's there. */
+    Map<PathFragment, Artifact> getMapping();
 
-  /** @return the runfiles' root directories. */
-  ImmutableSet<PathFragment> getRunfilesDirs();
+    /**
+     * Returns artifacts the runfiles tree contain symlinks to.
+     *
+     * <p>This includes artifacts that the symlinks and root symlinks point to, not just artifacts
+     * at their canonical location.
+     */
+    NestedSet<Artifact> getArtifacts();
+
+    /** Returns the {@link RunfileSymlinksMode} for this runfiles tree. */
+    RunfileSymlinksMode getSymlinksMode();
+
+    /** Returns whether the runfile symlinks should be materialized during the build. */
+    boolean isBuildRunfileLinks();
+
+    /** Returns the name of the workspace that the build is occurring in. */
+    String getWorkspaceName();
+  }
+
+  /** Returns the runfiles trees to be materialized on the inputs of the action. */
+  ImmutableList<RunfilesTree> getRunfilesTrees();
 
   /**
-   * Returns mappings from runfiles directories to artifact mappings in that directory.
-   *
-   * @return runfiles' mappings
+   * If not null, the runfile tree in this runfiles supplier should be assumed to be rooted at the
+   * path this method returns, regardless of the return value of {@link
+   * RunfilesTree#getPossiblyIncorrectExecPath()}
    */
-  ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings();
-
-  /** @return the runfiles manifest artifacts, if any. */
-  ImmutableList<Artifact> getManifests();
-
-  /**
-   * Returns whether for a given {@code runfilesDir} the runfile symlinks are materialized during
-   * build. Also returns {@code false} if the runfiles supplier doesn't know about the directory.
-   *
-   * @param runfilesDir runfiles directory relative to the exec root
-   */
-  boolean isBuildRunfileLinks(PathFragment runfilesDir);
+  @Nullable
+  default PathFragment getRunfilesDirOverride() {
+    return null;
+  }
 
   /**
-   * Returns whether it's allowed to create runfile symlinks in the {@code runfilesDir}. Also
-   * returns {@code false} if the runfiles supplier doesn't know about the directory.
-   *
-   * @param runfilesDir runfiles directory relative to the exec root
+   * Returns the effective root for the given runfiles tree, taking the potential override directory
+   * of the {@link RunfilesSupplier} into account.
    */
-  boolean isRunfileLinksEnabled(PathFragment runfilesDir);
-
-  /**
-   * Returns a {@link RunfilesSupplier} identical to this one, but with the given runfiles
-   * directory.
-   *
-   * <p>Must only be called on suppliers with a single runfiles directory, i.e. {@link
-   * #getRunfilesDirs} returns a set of size 1.
-   */
-  RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir);
+  static PathFragment getExecPathForTree(
+      RunfilesSupplier runfilesSupplier, RunfilesTree runfilesTree) {
+    if (runfilesSupplier.getRunfilesDirOverride() != null) {
+      return runfilesSupplier.getRunfilesDirOverride();
+    }
+    return runfilesTree.getPossiblyIncorrectExecPath();
+  }
 }

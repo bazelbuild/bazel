@@ -29,7 +29,7 @@ import com.google.devtools.build.docgen.starlark.StarlarkDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import java.util.Collection;
@@ -53,8 +53,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class StarlarkDocumentationTest {
 
-  private static final ImmutableList<String> DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS =
-      ImmutableList.of("Actions");
+  private static final ImmutableList<String>
+      DEPRECATED_OR_EXPERIMENTAL_UNDOCUMENTED_TOP_LEVEL_SYMBOLS =
+          ImmutableList.of("Actions", "macro");
 
   private static final StarlarkDocExpander expander =
       new StarlarkDocExpander(null) {
@@ -67,9 +68,7 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testStarlarkRuleClassBuiltInItemsAreDocumented() throws Exception {
-    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    StarlarkModules.addPredeclared(env);
-    checkStarlarkTopLevelEnvItemsAreDocumented(env.buildOrThrow());
+    checkStarlarkTopLevelEnvItemsAreDocumented(StarlarkGlobalsImpl.INSTANCE.getFixedBzlToplevels());
   }
 
   private void checkStarlarkTopLevelEnvItemsAreDocumented(Map<String, Object> globals)
@@ -94,7 +93,7 @@ public class StarlarkDocumentationTest {
                 // If they need documentation, the easiest approach would be
                 // to hard-code it in StarlarkDocumentationCollector.
                 ImmutableSet.of("True", "False", "None")))
-        .containsExactlyElementsIn(DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS);
+        .containsExactlyElementsIn(DEPRECATED_OR_EXPERIMENTAL_UNDOCUMENTED_TOP_LEVEL_SYMBOLS);
   }
 
   // TODO(bazel-team): come up with better Starlark specific tests.

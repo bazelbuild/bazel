@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# WARNING:
+# https://github.com/bazelbuild/bazel/issues/17713
+# .bzl files in this package (tools/build_defs/repo) are evaluated
+# in a Starlark environment without "@_builtins" injection, and must not refer
+# to symbols associated with build/workspace .bzl files
+
 """Utils for manipulating external repositories, once fetched.
 
 ### Setup
@@ -413,3 +420,27 @@ def read_user_netrc(ctx):
     if not ctx.path(netrcfile).exists:
         return {}
     return read_netrc(ctx, netrcfile)
+
+def get_auth(ctx, urls):
+    """Utility function to obtain the correct auth dict for a list of urls from .netrc file.
+
+    Support optional netrc and auth_patterns attributes if available.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility
+        function.
+      urls: the list of urls to read
+
+    Returns:
+      the auth dict which can be passed to repository_ctx.download
+    """
+    if hasattr(ctx.attr, "netrc") and ctx.attr.netrc:
+        netrc = read_netrc(ctx, ctx.attr.netrc)
+    elif "NETRC" in ctx.os.environ:
+        netrc = read_netrc(ctx, ctx.os.environ["NETRC"])
+    else:
+        netrc = read_user_netrc(ctx)
+    auth_patterns = {}
+    if hasattr(ctx.attr, "auth_patterns") and ctx.attr.auth_patterns:
+        auth_patterns = ctx.attr.auth_patterns
+    return use_netrc(netrc, urls, auth_patterns)

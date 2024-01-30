@@ -1,0 +1,45 @@
+rule_info {
+  rule_name: "my_anglebrac"
+  doc_string: "Rule with <brackets>"
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "useless"
+    doc_string: "Args with some <b>formatting</b>"
+    type: STRING
+    default_value: "\"Find brackets\""
+  }
+}
+provider_info {
+  provider_name: "bracketuse"
+  doc_string: "Information with <brackets>"
+  field_info {
+    name: "foo"
+    doc_string: "A string representing foo"
+  }
+  field_info {
+    name: "bar"
+    doc_string: "A string representing bar"
+  }
+  field_info {
+    name: "baz"
+    doc_string: "A string representing baz"
+  }
+}
+func_info {
+  function_name: "bracket_function"
+  parameter {
+    name: "name"
+    doc_string: "an arg with <b>formatted</b> docstring."
+    mandatory: true
+  }
+  doc_string: "Dummy docstring with <brackets>.\n\nThis rule runs checks on <angle brackets>.\n"
+  return {
+    doc_string: "some <angled> brackets"
+  }
+}
+module_docstring: "Input file to test angle bracket bug (https://github.com/bazelbuild/skydoc/issues/186)"

@@ -13,64 +13,114 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode.SKIP;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import javax.annotation.concurrent.GuardedBy;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Utility used in local execution to create a runfiles tree if {@code --nobuild_runfile_links} has
  * been specified.
  *
- * <p>It is safe to call {@link #updateRunfilesDirectory} concurrently.
+ * <p>It is safe to call {@link #updateRunfiles} concurrently.
  */
 @ThreadSafe
 public class RunfilesTreeUpdater {
-
-  public static final RunfilesTreeUpdater INSTANCE = new RunfilesTreeUpdater();
-
-  private final Object lock = new Object();
-
-  private static final class LockWithRefcnt {
-    int refcnt = 1;
-  }
+  private final Path execRoot;
+  private final BinTools binTools;
+  private final XattrProvider xattrProvider;
 
   /**
-   * Poor man's reference counted object pool.
+   * Deduplicates multiple attempts to update the same runfiles tree.
    *
-   * <p>Maintains a mapping of runfiles directory to a monitor. The monitor maintains a counter that
-   * tracks how many threads it is acquired by at the moment. If the count drops to zero the mapping
-   * is removed.
+   * <p>Attempts may occur concurrently, e.g. if multiple local actions have the same input.
+   *
+   * <p>The presence of an entry in the map signifies that an earlier attempt to update the
+   * corresponding runfiles tree was started, and will (have) set the future upon completion.
    */
-  @GuardedBy("lock")
-  private final Map<PathFragment, LockWithRefcnt> locksWithRefcnt = new HashMap<>();
+  private final ConcurrentHashMap<PathFragment, CompletableFuture<Void>> updatedTrees =
+      new ConcurrentHashMap<>();
 
-  private RunfilesTreeUpdater() {}
+  public static RunfilesTreeUpdater forCommandEnvironment(CommandEnvironment env) {
+    return new RunfilesTreeUpdater(
+        env.getExecRoot(), env.getBlazeWorkspace().getBinTools(), env.getXattrProvider());
+  }
 
-  private static void updateRunfilesTree(
-      Path execRoot,
-      PathFragment runfilesDir,
-      BinTools binTools,
+  public RunfilesTreeUpdater(Path execRoot, BinTools binTools, XattrProvider xattrProvider) {
+    this.execRoot = execRoot;
+    this.binTools = binTools;
+    this.xattrProvider = xattrProvider;
+  }
+
+  /** Creates or updates input runfiles trees for a spawn. */
+  public void updateRunfiles(
+      RunfilesSupplier runfilesSupplier, ImmutableMap<String, String> env, OutErr outErr)
+      throws ExecException, IOException, InterruptedException {
+    for (RunfilesTree tree : runfilesSupplier.getRunfilesTrees()) {
+      PathFragment runfilesDir = RunfilesSupplier.getExecPathForTree(runfilesSupplier, tree);
+      if (tree.isBuildRunfileLinks()) {
+        continue;
+      }
+
+      var freshFuture = new CompletableFuture<Void>();
+      CompletableFuture<Void> priorFuture = updatedTrees.putIfAbsent(runfilesDir, freshFuture);
+
+      if (priorFuture == null) {
+        // We are the first attempt; update the runfiles tree and mark the future complete.
+        try {
+          updateRunfilesTree(runfilesSupplier, tree, env, outErr);
+          freshFuture.complete(null);
+        } catch (Exception e) {
+          freshFuture.completeExceptionally(e);
+          throw e;
+        }
+      } else {
+        // There was a previous attempt; wait for it to complete.
+        try {
+          priorFuture.join();
+        } catch (CompletionException e) {
+          Throwable cause = e.getCause();
+          if (cause != null) {
+            Throwables.throwIfInstanceOf(cause, ExecException.class);
+            Throwables.throwIfInstanceOf(cause, IOException.class);
+            Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+            Throwables.throwIfUnchecked(cause);
+          }
+          throw new AssertionError("Unexpected exception", e);
+        }
+      }
+    }
+  }
+
+  private void updateRunfilesTree(
+      RunfilesSupplier runfilesSupplier,
+      RunfilesTree tree,
       ImmutableMap<String, String> env,
-      OutErr outErr,
-      boolean enableRunfiles,
-      XattrProvider xattrProvider)
+      OutErr outErr)
       throws IOException, ExecException, InterruptedException {
-    Path runfilesDirPath = execRoot.getRelative(runfilesDir);
+    Path runfilesDirPath =
+        execRoot.getRelative(RunfilesSupplier.getExecPathForTree(runfilesSupplier, tree));
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
     if (!inputManifest.exists()) {
       return;
@@ -82,11 +132,17 @@ public class RunfilesTreeUpdater {
       // implying the symlinks exist and are already up to date. If the output manifest is a
       // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
       // an up-to-date check.
-      if (!outputManifest.isSymbolicLink()
+      // On Windows, where symlinks may be silently replaced by copies, a previous run in SKIP mode
+      // could have resulted in an output manifest that is an identical copy of the input manifest,
+      // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
+      // runfiles directory all the time. Instead, check for the presence of the first runfile in
+      // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
+      if (tree.getSymlinksMode() != SKIP
+          && !outputManifest.isSymbolicLink()
           && Arrays.equals(
               DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(outputManifest, xattrProvider),
-              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(
-                  inputManifest, xattrProvider))) {
+              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(inputManifest, xattrProvider))
+          && (OS.getCurrent() != OS.WINDOWS || isRunfilesDirectoryPopulated(runfilesDirPath))) {
         return;
       }
     } catch (IOException e) {
@@ -98,72 +154,35 @@ public class RunfilesTreeUpdater {
     }
 
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(inputManifest, runfilesDirPath, /* filesetTree= */ false);
-    helper.createSymlinks(execRoot, outErr, binTools, env, enableRunfiles);
-  }
+        new SymlinkTreeHelper(
+            inputManifest, runfilesDirPath, /* filesetTree= */ false, tree.getWorkspaceName());
 
-  private LockWithRefcnt getLockAndIncrementRefcnt(PathFragment runfilesDirectory) {
-    synchronized (lock) {
-      LockWithRefcnt lock = locksWithRefcnt.get(runfilesDirectory);
-      if (lock != null) {
-        lock.refcnt++;
-        return lock;
-      }
-      lock = new LockWithRefcnt();
-      locksWithRefcnt.put(runfilesDirectory, lock);
-      return lock;
+    switch (tree.getSymlinksMode()) {
+      case SKIP:
+        helper.clearRunfilesDirectory();
+        break;
+      case EXTERNAL:
+        helper.createSymlinksUsingCommand(execRoot, binTools, env, outErr);
+        break;
+      case INTERNAL:
+        helper.createSymlinksDirectly(runfilesDirPath, tree.getMapping());
+        outputManifest.createSymbolicLink(inputManifest);
+        break;
     }
   }
 
-  private void decrementRefcnt(PathFragment runfilesDirectory) {
-    synchronized (lock) {
-      LockWithRefcnt lock = locksWithRefcnt.get(runfilesDirectory);
-      lock.refcnt--;
-      if (lock.refcnt == 0) {
-        if (!locksWithRefcnt.remove(runfilesDirectory, lock)) {
-          throw new IllegalStateException(
-              String.format(
-                  "Failed to remove lock for dir '%s'." + " This is a bug.", runfilesDirectory));
-        }
-      }
+  private boolean isRunfilesDirectoryPopulated(Path runfilesDirPath) {
+    Path outputManifest = RunfilesSupport.outputManifestPath(runfilesDirPath);
+    String relativeRunfilePath;
+    try (BufferedReader reader =
+        new BufferedReader(new InputStreamReader(outputManifest.getInputStream(), ISO_8859_1))) {
+      // If it is created at all, the manifest always contains at least one line.
+      relativeRunfilePath = reader.readLine().split(" ", -1)[0];
+    } catch (IOException e) {
+      // Instead of failing outright, just assume the runfiles directory is not populated.
+      return false;
     }
-  }
-
-  public void updateRunfilesDirectory(
-      Path execRoot,
-      RunfilesSupplier runfilesSupplier,
-      BinTools binTools,
-      ImmutableMap<String, String> env,
-      OutErr outErr,
-      XattrProvider xattrProvider)
-      throws ExecException, IOException, InterruptedException {
-    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> runfiles :
-        runfilesSupplier.getMappings().entrySet()) {
-      PathFragment runfilesDir = runfiles.getKey();
-      if (runfilesSupplier.isBuildRunfileLinks(runfilesDir)) {
-        continue;
-      }
-
-      try {
-        long startTime = Profiler.nanoTimeMaybe();
-        // Synchronize runfiles tree generation on the runfiles directory in order to prevent
-        // concurrent modifications of the runfiles tree. In particular this can happen for sharded
-        // tests and --runs_per_test > 1 in which case multiple actions use the same runfiles tree.
-        synchronized (getLockAndIncrementRefcnt(runfilesDir)) {
-          Profiler.instance()
-              .logSimpleTask(startTime, ProfilerTask.WAIT, "Waiting to create runfiles tree");
-          updateRunfilesTree(
-              execRoot,
-              runfilesDir,
-              binTools,
-              env,
-              outErr,
-              runfilesSupplier.isRunfileLinksEnabled(runfilesDir),
-              xattrProvider);
-        }
-      } finally {
-        decrementRefcnt(runfilesDir);
-      }
-    }
+    // The runfile could be a dangling symlink.
+    return runfilesDirPath.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
   }
 }

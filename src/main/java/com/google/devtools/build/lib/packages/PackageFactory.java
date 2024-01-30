@@ -21,16 +21,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -48,9 +49,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.concurrent.ForkJoinPool;
-import java.util.function.Consumer;
+import java.util.concurrent.Semaphore;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -61,16 +62,11 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.CallExpression;
-import net.starlark.java.syntax.DefStatement;
 import net.starlark.java.syntax.Expression;
-import net.starlark.java.syntax.ForStatement;
 import net.starlark.java.syntax.Identifier;
-import net.starlark.java.syntax.IfStatement;
 import net.starlark.java.syntax.IntLiteral;
-import net.starlark.java.syntax.LambdaExpression;
 import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.Location;
-import net.starlark.java.syntax.NodeVisitor;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.StringLiteral;
@@ -213,11 +209,16 @@ public final class PackageFactory {
     return ruleClassProvider;
   }
 
-  /** Get the PackageContext by looking up in the environment. */
-  public static PackageContext getContext(StarlarkThread thread) throws EvalException {
-    PackageContext value = thread.getThreadLocal(PackageContext.class);
+  /**
+   * Retrieves the {@link Package.Builder} from the given {@link StarlarkThread}, or throws {@link
+   * EvalException} if unavailable.
+   */
+  // TODO(#19922): The name is a holdover from when we had PackageContext. Migrate this to a static
+  // fromOrFail method on Package.Builder or a new parent interface of it.
+  public static Package.Builder getContext(StarlarkThread thread) throws EvalException {
+    Package.Builder value = Package.Builder.fromOrNull(thread);
     if (value == null) {
-      // if PackageContext is missing, we're not called from a BUILD file. This happens if someone
+      // if PackageBuilder is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
       throw Starlark.errorf(
           "The native module can be accessed only from a BUILD thread. "
@@ -227,12 +228,17 @@ public final class PackageFactory {
   }
 
   public Package.Builder newExternalPackageBuilder(
-      RootedPath workspacePath,
+      WorkspaceFileKey workspaceFileKey,
       String workspaceName,
       RepositoryMapping mainRepoMapping,
       StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
-        packageSettings, workspacePath, workspaceName, mainRepoMapping, starlarkSemantics);
+        packageSettings,
+        workspaceFileKey,
+        workspaceName,
+        mainRepoMapping,
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+        packageOverheadEstimator);
   }
 
   // This function is public only for the benefit of skyframe.PackageFunction,
@@ -241,21 +247,30 @@ public final class PackageFactory {
   // TODO(adonovan): refactor Rule{Class,Factory}Test not to need this.
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId,
+      RootedPath filename,
       String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
-      RepositoryMapping mainRepositoryMapping) {
-    return new Package.Builder(
+      @Nullable Semaphore cpuBoundSemaphore,
+      @Nullable ImmutableMap<Location, String> generatorMap,
+      @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+      @Nullable Globber globber) {
+    return Package.newPackageBuilder(
         packageSettings,
         packageId,
+        filename,
         workspaceName,
         associatedModuleName,
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         repositoryMapping,
-        mainRepositoryMapping);
+        cpuBoundSemaphore,
+        packageOverheadEstimator,
+        generatorMap,
+        configSettingVisibilityPolicy,
+        globber);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */
@@ -279,53 +294,6 @@ public final class PackageFactory {
   }
 
   /**
-   * This class holds state associated with the construction of a single package for the duration of
-   * execution of one BUILD file. (We use a PackageContext object in preference to storing these
-   * values in mutable fields of the PackageFactory.)
-   *
-   * <p>PLEASE NOTE: the PackageContext is referred to by the StarlarkThread, but should become
-   * unreachable once the StarlarkThread is discarded at the end of evaluation. Please be aware of
-   * your memory footprint when making changes here!
-   */
-  // TODO(adonovan): is there any reason not to merge this with Package.Builder?
-  public static class PackageContext {
-    final Package.Builder pkgBuilder;
-    final Globber globber;
-    final ExtendedEventHandler eventHandler;
-
-    @VisibleForTesting
-    public PackageContext(
-        Package.Builder pkgBuilder, Globber globber, ExtendedEventHandler eventHandler) {
-      this.pkgBuilder = pkgBuilder;
-      this.eventHandler = eventHandler;
-      this.globber = globber;
-    }
-
-    /** Returns the Label of this Package's BUILD file. */
-    public Label getLabel() {
-      return pkgBuilder.getBuildFileLabel();
-    }
-
-    /** Sets a Make variable. */
-    public void setMakeVariable(String name, String value) {
-      pkgBuilder.setMakeVariable(name, value);
-    }
-
-    /** Returns the builder of this Package. */
-    public Package.Builder getBuilder() {
-      return pkgBuilder;
-    }
-
-    /**
-     * Returns the event handler that should be used to report events happening while building this
-     * package.
-     */
-    public ExtendedEventHandler getEventHandler() {
-      return eventHandler;
-    }
-  }
-
-  /**
    * Runs final validation and administrative tasks on newly loaded package. Called by a caller of
    * {@link #executeBuildFile} after this caller has fully loaded the package.
    *
@@ -337,9 +305,8 @@ public final class PackageFactory {
       long loadTimeNanos,
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
-    OptionalLong packageOverhead = packageOverheadEstimator.estimatePackageOverhead(pkg);
 
-    packageValidator.validate(pkg, packageOverhead, eventHandler);
+    packageValidator.validate(pkg, eventHandler);
 
     // Enforce limit on number of compute steps in BUILD file (b/151622307).
     long maxSteps = starlarkSemantics.get(BuildLanguageOptions.MAX_COMPUTATION_STEPS);
@@ -362,8 +329,7 @@ public final class PackageFactory {
                   .build()));
     }
 
-    packageLoadingListener.onLoadingCompleteAndSuccessful(
-        pkg, starlarkSemantics, loadTimeNanos, packageOverhead);
+    packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
   }
 
   /**
@@ -395,9 +361,10 @@ public final class PackageFactory {
       ImmutableList<String> subpackages,
       ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
-      StarlarkSemantics starlarkSemantics,
-      Globber globber)
+      StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
+    Globber globber = pkgBuilder.getGlobber();
+
     // Prefetch glob patterns asynchronously.
     if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
       try {
@@ -414,14 +381,21 @@ public final class PackageFactory {
       }
     }
 
+    Semaphore cpuSemaphore = pkgBuilder.getCpuBoundSemaphore();
     try {
+      if (cpuSemaphore != null) {
+        cpuSemaphore.acquire();
+      }
       executeBuildFileImpl(
-          pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics, globber);
+          pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
     } finally {
       globber.onCompletion();
+      if (cpuSemaphore != null) {
+        cpuSemaphore.release();
+      }
     }
   }
 
@@ -430,41 +404,32 @@ public final class PackageFactory {
       Program buildFileProgram,
       ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
-      StarlarkSemantics semantics,
-      Globber globber)
+      StarlarkSemantics semantics)
       throws InterruptedException {
     pkgBuilder.setLoads(loadedModules.values());
-
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    PackageContext pkgContext = new PackageContext(pkgBuilder, globber, eventHandler);
 
     try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
       Module module = Module.withPredeclared(semantics, predeclared);
       StarlarkThread thread = new StarlarkThread(mu, semantics);
       thread.setLoader(loadedModules::get);
-      thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));
+      thread.setPrintHandler(Event.makeDebugPrintHandler(pkgBuilder.getLocalEventHandler()));
+      pkgBuilder.storeInThread(thread);
 
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.LOADING,
-              ruleClassProvider.getToolsRepository(),
-              /* fragmentNameToClass= */ null,
-              new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
-              /* analysisRuleLabel= */ null,
-              ruleClassProvider.getNetworkAllowlistForTests().orElse(null))
-          .storeInThread(thread);
-
-      // TODO(adonovan): save this as a field in BazelStarlarkContext.
-      // It needn't be a second thread-local.
-      thread.setThreadLocal(PackageContext.class, pkgContext);
+      // TODO(b/291752414): The rule definition environment shouldn't be needed at BUILD evaluation
+      // time EXCEPT for analysis_test, which needs the tools repository for use in
+      // StarlarkRuleClassFunctions#createRule. So we set it here as a thread-local to be retrieved
+      // by StarlarkTestingModule#analysisTest.
+      thread.setThreadLocal(RuleDefinitionEnvironment.class, ruleClassProvider);
 
       try {
         Starlark.execFileProgram(buildFileProgram, module, thread);
       } catch (EvalException ex) {
-        pkgContext.eventHandler.handle(
-            Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+        pkgBuilder
+            .getLocalEventHandler()
+            .handle(Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         pkgBuilder.setContainsErrors();
       } catch (InterruptedException ex) {
-        if (pkgContext.pkgBuilder.containsErrors()) {
+        if (pkgBuilder.containsErrors()) {
           // Suppress the interrupted exception: we have an error of our own to return.
           Thread.currentThread().interrupt();
           logger.atInfo().withCause(ex).log(
@@ -476,16 +441,13 @@ public final class PackageFactory {
       }
       pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
-
-    pkgBuilder.addPosts(eventHandler.getPosts());
-    pkgBuilder.addEvents(eventHandler.getEvents());
   }
 
   /**
    * checkBuildSyntax is a static pass over the syntax tree of a BUILD (not .bzl) file.
    *
-   * <p>It reports an error to the event handler if it discovers a {@code def}, {@code if}, or
-   * {@code for} statement, or a {@code f(*args)} or {@code f(**kwargs)} call.
+   * <p>It throws a {@link SyntaxError.Exception} if it discovers disallowed elements (see {@link
+   * DotBazelFileSyntaxChecker}).
    *
    * <p>It extracts literal {@code glob(include="pattern")} patterns and adds them to {@code globs},
    * or to {@code globsWithDirs} if the call had a {@code exclude_directories=0} argument.
@@ -493,159 +455,92 @@ public final class PackageFactory {
    * <p>It records in {@code generatorNameByLocation} all calls of the form {@code f(name="foo",
    * ...)} so that any rules instantiated during the call to {@code f} can be ascribed a "generator
    * name" of {@code "foo"}.
-   *
-   * <p>It returns true if it reported no errors.
    */
   // TODO(adonovan): restructure so that this is called from the sole place that executes BUILD
   // files. Also, make private; there's no reason for tests to call this directly.
-  public static boolean checkBuildSyntax(
+  public static void checkBuildSyntax(
       StarlarkFile file,
       Collection<String> globs,
       Collection<String> globsWithDirs,
       Collection<String> subpackages,
-      Map<Location, String> generatorNameByLocation,
-      Consumer<SyntaxError> errors) {
-    final boolean[] success = {true};
-    NodeVisitor checker =
-        new NodeVisitor() {
-          void error(Location loc, String message) {
-            errors.accept(new SyntaxError(loc, message));
-            success[0] = false;
+      Map<Location, String> generatorNameByLocation)
+      throws SyntaxError.Exception {
+    new DotBazelFileSyntaxChecker("BUILD files", /* canLoadBzl= */ true) {
+      // Extract literal glob patterns from calls of the form:
+      //   glob(include = ["pattern"])
+      //   glob(["pattern"])
+      //   subpackages(include = ["pattern"])
+      // This may spuriously match user-defined functions named glob or
+      // subpackages; that's ok, it's only a heuristic.
+      void extractGlobPatterns(CallExpression call) {
+        if (call.getFunction() instanceof Identifier) {
+          String functionName = ((Identifier) call.getFunction()).getName();
+          if (!functionName.equals("glob") && !functionName.equals("subpackages")) {
+            return;
           }
 
-          // Extract literal glob patterns from calls of the form:
-          //   glob(include = ["pattern"])
-          //   glob(["pattern"])
-          //   subpackages(include = ["pattern"])
-          // This may spuriously match user-defined functions named glob or
-          // subpackages; that's ok, it's only a heuristic.
-          void extractGlobPatterns(CallExpression call) {
-            if (call.getFunction() instanceof Identifier) {
-              String functionName = ((Identifier) call.getFunction()).getName();
-              if (!functionName.equals("glob") && !functionName.equals("subpackages")) {
-                return;
+          Expression excludeDirectories = null;
+          Expression include = null;
+          ImmutableList<Argument> arguments = call.getArguments();
+          for (int i = 0; i < arguments.size(); i++) {
+            Argument arg = arguments.get(i);
+            String name = arg.getName();
+            if (name == null) {
+              if (i == 0) { // first positional argument
+                include = arg.getValue();
               }
-
-              Expression excludeDirectories = null;
-              Expression include = null;
-              ImmutableList<Argument> arguments = call.getArguments();
-              for (int i = 0; i < arguments.size(); i++) {
-                Argument arg = arguments.get(i);
-                String name = arg.getName();
-                if (name == null) {
-                  if (i == 0) { // first positional argument
-                    include = arg.getValue();
+            } else if (name.equals("include")) {
+              include = arg.getValue();
+            } else if (name.equals("exclude_directories")) {
+              excludeDirectories = arg.getValue();
+            }
+          }
+          if (include instanceof ListExpression) {
+            for (Expression elem : ((ListExpression) include).getElements()) {
+              if (elem instanceof StringLiteral) {
+                String pattern = ((StringLiteral) elem).getValue();
+                // exclude_directories is (oddly) an int with default 1.
+                boolean exclude = true;
+                if (excludeDirectories instanceof IntLiteral) {
+                  Number v = ((IntLiteral) excludeDirectories).getValue();
+                  if (v instanceof Integer && (Integer) v == 0) {
+                    exclude = false;
                   }
-                } else if (name.equals("include")) {
-                  include = arg.getValue();
-                } else if (name.equals("exclude_directories")) {
-                  excludeDirectories = arg.getValue();
                 }
-              }
-              if (include instanceof ListExpression) {
-                for (Expression elem : ((ListExpression) include).getElements()) {
-                  if (elem instanceof StringLiteral) {
-                    String pattern = ((StringLiteral) elem).getValue();
-                    // exclude_directories is (oddly) an int with default 1.
-                    boolean exclude = true;
-                    if (excludeDirectories instanceof IntLiteral) {
-                      Number v = ((IntLiteral) excludeDirectories).getValue();
-                      if (v instanceof Integer && (Integer) v == 0) {
-                        exclude = false;
-                      }
-                    }
-                    if (functionName.equals("glob")) {
-                      (exclude ? globs : globsWithDirs).add(pattern);
-                    } else {
-                      subpackages.add(pattern);
-                    }
-                  }
+                if (functionName.equals("glob")) {
+                  (exclude ? globs : globsWithDirs).add(pattern);
+                } else {
+                  subpackages.add(pattern);
                 }
               }
             }
           }
+        }
+      }
 
-          // Reject f(*args) and f(**kwargs) calls in BUILD files.
-          void rejectStarArgs(CallExpression call) {
-            for (Argument arg : call.getArguments()) {
-              if (arg instanceof Argument.StarStar) {
-                error(
-                    arg.getStartLocation(),
-                    "**kwargs arguments are not allowed in BUILD files. Pass the arguments in "
-                        + "explicitly.");
-              } else if (arg instanceof Argument.Star) {
-                error(
-                    arg.getStartLocation(),
-                    "*args arguments are not allowed in BUILD files. Pass the arguments in "
-                        + "explicitly.");
-              }
-            }
+      // Record calls of the form f(name="foo", ...)
+      // so that we can later ascribe "foo" as the "generator name"
+      // of any rules instantiated during the call of f.
+      void recordGeneratorName(CallExpression call) {
+        for (Argument arg : call.getArguments()) {
+          if (arg instanceof Argument.Keyword
+              && arg.getName().equals("name")
+              && arg.getValue() instanceof StringLiteral) {
+            generatorNameByLocation.put(
+                call.getLparenLocation(), ((StringLiteral) arg.getValue()).getValue());
           }
+        }
+      }
 
-          // Record calls of the form f(name="foo", ...)
-          // so that we can later ascribe "foo" as the "generator name"
-          // of any rules instantiated during the call of f.
-          void recordGeneratorName(CallExpression call) {
-            for (Argument arg : call.getArguments()) {
-              if (arg instanceof Argument.Keyword
-                  && arg.getName().equals("name")
-                  && arg.getValue() instanceof StringLiteral) {
-                generatorNameByLocation.put(
-                    call.getLparenLocation(), ((StringLiteral) arg.getValue()).getValue());
-              }
-            }
-          }
-
-          // We prune the traversal if we encounter def/if/for,
-          // as we have already reported the root error and there's
-          // no point reporting more.
-
-          @Override
-          public void visit(DefStatement node) {
-            error(
-                node.getStartLocation(),
-                "functions may not be defined in BUILD files. You may move the function to "
-                    + "a .bzl file and load it.");
-          }
-
-          @Override
-          public void visit(LambdaExpression node) {
-            error(
-                node.getStartLocation(),
-                "functions may not be defined in BUILD files. You may move the function to "
-                    + "a .bzl file and load it.");
-          }
-
-          @Override
-          public void visit(ForStatement node) {
-            error(
-                node.getStartLocation(),
-                "for statements are not allowed in BUILD files. You may inline the loop, move it "
-                    + "to a function definition (in a .bzl file), or as a last resort use a list "
-                    + "comprehension.");
-          }
-
-          @Override
-          public void visit(IfStatement node) {
-            error(
-                node.getStartLocation(),
-                "if statements are not allowed in BUILD files. You may move conditional logic to a "
-                    + "function definition (in a .bzl file), or for simple cases use an if "
-                    + "expression.");
-          }
-
-          @Override
-          public void visit(CallExpression node) {
-            extractGlobPatterns(node);
-            rejectStarArgs(node);
-            recordGeneratorName(node);
-            // Continue traversal so as not to miss nested calls
-            // like cc_binary(..., f(**kwargs), srcs=glob(...), ...).
-            super.visit(node);
-          }
-        };
-    checker.visit(file);
-    return success[0];
+      @Override
+      public void visit(CallExpression node) {
+        extractGlobPatterns(node);
+        recordGeneratorName(node);
+        // Continue traversal so as not to miss nested calls
+        // like cc_binary(..., f(**kwargs), srcs=glob(...), ...).
+        super.visit(node);
+      }
+    }.check(file);
   }
 
   // Install profiler hooks into Starlark interpreter.

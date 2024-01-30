@@ -259,7 +259,7 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
     assertBuildFailedExceptionFromBuilding(
         "command succeeded, but not all targets were analyzed", "//a", "//b");
     events.assertContainsError(
-        "in srcs attribute of cc_library rule @//a:a: source file '@//a:missing.foo' is misplaced"
+        "in srcs attribute of cc_library rule @@//a:a: source file '@@//a:missing.foo' is misplaced"
             + " here");
     events.assertContainsInfo("Analysis succeeded for only 1 of 2 top-level targets");
 

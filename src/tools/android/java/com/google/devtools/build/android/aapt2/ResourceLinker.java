@@ -476,11 +476,7 @@ public class ResourceLinker {
             .add("--java", javaSourceDirectory)
             .add("--proguard", proguardConfig)
             .add("--proguard-main-dex", mainDexProguard)
-            // By default, exclude the file path location comments, since the paths
-            // include temporary directory names, which otherwise cause
-            // nondeterministic build output.
-            .when(!includeProguardLocationReferences)
-            .thenAdd("--no-proguard-location-reference")
+            .add("--no-proguard-location-reference")
             .when(conditionalKeepRules)
             .thenAdd("--proguard-conditional-keep-rules")
             .add("-o", linked)
@@ -501,12 +497,6 @@ public class ResourceLinker {
    */
   private CompressionOverride overrideCompression(DirectoryEntry entry) {
     String filename = entry.getFilename();
-    if (filename.startsWith("assets/") && filename.endsWith(".apk")) {
-      // This is solely to preserve legacy behavior, which could not otherwise be replicated with
-      // command line flags - nested APKs are compressed in res/raw unless in
-      // uncompressedExtensions, but are *never* compressed in assets.
-      return CompressionOverride.FORCE_STORED;
-    }
     if (filename.startsWith("res/")
         && filename.endsWith(".xml")
         && !uncompressedExtensions.contains(".xml")) {

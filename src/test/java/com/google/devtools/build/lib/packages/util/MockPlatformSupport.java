@@ -50,6 +50,10 @@ public class MockPlatformSupport {
         "licenses(['notice'])",
         "constraint_setting(name = 'cpu')",
         "constraint_value(",
+        "    name = 'all',",
+        "    constraint_setting = ':cpu',",
+        ")",
+        "constraint_value(",
         "    name = 'x86_32',",
         "    constraint_setting = ':cpu',",
         ")",
@@ -108,6 +112,10 @@ public class MockPlatformSupport {
         ")",
         "constraint_value(",
         "    name = 'tvos',",
+        "    constraint_setting = ':os',",
+        ")",
+        "constraint_value(",
+        "    name = 'visionos',",
         "    constraint_setting = ':os',",
         ")",
         "constraint_value(",
@@ -196,7 +204,7 @@ public class MockPlatformSupport {
         "toolchain(",
         "   name = 'toolchain_cc-compiler-k8',",
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
-        "   toolchain = '" + crosstoolLabel.getLocalTargetLabel("cc-compiler-k8-compiler") + "',",
+        "   toolchain = '" + crosstoolLabel.getSamePackageLabel("cc-compiler-k8-compiler") + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");
   }
@@ -216,7 +224,7 @@ public class MockPlatformSupport {
         "toolchain(",
         "   name = 'toolchain_cc-compiler-ppc',",
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
-        "   toolchain = '" + crosstoolLabel.getLocalTargetLabel("cc-compiler-ppc-compiler") + "',",
+        "   toolchain = '" + crosstoolLabel.getSamePackageLabel("cc-compiler-ppc-compiler") + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");
   }

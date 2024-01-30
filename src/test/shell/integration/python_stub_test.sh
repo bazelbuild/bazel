@@ -73,6 +73,8 @@ function test_python_version() {
   mkdir -p test
   touch test/main3.py
   cat > test/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(name = "main3",
     python_version = "PY3",
     srcs = ["main3.py"],
@@ -91,6 +93,8 @@ EOF
 function test_can_build_py_library_at_top_level_regardless_of_version() {
   mkdir -p test
   cat > test/BUILD << EOF
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
     name = "lib3",
     srcs = ["lib3.py"],
@@ -112,6 +116,8 @@ function test_python_through_bash_without_runfile_links() {
   mkdir -p python_through_bash
 
   cat > python_through_bash/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "inner",
     srcs = ["inner.py"],
@@ -136,8 +142,9 @@ EOF
 
   touch python_through_bash/inner.py
 
-  bazel run --nobuild_runfile_links //python_through_bash:outer \
-    &> $TEST_log || fail "bazel run failed"
+  # The inner Python script requires runfiles, so force them on Windows.
+  bazel run --nobuild_runfile_links --enable_runfiles \
+    //python_through_bash:outer &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python"
 }
 

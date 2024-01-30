@@ -15,12 +15,14 @@
 """objc_library Starlark implementation replacing native"""
 
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
-load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
-load("@_builtins//:common/objc/objc_common.bzl", "extensions")
+load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
+load("@_builtins//:common/objc/objc_common.bzl", "extensions", "objc_common")
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load("@_builtins//:common/objc/transitions.bzl", "apple_crosstool_transition")
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
 
 objc_internal = _builtins.internal.objc_internal
 coverage_common = _builtins.toplevel.coverage_common
@@ -78,7 +80,11 @@ def _objc_library_impl(ctx):
 
     compilation_support.validate_attributes(common_variables)
 
-    j2objc_providers = objc_internal.j2objc_providers_from_deps(ctx = ctx)
+    j2objc_mapping_file_infos = [dep[J2ObjcMappingFileInfo] for dep in ctx.attr.deps if J2ObjcMappingFileInfo in dep]
+    j2objc_mapping_file_info = objc_common.j2objc_mapping_file_info_union(providers = j2objc_mapping_file_infos)
+
+    j2objc_entry_class_infos = [dep[J2ObjcEntryClassInfo] for dep in ctx.attr.deps if J2ObjcEntryClassInfo in dep]
+    j2objc_entry_class_info = objc_common.j2objc_entry_class_info_union(providers = j2objc_entry_class_infos)
 
     objc_provider = common_variables.objc_provider
 
@@ -91,7 +97,7 @@ def _objc_library_impl(ctx):
         # TODO(cmita): Use ctx.coverage_instrumented() instead when rules_swift can access
         # cc_toolchain.coverage_files and the coverage_support_files parameter of
         # coverage_common.instrumented_files_info(...)
-        coverage_support_files = cc_toolchain.coverage_files() if ctx.configuration.coverage_enabled else depset([]),
+        coverage_support_files = cc_toolchain._coverage_files if ctx.configuration.coverage_enabled else depset([]),
         metadata_files = compilation_outputs.gcno_files() + compilation_outputs.pic_gcno_files(),
     )
 
@@ -105,30 +111,35 @@ def _objc_library_impl(ctx):
             linking_context = linking_context,
         ),
         objc_provider,
-        j2objc_providers[0],
-        j2objc_providers[1],
+        j2objc_mapping_file_info,
+        j2objc_entry_class_info,
         instrumented_files_info,
         OutputGroupInfo(**output_groups),
     ]
 
 objc_library = rule(
     implementation = _objc_library_impl,
+    doc = """
+<p>This rule produces a static library from the given Objective-C source files.</p>""",
     attrs = common_attrs.union(
         {
             "data": attr.label_list(allow_files = True),
-            "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False),
+            "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False, doc = """
+The list of other libraries that the library target depends on. Unlike with
+<code>deps</code>, the headers and include paths of these libraries (and all their
+transitive deps) are only used for compilation of this library, and not libraries that
+depend on it. Libraries specified with <code>implementation_deps</code> are still linked
+in binary targets that depend on this library."""),
         },
         common_attrs.ALWAYSLINK_RULE,
         common_attrs.CC_TOOLCHAIN_RULE,
         common_attrs.COMPILING_RULE,
         common_attrs.COMPILE_DEPENDENCY_RULE,
         common_attrs.COPTS_RULE,
-        common_attrs.INCLUDE_SCANNING_RULE,
         common_attrs.LICENSES,
         common_attrs.SDK_FRAMEWORK_DEPENDER_RULE,
     ),
     fragments = ["objc", "apple", "cpp"],
-    cfg = apple_crosstool_transition,
+    cfg = None if cc_common.incompatible_disable_objc_library_transition() else apple_crosstool_transition,
     toolchains = cc_helper.use_cpp_toolchain(),
-    incompatible_use_toolchain_transition = True,
 )

@@ -25,7 +25,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -48,15 +47,14 @@ import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
-import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction;
-import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
@@ -80,8 +78,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -110,7 +108,8 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
   private MemoizingEvaluator evaluator;
 
   @Before
-  public void createEnvironment() {
+  public void createEnvironment() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     AnalysisMock analysisMock = AnalysisMock.get();
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
@@ -157,18 +156,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
                 .build(ruleClassProvider, fileSystem),
             directories,
             /*bzlLoadFunctionForInlining=*/ null));
-    skyFunctions.put(
-        SkyFunctions.PACKAGE,
-        new PackageFunction(
-            null,
-            null,
-            null,
-            /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(),
-            null,
-            /*packageProgress=*/ null,
-            PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
-            GlobbingStrategy.SKYFRAME_HYBRID,
-            k -> ThreadStateReceiver.NULL_INSTANCE));
+    skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
     skyFunctions.put(
         SkyFunctions.EXTERNAL_PACKAGE,
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
@@ -185,7 +173,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, getStarlarkSemantics());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
   }
@@ -323,7 +311,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
 
   private static Environment createMockEnvironment() throws InterruptedException {
     Environment env = mock(Environment.class);
-    when(env.getValue(PrecomputedValue.PATH_PACKAGE_LOCATOR.getKeyForTesting()))
+    when(env.getValue(PrecomputedValue.PATH_PACKAGE_LOCATOR.getKey()))
         .thenReturn(
             new PrecomputedValue(
                 new PathPackageLocator(
@@ -409,13 +397,21 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<TargetPattern> registeredToolchains =
-          RegisteredToolchainsFunction.getWorkspaceToolchains(env);
-      if (registeredToolchains == null) {
+      ImmutableList<TargetPattern> userRegisteredToolchains =
+          RegisteredToolchainsFunction.getWorkspaceToolchains(
+              StarlarkSemantics.DEFAULT, env, /* userRegistered= */ true);
+      if (userRegisteredToolchains == null) {
+        return null;
+      }
+      ImmutableList<TargetPattern> workspaceSuffixRegisteredToolchains =
+          RegisteredToolchainsFunction.getWorkspaceToolchains(
+              StarlarkSemantics.DEFAULT, env, /* userRegistered= */ false);
+      if (workspaceSuffixRegisteredToolchains == null) {
         return null;
       }
       return GetRegisteredToolchainsValue.create(
-          registeredToolchains.stream()
+          Stream.concat(
+                  userRegisteredToolchains.stream(), workspaceSuffixRegisteredToolchains.stream())
               .map(TargetPattern::getOriginalPattern)
               .collect(toImmutableList()));
     }
@@ -442,7 +438,8 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
       List<TargetPattern> registeredExecutionPlatforms =
-          RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(env);
+          RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(
+              StarlarkSemantics.DEFAULT, env);
       if (registeredExecutionPlatforms == null) {
         return null;
       }

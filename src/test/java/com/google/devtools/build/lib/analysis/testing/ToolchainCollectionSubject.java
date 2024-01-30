@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSubject.toolchainContexts;
 
 import com.google.common.truth.FailureMetadata;
-import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.packages.ExecGroup;
@@ -29,12 +28,6 @@ public class ToolchainCollectionSubject extends Subject {
   /** Entry point for test assertions related to {@link ToolchainCollection}. */
   public static ToolchainCollectionSubject assertThat(ToolchainCollection<?> toolchainCollection) {
     return assertAbout(ToolchainCollectionSubject::new).that(toolchainCollection);
-  }
-
-  /** Static method for getting the subject factory (for use with assertAbout()). */
-  public static Subject.Factory<ToolchainCollectionSubject, ToolchainCollection<?>>
-      toolchainCollections() {
-    return ToolchainCollectionSubject::new;
   }
 
   // Instance fields.
@@ -57,10 +50,6 @@ public class ToolchainCollectionSubject extends Subject {
     return check("defaultToolchainContext()")
         .about(toolchainContexts())
         .that(actual.getDefaultToolchainContext());
-  }
-
-  public IterableSubject resolvedToolchains() {
-    return check("getResolvedToolchains()").that(actual.getResolvedToolchains());
   }
 
   public void hasExecGroup(String execGroup) {

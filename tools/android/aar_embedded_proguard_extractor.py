@@ -19,13 +19,13 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import sys
 import zipfile
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
 
+from tools.android import json_worker_wrapper
 from tools.android import junction
 
 FLAGS = flags.FLAGS
@@ -71,5 +71,4 @@ def main(unused_argv):
 
 
 if __name__ == "__main__":
-  FLAGS(sys.argv)
-  app.run(main)
+  json_worker_wrapper.wrap_worker(FLAGS, main, app.run)

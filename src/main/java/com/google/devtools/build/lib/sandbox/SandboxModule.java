@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -25,8 +24,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -76,9 +73,6 @@ public final class SandboxModule extends BlazeModule {
 
   /** Path to the location of the sandboxes. */
   @Nullable private Path sandboxBase;
-
-  /** Instance of the sandboxfs process in use, if enabled. */
-  @Nullable private SandboxfsProcess sandboxfsProcess;
 
   /**
    * Collection of spawn runner instantiated during the executor setup.
@@ -199,6 +193,7 @@ public final class SandboxModule extends BlazeModule {
       throws IOException, InterruptedException {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
     sandboxBase = computeSandboxBase(options, env);
+    Path trashBase = sandboxBase.getRelative("_moved_trash_dir");
 
     SandboxHelpers helpers = new SandboxHelpers();
 
@@ -216,24 +211,11 @@ public final class SandboxModule extends BlazeModule {
       }
     } else {
       if (!(treeDeleter instanceof AsynchronousTreeDeleter)) {
-        treeDeleter = new AsynchronousTreeDeleter();
+        treeDeleter = new AsynchronousTreeDeleter(trashBase);
       }
     }
     SandboxStash.initialize(env.getWorkspaceName(), env.getOutputBase(), options);
-    Path mountPoint = sandboxBase.getRelative("sandboxfs");
 
-    if (sandboxfsProcess != null) {
-      if (options.sandboxDebug) {
-        env.getReporter()
-            .handle(
-                Event.info(
-                    "Unmounting sandboxfs instance left behind on "
-                        + mountPoint
-                        + " by a previous command"));
-      }
-      sandboxfsProcess.destroy();
-      sandboxfsProcess = null;
-    }
     // SpawnExecutionPolicy#getId returns unique base directories for each sandboxed action during
     // the life of a Bazel server instance so we don't need to worry about stale directories from
     // previous builds. However, on the very first build of an instance of the server, we must
@@ -243,32 +225,8 @@ public final class SandboxModule extends BlazeModule {
       sandboxBase.deleteTree();
     }
     firstBuild = false;
-
-    PathFragment sandboxfsPath = PathFragment.create(options.sandboxfsPath);
     sandboxBase.createDirectoryAndParents();
-    if (options.useSandboxfs != TriState.NO) {
-      mountPoint.createDirectory();
-      Path logFile = sandboxBase.getRelative("sandboxfs.log");
-
-      if (sandboxfsProcess == null) {
-        if (options.sandboxDebug) {
-          env.getReporter().handle(Event.info("Mounting sandboxfs instance on " + mountPoint));
-        }
-        try (SilentCloseable c = Profiler.instance().profile("mountSandboxfs")) {
-          sandboxfsProcess = RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile);
-        } catch (IOException e) {
-          if (options.sandboxDebug) {
-            env.getReporter()
-                .handle(
-                    Event.info(
-                        "sandboxfs failed to mount due to " + e.getMessage() + "; ignoring"));
-          }
-          if (options.useSandboxfs == TriState.YES) {
-            throw e;
-          }
-        }
-      }
-    }
+    trashBase.createDirectory();
 
     PathFragment windowsSandboxPath = PathFragment.create(options.windowsSandboxPath);
     boolean windowsSandboxSupported;
@@ -296,8 +254,6 @@ public final class SandboxModule extends BlazeModule {
                   helpers,
                   cmdEnv,
                   sandboxBase,
-                  sandboxfsProcess,
-                  options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
@@ -350,8 +306,6 @@ public final class SandboxModule extends BlazeModule {
                   cmdEnv,
                   sandboxBase,
                   timeoutKillDelay,
-                  sandboxfsProcess,
-                  options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
@@ -369,8 +323,6 @@ public final class SandboxModule extends BlazeModule {
                   helpers,
                   cmdEnv,
                   sandboxBase,
-                  sandboxfsProcess,
-                  options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
@@ -451,9 +403,7 @@ public final class SandboxModule extends BlazeModule {
         LocalEnvProvider.forCurrentOs(env.getClientEnv()),
         env.getBlazeWorkspace().getBinTools(),
         ProcessWrapper.fromCommandEnvironment(env),
-        env.getXattrProvider(),
-        // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-        RunfilesTreeUpdater.INSTANCE);
+        RunfilesTreeUpdater.forCommandEnvironment(env));
   }
 
   /**
@@ -536,41 +486,6 @@ public final class SandboxModule extends BlazeModule {
     }
   }
 
-  /**
-   * Unmounts an existing sandboxfs instance unless the user asked not to by providing the {@code
-   * --sandbox_debug} flag.
-   */
-  private void unmountSandboxfs() {
-    if (sandboxfsProcess != null) {
-      if (shouldCleanupSandboxBase) {
-        sandboxfsProcess.destroy();
-        sandboxfsProcess = null;
-      } else {
-        checkNotNull(env, "env not initialized; was beforeCommand called?");
-        env.getReporter()
-            .handle(Event.info("Leaving sandboxfs mounted because of --sandbox_debug"));
-      }
-    }
-  }
-
-  /** Silently tries to unmount an existing sandboxfs instance, ignoring errors. */
-  private void tryUnmountSandboxfsOnShutdown() {
-    if (sandboxfsProcess != null) {
-      sandboxfsProcess.destroy();
-      sandboxfsProcess = null;
-    }
-  }
-
-  @Subscribe
-  public void buildComplete(@SuppressWarnings("unused") BuildCompleteEvent event) {
-    unmountSandboxfs();
-  }
-
-  @Subscribe
-  public void buildInterrupted(@SuppressWarnings("unused") BuildInterruptedEvent event) {
-    unmountSandboxfs();
-  }
-
   @Subscribe
   public void cleanStarting(@SuppressWarnings("unused") CleanStartingEvent event) {
     SandboxStash.clean(treeDeleter, env.getOutputBase());
@@ -627,11 +542,6 @@ public final class SandboxModule extends BlazeModule {
       }
       shouldCleanupSandboxBase = false;
 
-      checkState(
-          sandboxfsProcess == null,
-          "sandboxfs instance should have been shut down at this "
-              + "point; were the buildComplete/buildInterrupted events sent?");
-
       cleanupSandboxBaseTop(sandboxBase);
       // We intentionally keep sandboxBase around, without resetting it to null, in case we have
       // asynchronous deletions going on. In that case, we'd still want to retry this during
@@ -645,8 +555,6 @@ public final class SandboxModule extends BlazeModule {
   }
 
   private void commonShutdown() {
-    tryUnmountSandboxfsOnShutdown();
-
     // Try to clean up as much garbage as possible, if there happens to be any. This will delay
     // server termination but it's the nice thing to do. If the user gets impatient, they can always
     // kill us again.

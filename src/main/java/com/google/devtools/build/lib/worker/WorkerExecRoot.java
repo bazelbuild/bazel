@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -45,7 +46,10 @@ final class WorkerExecRoot {
   }
 
   public void createFileSystem(
-      Set<PathFragment> workerFiles, SandboxInputs inputs, SandboxOutputs outputs)
+      Set<PathFragment> workerFiles,
+      SandboxInputs inputs,
+      SandboxOutputs outputs,
+      TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
     workDir.createDirectoryAndParents();
 
@@ -58,8 +62,7 @@ final class WorkerExecRoot {
         inputsToCreate,
         dirsToCreate,
         Iterables.concat(workerFiles, inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
-        outputs.files(),
-        outputs.dirs());
+        outputs);
 
     // Then do a full traversal of the parent directory of `workDir`. This will use what we computed
     // above, delete anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is
@@ -67,7 +70,7 @@ final class WorkerExecRoot {
     // We're traversing from workDir's parent directory because external repositories can now be
     // symlinked as siblings of workDir when --experimental_sibling_repository_layout is in effect.
     SandboxHelpers.cleanExisting(
-        workDir.getParentDirectory(), inputs, inputsToCreate, dirsToCreate, workDir);
+        workDir.getParentDirectory(), inputs, inputsToCreate, dirsToCreate, workDir, treeDeleter);
 
     // Finally, create anything that is still missing. This is non-strict only for historical
     // reasons,

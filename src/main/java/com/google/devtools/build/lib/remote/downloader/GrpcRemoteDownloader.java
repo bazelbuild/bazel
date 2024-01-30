@@ -110,13 +110,14 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   @Override
   public void download(
       List<URL> urls,
+      Map<String, List<String>> headers,
       Credentials credentials,
-      com.google.common.base.Optional<Checksum> checksum,
+      Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      com.google.common.base.Optional<String> type)
+      Optional<String> type)
       throws IOException, InterruptedException {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "remote_downloader", null);
@@ -154,16 +155,21 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       eventHandler.handle(
           Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
       fallbackDownloader.download(
-          urls, credentials, checksum, canonicalId, destination, eventHandler, clientEnv, type);
+          urls,
+          headers,
+          credentials,
+          checksum,
+          canonicalId,
+          destination,
+          eventHandler,
+          clientEnv,
+          type);
     }
   }
 
   @VisibleForTesting
   static FetchBlobRequest newFetchBlobRequest(
-      String instanceName,
-      List<URL> urls,
-      com.google.common.base.Optional<Checksum> checksum,
-      String canonicalId) {
+      String instanceName, List<URL> urls, Optional<Checksum> checksum, String canonicalId) {
     FetchBlobRequest.Builder requestBuilder =
         FetchBlobRequest.newBuilder().setInstanceName(instanceName);
     for (URL url : urls) {
@@ -194,12 +200,17 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
-  private OutputStream newOutputStream(
-      Path destination, com.google.common.base.Optional<Checksum> checksum) throws IOException {
+  private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)
+      throws IOException {
     OutputStream out = destination.getOutputStream();
     if (checksum.isPresent()) {
       out = new HashOutputStream(out, checksum.get());
     }
     return out;
+  }
+
+  @VisibleForTesting
+  public ReferenceCountedChannel getChannel() {
+    return channel;
   }
 }

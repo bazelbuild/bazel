@@ -16,12 +16,11 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.ExecGroup;
-import com.google.devtools.build.lib.skyframe.NoMatchingPlatformException;
-import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
-import com.google.devtools.build.lib.skyframe.ToolchainException;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.lib.skyframe.toolchains.NoMatchingPlatformException;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.Map;
@@ -58,7 +57,7 @@ final class UnloadedToolchainContextsProducer implements StateMachine {
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     var defaultToolchainContextKey = unloadedToolchainContextsInputs.targetToolchainContextKey();
     if (defaultToolchainContextKey == null) {
       // Doesn't use toolchain resolution and short-circuits.
@@ -131,7 +130,7 @@ final class UnloadedToolchainContextsProducer implements StateMachine {
     }
   }
 
-  private StateMachine buildToolchainContexts(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine buildToolchainContexts(Tasks tasks) {
     if (toolchainContextsHasError) {
       return runAfter;
     }

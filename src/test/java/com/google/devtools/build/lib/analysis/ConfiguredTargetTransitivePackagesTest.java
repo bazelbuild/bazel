@@ -23,8 +23,13 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,8 +40,15 @@ import org.junit.runners.JUnit4;
 public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCase {
 
   @Before
-  public final void setUpToolsConfigMock() throws Exception  {
+  public void setUpToolsConfigMock() throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
+  }
+
+  @Override
+  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
+    // Transitive packages are only stored when external repositories are enabled.
+    return SkyframeExecutorRepositoryHelpersHolder.create(
+        new RepositoryDirectoryDirtinessChecker());
   }
 
   private void assertTransitiveClosureOfTargetContainsPackages(
@@ -70,16 +82,36 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
   @Test
   public void testPackagesFromAspects() throws Exception {
     setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.EXTRA_ATTRIBUTE_ASPECT_RULE);
-    scratch.file("extra/BUILD",
-        "base(name = 'extra')"
-    );
-    scratch.file("a/c/BUILD",
+    scratch.file("extra/BUILD", "base(name = 'extra')");
+    scratch.file(
+        "a/c/BUILD",
         "rule_with_extra_deps_aspect(name = 'foo', foo = [ ':bar' ])",
         "base(name = 'bar')");
+
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a/c:foo").getTargetsToBuild());
     BuildConfigurationValue config = getConfiguration(target);
-    // We expect 'extra' package because rule_with_extra_deps adds an aspect
-    // on attribute 'foo' with '//extra:extra' dependency.
+
+    // We expect 'extra' package because rule_with_extra_deps adds an aspect on attribute 'foo' with
+    // '//extra:extra' dependency.
     assertTransitiveClosureOfTargetContainsPackages("//a/c:foo", config, "a/c", "extra");
+  }
+
+  @Test
+  public void testTargetsWithConfiguration() throws Exception {
+    scratch.file("a/BUILD", "cc_library(name = 'a', srcs = [ 'some.cpp' ])");
+
+    ConfiguredTarget target = Iterables.getOnlyElement(update("//a:a").getTargetsToBuild());
+    BuildConfigurationValue config = getConfiguration(target);
+
+    // We expect to get the mock crosstool in transitive dependencies, because it's required for c++
+    // configuration.
+    assertTransitiveClosureOfTargetContainsPackages(
+        "//a:a",
+        config,
+        "a",
+        PackageIdentifier.create(
+                TestConstants.TOOLS_REPOSITORY,
+                PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH))
+            .toString());
   }
 }

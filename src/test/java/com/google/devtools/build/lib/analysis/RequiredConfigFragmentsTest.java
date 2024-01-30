@@ -357,11 +357,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "has_cpp_aware_rule_transition = rule(",
         "  implementation = _impl,",
         "  cfg = cpp_read_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        ")");
     scratch.file(
         "a/BUILD",
         "load('//a:defs.bzl', 'has_cpp_aware_rule_transition')",
@@ -384,11 +380,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "has_java_aware_rule_transition = rule(",
         "  implementation = _impl,",
         "  cfg = java_write_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        ")");
     scratch.file(
         "a/BUILD",
         "load('//a:defs.bzl', 'has_java_aware_rule_transition')",
@@ -412,18 +404,11 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'deps': attr.label_list(cfg = java_write_transition),",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
         "  })",
         "has_cpp_aware_rule_transition = rule(",
         "  implementation = _impl,",
         "  cfg = cpp_read_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        ")");
     scratch.file(
         "a/BUILD",
         "load('//a:defs.bzl', 'has_cpp_aware_rule_transition', 'has_java_aware_attr_transition')",

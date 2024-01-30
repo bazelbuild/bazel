@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.devtools.build.lib.util.DescribableExecutionUnit;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -34,6 +35,10 @@ interface SandboxedSpawn extends DescribableExecutionUnit {
   default boolean useSubprocessTimeout() {
     return false;
   }
+
+  /** Returns the path that sandbox debug output is written to, if any. */
+  @Nullable
+  Path getSandboxDebugPath();
 
   /** Returns the path where statistics about subprocess execution are written, if any. */
   @Nullable
@@ -57,4 +62,12 @@ interface SandboxedSpawn extends DescribableExecutionUnit {
 
   /** Deletes the sandbox directory. */
   void delete();
+
+  /**
+   * Returns user-facing instructions for starting an interactive sandboxed environment identical to
+   * the one in which this spawn is executed.
+   */
+  default Optional<String> getInteractiveDebugInstructions() {
+    return Optional.empty();
+  }
 }

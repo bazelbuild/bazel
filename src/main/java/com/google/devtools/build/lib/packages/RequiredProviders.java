@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import java.util.function.Function;
@@ -340,18 +340,6 @@ public final class RequiredProviders {
    */
   public static Builder acceptAnyBuilder() {
     return new Builder(false);
-  }
-
-  /**
-   * Mutates the given {@link AspectDefinition.Builder}, adding in the required providers specified
-   * by this {@link RequiredProviders}.
-   *
-   * <p>We use this indirection for the sake of encapsulating the internal representation of {@link
-   * RequiredProviders}.
-   */
-  void addToAspectDefinitionBuilder(AspectDefinition.Builder aspectDefinitionBuilder) {
-    aspectDefinitionBuilder.requireProviderSets(builtinProviders);
-    aspectDefinitionBuilder.requireStarlarkProviderSets(starlarkProviders);
   }
 
   /**

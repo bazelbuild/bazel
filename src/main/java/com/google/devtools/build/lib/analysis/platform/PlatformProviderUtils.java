@@ -51,15 +51,6 @@ public class PlatformProviderUtils {
     return target.get(ConstraintSettingInfo.PROVIDER);
   }
 
-  /** Retrieves and casts {@link ConstraintSettingInfo} providers from the given targets. */
-  public static ImmutableList<ConstraintSettingInfo> constraintSettings(
-      List<? extends ProviderCollection> targets) {
-    return targets.stream()
-        .map(PlatformProviderUtils::constraintSetting)
-        .filter(notNull())
-        .collect(toImmutableList());
-  }
-
   /** Retrieves and casts the {@link ConstraintValueInfo} provider from the given target. */
   @Nullable
   public static ConstraintValueInfo constraintValue(@Nullable ProviderCollection target) {

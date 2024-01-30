@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SingleVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -203,16 +203,22 @@ public class CcToolchainFeatures implements StarlarkValue {
   public static class EnvEntry {
     private final String key;
     private final ImmutableList<StringChunk> valueChunks;
+    private final ImmutableSet<String> expandIfAllAvailable;
 
     private EnvEntry(CToolchain.EnvEntry envEntry) throws EvalException {
       this.key = envEntry.getKey();
       StringValueParser parser = new StringValueParser(envEntry.getValue());
       this.valueChunks = parser.getChunks();
+      this.expandIfAllAvailable = ImmutableSet.copyOf(envEntry.getExpandIfAllAvailableList());
     }
 
-    EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
+    EnvEntry(
+        String key,
+        ImmutableList<StringChunk> valueChunks,
+        ImmutableSet<String> expandIfAllAvailable) {
       this.key = key;
       this.valueChunks = valueChunks;
+      this.expandIfAllAvailable = expandIfAllAvailable;
     }
 
     String getKey() {
@@ -227,6 +233,19 @@ public class CcToolchainFeatures implements StarlarkValue {
                   .collect(ImmutableList.toImmutableList()));
     }
 
+    ImmutableSet<String> getExpandIfAllAvailable() {
+      return expandIfAllAvailable;
+    }
+
+    private boolean canBeExpanded(CcToolchainVariables variables) {
+      for (String variable : expandIfAllAvailable) {
+        if (!variables.isAvailable(variable)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     /**
      * Adds the key/value pair this object represents to the given map of environment variables. The
      * value of the entry is expanded with the given {@code variables}.
@@ -234,6 +253,9 @@ public class CcToolchainFeatures implements StarlarkValue {
     public void addEnvEntry(
         CcToolchainVariables variables, ImmutableMap.Builder<String, String> envBuilder)
         throws ExpansionException {
+      if (!canBeExpanded(variables)) {
+        return;
+      }
       StringBuilder value = new StringBuilder();
       for (StringChunk chunk : valueChunks) {
         value.append(chunk.expand(variables));
@@ -799,18 +821,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       this.provides = provides;
     }
 
-    @AutoCodec.Instantiator
     @VisibleForSerialization
-    static Feature createFeatureForSerialization(
-        String name,
-        ImmutableList<FlagSet> flagSets,
-        ImmutableList<EnvSet> envSets,
-        boolean enabled,
-        ImmutableList<ImmutableSet<String>> requires,
-        ImmutableList<String> implies,
-        ImmutableList<String> provides) {
-      return FEATURE_INTERNER.intern(
-          new Feature(name, flagSets, envSets, enabled, requires, implies, provides));
+    @AutoCodec.Interner
+    static Feature intern(Feature feature) {
+      return FEATURE_INTERNER.intern(feature);
     }
 
     @Override
@@ -902,6 +916,9 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final ImmutableSet<String> executionRequirements;
     private final ImmutableSet<WithFeatureSet> withFeatureSetSets;
 
+    // Caching tool path string.
+    @Nullable private String toolPathString = null;
+
     private Tool(CToolchain.Tool tool, ImmutableSet<WithFeatureSet> withFeatureSetSets)
         throws EvalException {
       this(
@@ -972,7 +989,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       switch (toolPathOrigin) {
         case CROSSTOOL_PACKAGE:
           // Legacy behavior.
-          return ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
+          if (toolPathString == null) {
+            toolPathString = ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
+          }
+          return toolPathString;
 
         case FILESYSTEM_ROOT: // fallthrough.
         case WORKSPACE_ROOT:
@@ -1087,17 +1107,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       this.implies = implies;
     }
 
-    @AutoCodec.Instantiator
     @VisibleForSerialization
-    static ActionConfig createForSerialization(
-        String configName,
-        String actionName,
-        ImmutableList<Tool> tools,
-        ImmutableList<FlagSet> flagSets,
-        boolean enabled,
-        ImmutableList<String> implies) {
-      return ACTION_CONFIG_INTERNER.intern(
-          new ActionConfig(configName, actionName, tools, flagSets, enabled, implies));
+    @AutoCodec.Interner
+    static ActionConfig intern(ActionConfig actionConfig) {
+      return ACTION_CONFIG_INTERNER.intern(actionConfig);
     }
 
     @Override
@@ -1312,20 +1325,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       this.ccToolchainPath = ccToolchainPath;
     }
 
-    @AutoCodec.Instantiator
-    static FeatureConfiguration createForSerialization(
-        ImmutableSet<String> requestedFeatures,
-        ImmutableList<Feature> enabledFeatures,
-        ImmutableSet<String> enabledActionConfigActionNames,
-        ImmutableMap<String, ActionConfig> actionConfigByActionName,
-        PathFragment ccToolchainPath) {
-      return FEATURE_CONFIGURATION_INTERNER.intern(
-          new FeatureConfiguration(
-              requestedFeatures,
-              enabledFeatures,
-              enabledActionConfigActionNames,
-              actionConfigByActionName,
-              ccToolchainPath));
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static FeatureConfiguration intern(FeatureConfiguration featureConfiguration) {
+      return FEATURE_CONFIGURATION_INTERNER.intern(featureConfiguration);
     }
 
     /**

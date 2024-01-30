@@ -92,7 +92,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
     enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
     statsSummary = env.getOptions().getOptions(ExecutionOptions.class).statsSummary;
     if (enabled) {
-      criticalPathComputer = new CriticalPathComputer(actionKeyContext, BlazeClock.instance());
+      criticalPathComputer = new CriticalPathComputer(actionKeyContext);
       eventBus.register(criticalPathComputer);
     }
   }

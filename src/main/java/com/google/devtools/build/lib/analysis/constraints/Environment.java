@@ -52,11 +52,12 @@ public class Environment implements RuleConfiguredTargetFactory {
     EnvironmentCollection env =
         new EnvironmentCollection.Builder().put(group.getEnvironmentLabels(), label).build();
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProvider(SupportedEnvironmentsProvider.class,
-            new SupportedEnvironments(env, env, ImmutableMap.of()))
+        .addProvider(
+            SupportedEnvironmentsProvider.class,
+            SupportedEnvironments.create(env, env, ImmutableMap.of()))
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .add(FileProvider.class, FileProvider.EMPTY)
-        .add(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
+        .addProvider(FileProvider.class, FileProvider.EMPTY)
+        .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .build();
   }
 }

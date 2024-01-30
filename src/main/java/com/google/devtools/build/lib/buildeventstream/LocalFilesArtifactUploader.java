@@ -17,6 +17,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
 import com.google.devtools.build.lib.vfs.Path;
 import io.netty.util.AbstractReferenceCounted;
@@ -66,7 +67,12 @@ public class LocalFilesArtifactUploader extends AbstractReferenceCounted
         // We should throw here, the file wasn't declared in BuildEvent#referencedLocalFiles
         return null;
       }
-      if (!localFile.type.isGuaranteedFile()
+      LocalFileType type = localFile.type;
+      if (type.equals(LocalFileType.OUTPUT_DIRECTORY)
+          || type.equals(LocalFileType.OUTPUT_SYMLINK)) {
+        return null;
+      }
+      if (type.equals(LocalFileType.OUTPUT)
           && fileIsDirectory.computeIfAbsent(path, Path::isDirectory)) {
         return null;
       }

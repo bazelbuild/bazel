@@ -40,8 +40,10 @@ public interface RepositoryModuleApi {
   @StarlarkMethod(
       name = "repository_rule",
       doc =
-          "Creates a new repository rule. Store it in a global value, so that it can be loaded and "
-              + "called from the WORKSPACE file.",
+          "Creates a new repository rule. Store it in a global value, so that it can be loaded and"
+              + " called from a <code><a href=\"#module_extension\">module extension</a></code>"
+              + " implementation function, or used by <code><a"
+              + " href=\"../globals/module.html#use_repo_rule\">use_repo_rule</a></code>.",
       parameters = {
         @Param(
             name = "implementation",
@@ -82,8 +84,10 @@ public interface RepositoryModuleApi {
             },
             defaultValue = "[]",
             doc =
-                "Provides a list of environment variable that this repository rule depends on. If "
-                    + "an environment variable in that list change, the repository will be "
+                "<b>Deprecated</b>. This parameter has been deprecated. Migrate to "
+                    + "<code>repository_ctx.getenv</code> instead.<br/>"
+                    + "Provides a list of environment variable that this repository rule depends "
+                    + "on. If an environment variable in that list change, the repository will be "
                     + "refetched.",
             named = true,
             positional = false),
@@ -103,7 +107,11 @@ public interface RepositoryModuleApi {
             valueWhenDisabled = "False"),
         @Param(
             name = "doc",
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the repository rule that can be extracted by documentation "
                     + "generating tools.",
@@ -118,7 +126,7 @@ public interface RepositoryModuleApi {
       Sequence<?> environ, // <String> expected
       Boolean configure,
       Boolean remotable,
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException;
 
@@ -126,7 +134,8 @@ public interface RepositoryModuleApi {
       name = "module_extension",
       doc =
           "Creates a new module extension. Store it in a global value, so that it can be exported"
-              + " and used in a MODULE.bazel file.",
+              + " and used in a MODULE.bazel file with <code><a"
+              + " href=\"../globals/module.html#use_extension\">use_extension</a></code>.",
       parameters = {
         @Param(
             name = "implementation",
@@ -147,10 +156,38 @@ public interface RepositoryModuleApi {
             positional = false),
         @Param(
             name = "doc",
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the module extension that can be extracted by documentation"
                     + " generating tools.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "environ",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+            },
+            defaultValue = "[]",
+            doc =
+                "Provides a list of environment variable that this module extension depends on. If "
+                    + "an environment variable in that list changes, the extension will be "
+                    + "re-evaluated.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "os_dependent",
+            defaultValue = "False",
+            doc = "Indicates whether this extension is OS-dependent or not",
+            named = true,
+            positional = false),
+        @Param(
+            name = "arch_dependent",
+            defaultValue = "False",
+            doc = "Indicates whether this extension is architecture-dependent or not",
             named = true,
             positional = false)
       },
@@ -158,7 +195,10 @@ public interface RepositoryModuleApi {
   Object moduleExtension(
       StarlarkCallable implementation,
       Dict<?, ?> tagClasses, // Dict<String, TagClassApi>
-      String doc,
+      Object doc, // <String> or Starlark.NONE
+      Sequence<?> environ, // <String>
+      boolean osDependent,
+      boolean archDependent,
       StarlarkThread thread)
       throws EvalException;
 
@@ -178,7 +218,11 @@ public interface RepositoryModuleApi {
                     + " href=\"../toplevel/attr.html\">attr</a> module)."),
         @Param(
             name = "doc",
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the tag class that can be extracted by documentation"
                     + " generating tools.",
@@ -188,7 +232,7 @@ public interface RepositoryModuleApi {
       useStarlarkThread = true)
   TagClassApi tagClass(
       Dict<?, ?> attrs, // Dict<String, StarlarkAttrModuleApi.Descriptor>
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException;
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataSettingsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataProcessingApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +78,9 @@ public abstract class AndroidStarlarkData
       StarlarkThread thread)
       throws EvalException {
     // We assume this is an analysis-phase thread.
-    Label label = BazelStarlarkContext.from(thread).getAnalysisRuleLabel();
+    Label label =
+        BazelRuleAnalysisThreadContext.fromOrFail(thread, "assets_from_deps")
+            .getAnalysisRuleLabel();
     return AssetDependencies.fromProviders(
             Sequence.cast(deps, AndroidAssetsInfo.class, "deps"), neverlink)
         .toInfo(label);
@@ -180,7 +183,7 @@ public abstract class AndroidStarlarkData
       Sequence<?> deps, // <AndroidResourcesInfo>
       boolean neverlink,
       boolean enableDataBinding)
-      throws EvalException, InterruptedException {
+      throws EvalException, InterruptedException, RuleErrorException {
     ValidatedAndroidResources validated =
         mergeRes(
             ctx, manifest, resources, deps, StarlarkList.empty(), neverlink, enableDataBinding);
@@ -247,13 +250,13 @@ public abstract class AndroidStarlarkData
   }
 
   @Override
-  public Dict<Provider, NativeInfo> processAarImportData(
+  public Dict<Provider, StructApi> processAarImportData(
       AndroidDataContext ctx,
       SpecialArtifact resources,
       SpecialArtifact assets,
       Artifact androidManifestArtifact,
       Sequence<?> deps) // <ConfiguredTarget>
-      throws InterruptedException, EvalException {
+      throws InterruptedException, EvalException, RuleErrorException {
     List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
 
     ValidatedAndroidResources validatedResources =
@@ -281,7 +284,7 @@ public abstract class AndroidStarlarkData
   }
 
   @Override
-  public Dict<Provider, NativeInfo> processLocalTestData(
+  public Dict<Provider, StructApi> processLocalTestData(
       AndroidDataContext ctx,
       Object manifest,
       Sequence<?> resources, // <ConfiguredTarget>
@@ -336,7 +339,7 @@ public abstract class AndroidStarlarkData
                       resourceConfigurationFilters, String.class, "resource_configuration_filters"),
                   Sequence.cast(densities, String.class, "densities")));
 
-      Dict.Builder<Provider, NativeInfo> builder = Dict.builder();
+      Dict.Builder<Provider, StructApi> builder = Dict.builder();
       builder.putAll(getNativeInfosFrom(resourceApk, ctx.getLabel()));
       builder.put(
           AndroidBinaryDataInfo.PROVIDER,
@@ -551,9 +554,9 @@ public abstract class AndroidStarlarkData
     return binaryDataInfo;
   }
 
-  public static Dict<Provider, NativeInfo> getNativeInfosFrom(
-      ResourceApk resourceApk, Label label) {
-    Dict.Builder<Provider, NativeInfo> builder = Dict.builder();
+  public static Dict<Provider, StructApi> getNativeInfosFrom(ResourceApk resourceApk, Label label)
+      throws RuleErrorException {
+    Dict.Builder<Provider, StructApi> builder = Dict.builder();
 
     builder
         .put(AndroidResourcesInfo.PROVIDER, resourceApk.toResourceInfo(label))
@@ -569,25 +572,21 @@ public abstract class AndroidStarlarkData
     return builder.buildImmutable();
   }
 
-  private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar, Artifact rClassSrcJar) {
+  private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar, Artifact rClassSrcJar)
+      throws RuleErrorException {
     return JavaInfo.Builder.create()
         .setNeverlink(true)
-        .addProvider(
-            JavaSourceJarsProvider.class,
-            JavaSourceJarsProvider.builder().addSourceJar(rClassSrcJar).build())
-        .addProvider(
-            JavaRuleOutputJarsProvider.class,
+        .javaSourceJars(JavaSourceJarsProvider.builder().addSourceJar(rClassSrcJar).build())
+        .javaRuleOutputs(
             JavaRuleOutputJarsProvider.builder()
                 .addJavaOutput(
                     JavaOutput.builder().setClassJar(rClassJar).addSourceJar(rClassSrcJar).build())
                 .build())
-        .addProvider(
-            JavaCompilationArgsProvider.class,
+        .javaCompilationArgs(
             JavaCompilationArgsProvider.builder()
                 .addDirectCompileTimeJar(rClassJar, rClassJar)
                 .build())
-        .addProvider(
-            JavaCompilationInfoProvider.class,
+        .javaCompilationInfo(
             new JavaCompilationInfoProvider.Builder()
                 .setCompilationClasspath(NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, rClassJar))
                 .build())

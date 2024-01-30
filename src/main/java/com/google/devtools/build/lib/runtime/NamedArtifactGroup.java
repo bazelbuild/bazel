@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.actions.CompletionContext.isGuaranteedToBeOutputFile;
 import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
 
 import com.google.common.collect.ImmutableList;
@@ -76,18 +75,14 @@ class NamedArtifactGroup implements BuildEvent {
     for (Object elem : set.getLeaves()) {
       ExpandedArtifact expandedArtifact = (ExpandedArtifact) elem;
       if (expandedArtifact.relPath == null) {
-        FileArtifactValue fileMetadata =
+        FileArtifactValue metadata =
             completionContext.getFileArtifactValue(expandedArtifact.artifact);
-        LocalFileType outputType =
-            fileMetadata != null && isGuaranteedToBeOutputFile(fileMetadata.getType())
-                ? LocalFileType.OUTPUT_FILE
-                : LocalFileType.OUTPUT;
         artifacts.add(
             new LocalFile(
                 completionContext.pathResolver().toPath(expandedArtifact.artifact),
-                outputType,
-                fileMetadata == null ? null : expandedArtifact.artifact,
-                fileMetadata));
+                LocalFileType.forArtifact(expandedArtifact.artifact, metadata),
+                metadata == null ? null : expandedArtifact.artifact,
+                metadata));
       } else {
         // TODO(b/199940216): Can fileset metadata be properly handled here?
         artifacts.add(
@@ -113,19 +108,27 @@ class NamedArtifactGroup implements BuildEvent {
       if (expandedArtifact.relPath == null) {
         String uri =
             pathConverter.apply(completionContext.pathResolver().toPath(expandedArtifact.artifact));
-        if (uri != null) {
-          builder.addFiles(
-              newFileFromArtifact(expandedArtifact.artifact, completionContext).setUri(uri));
+        BuildEventStreamProtos.File file =
+            newFileFromArtifact(
+                /* name= */ null, expandedArtifact.artifact, completionContext, uri);
+        // Omit files with unknown contents (e.g. if uploading failed).
+        if (file.getFileCase() != BuildEventStreamProtos.File.FileCase.FILE_NOT_SET) {
+          builder.addFiles(file);
         }
       } else {
         String uri =
             pathConverter.apply(
                 completionContext.pathResolver().convertPath(expandedArtifact.target));
-        if (uri != null) {
-          builder.addFiles(
-              newFileFromArtifact(
-                      null, expandedArtifact.artifact, expandedArtifact.relPath, completionContext)
-                  .setUri(uri));
+        BuildEventStreamProtos.File file =
+            newFileFromArtifact(
+                /* name= */ null,
+                expandedArtifact.artifact,
+                expandedArtifact.relPath,
+                completionContext,
+                uri);
+        // Omit files with unknown contents (e.g. if uploading failed).
+        if (file.getFileCase() != BuildEventStreamProtos.File.FileCase.FILE_NOT_SET) {
+          builder.addFiles(file);
         }
       }
     }

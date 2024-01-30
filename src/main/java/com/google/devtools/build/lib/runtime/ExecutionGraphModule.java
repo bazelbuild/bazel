@@ -30,11 +30,13 @@ import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.SharedActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -53,8 +55,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.InvalidPackagePathSymlinkException;
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport;
@@ -153,22 +155,6 @@ public class ExecutionGraphModule extends BlazeModule {
         defaultValue = "false",
         help = "Subscribe to ActionMiddlemanEvent in ExecutionGraphModule.")
     public boolean logMiddlemanActions;
-
-    @Option(
-        name = "experimental_execution_graph_log_cached",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "true",
-        help = "Subscribe to CachedActionEvent in ExecutionGraphModule.")
-    public boolean logCachedActions;
-
-    @Option(
-        name = "experimental_execution_graph_log_missed",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "true",
-        help = "Subscribe to ActionCompletionEvent in ExecutionGraphModule.")
-    public boolean logMissedActions;
 
     @Option(
         name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
@@ -320,9 +306,9 @@ public class ExecutionGraphModule extends BlazeModule {
   @Subscribe
   @AllowConcurrentEvents
   public void actionComplete(ActionCompletionEvent event) {
-    if (options.logMissedActions) {
-      actionEvent(event.getAction(), event.getRelativeActionStartTime());
-    }
+    // TODO(vanja): handle finish time in ActionCompletionEvent
+    actionEvent(
+        event.getAction(), event.getRelativeActionStartTimeNanos(), event.getFinishTimeNanos());
   }
 
   /**
@@ -333,9 +319,7 @@ public class ExecutionGraphModule extends BlazeModule {
   @Subscribe
   @AllowConcurrentEvents
   public void actionCached(CachedActionEvent event) {
-    if (options.logCachedActions) {
-      actionEvent(event.getAction(), event.getNanoTimeStart());
-    }
+    actionEvent(event.getAction(), event.getNanoTimeStart(), event.getNanoTimeFinish());
   }
 
   /**
@@ -348,14 +332,17 @@ public class ExecutionGraphModule extends BlazeModule {
   @AllowConcurrentEvents
   public void middlemanAction(ActionMiddlemanEvent event) {
     if (options.logMiddlemanActions) {
-      actionEvent(event.getAction(), event.getNanoTimeStart());
+      actionEvent(event.getAction(), event.getNanoTimeStart(), event.getNanoTimeFinish());
     }
   }
 
-  private void actionEvent(Action action, long nanoTimeStart) {
+  private void actionEvent(Action action, long nanoTimeStart, long nanoTimeFinish) {
     ActionDumpWriter localWriter = writer;
     if (localWriter != null) {
-      localWriter.enqueue(action, nanosToMillis.toEpochMillis(nanoTimeStart));
+      localWriter.enqueue(
+          action,
+          nanosToMillis.toEpochMillis(nanoTimeStart),
+          nanosToMillis.toEpochMillis(nanoTimeFinish));
     }
   }
 
@@ -411,20 +398,21 @@ public class ExecutionGraphModule extends BlazeModule {
   @VisibleForTesting
   protected abstract static class ActionDumpWriter implements Runnable {
 
-    private ExecutionGraph.Node actionToNode(Action action, long startMillis) {
+    private ExecutionGraph.Node actionToNode(Action action, long startMillis, long finishMillis) {
       int index = nextIndex.getAndIncrement();
       ExecutionGraph.Node.Builder node =
           ExecutionGraph.Node.newBuilder()
-              .setMetrics(ExecutionGraph.Metrics.newBuilder().setStartTimestampMillis(startMillis))
+              .setMetrics(
+                  ExecutionGraph.Metrics.newBuilder()
+                      .setStartTimestampMillis(startMillis)
+                      .setDurationMillis((int) (finishMillis - startMillis))
+                      .setProcessMillis((int) (finishMillis - startMillis)))
               .setDescription(action.prettyPrint())
               .setMnemonic(action.getMnemonic());
       if (depType != DependencyInfo.NONE) {
         node.setIndex(index);
       }
-      Label ownerLabel = action.getOwner().getLabel();
-      if (ownerLabel != null) {
-        node.setTargetLabel(ownerLabel.toString());
-      }
+      setFieldsFromOwner(node, action.getOwner());
 
       maybeAddEdges(
           node,
@@ -437,6 +425,17 @@ public class ExecutionGraphModule extends BlazeModule {
           index);
 
       return node.build();
+    }
+
+    private void setFieldsFromOwner(ExecutionGraph.Node.Builder node, ActionOwner owner) {
+      if (owner != null) {
+        if (owner.getTargetKind() != null) {
+          node.setRuleClass(owner.getTargetKind());
+        }
+        if (owner.getLabel() != null) {
+          node.setTargetLabel(owner.getLabel().toString());
+        }
+      }
     }
 
     private ExecutionGraph.Node toProto(SpawnExecutedEvent event) {
@@ -455,10 +454,7 @@ public class ExecutionGraphModule extends BlazeModule {
       if (depType != DependencyInfo.NONE) {
         nodeBuilder.setIndex(index);
       }
-      Label ownerLabel = spawn.getResourceOwner().getOwner().getLabel();
-      if (ownerLabel != null) {
-        nodeBuilder.setTargetLabel(ownerLabel.toString());
-      }
+      setFieldsFromOwner(nodeBuilder, spawn.getResourceOwner().getOwner());
 
       SpawnMetrics metrics = spawnResult.getMetrics();
       spawnResult = null;
@@ -591,11 +587,16 @@ public class ExecutionGraphModule extends BlazeModule {
         outputToNode.put(primaryOutput, currentAttempt);
       }
 
+      NestedSetBuilder<Artifact> runfilesArtifactsBuilder = NestedSetBuilder.stableOrder();
+      for (RunfilesTree runfilesTree : runfilesSupplier.getRunfilesTrees()) {
+        runfilesArtifactsBuilder.addTransitive(runfilesTree.getArtifacts());
+      }
+
       // Don't store duplicate deps. This saves some storage space, and uses less memory when the
       // action dump is parsed. Using a TreeSet is not slower than a HashSet, and it seems that
       // keeping the deps ordered compresses better. See cl/377153712.
       Set<Integer> deps = new TreeSet<>();
-      for (Artifact runfilesInput : runfilesSupplier.getArtifacts().toList()) {
+      for (Artifact runfilesInput : runfilesArtifactsBuilder.build().toList()) {
         NodeInfo dep = outputToNode.get(runfilesInput);
         if (dep != null) {
           deps.add(dep.index);
@@ -704,13 +705,19 @@ public class ExecutionGraphModule extends BlazeModule {
       outputToDiscoverInputsTimeMs.put(firstOutput, sum);
     }
 
-    void enqueue(Action action, long startMillis) {
+    void enqueue(Action action, long startMillis, long finishMillis) {
       // This is here just to capture actions which don't have spawns. If we already know about
       // an output, don't also include it again.
       if (outputToNode.containsKey(getFirstOutput(action, action.getOutputs()))) {
         return;
       }
-      enqueue(actionToNode(action, startMillis).toByteArray());
+      if (action.getMnemonic().equals("TestRunner")) {
+        // Test actions have a different primary output than their spawns, which would result in
+        // them recording an extra node. See b/290959382. Since test actions should always have/
+        // spawns, we can just skip them here.
+        return;
+      }
+      enqueue(actionToNode(action, startMillis, finishMillis).toByteArray());
     }
 
     void enqueue(SpawnExecutedEvent event) {

@@ -1,3 +1,4 @@
+load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -12,7 +13,7 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-java_library(
+java_11_library(
     name = "file",
     srcs = ["WindowsFileOperations.java"],
     deps = ["//src/main/java/com/google/devtools/build/lib/jni"],

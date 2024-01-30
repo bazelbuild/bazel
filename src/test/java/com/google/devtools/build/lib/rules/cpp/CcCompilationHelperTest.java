@@ -40,10 +40,8 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = [],)");
     RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider ccToolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(ruleContext);
     FdoContext fdoContext = ccToolchain.getFdoContext();
-    Artifact grepIncludes = getBinArtifact("grep_includes", target);
     NullPointerTester tester =
         new NullPointerTester()
             .setDefault(RuleContext.class, ruleContext)
@@ -53,7 +51,6 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
             .setDefault(BuildConfigurationValue.class, ruleContext.getConfiguration())
             .setDefault(FdoContext.class, fdoContext)
             .setDefault(Label.class, ruleContext.getLabel())
-            .setDefault(Artifact.class, grepIncludes)
             .setDefault(CcCompilationOutputs.class, CcCompilationOutputs.builder().build());
     tester.testConstructors(CcCompilationHelper.class, Visibility.PACKAGE);
     tester.testAllPublicInstanceMethods(
@@ -75,8 +72,7 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['cpp.cc'])");
     Artifact objcSrc = getSourceArtifact("objc.m");
     RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider ccToolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(target));
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(getRuleContext(target));
     FdoContext fdoContext = ccToolchain.getFdoContext();
     CcCompilationHelper helper =
         new CcCompilationHelper(
@@ -105,8 +101,7 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['cpp.cc'])");
     Artifact objcSrc = getSourceArtifact("objc.m");
     RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider ccToolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(target));
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(getRuleContext(target));
     FdoContext fdoContext = ccToolchain.getFdoContext();
     CcCompilationHelper helper =
         new CcCompilationHelper(

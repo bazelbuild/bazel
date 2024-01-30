@@ -33,8 +33,8 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * {@link GraphInconsistencyReceiver} for evaluations operating on graphs that support rewinding (no
- * reverse dependencies, no action cache).
+ * {@link GraphInconsistencyReceiver} for evaluations that support action rewinding ({@code
+ * --rewind_lost_inputs}).
  *
  * <p>Action rewinding results in various kinds of inconsistencies which this receiver tolerates.
  * The first occurrence of each type of tolerated inconsistency is logged. Stats are collected and
@@ -166,11 +166,6 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
    */
   private boolean noteSelfInconsistency(Inconsistency inconsistency) {
     return selfCounts.add(inconsistency, 1) == 0;
-  }
-
-  @Override
-  public boolean restartPermitted() {
-    return true;
   }
 
   @Override

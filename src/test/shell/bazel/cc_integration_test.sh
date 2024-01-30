@@ -581,40 +581,6 @@ EOF
   nm -D bazel-bin/"$pkg"/libg.so  | grep VERS_42.0 || fail "VERS_42.0 not in binary"
 }
 
-function test_incompatible_validate_top_level_header_inclusions() {
-  local workspace="${FUNCNAME[0]}"
-  mkdir -p "${workspace}"
-
-  create_workspace_with_default_repos "${workspace}/WORKSPACE"
-  cat >> "${workspace}/BUILD" << EOF
-cc_library(
-    name = "foo",
-    srcs = ["foo.cc"],
-)
-EOF
-  cat >> "${workspace}/foo.cc" << EOF
-#include "top_level.h"
-
-int foo() {
-  return bar();
-}
-EOF
-cat >> "${workspace}/top_level.h" << EOF
-inline int bar() { return 42; }
-EOF
-
-  cd "${workspace}"
-  bazel build --noincompatible_validate_top_level_header_inclusions \
-  --spawn_strategy=standalone \
-    //:foo  &>"$TEST_log" || fail "Build failed but should have succeeded"
-
-  bazel build --incompatible_validate_top_level_header_inclusions \
-  --spawn_strategy=standalone \
-    //:foo  &>"$TEST_log" && fail "Build succeeded but should have failed"
-  expect_log "this rule is missing dependency declarations for the "\
-    "following files included by 'foo.cc'"
-}
-
 function test_aspect_accessing_args_link_action_with_tree_artifact() {
   # This test assumes the presence of "nodeps" dynamic libraries, which do not
   # function on Apple platforms.
@@ -663,14 +629,11 @@ tree_art_rule = rule(implementation = _tree_art_impl,
             default = "//${package}:write.sh")})
 
 def _actions_test_impl(target, ctx):
-    action = target.actions[1]
+    action = target.actions[0]
     if action.mnemonic != "CppArchive":
-      fail("Expected the second action to be CppArchive.")
+      fail("Expected the first action to be CppArchive.")
     aspect_out = ctx.actions.declare_file('aspect_out')
-    ctx.actions.run_shell(inputs = action.inputs,
-                          outputs = [aspect_out],
-                          command = "echo \$@ > " + aspect_out.path,
-                          arguments = action.args)
+    ctx.actions.write(aspect_out, action.args[1])
     return [OutputGroupInfo(out=[aspect_out])]
 
 actions_test_aspect = aspect(implementation = _actions_test_impl)
@@ -694,7 +657,9 @@ EOF
   cat "bazel-bin/${package}/aspect_out" | grep "\(ar\|libtool\)" \
       || fail "args didn't contain the tool path"
 
-  cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
+  cat "bazel-bin/${package}/aspect_out" | grep "/a.*o" \
+      || fail "args didn't contain tree artifact paths"
+  cat "bazel-bin/${package}/aspect_out" | grep "/b.*o" \
       || fail "args didn't contain tree artifact paths"
 }
 
@@ -847,56 +812,36 @@ def _actions_test_impl(target, ctx):
         ),
     )
 
-    archive_args = ctx.actions.declare_file("archive_args")
-    ctx.actions.run_shell(
-        outputs = [archive_args],
-        command = "echo \$@ > " + archive_args.path,
-        arguments = archive_action.args,
-    )
-
     archive_out = ctx.actions.declare_file("archive_out.a")
-    archive_param_file = None
-    for i in archive_action.inputs.to_list():
-        if i.path.endswith("params"):
-            archive_param_file = i
     ctx.actions.run_shell(
-        inputs = depset(direct = [archive_args], transitive = [archive_action.inputs]),
+        inputs = archive_action.inputs,
         mnemonic = "RecreatedCppArchive",
         outputs = [archive_out],
         env = archive_action.env,
-        command = "\$(cat %s) && cp %s %s" % (
-            archive_args.path,
+        command = "\$@ && cp %s %s" % (
             archive_action.outputs.to_list()[0].path,
             archive_out.path,
         ),
-    )
-
-    link_args = ctx.actions.declare_file("link_args")
-    ctx.actions.run_shell(
-        outputs = [link_args],
-        command = "echo \$@ > " + link_args.path,
-        arguments = link_action.args,
+        arguments = archive_action.args,
     )
 
     link_out = ctx.actions.declare_file("link_out.so")
     ctx.actions.run_shell(
-        inputs = depset(direct = [link_args], transitive = [link_action.inputs]),
+        inputs = link_action.inputs,
         mnemonic = "RecreatedCppLink",
         outputs = [link_out],
         env = link_action.env,
-        command = "\$(cat %s) && cp %s %s" % (
-            link_args.path,
+        command = "\$@ && cp %s %s" % (
             link_action.outputs.to_list()[0].path,
             link_out.path,
         ),
+        arguments = link_action.args,
     )
 
     return [OutputGroupInfo(out = [
         compile_args,
         compile_out,
-        archive_args,
         archive_out,
-        link_args,
         link_out,
     ])]
 
@@ -960,7 +905,7 @@ EOF
   BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel query 'deps(//:ok)' &>"$TEST_log" || \
     fail "Should pass with fake toolchain"
   expect_not_log "An error occurred during the fetch of repository 'local_config_cc'"
-  expect_log "@local_config_cc//:empty"
+  expect_log "@@bazel_tools~cc_configure_extension~local_config_cc//:empty"
 }
 
 function setup_workspace_layout_with_external_directory() {
@@ -1255,30 +1200,21 @@ def _actions_test_impl(target, ctx):
         ),
     )
 
-    archive_args = ctx.actions.declare_file("archive_args")
-    ctx.actions.run_shell(
-        outputs = [archive_args],
-        command = "echo \$@ > " + archive_args.path,
-        arguments = archive_action.args,
-    )
-
     archive_out = ctx.actions.declare_file("archive_out.a")
     ctx.actions.run_shell(
-        inputs = [archive_args],
         shadowed_action = archive_action,
         mnemonic = "RecreatedCppArchive",
         outputs = [archive_out],
-        command = "\$(cat %s | sed 's|%s|%s|g')" % (
-            archive_args.path,
+        command = "\$@ && cp %s %s" % (
             archive_action.outputs.to_list()[0].path,
             archive_out.path,
         ),
+        arguments = archive_action.args,
     )
 
     return [OutputGroupInfo(out = [
         compile_args,
         compile_out,
-        archive_args,
         archive_out,
     ])]
 
@@ -1406,55 +1342,6 @@ EOF
   bazel run //pkg:foo_bin_with_env &> "$TEST_log" || fail "Should have used env attr."
 }
 
-function test_getting_compile_action_env_with_cctoolchain_config_features() {
-  [ "$PLATFORM" != "darwin" ] || return 0
-
-  mkdir -p package
-
-  cat > "package/lib.bzl" <<EOF
-def _actions_test_impl(target, ctx):
-    compile_action = None
-
-    for action in target.actions:
-      if action.mnemonic in ["CppCompile", "ObjcCompile"]:
-        compile_action = action
-
-    print(compile_action.env)
-    return []
-
-actions_test_aspect = aspect(implementation = _actions_test_impl)
-EOF
-
-  cat > "package/x.cc" <<EOF
-#include <stdio.h>
-int main() {
-  printf("Hello\n");
-}
-EOF
-
-  cat > "package/BUILD" <<EOF
-cc_binary(
-  name = "x",
-  srcs = ["x.cc"],
-)
-EOF
-
-  # Without the flag, the env should not return extra fixed variables
-  bazel build "package:x" \
-      --aspects="//package:lib.bzl%actions_test_aspect" &>"$TEST_log" \
-      || fail "Build failed but should have succeeded"
-
-  expect_not_log "\"PWD\": \"/proc/self/cwd\""
-
-  # With the flag, the env should return extra fixed variables
-  bazel build "package:x" \
-      --aspects="//package:lib.bzl%actions_test_aspect" \
-      --experimental_get_fixed_configured_action_env &>"$TEST_log" \
-      || fail "Build failed but should have succeeded"
-
-  expect_log "\"PWD\": \"/proc/self/cwd\""
-}
-
 function external_cc_test_setup() {
   cat >> WORKSPACE <<'EOF'
 local_repository(
@@ -1541,6 +1428,17 @@ function test_external_cc_test_local_sibling_repository_layout() {
       --strategy=local \
       --experimental_sibling_repository_layout \
       @other_repo//test >& $TEST_log || fail "Test should pass"
+
+  # Test cc compile action can hit the action cache. See
+  # https://github.com/bazelbuild/bazel/issues/17819
+  bazel shutdown
+
+  bazel test \
+      --test_output=errors \
+      --strategy=local \
+      --experimental_sibling_repository_layout \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+  expect_log "1 process: 1 internal"
 }
 
 function test_bazel_current_repository_define() {
@@ -1557,19 +1455,26 @@ cc_library(
   name = "library",
   srcs = ["library.cpp"],
   hdrs = ["library.h"],
+  implementation_deps = ["@bazel_tools//tools/cpp/runfiles"],
   visibility = ["//visibility:public"],
 )
 
 cc_binary(
   name = "binary",
   srcs = ["binary.cpp"],
-  deps = [":library"],
+  deps = [
+    ":library",
+    "@bazel_tools//tools/cpp/runfiles",
+  ],
 )
 
 cc_test(
   name = "test",
   srcs = ["test.cpp"],
-  deps = [":library"],
+  deps = [
+    ":library",
+    "@bazel_tools//tools/cpp/runfiles",
+  ],
 )
 EOF
 
@@ -1611,13 +1516,19 @@ EOF
 cc_binary(
   name = "binary",
   srcs = ["binary.cpp"],
-  deps = ["@//pkg:library"],
+  deps = [
+    "@//pkg:library",
+    "@bazel_tools//tools/cpp/runfiles",
+  ],
 )
 
 cc_test(
   name = "test",
   srcs = ["test.cpp"],
-  deps = ["@//pkg:library"],
+  deps = [
+    "@//pkg:library",
+    "@bazel_tools//tools/cpp/runfiles",
+  ],
 )
 EOF
 
@@ -1975,6 +1886,30 @@ function test_find_optional_cpp_toolchain_not_present_with_toolchain_resolution(
   bazel build //pkg:my_rule --incompatible_enable_cc_toolchain_resolution \
     --platforms=//pkg:exotic_platform &> "$TEST_log" || fail "Build failed"
   assert_contains "Toolchain not found" bazel-bin/pkg/my_rule
+}
+
+function test_no_cpp_stdlib_linked_to_c_library() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+cc_binary(
+  name = 'example',
+  srcs = ['example.c'],
+)
+EOF
+  cat > pkg/example.c <<'EOF'
+int main() {}
+EOF
+
+  bazel build //pkg:example &> "$TEST_log" || fail "Build failed"
+  if is_darwin; then
+    otool -L bazel-bin/pkg/example &> "$TEST_log" || fail "otool failed"
+    expect_log 'libc'
+    expect_not_log 'libc\+\+'
+  else
+    ldd bazel-bin/pkg/example &> "$TEST_log" || fail "ldd failed"
+    expect_log 'libc'
+    expect_not_log 'libstdc\+\+'
+  fi
 }
 
 run_suite "cc_integration_test"

@@ -44,10 +44,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
-  @Override
-  protected boolean platformBasedToolchains() {
-    return true;
-  }
 
   private static final String EXTRA_SDK_TOOLCHAINS_FLAG =
       "--extra_toolchains=//platform_selected_android_sdks/toolchains:all";
@@ -123,8 +119,7 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
     CppLinkAction x86Link =
         (CppLinkAction) getGeneratingAction(getPrerequisiteArtifacts(x86Binary, "deps").get(0));
     // TODO(blaze-team): replace with the commented line below when platform-based resolution works.
-    assertThat(x86Link.getLinkCommandLineForTesting().getLinkerPathString())
-        .isEqualTo("/usr/bin/mock-ar");
+    assertThat(x86Link.getArguments().get(0)).isEqualTo("/usr/bin/mock-ar");
     // assertThat(cppLinkAction.getLinkCommandLine().getLinkerPathString())
     //    .isEqualTo("android/crosstool/x86/bin/i686-linux-android-ar");
 
@@ -135,8 +130,7 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
     CppLinkAction armLink =
         (CppLinkAction) getGeneratingAction(getPrerequisiteArtifacts(armBinary, "deps").get(0));
     // TODO(blaze-team): replace with the commented line below when platform-based resolution works.
-    assertThat(armLink.getLinkCommandLineForTesting().getLinkerPathString())
-        .isEqualTo("/usr/bin/mock-ar");
+    assertThat(armLink.getArguments().get(0)).isEqualTo("/usr/bin/mock-ar");
     // assertThat(cppLinkAction.getLinkCommandLine().getLinkerPathString())
     //    .isEqualTo("android/crosstool/arm/bin/arm-linux-androideabi-ar");
   }

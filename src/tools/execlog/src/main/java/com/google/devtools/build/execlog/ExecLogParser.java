@@ -59,14 +59,12 @@ final class ExecLogParser {
     public SpawnExec getNext() throws IOException {
       SpawnExec ex;
       // Find the next record whose runner matches
-      do {
-        if (in.available() <= 0) {
-          // End of file
-          return null;
+      while ((ex = SpawnExec.parseDelimitedFrom(in)) != null) {
+        if (restrictToRunner == null || restrictToRunner.equals(ex.getRunner())) {
+          return ex;
         }
-        ex = SpawnExec.parseDelimitedFrom(in);
-      } while (restrictToRunner != null && !restrictToRunner.equals(ex.getRunner()));
-      return ex;
+      }
+      return null;
     }
   }
 

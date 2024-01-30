@@ -24,7 +24,7 @@ public final class ClasspathConfiguredFragment {
 
   private final NestedSet<Artifact> runtimeClasspath;
   private final NestedSet<Artifact> compileTimeClasspath;
-  private final BootClassPathInfo bootClasspath;
+  private final NestedSet<Artifact> bootClasspath;
 
   /**
    * Initializes the runtime and compile time classpaths for this target. This method should be
@@ -38,7 +38,7 @@ public final class ClasspathConfiguredFragment {
       JavaCompilationArtifacts javaArtifacts,
       JavaTargetAttributes attributes,
       boolean isNeverLink,
-      BootClassPathInfo bootClasspath) {
+      NestedSet<Artifact> bootClasspath) {
     if (!isNeverLink) {
       runtimeClasspath = getRuntimeClasspathList(attributes, javaArtifacts);
     } else {
@@ -51,7 +51,7 @@ public final class ClasspathConfiguredFragment {
   public ClasspathConfiguredFragment() {
     runtimeClasspath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     compileTimeClasspath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-    bootClasspath = BootClassPathInfo.empty();
+    bootClasspath = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   /**
@@ -88,7 +88,7 @@ public final class ClasspathConfiguredFragment {
    * Returns the classpath to be passed as a boot classpath to the Java compiler when compiling a
    * target containing this fragment.
    */
-  public BootClassPathInfo getBootClasspath() {
+  public NestedSet<Artifact> getBootClasspath() {
     return bootClasspath;
   }
 }

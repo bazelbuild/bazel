@@ -34,9 +34,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -122,6 +122,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
               attr,
               type,
               visitor,
+              rule,
               /* includeKeys= */ true,
               /* includeValues= */ false);
         }
@@ -132,7 +133,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     if (rawVal == null) {
       // Frozen rules don't store computed defaults.
       if (!attr.hasComputedDefault() || rule.isFrozen()) {
-        rawVal = attr.getDefaultValue();
+        rawVal = attr.getDefaultValue(rule);
       }
     }
     if (rawVal instanceof SelectorList) {
@@ -141,6 +142,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
           attr,
           type,
           visitor,
+          rule,
           /* includeKeys= */ includeSelectKeys,
           /* includeValues= */ true);
       return;
@@ -156,7 +158,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       return;
     }
     if (rawVal instanceof Attribute.LateBoundDefault) {
-      rawVal = ((Attribute.LateBoundDefault<?, ?>) rawVal).getDefault();
+      rawVal = ((Attribute.LateBoundDefault<?, ?>) rawVal).getDefault(rule);
     }
     if (rawVal == null || ((rawVal instanceof Collection) && ((Collection<?>) rawVal).isEmpty())) {
       return;
@@ -169,6 +171,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       Attribute attribute,
       Type<T> type,
       Type.LabelVisitor visitor,
+      Rule rule,
       boolean includeKeys,
       boolean includeValues) {
     var entryProcessor =
@@ -185,7 +188,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
               visitor.visit(key, attribute);
             }
             if (includeValues) {
-              T value = selector.isValueSet(key) ? val : type.cast(attribute.getDefaultValue());
+              T value = selector.isValueSet(key) ? val : type.cast(attribute.getDefaultValue(rule));
               type.visitLabels(visitor, value, attribute);
             }
           }
@@ -389,7 +392,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       return ((Attribute.ComputedDefault) rawVal).getPossibleValues(type, rule);
     }
 
-    if ("visibility".equals(attributeName) && type.equals(BuildType.NODEP_LABEL_LIST)) {
+    if (Objects.equals(attributeName, "visibility") && type.equals(BuildType.NODEP_LABEL_LIST)) {
       // This special case for the visibility attribute is needed because its value is replaced
       // with an empty list during package loading if it is public or private in order not to visit
       // the package called 'visibility'.
@@ -420,9 +423,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * <p>The work done by this method may be limited by providing a {@link ComputationLimiter} that
    * throws if too much work is attempted.
    */
-  <TException extends Exception> List<Map<String, Object>> visitAttributes(
-      List<String> attributes, ComputationLimiter<TException> limiter) throws TException {
-    List<Map<String, Object>> depMaps = new LinkedList<>();
+  <ExceptionT extends Exception> List<Map<String, Object>> visitAttributes(
+      List<String> attributes, ComputationLimiter<ExceptionT> limiter) throws ExceptionT {
+    List<Map<String, Object>> depMaps = new ArrayList<>();
     AtomicInteger combinationsSoFar = new AtomicInteger(0);
     visitAttributesInner(
         attributes,
@@ -446,13 +449,13 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    *     values.
    * @param limiter a strategy to limit the work done by invocations of this method.
    */
-  private <TException extends Exception> void visitAttributesInner(
+  private <ExceptionT extends Exception> void visitAttributesInner(
       List<String> attributes,
       List<Map<String, Object>> mappings,
       Map<String, Object> currentMap,
       AtomicInteger combinationsSoFar,
-      ComputationLimiter<TException> limiter)
-      throws TException {
+      ComputationLimiter<ExceptionT> limiter)
+      throws ExceptionT {
     if (attributes.isEmpty()) {
       // Because this method uses exponential time/space on the number of inputs, we may limit
       // the total number of method calls.

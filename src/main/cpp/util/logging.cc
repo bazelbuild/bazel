@@ -80,9 +80,9 @@ void LogMessage::Finish() {
     // If no custom handler was provided, never print INFO messages,
     // but USER should always be printed, as should warnings and errors.
     if (level_ == LOGLEVEL_USER) {
-      std::cerr << message << std::endl;
+      std::cerr << message << '\n';
     } else if (level_ > LOGLEVEL_USER) {
-      std::cerr << LogLevelName(level_) << ": " << message << std::endl;
+      std::cerr << LogLevelName(level_) << ": " << message << '\n';
     }
 
     if (level_ == LOGLEVEL_FATAL) {

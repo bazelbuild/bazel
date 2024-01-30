@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -107,22 +106,12 @@ public class InfoCommand implements BlazeCommand {
   /** Options for the info command. */
   public static class Options extends OptionsBase {
     @Option(
-      name = "show_make_env",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Include the \"Make\" environment in the output."
-    )
+        name = "show_make_env",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Include the \"Make\" environment in the output.")
     public boolean showMakeEnvironment;
-
-    @Option(
-        name = "experimental_supports_info_crosstool_configuration",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {OptionMetadataTag.HIDDEN},
-        help = "Noop.")
-    public boolean experimentalSupportsInfoCrosstoolConfiguration;
   }
 
   /**

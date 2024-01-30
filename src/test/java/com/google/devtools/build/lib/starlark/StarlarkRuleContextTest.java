@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -133,8 +133,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  outs = ['d.txt'])",
         "java_library(name = 'jl',",
         "  srcs = ['a.java'])",
-        "android_library(name = 'androidlib',",
-        "  srcs = ['a.java'])",
         "java_import(name = 'asr',",
         "  jars = [ 'asr.jar' ],",
         "  srcjar = 'asr-src.jar',",
@@ -149,11 +147,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "           srcs = ['dummy.cc'],",
         "           features = ['f1', '-f3'],",
         ")");
-  }
-
-  @Before
-  public void setupStarlarkJavaBinary() throws Exception {
-    setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
   private void setRuleContext(StarlarkRuleContext ctx) throws Exception {
@@ -400,7 +393,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     getConfiguredTarget("//:cclib");
     assertContainsEvent(
         "/workspace/BUILD:1:11: Label '//:r/my_sub_lib.h' is invalid because "
-            + "'@r//' is a subpackage");
+            + "'@@r//' is a subpackage");
   }
 
   /* The error message for this case used to be wrong. */
@@ -420,9 +413,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("@r//:cclib");
     assertContainsEvent(
-        "/external/r/BUILD:1:11: Label '@r//:sub/my_sub_lib.h' is invalid because "
-            + "'@r//sub' is a subpackage; perhaps you meant to put the colon here: "
-            + "'@r//sub:my_sub_lib.h'?");
+        "/external/r/BUILD:1:11: Label '@@r//:sub/my_sub_lib.h' is invalid because "
+            + "'@@r//sub' is a subpackage; perhaps you meant to put the colon here: "
+            + "'@@r//sub:my_sub_lib.h'?");
   }
 
   /*
@@ -590,28 +583,56 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     ev.checkEvalErrorContains("attribute srcs: message", "fail(attr='srcs', msg='message')");
   }
 
+  private void writeToolUsingRule() throws Exception {
+    // Write a rule with an executable implicit attribute.
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "    pass",
+        "sample = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "        '_tool': attr.label(",
+        "            cfg = 'exec',",
+        "            executable = True,",
+        "            default = '//a:tool'),",
+        "    }",
+        ")");
+
+    // Use the rule.
+    scratch.file(
+        "a/BUILD",
+        "load('rule.bzl', 'sample')",
+        "cc_binary(name = 'tool')",
+        "sample(name = 'sample')");
+  }
+
   @Test
   public void testGetExecutablePrerequisite() throws Exception {
-    setRuleContext(createRuleContext("//foo:androidlib"));
-    Object result = ev.eval("ruleContext.executable._idlclass");
-    assertThat(((Artifact) result).getFilename()).matches("^IdlClass(\\.exe){0,1}$");
+    writeToolUsingRule();
+
+    setRuleContext(createRuleContext("//a:sample"));
+    Object result = ev.eval("ruleContext.executable._tool");
+    assertThat(((Artifact) result).getFilename()).matches("^tool(\\.exe)?$");
   }
 
   @Test
   public void testCreateSpawnActionArgumentsWithExecutableFilesToRunProvider() throws Exception {
-    StarlarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
+    writeToolUsingRule();
+
+    StarlarkRuleContext ruleContext = createRuleContext("//a:sample");
     setRuleContext(ruleContext);
     ev.exec(
+        "output = ruleContext.actions.declare_file(ruleContext.attr.name + '_out')",
         "ruleContext.actions.run(",
-        "  inputs = ruleContext.files.srcs,",
-        "  outputs = ruleContext.files.srcs,",
+        "  outputs = [output],",
         "  arguments = ['--a','--b'],",
-        "  executable = ruleContext.executable._idlclass)");
+        "  executable = ruleContext.executable._tool)");
     StarlarkAction action =
         (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(action.getCommandFilename()).matches("^.*/IdlClass(\\.exe){0,1}$");
+    assertThat(action.getCommandFilename()).matches("^.*/tool(\\.exe)?$");
   }
 
   @Test
@@ -1021,24 +1042,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWorkspaceName() throws Exception {
-    assertThat(ruleClassProvider.getRunfilesPrefix()).isNotNull();
-    assertThat(ruleClassProvider.getRunfilesPrefix()).isNotEmpty();
-    setRuleContext(createRuleContext("//foo:foo"));
-    Object result = ev.eval("ruleContext.workspace_name");
-    assertThat(ruleClassProvider.getRunfilesPrefix()).isEqualTo(result);
-  }
-
-  @Test
-  public void testDeriveArtifactLegacy() throws Exception {
-    setBuildLanguageOptions("--incompatible_new_actions_api=false");
-    setRuleContext(createRuleContext("//foo:foo"));
-    Object result = ev.eval("ruleContext.new_file(ruleContext.genfiles_dir," + "  'a/b.txt')");
-    PathFragment fragment = ((Artifact) result).getRootRelativePath();
-    assertThat(fragment.getPathString()).isEqualTo("foo/a/b.txt");
-  }
-
-  @Test
   public void testDeriveArtifact() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     Object result = ev.eval("ruleContext.actions.declare_file('a/b.txt')");
@@ -1076,28 +1079,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(artifact.isTreeArtifact()).isTrue();
   }
 
-  @Test
-  public void testParamFileLegacy() throws Exception {
-    setBuildLanguageOptions("--incompatible_new_actions_api=false");
-    setRuleContext(createRuleContext("//foo:foo"));
-    Object result =
-        ev.eval(
-            "ruleContext.new_file(ruleContext.bin_dir," + "ruleContext.files.tools[0], '.params')");
-    PathFragment fragment = ((Artifact) result).getRootRelativePath();
-    assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
-  }
-
-  @Test
-  public void testParamFileSuffixLegacy() throws Exception {
-    setBuildLanguageOptions("--incompatible_new_actions_api=false");
-    setRuleContext(createRuleContext("//foo:foo"));
-    Object result =
-        ev.eval(
-            "ruleContext.new_file(ruleContext.files.tools[0], "
-                + "ruleContext.files.tools[0].basename + '.params')");
-    PathFragment fragment = ((Artifact) result).getRootRelativePath();
-    assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
-  }
 
   @Test
   public void testParamFileSuffix() throws Exception {
@@ -1762,6 +1743,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "test/BUILD",
+        getPyLoad("py_binary"),
         "load('//test:rule.bzl', 'starlark_rule')",
         "py_binary(name = 'lib', srcs = ['lib.py', 'lib2.py'])",
         "starlark_rule(name = 'foo', dep = ':lib')",
@@ -2012,7 +1994,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testAccessingRunfilesSymlinksAsDepsets() throws Exception {
-    // Arrange
+    // Prepare rule using ctx.runfiles() with `symlinks`/`root_symlinks` kwargs.
     scratch.file("test/a.py");
     scratch.file("test/b.py");
     scratch.file(
@@ -2053,13 +2035,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         ")");
     setRuleContext(createRuleContext("//test:test_with_symlink"));
 
-    // Act
+    // Evaluate path expression for runfiles symlinks.
     Object symlinkPaths =
         ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
     Object rootSymlinkPaths =
         ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
 
-    // Assert
+    // Confirm expected runfiles symlink behavior in returned sequences.
     assertThat(symlinkPaths).isInstanceOf(Sequence.class);
     Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
     assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
@@ -2878,8 +2860,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "aspect_ids",
           "var",
           "tokenize('foo')",
-          "new_file('foo.txt')",
-          "new_file(file, 'foo.txt')",
           "actions.declare_file('foo.txt')",
           "actions.declare_file('foo.txt', sibling = file)",
           "actions.declare_directory('foo.txt')",
@@ -2897,7 +2877,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {
-    setBuildLanguageOptions("--incompatible_new_actions_api=false");
     scratch.file(
         "test/BUILD",
         "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
@@ -2970,14 +2949,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "    'deps': attr.label_list(aspects = [MyAspect])",
           "  },",
           ")");
-      setBuildLanguageOptions("--incompatible_new_actions_api=false");
+
+      reporter.removeHandler(failFastHandler);
       invalidatePackages();
 
-      AssertionError e =
-          assertThrows(
-              "Should have been unable to access dep." + attribute,
-              AssertionError.class,
-              () -> getConfiguredTarget("//test:main"));
+      getConfiguredTarget("//test:main");
 
       // Typical value of e.getMessage():
       //
@@ -2988,48 +2964,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
       //        File "/workspace/test/rules.bzl", line 7, column 18, in _aspect_impl
       // Error: cannot access field or method 'attr' of rule context for '//test:dep' \
       // outside of its own rule implementation function
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "cannot access field or method '"
-                  + Iterables.get(Splitter.on('(').split(attribute), 0)
-                  + "' of rule context for '//test:dep' outside of its own rule implementation "
-                  + "function");
-    }
-  }
-
-  private static final List<String> deprecatedActionsApi =
-      ImmutableList.of("new_file('foo.txt')", "new_file(file, 'foo.txt')");
-
-  @Test
-  public void testIncompatibleNewActionsApi() throws Exception {
-    scratch.file("test/BUILD", "load('//test:rules.bzl', 'main_rule')", "main_rule(name = 'main')");
-    scratch.file("test/rules.bzl");
-
-    for (String actionApi : deprecatedActionsApi) {
-      scratch.overwriteFile(
-          "test/rules.bzl",
-          "def _main_impl(ctx):",
-          "  file = ctx.outputs.file",
-          "  foo = ctx." + actionApi,
-          "main_rule = rule(",
-          "  implementation = _main_impl,",
-          "  attrs = {",
-          "    'deps': attr.label_list()",
-          "  },",
-          "  outputs = {'file': 'output.txt'},",
-          ")");
-      setBuildLanguageOptions("--incompatible_new_actions_api=true");
-      invalidatePackages();
-      AssertionError e =
-          assertThrows(
-              "Should have reported deprecation error for: " + actionApi,
-              AssertionError.class,
-              () -> getConfiguredTarget("//test:main"));
-      assertWithMessage(actionApi + " reported wrong error")
-          .that(e)
-          .hasMessageThat()
-          .contains("Use --incompatible_new_actions_api=false");
+      assertContainsEvent(
+          "cannot access field or method '"
+              + Iterables.get(Splitter.on('(').split(attribute), 0)
+              + "' of rule context for '//test:dep' outside of its own rule implementation "
+              + "function");
     }
   }
 
@@ -3463,7 +3402,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "      exec_compatible_with = ['//something:extra'],",
         "    ),",
         "  },",
-        "  incompatible_use_toolchain_transition = True,",
         ")");
     scratch.file(
         "something/BUILD",
@@ -3584,6 +3522,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setRuleContext(createRuleContext("@foo//bar:baz"));
     Object result = ev.eval("ruleContext.build_file_path");
     assertThat(result).isEqualTo("bar/BUILD");
+
+    // The reason `build_file_path` should be deprecated. It's just another trivial knob on `ctx`.
+    // The results are always the same as `ctx.label.package + '/BUILD'`
+    result = ev.eval("ruleContext.label.package + '/BUILD'");
+    assertThat(result).isEqualTo("bar/BUILD");
   }
 
   @Test
@@ -3614,7 +3557,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitution() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def _artifact_to_basename(file):",
@@ -3679,7 +3621,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionWithUniquify() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def _artifact_to_extension(file):",
@@ -3737,7 +3678,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testTemplateExpansionComputedSubstitutionWithUniquifyAndListMapEach()
       throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def _artifact_to_extension(file):",
@@ -3798,7 +3738,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionDuplicateKeys() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def _undertest_impl(ctx):",
@@ -3828,7 +3767,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionNoParamMapEach() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def no_args_func():",
@@ -3876,7 +3814,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionTwoParamMapEach() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def two_args_func(arg1, arg2):",
@@ -3924,7 +3861,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionMapEachBadReturnType() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def file_to_owner_label(file):",
@@ -3975,7 +3911,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionMapEachBadListReturnType() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def file_to_owner_label(file):",
@@ -4026,7 +3961,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionMapEachMustBeTopLevel() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def _undertest_impl(ctx):",
@@ -4080,9 +4014,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         " r['{CLIENT}'] = d['client'] + '_c'",
         " return r",
         "def _buildinfo_impl(ctx):",
-        "  output = ctx.actions.declare_file('buildinfo.h')",
         String.format(
-            "  %s(transform_func = t, template = ctx.file.template, output = output)", apiMethod),
+            "  output = %s(transform_func = t, template = ctx.file.template, output_file_name ="
+                + " 'buildinfo.h')",
+            apiMethod),
         "  return DefaultInfo(files = depset([output]))",
         "buildinfo_rule = rule(",
         "  implementation = _buildinfo_impl,",
@@ -4106,6 +4041,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(buildInfoAction).isNotNull();
     assertThat(buildInfoArtifact).isNotNull();
     assertThat(buildInfoArtifact.getFilename()).isEqualTo("buildinfo.h");
+    assertThat(buildInfoArtifact.isConstantMetadata()).isEqualTo(volatileAndExcuteUnconditionally);
     assertThat(buildInfoAction.getMnemonic()).isEqualTo("TranslateBuildInfo");
     assertThat(buildInfoAction.executeUnconditionally())
         .isEqualTo(volatileAndExcuteUnconditionally);
@@ -4123,9 +4059,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "def t(d):",
         " pass",
         "def _buildinfo_impl(ctx):",
-        "  output = ctx.actions.declare_file('buildinfo.h')",
         String.format(
-            "  %s(transform_func = t, template = ctx.file.template, output = output)", apiMethod),
+            "  output = %s(transform_func = t, template = ctx.file.template, output_file_name ="
+                + " 'buildinfo.h')",
+            apiMethod),
         "  return DefaultInfo(files = depset([output]))",
         "buildinfo_rule = rule(",
         "  implementation = _buildinfo_impl,",
@@ -4137,7 +4074,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     checkError(
         "some_dir",
         "generating_target",
-        "Rule in 'some_dir' cannot use private API",
+        "file '//some_dir:rules.bzl' cannot use private API",
         "load(':rules.bzl', 'buildinfo_rule')",
         "buildinfo_rule(",
         "    name = 'generating_target',",

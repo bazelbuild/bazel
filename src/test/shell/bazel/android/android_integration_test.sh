@@ -33,7 +33,7 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-resolve_android_toolchains "$1"
+resolve_android_toolchains
 
 function test_sdk_library_deps() {
   create_new_workspace
@@ -212,9 +212,11 @@ android_binary(
 )
 EOF
   cat > MODULE.bazel << 'EOF'
-# Required for android_integration_test_with_platforms
-bazel_dep(name = "platforms", version = "0.0.6")
+bazel_dep(name = "platforms", version = "0.0.7")
 EOF
+
+  # The next line ensures that the test passes in IPv6-only networks.
+  export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
 
   bazel clean
   # Check that android builds with bzlmod enable work.

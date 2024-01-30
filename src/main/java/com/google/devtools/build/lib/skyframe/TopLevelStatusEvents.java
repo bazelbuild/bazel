@@ -200,7 +200,7 @@ public final class TopLevelStatusEvents {
   public abstract static class AspectAnalyzedEvent implements TopLevelStatusEventWithType {
     abstract AspectKey aspectKey();
 
-    abstract ConfiguredAspect configuredAspect();
+    public abstract ConfiguredAspect configuredAspect();
 
     public static AspectAnalyzedEvent create(
         AspectKey aspectKey, ConfiguredAspect configuredAspect) {
@@ -229,6 +229,7 @@ public final class TopLevelStatusEvents {
   }
 
   enum Type {
+    TOP_LEVEL_TARGET_CONFIGURED,
     TOP_LEVEL_TARGET_ANALYZED,
     TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING,
     TOP_LEVEL_TARGET_SKIPPED,

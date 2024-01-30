@@ -46,12 +46,4 @@ public interface AppleExecutableBinaryApi extends StructApi {
           "A provider which contains information about the transitive dependencies linked into "
               + "the binary.")
   CcInfoApi<?> getDepsCcInfo();
-
-  @StarlarkMethod(
-      name = "objc",
-      structField = true,
-      doc =
-          "A provider which contains information about the transitive dependencies linked into "
-              + "the binary.")
-  ObjcProviderApi<?> getDepsObjcProvider();
 }

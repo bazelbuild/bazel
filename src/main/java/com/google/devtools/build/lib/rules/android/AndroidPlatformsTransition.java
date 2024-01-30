@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 
 /**
  * Ensures that Android binaries have a valid target platform by resetting the "--platforms" flag to
@@ -53,10 +52,7 @@ public final class AndroidPlatformsTransition implements PatchTransition {
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
     return ImmutableSet.of(
-        AndroidConfiguration.Options.class,
-        PlatformOptions.class,
-        CoreOptions.class,
-        CppOptions.class);
+        AndroidConfiguration.Options.class, PlatformOptions.class, CoreOptions.class);
   }
 
   @Override
@@ -83,13 +79,6 @@ public final class AndroidPlatformsTransition implements PatchTransition {
       }
     }
 
-    // If we are using toolchain resolution for Android, also use it for CPP.
-    // This needs to be before the AndroidBinary is analyzed so that all native dependencies
-    // use the same configuration.
-    if (androidOptions.incompatibleUseToolchainResolution) {
-      newOptions.get(CppOptions.class).enableCcToolchainResolution = true;
-    }
-
     if (androidOptions.androidPlatformsTransitionsUpdateAffected) {
       ImmutableSet.Builder<String> affected = ImmutableSet.builder();
       if (!options
@@ -97,10 +86,6 @@ public final class AndroidPlatformsTransition implements PatchTransition {
           .platforms
           .equals(newOptions.get(PlatformOptions.class).platforms)) {
         affected.add("//command_line_option:platforms");
-      }
-      if (options.get(CppOptions.class).enableCcToolchainResolution
-          != newOptions.get(CppOptions.class).enableCcToolchainResolution) {
-        affected.add("//command_line_option:incompatible_enable_cc_toolchain_resolution");
       }
       FunctionTransitionUtil.updateAffectedByStarlarkTransition(
           newOptions.get(CoreOptions.class), affected.build());

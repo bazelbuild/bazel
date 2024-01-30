@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Preconditions;
+import com.google.common.graph.Graph;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
+import com.google.common.graph.MutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -46,7 +48,9 @@ public interface SkyFunction {
    *
    * <p>This method should return a non-{@code null} value, or {@code null} if any dependencies were
    * missing ({@link Environment#valuesMissing} was true before returning). In that case the missing
-   * dependencies will be computed and the {@code compute} method called again.
+   * dependencies will be computed and the {@code compute} method called again. A subsequent
+   * invocation of this method after missing dependencies are done is commonly referred to as a
+   * <em>Skyframe restart</em> (not to be confused with {@link Reset}).
    *
    * <p>This method should throw if it fails, or if one of its dependencies fails with an exception
    * and this method cannot recover. If one of its dependencies fails and this method can enrich the
@@ -61,7 +65,7 @@ public interface SkyFunction {
    * possible) exception enrichment logic simple enough to be insensitive to the evaluating thread's
    * interrupt state.
    *
-   * <p>This method may return {@link Restart} in rare circumstances. See its docs. Do not return
+   * <p>This method may return {@link Reset} in rare circumstances. See its docs. Do not return
    * values of this type unless you know exactly what you are doing.
    *
    * <p>If version information is discovered for the given {@code skyKey}, {@link
@@ -101,10 +105,16 @@ public interface SkyFunction {
   }
 
   /**
-   * Sentinel {@link SkyValue} type for {@link #compute} to return, indicating that something went
-   * wrong, and that the evaluation returning this value must be restarted, and the nodes associated
+   * Sentinel {@link SkyValue} type for {@link #compute} to return, indicating that the evaluation
+   * should be started over (including calling {@link NodeEntry#resetEvaluationFromScratch}).
+   *
+   * <p>Returning a {@link Reset} from {@link #compute} differs from returning {@code null}. A
+   * {@code null} return is expected under normal circumstances when a dependency is requested but
+   * is not yet done, causing Skyframe to restart the function when all requested dependencies are
+   * done. A {@link Reset} signals a more complex issue that requires clearing the associated node's
+   * temporary direct deps and {@linkplain NodeEntry.DirtyType#REWIND rewinding} nodes associated
    * with other keys in {@link #rewindGraph()} (whose directed edges should correspond to the nodes'
-   * direct dependencies) must also be restarted.
+   * direct dependencies).
    *
    * <p>An intended cause for returning this is external data loss; e.g., if a dependency's
    * "done-ness" is intended to mean that certain data is available in an external system, but
@@ -112,37 +122,58 @@ public interface SkyFunction {
    * reevaluation of the dependency is expected to repair the discrepancy.
    *
    * <p>Values of this type will <em>never</em> be returned by {@link Environment}'s getValue
-   * methods or from {@link NodeEntry#getValue()}.
+   * methods or from {@link NodeEntry#getValue}.
    *
    * <p>All {@link ListenableFuture}s used in calls to {@link Environment#dependOnFuture} which were
    * not already complete will be cancelled.
-   *
-   * <p>This may only be returned by {@link #compute} if {@link Environment#restartPermitted} is
-   * true. If restarting is not permitted, {@link #compute} should throw an appropriate {@link
-   * SkyFunctionException}.
    */
-  interface Restart extends SkyValue {
-    ImmutableGraph<SkyKey> EMPTY_SKYKEY_GRAPH =
-        ImmutableGraph.copyOf(GraphBuilder.directed().allowsSelfLoops(false).build());
+  final class Reset implements SkyValue {
 
-    Restart SELF = () -> EMPTY_SKYKEY_GRAPH;
-
-    static Restart selfAnd(ImmutableGraph<SkyKey> rewindGraph) {
-      Preconditions.checkArgument(
-          rewindGraph.isDirected(), "rewindGraph undirected: %s", rewindGraph);
-      Preconditions.checkArgument(
-          !rewindGraph.allowsSelfLoops(), "rewindGraph allows self loops: %s", rewindGraph);
-      return () -> rewindGraph;
+    /**
+     * Convenience method that creates a {@link MutableGraph} that fulfills the basic requirements
+     * of a {@link Reset}.
+     *
+     * <p>Additional edges may be added to the graph before passing to {@link #of}.
+     */
+    public static MutableGraph<SkyKey> newRewindGraphFor(SkyKey keyToReset) {
+      MutableGraph<SkyKey> rewindGraph = GraphBuilder.directed().allowsSelfLoops(false).build();
+      rewindGraph.addNode(keyToReset);
+      return rewindGraph;
     }
 
-    ImmutableGraph<SkyKey> rewindGraph();
+    public static Reset of(Graph<SkyKey> rewindGraph) {
+      checkArgument(rewindGraph.isDirected(), "Undirected: %s", rewindGraph);
+      checkArgument(!rewindGraph.allowsSelfLoops(), "Allows self loops: %s", rewindGraph);
+      checkArgument(!rewindGraph.nodes().isEmpty(), "Rewind graph must include key to reset");
+      return new Reset(ImmutableGraph.copyOf(rewindGraph));
+    }
+
+    /**
+     * Creates a {@link Reset} for a single key with no rewinding of dependencies.
+     *
+     * <p>This can be used to clear out a node's temporary direct deps without any rewinding.
+     */
+    public static Reset selfOnly(SkyKey key) {
+      return of(newRewindGraphFor(key));
+    }
+
+    private final ImmutableGraph<SkyKey> rewindGraph;
+
+    private Reset(ImmutableGraph<SkyKey> rewindGraph) {
+      this.rewindGraph = rewindGraph;
+    }
+
+    ImmutableGraph<SkyKey> rewindGraph() {
+      return rewindGraph;
+    }
   }
 
   /**
-   * The services provided to the {@link SkyFunction#compute} implementation by the Skyframe
-   * evaluation framework.
+   * Value lookup subset of services provided to {@link SkyFunction} implementations.
+   *
+   * <p>See {@link Environment} for the full set of services.
    */
-  interface Environment {
+  interface LookupEnvironment {
     /**
      * Returns a direct dependency. If the specified value is not in the set of already evaluated
      * direct dependencies, returns {@code null}. Also returns {@code null} if the specified value
@@ -157,6 +188,7 @@ public interface SkyFunction {
      * must not be caught by the {@link SkyFunction#compute} implementation. Instead, they should be
      * propagated up to the caller of {@link SkyFunction#compute}.
      */
+    @CanIgnoreReturnValue
     @Nullable
     SkyValue getValue(SkyKey valueName) throws InterruptedException;
 
@@ -174,15 +206,18 @@ public interface SkyFunction {
      * or a subtype of {@link InterruptedException}. See {@link
      * SkyFunctionException#validateExceptionType} for details.
      */
+    @CanIgnoreReturnValue
     @Nullable
     <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass)
         throws E, InterruptedException;
 
+    @CanIgnoreReturnValue
     @Nullable
     <E1 extends Exception, E2 extends Exception> SkyValue getValueOrThrow(
         SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2)
         throws E1, E2, InterruptedException;
 
+    @CanIgnoreReturnValue
     @Nullable
     <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getValueOrThrow(
         SkyKey depKey,
@@ -191,6 +226,7 @@ public interface SkyFunction {
         Class<E3> exceptionClass3)
         throws E1, E2, E3, InterruptedException;
 
+    @CanIgnoreReturnValue
     @Nullable
     <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
         SkyValue getValueOrThrow(
@@ -257,19 +293,35 @@ public interface SkyFunction {
         throws InterruptedException;
 
     /**
+     * Returns a lookup result containing previously requested dependencies.
+     *
+     * <p>NB: this may contain fewer dependencies than expected if the node is restarted before all
+     * its dependencies have signaled. The two known cases are error bubbling and partial
+     * re-evaluation. In error bubbling, an error should be present.
+     */
+    SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps();
+  }
+
+  /**
+   * The services provided to the {@link SkyFunction#compute} implementation by the Skyframe
+   * evaluation framework.
+   */
+  interface Environment extends LookupEnvironment {
+    /**
      * Returns whether there was a previous getValue[s][OrThrow] that indicated a missing
      * dependency. Formally, returns true iff at least one of the following occurred:
      *
      * <ul>
      *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
-     *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
+     *   <li>A call to {@code result#get[OrThrow](k[, c])} returned {@code null} where result =
      *       getValuesAndExceptions(ks) for some ks
-     *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =
+     *   <li>A call to {@code result#queryDep(k, cb)} returned {@code false} where result =
      *       getValuesAndExceptions(ks) for some ks
      * </ul>
      *
      * <p>If this returns true, the {@link SkyFunction} must return {@code null} or throw a {@link
-     * SkyFunctionException} if it detected an error even with values missing.
+     * SkyFunctionException}. It should do the latter only if it encountered an error (on its own or
+     * from a dependency) and wants to convey that error.
      */
     boolean valuesMissing();
 
@@ -354,21 +406,6 @@ public interface SkyFunction {
     void dependOnFuture(ListenableFuture<?> future);
 
     /**
-     * A {@link SkyFunction#compute} call may return {@link Restart} only if this returns {@code
-     * true}.
-     */
-    boolean restartPermitted();
-
-    /**
-     * Returns a lookup result containing previously requested dependencies.
-     *
-     * <p>NB: this may contain fewer dependencies than expected if the node is restarted before all
-     * its dependencies have signaled. The two known cases are error bubbling and partial
-     * re-evaluation. In error bubbling, an error should be present.
-     */
-    SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps();
-
-    /**
      * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.
      *
      * <p>See the javadoc of {@link #getState} for motivation and an example.
@@ -383,6 +420,8 @@ public interface SkyFunction {
        * drop {@link SkyKeyComputeState} objects on high memory pressure. If the external resource
        * being held on to is approaching starvation, we currently don't do anything to alleviate
        * that pressure. So think *hard* before you start doing that!
+       *
+       * <p>Implementations <strong>MUST</strong> be idempotent.
        *
        * <p>Note also that this method should not perform any heavy work (especially blocking
        * operations).
@@ -472,9 +511,9 @@ public interface SkyFunction {
      * <p>Note that {@link SkyKeyComputeState#close()} allows us to hold on to other kinds of
      * external resources and clean them up when necessary, but see the Javadoc there for caveats.
      *
-     * <p>A notable example of the above note is that if {@link #compute} returns a {@link Restart}
+     * <p>A notable example of the above note is that if {@link #compute} returns a {@link Reset}
      * then a call to {@link #getState} on the subsequent call to {@link #compute} will definitely
-     * use the {@code stateSupplier}. It's important that Skyframe do this because {@link Restart}
+     * use the {@code stateSupplier}. It's important that Skyframe do this because {@link Reset}
      * indicates that work should be redone, and so it'd be wrong to reuse work from the previous
      * {@link #compute} call.
      */

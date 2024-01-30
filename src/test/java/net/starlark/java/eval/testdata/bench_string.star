@@ -10,3 +10,9 @@ def bench_find(b):
 
 def bench_find_with_start(b):
     _bench_find_with_start(b, 1)
+
+_to_strip = "   Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.   "
+
+def bench_strip(b):
+    for _ in range(b.n):
+        _to_strip.strip()

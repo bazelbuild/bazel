@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics.WorkerPoolStats;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -32,7 +34,10 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.util.List;
 import org.junit.After;
 import org.junit.Assume;
@@ -75,15 +80,14 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
-        "    cmd = '/bin/mkdir $(location dir)',",
-        "    srcs = [],",
+        "    outs = ['out'],",
+        "    cmd = 'touch $@',",
         ")");
   }
 
   @Before
-  public void setUpWorkerMetricsCollecto() {
-    WorkerMetricsCollector.instance().setClock(new JavaClock());
+  public void setUpWorkerProcessMetricsCollector() {
+    WorkerProcessMetricsCollector.instance().setClock(new JavaClock());
   }
 
   @After
@@ -520,6 +524,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testExecutionTimeInMs() throws Exception {
+    buildTarget("//foo:foo");
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.getTimingMetrics().getExecutionPhaseTimeInMs()).isGreaterThan(0);
+  }
+
+  @Test
   public void testUsedHeapSizePostBuild() throws Exception {
     // TODO(bazel-team): Fix recording used heap size on Windows.
     Assume.assumeTrue(OS.getCurrent() != OS.WINDOWS);
@@ -570,9 +581,9 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
+        "    outs = ['out'],",
         "    srcs = ['//noexist:noexist'],",
-        "    cmd = '/bin/mkdir $(location dir)',",
+        "    cmd = 'touch $@',",
         ")");
 
     addOptions("--analyze");
@@ -584,7 +595,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
+        "    outs = ['out'],",
         "    cmd = '/bin/false',",
         ")");
 
@@ -621,15 +632,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
-        "    cmd = '/bin/mkdir $(location dir)',",
-        "    srcs = [],",
+        "    outs = ['out'],",
+        "    cmd = 'touch $@',",
         ")",
         "genrule(",
         "    name = 'bar',",
-        "    outs = ['dir2'],",
-        "    cmd = '/bin/mkdir $(location dir2)',",
-        "    srcs = [],",
+        "    outs = ['out2'],",
+        "    cmd = 'touch $@',",
         ")");
     addOptions("--experimental_merged_skyframe_analysis_execution");
     BuildGraphMetrics expected =
@@ -662,5 +671,84 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .comparingExpectedFieldsOnly()
         .isEqualTo(expectedNullBuild);
+  }
+
+  @Test
+  public void testCreateWorkerPoolMetrics() {
+    // Given a list of WorkerProcessMetric(s), it should correctly aggregate the counts and create
+    // the WorkerPoolMetrics proto.
+    ImmutableList<WorkerProcessMetrics> allProcessMetrics =
+        ImmutableList.of(
+            // Hash 100: alive_count = 3
+            //           created_count = 1
+            createWorkerProcessMetrics(
+                /* workerIds= */ ImmutableList.of(1),
+                /* hash= */ 100,
+                Status.ALIVE,
+                /* newlyCreated= */ true),
+            createWorkerProcessMetrics(
+                /* workerIds= */ ImmutableList.of(2, 3),
+                /* hash= */ 100,
+                Status.ALIVE,
+                /* newlyCreated= */ false),
+            // Hash 200: evicted_count = 3
+            //           io_exception_destroyed_count = 2
+            //           unknown_destroyed_count = 1
+            //           destroyed_count = 6
+            //           created_count = 3  (should still be counted even if they are killed).
+            createWorkerProcessMetrics(
+                /* workerIds= */ ImmutableList.of(1, 2, 3),
+                /* hash= */ 200,
+                Status.KILLED_DUE_TO_MEMORY_PRESSURE,
+                /* newlyCreated= */ false),
+            createWorkerProcessMetrics(
+                /* workerIds= */ ImmutableList.of(1, 2),
+                /* hash= */ 200,
+                Status.KILLED_DUE_TO_IO_EXCEPTION,
+                /* newlyCreated= */ true),
+            createWorkerProcessMetrics(
+                /* workerIds= */ ImmutableList.of(1),
+                /* hash= */ 200,
+                Status.KILLED_UNKNOWN,
+                /* newlyCreated= */ true));
+    assertThat(MetricsCollector.createWorkerPoolMetrics(allProcessMetrics).getWorkerPoolStatsList())
+        .containsExactly(
+            WorkerPoolStats.newBuilder()
+                .setMnemonic(DUMMY_MNEMONIC)
+                .setHash(100)
+                .setCreatedCount(1)
+                .setAliveCount(3)
+                .build(),
+            WorkerPoolStats.newBuilder()
+                .setMnemonic(DUMMY_MNEMONIC)
+                .setHash(200)
+                .setEvictedCount(3)
+                .setIoExceptionDestroyedCount(2)
+                .setUnknownDestroyedCount(1)
+                .setDestroyedCount(6)
+                .setCreatedCount(3)
+                .build());
+  }
+
+  private static final String DUMMY_MNEMONIC = "DUMMY_MNEMONIC";
+
+  private WorkerProcessMetrics createWorkerProcessMetrics(
+      ImmutableList<Integer> workerIds, int hash, Status status, boolean newlyCreated) {
+    WorkerProcessStatus processStatus = new WorkerProcessStatus();
+    processStatus.maybeUpdateStatus(status);
+    WorkerProcessMetrics workerProcessMetrics =
+        new WorkerProcessMetrics(
+            workerIds,
+            /* processId= */ 0,
+            processStatus,
+            "DUMMY_MNEMONIC",
+            /* isMultiplex= */ workerIds.size() > 1,
+            /* isSandbox= */ true,
+            /* workerKeyHash= */ hash);
+    if (!newlyCreated) {
+      // Simulate that this process has been alive since before the command.
+      workerProcessMetrics.onBeforeCommand();
+    }
+    return workerProcessMetrics;
   }
 }

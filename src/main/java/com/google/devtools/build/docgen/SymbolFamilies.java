@@ -41,15 +41,29 @@ public class SymbolFamilies {
   private final ImmutableMap<String, Object> bzlGlobals;
 
   public SymbolFamilies(
-      StarlarkDocExpander expander, String provider, List<String> inputDirs, String denyList)
-      throws NoSuchMethodException, ClassPathException, InvocationTargetException,
-          IllegalAccessException, BuildEncyclopediaDocException, ClassNotFoundException,
+      StarlarkDocExpander expander,
+      SourceUrlMapper urlMapper,
+      String provider,
+      List<String> inputJavaDirs,
+      List<String> inputStardocProtos,
+      String denyList)
+      throws NoSuchMethodException,
+          ClassPathException,
+          InvocationTargetException,
+          IllegalAccessException,
+          BuildEncyclopediaDocException,
+          ClassNotFoundException,
           IOException {
     ConfiguredRuleClassProvider configuredRuleClassProvider = createRuleClassProvider(provider);
     this.nativeRules =
         ImmutableList.copyOf(
             collectNativeRules(
-                expander.ruleExpander, configuredRuleClassProvider, inputDirs, denyList));
+                expander.ruleExpander,
+                urlMapper,
+                configuredRuleClassProvider,
+                inputJavaDirs,
+                inputStardocProtos,
+                denyList));
     this.globals = Starlark.UNIVERSE;
     this.bzlGlobals = collectBzlGlobals(configuredRuleClassProvider);
     this.allDocPages = StarlarkDocumentationCollector.getAllDocPages(expander);
@@ -83,30 +97,38 @@ public class SymbolFamilies {
     return allDocPages;
   }
 
+  /** Collects symbols predefined in BZL files. */
+  private ImmutableMap<String, Object> collectBzlGlobals(ConfiguredRuleClassProvider provider) {
+    // StarlarkNativeModuleApi is faked because we want to inherit the documentation carried in its
+    // annotations, whereas the real "native" object is just a bare struct.
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    env.put("native", new FakeStarlarkNativeModuleApi());
+    for (Map.Entry<String, Object> entry :
+        provider.getBazelStarlarkEnvironment().getUninjectedBuildBzlEnv().entrySet()) {
+      if (entry.getKey().equals("native")) {
+        continue;
+      }
+      env.put(entry);
+    }
+    return env.buildOrThrow();
+  }
+
   /*
    * Collects a list of native rules that are available in BUILD files as top level functions
    * and in BZL files as methods of the native package.
    */
   private List<RuleDocumentation> collectNativeRules(
       RuleLinkExpander linkExpander,
+      SourceUrlMapper urlMapper,
       ConfiguredRuleClassProvider provider,
-      List<String> inputDirs,
+      List<String> inputJavaDirs,
+      List<String> inputStardocProtos,
       String denyList)
       throws BuildEncyclopediaDocException, IOException {
     ProtoFileBuildEncyclopediaProcessor processor =
-        new ProtoFileBuildEncyclopediaProcessor(linkExpander, provider);
-    processor.generateDocumentation(inputDirs, "", denyList);
+        new ProtoFileBuildEncyclopediaProcessor(linkExpander, urlMapper, provider);
+    processor.generateDocumentation(inputJavaDirs, inputStardocProtos, "", denyList);
     return processor.getNativeRules();
-  }
-
-  /** Collects symbols predefined in BZL files. */
-  private ImmutableMap<String, Object> collectBzlGlobals(ConfiguredRuleClassProvider provider) {
-    // StarlarkNativeModuleApi is faked, because we don't have a PackageFactory here
-    // and we can't use BazelStarlarkEnvironment.
-    return ImmutableMap.<String, Object>builder()
-        .put("native", new FakeStarlarkNativeModuleApi())
-        .putAll(provider.getEnvironment())
-        .buildOrThrow();
   }
 
   private ConfiguredRuleClassProvider createRuleClassProvider(String classProvider)

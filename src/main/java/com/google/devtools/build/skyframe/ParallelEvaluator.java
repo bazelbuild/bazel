@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
-import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
@@ -66,11 +65,10 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
+      InflightTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
       CycleDetector cycleDetector,
-      boolean mergingSkyframeAnalysisExecutionPhases,
       UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
     super(
         graph,
@@ -85,8 +83,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         progressReceiver,
         graphInconsistencyReceiver,
         executor,
-        cycleDetector,
-        mergingSkyframeAnalysisExecutionPhases);
+        cycleDetector);
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
   }
 
@@ -107,7 +104,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     ErrorInfo error = null;
     SkyValue valueMaybeWithMetadata = entry.getValueMaybeWithMetadata();
     if (valueMaybeWithMetadata != null) {
-      replay(ValueWithMetadata.wrapWithMetadata(valueMaybeWithMetadata));
+      replay(ValueWithMetadata.getEvents(valueMaybeWithMetadata));
       error = ValueWithMetadata.getMaybeErrorInfo(valueMaybeWithMetadata);
     }
 
@@ -115,20 +112,14 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     // retrieve them, but top-level nodes are presumably of more interest.
     // If valueVersion is not equal to graphVersion, it must be less than it (by the
     // Preconditions check above), and so the node is clean.
-    EvaluationState evaluationState =
-        valueVersion.equals(evaluatorContext.getGraphVersion())
-            ? EvaluationState.BUILT
-            : EvaluationState.CLEAN;
+    boolean changed = valueVersion.equals(evaluatorContext.getGraphVersion());
     evaluatorContext
         .getProgressReceiver()
         .evaluated(
             key,
-            evaluationState == EvaluationState.BUILT ? value : null,
-            evaluationState == EvaluationState.BUILT ? error : null,
-            value != null
-                ? EvaluationSuccessState.SUCCESS.supplier()
-                : EvaluationSuccessState.FAILURE.supplier(),
-            evaluationState,
+            EvaluationState.get(value, changed),
+            /* newValue= */ changed ? value : null,
+            /* newError= */ changed ? error : null,
             /* directDeps= */ null);
   }
 
@@ -144,7 +135,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         // in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, entry.getPriority(), null);
+            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, null);
             break;
           case DONE:
             informProgressReceiverThatValueIsDone(skyKey, entry);
@@ -202,7 +193,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     boolean catastrophe = false;
     try {
       evaluatorContext.getVisitor().waitForCompletion();
-    } catch (final SchedulerException e) {
+    } catch (SchedulerException e) {
       propagateEvaluatorContextCrashIfAny();
       propagateInterruption(e);
       SkyKey errorKey = Preconditions.checkNotNull(e.getFailedValue(), e);
@@ -216,6 +207,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             "Scheduler exception only thrown for catastrophe in keep_going evaluation: %s",
             e);
         catastrophe = true;
+        // For b/287183296
+        logger.atInfo().withCause(e).log(
+            "Catastrophic exception in --keep_going mode while evaluating SkyKey: %s", errorKey);
       }
     }
     Preconditions.checkState(
@@ -279,10 +273,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
   @SuppressWarnings("LenientFormatStringValidation")
   @Nullable
   private Map<SkyKey, ValueWithMetadata> bubbleErrorUp(
-      final ErrorInfo leafFailure,
-      SkyKey errorKey,
-      Iterable<SkyKey> roots,
-      Set<SkyKey> rdepsToBubbleUpTo)
+      ErrorInfo leafFailure, SkyKey errorKey, Iterable<SkyKey> roots, Set<SkyKey> rdepsToBubbleUpTo)
       throws InterruptedException {
     // Remove all the compute states so as to give the SkyFunctions a chance to do fresh
     // computations during error bubbling.
@@ -329,7 +320,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             rootValues);
         SkyValue valueMaybeWithMetadata = errorEntry.getValueMaybeWithMetadata();
         if (valueMaybeWithMetadata != null) {
-          replay(ValueWithMetadata.wrapWithMetadata(valueMaybeWithMetadata));
+          replay(ValueWithMetadata.getEvents(valueMaybeWithMetadata));
         }
         break;
       }
@@ -387,7 +378,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       Preconditions.checkNotNull(parentEntry, "%s %s", errorKey, parent);
       SkyFunction skyFunction = evaluatorContext.getSkyFunctions().get(parent.functionName());
       if (parentEntry.isDirty()) {
-        switch (parentEntry.getDirtyState()) {
+        switch (parentEntry.getLifecycleState()) {
           case CHECK_DEPENDENCIES:
             // If this value's child was bubbled up to, it did not signal this value, and so we must
             // manually make it ready to build.
@@ -396,11 +387,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           case NEEDS_REBUILDING:
             maybeMarkRebuilding(parentEntry);
             break;
-          case NEEDS_FORCED_REBUILDING:
-            parentEntry.forceRebuild();
-            break;
           case REBUILDING:
-          case FORCED_REBUILDING:
             break;
           default:
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);
@@ -440,7 +427,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         ValueWithMetadata valueWithMetadata =
             ValueWithMetadata.error(
                 ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
-        replay(valueWithMetadata);
+        replay(events);
         bubbleErrorInfo.put(errorKey, valueWithMetadata);
         continue;
       } catch (RuntimeException e) {
@@ -480,7 +467,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       ValueWithMetadata valueWithMetadata =
           ValueWithMetadata.error(
               ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
-      replay(valueWithMetadata);
+      replay(events);
       bubbleErrorInfo.put(errorKey, valueWithMetadata);
     }
 
@@ -549,6 +536,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       }
     }
     if (!cycleRoots.isEmpty()) {
+      logger.atInfo().log("Detecting cycles with roots: %s", cycleRoots);
       cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
     }
     Preconditions.checkState(
@@ -585,7 +573,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       Map<SkyKey, Delta> injectionMap,
       Version version,
       ProcessableGraph graph,
-      DirtyTrackingProgressReceiver progressReceiver)
+      InflightTrackingProgressReceiver progressReceiver)
       throws InterruptedException {
     NodeBatch prevNodeEntries =
         graph.createIfAbsentBatch(null, Reason.OTHER, injectionMap.keySet());

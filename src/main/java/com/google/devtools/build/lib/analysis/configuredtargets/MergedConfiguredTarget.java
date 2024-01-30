@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -28,15 +29,18 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
 
@@ -62,13 +66,34 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       ConfiguredTarget base,
       Iterable<ConfiguredAspect> aspects,
       TransitiveInfoProviderMap nonBaseProviders) {
-    super(base.getLabel(), base.getConfigurationKey());
+    // TODO(b/281522692): it's unsound to pass a null key here, but the type system doesn't
+    // currently provide a better way to do this.
+    super(/* actionLookupKey= */ null);
     this.base = base;
     this.aspects = ImmutableList.copyOf(aspects);
     this.nonBaseProviders = nonBaseProviders;
   }
 
   @Override
+  public ActionLookupKey getLookupKey() {
+    throw new IllegalStateException(
+        "MergedConfiguredTarget is ephemeral. It does not exist in the Skyframe graph and it does"
+            + " not have a key.");
+  }
+
+  @Override
+  public Label getLabel() {
+    return base.getLabel();
+  }
+
+  @Override
+  @Nullable
+  public BuildConfigurationKey getConfigurationKey() {
+    return base.getConfigurationKey();
+  }
+
+  @Override
+  @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     AnalysisUtils.checkProvider(providerClass);
 
@@ -150,7 +175,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     }
 
     // Merge analysis failures.
-    List<NestedSet<AnalysisFailure>> analysisFailures = getAnalysisFailures(base, aspects);
+    ImmutableList<NestedSet<AnalysisFailure>> analysisFailures = getAnalysisFailures(base, aspects);
     if (!analysisFailures.isEmpty()) {
       nonBaseProviders.put(AnalysisFailureInfo.forAnalysisFailureSets(analysisFailures));
     }
@@ -273,8 +298,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public Dict<String, Object> getProvidersDict() {
-    return ConfiguredTargetsUtil.getProvidersDict(this, nonBaseProviders);
+  public Dict<String, Object> getProvidersDictForQuery() {
+    return toProvidersDictForQuery(nonBaseProviders);
   }
 
   @Override

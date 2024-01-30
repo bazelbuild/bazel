@@ -191,22 +191,6 @@ class SandboxHelper {
     return this;
   }
 
-  /**
-   * Creates a symlink from within the the {@code workDir}, and creates the target file with the
-   * given contents, which is assumed to be ASCII text. The destination is just what's written into
-   * the symlink and thus relative to the created symlink.
-   */
-  @CanIgnoreReturnValue
-  public SandboxHelper createSymlinkWithContents(
-      String relativePath, String relativeDestination, String contents) throws IOException {
-    createSymlink(relativePath, relativeDestination);
-    Path fromPath = workDir.getRelative(relativePath);
-    Path toPath = fromPath.getRelative(relativeDestination);
-    toPath.getParentDirectory().createDirectoryAndParents();
-    FileSystemUtils.writeContentAsLatin1(toPath, contents);
-    return this;
-  }
-
   public SandboxInputs getSandboxInputs() {
     return new SandboxInputs(inputs, virtualInputs, symlinks, ImmutableMap.of());
   }

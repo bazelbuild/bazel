@@ -17,23 +17,25 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 
 /**
  * SkyValue for {@code TopLevelAspectsKey} wraps a list of the {@code AspectValue} of the top level
  * aspects applied on the same top level target.
  */
 public final class TopLevelAspectsValue implements ActionLookupValue {
-  private final ImmutableList<AspectValue> topLevelAspectsValues;
+  private final ImmutableMap<AspectKey, AspectValue> topLevelAspectsMap;
 
-  public TopLevelAspectsValue(ImmutableList<AspectValue> topLevelAspectsValues) {
-    this.topLevelAspectsValues = checkNotNull(topLevelAspectsValues);
+  public TopLevelAspectsValue(ImmutableMap<AspectKey, AspectValue> topLevelAspectsMap) {
+    this.topLevelAspectsMap = checkNotNull(topLevelAspectsMap);
   }
 
-  public ImmutableList<AspectValue> getTopLevelAspectsValues() {
-    return topLevelAspectsValues;
+  public ImmutableMap<AspectKey, AspectValue> getTopLevelAspectsMap() {
+    return topLevelAspectsMap;
   }
 
   @Override

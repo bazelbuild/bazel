@@ -90,7 +90,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
                           if (i == LATE_BOUND_DEFAULT_OFFSET) {
                             return attr(":attr" + i + "_late_bound_default", Type.STRING)
                                 .value(
-                                    new LateBoundDefault<>(Void.class, "late_bound") {
+                                    new LateBoundDefault<>(Void.class, (rule) -> "late_bound") {
                                       @Override
                                       public String resolve(
                                           Rule rule, AttributeMap attributes, Void input) {
@@ -303,7 +303,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
 
   @Test
   public void computedDefault_mutable_stored() {
-    var computedDefault = computedDefaultAttr.getDefaultValue();
+    var computedDefault = computedDefaultAttr.getDefaultValue(null);
     assertThat(computedDefaultAttr.hasComputedDefault()).isTrue();
     assertThat(computedDefault).isInstanceOf(ComputedDefault.class);
 
@@ -316,7 +316,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
 
   @Test
   public void computedDefault_frozen_notStored() {
-    var computedDefault = computedDefaultAttr.getDefaultValue();
+    var computedDefault = computedDefaultAttr.getDefaultValue(null);
     assertThat(computedDefaultAttr.hasComputedDefault()).isTrue();
     assertThat(computedDefault).isInstanceOf(ComputedDefault.class);
 

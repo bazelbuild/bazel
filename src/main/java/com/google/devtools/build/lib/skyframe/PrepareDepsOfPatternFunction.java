@@ -62,12 +62,9 @@ import javax.annotation.Nullable;
  */
 public class PrepareDepsOfPatternFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgPath;
-  private final boolean traverseTestSuites;
 
-  public PrepareDepsOfPatternFunction(
-      AtomicReference<PathPackageLocator> pkgPath, boolean traverseTestSuites) {
+  public PrepareDepsOfPatternFunction(AtomicReference<PathPackageLocator> pkgPath) {
     this.pkgPath = pkgPath;
-    this.traverseTestSuites = traverseTestSuites;
   }
 
   @Nullable
@@ -113,8 +110,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
             .addAll(ignoredPatterns)
             .build();
 
-    DepsOfPatternPreparer preparer =
-        new DepsOfPatternPreparer(env, pkgPath.get(), traverseTestSuites);
+    DepsOfPatternPreparer preparer = new DepsOfPatternPreparer(env, pkgPath.get());
 
     try {
       parsedPattern.eval(
@@ -211,13 +207,11 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     private final EnvironmentBackedRecursivePackageProvider packageProvider;
     private final Environment env;
     private final ImmutableList<Root> pkgRoots;
-    private final boolean traverseTestSuites;
 
-    DepsOfPatternPreparer(Environment env, PathPackageLocator pkgPath, boolean traverseTestSuites) {
+    DepsOfPatternPreparer(Environment env, PathPackageLocator pkgPath) {
       this.env = env;
       this.packageProvider = new EnvironmentBackedRecursivePackageProvider(env);
       this.pkgRoots = pkgPath.getPathEntries();
-      this.traverseTestSuites = traverseTestSuites;
     }
 
     @Override
@@ -358,11 +352,6 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       keys.add(
           CollectPackagesUnderDirectoryValue.key(
               repository, rootedPath, repositoryIgnoredSubdirectories));
-      if (traverseTestSuites) {
-        keys.add(
-            PrepareTestSuitesUnderDirectoryValue.key(
-                repository, rootedPath, repositoryIgnoredSubdirectories));
-      }
       return ImmutableList.copyOf(keys);
     }
   }

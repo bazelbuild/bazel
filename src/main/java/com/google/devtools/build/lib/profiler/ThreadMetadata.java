@@ -24,7 +24,7 @@ class ThreadMetadata implements TraceData {
   private final long threadId;
   private final long sortIndex;
 
-  private ThreadMetadata(String readableName, long threadId, long sortIndex) {
+  public ThreadMetadata(String readableName, long threadId, long sortIndex) {
     this.readableName = readableName;
     this.threadId = threadId;
     this.sortIndex = sortIndex;
@@ -49,7 +49,7 @@ class ThreadMetadata implements TraceData {
   }
 
   private static boolean isGCThread(String threadName) {
-    return threadName.equals("Service Thread");
+    return threadName.equals("Notification Thread");
   }
 
   private static String getReadableName(String threadName) {

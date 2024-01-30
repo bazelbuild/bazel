@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.HashSet;
@@ -83,6 +83,7 @@ public final class AspectDefinition {
 
   private final ImmutableSet<Label> execCompatibleWith;
   private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
 
   public AdvertisedProviderSet getAdvertisedProviders() {
     return advertisedProviders;
@@ -101,7 +102,8 @@ public final class AspectDefinition {
       boolean applyToGeneratingRules,
       ImmutableSet<AspectClass> requiredAspectClasses,
       ImmutableSet<Label> execCompatibleWith,
-      ImmutableMap<String, ExecGroup> execGroups) {
+      ImmutableMap<String, ExecGroup> execGroups,
+      ImmutableSet<? extends StarlarkSubruleApi> subrules) {
     this.aspectClass = aspectClass;
     this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
@@ -115,6 +117,7 @@ public final class AspectDefinition {
     this.requiredAspectClasses = requiredAspectClasses;
     this.execCompatibleWith = execCompatibleWith;
     this.execGroups = execGroups;
+    this.subrules = subrules;
   }
 
   public String getName() {
@@ -145,6 +148,11 @@ public final class AspectDefinition {
   /** Returns the execution groups that this aspect can use when creating actions. */
   public ImmutableMap<String, ExecGroup> execGroups() {
     return execGroups;
+  }
+
+  /** Returns the subrules declared by this aspect. */
+  public ImmutableSet<? extends StarlarkSubruleApi> getSubrules() {
+    return subrules;
   }
 
   /**
@@ -236,7 +244,7 @@ public final class AspectDefinition {
 
   private static <T> void visitSingleAttribute(
       Attribute attribute, Type<T> type, LabelVisitor labelVisitor) {
-    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue()), attribute);
+    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue(null)), attribute);
   }
 
   public static Builder builder(AspectClass aspectClass) {
@@ -262,42 +270,15 @@ public final class AspectDefinition {
     private ImmutableSet<AspectClass> requiredAspectClasses = ImmutableSet.of();
     private ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
     private ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
+    private ImmutableSet<? extends StarlarkSubruleApi> subrules = ImmutableSet.of();
 
     public Builder(AspectClass aspectClass) {
       this.aspectClass = aspectClass;
     }
 
-    /**
-     * Asserts that this aspect can only be evaluated for rules that supply all of the providers
-     * from at least one set of required providers.
-     */
-    @CanIgnoreReturnValue
-    public Builder requireProviderSets(
-        Iterable<ImmutableSet<Class<? extends TransitiveInfoProvider>>> providerSets) {
-      for (ImmutableSet<Class<? extends TransitiveInfoProvider>> providerSet : providerSets) {
-        requiredProviders.addBuiltinSet(providerSet);
-      }
-      return this;
-    }
-
-    /**
-     * Asserts that this aspect can only be evaluated for rules that supply all of the specified
-     * providers.
-     */
-    @CanIgnoreReturnValue
-    public Builder requireProviders(Class<? extends TransitiveInfoProvider>... providers) {
-      requiredProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
-      return this;
-    }
-
-    /**
-     * Same as the equivalent calls to {@link #requireProviderSets} and {@link
-     * #requireStarlarkProviderSets} for specifying the required providers conveyed by {@code
-     * requiredProviders}.
-     */
     @CanIgnoreReturnValue
     public Builder requireProviders(RequiredProviders requiredProviders) {
-      requiredProviders.addToAspectDefinitionBuilder(this);
+      this.requireStarlarkProviderSets(requiredProviders.getStarlarkProviders());
       return this;
     }
 
@@ -343,22 +324,6 @@ public final class AspectDefinition {
         if (!providerSet.isEmpty()) {
           requiredAspectProviders.addStarlarkSet(providerSet);
         }
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder requireAspectsWithBuiltinProviders(
-        Class<? extends TransitiveInfoProvider>... providers) {
-      requiredAspectProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
-      return this;
-    }
-
-    /** State that the aspect being built provides given providers. */
-    @CanIgnoreReturnValue
-    public Builder advertiseProvider(Class<?>... providers) {
-      for (Class<?> provider : providers) {
-        advertisedProviders.addBuiltin(provider);
       }
       return this;
     }
@@ -561,6 +526,12 @@ public final class AspectDefinition {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder subrules(ImmutableSet<? extends StarlarkSubruleApi> subrules) {
+      this.subrules = subrules;
+      return this;
+    }
+
     /**
      * Builds the aspect definition.
      *
@@ -587,7 +558,8 @@ public final class AspectDefinition {
           applyToGeneratingRules,
           requiredAspectClasses,
           execCompatibleWith,
-          execGroups);
+          execGroups,
+          subrules);
     }
   }
 }

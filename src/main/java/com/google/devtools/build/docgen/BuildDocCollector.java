@@ -16,17 +16,27 @@ package com.google.devtools.build.docgen;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.HashMap;
@@ -35,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
 
 /**
  * Class that parses the documentation fragments of rule-classes and
@@ -42,19 +53,21 @@ import java.util.TreeMap;
  */
 @VisibleForTesting
 public class BuildDocCollector {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final Splitter SHARP_SPLITTER = Splitter.on('#').limit(2).trimResults();
 
   private final RuleLinkExpander linkExpander;
+  private final SourceUrlMapper urlMapper;
   private final ConfiguredRuleClassProvider ruleClassProvider;
-  private final boolean printMessages;
 
   public BuildDocCollector(
       RuleLinkExpander linkExpander,
-      ConfiguredRuleClassProvider ruleClassProvider,
-      boolean printMessages) {
+      SourceUrlMapper urlMapper,
+      ConfiguredRuleClassProvider ruleClassProvider) {
     this.linkExpander = linkExpander;
+    this.urlMapper = urlMapper;
     this.ruleClassProvider = ruleClassProvider;
-    this.printMessages = printMessages;
   }
 
   /**
@@ -94,14 +107,18 @@ public class BuildDocCollector {
    * links generated follow either the multi-page or single-page Build Encyclopedia model depending
    * on the mode set for the {@link RuleLinkExpander} that was passed to the constructor.
    *
-   * @param inputDirs list of directories to scan for documentation
+   * @param inputJavaDirs list of directories to scan for documentation in Java source code
+   * @param inputStardocProtos list of file paths of stardoc_output.ModuleInfo binary proto files
+   *     generated from Build Encyclopedia entry point .bzl files; documentation from these protos
+   *     takes precedence over documentation from {@code inputJavaDirs}
    * @param denyList specify an optional denylist file that list some rules that should not be
    *     listed in the output.
    * @throws BuildEncyclopediaDocException
    * @throws IOException
    * @return Map of rule class to rule documentation.
    */
-  public Map<String, RuleDocumentation> collect(List<String> inputDirs, String denyList)
+  public Map<String, RuleDocumentation> collect(
+      List<String> inputJavaDirs, List<String> inputStardocProtos, String denyList)
       throws BuildEncyclopediaDocException, IOException {
     // Read the denyList file
     Set<String> denylistedRules = readDenyList(denyList);
@@ -114,33 +131,45 @@ public class BuildDocCollector {
     ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries =
         LinkedListMultimap.create();
 
-    // Map of rule class name to file that defined it.
-    Map<String, File> ruleClassFiles = new HashMap<>();
+    // Map of rule name to the file (Java source file or Build Encyclopedia entry point .bzl file)
+    // and symbol from which its documentation was obtained.
+    Map<String, DocumentationOrigin> ruleDocOrigin = new HashMap<>();
 
     // Set of files already processed. The same file may be encountered multiple times because
     // directories are processed recursively, and an input directory may be a subdirectory of
     // another one.
     Set<File> processedFiles = new HashSet<>();
 
-    for (String inputDir : inputDirs) {
-      if (printMessages) {
-        System.out.println(" Processing input directory: " + inputDir);
-      }
+    for (String inputJavaDir : inputJavaDirs) {
+      logger.atFine().log("Processing input directory: %s", inputJavaDir);
       int ruleNum = ruleDocEntries.size();
-      collectDocs(
+      collectJavaSourceDocs(
           processedFiles,
-          ruleClassFiles,
+          ruleDocOrigin,
           ruleDocEntries,
           denylistedRules,
           attributeDocEntries,
-          new File(inputDir));
-      if (printMessages) {
-        System.out.println(" " + (ruleDocEntries.size() - ruleNum)
-            + " rule documentations found.");
-      }
+          new File(inputJavaDir));
+      logger.atFine().log(
+          "%d rule documentations found in %s", ruleDocEntries.size() - ruleNum, inputJavaDir);
+    }
+    processJavaSourceRuleAttributeDocs(ruleDocEntries.values(), attributeDocEntries);
+
+    for (String stardocProtoPath : inputStardocProtos) {
+      logger.atFine().log("Processing input file: %s", stardocProtoPath);
+      int numRulesCollected =
+          collectModuleInfoDocs(
+              ruleDocOrigin,
+              ruleDocEntries,
+              denylistedRules,
+              attributeDocEntries,
+              ModuleInfo.parseFrom(
+                  new FileInputStream(stardocProtoPath), ExtensionRegistry.getEmptyRegistry()),
+              urlMapper);
+      logger.atFine().log(
+          "%d rule documentations found in %s", numRulesCollected, stardocProtoPath);
     }
 
-    processAttributeDocs(ruleDocEntries.values(), attributeDocEntries);
     linkExpander.addIndex(buildRuleIndex(ruleDocEntries.values()));
     for (RuleDocumentation rule : ruleDocEntries.values()) {
       rule.setRuleLinkExpander(linkExpander);
@@ -160,14 +189,18 @@ public class BuildDocCollector {
   }
 
   /**
-   * Go through all attributes of all documented rules and search the best attribute documentation
-   * if exists. The best documentation is the closest documentation in the ancestor graph. E.g. if
-   * java_library.deps documented in $rule and $java_rule then the one in $java_rule is going to
-   * apply since it's a closer ancestor of java_library.
+   * Go through all attributes of native rules whose documentation was retrieved from Java sources,
+   * and search the best attribute documentation if exists. The best documentation is the closest
+   * documentation in the ancestor graph. E.g. if java_library.deps documented in $rule and
+   * $java_rule then the one in $java_rule is going to apply since it's a closer ancestor of
+   * java_library.
+   *
+   * <p>Note: this function should be called before any calls to collectModuleInfoDocs.
    */
-  private void processAttributeDocs(Iterable<RuleDocumentation> ruleDocEntries,
+  private void processJavaSourceRuleAttributeDocs(
+      Iterable<RuleDocumentation> ruleDocEntries,
       ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries)
-          throws BuildEncyclopediaDocException {
+      throws BuildEncyclopediaDocException {
     for (RuleDocumentation ruleDoc : ruleDocEntries) {
       RuleClass ruleClass = ruleClassProvider.getRuleClassMap().get(ruleDoc.getRuleName());
       if (ruleClass != null) {
@@ -198,21 +231,10 @@ public class BuildDocCollector {
                 }
               }
               if (bestAttributeDoc != null) {
-                try {
-                  // We have to clone the matching RuleDocumentationAttribute here so that we don't
-                  // overwrite the reference to the actual attribute later by another attribute with
-                  // the same ancestor but different default values.
-                  bestAttributeDoc = (RuleDocumentationAttribute) bestAttributeDoc.clone();
-                } catch (CloneNotSupportedException e) {
-                  throw new BuildEncyclopediaDocException(
-                      bestAttributeDoc.getFileName(),
-                      bestAttributeDoc.getStartLineCnt(),
-                      "attribute doesn't support clone: " + e.toString());
-                }
-                // Add reference to the Attribute that the attribute doc is associated with
-                // in order to generate documentation for the Attribute.
-                bestAttributeDoc.setAttribute(attribute);
-                ruleDoc.addAttribute(bestAttributeDoc);
+                // We have to copy the matching RuleDocumentationAttribute here so that we don't
+                // overwrite the reference to the actual attribute later by another attribute with
+                // the same ancestor but different default values.
+                ruleDoc.addAttribute(bestAttributeDoc.copyAndUpdateFrom(attribute));
               // If there is no matching attribute doc try to add the common.
               } else if (ruleDoc.getRuleType().equals(RuleType.BINARY)
                   && PredefinedAttributes.BINARY_ATTRIBUTES.containsKey(attrName)) {
@@ -250,17 +272,18 @@ public class BuildDocCollector {
    *
    * @param processedFiles The set of Java source files files that have already been processed in
    *     order to avoid reprocessing the same file.
-   * @param ruleClassFiles Map of rule name to the source file it was extracted from.
+   * @param ruleDocOrigin Map of rule name to the file and symbol from which its documentation was
+   *     obtained.
    * @param ruleDocEntries Map of rule name to rule documentation.
    * @param denyList The set of denylisted rules whose documentation should not be extracted.
    * @param attributeDocEntries Multimap of rule attribute name to attribute documentation.
-   * @param inputPath The File representing the file or directory to read.
+   * @param inputPath The File representing the Java source file or directory to read.
    * @throws BuildEncyclopediaDocException
    * @throws IOException
    */
-  public void collectDocs(
+  public void collectJavaSourceDocs(
       Set<File> processedFiles,
-      Map<String, File> ruleClassFiles,
+      Map<String, DocumentationOrigin> ruleDocOrigin,
       Map<String, RuleDocumentation> ruleDocEntries,
       Set<String> denyList,
       ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries,
@@ -272,18 +295,23 @@ public class BuildDocCollector {
 
     if (inputPath.isFile()) {
       if (DocgenConsts.JAVA_SOURCE_FILE_SUFFIX.apply(inputPath.getName())) {
-        SourceFileReader sfr = new SourceFileReader(ruleClassProvider, inputPath.getAbsolutePath());
+        SourceFileReader sfr =
+            new SourceFileReader(
+                ruleClassProvider, inputPath.getAbsolutePath(), urlMapper.urlOfFile(inputPath));
         sfr.readDocsFromComments();
         for (RuleDocumentation d : sfr.getRuleDocEntries()) {
           String ruleName = d.getRuleName();
           if (!denyList.contains(ruleName)) {
             if (ruleDocEntries.containsKey(ruleName)
-                && !ruleClassFiles.get(ruleName).equals(inputPath)) {
-              System.err.printf(
-                  "WARNING: '%s' from '%s' overrides value already in map from '%s'\n",
-                  d.getRuleName(), inputPath, ruleClassFiles.get(ruleName));
+                && !ruleDocOrigin.get(ruleName).file().equals(inputPath.toString())) {
+              logger.atWarning().log(
+                  "Rule '%s' from '%s' overrides previously seen rule '%s' from '%s'",
+                  ruleName,
+                  inputPath,
+                  ruleDocOrigin.get(ruleName).symbol(),
+                  ruleDocOrigin.get(ruleName).file());
             }
-            ruleClassFiles.put(ruleName, inputPath);
+            ruleDocOrigin.put(ruleName, DocumentationOrigin.create(inputPath.toString(), ruleName));
             ruleDocEntries.put(ruleName, d);
           }
         }
@@ -294,9 +322,9 @@ public class BuildDocCollector {
       }
     } else if (inputPath.isDirectory()) {
       for (File childPath : inputPath.listFiles()) {
-        collectDocs(
+        collectJavaSourceDocs(
             processedFiles,
-            ruleClassFiles,
+            ruleDocOrigin,
             ruleDocEntries,
             denyList,
             attributeDocEntries,
@@ -305,5 +333,155 @@ public class BuildDocCollector {
     }
 
     processedFiles.add(inputPath);
+  }
+
+  /**
+   * Collects rule and rule attribute documentation from a stardoc_output.ModuleInfo message
+   * generated from a Build Encyclopedia entry point .bzl file.
+   *
+   * <p>The module doc string for the .bzl file is interpreted as the rule family name.
+   *
+   * <p>Any rule exported by the .bzl file is expected to be contained in a struct whose name is a
+   * {@link DocgenConsts.RuleType} name suffixed with "_rules" - for example, "binary_rules",
+   * "library_rules", etc.
+   *
+   * <p>This method returns the following through its parameters: a map of rule name to the file and
+   * symbol it was extracted from, a map of rule name to the documentation of the rule, and a
+   * multimap of attribute name to attribute documentation.
+   *
+   * @param ruleDocOrigin Map of rule name to the file and symbol from which its documentation was
+   *     obtained.
+   * @param ruleDocEntries Map of rule name to rule documentation.
+   * @param denyList The set of denylisted rules whose documentation should not be extracted.
+   * @param attributeDocEntries Multimap of rule attribute name to attribute documentation.
+   * @param moduleInfo A stardoc_output.ModuleInfo message representing a Build Encyclopedia entry
+   *     point .bzl file.
+   * @param urlMapper Mapper from source labels to source code repository URLs
+   * @return number of rules whose documentation was collected
+   */
+  @VisibleForTesting
+  static int collectModuleInfoDocs(
+      Map<String, DocumentationOrigin> ruleDocOrigin,
+      Map<String, RuleDocumentation> ruleDocEntries,
+      Set<String> denyList,
+      ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries,
+      ModuleInfo moduleInfo,
+      SourceUrlMapper urlMapper)
+      throws BuildEncyclopediaDocException {
+    String entryPointFileLabel = moduleInfo.getFile();
+
+    Matcher familyMatcher =
+        DocgenConsts.STARDOC_OUTPUT_FAMILY_NAME_AND_SUMMARY.matcher(
+            moduleInfo.getModuleDocstring().strip());
+    if (!familyMatcher.matches()) {
+      throw new BuildEncyclopediaDocException(
+          entryPointFileLabel,
+          "Module doc string is expected to be a single line representing a rule family name, "
+              + "optionally followed by a blank line and summary text; for example, "
+              + "`\"\"\"C / C++\"\"\"`");
+    }
+    String ruleFamily = familyMatcher.group("family");
+    String ruleFamilySummary = Strings.nullToEmpty(familyMatcher.group("summary"));
+
+    int numRulesCollected = 0;
+    for (RuleInfo ruleInfo : moduleInfo.getRuleInfoList()) {
+      Matcher ruleNameMatcher =
+          DocgenConsts.STARDOC_OUTPUT_RULE_NAME.matcher(ruleInfo.getRuleName());
+      if (!ruleNameMatcher.matches()) {
+        throw new BuildEncyclopediaDocException(
+            entryPointFileLabel,
+            String.format(
+                "Unexpected rule symbol: %s; rules must be exported in structs, with the struct's"
+                    + " name specifying the rule type, for example, `library_rules = struct("
+                    + "java_import = _java_import, ...)`",
+                ruleInfo.getRuleName()));
+      }
+      String ruleType = Ascii.toUpperCase(ruleNameMatcher.group("type"));
+      String ruleName = ruleNameMatcher.group("name");
+      if (!denyList.contains(ruleName)) {
+        String ruleOriginFileLabel = ruleInfo.getOriginKey().getFile();
+        if (ruleDocEntries.containsKey(ruleName)) {
+          logger.atWarning().log(
+              "Rule '%s' from '%s' (defined in '%s') overrides previously seen rule '%s' from '%s'",
+              ruleInfo.getRuleName(),
+              entryPointFileLabel,
+              ruleOriginFileLabel,
+              ruleDocOrigin.get(ruleName).symbol(),
+              ruleDocOrigin.get(ruleName).file());
+        }
+        RuleDocumentation ruleDoc =
+            new RuleDocumentation(
+                ruleName,
+                ruleType,
+                ruleFamily,
+                ruleInfo.getDocString(),
+                ruleOriginFileLabel,
+                urlMapper.urlOfLabel(ruleOriginFileLabel),
+                ImmutableSet.of(),
+                // Add family summary only to the first rule encountered, to avoid duplication in
+                // final rendered output
+                numRulesCollected == 0 ? ruleFamilySummary : "");
+
+        // Inject standard inherited attributes for Starlark rules (since they always inherit from
+        // one of 3 possible base rule classes; see StarlarkRuleClassFunctions#createRule). If in
+        // the future we want to document native rules via ModuleInfo protos, we will need to list
+        // inherited attributes in the proto.
+        ruleDoc.addAttributes(PredefinedAttributes.COMMON_ATTRIBUTES.values());
+        if (ruleDoc.getRuleType().equals(RuleType.TEST)) {
+          ruleDoc.addAttributes(PredefinedAttributes.TEST_ATTRIBUTES.values());
+        } else if (ruleDoc.getRuleType().equals(RuleType.BINARY)) {
+          ruleDoc.addAttributes(PredefinedAttributes.BINARY_ATTRIBUTES.values());
+        }
+
+        for (AttributeInfo attributeInfo : ruleInfo.getAttributeList()) {
+          String attributeName = attributeInfo.getName();
+          if (attributeName.equals("name")) {
+            // We do not want the implicit "name" attribute injected into proto output by
+            // starlark_doc_extract because we inject "name" at the template level in
+            // templates/be/rules.vm
+            continue;
+          }
+          if (attributeInfo.getDocString().isEmpty()
+              && PredefinedAttributes.TYPICAL_ATTRIBUTES.containsKey(attributeName)) {
+            // We link empty-docstring attributes to the common table based purely on attribute name
+            // (same as processJavaSourceRuleAttributeDocs does for native rule attributes).
+            // TODO(arostovtsev): should we verify attribute type and default value too? That would
+            // require moving the definition of common attributes from a free-text velocity template
+            // to a structured format.
+            ruleDoc.addAttribute(PredefinedAttributes.TYPICAL_ATTRIBUTES.get(attributeName));
+          } else {
+            boolean deprecated =
+                DocgenConsts.STARDOC_OUTPUT_DEPRECATED_DOCSTRING
+                    .matcher(attributeInfo.getDocString())
+                    .find();
+            ruleDoc.addAttribute(
+                RuleDocumentationAttribute.createFromAttributeInfo(
+                    attributeInfo,
+                    ruleOriginFileLabel,
+                    deprecated
+                        ? ImmutableSet.of(DocgenConsts.FLAG_DEPRECATED)
+                        : ImmutableSet.of()));
+          }
+        }
+
+        ruleDocOrigin.put(
+            ruleName, DocumentationOrigin.create(entryPointFileLabel, ruleInfo.getRuleName()));
+        ruleDocEntries.put(ruleName, ruleDoc);
+        numRulesCollected++;
+      }
+    }
+    return numRulesCollected;
+  }
+
+  /** The file and symbol from which documentation was obtained. */
+  @AutoValue
+  abstract static class DocumentationOrigin {
+    abstract String file();
+
+    abstract String symbol();
+
+    static DocumentationOrigin create(String file, String symbol) {
+      return new AutoValue_BuildDocCollector_DocumentationOrigin(file, symbol);
+    }
   }
 }

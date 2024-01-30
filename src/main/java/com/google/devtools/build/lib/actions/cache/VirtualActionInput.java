@@ -67,6 +67,7 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
   protected byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) throws IOException {
     Path tmpPath = outputPath.getFileSystem().getPath(outputPath.getPathString() + uniqueSuffix);
     tmpPath.getParentDirectory().createDirectoryAndParents();
+    tmpPath.delete();
     try {
       byte[] digest = writeTo(tmpPath);
       // We expect the following to replace the params file atomically in case we are using

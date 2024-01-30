@@ -13,14 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
+import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -32,17 +37,21 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
+import com.google.devtools.build.lib.dynamic.DynamicExecutionFinishedEvent;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
 import com.google.devtools.build.lib.packages.metrics.ExtremaPackageMetricsRecorder;
@@ -56,10 +65,9 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
-import com.google.devtools.build.lib.worker.WorkerCreatedEvent;
-import com.google.devtools.build.lib.worker.WorkerDestroyedEvent;
-import com.google.devtools.build.lib.worker.WorkerEvictedEvent;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.util.Durations;
@@ -80,8 +88,6 @@ class MetricsCollector {
   private final boolean recordMetricsForAllMnemonics;
   // For ActionSummary.
   private final ConcurrentHashMap<String, ActionStats> actionStatsMap = new ConcurrentHashMap<>();
-  // Mapping from worker pool hash, to statistics which we collect during a build.
-  private final HashMap<Integer, WorkerPoolStats> workerPoolStats = new HashMap<>();
 
   // For CumulativeMetrics.
   private final AtomicInteger numAnalyses;
@@ -93,6 +99,7 @@ class MetricsCollector {
   private final TimingMetrics.Builder timingMetrics = TimingMetrics.newBuilder();
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
+  private final DynamicExecutionStats dynamicExecutionStats = new DynamicExecutionStats();
   private final SpawnStats spawnStats = new SpawnStats();
   // Skymeld-specific: we don't have an ExecutionStartingEvent for skymeld, so we have to use
   // TopLevelTargetExecutionStartedEvent. This AtomicBoolean is so that we only account for the
@@ -108,7 +115,7 @@ class MetricsCollector {
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
-    WorkerMetricsCollector.instance().setClock(env.getClock());
+    WorkerProcessMetricsCollector.instance().setClock(env.getClock());
     this.buildAccountedFor = new AtomicBoolean();
   }
 
@@ -177,50 +184,19 @@ class MetricsCollector {
     numBuilds.getAndIncrement();
   }
 
+  // Skymeld-specific: we don't have an ExecutionStartingEvent for skymeld, so we have to use
+  // TopLevelTargetExecutionStartedEvent
   @Subscribe
-  public synchronized void accountForBuild(
+  public synchronized void handleExecutionPhaseStart(
       @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
-    if (buildAccountedFor.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+    if (buildAccountedFor.compareAndSet(/* expectedValue= */ false, /* newValue= */ true)) {
       numBuilds.getAndIncrement();
     }
   }
 
   @Subscribe
-  public void onWorkerDestroyed(WorkerDestroyedEvent event) {
-    synchronized (this) {
-      WorkerPoolStats stats =
-          getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
-
-      stats.incrementDestroyedCount();
-    }
-  }
-
-  @Subscribe
-  public void onWorkerCreated(WorkerCreatedEvent event) {
-    synchronized (this) {
-      WorkerPoolStats stats =
-          getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
-
-      stats.incrementCreatedCount();
-    }
-  }
-
-  @Subscribe
-  public void onWorkerEvicted(WorkerEvictedEvent event) {
-    synchronized (this) {
-      WorkerPoolStats stats =
-          getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
-
-      stats.incrementEvictedCount();
-    }
-  }
-
-  private WorkerPoolStats getWorkerPoolStatsOrInsert(int workerPoolHash, String mnemonic) {
-    WorkerPoolStats stats =
-        workerPoolStats.computeIfAbsent(
-            workerPoolHash, (Integer k) -> new WorkerPoolStats(mnemonic));
-
-    return stats;
+  public void handleExecutionPhaseComplete(ExecutionPhaseCompleteEvent event) {
+    timingMetrics.setExecutionPhaseTimeInMs(event.getTimeInMs());
   }
 
   @SuppressWarnings("unused")
@@ -230,7 +206,7 @@ class MetricsCollector {
     ActionStats actionStats =
         actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
     actionStats.numActions.incrementAndGet();
-    actionStats.firstStarted.accumulate(event.getRelativeActionStartTime());
+    actionStats.firstStarted.accumulate(event.getRelativeActionStartTimeNanos());
     actionStats.lastEnded.accumulate(BlazeClock.nanoTime());
     spawnStats.incrementActionCount();
   }
@@ -263,6 +239,16 @@ class MetricsCollector {
 
   @SuppressWarnings("unused")
   @Subscribe
+  public void onDynamicExecutionFinishedEvent(DynamicExecutionFinishedEvent event) {
+    dynamicExecutionStats.update(
+        event.getMnemonic(),
+        event.getLocalBranchName(),
+        event.getRemoteBranchName(),
+        event.getWinnerBranchType());
+  }
+
+  @SuppressWarnings("unused")
+  @Subscribe
   public void onSkyframeGraphStats(SkyframeGraphStatsEvent event) {
     buildGraphMetrics.setPostInvocationSkyframeNodeCount(event.getGraphSize());
   }
@@ -283,7 +269,24 @@ class MetricsCollector {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 
+  @SuppressWarnings("unused")
+  @Subscribe
+  private void logActionCacheStatistics(ActionCacheStatistics stats) {
+    actionSummary.setActionCacheStatistics(stats);
+  }
+
   private BuildMetrics createBuildMetrics() {
+    ImmutableList<WorkerProcessMetrics> workerProcessMetrics =
+        WorkerProcessMetricsCollector.instance().collectMetrics();
+    // Restrict the number of WorkerMetrics that we report based on a predefined prioritization so
+    // that we don't spam the BEP in the event that something like a kill-create cycle happens.
+    ImmutableList<WorkerMetrics> workerMetrics =
+        WorkerProcessMetricsCollector.limitWorkerMetricsToPublish(
+            workerProcessMetrics.stream()
+                .map(WorkerProcessMetrics::toProto)
+                .collect(toImmutableList()),
+            WorkerProcessMetricsCollector.MAX_PUBLISHED_WORKER_METRICS);
+
     BuildMetrics.Builder buildMetrics =
         BuildMetrics.newBuilder()
             .setActionSummary(finishActionSummary())
@@ -294,8 +297,9 @@ class MetricsCollector {
             .setCumulativeMetrics(createCumulativeMetrics())
             .setArtifactMetrics(artifactMetrics.build())
             .setBuildGraphMetrics(buildGraphMetrics.build())
-            .addAllWorkerMetrics(WorkerMetricsCollector.instance().createWorkerMetricsProto())
-            .setWorkerPoolMetrics(createWorkerPoolMetrics());
+            .addAllWorkerMetrics(workerMetrics)
+            .setWorkerPoolMetrics(createWorkerPoolMetrics(workerProcessMetrics))
+            .setDynamicExecutionMetrics(dynamicExecutionStats.toMetrics());
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
     if (networkMetrics != null) {
@@ -407,59 +411,89 @@ class MetricsCollector {
     return timingMetrics.build();
   }
 
-  private WorkerPoolMetrics createWorkerPoolMetrics() {
-    WorkerPoolMetrics.Builder metricsBuilder = WorkerPoolMetrics.newBuilder();
-
-    workerPoolStats.forEach(
-        (workerPoolHash, workerStats) ->
-            metricsBuilder.addWorkerPoolStats(
-                WorkerPoolMetrics.WorkerPoolStats.newBuilder()
-                    .setHash(workerPoolHash)
-                    .setMnemonic(workerStats.getMnemonic())
-                    .setCreatedCount(workerStats.getCreatedCount())
-                    .setDestroyedCount(workerStats.getDestroyedCount())
-                    .setEvictedCount(workerStats.getEvictedCount())
-                    .build()));
-
-    return metricsBuilder.build();
+  /** Creates the WorkerPoolMetrics by aggregating the collected WorkerProcessMetrics. */
+  static WorkerPoolMetrics createWorkerPoolMetrics(
+      ImmutableList<WorkerProcessMetrics> collectedWorkerProcessMetrics) {
+    HashMap<Integer, WorkerPoolStats> aggregatedPoolStats = new HashMap<>();
+    for (WorkerProcessMetrics wpm : collectedWorkerProcessMetrics) {
+      WorkerPoolStats poolStats =
+          aggregatedPoolStats.computeIfAbsent(
+              wpm.getWorkerKeyHash(), (hash) -> new WorkerPoolStats(wpm.getMnemonic(), hash));
+      poolStats.update(wpm);
+    }
+    return WorkerPoolMetrics.newBuilder()
+        .addAllWorkerPoolStats(
+            aggregatedPoolStats.values().stream()
+                .map(WorkerPoolStats::build)
+                .collect(toImmutableList()))
+        .build();
   }
 
   private static class WorkerPoolStats {
     private int createdCount;
     private int destroyedCount;
     private int evictedCount;
+    private int userExecExceptionDestroyedCount;
+    private int ioExceptionDestroyedCount;
+    private int interruptedExceptionDestroyedCount;
+    private int unknownDestroyedCount;
+    private int aliveCount;
     private final String mnemonic;
 
-    WorkerPoolStats(String mnemonic) {
+    private final int hash;
+
+    WorkerPoolStats(String mnemonic, int hash) {
       this.mnemonic = mnemonic;
+      this.hash = hash;
     }
 
-    void incrementCreatedCount() {
-      createdCount++;
+    void update(WorkerProcessMetrics wpm) {
+      int numWorkers = wpm.getWorkerIds().size();
+      if (wpm.isNewlyCreated()) {
+        createdCount += numWorkers;
+      }
+      WorkerProcessStatus status = wpm.getStatus();
+      if (status.isKilled()) {
+        switch (status.get()) {
+            // If the process is killed due to a specific reason, we attribute the cause to all
+            // workers of that process (plural in the case of multiplex workers).
+          case KILLED_UNKNOWN:
+            unknownDestroyedCount += numWorkers;
+            break;
+          case KILLED_DUE_TO_INTERRUPTED_EXCEPTION:
+            interruptedExceptionDestroyedCount += numWorkers;
+            break;
+          case KILLED_DUE_TO_IO_EXCEPTION:
+            ioExceptionDestroyedCount += numWorkers;
+            break;
+          case KILLED_DUE_TO_MEMORY_PRESSURE:
+            evictedCount += numWorkers;
+            break;
+          case KILLED_DUE_TO_USER_EXEC_EXCEPTION:
+            userExecExceptionDestroyedCount += numWorkers;
+            break;
+          default:
+            break;
+        }
+        destroyedCount += numWorkers;
+      } else {
+        aliveCount += numWorkers;
+      }
     }
 
-    void incrementDestroyedCount() {
-      destroyedCount++;
-    }
-
-    void incrementEvictedCount() {
-      evictedCount++;
-    }
-
-    public int getCreatedCount() {
-      return createdCount;
-    }
-
-    public int getDestroyedCount() {
-      return destroyedCount;
-    }
-
-    public String getMnemonic() {
-      return mnemonic;
-    }
-
-    public int getEvictedCount() {
-      return evictedCount;
+    public WorkerPoolMetrics.WorkerPoolStats build() {
+      return WorkerPoolMetrics.WorkerPoolStats.newBuilder()
+          .setMnemonic(mnemonic)
+          .setHash(hash)
+          .setCreatedCount(createdCount)
+          .setDestroyedCount(destroyedCount)
+          .setEvictedCount(evictedCount)
+          .setUserExecExceptionDestroyedCount(userExecExceptionDestroyedCount)
+          .setIoExceptionDestroyedCount(ioExceptionDestroyedCount)
+          .setInterruptedExceptionDestroyedCount(interruptedExceptionDestroyedCount)
+          .setUnknownDestroyedCount(unknownDestroyedCount)
+          .setAliveCount(aliveCount)
+          .build();
     }
   }
 
@@ -479,6 +513,98 @@ class MetricsCollector {
       numActions = new AtomicLong();
       systemTime = new AtomicLong();
       userTime = new AtomicLong();
+    }
+  }
+
+  /* Collects stats about dynamic execution races  of remote vs local branches **/
+  static class DynamicExecutionStats {
+    // Mapping from tuple <mnemonic, local branch name, remote branch name> to pair of numbers,
+    // which represents corresponding number of wins of local and remote branches.
+    final ConcurrentHashMap<RaceIdentifier, RaceWinners> branchWinners;
+
+    public DynamicExecutionStats() {
+      this.branchWinners = new ConcurrentHashMap<>();
+    }
+
+    public void update(String menemonic, String localName, String remoteName, DynamicMode winner) {
+
+      branchWinners.compute(
+          RaceIdentifier.create(menemonic, localName, remoteName),
+          (k, oldValue) -> {
+            RaceWinners newValue = new RaceWinners(/* localWins= */ 0, /* remoteWins= */ 0);
+
+            if (oldValue != null) {
+              newValue = oldValue;
+            }
+
+            switch (winner) {
+              case LOCAL:
+                newValue.incrementLocalWins();
+                break;
+              case REMOTE:
+                newValue.incrementRemoteWins();
+                break;
+            }
+
+            return newValue;
+          });
+    }
+
+    static class RaceWinners {
+      private int localWins;
+      private int remoteWins;
+
+      RaceWinners(int localWins, int remoteWins) {
+        this.localWins = localWins;
+        this.remoteWins = remoteWins;
+      }
+
+      public int getLocalWins() {
+        return localWins;
+      }
+
+      public int getRemoteWins() {
+        return remoteWins;
+      }
+
+      public void incrementLocalWins() {
+        localWins++;
+      }
+
+      public void incrementRemoteWins() {
+        remoteWins++;
+      }
+    }
+
+    @AutoValue
+    abstract static class RaceIdentifier {
+      abstract String mnemonic();
+
+      abstract String localName();
+
+      abstract String remoteName();
+
+      static RaceIdentifier create(String mnemonic, String localName, String remoteName) {
+        return new AutoValue_MetricsCollector_DynamicExecutionStats_RaceIdentifier(
+            mnemonic, localName, remoteName);
+      }
+    }
+
+    public DynamicExecutionMetrics toMetrics() {
+      DynamicExecutionMetrics.Builder builder = DynamicExecutionMetrics.newBuilder();
+      for (RaceIdentifier raceIdentifier : branchWinners.keySet()) {
+        RaceWinners raceWinners = branchWinners.get(raceIdentifier);
+        builder.addRaceStatistics(
+            DynamicExecutionMetrics.RaceStatistics.newBuilder()
+                .setMnemonic(raceIdentifier.mnemonic())
+                .setLocalRunner(raceIdentifier.localName())
+                .setRemoteRunner(raceIdentifier.remoteName())
+                .setLocalWins(raceWinners.getLocalWins())
+                .setRemoteWins(raceWinners.getRemoteWins())
+                .build());
+      }
+
+      return builder.build();
     }
   }
 }

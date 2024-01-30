@@ -19,6 +19,7 @@ import static com.google.common.collect.Streams.stream;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -36,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.Dirents;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -163,7 +166,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
   private static final PathFragment SYSTEM_IMAGES_DIR = PathFragment.create("system-images");
   private static final AndroidRevision MIN_BUILD_TOOLS_REVISION = AndroidRevision.parse("30.0.0");
   private static final String PATH_ENV_VAR = "ANDROID_HOME";
-  private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
+  private static final ImmutableSet<String> PATH_ENV_VAR_AS_SET = ImmutableSet.of(PATH_ENV_VAR);
   private static final ImmutableList<String> LOCAL_MAVEN_REPOSITORIES =
       ImmutableList.of(
           "extras/android/m2repository", "extras/google/m2repository", "extras/m2repository");
@@ -180,7 +183,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       return true;
     }
-    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_LIST);
+    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_SET);
   }
 
   @Override
@@ -194,11 +197,16 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
     Map<String, String> environ =
-        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
+        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_SET);
     if (environ == null) {
       return null;
     }
-    prepareLocalRepositorySymlinkTree(rule, outputDirectory);
+    try {
+      outputDirectory.createDirectoryAndParents();
+      FileSystemUtils.createEmptyFile(outputDirectory.getRelative(LabelConstants.REPO_FILE_NAME));
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     FileSystem fs = directories.getOutputBase().getFileSystem();
     Path androidSdkPath;

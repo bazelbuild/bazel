@@ -82,7 +82,8 @@ class DexFileAggregator implements Closeable {
     if (multidex.isMultidexAllowed()) {
       // To determine whether currentShard is "full" we track unique field and method signatures,
       // which predicts precisely the number of field and method indices.
-      if (tracker.track(dexFile) && !currentShard.isEmpty()) {
+      tracker.track(dexFile);
+      if (tracker.outsideLimits() && !currentShard.isEmpty()) {
         // For simplicity just start a new shard to fit the given file.
         // Don't bother with waiting for a later file that might fit the old shard as in the extreme
         // we'd have to wait until the end to write all shards.

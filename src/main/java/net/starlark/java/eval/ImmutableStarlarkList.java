@@ -18,52 +18,77 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 
-/** An immutable implementation of a {@code StarlarkList}. */
-final class ImmutableStarlarkList<E> extends StarlarkList<E> {
-  final Object[] elems;
-
-  ImmutableStarlarkList(Object[] elems) {
-    Preconditions.checkArgument(elems.getClass() == Object[].class);
-    this.elems = elems;
-  }
+/** Partial implementation of an immutable {@code StarlarkList}. */
+abstract class ImmutableStarlarkList<E> extends StarlarkList<E> {
 
   @Override
-  public boolean isImmutable() {
+  public final boolean isImmutable() {
     return true;
   }
 
   @Override
-  public boolean updateIteratorCount(int delta) {
+  public final boolean updateIteratorCount(int delta) {
     return false;
   }
 
   @Override
-  public Mutability mutability() {
+  public final Mutability mutability() {
     return Mutability.IMMUTABLE;
   }
 
   @Override
-  public void unsafeShallowFreeze() {
+  public final void unsafeShallowFreeze() {
     Mutability.Freezable.checkUnsafeShallowFreezePrecondition(this);
+  }
+
+  @Override
+  public final void addElement(E element) throws EvalException {
+    Starlark.checkMutable(this);
+  }
+
+  @Override
+  public final void addElementAt(int index, E element) throws EvalException {
+    Starlark.checkMutable(this);
+  }
+
+  @Override
+  public final void addElements(Iterable<? extends E> elements) throws EvalException {
+    Starlark.checkMutable(this);
+  }
+
+  @Override
+  public final void removeElementAt(int index) throws EvalException {
+    Starlark.checkMutable(this);
+  }
+
+  @Override
+  public final void setElementAt(int index, E value) throws EvalException {
+    Starlark.checkMutable(this);
+  }
+
+  @Override
+  public final void clearElements() throws EvalException {
+    Starlark.checkMutable(this);
   }
 
   @Override
   public ImmutableList<E> getImmutableList() {
     // Optimization: a frozen array needn't be copied.
     // If the entire array is full, we can wrap it directly.
-    return Tuple.wrapImmutable(elems);
+    return Tuple.wrapImmutable(elems());
   }
 
   @Override
   @SuppressWarnings("unchecked")
   public E get(int i) {
+    Object[] elems = elems();
     Preconditions.checkElementIndex(i, elems.length);
     return (E) elems[i]; // unchecked
   }
 
   @Override
   public int size() {
-    return elems.length;
+    return elems().length;
   }
 
   @Override
@@ -72,6 +97,7 @@ final class ImmutableStarlarkList<E> extends StarlarkList<E> {
     if (o == null) {
       return false;
     }
+    Object[] elems = elems();
     int size = elems.length;
     for (int i = 0; i < size; i++) {
       Object elem = elems[i];
@@ -82,45 +108,17 @@ final class ImmutableStarlarkList<E> extends StarlarkList<E> {
     return false;
   }
 
-  @Override
-  public void addElement(E element) throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
-  @Override
-  public void addElementAt(int index, E element) throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
-  @Override
-  public void addElements(Iterable<? extends E> elements) throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
-  @Override
-  public void removeElementAt(int index) throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
-  @Override
-  public void setElementAt(int index, E value) throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
-  @Override
-  public void clearElements() throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
   /** Returns a new array of class Object[] containing the list elements. */
   @Override
   public Object[] toArray() {
+    Object[] elems = elems();
     return elems.length != 0 ? Arrays.copyOf(elems, elems.length, Object[].class) : EMPTY_ARRAY;
   }
 
   @SuppressWarnings("unchecked")
   @Override
   public <T> T[] toArray(T[] a) {
+    Object[] elems = elems();
     if (a.length < elems.length) {
       return (T[]) Arrays.copyOf(elems, elems.length, a.getClass());
     } else {
@@ -128,10 +126,5 @@ final class ImmutableStarlarkList<E> extends StarlarkList<E> {
       Arrays.fill(a, elems.length, a.length, null);
       return a;
     }
-  }
-
-  @Override
-  Object[] elems() {
-    return elems;
   }
 }

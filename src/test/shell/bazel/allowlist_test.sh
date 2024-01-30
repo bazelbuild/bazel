@@ -61,7 +61,6 @@ rule_with_transition = rule(
     implementation = _rule_with_transition_impl,
     attrs = {
         "dep": attr.label(cfg = my_transition),
-        "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
     }
 )
 EOF
@@ -143,7 +142,7 @@ EOF
 
   bazel build //vinegar \
     >& $TEST_log && fail "Expected failure"
-  expect_log "_allowlist_function_transition attribute (@bazel_tools//tools/allowlists/bad:bad)"
+  expect_log "_allowlist_function_transition attribute (@@bazel_tools//tools/allowlists/bad:bad)"
   expect_log "does not have the expected value //tools/allowlists/function_transition_allowlist:function_transition_allowlist"
 }
 
@@ -189,7 +188,6 @@ rule_with_transition = rule(
     implementation = _rule_with_transition_impl,
     attrs = {
         "dep" : attr.label(cfg = my_transition),
-        "_allowlist_function_transition": attr.label(default = "@//tools/allowlists/function_transition_allowlist"),
     }
 )
 EOF

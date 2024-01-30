@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Suppliers;
@@ -22,6 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.vfs.Path;
 import java.net.URISyntaxException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,15 +32,38 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link RegistryFactory}. */
 @RunWith(JUnit4.class)
-public class RegistryFactoryTest {
+public class RegistryFactoryTest extends FoundationTestCase {
 
   @Test
   public void badSchemes() throws Exception {
+    Path workspaceRoot = scratch.dir("/ws");
     RegistryFactory registryFactory =
         new RegistryFactoryImpl(
+            workspaceRoot,
             new DownloadManager(new RepositoryCache(), new HttpDownloader()),
             Suppliers.ofInstance(ImmutableMap.of()));
-    assertThrows(URISyntaxException.class, () -> registryFactory.getRegistryWithUrl("/home/www"));
-    assertThrows(URISyntaxException.class, () -> registryFactory.getRegistryWithUrl("foo://bar"));
+    Throwable exception =
+        assertThrows(
+            URISyntaxException.class, () -> registryFactory.getRegistryWithUrl("/home/www"));
+    assertThat(exception).hasMessageThat().contains("Registry URL has no scheme");
+    exception =
+        assertThrows(
+            URISyntaxException.class, () -> registryFactory.getRegistryWithUrl("foo://bar"));
+    assertThat(exception).hasMessageThat().contains("Unrecognized registry URL protocol");
+  }
+
+  @Test
+  public void badPath() throws Exception {
+    Path workspaceRoot = scratch.dir("/ws");
+    RegistryFactory registryFactory =
+        new RegistryFactoryImpl(
+            workspaceRoot,
+            new DownloadManager(new RepositoryCache(), new HttpDownloader()),
+            Suppliers.ofInstance(ImmutableMap.of()));
+    Throwable exception =
+        assertThrows(
+            URISyntaxException.class,
+            () -> registryFactory.getRegistryWithUrl("file:c:/path/to/workspace/registry"));
+    assertThat(exception).hasMessageThat().contains("Registry URL path is not valid");
   }
 }

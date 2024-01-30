@@ -18,121 +18,52 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.lang.ref.SoftReference;
 import java.util.Map;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** {@link RunfilesSupplier} implementation wrapping a single {@link Runfiles} directory mapping. */
 @AutoCodec
-public final class SingleRunfilesSupplier implements RunfilesSupplier {
+public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesTree {
 
   private final PathFragment runfilesDir;
   private final Runfiles runfiles;
-  private final Supplier<Map<PathFragment, Artifact>> runfilesInputs;
-  @Nullable private final Artifact manifest;
   @Nullable private final Artifact repoMappingManifest;
+  private final RunfileSymlinksMode runfileSymlinksMode;
   private final boolean buildRunfileLinks;
-  private final boolean runfileLinksEnabled;
-
-  /**
-   * Same as {@link SingleRunfilesSupplier#SingleRunfilesSupplier(PathFragment, Runfiles, Artifact,
-   * Artifact, boolean, boolean)}, except adds caching for {@linkplain Runfiles#getRunfilesInputs
-   * runfiles inputs}.
-   *
-   * <p>The runfiles inputs are computed lazily and softly cached. Caching is shared across
-   * instances created via {@link #withOverriddenRunfilesDir}.
-   */
-  public static SingleRunfilesSupplier createCaching(
-      PathFragment runfilesDir,
-      Runfiles runfiles,
-      @Nullable Artifact repoMappingManifest,
-      boolean buildRunfileLinks,
-      boolean runfileLinksEnabled) {
-    return new SingleRunfilesSupplier(
-        runfilesDir,
-        runfiles,
-        /*runfilesCachingEnabled=*/ true,
-        /*manifest=*/ null,
-        repoMappingManifest,
-        buildRunfileLinks,
-        runfileLinksEnabled);
-  }
 
   /**
    * Create an instance mapping {@code runfiles} to {@code runfilesDir}.
    *
    * @param runfilesDir the desired runfiles directory. Should be relative.
    * @param runfiles the runfiles for runilesDir.
-   * @param manifest runfiles' associated runfiles manifest artifact, if present. Important: this
-   *     parameter will be used to filter the resulting spawn's inputs to not poison downstream
-   *     caches.
-   * @param buildRunfileLinks whether runfile symlinks are created during build
-   * @param runfileLinksEnabled whether it's allowed to create runfile symlinks
+   * @param runfileSymlinksMode how to create runfile symlinks
+   * @param buildRunfileLinks whether runfile symlinks should be created during the build
    */
   @AutoCodec.Instantiator
   public SingleRunfilesSupplier(
       PathFragment runfilesDir,
       Runfiles runfiles,
-      @Nullable Artifact manifest,
       @Nullable Artifact repoMappingManifest,
-      boolean buildRunfileLinks,
-      boolean runfileLinksEnabled) {
-    this(
-        runfilesDir,
-        runfiles,
-        /*runfilesCachingEnabled=*/ false,
-        manifest,
-        repoMappingManifest,
-        buildRunfileLinks,
-        runfileLinksEnabled);
-  }
-
-  private SingleRunfilesSupplier(
-      PathFragment runfilesDir,
-      Runfiles runfiles,
-      boolean runfilesCachingEnabled,
-      @Nullable Artifact manifest,
-      @Nullable Artifact repoMappingManifest,
-      boolean buildRunfileLinks,
-      boolean runfileLinksEnabled) {
-    this(
-        runfilesDir,
-        runfiles,
-        runfilesCachingEnabled
-            ? new RunfilesCacher(runfiles, repoMappingManifest)
-            : () ->
-                runfiles.getRunfilesInputs(
-                    /*eventHandler=*/ null, /*location=*/ null, repoMappingManifest),
-        manifest,
-        repoMappingManifest,
-        buildRunfileLinks,
-        runfileLinksEnabled);
-  }
-
-  private SingleRunfilesSupplier(
-      PathFragment runfilesDir,
-      Runfiles runfiles,
-      Supplier<Map<PathFragment, Artifact>> runfilesInputs,
-      @Nullable Artifact manifest,
-      @Nullable Artifact repoMappingManifest,
-      boolean buildRunfileLinks,
-      boolean runfileLinksEnabled) {
+      RunfileSymlinksMode runfileSymlinksMode,
+      boolean buildRunfileLinks) {
     checkArgument(!runfilesDir.isAbsolute());
     this.runfilesDir = checkNotNull(runfilesDir);
     this.runfiles = checkNotNull(runfiles);
-    this.runfilesInputs = checkNotNull(runfilesInputs);
-    this.manifest = manifest;
     this.repoMappingManifest = repoMappingManifest;
+    this.runfileSymlinksMode = runfileSymlinksMode;
     this.buildRunfileLinks = buildRunfileLinks;
-    this.runfileLinksEnabled = runfileLinksEnabled;
+  }
+
+  @Override
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    return ImmutableList.of(this);
   }
 
   @Override
@@ -141,72 +72,28 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public ImmutableSet<PathFragment> getRunfilesDirs() {
-    return ImmutableSet.of(runfilesDir);
+  public PathFragment getPossiblyIncorrectExecPath() {
+    return runfilesDir;
   }
 
   @Override
-  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
-    return ImmutableMap.of(runfilesDir, runfilesInputs.get());
+  public Map<PathFragment, Artifact> getMapping() {
+    return runfiles.getRunfilesInputs(
+        /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
   }
 
   @Override
-  public ImmutableList<Artifact> getManifests() {
-    return manifest != null ? ImmutableList.of(manifest) : ImmutableList.of();
+  public RunfileSymlinksMode getSymlinksMode() {
+    return runfileSymlinksMode;
   }
 
   @Override
-  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
-    return buildRunfileLinks && this.runfilesDir.equals(runfilesDir);
+  public boolean isBuildRunfileLinks() {
+    return buildRunfileLinks;
   }
 
   @Override
-  public boolean isRunfileLinksEnabled(PathFragment runfilesDir) {
-    return runfileLinksEnabled && this.runfilesDir.equals(runfilesDir);
-  }
-
-  @Override
-  public SingleRunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
-    return newRunfilesDir.equals(runfilesDir)
-        ? this
-        : new SingleRunfilesSupplier(
-            newRunfilesDir,
-            runfiles,
-            runfilesInputs,
-            manifest,
-            repoMappingManifest,
-            buildRunfileLinks,
-            runfileLinksEnabled);
-  }
-
-  /** Softly caches the result of {@link Runfiles#getRunfilesInputs}. */
-  private static final class RunfilesCacher implements Supplier<Map<PathFragment, Artifact>> {
-
-    private final Runfiles runfiles;
-    @Nullable private final Artifact repoMappingManifest;
-    private volatile SoftReference<Map<PathFragment, Artifact>> ref = new SoftReference<>(null);
-
-    RunfilesCacher(Runfiles runfiles, @Nullable Artifact repoMappingManifest) {
-      this.runfiles = runfiles;
-      this.repoMappingManifest = repoMappingManifest;
-    }
-
-    @Override
-    public Map<PathFragment, Artifact> get() {
-      Map<PathFragment, Artifact> result = ref.get();
-      if (result != null) {
-        return result;
-      }
-      synchronized (this) {
-        result = ref.get();
-        if (result == null) {
-          result =
-              runfiles.getRunfilesInputs(
-                  /*eventHandler=*/ null, /*location=*/ null, repoMappingManifest);
-          ref = new SoftReference<>(result);
-        }
-      }
-      return result;
-    }
+  public String getWorkspaceName() {
+    return runfiles.getSuffix().getPathString();
   }
 }

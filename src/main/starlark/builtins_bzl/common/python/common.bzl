@@ -29,6 +29,7 @@ _testing = _builtins.toplevel.testing
 _platform_common = _builtins.toplevel.platform_common
 _coverage_common = _builtins.toplevel.coverage_common
 _py_builtins = _builtins.internal.py_builtins
+PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
 TOOLCHAIN_TYPE = "@" + TOOLS_REPO + "//tools/python:toolchain_type"
 
@@ -485,13 +486,14 @@ def check_native_allowed(ctx):
         # package_group doesn't allow @repo syntax, so we work around that
         # by prefixing external repos with a fake package path. This also
         # makes it easy to enable or disable all external repos.
-        check_label = Label("@//__EXTERNAL_REPOS__/{workspace}/{package}".format(
+        check_label = Label("@//__EXTERNAL_REPOS__/{workspace}{package}".format(
             workspace = ctx.label.workspace_name,
-            package = ctx.label.package,
+            # Prevent a label with trailing slash, which is malformed.
+            package = "/" + ctx.label.package if ctx.label.package else "",
         ))
     allowlist = ctx.attr._native_rules_allowlist
     if allowlist:
-        allowed = ctx.attr._native_rules_allowlist.isAvailableFor(check_label)
+        allowed = ctx.attr._native_rules_allowlist[PackageSpecificationInfo].contains(check_label)
         allowlist_help = str(allowlist.label).replace("@//", "//")
     else:
         allowed = False

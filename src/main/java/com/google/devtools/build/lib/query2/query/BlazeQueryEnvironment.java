@@ -20,7 +20,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
@@ -31,9 +30,9 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
@@ -61,7 +60,6 @@ import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -115,8 +113,10 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
-    super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
+      Iterable<QueryFunction> extraFunctions,
+      LabelPrinter labelPrinter) {
+    super(
+        keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions, labelPrinter);
     this.targetPatternPreloader = targetPatternPreloader;
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;
@@ -346,6 +346,32 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new MinDepthUniquifierImpl<>(TargetKeyExtractor.INSTANCE, /*concurrencyLevel=*/ 1);
   }
 
+  @Override
+  public TransitiveLoadFilesHelper<Target> getTransitiveLoadFilesHelper() {
+    return new TransitiveLoadFilesHelperForTargets() {
+      @Override
+      public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
+        return getNode(new FakeLoadTarget(bzlLabel, originalTarget.getPackage())).getLabel();
+      }
+
+      @Nullable
+      @Override
+      public Target maybeGetBuildFileTargetForLoadFileTarget(
+          Target originalTarget, Label bzlLabel) {
+        PackageIdentifier pkgIdOfBzlLabel = bzlLabel.getPackageIdentifier();
+        String baseName = cachingPackageLocator.getBaseNameForLoadedPackage(pkgIdOfBzlLabel);
+        if (baseName == null) {
+          return null;
+        }
+        return getNode(
+                new FakeLoadTarget(
+                    Label.createUnvalidated(pkgIdOfBzlLabel, baseName),
+                    originalTarget.getPackage()))
+            .getLabel();
+      }
+    };
+  }
+
   private void preloadTransitiveClosure(
       ThreadSafeMutableSet<Target> targets, OptionalInt maxDepth, QueryExpression callerForError)
       throws InterruptedException, QueryException {
@@ -408,59 +434,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return target;
   }
 
-  // TODO(bazel-team): rename this to getDependentFiles when all implementations
-  // of QueryEnvironment is fixed.
-  @Override
-  public ThreadSafeMutableSet<Target> getBuildFiles(
-      QueryExpression caller,
-      ThreadSafeMutableSet<Target> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<Target> context) {
-    ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
-    Set<PackageIdentifier> seenPackages = new HashSet<>();
-    // Keep track of seen labels, to avoid adding a fake subinclude label that also exists as a
-    // real target.
-    Set<Label> seenLabels = new HashSet<>();
 
-    // Adds all the package definition files (BUILD files and build
-    // extensions) for package "pkg", to "buildfiles".
-    for (Target x : nodes) {
-      Package pkg = x.getPackage();
-      if (!seenPackages.add(pkg.getPackageIdentifier())) {
-        continue;
-      }
-      if (buildFiles) {
-        addIfUniqueLabel(getNode(pkg.getBuildFile()), seenLabels, dependentFiles);
-      }
-      if (loads) {
-        pkg.visitLoadGraph(
-            load -> {
-              if (!seenLabels.add(load)) {
-                return false;
-              }
-
-              Node<Target> loadTarget = getLoadTarget(load, pkg);
-              dependentFiles.add(loadTarget.getLabel());
-
-              // Also add the BUILD file of the extension.
-              if (buildFiles) {
-                // Can be null in genquery: see http://b/123795023#comment6.
-                String baseName =
-                    cachingPackageLocator.getBaseNameForLoadedPackage(load.getPackageIdentifier());
-                if (baseName != null) {
-                  Label buildFileLabel =
-                      Label.createUnvalidated(load.getPackageIdentifier(), baseName);
-                  addIfUniqueLabel(
-                      getNode(new FakeLoadTarget(buildFileLabel, pkg)), seenLabels, dependentFiles);
-                }
-              }
-              return true;
-            });
-      }
-    }
-    return dependentFiles;
-  }
 
   @Override
   protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
@@ -477,24 +451,9 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             eventHandler, mainRepoTargetParser, patterns, keepGoing));
   }
 
-  private static void addIfUniqueLabel(Node<Target> node, Set<Label> labels, Set<Target> nodes) {
-    if (labels.add(node.getLabel().getLabel())) {
-      nodes.add(node.getLabel());
-    }
-  }
-
-  private Node<Target> getLoadTarget(Label label, Package pkg) {
-    return getNode(new FakeLoadTarget(label, pkg));
-  }
-
   @Override
   public TargetAccessor<Target> getAccessor() {
     return accessor;
-  }
-
-  @Override
-  public RepositoryMapping getMainRepoMapping() {
-    return mainRepoTargetParser.getRepoMapping();
   }
 
   /** Given a set of target nodes, returns the targets. */

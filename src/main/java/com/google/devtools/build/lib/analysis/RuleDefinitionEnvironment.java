@@ -18,6 +18,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.Optional;
 
+// TODO(brandjon): Almost all the uses of this class are in lib/analysis and specific native rule
+// implementations. But there are a couple of uses in lib/packages, namely RuleClassProvider and
+// BazelStarlarkContext. In principle, lib/packages should not depend on lib/analysis. Since nothing
+// in this class currently depends on types defined in lib/analysis, we could migrate it to
+// lib/packages, though it has a large blast radius of changing the import lines in over a hundred
+// files.
 /**
  * A minimal context available during rule definition, for both native and starlark rules.
  *
@@ -25,7 +31,7 @@ import java.util.Optional;
  */
 public interface RuleDefinitionEnvironment {
 
-  /** Returns the name of the tools repository. */
+  /** Returns the name of the tools repository, such as "@bazel_tools". */
   RepositoryName getToolsRepository();
 
   /**
@@ -39,11 +45,8 @@ public interface RuleDefinitionEnvironment {
     return Label.parseCanonicalUnchecked(getToolsRepository() + labelValue);
   }
 
-  /**
-   * Returns a label for network allowlist for tests if one should be added.
-   *
-   * <p>TODO(b/192694287): Remove once we migrate all tests from the allowlist.
-   */
+  /** Returns a label for network allowlist for tests if one should be added. */
+  // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
   default Optional<Label> getNetworkAllowlistForTests() {
     return Optional.empty();
   }

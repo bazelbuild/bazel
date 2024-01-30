@@ -42,7 +42,7 @@ public class AndroidSdkBaseRule implements RuleDefinition {
         .add(
             attr(":proguard", LABEL)
                 .cfg(ExecutionTransitionFactory.createFactory())
-                .value(JavaSemantics.PROGUARD)
+                .value(AndroidSemantics.PROGUARD)
                 .exec())
         // This is the Proguard in the BUILD file that contains the android_sdk rule. Used when
         // --proguard_top is not specified.
@@ -139,6 +139,11 @@ public class AndroidSdkBaseRule implements RuleDefinition {
                 .mandatoryProviders(BootClassPathInfo.PROVIDER.id()))
         .add(
             attr("legacy_main_dex_list_generator", LABEL)
+                .cfg(ExecutionTransitionFactory.createFactory())
+                .allowedFileTypes(ANY_FILE)
+                .exec())
+        .add(
+            attr("dexdump", LABEL)
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())

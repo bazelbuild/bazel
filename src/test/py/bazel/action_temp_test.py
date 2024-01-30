@@ -14,7 +14,7 @@
 
 import os
 import re
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -156,7 +156,7 @@ class ActionTempTest(test_base.TestBase):
           'fi',
       ]
 
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/' + toolname, toolsrc, executable=True)
     self.ScratchFile(
         'foo/foo.bzl',
@@ -263,4 +263,4 @@ class ActionTempTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

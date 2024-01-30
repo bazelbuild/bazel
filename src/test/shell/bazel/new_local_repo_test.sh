@@ -62,6 +62,25 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+function test_build_file_label_repo_mapping() {
+  mkdir subdir
+  cat > WORKSPACE <<'eof'
+workspace(name='myws')
+# add a `load` to force a new workspace chunk, adding "myws" to the mapping
+load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')
+new_local_repository(
+  name = "heh",
+  path = "subdir",
+  build_file = "@myws//:thing",
+)
+eof
+  touch BUILD
+  echo 'filegroup(name="a-ma-bob")' > thing
+  write_default_lockfile MODULE.bazel.lock
+
+  bazel build @heh//:a-ma-bob &> $TEST_log || fail "don't fail!"
+}
+
 # Regression test for GitHub issue #6351, see
 # https://github.com/bazelbuild/bazel/issues/6351#issuecomment-465488344
 function test_glob_in_synthesized_build_file() {
@@ -83,6 +102,7 @@ filegroup(
     path = "../B",
 )
 eof
+  write_default_lockfile "$pkg/A/MODULE.bazel.lock"
 
   cat >$pkg/A/BUILD <<'eof'
 genrule(
@@ -126,12 +146,14 @@ function test_recursive_glob_in_new_local_repository() {
 new_local_repository(
     name = "myext",
     path = "../B",
-    build_file = "BUILD.myext",
+    build_file = "//:BUILD.myext",
 )
 eof
+  touch "$pkg/A/BUILD.bazel"
   cat >"$pkg/A/BUILD.myext" <<eof
 filegroup(name = "all_files", srcs = glob(["**"]))
 eof
+  write_default_lockfile "$pkg/A/MODULE.bazel.lock"
 
   # Shut down the server afterwards so the test cleanup can remove $pkg/A.
   ( cd "$pkg/A"

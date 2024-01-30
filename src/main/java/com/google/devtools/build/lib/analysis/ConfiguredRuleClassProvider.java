@@ -27,8 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -41,7 +39,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -94,7 +92,6 @@ public /*final*/ class ConfiguredRuleClassProvider
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
    * on other such sets.
    */
-  // TODO(b/280446865): Consider merging Bootstrap into this interface.
   public interface RuleSet {
     /** Add stuff to the configured rule class provider builder. */
     void init(ConfiguredRuleClassProvider.Builder builder);
@@ -149,7 +146,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     private boolean useDummyBuiltinsBzlInsteadOfResource = false;
     @Nullable private String builtinsBzlPackagePathInSource;
     private final List<Class<? extends Fragment>> configurationFragmentClasses = new ArrayList<>();
-    private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
     private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
 
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
@@ -280,12 +276,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     }
 
     @CanIgnoreReturnValue
-    public Builder addBuildInfoFactory(BuildInfoFactory factory) {
-      buildInfoFactories.add(factory);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addRuleDefinition(RuleDefinition ruleDefinition) {
       Class<? extends RuleDefinition> ruleDefinitionClass = ruleDefinition.getClass();
       ruleDefinitionMap.put(ruleDefinitionClass.getName(), ruleDefinition);
@@ -356,9 +346,8 @@ public /*final*/ class ConfiguredRuleClassProvider
     }
 
     /** Registers a new top-level symbol for .bzl files. */
-    // TODO(b/280446865): rename to something like addBzlToplevel()
     @CanIgnoreReturnValue
-    public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
+    public Builder addBzlToplevel(String name, Object object) {
       this.starlarkAccessibleTopLevels.put(name, object);
       return this;
     }
@@ -603,7 +592,6 @@ public /*final*/ class ConfiguredRuleClassProvider
               configurationFragmentClasses, universalFragments, configurationOptions),
           defaultWorkspaceFilePrefix.toString(),
           defaultWorkspaceFileSuffix.toString(),
-          ImmutableList.copyOf(buildInfoFactories),
           trimmingTransitionFactory,
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
@@ -688,11 +676,7 @@ public /*final*/ class ConfiguredRuleClassProvider
   /** The predicate used to determine whether a diff requires the cache to be invalidated. */
   private final OptionsDiffPredicate shouldInvalidateCacheForOptionDiff;
 
-  private final ImmutableList<BuildInfoFactory> buildInfoFactories;
-
   private final PrerequisiteValidator prerequisiteValidator;
-
-  private final ImmutableMap<String, Object> environment;
 
   private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
 
@@ -721,7 +705,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       FragmentRegistry fragmentRegistry,
       String defaultWorkspaceFilePrefix,
       String defaultWorkspaceFileSuffix,
-      ImmutableList<BuildInfoFactory> buildInfoFactories,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
@@ -746,7 +729,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.fragmentRegistry = fragmentRegistry;
     this.defaultWorkspaceFilePrefix = defaultWorkspaceFilePrefix;
     this.defaultWorkspaceFileSuffix = defaultWorkspaceFileSuffix;
-    this.buildInfoFactories = buildInfoFactories;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
@@ -758,20 +740,17 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.constraintSemantics = constraintSemantics;
     this.networkAllowlistForTests = networkAllowlistForTests;
 
-    // TODO(b/280446865): See about moving createNativeRuleSpecificBindings to
-    // BazelStarlarkEnvironment, or obviating the need for this method entirely.
-    ImmutableMap<String, Object> nativeRuleSpecificBindings =
-        createNativeRuleSpecificBindings(starlarkAccessibleTopLevels, starlarkBootstraps);
-    this.environment = createEnvironment(nativeRuleSpecificBindings);
+    ImmutableMap<String, Object> registeredBzlToplevels =
+        createRegisteredBzlToplevels(starlarkAccessibleTopLevels, starlarkBootstraps);
     // If needed, we could allow the version to be customized by the builder e.g. for unit testing,
     // but at the moment it suffices to use the production value unconditionally.
     String version = BlazeVersionInfo.instance().getVersion();
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
+            StarlarkGlobalsImpl.INSTANCE,
             /* ruleFunctions= */ RuleFactory.buildRuleFunctions(ruleClassMap),
             buildFileToplevels,
-            /* bzlToplevels= */ environment,
-            /* nativeRuleSpecificBindings= */ nativeRuleSpecificBindings,
+            registeredBzlToplevels,
             /* workspaceBzlNativeBindings= */ WorkspaceFactory.createNativeModuleBindings(
                 ruleClassMap, version),
             /* builtinsInternals= */ starlarkBuiltinsInternals);
@@ -828,14 +807,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     return fragmentRegistry;
   }
 
-  public Map<BuildInfoKey, BuildInfoFactory> getBuildInfoFactoriesAsMap() {
-    ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder = ImmutableMap.builder();
-    for (BuildInfoFactory factory : buildInfoFactories) {
-      factoryMapBuilder.put(factory.getKey(), factory);
-    }
-    return factoryMapBuilder.buildOrThrow();
-  }
-
   /**
    * Returns the transition factory used to produce the transition to trim targets.
    *
@@ -869,7 +840,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     return ruleDefinitionMap.get(ruleClassName);
   }
 
-  private static ImmutableMap<String, Object> createNativeRuleSpecificBindings(
+  private static ImmutableMap<String, Object> createRegisteredBzlToplevels(
       ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
@@ -878,16 +849,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       bootstrap.addBindingsToBuilder(bindings);
     }
     return bindings.buildOrThrow();
-  }
-
-  private static ImmutableMap<String, Object> createEnvironment(
-      ImmutableMap<String, Object> nativeRuleSpecificBindings) {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-    // Add predeclared symbols of the Bazel build language.
-    StarlarkModules.addPredeclared(envBuilder);
-    // Add all the extensions registered with the rule class provider.
-    envBuilder.putAll(nativeRuleSpecificBindings);
-    return envBuilder.buildOrThrow();
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
@@ -900,11 +861,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       }
     }
     return mapBuilder.buildOrThrow();
-  }
-
-  @Override
-  public ImmutableMap<String, Object> getEnvironment() {
-    return environment;
   }
 
   @Override

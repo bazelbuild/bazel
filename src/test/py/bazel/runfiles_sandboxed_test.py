@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import os
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -25,7 +25,7 @@ class RunfilesSandboxedTest(test_base.TestBase):
 
   def testRunfilesLibrariesFindRunfilesWithoutEnvvars(self):
     for s, t, exe in [
-        ("WORKSPACE.mock", "WORKSPACE", False),
+        ("MODULE.bazel.mock", "MODULE.bazel", False),
         ("bar/BUILD.mock", "bar/BUILD", False),
         ("bar/bar.py", "bar/bar.py", True),
         ("bar/bar-py-data.txt", "bar/bar-py-data.txt", False),
@@ -105,7 +105,8 @@ class RunfilesSandboxedTest(test_base.TestBase):
       if not stdout_lines[i * 2 + 1].startswith("rloc="):
         self._FailWithContents("wrong line for " + lang[1], stdout_lines)
       if not stdout_lines[i * 2 + 1].endswith(
-          "foo_ws/bar/bar-%s-data.txt" % lang[0]):
+          "_main/bar/bar-%s-data.txt" % lang[0]
+      ):
         self._FailWithContents("wrong line for " + lang[1], stdout_lines)
 
       # Assert the contents of bar-<language>-data.txt. This indicates that
@@ -119,4 +120,4 @@ class RunfilesSandboxedTest(test_base.TestBase):
 
 
 if __name__ == "__main__":
-  unittest.main()
+  absltest.main()

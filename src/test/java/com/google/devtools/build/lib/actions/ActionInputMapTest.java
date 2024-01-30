@@ -61,7 +61,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void basicPutAndLookup() {
-    assertThat(put("/abc/def", 5)).isTrue();
+    put("/abc/def", 5);
     assertThat(map.sizeForDebugging()).isEqualTo(1);
     assertContains("/abc/def", 5);
     assertThat(map.getMetadata(PathFragment.create("blah"))).isNull();
@@ -70,13 +70,13 @@ public final class ActionInputMapTest {
 
   @Test
   public void put_ignoresSubsequentPuts() {
-    assertThat(put("/abc/def", 5)).isTrue();
+    put("/abc/def", 5);
     assertThat(map.sizeForDebugging()).isEqualTo(1);
-    assertThat(put("/abc/def", 6)).isFalse();
+    put("/abc/def", 6);
     assertThat(map.sizeForDebugging()).isEqualTo(1);
-    assertThat(put("/ghi/jkl", 7)).isTrue();
+    put("/ghi/jkl", 7);
     assertThat(map.sizeForDebugging()).isEqualTo(2);
-    assertThat(put("/ghi/jkl", 8)).isFalse();
+    put("/ghi/jkl", 8);
     assertThat(map.sizeForDebugging()).isEqualTo(2);
     assertContains("/abc/def", 5);
     assertContains("/ghi/jkl", 7);
@@ -260,37 +260,6 @@ public final class ActionInputMapTest {
   }
 
   @Test
-  public void putTreeArtifact_nestedTree_returnsOuterEntriesForOverlappingFiles(
-      @TestParameter PutOrder putOrder) {
-    SpecialArtifact tree = createTreeArtifact("tree");
-    TreeFileArtifact onlyOuterTreeFile = TreeFileArtifact.createTreeOutput(tree, "file1");
-    FileArtifactValue onlyOuterTreeFileMetadata = TestMetadata.create(1);
-    TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "dir/file2");
-    FileArtifactValue treeFileMetadata = TestMetadata.create(2);
-    TreeArtifactValue treeValue =
-        TreeArtifactValue.newBuilder(tree)
-            .putChild(treeFile, treeFileMetadata)
-            .putChild(onlyOuterTreeFile, onlyOuterTreeFileMetadata)
-            .build();
-    SpecialArtifact nestedTree = createTreeArtifact("tree/dir");
-    TreeFileArtifact nestedTreeFile = TreeFileArtifact.createTreeOutput(nestedTree, "file2");
-    FileArtifactValue nestedTreeFileMetadata = TestMetadata.create(2); // Same as treeFileMetadata.
-    TreeArtifactValue nestedTreeValue =
-        TreeArtifactValue.newBuilder(nestedTree)
-            .putChild(nestedTreeFile, nestedTreeFileMetadata)
-            .build();
-
-    putOrder.runPuts(
-        () -> map.putTreeArtifact(tree, treeValue, /*depOwner=*/ null),
-        () -> map.putTreeArtifact(nestedTree, nestedTreeValue, /*depOwner=*/ null));
-
-    assertContainsTree(tree, treeValue);
-    assertContainsTree(nestedTree, nestedTreeValue);
-    assertContainsFile(treeFile, treeFileMetadata);
-    assertContainsFile(onlyOuterTreeFile, onlyOuterTreeFileMetadata);
-  }
-
-  @Test
   public void putTreeArtifact_omittedTree_addsEntryWithNoChildren() {
     SpecialArtifact tree = createTreeArtifact("tree");
 
@@ -413,6 +382,90 @@ public final class ActionInputMapTest {
   }
 
   @Test
+  public void getTreeMetadataForPrefix_nonTree() {
+    ActionInput file = ActionInputHelper.fromPath("some/file");
+    map.put(file, TestMetadata.create(1), /* depOwner= */ null);
+
+    assertThat(map.getTreeMetadataForPrefix(file.getExecPath())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(file.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(file.getExecPath().getChild("under"))).isNull();
+  }
+
+  @Test
+  public void getTreeMetadataForPrefix_emptyTree() {
+    SpecialArtifact tree = createTreeArtifact("a/tree");
+    TreeArtifactValue treeValue = TreeArtifactValue.newBuilder(tree).build();
+    map.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
+
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getChild("under")))
+        .isEqualTo(treeValue);
+  }
+
+  @Test
+  public void getTreeMetadataForPrefix_nonEmptyTree() {
+    SpecialArtifact tree = createTreeArtifact("a/tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "some/child");
+    TreeArtifactValue treeValue =
+        TreeArtifactValue.newBuilder(tree).putChild(child, TestMetadata.create(1)).build();
+    map.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
+
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getParentDirectory()))
+        .isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getChild("under")))
+        .isEqualTo(treeValue);
+  }
+
+  @Test
+  public void getTreeMetadataForPrefix_treeWithNestedFile() {
+    SpecialArtifact tree = createTreeArtifact("a/tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "some/dir/child");
+    TreeArtifactValue treeValue =
+        TreeArtifactValue.newBuilder(tree).putChild(child, TestMetadata.create(1)).build();
+    map.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
+    map.put(
+        ActionInputHelper.fromPath(child.getExecPath()),
+        TestMetadata.create(1),
+        /* depOwner= */ null);
+
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getParentDirectory()))
+        .isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getChild("under")))
+        .isEqualTo(treeValue);
+  }
+
+  @Test
+  public void getTreeMetadataForPrefix_treeWithNestedTree() {
+    SpecialArtifact tree = createTreeArtifact("a/tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "some/dir/child");
+    TreeArtifactValue treeValue =
+        TreeArtifactValue.newBuilder(tree).putChild(child, TestMetadata.create(1)).build();
+    map.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
+    SpecialArtifact nestedTree = createTreeArtifact("a/tree/some/dir");
+    TreeFileArtifact nestedChild = TreeFileArtifact.createTreeOutput(nestedTree, "child");
+    TreeArtifactValue nestedTreeValue =
+        TreeArtifactValue.newBuilder(nestedTree)
+            .putChild(nestedChild, TestMetadata.create(1))
+            .build();
+    map.putTreeArtifact(nestedTree, nestedTreeValue, /* depOwner= */ null);
+
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getParentDirectory()))
+        .isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getChild("under")))
+        .isEqualTo(treeValue);
+  }
+
+  @Test
   public void getters_missingTree_returnNull() {
     map.putTreeArtifact(createTreeArtifact("tree"), TreeArtifactValue.empty(), /*depOwner=*/ null);
     SpecialArtifact otherTree = createTreeArtifact("other");
@@ -444,7 +497,7 @@ public final class ActionInputMapTest {
       Collections.shuffle(data);
       for (int i = 0; i < data.size(); ++i) {
         TestEntry entry = data.get(i);
-        assertThat(map.putWithNoDepOwner(entry.input, entry.metadata)).isTrue();
+        map.putWithNoDepOwner(entry.input, entry.metadata);
       }
       assertThat(map.sizeForDebugging()).isEqualTo(data.size());
       for (int i = 0; i < data.size(); ++i) {
@@ -454,8 +507,8 @@ public final class ActionInputMapTest {
     }
   }
 
-  private boolean put(String execPath, int value) {
-    return map.putWithNoDepOwner(new TestInput(execPath), TestMetadata.create(value));
+  private void put(String execPath, int value) {
+    map.putWithNoDepOwner(new TestInput(execPath), TestMetadata.create(value));
   }
 
   private void assertContains(String execPath, int value) {

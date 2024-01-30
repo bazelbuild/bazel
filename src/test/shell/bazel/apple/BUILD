@@ -6,12 +6,6 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
-sh_library(
-    name = "apple_common",
-    testonly = 1,
-    srcs = ["apple_common.sh"],
-)
-
 filegroup(
     name = "objc-deps",
     testonly = 1,
@@ -28,7 +22,6 @@ sh_test(
     size = "large",
     srcs = ["bazel_apple_test.sh"],
     data = [
-        ":apple_common",
         ":objc-deps",
         "//:workspace-file",
         "//src/test/shell/bazel:test-deps",
@@ -41,7 +34,6 @@ sh_test(
     size = "large",
     srcs = ["bazel_objc_test.sh"],
     data = [
-        ":apple_common",
         ":objc-deps",
         "//src/test/shell/bazel:test-deps",
     ],

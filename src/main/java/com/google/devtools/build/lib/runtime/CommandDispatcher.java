@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.protobuf.Any;
 import java.util.List;
@@ -45,6 +46,7 @@ public interface CommandDispatcher {
       String clientDescription,
       long firstContactTimeMillis,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-      List<Any> commandExtensions)
+      List<Any> commandExtensions,
+      CommandExtensionReporter commandExtensionReporter)
       throws InterruptedException;
 }

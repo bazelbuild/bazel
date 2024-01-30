@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis.platform;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -19,7 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo.ExecPropertiesException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;
@@ -31,7 +30,7 @@ import org.junit.runners.JUnit4;
 public class PlatformInfoTest extends BuildViewTestCase {
 
   @Test
-  public void platformInfo() throws Exception {
+  public void builder() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:s1"));
     ConstraintSettingInfo setting2 =
@@ -54,17 +53,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_remoteExecutionProperties() throws Exception {
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setRemoteExecutionProperties("properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("properties");
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_noOverlaps() throws Exception {
+  public void constraints_parentPlatform_noOverlaps() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:s1"));
     ConstraintSettingInfo setting2 =
@@ -100,7 +89,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_parentPlatform_overlaps() throws Exception {
+  public void constraints_parentPlatform_overlaps() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:s1"));
     ConstraintSettingInfo setting2 =
@@ -135,75 +124,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_parentPlatform_keepRemoteExecutionProperties() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("parent properties");
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_overrideRemoteExecutionProperties() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setRemoteExecutionProperties("child properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child properties");
-    assertThat(platformInfo.execProperties()).isEmpty();
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_mergeRemoteExecutionProperties() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties())
-        .isEqualTo("child parent properties properties");
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_mergeRemoteExecutionProperties_noParent()
-      throws Exception {
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_mergeRemoteExecutionProperties_parentNotSet()
-      throws Exception {
-    PlatformInfo parent = PlatformInfo.builder().build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
-  }
-
-  @Test
-  public void platformInfo_overlappingConstraintsError() throws Exception {
+  public void constraints_overlappingError() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic"));
     ConstraintSettingInfo setting2 =
@@ -242,7 +163,191 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_equalsTester() throws Exception {
+  public void remoteExecutionProperties() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setRemoteExecutionProperties("properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("properties");
+  }
+
+  @Test
+  public void remoteExecutionProperties_parentPlatform_keep() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("parent properties");
+  }
+
+  @Test
+  public void remoteExecutionProperties_parentPlatform_override() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("child properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child properties");
+    assertThat(platformInfo.execProperties()).isEmpty();
+  }
+
+  @Test
+  public void remoteExecutionProperties_parentPlatform_merge() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties())
+        .isEqualTo("child parent properties properties");
+  }
+
+  @Test
+  public void remoteExecutionProperties_parentPlatform_merge_noParent() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
+  }
+
+  @Test
+  public void remoteExecutionProperties_parentPlatform_merge_parentNotSet() throws Exception {
+    PlatformInfo parent = PlatformInfo.builder().build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
+  }
+
+  @Test
+  public void remoteExecutionProperties_parentSpecifiesExecProperties_error() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:parent_platform"))
+            .setExecProperties(ImmutableMap.of("elem1", "value1"))
+            .build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("props");
+
+    ExecPropertiesException exception = assertThrows(ExecPropertiesException.class, builder::build);
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "Platform specifies remote_execution_properties but its parent specifies"
+                + " exec_properties. Prefer exec_properties over the deprecated"
+                + " remote_execution_properties.");
+  }
+
+  @Test
+  public void execProperties_empty() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setExecProperties(ImmutableMap.of());
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).isNotNull();
+    assertThat(platformInfo.execProperties()).isEmpty();
+  }
+
+  @Test
+  public void execProperties_one() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).isNotNull();
+    assertThat(platformInfo.execProperties()).containsExactly("elem1", "value1");
+  }
+
+  @Test
+  public void execProperties_parentPlatform_keep() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setExecProperties(ImmutableMap.of("parent", "properties")).build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).containsExactly("parent", "properties");
+  }
+
+  @Test
+  public void execProperties_parentPlatform_inheritance() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .setExecProperties(
+                ImmutableMap.of("p1", "keep", "p2", "delete", "p3", "parent", "p4", "del2"))
+            .build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    PlatformInfo platformInfo =
+        builder.setExecProperties(ImmutableMap.of("p2", "", "p3", "child", "p4", "")).build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).containsExactly("p1", "keep", "p3", "child");
+  }
+
+  @Test
+  public void execProperties_remoteExecProperties_error() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
+    builder.setRemoteExecutionProperties("props");
+
+    ExecPropertiesException exception = assertThrows(ExecPropertiesException.class, builder::build);
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "Platform contains both remote_execution_properties and exec_properties. Prefer"
+                + " exec_properties over the deprecated remote_execution_properties.");
+  }
+
+  @Test
+  public void execProperties_parentSpecifiesRemoteExecutionProperties_error() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:parent_platform"))
+            .setRemoteExecutionProperties("props")
+            .build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
+
+    ExecPropertiesException exception = assertThrows(ExecPropertiesException.class, builder::build);
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "Platform specifies exec_properties but its parent //foo:parent_platform specifies"
+                + " remote_execution_properties. Prefer exec_properties over the deprecated"
+                + " remote_execution_properties.");
+  }
+
+  @Test
+  public void equalsTester() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic"));
     ConstraintSettingInfo setting2 =
@@ -297,207 +402,5 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setRemoteExecutionProperties("foo")
                 .build())
         .testEquals();
-  }
-
-  @Test
-  public void platformInfo_execProperties_empty() throws Exception {
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setExecProperties(ImmutableMap.of());
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.execProperties()).isNotNull();
-    assertThat(platformInfo.execProperties()).isEmpty();
-  }
-
-  @Test
-  public void platformInfo_execProperties_one() throws Exception {
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.execProperties()).isNotNull();
-    assertThat(platformInfo.execProperties()).containsExactly("elem1", "value1");
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_keepExecProperties() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder().setExecProperties(ImmutableMap.of("parent", "properties")).build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.execProperties()).containsExactly("parent", "properties");
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_inheritanceRules() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder()
-            .setExecProperties(
-                ImmutableMap.of("p1", "keep", "p2", "delete", "p3", "parent", "p4", "del2"))
-            .build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    PlatformInfo platformInfo =
-        builder.setExecProperties(ImmutableMap.of("p2", "", "p3", "child", "p4", "")).build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.execProperties()).containsExactly("p1", "keep", "p3", "child");
-  }
-
-  @Test
-  public void platformInfo_constructor() throws Exception {
-    scratch.file(
-        "test/platform/my_platform.bzl",
-        "def _impl(ctx):",
-        "  constraints = [val[platform_common.ConstraintValueInfo] "
-            + "for val in ctx.attr.constraints]",
-        "  platform = platform_common.PlatformInfo(",
-        "      label = ctx.label, constraint_values = constraints)",
-        "  return [platform]",
-        "my_platform = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
-        "  }",
-        ")");
-    scratch.file(
-        "test/constraint/BUILD",
-        "constraint_setting(name = 'basic')",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        ")");
-    scratch.file(
-        "test/platform/BUILD",
-        "load('//test/platform:my_platform.bzl', 'my_platform')",
-        "my_platform(name = 'custom',",
-        "    constraints = [",
-        "       '//test/constraint:foo',",
-        "    ],",
-        ")");
-
-    setBuildLanguageOptions("--experimental_platforms_api");
-    ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
-    assertThat(platform).isNotNull();
-
-    PlatformInfo provider = PlatformProviderUtils.platform(platform);
-    assertThat(provider).isNotNull();
-    assertThat(provider.label()).isEqualTo(Label.parseCanonicalUnchecked("//test/platform:custom"));
-    ConstraintSettingInfo constraintSetting =
-        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//test/constraint:basic"));
-    ConstraintValueInfo constraintValue =
-        ConstraintValueInfo.create(
-            constraintSetting, Label.parseCanonicalUnchecked("//test/constraint:foo"));
-    assertThat(provider.constraints().get(constraintSetting)).isEqualTo(constraintValue);
-  }
-
-  @Test
-  public void platformInfo_constructor_parent() throws Exception {
-    scratch.file(
-        "test/platform/my_platform.bzl",
-        "def _impl(ctx):",
-        "  constraints = [val[platform_common.ConstraintValueInfo] "
-            + "for val in ctx.attr.constraints]",
-        "  platform = platform_common.PlatformInfo(",
-        "      label = ctx.label, constraint_values = constraints)",
-        "  return [platform]",
-        "my_platform = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
-        "  }",
-        ")");
-    scratch.file(
-        "test/constraint/BUILD",
-        "constraint_setting(name = 'basic')",
-        "constraint_setting(name = 'complex')",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        ")",
-        "constraint_value(name = 'bar',",
-        "    constraint_setting = ':basic',",
-        ")",
-        "constraint_value(name = 'baz',",
-        "    constraint_setting = ':complex',",
-        ")");
-    scratch.file(
-        "test/platform/BUILD",
-        "load('//test/platform:my_platform.bzl', 'my_platform')",
-        "platform(",
-        "    name='parent',",
-        "    constraint_values = [",
-        "       '//test/constraint:foo',",
-        "    ],",
-        ")",
-        "my_platform(name = 'custom',",
-        "    constraints = [",
-        "       '//test/constraint:bar',",
-        "       '//test/constraint:baz',",
-        "    ],",
-        ")");
-
-    setBuildLanguageOptions("--experimental_platforms_api");
-    ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
-    assertThat(platform).isNotNull();
-
-    PlatformInfo provider = PlatformProviderUtils.platform(platform);
-    assertThat(provider).isNotNull();
-    assertThat(provider.label()).isEqualTo(Label.parseCanonicalUnchecked("//test/platform:custom"));
-
-    // Check that overrides work.
-    ConstraintSettingInfo constraintSetting =
-        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//test/constraint:basic"));
-    ConstraintValueInfo constraintValue =
-        ConstraintValueInfo.create(
-            constraintSetting, Label.parseCanonicalUnchecked("//test/constraint:bar"));
-    assertThat(provider.constraints().get(constraintSetting)).isEqualTo(constraintValue);
-
-    // Check that inheritance works.
-    ConstraintSettingInfo constraintSetting2 =
-        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//test/constraint:complex"));
-    ConstraintValueInfo constraintValue2 =
-        ConstraintValueInfo.create(
-            constraintSetting2, Label.parseCanonicalUnchecked("//test/constraint:baz"));
-    assertThat(provider.constraints().get(constraintSetting2)).isEqualTo(constraintValue2);
-  }
-
-  @Test
-  public void platformInfo_constructor_error_duplicateConstraints() throws Exception {
-    scratch.file(
-        "test/platform/my_platform.bzl",
-        "def _impl(ctx):",
-        "  platform = platform_common.PlatformInfo()",
-        "  return [platform]",
-        "my_platform = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
-        "  }",
-        ")");
-    scratch.file(
-        "test/constraint/BUILD",
-        "constraint_setting(name = 'basic')",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        ")");
-    setBuildLanguageOptions("--experimental_platforms_api");
-    checkError(
-        "test/platform",
-        "custom",
-        "Label '//test/constraint:foo' is duplicated in the 'constraints' attribute of rule"
-            + " 'custom'",
-        "load('//test/platform:my_platform.bzl', 'my_platform')",
-        "my_platform(name = 'custom',",
-        "    constraints = [",
-        "       '//test/constraint:foo',",
-        "       '//test/constraint:foo',",
-        "    ],",
-        ")");
   }
 }

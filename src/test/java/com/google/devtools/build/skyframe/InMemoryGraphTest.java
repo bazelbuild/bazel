@@ -58,6 +58,11 @@ public class InMemoryGraphTest extends GraphTest {
     }
 
     @Override
+    protected Version getStartingVersion() {
+      return Version.constant();
+    }
+
+    @Override
     protected Version getNextVersion(Version version) {
       throw new UnsupportedOperationException();
     }
@@ -121,7 +126,7 @@ public class InMemoryGraphTest extends GraphTest {
     assertThat(graph.get(null, Reason.OTHER, cat)).isNotNull();
 
     assertThat(graph).isInstanceOf(InMemoryGraphImpl.class);
-    ((InMemoryGraphImpl) graph).cleanupInterningPool();
+    ((InMemoryGraphImpl) graph).cleanupInterningPools();
 
     // When re-creating a cat SkyKeyWithSkyKeyInterner, we expect to get the original instance. Pool
     // cleaning up re-interns the cat instance back to the weak interner, and thus, no new instance

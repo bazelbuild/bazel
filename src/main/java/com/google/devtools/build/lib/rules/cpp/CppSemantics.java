@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
@@ -47,11 +47,8 @@ public interface CppSemantics extends StarlarkValue {
       BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder,
-      RuleErrorConsumer ruleErrorConsumer);
-
-  /** Determines the applicable mode of headers checking in Starlark. */
-  HeadersCheckingMode determineStarlarkHeadersCheckingMode(
-      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain);
+      RuleErrorConsumer ruleErrorConsumer)
+      throws RuleErrorException;
 
   /**
    * Returns if include scanning is allowed.
@@ -71,7 +68,8 @@ public interface CppSemantics extends StarlarkValue {
       RuleContext ruleContext,
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
-      ImmutableSet<String> unsupportedFeatures);
+      ImmutableSet<String> unsupportedFeatures)
+      throws EvalException;
 
   void validateStarlarkCompileApiCall(
       StarlarkActionFactory actionFactory,

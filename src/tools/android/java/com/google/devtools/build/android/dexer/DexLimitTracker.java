@@ -38,14 +38,12 @@ class DexLimitTracker {
   }
 
   /**
-   * Tracks the field and method references in the given file and returns whether we're within
-   * limits.
+   * Returns whether we're within limits.
    *
-   * @return {@code true} if method or field references are outside limits, {@code false} both
-   *     are within limits.
+   * @return {@code true} if method or field references are outside limits, {@code false} both are
+   *     within limits.
    */
-  public boolean track(Dex dexFile) {
-    trackFieldsAndMethods(dexFile);
+  public boolean outsideLimits() {
     return fieldsSeen.size() > maxNumberOfIdxPerDex
         || methodsSeen.size() > maxNumberOfIdxPerDex;
   }
@@ -55,7 +53,7 @@ class DexLimitTracker {
     methodsSeen.clear();
   }
 
-  private void trackFieldsAndMethods(Dex dexFile) {
+  public void track(Dex dexFile) {
     int fieldCount = dexFile.fieldIds().size();
     for (int fieldIndex = 0; fieldIndex < fieldCount; ++fieldIndex) {
       fieldsSeen.add(FieldDescriptor.fromDex(dexFile, fieldIndex));

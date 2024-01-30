@@ -14,14 +14,14 @@
 # limitations under the License.
 
 import os
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
 class RunfilesTest(test_base.TestBase):
 
   def _AssertRunfilesLibraryInBazelToolsRepo(self, family, lang_name):
-    for s, t, exe in [("WORKSPACE.mock", "WORKSPACE",
+    for s, t, exe in [("MODULE.bazel.mock", "MODULE.bazel",
                        False), ("foo/BUILD.mock", "foo/BUILD",
                                 False), ("foo/foo.py", "foo/foo.py", True),
                       ("foo/Foo.java", "foo/Foo.java",
@@ -101,7 +101,7 @@ class RunfilesTest(test_base.TestBase):
 
   def testRunfilesLibrariesFindRunfilesWithoutEnvvars(self):
     for s, t, exe in [
-        ("WORKSPACE.mock", "WORKSPACE", False),
+        ("MODULE.bazel.mock", "MODULE.bazel", False),
         ("bar/BUILD.mock", "bar/BUILD", False),
         ("bar/bar.py", "bar/bar.py", True),
         ("bar/bar-py-data.txt", "bar/bar-py-data.txt", False),
@@ -161,7 +161,7 @@ class RunfilesTest(test_base.TestBase):
 
   def testRunfilesLibrariesFindRunfilesWithRunfilesManifestEnvvar(self):
     for s, t, exe in [
-        ("WORKSPACE.mock", "WORKSPACE", False),
+        ("MODULE.bazel.mock", "MODULE.bazel", False),
         ("bar/BUILD.mock", "bar/BUILD", False),
         # Note: do not test Python here, because py_binary always needs a
         # runfiles tree, even on Windows, because it needs __init__.py files in
@@ -206,7 +206,7 @@ class RunfilesTest(test_base.TestBase):
         # Runfiles manifests use forward slashes as path separators, even on
         # Windows.
         mock_bar_dep = mock_bar_dep.replace("\\", "/")
-      manifest_key = "foo_ws/bar/bar-%s-data.txt" % lang[0]
+      manifest_key = "_main/bar/bar-%s-data.txt" % lang[0]
       mock_manifest_line = manifest_key + " " + mock_bar_dep
       with open(manifest_path, "rt") as f:
         # Only rstrip newlines. Do not rstrip() completely, because that would
@@ -258,6 +258,7 @@ class RunfilesTest(test_base.TestBase):
       self.assertEqual(lines[0], "mock %s data" % lang[0])
 
   def testLegacyExternalRunfilesOption(self):
+    self.DisableBzlmod()
     self.ScratchDir("A")
     self.ScratchFile("A/WORKSPACE")
     self.ScratchFile("A/BUILD", [
@@ -304,9 +305,10 @@ class RunfilesTest(test_base.TestBase):
 
   def testRunfilesLibrariesFindRlocationpathExpansion(self):
     self.ScratchDir("A")
-    self.ScratchFile("A/WORKSPACE")
+    self.ScratchFile("A/REPO.bazel")
     self.ScratchFile("A/p/BUILD", ["exports_files(['foo.txt'])"])
     self.ScratchFile("A/p/foo.txt", ["Hello, World!"])
+    self.ScratchFile("MODULE.bazel")
     self.ScratchFile("WORKSPACE", ["local_repository(name = 'A', path='A')"])
     self.ScratchFile("pkg/BUILD", [
         "py_binary(",
@@ -337,6 +339,145 @@ class RunfilesTest(test_base.TestBase):
     self.assertEqual(stdout[0], "Hello, Bazel!")
     self.assertEqual(stdout[1], "Hello, World!")
 
+  def setUpRunfilesDirectoryIncrementalityTest(self):
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile(
+        "BUILD",
+        [
+            "sh_test(",
+            "  name = 'test',",
+            "  srcs = ['test.sh'],",
+            "  data = ['data.txt'],",
+            ")",
+        ],
+    )
+    self.ScratchFile("data.txt")
+    self.ScratchFile("test.sh", ["[[ -f data.txt ]]"], executable=True)
+    self.ScratchFile(
+        ".bazelrc",
+        [
+            "startup --nowindows_enable_symlinks",
+            "common --spawn_strategy=local",
+        ],
+    )
+
+  def testRunfilesDirectoryIncrementalityEnableRunfilesFlippedOn(self):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--noenable_runfiles"], allow_failure=True
+    )
+    self.assertEqual(exit_code, 3)
+    exit_code, _, _ = self.RunBazel(["test", ":test", "--enable_runfiles"])
+    self.assertEqual(exit_code, 0)
+
+  def testRunfilesDirectoryIncrementalityEnableRunfilesFlippedOff(self):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(["test", ":test", "--enable_runfiles"])
+    self.assertEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--noenable_runfiles"], allow_failure=True
+    )
+    self.assertEqual(exit_code, 3)
+
+  def testRunfilesDirectoryIncrementalityNoBuildRunfileLinksEnableRunfilesFlippedOn(
+      self,
+  ):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--nobuild_runfile_links", "--noenable_runfiles"],
+        allow_failure=True,
+    )
+    self.assertEqual(exit_code, 3)
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--nobuild_runfile_links", "--enable_runfiles"]
+    )
+    self.assertEqual(exit_code, 0)
+
+  def testRunfilesDirectoryIncrementalityNoBuildRunfileLinksEnableRunfilesFlippedOff(
+      self,
+  ):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--nobuild_runfile_links", "--enable_runfiles"]
+    )
+    self.assertEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--nobuild_runfile_links", "--noenable_runfiles"],
+        allow_failure=True,
+    )
+    self.assertEqual(exit_code, 3)
+
+  def testRunfilesDirectoryIncrementalityEnableRunfilesFlippedOnRun(self):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--noenable_runfiles"], allow_failure=True
+    )
+    self.assertNotEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(["run", ":test", "--enable_runfiles"])
+    self.assertEqual(exit_code, 0)
+
+  def testRunfilesDirectoryIncrementalityEnableRunfilesFlippedOffRun(self):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(["run", ":test", "--enable_runfiles"])
+    self.assertEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--noenable_runfiles"], allow_failure=True
+    )
+    self.assertNotEqual(exit_code, 0)
+
+  def testRunfilesDirectoryIncrementalityNoBuildRunfileLinksEnableRunfilesFlippedOnRun(
+      self,
+  ):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--nobuild_runfile_links", "--noenable_runfiles"],
+        allow_failure=True,
+    )
+    self.assertNotEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--nobuild_runfile_links", "--enable_runfiles"]
+    )
+    self.assertEqual(exit_code, 0)
+
+  def testRunfilesDirectoryIncrementalityNoBuildRunfileLinksEnableRunfilesFlippedOffRun(
+      self,
+  ):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--nobuild_runfile_links", "--enable_runfiles"]
+    )
+    self.assertEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--nobuild_runfile_links", "--noenable_runfiles"],
+        allow_failure=True,
+    )
+    self.assertNotEqual(exit_code, 0)
+
+  def testTestsRunWithNoBuildRunfileLinksAndNoEnableRunfiles(self):
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile(
+        "BUILD",
+        [
+            "sh_test(",
+            "  name = 'test',",
+            "  srcs = ['test.sh'],",
+            ")",
+        ],
+    )
+    self.ScratchFile("test.sh", executable=True)
+    self.ScratchFile(".bazelrc", ["common --spawn_strategy=local"])
+    self.RunBazel(
+        ["test", ":test", "--nobuild_runfile_links", "--noenable_runfiles"]
+    )
+
 
 if __name__ == "__main__":
-  unittest.main()
+  absltest.main()

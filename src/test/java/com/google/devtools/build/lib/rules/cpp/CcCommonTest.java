@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -189,7 +190,7 @@ public class CcCommonTest extends BuildViewTestCase {
   private Iterable<Artifact> getLinkerInputs(ConfiguredTarget target) {
     Artifact executable = getExecutable(target);
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    return linkAction.getLinkCommandLineForTesting().getLinkerInputArtifacts().toList();
+    return linkAction.getInputs().toList();
   }
 
   @Test
@@ -203,7 +204,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     Artifact executable = getExecutable(archiveInSrcsTest);
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    assertThat(linkAction.getLinkCommandLineForTesting().toString()).contains(" -larchive.34 ");
+    assertThat(linkAction.getLinkCommandLineForTesting().arguments()).contains("-larchive.34");
   }
 
   @Test
@@ -710,12 +711,22 @@ public class CcCommonTest extends BuildViewTestCase {
   @Test
   public void testCcLibraryWithDashStaticOnDarwin() throws Exception {
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "darwin_x86_64");
-    useConfiguration("--cpu=darwin_x86_64");
+    mockToolsConfig.create(
+        "platforms/BUILD",
+        "platform(",
+        "  name = 'darwin_x86_64',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:macos',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "  ],",
+        ")");
+    useConfiguration("--cpu=darwin_x86_64", "--platforms=//platforms:darwin_x86_64");
+
     checkError(
         "badlib",
         "lib_with_dash_static",
         // message:
-        "in linkopts attribute of cc_library rule @//badlib:lib_with_dash_static: "
+        "in linkopts attribute of cc_library rule @@//badlib:lib_with_dash_static: "
             + "Apple builds do not support statically linked binaries",
         // build file:
         "cc_library(name = 'lib_with_dash_static',",
@@ -920,6 +931,21 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.prettyArtifactNames(absolute.getDeclaredIncludeSrcs()))
         .containsExactly(
             "third_party/a/_virtual_includes/absolute/a/v1/b.h", "third_party/a/v1/b.h");
+  }
+
+  @Test
+  public void testEmptyPackageStripPrefix() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    scratch.file(
+        "BUILD",
+        "licenses(['notice'])",
+        "cc_library(name='a', hdrs=['b.h'], strip_include_prefix='.')");
+    CcCompilationContext ccContext =
+        getConfiguredTarget("//:a").get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(ActionsTestUtil.prettyArtifactNames(ccContext.getDeclaredIncludeSrcs()))
+        .containsExactly("b.h");
   }
 
   @Test
@@ -1274,5 +1300,31 @@ public class CcCommonTest extends BuildViewTestCase {
     assertContainsEvent(
         "This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for"
             + " details.");
+  }
+
+  @Test
+  public void testLinkExtra() throws Exception {
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "mypackage",
+            "mybinary",
+            "cc_binary(name = 'mybinary',",
+            "          srcs = ['mybinary.cc'])");
+    List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
+    assertThat(artifactNames).contains("liblink_extra_lib.a");
+  }
+
+  @Test
+  public void testNoLinkExtra() throws Exception {
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "mypackage",
+            "mybinary",
+            "cc_library(name = 'empty_lib')",
+            "cc_binary(name = 'mybinary',",
+            "          srcs = ['mybinary.cc'],",
+            "          link_extra_lib = ':empty_lib')");
+    List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
+    assertThat(artifactNames).doesNotContain("liblink_extra_lib.a");
   }
 }

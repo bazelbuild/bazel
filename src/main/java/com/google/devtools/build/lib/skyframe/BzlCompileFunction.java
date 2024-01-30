@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.BazelCompileContext;
@@ -29,7 +30,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -143,8 +143,10 @@ public class BzlCompileFunction implements SkyFunction {
       return null;
     }
 
-    Map<String, Object> predeclared;
-    if (key.kind == BzlCompileValue.Kind.BUILTINS) {
+    ImmutableMap<String, Object> predeclared;
+    if (key.isSclDialect()) {
+      predeclared = bazelStarlarkEnvironment.getStarlarkGlobals().getSclToplevels();
+    } else if (key.kind == BzlCompileValue.Kind.BUILTINS) {
       predeclared = bazelStarlarkEnvironment.getBuiltinsBzlEnv();
     } else {
       // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not
@@ -167,6 +169,13 @@ public class BzlCompileFunction implements SkyFunction {
             // statements whose bindings are intended to be visible in all BUILD
             // files. The loadBindsGlobally flag allows us to retrieve them.
             .loadBindsGlobally(key.isBuildPrelude())
+            // .scl files should be ASCII-only in string literals.
+            // TODO(bazel-team): It'd be nice if we could intercept non-ASCII errors from the lexer,
+            // and modify the displayed message to clarify to the user that the string would be
+            // permitted in a .bzl file. But there's no easy way to do that short of either string
+            // matching the error message or reworking the interpreter API to put more structured
+            // detail in errors (i.e. new fields or error subclasses).
+            .stringLiteralsAreAsciiOnly(key.isSclDialect())
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
 

@@ -78,7 +78,8 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
         ImmutableMultimap.of(),
         ImmutableMap.of(),
         ImmutableSet.of(),
-        platformInfo.constraints().hasConstraintValue(this));
+        ConfigMatchingProvider.MatchResult.create(
+            platformInfo.constraints().hasConstraintValue(this)));
   }
 
   @Override

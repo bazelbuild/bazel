@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -52,6 +53,12 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
   public abstract boolean isFetchingDelayed();
 
   /**
+   * Returns if this repo should be excluded from vendoring. The value is true for local & configure
+   * repos
+   */
+  public abstract boolean excludeFromVendoring();
+
+  /**
    * For an unsuccessful repository lookup, gets a detailed error message that is suitable for
    * reporting to a user.
    */
@@ -61,6 +68,7 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
   public static final class SuccessfulRepositoryDirectoryValue extends RepositoryDirectoryValue {
     private final Path path;
     private final boolean fetchingDelayed;
+    private final boolean excludeFromVendoring;
     @Nullable private final byte[] digest;
     @Nullable private final DirectoryListingValue sourceDir;
     private final ImmutableMap<SkyKey, SkyValue> fileValues;
@@ -70,13 +78,16 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
         boolean fetchingDelayed,
         @Nullable DirectoryListingValue sourceDir,
         byte[] digest,
-        ImmutableMap<SkyKey, SkyValue> fileValues) {
+        ImmutableMap<SkyKey, SkyValue> fileValues,
+        boolean excludeFromVendoring) {
       this.path = path;
       this.fetchingDelayed = fetchingDelayed;
       this.sourceDir = sourceDir;
       this.digest = digest;
       this.fileValues = fileValues;
+      this.excludeFromVendoring = excludeFromVendoring;
     }
+
 
     @Override
     public boolean repositoryExists() {
@@ -96,6 +107,11 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     @Override
     public boolean isFetchingDelayed() {
       return fetchingDelayed;
+    }
+
+    @Override
+    public boolean excludeFromVendoring() {
+      return excludeFromVendoring;
     }
 
     @Override
@@ -153,6 +169,10 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
       throw new IllegalStateException();
     }
 
+    @Override
+    public boolean excludeFromVendoring() {
+      throw new IllegalStateException();
+    }
   }
 
   /** Creates a key from the given repository name. */
@@ -161,7 +181,7 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
   }
 
   /** The SkyKey for retrieving the local directory of an external repository. */
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   public static class Key extends AbstractSkyKey<RepositoryName> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -170,10 +190,14 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(RepositoryName arg) {
+    private static Key create(RepositoryName arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
@@ -198,6 +222,8 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     private byte[] digest = null;
     @Nullable private DirectoryListingValue sourceDir = null;
     private Map<SkyKey, SkyValue> fileValues = ImmutableMap.of();
+
+    private boolean excludeFromVendoring = false;
 
     private Builder() {}
 
@@ -231,6 +257,12 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setExcludeFromVendoring(boolean excludeFromVendoring) {
+      this.excludeFromVendoring = excludeFromVendoring;
+      return this;
+    }
+
     public SuccessfulRepositoryDirectoryValue build() {
       Preconditions.checkNotNull(path, "Repository path must be specified!");
       // Only if fetching is delayed then we are allowed to have a null digest.
@@ -242,7 +274,8 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
           fetchingDelayed,
           sourceDir,
           checkNotNull(digest, "Null digest: %s %s %s", path, fetchingDelayed, sourceDir),
-          ImmutableMap.copyOf(fileValues));
+          ImmutableMap.copyOf(fileValues),
+          excludeFromVendoring);
     }
   }
 }

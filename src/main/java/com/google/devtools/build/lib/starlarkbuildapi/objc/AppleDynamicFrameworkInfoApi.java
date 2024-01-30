@@ -81,16 +81,4 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
           "A provider which contains information about the transitive dependencies linked into "
               + "the dynamic framework.")
   CcInfoApi<FileApiT> getDepsCcInfo();
-
-  /**
-   * Returns the {@link ObjcProviderApi} which contains information about the transitive
-   * dependencies linked into the dylib.
-   */
-  @StarlarkMethod(
-      name = "objc",
-      structField = true,
-      doc =
-          "A provider which contains information about the transitive dependencies linked into "
-              + "the dynamic framework.")
-  ObjcProviderApi<FileApiT> getDepsObjcProvider();
 }

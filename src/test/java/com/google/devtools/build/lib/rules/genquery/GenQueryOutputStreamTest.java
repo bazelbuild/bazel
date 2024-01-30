@@ -19,122 +19,119 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.rules.genquery.GenQueryOutputStream.GenQueryResult;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.protobuf.ByteString;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.zip.GZIPOutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link GenQueryOutputStream}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class GenQueryOutputStreamTest {
 
+  @TestParameter private boolean outputCompressed;
+
   @Test
-  public void testSmallOutputMultibyteWriteWithCompressionEnabled() throws IOException {
+  public void testSmallOutputMultibyteWrite() throws IOException {
     runMultibyteWriteTest(
-        "xyz".repeat(10_000),
-        /*compressionEnabled=*/ true,
-        GenQueryOutputStream.RegularResult.class);
+        "xyz".repeat(10_000), GenQueryOutputStream.SimpleResult.class, outputCompressed);
   }
 
   @Test
-  public void testSmallOutputMultibyteWriteWithCompressionDisabled() throws IOException {
-    runMultibyteWriteTest(
-        "xyz".repeat(10_000),
-        /*compressionEnabled=*/ false,
-        GenQueryOutputStream.RegularResult.class);
-  }
-
-  @Test
-  public void testBigOutputMultibyteWriteWithCompressionEnabled() throws IOException {
+  public void testBigOutputMultibyteWrite() throws IOException {
     runMultibyteWriteTest(
         "xyz".repeat(1_000_000),
-        /*compressionEnabled=*/ true,
-        GenQueryOutputStream.CompressedResult.class);
+        outputCompressed
+            ? GenQueryOutputStream.SimpleResult.class
+            : GenQueryOutputStream.CompressedResultWithDecompressedOutput.class,
+        outputCompressed);
   }
 
   @Test
-  public void testBigOutputMultibyteWriteWithCompressionDisabled() throws IOException {
-    runMultibyteWriteTest(
-        "xyz".repeat(1_000_000),
-        /*compressionEnabled=*/ false,
-        GenQueryOutputStream.RegularResult.class);
-  }
-
-  @Test
-  public void testSmallOutputSingleByteWritesWithCompressionEnabled() throws IOException {
+  public void testSmallOutputSingleByteWrites() throws IOException {
     runSingleByteWriteTest(
-        "xyz".repeat(10_000),
-        /*compressionEnabled=*/ true,
-        GenQueryOutputStream.RegularResult.class);
+        "xyz".repeat(10_000), GenQueryOutputStream.SimpleResult.class, outputCompressed);
   }
 
   @Test
-  public void testSmallOutputSingleByteWritesWithCompressionDisabled() throws IOException {
-    runSingleByteWriteTest(
-        "xyz".repeat(10_000),
-        /*compressionEnabled=*/ false,
-        GenQueryOutputStream.RegularResult.class);
-  }
-
-  @Test
-  public void testBigOutputSingleByteWritesWithCompressionEnabled() throws IOException {
+  public void testBigOutputSingleByteWrites() throws IOException {
     runSingleByteWriteTest(
         "xyz".repeat(1_000_000),
-        /*compressionEnabled=*/ true,
-        GenQueryOutputStream.CompressedResult.class);
-  }
-
-  @Test
-  public void testBigOutputSingleByteWritesWithCompressionDisabled() throws IOException {
-    runSingleByteWriteTest(
-        "xyz".repeat(1_000_000),
-        /*compressionEnabled=*/ false,
-        GenQueryOutputStream.RegularResult.class);
+        outputCompressed
+            ? GenQueryOutputStream.SimpleResult.class
+            : GenQueryOutputStream.CompressedResultWithDecompressedOutput.class,
+        outputCompressed);
   }
 
   private static void runMultibyteWriteTest(
-      String data, boolean compressionEnabled, Class<? extends GenQueryResult> resultClass)
+      String data, Class<? extends GenQueryResult> resultClass, boolean outputCompressed)
       throws IOException {
-    GenQueryOutputStream underTest = new GenQueryOutputStream(compressionEnabled);
+    GenQueryOutputStream underTest = new GenQueryOutputStream(outputCompressed);
     underTest.write(data.getBytes(StandardCharsets.UTF_8));
     underTest.close();
 
-    GenQueryOutputStream.GenQueryResult result = underTest.getResult();
-    assertThat(result).isInstanceOf(resultClass);
-    assertThat(result.getBytes()).isEqualTo(ByteString.copyFromUtf8(data));
-    assertThat(result.size()).isEqualTo(data.length());
-
-    Fingerprint fingerprint = new Fingerprint();
-    result.fingerprint(fingerprint);
-    assertThat(fingerprint.hexDigestAndReset()).isEqualTo(Fingerprint.getHexDigest(data));
-
-    ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-    result.writeTo(bytesOut);
-    assertThat(new String(bytesOut.toByteArray(), StandardCharsets.UTF_8)).isEqualTo(data);
+    verifyGenQueryResult(underTest.getResult(), data, resultClass, outputCompressed);
   }
 
   private static void runSingleByteWriteTest(
-      String data, boolean compressionEnabled, Class<? extends GenQueryResult> resultClass)
+      String data, Class<? extends GenQueryResult> resultClass, boolean outputCompressed)
       throws IOException {
-    GenQueryOutputStream underTest = new GenQueryOutputStream(compressionEnabled);
+    GenQueryOutputStream underTest = new GenQueryOutputStream(outputCompressed);
     for (byte b : data.getBytes(StandardCharsets.UTF_8)) {
       underTest.write(b);
     }
     underTest.close();
 
-    GenQueryOutputStream.GenQueryResult result = underTest.getResult();
+    verifyGenQueryResult(underTest.getResult(), data, resultClass, outputCompressed);
+  }
+
+  private static void verifyGenQueryResult(
+      GenQueryOutputStream.GenQueryResult result,
+      String data,
+      Class<? extends GenQueryResult> resultClass,
+      boolean outputCompressed)
+      throws IOException {
     assertThat(result).isInstanceOf(resultClass);
-    assertThat(result.getBytes()).isEqualTo(ByteString.copyFromUtf8(data));
-    assertThat(result.size()).isEqualTo(data.length());
 
-    Fingerprint fingerprint = new Fingerprint();
-    result.fingerprint(fingerprint);
-    assertThat(fingerprint.hexDigestAndReset()).isEqualTo(Fingerprint.getHexDigest(data));
+    if (outputCompressed) {
+      // If result is actually compressed, also compress input data so that it is comparable to what
+      // is outputted from GenQueryResult.
+      ByteString dataInByteString = ByteString.copyFromUtf8(data);
+      ByteString.Output compressedDataBytesOut = ByteString.newOutput();
+      GZIPOutputStream gzipDataOut = new GZIPOutputStream(compressedDataBytesOut);
+      dataInByteString.writeTo(gzipDataOut);
+      gzipDataOut.finish();
+      ByteString dataCompressedInByteString = compressedDataBytesOut.toByteString();
 
-    ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-    result.writeTo(bytesOut);
-    assertThat(new String(bytesOut.toByteArray(), StandardCharsets.UTF_8)).isEqualTo(data);
+      assertThat(result.getBytes()).isEqualTo(dataCompressedInByteString);
+
+      Fingerprint actualFingerprint = new Fingerprint();
+      result.fingerprint(actualFingerprint);
+      Fingerprint expectFingerprint = new Fingerprint();
+      expectFingerprint.addBytes(dataCompressedInByteString);
+      assertThat(actualFingerprint.hexDigestAndReset())
+          .isEqualTo(expectFingerprint.hexDigestAndReset());
+
+      ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+      result.writeTo(bytesOut);
+      assertThat(bytesOut.toByteArray()).isEqualTo(dataCompressedInByteString.toByteArray());
+    } else {
+      assertThat(result.getBytes()).isEqualTo(ByteString.copyFromUtf8(data));
+      assertThat(result.size()).isEqualTo(data.length());
+
+      Fingerprint actualFingerprint = new Fingerprint();
+      result.fingerprint(actualFingerprint);
+      Fingerprint expectFingerprint = new Fingerprint();
+      expectFingerprint.addBytes(data.getBytes(StandardCharsets.UTF_8));
+      assertThat(actualFingerprint.hexDigestAndReset())
+          .isEqualTo(expectFingerprint.hexDigestAndReset());
+
+      ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+      result.writeTo(bytesOut);
+      assertThat(new String(bytesOut.toByteArray(), StandardCharsets.UTF_8)).isEqualTo(data);
+    }
   }
 }

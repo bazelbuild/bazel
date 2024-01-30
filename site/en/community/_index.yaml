@@ -1,7 +1,7 @@
 book_path: /_book.yaml
 project_path: /_project.yaml
 
-title: Community
+title: Community & Product Partners
 landing_page:
   header:
     hide_lower_section: true
@@ -19,9 +19,9 @@ landing_page:
     - classname: bazel-hero
       image_path: /images/community.svg
       heading: >
-        Community
+        Community & Product Partners
       description: >
-        Be a part of the community by helping to improve the Bazel open source project.
+        Be a part of the community or partnership program by helping to improve the Bazel open source project.
 
   # What's new Row
   - options:
@@ -96,6 +96,8 @@ landing_page:
       path: /community/sig
     - heading: Bazel experts
       path: /community/experts/
+    - heading: Bazel Product Partners
+      path: /community/partners/
     - heading: Bazel users
       path: /community/users
     - heading: Nominate a recommended rule

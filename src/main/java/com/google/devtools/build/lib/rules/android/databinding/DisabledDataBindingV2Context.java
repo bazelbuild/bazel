@@ -91,13 +91,4 @@ class DisabledDataBindingV2Context implements DataBindingContext {
       AndroidDataContext dataContext, AndroidResources resources, String appId) {
     return resources;
   }
-
-  @Override
-  public void supplyLayoutInfo(Consumer<Artifact> consumer) {  }
-
-  @Override
-  public boolean usesAndroidX() {
-    // AndroidX settings have no meaning if databinding is disabled.
-    return false;
-  }
 }

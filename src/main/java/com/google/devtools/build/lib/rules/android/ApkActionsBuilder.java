@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
@@ -77,7 +78,8 @@ public class ApkActionsBuilder {
   @CanIgnoreReturnValue
   public ApkActionsBuilder setClassesDex(Artifact classesDex) {
     Preconditions.checkArgument(
-        classesDex.getFilename().endsWith(".zip")
+        classesDex == null
+            || classesDex.getFilename().endsWith(".zip")
             || classesDex.getFilename().equals("classes.dex"));
     this.classesDex = classesDex;
     return this;
@@ -181,7 +183,8 @@ public class ApkActionsBuilder {
   }
 
   /** Registers the actions needed to build the requested APKs in the rule context. */
-  public void registerActions(RuleContext ruleContext) {
+  public void registerActions(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
     // If the caller did not request an unsigned APK, we still need to construct one so that
     // we can sign it. So we make up an intermediate artifact.
     Artifact intermediateUnsignedApk =
@@ -212,7 +215,8 @@ public class ApkActionsBuilder {
   }
 
   /** Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar. */
-  private void buildApk(RuleContext ruleContext, Artifact outApk) {
+  private void buildApk(RuleContext ruleContext, Artifact outApk)
+      throws InterruptedException, RuleErrorException {
     Artifact compressedApk = getApkArtifact(ruleContext, "compressed_" + outApk.getFilename());
 
     SpawnAction.Builder compressedApkActionBuilder =
@@ -337,7 +341,8 @@ public class ApkActionsBuilder {
   }
 
   /** Uses the zipalign tool to align the zip boundaries for uncompressed resources by 4 bytes. */
-  private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk) {
+  private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk)
+      throws RuleErrorException {
     ruleContext.registerAction(
         createSpawnActionBuilder(ruleContext)
             .addInput(inputApk)
@@ -363,7 +368,8 @@ public class ApkActionsBuilder {
    * alignment cannot be performed after v2 signing without invalidating the signature.
    */
   private void signApk(
-      RuleContext ruleContext, Artifact unsignedApk, Artifact signedAndZipalignedApk) {
+      RuleContext ruleContext, Artifact unsignedApk, Artifact signedAndZipalignedApk)
+      throws RuleErrorException {
     ApkSigningMethod signingMethod =
         ruleContext.getFragment(AndroidConfiguration.class).getApkSigningMethod();
     SpawnAction.Builder actionBuilder =
@@ -416,8 +422,8 @@ public class ApkActionsBuilder {
         actionBuilder.addCommandLine(commandLine.build()).build(ruleContext));
   }
 
-  private static void setSingleJarAsExecutable(
-      RuleContext ruleContext, SpawnAction.Builder builder) {
+  private static void setSingleJarAsExecutable(RuleContext ruleContext, SpawnAction.Builder builder)
+      throws RuleErrorException {
     FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     builder.setExecutable(singleJar);
   }

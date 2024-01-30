@@ -21,7 +21,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /** Helper utility to create ActionInput instances. */
 public final class ActionInputHelper {
@@ -32,7 +35,7 @@ public final class ActionInputHelper {
    * implement equality via path comparison. Since file caches are keyed by ActionInput, equality
    * checking does come up.
    */
-  private abstract static class BasicActionInput implements ActionInput {
+  public abstract static class BasicActionInput implements ActionInput {
 
     // TODO(lberki): Plumb this flag from InputTree.build() somehow.
     @Override
@@ -108,32 +111,6 @@ public final class ActionInputHelper {
   }
 
   /**
-   * Creates an ActionInput with just the given relative path (which must point to a directory) and
-   * no digest.
-   *
-   * @param path the relative path of the input.
-   * @return a ActionInput.
-   */
-  public static ActionInput fromPathToDirectory(PathFragment path) {
-    return new BasicActionInput() {
-      @Override
-      public String getExecPathString() {
-        return path.getPathString();
-      }
-
-      @Override
-      public PathFragment getExecPath() {
-        return path;
-      }
-
-      @Override
-      public boolean isDirectory() {
-        return true;
-      }
-    };
-  }
-
-  /**
    * Expands middleman and tree artifacts in a sequence of {@link ActionInput}s.
    *
    * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}
@@ -148,13 +125,23 @@ public final class ActionInputHelper {
       ArtifactExpander artifactExpander,
       boolean keepEmptyTreeArtifacts) {
     List<ActionInput> result = new ArrayList<>();
+    Set<Artifact> emptyTreeArtifacts = new TreeSet<>();
+    Set<Artifact> treeFileArtifactParents = new HashSet<>();
     for (ActionInput input : inputs.toList()) {
       if (input instanceof Artifact) {
-        Artifact.addExpandedArtifact(
-            (Artifact) input, result, artifactExpander, keepEmptyTreeArtifacts);
+        Artifact inputArtifact = (Artifact) input;
+        Artifact.addExpandedArtifact(inputArtifact, result, artifactExpander, emptyTreeArtifacts);
+        if (inputArtifact.isChildOfDeclaredDirectory()) {
+          treeFileArtifactParents.add(inputArtifact.getParent());
+        }
       } else {
         result.add(input);
       }
+    }
+
+    if (keepEmptyTreeArtifacts) {
+      emptyTreeArtifacts.removeAll(treeFileArtifactParents);
+      result.addAll(emptyTreeArtifacts);
     }
     return result;
   }

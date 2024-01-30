@@ -2,8 +2,9 @@ name: Bug report
 description: File a bug report
 labels: ["type: bug", "untriaged"]
 assignees:
-  - pavank1992
+  - rakshitasingh05
   - sgowroji
+  - iancha1992
 body:
   - type: markdown
     attributes:
@@ -18,6 +19,33 @@ body:
     attributes:
       label: >
         Description of the bug:
+  - type: dropdown
+    id: subteam
+    attributes:
+      label: >
+        Which category does this issue belong to?
+      description: >
+        Answering this will help us triage this issue faster and more accurately to the
+        relevant team(s).
+      multiple: true
+      options:
+        - Android
+        - C++/Objective-C Rules
+        - CLI
+        - Configurability
+        - Core
+        - Documentation
+        - External Dependency
+        - Java Rules
+        - Loading API
+        - Local Execution
+        - Performance
+        - Python Rules
+        - Remote Execution
+        - Rules API
+        - Server-Side Rules
+        - Starlark Integration
+        - Starlark Interpreter
   - type: textarea
     id: repro
     attributes:
@@ -44,8 +72,19 @@ body:
     id: source
     attributes:
       label: >
-        What's the output of `git remote get-url origin; git rev-parse master; git rev-parse HEAD` ?
+        What's the output of `git remote get-url origin; git rev-parse HEAD` ?
       render: text
+  - type: textarea
+    id: bisect
+    attributes:
+      label: >
+        Is this a regression? If yes, please try to identify the Bazel commit where the bug was
+        introduced.
+      description: >
+        If the problem is specific to the most recent release or the Bazel@HEAD version and it
+        doesn't occur in earlier versions, you can use the `bazelisk --bisect=<GOOD>..<BAD>`
+        command to identify the specific version or commit where the issue was introduced. For more
+        information, visit https://github.com/bazelbuild/bazelisk#--bisect.
   - type: textarea
     id: relevant-info
     attributes:

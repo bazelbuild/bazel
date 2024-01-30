@@ -13,22 +13,37 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.Map;
 
-/** Represents a link mapping that acts as input to {@link RuleLinkExpander}. */
+/**
+ * Represents a link mapping that acts as input to {@link RuleLinkExpander} and {@link
+ * SourceUrlMapper}.
+ */
 public class DocLinkMap {
+  // For RuleLinkExpander
   final String beRoot;
-  final Map<String, String> values;
+  final Map<String, String> beReferences; // Gson#fromJson ensures the map is of an ordered type
 
-  DocLinkMap(String beRoot, Map<String, String> values) {
+  // For SourceUrlMapper
+  final String sourceUrlRoot;
+  final Map<String, String> labelRewrites; // Gson#fromJson ensures the map is of an ordered type
+
+  @VisibleForTesting
+  DocLinkMap(
+      String beRoot,
+      Map<String, String> beReferences,
+      String sourceUrlRoot,
+      Map<String, String> labelRewrites) {
     this.beRoot = beRoot;
-    this.values = new HashMap<>(values);
+    this.beReferences = beReferences;
+    this.sourceUrlRoot = sourceUrlRoot;
+    this.labelRewrites = labelRewrites;
   }
 
   public static DocLinkMap createFromFile(String filePath) {

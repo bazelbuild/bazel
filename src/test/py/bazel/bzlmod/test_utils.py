@@ -109,7 +109,14 @@ class BazelRegistry:
     """Return the URL of this registry."""
     return self.root.resolve().as_uri()
 
-  def generateCcSource(self, name, version, deps=None, repo_names=None):
+  def generateCcSource(
+      self,
+      name,
+      version,
+      deps=None,
+      repo_names=None,
+      extra_module_file_contents=None,
+  ):
     """Generate a cc project with given dependency information.
 
     1. The cc projects implements a hello_<lib_name> function.
@@ -124,6 +131,8 @@ class BazelRegistry:
       version: The module version.
       deps: The dependencies of this module.
       repo_names: The desired repository name for some dependencies.
+      extra_module_file_contents: Extra lines to append to the MODULE.bazel
+        file.
 
     Returns:
       The generated source directory.
@@ -138,25 +147,30 @@ class BazelRegistry:
     for dep in deps:
       if dep not in repo_names:
         repo_names[dep] = dep
+    if not extra_module_file_contents:
+      extra_module_file_contents = []
 
     def calc_repo_name_str(dep):
       if dep == repo_names[dep]:
         return ''
       return ', repo_name = "%s"' % repo_names[dep]
 
-    scratchFile(src_dir.joinpath('WORKSPACE'))
     scratchFile(
-        src_dir.joinpath('MODULE.bazel'), [
+        src_dir.joinpath('MODULE.bazel'),
+        [
             'module(',
             '  name = "%s",' % name,
             '  version = "%s",' % version,
             '  compatibility_level = 1,',
             ')',
-        ] + [
-            'bazel_dep(name = "%s", version = "%s"%s)' %
-            (dep, version, calc_repo_name_str(dep))
+        ]
+        + [
+            'bazel_dep(name = "%s", version = "%s"%s)'
+            % (dep, version, calc_repo_name_str(dep))
             for dep, version in deps.items()
-        ])
+        ]
+        + extra_module_file_contents,
+    )
 
     scratchFile(
         src_dir.joinpath(name.lower() + '.h'), [
@@ -249,9 +263,12 @@ class BazelRegistry:
       patch_strip=0,
       archive_pattern=None,
       archive_type=None,
+      extra_module_file_contents=None,
   ):
     """Generate a cc project and add it as a module into the registry."""
-    src_dir = self.generateCcSource(name, version, deps, repo_names)
+    src_dir = self.generateCcSource(
+        name, version, deps, repo_names, extra_module_file_contents
+    )
     if archive_pattern:
       archive = self.createArchive(
           name, version, src_dir, filename_pattern=archive_pattern
@@ -309,16 +326,42 @@ class BazelRegistry:
         'path': path,
     }
 
+    self._createModuleAndSourceJson(
+        module_dir, name, version, path, deps, source
+    )
+
+  def createGitRepoModule(self, name, version, path, deps=None, **kwargs):
+    """Add a git repo module into the registry."""
+    module_dir = self.root.joinpath('modules', name, version)
+    module_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create source.json & copy patch files to the registry
+    source = {
+        'type': 'git_repository',
+        'remote': f'file://{path}',
+    }
+    source.update(**kwargs)
+
+    self._createModuleAndSourceJson(
+        module_dir, name, version, path, deps, source
+    )
+
+  def _createModuleAndSourceJson(
+      self, module_dir, name, version, path, deps, source
+  ):
+    """Create the MODULE.bazel and source.json files for a module."""
     if deps is None:
       deps = {}
 
-    scratchFile(
-        module_dir.joinpath('MODULE.bazel'), [
-            'module(',
-            '  name = "%s",' % name,
-            '  version = "%s",' % version,
-            ')',
-        ] + ['bazel_dep(name="%s",version="%s")' % p for p in deps.items()])
+    module_file_lines = [
+        'module(',
+        '  name = "%s",' % name,
+        '  version = "%s",' % version,
+        ')',
+    ] + ['bazel_dep(name="%s",version="%s")' % p for p in deps.items()]
+    scratchFile(module_dir.joinpath('MODULE.bazel'), module_file_lines)
+    self.projects.joinpath(path).mkdir(exist_ok=True)
+    scratchFile(self.projects.joinpath(path, 'MODULE.bazel'), module_file_lines)
 
     with module_dir.joinpath('source.json').open('w') as f:
       json.dump(source, f, indent=4, sort_keys=True)

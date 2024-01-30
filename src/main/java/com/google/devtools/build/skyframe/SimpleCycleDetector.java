@@ -25,6 +25,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import java.time.Duration;
@@ -150,7 +151,7 @@ public class SimpleCycleDetector implements CycleDetector {
         // Find out which children have errors. Similar logic to that in Evaluate#run().
         List<ErrorInfo> errorDeps =
             getChildrenErrorsForCycle(
-                key, directDeps.getAllElementsAsIterable(), entry, evaluatorContext);
+                key, directDeps.getAllElementsAsIterable(), entry, evaluatorContext, removedDeps);
         checkState(
             !errorDeps.isEmpty(),
             "Node %s was not successfully evaluated, but had no child errors. NodeEntry: %s",
@@ -202,7 +203,7 @@ public class SimpleCycleDetector implements CycleDetector {
           // though nothing changed.
           int loopCount = 0;
           Version graphVersion = evaluatorContext.getGraphVersion();
-          while (entry.getDirtyState() == NodeEntry.DirtyState.CHECK_DEPENDENCIES) {
+          while (entry.getLifecycleState() == LifecycleState.CHECK_DEPENDENCIES) {
             entry.signalDep(graphVersion, null);
             loopCount++;
           }
@@ -218,7 +219,7 @@ public class SimpleCycleDetector implements CycleDetector {
                         + ", "
                         + graphPath));
           }
-          if (entry.getDirtyState() == NodeEntry.DirtyState.NEEDS_REBUILDING) {
+          if (entry.getLifecycleState() == LifecycleState.NEEDS_REBUILDING) {
             entry.markRebuilding();
           } else if (maybeHandleVerifiedCleanNode(key, entry, evaluatorContext, graphPath)) {
             continue;
@@ -318,7 +319,7 @@ public class SimpleCycleDetector implements CycleDetector {
       ParallelEvaluatorContext evaluatorContext,
       List<SkyKey> graphPathForDebugging)
       throws InterruptedException {
-    if (entry.getDirtyState() != NodeEntry.DirtyState.VERIFIED_CLEAN) {
+    if (entry.getLifecycleState() != LifecycleState.VERIFIED_CLEAN) {
       return false;
     }
     Set<SkyKey> rdeps = entry.markClean().getRdepsToSignal();
@@ -366,7 +367,8 @@ public class SimpleCycleDetector implements CycleDetector {
       SkyKey parent,
       Iterable<SkyKey> children,
       NodeEntry entryForDebugging,
-      ParallelEvaluatorContext evaluatorContext)
+      ParallelEvaluatorContext evaluatorContext,
+      Set<SkyKey> removedDepsForDebugging)
       throws InterruptedException {
     List<ErrorInfo> allErrors = new ArrayList<>();
     boolean foundCycle = false;
@@ -388,10 +390,11 @@ public class SimpleCycleDetector implements CycleDetector {
     }
     checkState(
         foundCycle,
-        "Key %s with entry %s had no cycle beneath it: %s",
+        "Key %s with entry %s had no cycle beneath it: %s; Removed deps: %s",
         parent,
         entryForDebugging,
-        allErrors);
+        allErrors,
+        removedDepsForDebugging);
     return allErrors;
   }
 
@@ -526,7 +529,7 @@ public class SimpleCycleDetector implements CycleDetector {
     NodeEntry childEntry =
         evaluatorContext.getGraph().get(inProgressParent, Reason.CYCLE_CHECKING, child);
     if (!isDoneForBuild(childEntry)) {
-      childEntry.removeInProgressReverseDep(inProgressParent);
+      childEntry.removeReverseDep(inProgressParent);
       return true;
     }
     return false;

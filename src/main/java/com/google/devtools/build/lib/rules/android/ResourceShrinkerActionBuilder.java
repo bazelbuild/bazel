@@ -146,7 +146,7 @@ public class ResourceShrinkerActionBuilder {
         .addOutput("--shrunkResources", shrunkResourcesOut)
         .maybeAddOutput("--resourcesConfigOutput", resourceOptimizationConfigOut)
         .addOutput("--log", logOut)
-        .maybeAddFlag("--useDataBindingAndroidX", dataContext.useDataBindingAndroidX())
+        .addFlag("--useDataBindingAndroidX")
         .buildAndRegister("Shrinking resources", "ResourceShrinker");
 
     return resourceApkOut;

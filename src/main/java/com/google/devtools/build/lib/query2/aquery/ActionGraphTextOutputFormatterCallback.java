@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -31,16 +30,16 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
@@ -52,8 +51,6 @@ import java.io.PrintStream;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.EvalException;
 
@@ -62,19 +59,19 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
   private final AqueryActionFilter actionFilters;
-  private final RepositoryMapping mainRepoMapping;
+  private final LabelPrinter labelPrinter;
   private Map<String, String> paramFileNameToContentMap;
 
   ActionGraphTextOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
-      TargetAccessor<KeyedConfiguredTargetValue> accessor,
+      TargetAccessor<ConfiguredTargetValue> accessor,
       AqueryActionFilter actionFilters,
-      RepositoryMapping mainRepoMapping) {
+      LabelPrinter labelPrinter) {
     super(eventHandler, options, out, accessor);
     this.actionFilters = actionFilters;
-    this.mainRepoMapping = mainRepoMapping;
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
@@ -83,15 +80,13 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTargetValue> partialResult)
+  public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try {
       // Enabling includeParamFiles should enable includeCommandline by default.
       options.includeCommandline |= options.includeParamFiles;
 
-      for (KeyedConfiguredTargetValue keyedConfiguredTargetValue : partialResult) {
-        ConfiguredTargetValue configuredTargetValue =
-            keyedConfiguredTargetValue.getConfiguredTargetValue();
+      for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
           // We have to include non-rule values in the graph to visit their dependencies, but they
           // don't have any actions to print out.
@@ -102,7 +97,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           writeAction(action, printStream);
         }
         if (options.useAspects) {
-          for (AspectValue aspectValue : accessor.getAspectValues(keyedConfiguredTargetValue)) {
+          for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
             if (aspectValue != null) {
               for (ActionAnalysisMetadata action : aspectValue.getActions()) {
                 writeAction(action, printStream);
@@ -147,7 +142,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
       stringBuilder
           .append("  Target: ")
-          .append(actionOwner.getLabel().getDisplayForm(mainRepoMapping))
+          .append(labelPrinter.toString(actionOwner.getLabel()))
           .append('\n')
           .append("  Configuration: ")
           .append(configProto.getMnemonic())
@@ -155,7 +150,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       if (actionOwner.getExecutionPlatform() != null) {
         stringBuilder
             .append("  Execution platform: ")
-            .append(actionOwner.getExecutionPlatform().label().getDisplayForm(mainRepoMapping))
+            .append(labelPrinter.toString(actionOwner.getExecutionPlatform().label()))
             .append("\n");
       }
 
@@ -211,7 +206,19 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               action.getInputs().toList().stream()
                   .map(input -> escapeBytestringUtf8(input.getExecPathString()))
                   .sorted()
-                  .collect(Collectors.joining(", ")))
+                  .collect(Collectors.joining(", ")));
+
+      if (options.includeSchedulingDependencies && !action.getSchedulingDependencies().isEmpty()) {
+        stringBuilder
+            .append("  SchedulingDependencies: [")
+            .append(
+                action.getSchedulingDependencies().toList().stream()
+                    .map(input -> escapeBytestringUtf8(input.getExecPathString()))
+                    .sorted()
+                    .collect(Collectors.joining(", ")));
+      }
+
+      stringBuilder
           .append("]\n")
           .append("  Outputs: [")
           .append(
@@ -248,23 +255,6 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                     .collect(Collectors.joining(", ")))
             .append("]\n");
       }
-      ImmutableSet<Entry<String, String>> executionInfoSpecifiers =
-          abstractAction.getExecutionInfo().entrySet();
-      if (!executionInfoSpecifiers.isEmpty()) {
-        stringBuilder
-            .append("  ExecutionInfo: {")
-            .append(
-                executionInfoSpecifiers.stream()
-                    .sorted(Map.Entry.comparingByKey())
-                    .map(
-                        e ->
-                            String.format(
-                                "%s: %s",
-                                ShellEscaper.escapeString(e.getKey()),
-                                ShellEscaper.escapeString(e.getValue())))
-                    .collect(Collectors.joining(", ")))
-            .append("}\n");
-      }
     }
     if (options.includeCommandline && action instanceof CommandAction) {
       stringBuilder
@@ -281,9 +271,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   /* environmentVariablesToClear= */ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
-                  action.getExecutionPlatform() == null
-                      ? null
-                      : Objects.toString(action.getExecutionPlatform().label())))
+                  action.getExecutionPlatform() != null
+                      ? action.getExecutionPlatform().label()
+                      : null))
           .append("\n");
     }
 
@@ -338,23 +328,24 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       stringBuilder.append("  ]\n");
     }
 
-    if (options.includeFileWriteContents && action instanceof FileWriteAction) {
-      FileWriteAction fileWriteAction = (FileWriteAction) action;
-      stringBuilder
-          .append("  FileWriteContents: [")
-          .append(
-              Base64.getEncoder().encodeToString(fileWriteAction.getFileContents().getBytes(UTF_8)))
-          .append("]\n");
+    if (action instanceof AbstractFileWriteAction.FileContentsProvider) {
+      AbstractFileWriteAction.FileContentsProvider fileAction =
+          (AbstractFileWriteAction.FileContentsProvider) action;
+      stringBuilder.append(String.format("  IsExecutable: %b\n", fileAction.makeExecutable()));
+      if (options.includeFileWriteContents) {
+        String contents = fileAction.getFileContents(eventHandler);
+        stringBuilder
+            .append("  FileWriteContents: [")
+            .append(Base64.getEncoder().encodeToString(contents.getBytes(UTF_8)))
+            .append("]\n");
+      }
     }
-    if (options.includeFileWriteContents && action instanceof SourceManifestAction) {
-      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
+
+    if (action instanceof UnresolvedSymlinkAction) {
       stringBuilder
-          .append("  FileWriteContents: [")
-          .append(
-              Base64.getEncoder()
-                  .encodeToString(
-                      sourceManifestAction.getFileContentsAsString(eventHandler).getBytes(UTF_8)))
-          .append("]\n");
+          .append("  UnresolvedSymlinkTarget: ")
+          .append(((UnresolvedSymlinkAction) action).getTarget())
+          .append("\n");
     }
 
     stringBuilder.append('\n');

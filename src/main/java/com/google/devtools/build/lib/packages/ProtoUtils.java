@@ -34,6 +34,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
+import static com.google.devtools.build.lib.packages.Type.STRING_NO_INTERN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +56,7 @@ public class ProtoUtils {
           .put(GENQUERY_SCOPE_TYPE_LIST, Discriminator.LABEL_LIST)
           .put(NODEP_LABEL_LIST, Discriminator.STRING_LIST)
           .put(STRING, Discriminator.STRING)
+          .put(STRING_NO_INTERN, Discriminator.STRING)
           .put(STRING_LIST, Discriminator.STRING_LIST)
           .put(OUTPUT, Discriminator.OUTPUT)
           .put(OUTPUT_LIST, Discriminator.OUTPUT_LIST)

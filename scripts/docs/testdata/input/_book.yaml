@@ -33,3 +33,5 @@ upper_tabs:
         path: /versions/
       - title: Update versions with Bazelisk
         path: /versions/updating-bazel
+      - title: Build encyclopedia
+        include: /reference/be/_toc.yaml

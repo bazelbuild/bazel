@@ -19,11 +19,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auth.Credentials;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -31,6 +32,8 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEv
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -42,7 +45,11 @@ import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
 /**
@@ -52,6 +59,16 @@ import javax.annotation.Nullable;
  * to disk.
  */
 public class DownloadManager {
+  private static final ExecutorService DOWNLOAD_EXECUTOR =
+      Executors.newFixedThreadPool(
+          // There is also GrpcRemoteDownloader so if we set the thread pool to the same size as
+          // the allowed number of HTTP downloads, it might unnecessarily block. No, this is not a
+          // very
+          // principled approach; ideally, we'd grow the thread pool as needed with some generous
+          // upper
+          // limit.
+          2 * HttpDownloader.MAX_PARALLEL_DOWNLOADS,
+          new ThreadFactoryBuilder().setNameFormat("download-manager-%d").build());
 
   private final RepositoryCache repositoryCache;
   private List<Path> distdir = ImmutableList.of();
@@ -59,7 +76,6 @@ public class DownloadManager {
   private final Downloader downloader;
   private boolean disableDownload = false;
   private int retries = 0;
-  private boolean urlsAsDefaultCanonicalId;
   @Nullable private Credentials netrcCreds;
   private CredentialFactory credentialFactory = StaticCredentials::new;
 
@@ -90,16 +106,79 @@ public class DownloadManager {
     this.retries = retries;
   }
 
-  public void setUrlsAsDefaultCanonicalId(boolean urlsAsDefaultCanonicalId) {
-    this.urlsAsDefaultCanonicalId = urlsAsDefaultCanonicalId;
-  }
-
   public void setNetrcCreds(Credentials netrcCreds) {
     this.netrcCreds = netrcCreds;
   }
 
   public void setCredentialFactory(CredentialFactory credentialFactory) {
     this.credentialFactory = credentialFactory;
+  }
+
+  public Future<Path> startDownload(
+      List<URL> originalUrls,
+      Map<String, List<String>> headers,
+      Map<URI, Map<String, List<String>>> authHeaders,
+      Optional<Checksum> checksum,
+      String canonicalId,
+      Optional<String> type,
+      Path output,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      String context) {
+    return DOWNLOAD_EXECUTOR.submit(
+        () -> {
+          try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
+            return downloadInExecutor(
+                originalUrls,
+                headers,
+                authHeaders,
+                checksum,
+                canonicalId,
+                type,
+                output,
+                eventHandler,
+                clientEnv,
+                context);
+          }
+        });
+  }
+
+  public Path finalizeDownload(Future<Path> download) throws IOException, InterruptedException {
+    try {
+      return download.get();
+    } catch (ExecutionException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+      Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      Throwables.throwIfUnchecked(e.getCause());
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public Path download(
+      List<URL> originalUrls,
+      Map<String, List<String>> headers,
+      Map<URI, Map<String, List<String>>> authHeaders,
+      Optional<Checksum> checksum,
+      String canonicalId,
+      Optional<String> type,
+      Path output,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      String context)
+      throws IOException, InterruptedException {
+    Future<Path> future =
+        startDownload(
+            originalUrls,
+            headers,
+            authHeaders,
+            checksum,
+            canonicalId,
+            type,
+            output,
+            eventHandler,
+            clientEnv,
+            context);
+    return finalizeDownload(future);
   }
 
   /**
@@ -120,8 +199,9 @@ public class DownloadManager {
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
    */
-  public Path download(
+  private Path downloadInExecutor(
       List<URL> originalUrls,
+      Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
@@ -133,9 +213,6 @@ public class DownloadManager {
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
-    }
-    if (Strings.isNullOrEmpty(canonicalId) && urlsAsDefaultCanonicalId) {
-      canonicalId = originalUrls.stream().map(URL::toExternalForm).collect(Collectors.joining(" "));
     }
 
     // TODO(andreisolo): This code path is inconsistent as the authHeaders are fetched from a
@@ -267,6 +344,7 @@ public class DownloadManager {
       try {
         downloader.download(
             rewrittenUrls,
+            headers,
             credentialFactory.create(rewrittenAuthHeaders),
             checksum,
             canonicalId,

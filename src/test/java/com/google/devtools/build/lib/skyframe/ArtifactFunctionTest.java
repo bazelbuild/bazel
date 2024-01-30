@@ -16,12 +16,15 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.FileArtifactValue.createForTesting;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
@@ -35,8 +38,11 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
@@ -140,11 +146,13 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     TreeFileArtifact treeFile2 = createFakeTreeFileArtifact(tree, "child2", "hello2");
     file(treeFile1.getPath(), "src1");
     file(treeFile2.getPath(), "src2");
+    RunfilesTree mockRunfilesTree = mock(RunfilesTree.class);
     Action action =
-        new DummyAction(
+        new MiddlemanAction(
+            ActionsTestUtil.NULL_ACTION_OWNER,
+            mockRunfilesTree,
             NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2, tree),
-            output,
-            MiddlemanType.RUNFILES_MIDDLEMAN);
+            ImmutableSet.of(output));
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
@@ -155,10 +163,12 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     EvaluationResult<ActionExecutionValue> runfilesActionResult = evaluate(generatingActionKey);
     FileArtifactValue expectedMetadata =
         runfilesActionResult.get(generatingActionKey).getExistingFileArtifactValue(output);
+
     assertThat(value)
         .isEqualTo(
             new RunfilesArtifactValue(
                 expectedMetadata,
+                mockRunfilesTree,
                 ImmutableList.of(input1, input2),
                 ImmutableList.of(createForTesting(input1), createForTesting(input2)),
                 ImmutableList.of(tree),
@@ -417,16 +427,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       throws InterruptedException, ActionConflictException,
           Actions.ArtifactGeneratedByOtherRuleException {
     if (evaluator.getExistingValue(ALL_OWNER) == null) {
+      ImmutableList<ActionAnalysisMetadata> generatingActions = ImmutableList.copyOf(actions);
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          actionKeyContext, generatingActions, ALL_OWNER);
       differencer.inject(
-          ImmutableMap.of(
-              ALL_OWNER,
-              Delta.justNew(
-                  new BasicActionLookupValue(
-                      Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                          actionKeyContext,
-                          ImmutableList.copyOf(actions),
-                          ALL_OWNER,
-                          /* outputFiles= */ null)))));
+          ImmutableMap.of(ALL_OWNER, Delta.justNew(new BasicActionLookupValue(generatingActions))));
     }
   }
 
@@ -460,7 +465,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
-          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey().toKey());
+          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
       Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
       Artifact output = Iterables.getOnlyElement(action.getOutputs());
 
@@ -485,7 +490,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         } else if (action.getActionType() == MiddlemanType.NORMAL) {
           Path path = output.getPath();
           FileArtifactValue noDigest =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(
+              ActionOutputMetadataStore.fileArtifactValueFromArtifact(
                   output,
                   FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                   SyscallCache.NO_CACHE,

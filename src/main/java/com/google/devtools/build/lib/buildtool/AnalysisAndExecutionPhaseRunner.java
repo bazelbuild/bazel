@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -44,12 +44,12 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -117,17 +117,6 @@ public final class AnalysisAndExecutionPhaseRunner {
     if (request.getBuildOptions().performAnalysisPhase) {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE_AND_EXECUTE);
 
-      // The build info factories are immutable during the life time of this server. However, we
-      // sometimes clean the graph, which requires re-injecting the value, which requires a hook to
-      // do so afterwards, and there is no such hook at the server / workspace level right now. For
-      // simplicity, we keep the code here for now.
-      env.getSkyframeExecutor()
-          .injectExtraPrecomputedValues(
-              ImmutableList.of(
-                  PrecomputedValue.injected(
-                      BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
-                      env.getRuntime().getRuleClassProvider().getBuildInfoFactoriesAsMap())));
-
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisAndExecutionPhase");
           TopLevelTargetAnalysisWatcher watcher =
               TopLevelTargetAnalysisWatcher.createAndRegisterWithEventBus(
@@ -158,7 +147,7 @@ public final class AnalysisAndExecutionPhaseRunner {
       env.getReporter().post(new NoAnalyzeEvent());
       logger.atInfo().log("No analysis requested, so finished");
       FailureDetail failureDetail =
-          BuildView.createAnalysisFailureDetail(loadingResult, null, null);
+          BuildView.createAnalysisFailureDetail(loadingResult, /* skyframeAnalysisResult= */ null);
       if (failureDetail != null) {
         throw new BuildFailedException(
             failureDetail.getMessage(), DetailedExitCode.of(failureDetail));
@@ -348,11 +337,32 @@ public final class AnalysisAndExecutionPhaseRunner {
     }
 
     @Subscribe
-    public void handleTopLevelEntityAnalysisConcluded(TopLevelTargetAnalyzedEvent e)
+    public void handleTopLevelTargetAnalysisConcluded(TopLevelTargetAnalyzedEvent e)
         throws ViewCreationFailedException, InterruptedException {
       for (BlazeModule blazeModule : blazeModules) {
         blazeModule.afterTopLevelTargetAnalysis(
             env, buildRequest, buildOptions, e.configuredTarget());
+      }
+    }
+
+    @Subscribe
+    public void handleAspectAnalyzed(AspectAnalyzedEvent e) {
+      for (BlazeModule blazeModule : blazeModules) {
+        blazeModule.afterSingleAspectAnalysis(buildRequest, e.configuredAspect());
+      }
+    }
+
+    @Subscribe
+    public void handleTestAnalyzed(TestAnalyzedEvent e) {
+      for (BlazeModule blazeModule : blazeModules) {
+        blazeModule.afterSingleTestAnalysis(buildRequest, e.configuredTarget());
+      }
+    }
+
+    @Subscribe
+    public void handleKnownCoverageArtifacts(CoverageArtifactsKnownEvent e) {
+      for (BlazeModule blazeModule : blazeModules) {
+        blazeModule.coverageArtifactsKnown(e.coverageArtifacts());
       }
     }
 

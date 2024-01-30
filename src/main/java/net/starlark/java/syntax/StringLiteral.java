@@ -71,12 +71,15 @@ public final class StringLiteral extends Expression {
    *
    * @throws IllegalArgumentException if s does not contain a valid string literal.
    */
+  // TODO(bazel-team): We should in principle have an overload that allows non-default FileOptions.
+  // But currently no FileOptions affect the behavior of this method, except to possibly make it
+  // throw IAE on non-ASCII data.
   public static String unquote(String s) {
     // TODO(adonovan): once we have byte compilation, make this function
     // independent of the Lexer, which should only validate string literals
     // but not unquote them. Clients (e.g. the compiler) can unquote on demand.
     ArrayList<SyntaxError> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(ParserInput.fromLines(s), errors);
+    Lexer lexer = new Lexer(ParserInput.fromLines(s), errors, FileOptions.DEFAULT);
     lexer.nextToken();
     if (!errors.isEmpty()) {
       throw new IllegalArgumentException(errors.get(0).message());

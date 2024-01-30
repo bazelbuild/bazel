@@ -171,9 +171,9 @@ final class Parser {
   }
 
   // Main entry point for parsing a file.
-  static ParseResult parseFile(ParserInput input) {
+  static ParseResult parseFile(ParserInput input, FileOptions options) {
     List<SyntaxError> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, errors);
+    Lexer lexer = new Lexer(input, errors, options);
     Parser parser = new Parser(lexer, errors);
 
     StarlarkFile.ParseProfiler profiler = Parser.profiler;
@@ -207,9 +207,10 @@ final class Parser {
   }
 
   /** Parses an expression, possibly followed by newline tokens. */
-  static Expression parseExpression(ParserInput input) throws SyntaxError.Exception {
+  static Expression parseExpression(ParserInput input, FileOptions options)
+      throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, errors);
+    Lexer lexer = new Lexer(input, errors, options);
     Parser parser = new Parser(lexer, errors);
     Expression result = null;
     try {

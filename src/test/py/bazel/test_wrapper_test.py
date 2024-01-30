@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import os
-import unittest
 import zipfile
 
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -34,88 +34,98 @@ class TestWrapperTest(test_base.TestBase):
 
   def _CreateMockWorkspace(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'load(":native_test.bzl", "bat_test", "exe_test")',
-        'bat_test(',
-        '    name = "passing_test",',
-        '    content = ["@exit /B 0"],',
-        ')',
-        'bat_test(',
-        '    name = "failing_test",',
-        '    content = ["@exit /B 1"],',
-        ')',
-        'bat_test(',
-        '    name = "printing_test",',
-        '    content = [',
-        '        "@echo lorem ipsum",',
-        '        "@echo HOME=%HOME%",',
-        '        "@echo TEST_SRCDIR=%TEST_SRCDIR%",',
-        '        "@echo TEST_TMPDIR=%TEST_TMPDIR%",',
-        '        "@echo USER=%USER%",',
-        '    ]',
-        ')',
-        'bat_test(',
-        '    name = "runfiles_test",',
-        '    content = [',
-        '        "@echo off",',
-        '        "echo MF=%RUNFILES_MANIFEST_FILE%",',
-        '        "echo ONLY=%RUNFILES_MANIFEST_ONLY%",',
-        '        "echo DIR=%RUNFILES_DIR%",',
-        '        "echo data_path=%1",',
-        '        "if exist %1 (echo data_exists=1) else (echo data_exists=0)",',
-        '    ],',
-        '    data = ["dummy.dat"],',
-        '    args = ["$(location dummy.dat)"],',
-        ')',
-        'bat_test(',
-        '    name = "sharded_test",',
-        '    content = [',
-        '        "@echo STATUS=%TEST_SHARD_STATUS_FILE%",',
-        '        "@echo INDEX=%TEST_SHARD_INDEX% TOTAL=%TEST_TOTAL_SHARDS%",',
-        '    ],',
-        '    shard_count = 2,',
-        ')',
-        'bat_test(',
-        '    name = "unexported_test",',
-        '    content = [',
-        '        "@echo GOOD=%HOME%",',
-        '        "@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%",',
-        '    ],',
-        ')',
-        'bat_test(',
-        '    name = "print_arg0_test",',
-        '    content = [',
-        '        "@echo ARG0=%0",',
-        '    ],',
-        ')',
-        'exe_test(',
-        '    name = "testargs_test",',
-        '    src = "testargs.exe",',
-        r'    args = ["foo", "a b", "", "\"c d\"", "\"\"", "bar"],',
-        ')',
-        'py_test(',
-        '    name = "undecl_test",',
-        '    srcs = ["undecl_test.py"],',
-        '    data = ["dummy.ico", "dummy.dat"],',
-        '    deps = ["@bazel_tools//tools/python/runfiles"],',
-        ')',
-        'py_test(',
-        '    name = "annot_test",',
-        '    srcs = ["annot_test.py"],',
-        ')',
-        'py_test(',
-        '    name = "xml_test",',
-        '    srcs = ["xml_test.py"],',
-        ')',
-        'py_test(',
-        '    name = "xml2_test",',
-        '    srcs = ["xml2_test.py"],',
-        ')',
-        'py_test(',
-        '    name = "add_cur_dir_to_path_test",',
-        '    srcs = ["add_cur_dir_to_path_test.py"],',
-        ')'
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load(":native_test.bzl", "bat_test", "exe_test")',
+            'bat_test(',
+            '    name = "passing_test",',
+            '    content = ["@exit /B 0"],',
+            ')',
+            'bat_test(',
+            '    name = "failing_test",',
+            '    content = ["@exit /B 1"],',
+            ')',
+            'bat_test(',
+            '    name = "printing_test",',
+            '    content = [',
+            '        "@echo lorem ipsum",',
+            '        "@echo HOME=%HOME%",',
+            '        "@echo TEST_SRCDIR=%TEST_SRCDIR%",',
+            '        "@echo TEST_TMPDIR=%TEST_TMPDIR%",',
+            '        "@echo USER=%USER%",',
+            '    ]',
+            ')',
+            'bat_test(',
+            '    name = "runfiles_test",',
+            '    content = [',
+            '        "@echo off",',
+            '        "echo MF=%RUNFILES_MANIFEST_FILE%",',
+            '        "echo ONLY=%RUNFILES_MANIFEST_ONLY%",',
+            '        "echo DIR=%RUNFILES_DIR%",',
+            '        "echo data_path=%1",',
+            (
+                '        "if exist %1 (echo data_exists=1) else (echo'
+                ' data_exists=0)",'
+            ),
+            '    ],',
+            '    data = ["dummy.dat"],',
+            '    args = ["$(location dummy.dat)"],',
+            ')',
+            'bat_test(',
+            '    name = "sharded_test",',
+            '    content = [',
+            '        "type nul > %TEST_SHARD_STATUS_FILE%",',
+            '        "@echo STATUS=%TEST_SHARD_STATUS_FILE%",',
+            (
+                '        "@echo INDEX=%TEST_SHARD_INDEX%'
+                ' TOTAL=%TEST_TOTAL_SHARDS%",'
+            ),
+            '    ],',
+            '    shard_count = 2,',
+            ')',
+            'bat_test(',
+            '    name = "unexported_test",',
+            '    content = [',
+            '        "@echo GOOD=%HOME%",',
+            '        "@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%",',
+            '    ],',
+            ')',
+            'bat_test(',
+            '    name = "print_arg0_test",',
+            '    content = [',
+            '        "@echo ARG0=%0",',
+            '    ],',
+            ')',
+            'exe_test(',
+            '    name = "testargs_test",',
+            '    src = "testargs.exe",',
+            r'    args = ["foo", "a b", "", "\"c d\"", "\"\"", "bar"],',
+            ')',
+            'py_test(',
+            '    name = "undecl_test",',
+            '    srcs = ["undecl_test.py"],',
+            '    data = ["dummy.ico", "dummy.dat"],',
+            '    deps = ["@bazel_tools//tools/python/runfiles"],',
+            ')',
+            'py_test(',
+            '    name = "annot_test",',
+            '    srcs = ["annot_test.py"],',
+            ')',
+            'py_test(',
+            '    name = "xml_test",',
+            '    srcs = ["xml_test.py"],',
+            ')',
+            'py_test(',
+            '    name = "xml2_test",',
+            '    srcs = ["xml2_test.py"],',
+            ')',
+            'py_test(',
+            '    name = "add_cur_dir_to_path_test",',
+            '    srcs = ["add_cur_dir_to_path_test.py"],',
+            ')',
+        ],
+    )
 
     self.CopyFile(
         src_path=self.Rlocation('io_bazel/src/test/py/bazel/printargs.exe'),
@@ -169,9 +179,9 @@ class TestWrapperTest(test_base.TestBase):
             'os.mkdir(os.path.join(root, "out2"))',
             'os.makedirs(os.path.join(root, "empty/sub"))',
             'r = runfiles.Create()',
-            'shutil.copyfile(r.Rlocation("__main__/foo/dummy.ico"),',
+            'shutil.copyfile(r.Rlocation("_main/foo/dummy.ico"),',
             '                os.path.join(root, "out1", "data1.ico"))',
-            'shutil.copyfile(r.Rlocation("__main__/foo/dummy.dat"),',
+            'shutil.copyfile(r.Rlocation("_main/foo/dummy.dat"),',
             '                os.path.join(root, "out2", "my data 2.dat"))',
         ],
         executable=True)
@@ -464,7 +474,7 @@ class TestWrapperTest(test_base.TestBase):
         arg0,
         os.path.join(bazel_bin,
                      'foo\\print_arg0_test.bat.runfiles\\'
-                     '__main__\\foo\\print_arg0_test.bat')
+                     '_main\\foo\\print_arg0_test.bat')
     )
 
   def _AssertTestArgs(self, flags):
@@ -731,4 +741,4 @@ class TestWrapperTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

@@ -13,5 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import java.io.PrintStream;
+
 /** A return value of a {@code SkyFunction}. */
-public interface SkyValue {}
+public interface SkyValue {
+
+  /** Print a representation of this value for debugging purposes. */
+  default void debugPrint(PrintStream out) {
+    // Just use toString.
+    out.println(this);
+  }
+}

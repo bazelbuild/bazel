@@ -27,16 +27,17 @@ import java.util.regex.Pattern;
 /** Options for remote execution and distributed caching that shared between Bazel and Blaze. */
 public class CommonRemoteOptions extends OptionsBase {
   @Option(
-      name = "experimental_remote_download_regex",
+      name = "remote_download_regex",
+      oldName = "experimental_remote_download_regex",
       defaultValue = "null",
       allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Force Bazel to download the artifacts that match the given regexp. To be used in"
               + " conjunction with Build without the Bytes (or the internal equivalent) to allow"
               + " the client to request certain artifacts that might be needed locally (e.g. IDE"
-              + " support)")
+              + " support). Multiple regexes can be specified by repeating this flag.")
   public List<String> remoteDownloadRegex;
 
   @Option(

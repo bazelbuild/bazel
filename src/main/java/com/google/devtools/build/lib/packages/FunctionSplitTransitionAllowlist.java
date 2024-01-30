@@ -16,17 +16,12 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 
-/**
- * This class provides constants associated with the function split transition allowlist.
- */
+/** This class provides constants associated with the function split transition allowlist. */
 public class FunctionSplitTransitionAllowlist {
   public static final String NAME = "function_transition";
   public static final String ATTRIBUTE_NAME = "$allowlist_function_transition";
-  public static final String LEGACY_ATTRIBUTE_NAME = "$whitelist_function_transition";
-  public static final Label LABEL =
-      Label.parseCanonicalUnchecked("//tools/allowlists/function_transition_allowlist");
-  public static final Label LEGACY_LABEL =
-      Label.parseCanonicalUnchecked("//tools/whitelists/function_transition_whitelist");
+  public static final String LABEL_STR = "//tools/allowlists/function_transition_allowlist";
+  public static final Label LABEL = Label.parseCanonicalUnchecked(LABEL_STR);
 
   private FunctionSplitTransitionAllowlist() {}
 }

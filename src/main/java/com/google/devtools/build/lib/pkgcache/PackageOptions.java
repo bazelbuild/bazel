@@ -19,7 +19,6 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -59,13 +58,9 @@ public class PackageOptions extends OptionsBase {
   }
 
   /** Converter for globbing threads. */
-  public static class ParallelismConverter extends ResourceConverter {
+  public static class ParallelismConverter extends ResourceConverter.IntegerConverter {
     public ParallelismConverter() throws OptionsParsingException {
-      super(
-          /* autoSupplier= */ () ->
-              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          /* minValue= */ 1,
-          /* maxValue= */ Integer.MAX_VALUE);
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 1, /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 
@@ -110,14 +105,13 @@ public class PackageOptions extends OptionsBase {
   public List<PackageIdentifier> deletedPackages;
 
   @Option(
-    name = "default_visibility",
-    defaultValue = "private",
-    converter = DefaultVisibilityConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Default visibility for packages that don't set it explicitly ('public' or " + "'private')."
-  )
+      name = "default_visibility",
+      defaultValue = "private",
+      converter = DefaultVisibilityConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Default visibility for packages that don't set it explicitly ('public' or 'private').")
   public RuleVisibility defaultVisibility;
 
   @Option(
@@ -174,12 +168,14 @@ public class PackageOptions extends OptionsBase {
   public int maxDirectoriesToEagerlyVisitInGlobbing;
 
   @Option(
-    name = "fetch",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Allows the command to fetch external dependencies"
-  )
+      name = "fetch",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Allows the command to fetch external dependencies. If set to false, the command will"
+              + " utilize any cached version of the dependency, and if none exists, the command"
+              + " will result in failure.")
   public boolean fetch;
 
   @Option(

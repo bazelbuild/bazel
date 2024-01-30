@@ -18,9 +18,9 @@ landing_page:
     items:
     # Item 1
     - image_path: /community/images/aspect-dev-logo.png
-      heading: Aspect
+      heading: Aspect Development
       description: >
-        Aspect is a Bazel consulting company. For years our experts have contributed to Bazel at
+        Aspect Development is a Bazel consulting company. For years our experts have contributed to Bazel at
         Google and maintained official Bazel rules. We offer clients this firsthand, comprehensive
         technical experience both with Bazel itself and with the ways it integrates with the
         surrounding toolchain, developer workflow, and business processes. With decades of combined
@@ -32,6 +32,15 @@ landing_page:
         path: https://www.aspect.dev/
         classname: button
     # Item 2
+    - image_path: /community/images/bitrise-logo.png
+      heading: Bitrise
+      description: >
+        Bitrise is the world’s leading mobile-first CI/CD Platform. Our Bitrise Build Cache & CDN product enables enterprises and high-growth organizations to optimize and elevate their Bazel projects. Bitrise brings to market an uncontested build and test caching solution available nowhere else. The first of its kind, fully managed by Bitrise requiring no setup or maintenance, you can use our out-of-the-box cache Steps to enjoy a deeply integrated CI/CD & Bazel experience or integrate our cache directly into your builds on any other platform.
+      buttons:
+      - label: Learn more
+        path: https://bitrise.io/why/features/mobile-build-caching-for-better-build-test-performance
+        classname: button
+    # Item 3
     - image_path: /community/images/buildbuddy-logo.svg
       heading: BuildBuddy
       description: >
@@ -45,7 +54,7 @@ landing_page:
       - label: Learn more
         path: https://www.buildbuddy.io/
         classname: button
-    # Item 3
+    # Item 4
     - image_path: /community/images/codethink-logo.svg
       heading: Codethink
       description: >
@@ -58,7 +67,7 @@ landing_page:
       - label: Learn more
         path: https://www.codethink.co.uk/
         classname: button
-    # Item 4
+    # Item 5
     - image_path: /community/images/engflow-logo.svg
       heading: EngFlow
       description: >
@@ -71,7 +80,7 @@ landing_page:
       - label: Learn more
         path: https://www.engflow.com/
         classname: button
-    # Item 5
+    # Item 6
     - image_path: /community/images/epam-logo.png
       heading: EPAM
       description: >
@@ -84,19 +93,6 @@ landing_page:
       buttons:
       - label: Learn more
         path: https://www.epam.com/
-        classname: button
-    # Item 6
-    - image_path: /community/images/flare-logo.png
-      heading: Flare
-      description: >
-        Flare Build Systems, Inc. is the world’s first Bazel-focused SaaS & consulting company.
-        We’ve made a name for ourselves by assisting enterprises and high-growth, high-value
-        startups migrate their build & test systems into Bazel, interacting with almost every major
-        language and ruleset along the way, but we didn’t stop there—we also have launched a build
-        CI & engineering productivity-focused product line, and offer advanced Bazel training.
-      buttons:
-      - label: Learn more
-        path: https://flare.build/
         classname: button
     # Item 7
     - image_path: /community/images/oasis-logo.png

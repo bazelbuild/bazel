@@ -20,7 +20,6 @@ import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 
 /** A Truth {@link Subject} for {@link ResolvedToolchainContext}. */
 public class ResolvedToolchainContextSubject extends ToolchainContextSubject {
@@ -30,12 +29,6 @@ public class ResolvedToolchainContextSubject extends ToolchainContextSubject {
   public static ResolvedToolchainContextSubject assertThat(
       ResolvedToolchainContext resolvedToolchainContext) {
     return assertAbout(RESOLVED_TOOLCHAIN_CONTEXT_SUBJECT_FACTORY).that(resolvedToolchainContext);
-  }
-
-  /** Static method for getting the subject factory (for use with assertAbout()). */
-  public static Factory<ResolvedToolchainContextSubject, ResolvedToolchainContext>
-      resolvedToolchainContexts() {
-    return RESOLVED_TOOLCHAIN_CONTEXT_SUBJECT_FACTORY;
   }
 
   static final Factory<ResolvedToolchainContextSubject, ResolvedToolchainContext>
@@ -49,11 +42,6 @@ public class ResolvedToolchainContextSubject extends ToolchainContextSubject {
       FailureMetadata failureMetadata, ResolvedToolchainContext subject) {
     super(failureMetadata, subject);
     this.actual = subject;
-  }
-
-  public ToolchainInfoSubject forToolchainType(String toolchainTypeLabel)
-      throws LabelSyntaxException {
-    return forToolchainType(Label.parseCanonical(toolchainTypeLabel));
   }
 
   public ToolchainInfoSubject forToolchainType(Label toolchainType) {

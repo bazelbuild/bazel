@@ -102,9 +102,10 @@ cc_library(
 This is especially useful for external dependencies, as their header files
 must otherwise be included with a `/` prefix.
 
-## Including external libraries {:#include-external-libraries}
+## Include external libraries {:#include-external-libraries}
 
-Suppose you are using [Google Test](https://github.com/google/googletest){: .external}.
+Suppose you are using [Google Test](https://github.com/google/googletest)
+{: .external}.
 You can use one of the repository functions in the `WORKSPACE` file to
 download Google Test and make it available in your repository:
 
@@ -126,13 +127,13 @@ Then create `gtest.BUILD`, a `BUILD` file used to compile Google Test.
 Google Test has several "special" requirements that make its `cc_library` rule
 more complicated:
 
-*  `googletest-release-1.10.0/src/gtest-all.cc` `#include`s all other
-   files in `googletest-release-1.10.0/src/`: exclude it from the
+*  `googletest-release-1.10.0/googletest/src/gtest-all.cc` `#include`s all other
+   files in `googletest-release-1.10.0/googletest/src/`: exclude it from the
    compile to prevent link errors for duplicate symbols.
 
 *  It uses header files that are relative to the
-`googletest-release-1.10.0/include/` directory  (`"gtest/gtest.h"`), so you must
-add that directory to the include paths.
+`googletest-release-1.10.0/googletest/include/` directory (`"gtest/gtest.h"`),
+ so you must add that directory to the include paths.
 
 *  It needs to link in `pthread`, so add that as a `linkopt`.
 
@@ -142,16 +143,16 @@ The final rule therefore looks like this:
 cc_library(
     name = "main",
     srcs = glob(
-        ["googletest-release-1.10.0/src/*.cc"],
-        exclude = ["googletest-release-1.10.0/src/gtest-all.cc"]
+        ["googletest-release-1.10.0/googletest/src/*.cc"],
+        exclude = ["googletest-release-1.10.0/googletest/src/gtest-all.cc"]
     ),
     hdrs = glob([
-        "googletest-release-1.10.0/include/**/*.h",
-        "googletest-release-1.10.0/src/*.h"
+        "googletest-release-1.10.0/googletest/include/**/*.h",
+        "googletest-release-1.10.0/googletest/src/*.h"
     ]),
     copts = [
-        "-Iexternal/gtest/googletest-release-1.10.0/include",
-        "-Iexternal/gtest/googletest-release-1.10.0"
+        "-Iexternal/gtest/googletest-release-1.10.0/googletest/include",
+        "-Iexternal/gtest/googletest-release-1.10.0/googletest"
     ],
     linkopts = ["-pthread"],
     visibility = ["//visibility:public"],
@@ -180,14 +181,17 @@ Then `gtest.BUILD` would look like this:
 cc_library(
     name = "main",
     srcs = glob(
-        ["src/*.cc"],
-        exclude = ["src/gtest-all.cc"]
+        ["googletest/src/*.cc"],
+        exclude = ["googletest/src/gtest-all.cc"]
     ),
     hdrs = glob([
-        "include/**/*.h",
-        "src/*.h"
+        "googletest/include/**/*.h",
+        "googletest/src/*.h"
     ]),
-    copts = ["-Iexternal/gtest/include"],
+    copts = [
+      "-Iexternal/gtest/googletest/include",
+      "-Iexternal/gtest/googletest",
+    ],
     linkopts = ["-pthread"],
     visibility = ["//visibility:public"],
 )
@@ -214,7 +218,10 @@ Then create `./test/BUILD` file for your tests:
 cc_test(
     name = "hello-test",
     srcs = ["hello-test.cc"],
-    copts = ["-Iexternal/gtest/include"],
+    copts = [
+      "-Iexternal/gtest/googletest/include",
+      "-Iexternal/gtest/googletest",
+    ],
     deps = [
         "@gtest//:main",
         "//main:hello-greet",

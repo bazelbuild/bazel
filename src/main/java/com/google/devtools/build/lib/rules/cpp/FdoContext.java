@@ -33,7 +33,8 @@ public final class FdoContext implements FdoContextApi<BranchFdoProfile> {
     return new FdoContext(
         /* branchFdoProfile= */ null,
         /* prefetchHintsArtifact= */ null,
-        /* propellerOptimizeInputFile= */ null);
+        /* propellerOptimizeInputFile= */ null,
+        /* memprofProfileArtifact= */ null);
   }
 
   /** The Branch FDO mode we are operating in. */
@@ -117,14 +118,17 @@ public final class FdoContext implements FdoContextApi<BranchFdoProfile> {
   private final BranchFdoProfile branchFdoProfile;
   private final Artifact prefetchHintsArtifact;
   private final PropellerOptimizeInputFile propellerOptimizeInputFile;
+  private final Artifact memprofProfileArtifact;
 
   public FdoContext(
       BranchFdoProfile branchFdoProfile,
       Artifact prefetchHintsArtifact,
-      PropellerOptimizeInputFile propellerOptimizeInputFile) {
+      PropellerOptimizeInputFile propellerOptimizeInputFile,
+      Artifact memprofProfileArtifact) {
     this.branchFdoProfile = branchFdoProfile;
     this.prefetchHintsArtifact = prefetchHintsArtifact;
     this.propellerOptimizeInputFile = propellerOptimizeInputFile;
+    this.memprofProfileArtifact = memprofProfileArtifact;
   }
 
   public BranchFdoProfile getBranchFdoProfile() {
@@ -147,9 +151,14 @@ public final class FdoContext implements FdoContextApi<BranchFdoProfile> {
     return propellerOptimizeInputFile;
   }
 
+  public Artifact getMemProfProfileArtifact() {
+    return memprofProfileArtifact;
+  }
+
   boolean hasArtifacts(CppConfiguration cppConfiguration) {
     return getBranchFdoProfile() != null
         || getPrefetchHintsArtifact() != null
-        || getPropellerOptimizeInputFile() != null;
+        || getPropellerOptimizeInputFile() != null
+        || getMemProfProfileArtifact() != null;
   }
 }

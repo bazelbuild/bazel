@@ -16,8 +16,7 @@
 
 import os
 import tempfile
-import unittest
-
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 
@@ -50,10 +49,6 @@ class BazelYankedVersionsTest(test_base.TestBase):
         'yanked2', yanked_versions={'1.0': 'sketchy'}
     )
     self.writeBazelrcFile()
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
 
   def writeBazelrcFile(self, allow_yanked_versions=True):
     self.ScratchFile(
@@ -61,7 +56,7 @@ class BazelYankedVersionsTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --enable_bzlmod',
+            'build --noenable_workspace',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -96,7 +91,6 @@ class BazelYankedVersionsTest(test_base.TestBase):
             ')',
         ],
     )
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [
@@ -117,7 +111,6 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "yanked1", version = "1.0")',
         ],
     )
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [
@@ -146,7 +139,6 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [
@@ -174,7 +166,6 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [
@@ -211,7 +202,6 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [
@@ -234,4 +224,4 @@ class BazelYankedVersionsTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

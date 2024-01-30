@@ -15,10 +15,7 @@ package com.google.devtools.build.android.r8;
 
 /** Constants shared by desugaring and dexing. */
 public class Constants {
-  // When changing this also change the defaultValue for min-sdk-version in CompatDx.java,
-  // CoreLibraryDesugaring and Desugar.java. The defaultValue for annotation parameters must be
-  // compile time constants, and a "public final String" value is rejected.
-  public static final int MIN_API_LEVEL = 13;
+  public static final String MIN_API_LEVEL = "19";
 
   private Constants() {}
 }

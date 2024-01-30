@@ -16,11 +16,11 @@ package com.google.devtools.build.skyframe;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.ForOverride;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  */
 public class NotifyingHelper {
   public static MemoizingEvaluator.GraphTransformerForTesting makeNotifyingTransformer(
-      final Listener listener) {
+      Listener listener) {
     return new MemoizingEvaluator.GraphTransformerForTesting() {
       @Override
       public InMemoryGraph transform(InMemoryGraph graph) {
@@ -122,8 +122,16 @@ public class NotifyingHelper {
           delegate.getBatchMap(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
+    @Nullable
     @Override
-    public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps)
+    public ImmutableSet<SkyKey> prefetchDeps(
+        SkyKey requestor, Set<SkyKey> oldDeps, GroupedDeps previouslyRequestedDeps)
+        throws InterruptedException {
+      return delegate.prefetchDeps(requestor, oldDeps, previouslyRequestedDeps);
+    }
+
+    @Override
+    public DepsReport analyzeDepsDoneness(SkyKey parent, List<SkyKey> deps)
         throws InterruptedException {
       return delegate.analyzeDepsDoneness(parent, deps);
     }
@@ -147,7 +155,7 @@ public class NotifyingHelper {
     MARK_DIRTY,
     MARK_CLEAN,
     IS_CHANGED,
-    GET_DIRTY_STATE,
+    GET_LIFECYCLE_STATE,
     GET_VALUE_WITH_METADATA,
     IS_DIRTY,
     IS_READY,
@@ -197,7 +205,7 @@ public class NotifyingHelper {
   }
 
   /** {@link NodeEntry} that informs a {@link Listener} of various method calls. */
-  class NotifyingNodeEntry extends DelegatingNodeEntry {
+  public class NotifyingNodeEntry extends DelegatingNodeEntry {
     private final SkyKey myKey;
     private final NodeEntry delegate;
 
@@ -296,11 +304,11 @@ public class NotifyingHelper {
     }
 
     @Override
-    public DirtyState getDirtyState() {
-      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.BEFORE, this);
-      DirtyState dirtyState = super.getDirtyState();
-      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.AFTER, dirtyState);
-      return dirtyState;
+    public LifecycleState getLifecycleState() {
+      graphListener.accept(myKey, EventType.GET_LIFECYCLE_STATE, Order.BEFORE, this);
+      LifecycleState lifecycleState = super.getLifecycleState();
+      graphListener.accept(myKey, EventType.GET_LIFECYCLE_STATE, Order.AFTER, lifecycleState);
+      return lifecycleState;
     }
 
     @Override
@@ -340,15 +348,15 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
+    public ImmutableSet<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
       graphListener.accept(
           myKey, EventType.GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE, Order.BEFORE, this);
       return super.getAllDirectDepsForIncompleteNode();
     }
 
     @Override
-    public void resetForRestartFromScratch() {
-      delegate.resetForRestartFromScratch();
+    public void resetEvaluationFromScratch() {
+      delegate.resetEvaluationFromScratch();
       graphListener.accept(myKey, EventType.RESET_FOR_RESTART_FROM_SCRATCH, Order.AFTER, this);
     }
 

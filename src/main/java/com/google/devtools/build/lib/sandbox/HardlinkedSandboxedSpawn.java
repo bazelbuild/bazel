@@ -45,6 +45,7 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
       SandboxOutputs outputs,
       Set<Path> writableDirs,
       TreeDeleter treeDeleter,
+      @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath,
       boolean sandboxDebug,
       String mnemonic) {
@@ -57,6 +58,7 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
         outputs,
         writableDirs,
         treeDeleter,
+        sandboxDebugPath,
         statisticsPath,
         mnemonic);
     this.sandboxDebug = sandboxDebug;

@@ -14,37 +14,65 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /** A {@link RunfilesSupplier} implementation for composing multiple instances. */
 public final class CompositeRunfilesSupplier implements RunfilesSupplier {
+  private final ImmutableList<RunfilesTree> runfilesTrees;
 
-  private final ImmutableList<RunfilesSupplier> suppliers;
+  /**
+   * Create a runfiles supplier with an explicit list of runfiles trees.
+   *
+   * <p>No clever de-duplication is done aside from returning a singleton instance if there are no
+   * runfiles trees. The expectation is that the return value of this method is ephemeral.
+   */
+  public static RunfilesSupplier fromRunfilesTrees(Collection<RunfilesTree> runfilesTrees) {
+    if (runfilesTrees.isEmpty()) {
+      return EmptyRunfilesSupplier.INSTANCE;
+    }
+
+    return new CompositeRunfilesSupplier(ImmutableList.copyOf(runfilesTrees));
+  }
 
   /**
    * Create a composite {@link RunfilesSupplier} from a collection of suppliers. Suppliers earlier
    * in the collection take precedence over later suppliers.
    */
   public static RunfilesSupplier fromSuppliers(Collection<RunfilesSupplier> suppliers) {
-    ImmutableList<RunfilesSupplier> finalSuppliers =
+    ImmutableList<RunfilesSupplier> nonEmptySuppliers =
         suppliers.stream()
             .filter((s) -> s != EmptyRunfilesSupplier.INSTANCE)
-            .collect(ImmutableList.toImmutableList());
-    if (finalSuppliers.isEmpty()) {
+            .collect(toImmutableList());
+
+    if (nonEmptySuppliers.isEmpty()) {
       return EmptyRunfilesSupplier.INSTANCE;
     }
-    if (finalSuppliers.size() == 1) {
-      return finalSuppliers.get(0);
+
+    if (nonEmptySuppliers.size() == 1) {
+      return Iterables.getOnlyElement(nonEmptySuppliers);
     }
-    return new CompositeRunfilesSupplier(finalSuppliers);
+
+    Set<PathFragment> execPaths = new HashSet<>();
+    List<RunfilesTree> trees = new ArrayList<>();
+
+    for (RunfilesSupplier supplier : nonEmptySuppliers) {
+      for (RunfilesTree tree : supplier.getRunfilesTrees()) {
+        if (execPaths.add(tree.getPossiblyIncorrectExecPath())) {
+          trees.add(tree);
+        }
+      }
+    }
+
+    return new CompositeRunfilesSupplier(ImmutableList.copyOf(trees));
   }
 
   /**
@@ -57,71 +85,13 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
   /**
    * Create an instance combining all of {@code suppliers}, with earlier elements taking precedence.
    */
-  private CompositeRunfilesSupplier(ImmutableList<RunfilesSupplier> suppliers) {
-    this.suppliers = suppliers;
+  private CompositeRunfilesSupplier(ImmutableList<RunfilesTree> runfilesTrees) {
+    this.runfilesTrees = runfilesTrees;
   }
 
   @Override
-  public NestedSet<Artifact> getArtifacts() {
-    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (RunfilesSupplier supplier : suppliers) {
-      result.addTransitive(supplier.getArtifacts());
-    }
-    return result.build();
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    return runfilesTrees;
   }
 
-  @Override
-  public ImmutableSet<PathFragment> getRunfilesDirs() {
-    ImmutableSet.Builder<PathFragment> result = ImmutableSet.builder();
-    for (RunfilesSupplier supplier : suppliers) {
-      result.addAll(supplier.getRunfilesDirs());
-    }
-    return result.build();
-  }
-
-  @Override
-  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
-    Map<PathFragment, Map<PathFragment, Artifact>> result = Maps.newHashMap();
-    for (RunfilesSupplier supplier : suppliers) {
-      Map<PathFragment, Map<PathFragment, Artifact>> mappings = supplier.getMappings();
-      for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> entry : mappings.entrySet()) {
-        result.putIfAbsent(entry.getKey(), entry.getValue());
-      }
-    }
-    return ImmutableMap.copyOf(result);
-  }
-
-  @Override
-  public ImmutableList<Artifact> getManifests() {
-    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    for (RunfilesSupplier supplier : suppliers) {
-      result.addAll(supplier.getManifests());
-    }
-    return result.build();
-  }
-
-  @Override
-  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
-    for (RunfilesSupplier supplier : suppliers) {
-      if (supplier.isBuildRunfileLinks(runfilesDir)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  @Override
-  public boolean isRunfileLinksEnabled(PathFragment runfilesDir) {
-    for (RunfilesSupplier supplier : suppliers) {
-      if (supplier.isRunfileLinksEnabled(runfilesDir)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  @Override
-  public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
-    throw new UnsupportedOperationException();
-  }
 }

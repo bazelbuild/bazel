@@ -29,19 +29,18 @@ import java.lang.annotation.Target;
 public @interface GlobalMethods {
   /** The environment in which the global methods in the annotated class are available. */
   enum Environment {
+    ALL(
+        "All Bazel files",
+        "Methods available in all Bazel files, including .bzl files, BUILD, MODULE.bazel,"
+            + " and WORKSPACE."),
+    BZL(".bzl files", "Global methods available in all .bzl files."),
     BUILD(
         "BUILD files",
-        "This page contains global methods available in BUILD files. See also the Build"
+        "Methods available in BUILD files. See also the Build"
             + " Encyclopedia for extra <a href=\"${link functions}\">functions</a> and build rules,"
             + " which can also be used in BUILD files."),
-    WORKSPACE("WORKSPACE files", "This page contains global methods available in WORKSPACE files."),
-    MODULE(
-        "MODULE.bazel files", "This page contains global methods available in MODULE.bazel files."),
-    BZL(".bzl files", "This page contains global methods available in all .bzl files."),
-    ALL(
-        "All Starlark files",
-        "This page contains global methods available in all Starlark files, including BUILD,"
-            + " WORKSPACE, MODULE.bazel, and all .bzl files.");
+    MODULE("MODULE.bazel files", "Methods available in MODULE.bazel files."),
+    WORKSPACE("WORKSPACE files", "Methods available in WORKSPACE files.");
 
     private final String title;
     private final String description;

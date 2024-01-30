@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.repository;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -27,6 +28,15 @@ import java.util.Objects;
 
 /** The value of the binding of "resolved" in a given file. */
 public class ResolvedFileValue implements SkyValue {
+
+  public static final String ORIGINAL_RULE_CLASS = "original_rule_class";
+  public static final String ORIGINAL_ATTRIBUTES = "original_attributes";
+  public static final String DEFINITION_INFORMATION = "definition_information";
+  public static final String RULE_CLASS = "rule_class";
+  public static final String ATTRIBUTES = "attributes";
+  public static final String OUTPUT_TREE_HASH = "output_tree_hash";
+  public static final String REPOSITORIES = "repositories";
+  public static final String NATIVE = "native";
 
   /** Argument for the SkyKey to request the resolved value of a file. */
   @Immutable
@@ -40,10 +50,14 @@ public class ResolvedFileValue implements SkyValue {
       this.path = path;
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static ResolvedFileKey create(RootedPath path) {
+    private static ResolvedFileKey create(RootedPath path) {
       return interner.intern(new ResolvedFileKey(path));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static ResolvedFileKey intern(ResolvedFileKey resolvedFileKey) {
+      return interner.intern(resolvedFileKey);
     }
 
     public RootedPath getPath() {

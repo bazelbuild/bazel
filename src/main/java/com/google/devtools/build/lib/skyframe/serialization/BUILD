@@ -26,8 +26,12 @@ java_library(
         exclude = [
             "SerializationConstants.java",
             "CodecScanningConstants.java",
+            "VisibleForSerialization.java",
         ],
     ),
+    add_opens = [
+        "java.base/java.lang.invoke",
+    ],
     deps = [
         ":codec-scanning-constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
@@ -35,6 +39,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:error_prone_annotations",
+        "//third_party:fastutil",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -49,4 +54,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
     ],
+)
+
+java_library(
+    name = "visible-for-serialization",
+    srcs = ["VisibleForSerialization.java"],
 )

@@ -1,0 +1,46 @@
+func_info {
+  function_name: "my_aspect_impl"
+  parameter {
+    name: "ctx"
+    mandatory: true
+  }
+}
+aspect_info {
+  aspect_name: "my_aspect"
+  doc_string: "This is my aspect. It does stuff."
+  aspect_attribute: "deps"
+  aspect_attribute: "attr_aspect"
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "first"
+    type: LABEL
+    mandatory: true
+  }
+  attribute {
+    name: "second"
+    type: STRING_DICT
+    mandatory: true
+  }
+}
+aspect_info {
+  aspect_name: "other_aspect"
+  doc_string: "This is another aspect."
+  aspect_attribute: "*"
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "third"
+    type: INT
+    mandatory: true
+  }
+}
+module_docstring: "The input file for the aspect test"

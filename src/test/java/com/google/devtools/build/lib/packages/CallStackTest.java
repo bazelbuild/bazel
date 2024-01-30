@@ -17,8 +17,11 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -142,28 +145,31 @@ public final class CallStackTest {
             stackEntries2.get(0).location,
             interiorStack2);
 
-    CallStack.Serializer serializer = new CallStack.Serializer();
+    SerializationContext serializer =
+        new SerializationContext(/* dependencies= */ ImmutableClassToInstanceMap.of())
+            .getMemoizingContext();
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
-    serializer.prepareCallStack(rule1);
-    serializer.prepareCallStack(rule2);
-    serializer.serializeCallStack(rule1, codedOut);
-    serializer.serializeCallStack(rule2, codedOut);
-    serializer.serializeCallStack(rule1, codedOut);
+
+    serializer.serialize(CallStack.getFullCallStack(rule1), codedOut);
+    serializer.serialize(CallStack.getFullCallStack(rule2), codedOut);
+    serializer.serialize(CallStack.getFullCallStack(rule1), codedOut);
     codedOut.flush();
 
-    CallStack.Deserializer deserializer = new CallStack.Deserializer();
+    DeserializationContext deserializer =
+        new DeserializationContext(/* dependencies= */ ImmutableClassToInstanceMap.of())
+            .getMemoizingContext();
     CodedInputStream codedIn = CodedInputStream.newInstance(bytesOut.toByteArray());
 
-    CallStack.Node deserializedCallStack1 = deserializer.deserializeFullCallStack(codedIn);
+    CallStack.Node deserializedCallStack1 = deserializer.deserialize(codedIn);
     assertThat(deserializedCallStack1.toLocation()).isEqualTo(rule1.getLocation());
     assertCallStackContents(deserializedCallStack1.next(), stackEntries1);
 
-    CallStack.Node deserializedCallStack2 = deserializer.deserializeFullCallStack(codedIn);
+    CallStack.Node deserializedCallStack2 = deserializer.deserialize(codedIn);
     assertThat(deserializedCallStack2.toLocation()).isEqualTo(rule2.getLocation());
     assertCallStackContents(deserializedCallStack2.next(), stackEntries2);
 
-    CallStack.Node deserializedCallStack1Again = deserializer.deserializeFullCallStack(codedIn);
+    CallStack.Node deserializedCallStack1Again = deserializer.deserialize(codedIn);
     assertThat(deserializedCallStack1Again.toLocation()).isEqualTo(rule1.getLocation());
     assertCallStackContents(deserializedCallStack1Again.next(), stackEntries1);
   }

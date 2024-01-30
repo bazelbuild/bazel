@@ -21,24 +21,17 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Tables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
-import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -66,8 +59,6 @@ import org.junit.runners.JUnit4;
 /** Tests for BzlLoadFunction. */
 @RunWith(JUnit4.class)
 public class BzlLoadFunctionTest extends BuildViewTestCase {
-  private Path moduleRoot;
-  private FakeRegistry registry;
 
   @Override
   protected FileSystem createFileSystem() {
@@ -94,33 +85,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-  }
-
-  @Override
-  protected ImmutableList<Injected> extraPrecomputedValues() {
-    try {
-      moduleRoot = scratch.dir("modules");
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
-    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
-    return ImmutableList.of(
-        PrecomputedValue.injected(
-            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
-        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
-        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF));
-  }
-
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
   }
 
   @Test
@@ -305,6 +269,61 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     assertContainsEvent("in .scl files, load labels must begin with \"//\"");
   }
 
+  @Test
+  public void testSclSupportsStructAndVisibility() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/ext1.scl", //
+        "visibility('private')",
+        "a = struct()");
+    scratch.file(
+        "pkg/ext2.scl", //
+        "load('//pkg:ext1.scl', 'a')");
+    scratch.file("pkg2/BUILD");
+    scratch.file(
+        "pkg2/ext3.scl", //
+        "load('//pkg:ext1.scl', 'a')");
+
+    checkSuccessfulLookup("//pkg:ext2.scl");
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//pkg2:ext3.scl", "module //pkg2:ext3.scl contains .bzl load visibility violations");
+  }
+
+  @Test
+  public void testSclDoesNotSupportOtherBazelSymbols() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/ext.scl", //
+        "a = depset([])");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext.scl", "compilation of module 'pkg/ext.scl' failed");
+    assertContainsEvent("name 'depset' is not defined");
+  }
+
+  @Test
+  public void testSclDisallowsNonAsciiStringLiterals() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/ext1.bzl", //
+        "'x\377z'"); // xÿz
+    scratch.file(
+        "pkg/ext2.scl", //
+        "'x\377z'");
+
+    checkSuccessfulLookup("//pkg:ext1.bzl");
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext2.scl", "compilation of module 'pkg/ext2.scl' failed");
+    assertContainsEvent("string literal contains non-ASCII character");
+  }
+
   private EvaluationResult<BzlLoadValue> get(SkyKey skyKey) throws Exception {
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
@@ -324,8 +343,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     SkyKey skyKey = key(label);
     EvaluationResult<BzlLoadValue> result = get(skyKey);
     // Ensure that the file has been processed by checking its Module for the label field.
-    assertThat(label)
-        .isEqualTo(BazelModuleContext.of(result.get(skyKey).getModule()).label().toString());
+    assertThat(Label.parseCanonicalUnchecked(label))
+        .isEqualTo(BazelModuleContext.of(result.get(skyKey).getModule()).label());
   }
 
   /* Loads a .bzl with the given label and asserts BzlLoadFailedException with the given message. */
@@ -788,7 +807,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     checkFailingLookup(
         "//pkg:foo2.bzl", "module //pkg:foo2.bzl contains .bzl load visibility violations");
     assertContainsEvent(
-        "Starlark file @repo//lib:bar.bzl is not visible for loading from package //pkg.");
+        "Starlark file @@repo//lib:bar.bzl is not visible for loading from package //pkg.");
   }
 
   // TODO(#16365): This test case can be deleted once --incompatible_package_group_has_public_syntax
@@ -843,9 +862,9 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "@repo//a:foo.bzl", "module @repo//a:foo.bzl contains .bzl load visibility violations");
+        "@repo//a:foo.bzl", "module @@repo//a:foo.bzl contains .bzl load visibility violations");
     assertContainsEvent(
-        "Starlark file //b:bar.bzl is not visible for loading from package @repo//a.");
+        "Starlark file //b:bar.bzl is not visible for loading from package @@repo//a.");
   }
 
   @Test
@@ -995,8 +1014,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
-            "Unable to find package for @repository//dir:file.bzl: The repository '@repository' "
-                + "could not be resolved: Repository '@repository' is not defined.");
+            "Unable to find package for @@repository//dir:file.bzl: The repository '@@repository' "
+                + "could not be resolved: Repository '@@repository' is not defined.");
   }
 
   @Test
@@ -1017,7 +1036,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     scratch.file("/y/WORKSPACE");
     scratch.file("/y/BUILD");
-    scratch.file("/y/y.bzl", "y_symbol = 5");
+    scratch.file("/y/y.bzl", "l = Label('@z//:z')", "y_symbol = 5");
 
     scratch.file("/a/WORKSPACE");
     scratch.file("/a/BUILD");
@@ -1033,13 +1052,18 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
 
-    assertThat(result.get(skyKey).getModule().getGlobals())
-        .containsEntry("a_symbol", StarlarkInt.of(5));
+    var bzlLoadValue = result.get(skyKey);
+    assertThat(bzlLoadValue.getModule().getGlobals()).containsEntry("a_symbol", StarlarkInt.of(5));
+    assertThat(bzlLoadValue.getRecordedRepoMappings().cellSet())
+        .containsExactly(
+            Tables.immutableCell(RepositoryName.create("a"), "x", RepositoryName.create("y")),
+            Tables.immutableCell(RepositoryName.create("y"), "z", RepositoryName.create("z")))
+        .inOrder();
   }
 
   @Test
   public void testLoadBzlFileFromBzlmod() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod", "--experimental_enable_scl_dialect");
+    setBuildLanguageOptions("--experimental_enable_scl_dialect");
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     registry
         .addModule(
@@ -1054,6 +1078,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         fooDir.getRelative("test.bzl").getPathString(),
         // Also test that bzlmod .bzl files can load .scl files.
         "load('@bar_alias//:test.scl', 'haha')",
+        "l = Label('@foo//:whatever')",
         "hoho = haha");
     Path barDir = moduleRoot.getRelative("bar~2.0");
     scratch.file(barDir.getRelative("WORKSPACE").getPathString());
@@ -1066,8 +1091,15 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
 
     assertThatEvaluationResult(result).hasNoError();
-    assertThat(result.get(skyKey).getModule().getGlobals())
-        .containsEntry("hoho", StarlarkInt.of(5));
+    var bzlLoadValue = result.get(skyKey);
+    assertThat(bzlLoadValue.getModule().getGlobals()).containsEntry("hoho", StarlarkInt.of(5));
+    assertThat(bzlLoadValue.getRecordedRepoMappings().cellSet())
+        .containsExactly(
+            Tables.immutableCell(
+                RepositoryName.create("foo~1.0"), "bar_alias", RepositoryName.create("bar~2.0")),
+            Tables.immutableCell(
+                RepositoryName.create("foo~1.0"), "foo", RepositoryName.create("foo~1.0")))
+        .inOrder();
     // Note that we're not testing the case of a non-registry override using @bazel_tools here, but
     // that is incredibly hard to set up in a unit test. So we should just rely on integration tests
     // for that.

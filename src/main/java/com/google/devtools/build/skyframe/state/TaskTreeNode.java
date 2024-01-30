@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe.state;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.Lookup.ConsumerLookup;
@@ -89,10 +88,10 @@ final class TaskTreeNode implements StateMachine.Tasks {
   }
 
   /** Runs the state machine bound to this node. */
-  void run(ExtendedEventHandler listener) throws InterruptedException {
+  void run() throws InterruptedException {
     checkState(pendingChildCount == 0);
     while (state != StateMachine.DONE) {
-      state = state.step(this, listener);
+      state = state.step(this);
       if (pendingChildCount > 0) {
         return;
       }

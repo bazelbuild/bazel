@@ -13,19 +13,36 @@ filegroup(
 
 # I/O utilities.
 
+IO_PROTO_SRCS = [
+    "CommandExtensionReporter.java",
+    "MessageOutputStream.java",
+    "MessageOutputStreamWrapper.java",
+]
+
 OUT_ERR_SRCS = [
+    "AnsiTerminal.java",
+    "AnsiTerminalPrinter.java",
+    "AnsiTerminalWriter.java",
+    "DelegatingOutErr.java",
     "OutErr.java",
+    "LineCountingAnsiTerminalWriter.java",
     "LinePrefixingOutputStream.java",
     "LineFlushingOutputStream.java",
+    "LoggingTerminalWriter.java",
+    "PositionAwareAnsiTerminalWriter.java",
+    "RecordingOutErr.java",
+    "StreamDemultiplexer.java",
+    "StreamMultiplexer.java",
 ]
 
 java_library(
     name = "io",
     srcs = glob(
         ["*.java"],
-        exclude = OUT_ERR_SRCS,
+        exclude = OUT_ERR_SRCS + IO_PROTO_SRCS,
     ),
     deps = [
+        ":io-proto",
         ":out-err",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -35,6 +52,15 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "io-proto",
+    srcs = IO_PROTO_SRCS,
+    deps = [
+        "//third_party:guava",
+        "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
     ],
 )
@@ -42,5 +68,9 @@ java_library(
 java_library(
     name = "out-err",
     srcs = OUT_ERR_SRCS,
-    deps = ["//third_party:guava"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
 )

@@ -13,14 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -32,10 +37,12 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -53,6 +60,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
 
     scratch.file(
         "tests/BUILD",
+        getPyLoad("py_binary"),
+        getPyLoad("py_test"),
         "py_test(name = 'small_test_1',",
         "        srcs = ['small_test_1.py'],",
         "        data = [':xUnit'],",
@@ -132,6 +141,33 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "          use_testrunner = 0,",
         "          srcs = ['NoTestRunnerTest.java'])",
         "");
+  }
+
+  private ImmutableList<Map<PathFragment, Artifact>> getShardRunfilesMappings(String label)
+      throws Exception {
+    return getTestStatusArtifacts(label).stream()
+        .map(this::getGeneratingAction)
+        .map(ActionExecutionMetadata::getRunfilesSupplier)
+        .map(RunfilesSupplier::getRunfilesTrees)
+        .map(Iterables::getOnlyElement)
+        .map(RunfilesTree::getMapping)
+        .collect(toImmutableList());
+  }
+
+  @Test
+  public void testRunfilesMappingCached() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "sh_test(name = 'sh', srcs = ['a.sh'], shard_count = 2)",
+        "java_test(name = 'java', srcs = ['Java.java'], shard_count = 2)");
+
+    ImmutableList<Map<PathFragment, Artifact>> shMappings = getShardRunfilesMappings("//a:sh");
+    assertThat(shMappings).hasSize(2);
+    assertThat(shMappings.get(0)).isSameInstanceAs(shMappings.get(1));
+
+    ImmutableList<Map<PathFragment, Artifact>> javaMappings = getShardRunfilesMappings("//a:java");
+    assertThat(javaMappings).hasSize(2);
+    assertThat(javaMappings.get(0)).isSameInstanceAs(javaMappings.get(1));
   }
 
   @Test
@@ -330,7 +366,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
-        .containsExactly("@//:suite", "@//:test_a", "@//:test_b");
+        .containsExactly("@@//:suite", "@@//:test_a", "@@//:test_b");
   }
 
   @Test
@@ -363,7 +399,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
-        .containsExactly("@//:suite", "@//:test_b");
+        .containsExactly("@@//:suite", "@@//:test_b");
   }
 
   @Test
@@ -396,7 +432,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
       StructImpl info = (StructImpl) a.get(key);
       labels.addAll(((Depset) info.getValue("labels")).getSet(String.class).toList());
     }
-    assertThat(labels).containsExactly("@//:test_a", "@//:test_b");
+    assertThat(labels).containsExactly("@@//:test_a", "@@//:test_b");
   }
 
   private void writeLabelCollectionAspect() throws IOException {

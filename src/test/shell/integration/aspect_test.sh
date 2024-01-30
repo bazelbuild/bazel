@@ -175,16 +175,16 @@ EOF
 
   # Only aspect_a is applied on target_with_a because its "provided" providers
   # do not macth aspect_b required providers.
-  expect_log "aspect_a runs on target @//${package}:target_with_a"
-  expect_not_log "aspect_b runs on target @//${package}:target_with_a"
+  expect_log "aspect_a runs on target @@\?//${package}:target_with_a"
+  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_a"
 
   # Only aspect_a can run on target_with_a_indeps
-  expect_log "aspect_a runs on target @//${package}:target_with_a_indeps"
-  expect_not_log "aspect_b runs on target @//${package}:target_with_a_indeps"
+  expect_log "aspect_a runs on target @@\?//${package}:target_with_a_indeps"
+  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_a_indeps"
 
   # Only aspect_b can run on target_with_bc
-  expect_not_log "aspect_a runs on target @//${package}:target_with_bc"
-  expect_log "aspect_b runs on target @//${package}:target_with_bc"
+  expect_not_log "aspect_a runs on target @@\?//${package}:target_with_bc"
+  expect_log "aspect_b runs on target @@\?//${package}:target_with_bc"
 
   # using --incompatible_top_level_aspects_require_providers, the top level
   # target rule's advertised providers will be checked and only aspect_a will be
@@ -196,17 +196,17 @@ EOF
       || fail "Build failed but should have succeeded"
 
   # Only aspect_a is applied on target_with_a
-  expect_log "aspect_a runs on target @//${package}:target_with_a"
-  expect_not_log "aspect_b runs on target @//${package}:target_with_a"
+  expect_log "aspect_a runs on target @@\?//${package}:target_with_a"
+  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_a"
 
   # Only aspect_a can run on target_with_a_indeps
-  expect_log "aspect_a runs on target @//${package}:target_with_a_indeps"
-  expect_not_log "aspect_b runs on target @//${package}:target_with_a_indeps"
+  expect_log "aspect_a runs on target @@\?//${package}:target_with_a_indeps"
+  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_a_indeps"
 
   # rule_with_bc advertised provides only match the required providers for
   # aspect_b, but aspect_b is not propagated from target_with_a
-  expect_not_log "aspect_a runs on target @//${package}:target_with_bc"
-  expect_not_log "aspect_b runs on target @//${package}:target_with_bc"
+  expect_not_log "aspect_a runs on target @@\?//${package}:target_with_bc"
+  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_bc"
 }
 
 function test_aspect_required_providers_default_no_required_providers() {
@@ -268,10 +268,10 @@ EOF
 
   # my_aspect does not require any providers so it will be applied to all the
   # dependencies of main target
-  expect_log "my_aspect runs on target @//${package}:target_without_providers"
-  expect_log "my_aspect runs on target @//${package}:target_with_providers"
-  expect_log "my_aspect runs on target @//${package}:target_with_providers_not_advertised"
-  expect_log "my_aspect runs on target @//${package}:target_with_providers_indeps"
+  expect_log "my_aspect runs on target @@\?//${package}:target_without_providers"
+  expect_log "my_aspect runs on target @@\?//${package}:target_with_providers"
+  expect_log "my_aspect runs on target @@\?//${package}:target_with_providers_not_advertised"
+  expect_log "my_aspect runs on target @@\?//${package}:target_with_providers_indeps"
 }
 
 function test_aspect_required_providers_flat_set_of_required_providers() {
@@ -352,15 +352,15 @@ EOF
   # my_aspect will only be applied on target_with_ab and
   # target_with_ab_indeps_reached since their rule (rule_with_ab) is the only
   # rule that advertises the aspect required providers.
-  expect_log "my_aspect runs on target @//${package}:target_with_ab"
-  expect_log "my_aspect runs on target @//${package}:target_with_ab_indeps_reached"
-  expect_not_log "/^my_aspect runs on target @//${package}:target_with_a$/"
-  expect_not_log "my_aspect runs on target @//${package}:target_without_providers"
-  expect_not_log "my_aspect runs on target @//${package}:target_with_ab_not_advertised"
+  expect_log "my_aspect runs on target @@\?//${package}:target_with_ab"
+  expect_log "my_aspect runs on target @@\?//${package}:target_with_ab_indeps_reached"
+  expect_not_log "/^my_aspect runs on target @@\?//${package}:target_with_a$/"
+  expect_not_log "my_aspect runs on target @@\?//${package}:target_without_providers"
+  expect_not_log "my_aspect runs on target @@\?//${package}:target_with_ab_not_advertised"
 
   # my_aspect cannot be propagated to target_with_ab_indeps_not_reached
   # because it was not applied to its parent (target_with_a)
-  expect_not_log "my_aspect runs on target @//${package}:target_with_ab_indeps_not_reached"
+  expect_not_log "my_aspect runs on target @@\?//${package}:target_with_ab_indeps_not_reached"
 }
 
 function test_aspect_required_providers_with_list_of_required_providers_lists() {
@@ -453,16 +453,16 @@ EOF
   # my_aspect will only be applied on target_with_ab, target_wtih_c and
   # target_with_c_indeps_reached because their rules (rule_with_ab and
   # rule_with_c) are the only rules advertising the aspect required providers
-  expect_log "my_aspect runs on target @//${package}:target_with_ab"
-  expect_log "my_aspect runs on target @//${package}:target_with_c"
-  expect_log "my_aspect runs on target @//${package}:target_with_c_indeps_reached"
-  expect_not_log "my_aspect runs on target @//${package}:target_without_providers"
-  expect_not_log "/^my_aspect runs on target @//${package}:target_with_a$/"
-  expect_not_log "my_aspect runs on target @//${package}:target_with_ab_not_advertised"
+  expect_log "my_aspect runs on target @@\?//${package}:target_with_ab"
+  expect_log "my_aspect runs on target @@\?//${package}:target_with_c"
+  expect_log "my_aspect runs on target @@\?//${package}:target_with_c_indeps_reached"
+  expect_not_log "my_aspect runs on target @@\?//${package}:target_without_providers"
+  expect_not_log "/^my_aspect runs on target @@\?//${package}:target_with_a$/"
+  expect_not_log "my_aspect runs on target @@\?//${package}:target_with_ab_not_advertised"
 
   # my_aspect cannot be propagated to target_with_c_indeps_not_reached because it was
   # not applied to its parent (target_with_a)
-  expect_not_log "my_aspect runs on target @//${package}:target_with_c_indeps_not_reached"
+  expect_not_log "my_aspect runs on target @@\?//${package}:target_with_c_indeps_not_reached"
 }
 
 function test_aspects_propagating_other_aspects() {
@@ -536,12 +536,12 @@ EOF
   # dep_target_without_providers_1 and dep_target_with_prov_a but
   # required_aspect will only run on dep_target_with_prov_a because
   # it satisfies its required providers
-  expect_log "base_aspect runs on target @//${package}:dep_target_with_prov_a"
-  expect_log "base_aspect runs on target @//${package}:dep_target_without_providers_1"
-  expect_log "base_aspect runs on target @//${package}:dep_target_without_providers"
-  expect_log "required_aspect runs on target @//${package}:dep_target_with_prov_a"
-  expect_not_log "required_aspect runs on target @//${package}:dep_target_without_providers_1"
-  expect_not_log "required_aspect runs on target @//${package}:dep_target_without_providers/"
+  expect_log "base_aspect runs on target @@\?//${package}:dep_target_with_prov_a"
+  expect_log "base_aspect runs on target @@\?//${package}:dep_target_without_providers_1"
+  expect_log "base_aspect runs on target @@\?//${package}:dep_target_without_providers"
+  expect_log "required_aspect runs on target @@\?//${package}:dep_target_with_prov_a"
+  expect_not_log "required_aspect runs on target @@\?//${package}:dep_target_without_providers_1"
+  expect_not_log "required_aspect runs on target @@\?//${package}:dep_target_without_providers/"
 }
 
 function test_aspects_propagating_other_aspects_stack_of_required_aspects() {
@@ -615,12 +615,12 @@ EOF
   # Check that aspects: aspect_a, aspect_b, aspect_c were propagated to the
   # dependencies of target test: t and x when only aspect_a is specified
   # in the rule definition
-  expect_log_once "Aspect 'c' applied on target: @//${package}:x"
-  expect_log_once "Aspect 'c' applied on target: @//${package}:t"
-  expect_log_once "Aspect 'b' applied on target: @//${package}:x"
-  expect_log_once "Aspect 'b' applied on target: @//${package}:t"
-  expect_log_once "Aspect 'a' applied on target: @//${package}:x"
-  expect_log_once "Aspect 'a' applied on target: @//${package}:t"
+  expect_log_once "Aspect 'c' applied on target: @@\?//${package}:x"
+  expect_log_once "Aspect 'c' applied on target: @@\?//${package}:t"
+  expect_log_once "Aspect 'b' applied on target: @@\?//${package}:x"
+  expect_log_once "Aspect 'b' applied on target: @@\?//${package}:t"
+  expect_log_once "Aspect 'a' applied on target: @@\?//${package}:x"
+  expect_log_once "Aspect 'a' applied on target: @@\?//${package}:t"
 }
 
 function test_aspect_has_access_to_aspect_hints_attribute_in_native_rules() {
@@ -652,7 +652,7 @@ cc_library(
 count_hints(name = "cnt", deps = [":cc_foo"])
 EOF
 
-  bazel build "//${package}:cnt" --experimental_enable_aspect_hints \
+  bazel build "//${package}:cnt" \
     --output_groups=out \
     || fail "Build failed"
   assert_contains "Used hints: 5" "./${PRODUCT_NAME}-bin/${package}/cnt_res"
@@ -663,22 +663,10 @@ function test_aspect_has_access_to_aspect_hints_attribute_in_starlark_rules() {
   mkdir -p "${package}"
   setup_aspect_hints "${package}"
 
-  bazel build "//${package}:cnt" --experimental_enable_aspect_hints \
+  bazel build "//${package}:cnt" \
     --output_groups=out \
     || fail "Build failed"
   assert_contains "Used hints: 22" "./${PRODUCT_NAME}-bin/${package}/cnt_res"
-}
-
-function test_aspect_hints_disabled() {
-  local package="aspect_hints_disabled"
-  mkdir -p "${package}"
-  setup_aspect_hints "${package}"
-
-  bazel build "//${package}:cnt" --noexperimental_enable_aspect_hints \
-    --output_groups=out &>"${TEST_log}" \
-    && fail "The aspect found 'aspect_hints' although it was disabled"
-
-  expect_log "Error: No attribute 'aspect_hints' in attr."
 }
 
 function setup_aspect_hints() {
@@ -1034,12 +1022,12 @@ EOF
       --aspects_parameters="p3=p3_v3" \
       &> $TEST_log || fail "Build failed"
 
-  expect_log "aspect_a on target @//test:main_target, p1 = p1_v1 and p3 = p3_v3"
-  expect_log "aspect_a on target @//test:dep_target_1, p1 = p1_v1 and p3 = p3_v3"
-  expect_log "aspect_a on target @//test:dep_target_2, p1 = p1_v1 and p3 = p3_v3"
-  expect_log "aspect_b on target @//test:main_target, p1 = p1_v1 and p2 = p2_v2"
-  expect_log "aspect_b on target @//test:dep_target_1, p1 = p1_v1 and p2 = p2_v2"
-  expect_log "aspect_b on target @//test:dep_target_2, p1 = p1_v1 and p2 = p2_v2"
+  expect_log "aspect_a on target @@\?//test:main_target, p1 = p1_v1 and p3 = p3_v3"
+  expect_log "aspect_a on target @@\?//test:dep_target_1, p1 = p1_v1 and p3 = p3_v3"
+  expect_log "aspect_a on target @@\?//test:dep_target_2, p1 = p1_v1 and p3 = p3_v3"
+  expect_log "aspect_b on target @@\?//test:main_target, p1 = p1_v1 and p2 = p2_v2"
+  expect_log "aspect_b on target @@\?//test:dep_target_1, p1 = p1_v1 and p2 = p2_v2"
+  expect_log "aspect_b on target @@\?//test:dep_target_2, p1 = p1_v1 and p2 = p2_v2"
 }
 
 # aspect_a is propagated from command line on top level target main_target with
@@ -1087,9 +1075,9 @@ EOF
       --aspects_parameters="p=p_v1" \
       &> $TEST_log || fail "Build failed"
 
-  expect_log "aspect_a on target @//test:main_target, p = p_v1"
-  expect_log "aspect_a on target @//test:dep_target, p = p_v1"
-  expect_log "aspect_a on target @//test:dep_target, p = p_v2"
+  expect_log "aspect_a on target @@\?//test:main_target, p = p_v1"
+  expect_log "aspect_a on target @@\?//test:dep_target, p = p_v1"
+  expect_log "aspect_a on target @@\?//test:dep_target, p = p_v2"
 }
 
 function test_top_level_aspects_parameters_invalid_multiple_param_values() {
@@ -1276,8 +1264,8 @@ EOF
 
   # check that aspect_a runs only once on t3 with the aspect path ordered as
   # [aspect_b(p=3), aspect_b(p=4), aspect_a]
-  expect_log 'aspect_a on target @//test:t3, aspects_path = \["//test:defs.bzl%aspect_b\[p=\\\"3\\\"\]", "//test:defs.bzl%aspect_b\[p=\\\"4\\\"\]", "//test:defs.bzl%aspect_a"\]'
-  expect_not_log 'aspect_a on target @//test:t3, aspects_path = \["//test:defs.bzl%aspect_b\[p=\\\"4\\\"\]", "//test:defs.bzl%aspect_b\[p=\\\"3\\\"\]", "//test:defs.bzl%aspect_a"\]'
+  expect_log 'aspect_a on target @@\?//test:t3, aspects_path = \["//test:defs.bzl%aspect_b\[p=\\\"3\\\"\]", "//test:defs.bzl%aspect_b\[p=\\\"4\\\"\]", "//test:defs.bzl%aspect_a"\]'
+  expect_not_log 'aspect_a on target @@\?//test:t3, aspects_path = \["//test:defs.bzl%aspect_b\[p=\\\"4\\\"\]", "//test:defs.bzl%aspect_b\[p=\\\"3\\\"\]", "//test:defs.bzl%aspect_a"\]'
 }
 
 function test_aspect_on_target_with_exec_gp() {
@@ -1334,7 +1322,7 @@ EOF
   bazel build "//${package}:t1" \
       &> $TEST_log || fail "Build failed"
 
-  expect_log 'aspect_a on target @//test:t2'
+  expect_log 'aspect_a on target @@\?//test:t2'
 }
 
 function test_aspect_on_aspect_with_exec_gp() {
@@ -1404,8 +1392,8 @@ EOF
   bazel build "//${package}:t1" \
       &> $TEST_log || fail "Build failed"
 
-  expect_log 'aspect_a on target @//test:t2'
-  expect_log 'aspect_b on target @//test:t2'
+  expect_log 'aspect_a on target @@\?//test:t2'
+  expect_log 'aspect_b on target @@\?//test:t2'
 }
 
 function test_aspect_on_aspect_with_missing_exec_gp() {
@@ -1476,6 +1464,350 @@ EOF
       &> $TEST_log && fail "Build succeeded, expected to fail"
 
   expect_log "Attr '\$tool' declares a transition for non-existent exec group 'exec_gp'"
+}
+
+function test_aspect_with_missing_attr() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/BUILD" <<EOF
+sh_library(name = "foo")
+EOF
+
+  cat > "${package}/a.bzl" <<EOF
+def _a_impl(t, ctx):
+    return [DefaultInfo()]
+
+a = aspect(
+    implementation = _a_impl,
+    attrs = {"_missing": attr.label(default = "//missing")},
+    attr_aspects = ["*"],
+)
+EOF
+
+  bazel build -k "//${package}:foo" --aspects="//${package}:a.bzl%a" \
+      &> $TEST_log && fail "Build succeeded, expected to fail"
+
+  expect_not_log "IllegalStateException"
+  expect_log "no such package 'missing'"
+}
+
+function test_aspect_on_aspect_propagate_to_underlying_aspect_dep() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov_a = provider()
+prov_b = provider()
+
+def _aspect_a_impl(target, ctx):
+  prefix='aspect_a on target {}'.format(target.label)
+  print(prefix)
+
+  if prov_b in target:
+    print('{} can see: {}'.format(prefix, target[prov_b].val))
+
+  if hasattr(ctx.rule.attr, '_tool') and ctx.rule.attr._tool[prov_a]:
+    print('{} can see: {}'.format(prefix, ctx.rule.attr._tool[prov_a].val))
+
+  if hasattr(ctx.rule.attr, 'dep') and ctx.rule.attr.dep and ctx.rule.attr.dep[prov_a]:
+    print('{} can see: {}'.format(prefix, ctx.rule.attr.dep[prov_a].val))
+
+  return [prov_a(val='aspect_a on target {}'.format(target.label))]
+
+aspect_a = aspect(
+    implementation = _aspect_a_impl,
+    attr_aspects = ['dep', '_tool'],
+    required_aspect_providers = [prov_b],
+    attrs = {
+     '_tool' : attr.label(default = "//${package}:tool_a"),
+   },
+)
+
+def _aspect_b_impl(target, ctx):
+  print('aspect_b on target {}'.format(target.label))
+  return [prov_b(val='aspect_b on target {}'.format(target.label))]
+
+aspect_b = aspect(
+    implementation = _aspect_b_impl,
+    attr_aspects = ['dep', '_tool'],
+    attrs = {
+     '_tool' : attr.label(default = "//${package}:tool_b"),
+    },
+    provides = [prov_b],
+)
+
+def _rule_impl(ctx):
+  pass
+
+r1 = rule(
+   implementation = _rule_impl,
+   attrs = {
+     'dep' : attr.label(aspects=[aspect_b, aspect_a]),
+   },
+)
+
+r2 = rule(
+   implementation = _rule_impl,
+   attrs = {
+     'dep' : attr.label(),
+   },
+)
+EOF
+
+  cat > "${package}/tool.sh" <<EOF
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'r1', 'r2')
+r1(
+  name = 't1',
+  dep = ':t2',
+)
+r2(
+  name = 't2',
+  dep = ':t3',
+)
+
+r2(
+  name = 't3',
+)
+
+sh_binary(name = "tool_a", srcs = ["tool.sh"])
+sh_binary(name = "tool_b", srcs = ["tool.sh"])
+
+EOF
+
+  bazel build "//${package}:t1" \
+      &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect_b on target @@\?//test:t3"
+  expect_log "aspect_b on target @@\?//test:t2"
+  # the underlying aspect (aspect_b) can propagate to its main aspect dependencies
+  expect_log "aspect_b on target @@\?//test:tool_a"
+  # the main aspect (aspect_a) can propagate to its underlying aspects
+  # dependencies
+  expect_log "aspect_a on target @@\?//test:tool_b"
+  expect_log "aspect_a on target @@\?//test:t3"
+  expect_log "aspect_a on target @@\?//test:t3 can see: aspect_b on target @@\?//test:t3"
+  expect_log "aspect_a on target @@\?//test:t3 can see: aspect_a on target @@\?//test:tool_b"
+  expect_log "aspect_a on target @@\?//test:t2"
+  expect_log "aspect_a on target @@\?//test:t2 can see: aspect_b on target @@\?//test:t2"
+  expect_log "aspect_a on target @@\?//test:t2 can see: aspect_a on target @@\?//test:tool_b"
+  expect_log "aspect_a on target @@\?//test:t2 can see: aspect_a on target @@\?//test:t3"
+}
+
+function test_aspect_reruns_on_target_with_changed_dep() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov = provider()
+
+def _aspect_impl(target, ctx):
+  if hasattr(ctx.rule.attr, 'dep') and ctx.rule.attr.dep and ctx.rule.attr.dep[prov]:
+    print('aspect on {} can see its dep flag val = {}'.format(target.label, ctx.rule.attr.dep[prov].val))
+
+  return []
+
+my_aspect = aspect(
+    implementation = _aspect_impl,
+)
+
+def _r1_impl(ctx):
+  pass
+
+def _r2_impl(ctx):
+  return [prov(val = ctx.attr.param)]
+
+r1 = rule(
+   implementation = _r1_impl,
+   attrs = {
+     'dep' : attr.label(),
+   },
+)
+
+r2 = rule(
+   implementation = _r2_impl,
+   attrs = {
+     'param' : attr.string(),
+   },
+)
+
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'r1', 'r2')
+r1(
+  name = 't1',
+  dep = ':t2',
+)
+r2(
+  name = 't2',
+  param = select({
+        ":flag_v1": 'v1',
+        ":flag_v2": 'v2',
+        "//conditions:default": 'default',
+    }),
+)
+
+config_setting(
+    name = "flag_v1",
+    define_values = {"flag": "v1"}
+)
+
+config_setting(
+    name = "flag_v2",
+    define_values = {"flag": "v2"}
+)
+
+EOF
+
+  bazel build "//${package}:t1" --aspects="//${package}:defs.bzl%my_aspect" \
+    --define=flag=v1 &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect on @@\?//test:t1 can see its dep flag val = v1"
+
+  # change configuration on the dependency //test:t2, my_aspect should be reevaluated on //test:t1
+    bazel build "//${package}:t1" --aspects="//${package}:defs.bzl%my_aspect" \
+    --define=flag=v2 &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect on @@\?//test:t1 can see its dep flag val = v2"
+}
+
+function test_merge_of_aspects_and_rule_conflicting_attributes() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov_b = provider()
+prov_c = provider()
+
+def _aspect_a_impl(target, ctx):
+  prefix = 'aspect_a on target {}'.format(target.label)
+  same_attr_message = 'aspect_a _tool={} and merged_rule_and_base_aspects _tool={}'.format(ctx.attr._tool.label, ctx.rule.attr._tool.label)
+
+  diff_attr_message = '_tool_a={}, _tool_r1={}, _tool_b={}, _tool_c={}'.format(
+    ctx.attr._tool_a.label,
+    ctx.rule.attr._tool_r1.label,
+    ctx.rule.attr._tool_b.label,
+    ctx.rule.attr._tool_c.label)
+
+  base_aspects_attr_message = '_base_aspects_tool={}'.format(ctx.rule.attr._base_aspects_tool.label)
+
+  print('{}: {}'.format(prefix, same_attr_message))
+  print('{}: {}'.format(prefix, diff_attr_message))
+  print('{}: {}'.format(prefix, base_aspects_attr_message))
+
+  return []
+
+aspect_a = aspect(
+    implementation = _aspect_a_impl,
+    attr_aspects = ['dep'],
+    required_aspect_providers = [prov_b],
+    attrs = {
+     '_tool' : attr.label(default = "//${package}:aspect_a_tool"),
+     '_tool_a' : attr.label(default = "//${package}:aspect_a_diff_tool"),
+   },
+)
+
+def _aspect_b_impl(target, ctx):
+  prefix = 'aspect_b on target {}'.format(target.label)
+  same_attr_message = 'aspect_b _tool={}, rule _tool={}'.format(ctx.attr._tool.label, ctx.rule.attr._tool.label)
+  diff_attr_message = '_tool_b={}, _tool_r1={}, _tool_c={}'.format(ctx.attr._tool_b.label, ctx.rule.attr._tool_r1.label, ctx.rule.attr._tool_c.label)
+
+  print('{}: {}'.format(prefix, same_attr_message))
+  print('{}: {}'.format(prefix, diff_attr_message))
+
+  return [prov_b()]
+
+aspect_b = aspect(
+    implementation = _aspect_b_impl,
+    attr_aspects = ['dep'],
+    attrs = {
+     '_tool' : attr.label(default = "//${package}:aspect_b_tool"),
+     '_tool_b' : attr.label(default = "//${package}:aspect_b_diff_tool"),
+     '_base_aspects_tool': attr.label(default = "//${package}:aspect_b_tool"),
+    },
+    provides = [prov_b],
+    required_aspect_providers = [prov_c]
+)
+
+def _aspect_c_impl(target, ctx):
+  prefix = 'aspect_c on target {}'.format(target.label)
+  same_attr_message = 'aspect_c _tool={}, rule _tool={}'.format(ctx.attr._tool.label, ctx.rule.attr._tool.label)
+  diff_attr_message = '_tool_c={}, _tool_r1={}'.format(ctx.attr._tool_c.label, ctx.rule.attr._tool_r1.label)
+
+  print('{}: {}'.format(prefix, same_attr_message))
+  print('{}: {}'.format(prefix, diff_attr_message))
+
+  return [prov_c()]
+
+aspect_c = aspect(
+    implementation = _aspect_c_impl,
+    attr_aspects = ['dep'],
+    attrs = {
+     '_tool' : attr.label(default = "//${package}:aspect_c_tool"),
+     '_tool_c' : attr.label(default = "//${package}:aspect_c_diff_tool"),
+     '_base_aspects_tool': attr.label(default = "//${package}:aspect_c_tool"),
+    },
+    provides = [prov_c],
+)
+
+def _rule_impl(ctx):
+  pass
+
+r1 = rule(
+   implementation = _rule_impl,
+   attrs = {
+    '_tool' : attr.label(default = "//${package}:r1_tool"),
+    '_tool_r1' : attr.label(default = "//${package}:r1_diff_tool"),
+   },
+)
+
+EOF
+
+  cat > "${package}/tool.sh" <<EOF
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'r1')
+r1(
+  name = 't1',
+)
+
+sh_binary(name = "aspect_a_tool", srcs = ["tool.sh"])
+sh_binary(name = "aspect_b_tool", srcs = ["tool.sh"])
+sh_binary(name = "aspect_c_tool", srcs = ["tool.sh"])
+
+sh_binary(name = "r1_tool", srcs = ["tool.sh"])
+
+sh_binary(name = "aspect_a_diff_tool", srcs = ["tool.sh"])
+sh_binary(name = "aspect_b_diff_tool", srcs = ["tool.sh"])
+sh_binary(name = "aspect_c_diff_tool", srcs = ["tool.sh"])
+sh_binary(name = "r1_diff_tool", srcs = ["tool.sh"])
+EOF
+
+  bazel build "//${package}:t1" \
+    --aspects="//${package}:defs.bzl%aspect_c,//${package}:defs.bzl%aspect_b,//${package}:defs.bzl%aspect_a" \
+    --separate_aspect_deps \
+      &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect_c on target @@\?//test:t1: aspect_c _tool=@@\?//test:aspect_c_tool, rule _tool=@@\?//test:r1_tool"
+  expect_log "aspect_c on target @@\?//test:t1: _tool_c=@@\?//test:aspect_c_diff_tool, _tool_r1=@@\?//test:r1_diff_tool"
+
+  expect_log "aspect_b on target @@\?//test:t1: aspect_b _tool=@@\?//test:aspect_b_tool, rule _tool=@@\?//test:r1_tool"
+  expect_log "aspect_b on target @@\?//test:t1: _tool_b=@@\?//test:aspect_b_diff_tool, _tool_r1=@@\?//test:r1_diff_tool, _tool_c=@@\?//test:aspect_c_diff_tool"
+
+  # in aspect_a, `ctx.attr._tool` gets its value from the main aspect (aspect_a)
+  # `ctx.rule.attr._tool` gets its value from the rule (r1) attribute with that name
+  # `ctx.rule.attr._base_aspects_tool` is not there in the rule (r1) attributes so it
+  # gets its value from the first aspect that has it in the aspects path
+  # which is aspect_c.
+  expect_log "aspect_a on target @@\?//test:t1: aspect_a _tool=@@\?//test:aspect_a_tool and merged_rule_and_base_aspects _tool=@@\?//test:r1_tool"
+  expect_log "aspect_a on target @@\?//test:t1: _tool_a=@@\?//test:aspect_a_diff_tool, _tool_r1=@@\?//test:r1_diff_tool, _tool_b=@@\?//test:aspect_b_diff_tool, _tool_c=@@\?//test:aspect_c_diff_tool"
+  expect_log "aspect_a on target @@\?//test:t1: _base_aspects_tool=@@\?//test:aspect_c_tool"
+
 }
 
 run_suite "Tests for aspects"

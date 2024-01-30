@@ -16,31 +16,20 @@ package com.google.devtools.build.lib.bazel.rules;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_JAVA_LIBRARY_EXPORT;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBinaryRule;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBuildInfoFactory;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaImportRule;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaLibraryRule;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaPluginRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaTestRule;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaToolchain;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
 import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
-import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
@@ -61,41 +50,39 @@ public class JavaRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfigurationFragment(JavaConfiguration.class);
 
-    builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());
-
     builder.addRuleDefinition(new BazelJavaRuleClasses.BaseJavaBinaryRule());
     builder.addRuleDefinition(new JavaToolchainBaseRule());
     builder.addRuleDefinition(new JavaRuntimeBaseRule());
     builder.addRuleDefinition(new BazelJavaRuleClasses.JavaBaseRule());
     builder.addRuleDefinition(new ProguardLibraryRule());
-    builder.addRuleDefinition(new JavaImportBaseRule());
     builder.addRuleDefinition(new BazelJavaRuleClasses.JavaRule());
     builder.addRuleDefinition(new BazelJavaBinaryRule());
-    builder.addRuleDefinition(new BazelJavaLibraryRule());
-    builder.addRuleDefinition(new BazelJavaImportRule());
-    builder.addRuleDefinition(new BazelJavaTestRule());
-    builder.addRuleDefinition(new BazelJavaPluginRule());
-    builder.addRuleDefinition(JavaToolchainRule.create(BazelJavaToolchain.class));
-    builder.addRuleDefinition(new JavaPackageConfigurationRule());
-    builder.addRuleDefinition(new JavaRuntimeRule());
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_library") {});
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_import") {});
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_test") {});
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_plugin") {});
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_toolchain") {});
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_package_configuration") {});
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_runtime") {});
     builder.addRuleDefinition(new JavaPluginsFlagAliasRule());
 
     builder.addRuleDefinition(new ExtraActionRule());
     builder.addRuleDefinition(new ActionListenerRule());
 
-    builder.addStarlarkBootstrap(
-        new JavaBootstrap(
-            new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE),
-            JavaInfo.PROVIDER,
-            JavaPluginInfo.PROVIDER,
-            ProguardSpecProvider.PROVIDER));
+    builder.addStarlarkBootstrap(new JavaBootstrap(ProguardSpecProvider.PROVIDER));
 
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addStarlarkBuiltinsInternal(
+        "java_common_internal_do_not_use", new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE));
+
+    builder.addBzlToplevel(
         "experimental_java_library_export_do_not_use",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             EXPERIMENTAL_JAVA_LIBRARY_EXPORT, Starlark.NONE));
 
     try {
+      builder.addWorkspaceFilePrefix(
+          ResourceFileLoader.loadResource(
+              BazelJavaRuleClasses.class, "rules_java_builtin.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
       builder.addWorkspaceFileSuffix(

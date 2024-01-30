@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.actions.HasDigest;
-import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -60,7 +59,6 @@ import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFu
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
@@ -70,8 +68,10 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -85,6 +85,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -104,7 +105,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -123,6 +123,22 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   private AtomicReference<PathPackageLocator> pkgLocator;
   private NonHermeticArtifactFakeFunction artifactFunction;
   private List<Artifact.DerivedArtifact> artifacts;
+
+  private final Set<PathFragment> pathsToPretendDontExist = Sets.newConcurrentHashSet();
+
+  @Override
+  protected FileSystem createFileSystem() {
+    return new DelegateFileSystem(super.createFileSystem()) {
+      @Override
+      protected FileStatus statIfFound(PathFragment path, boolean followSymlinks)
+          throws IOException {
+        if (pathsToPretendDontExist.contains(path)) {
+          return null;
+        }
+        return super.statIfFound(path, followSymlinks);
+      }
+    };
+  }
 
   @Before
   public void setUp() {
@@ -172,18 +188,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
         new IgnoredPackagePrefixesFunction(
             /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
-    skyFunctions.put(
-        SkyFunctions.PACKAGE,
-        new PackageFunction(
-            null,
-            null,
-            null,
-            null,
-            null,
-            /*packageProgress=*/ null,
-            PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
-            GlobbingStrategy.SKYFRAME_HYBRID,
-            k -> ThreadStateReceiver.NULL_INSTANCE));
+    skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -477,19 +482,23 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
 
     @Override
-    public void invalidated(SkyKey skyKey, InvalidationState state) {
+    public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
+      invalidations.add(skyKey);
+    }
+
+    @Override
+    public void deleted(SkyKey skyKey) {
       invalidations.add(skyKey);
     }
 
     @Override
     public void evaluated(
         SkyKey skyKey,
+        EvaluationState state,
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
-        Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state,
         @Nullable GroupedDeps directDeps) {
-      if (evaluationSuccessState.get().succeeded()) {
+      if (state.succeeded()) {
         evaluations.add(skyKey);
       }
     }
@@ -1244,6 +1253,24 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             byteStringDigest, null, SyscallCache.NO_CACHE);
     assertThat(result).isInstanceOf(HasDigest.ByteStringDigest.class);
     assertThat(result.getDigest()).isEqualTo(expectedBytes);
+  }
+
+  @Test
+  public void testGracefullyHandlesInconsistentFilesystem() throws Exception {
+    scratch.dir("parent");
+    PathFragment childPathFragment = scratch.file("parent/child").asFragment();
+    pathsToPretendDontExist.add(childPathFragment);
+    Artifact childArtifact = sourceArtifact("parent/child");
+    SkyKey key = pkgRoot(parentOf(rootedPath(childArtifact)), DONT_CROSS);
+    EvaluationResult<SkyValue> result = eval(key);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfo error = result.getError(key);
+    assertThat(error.getException()).isInstanceOf(RecursiveFilesystemTraversalException.class);
+    assertThat(((RecursiveFilesystemTraversalException) error.getException()).getType())
+        .isEqualTo(RecursiveFilesystemTraversalException.Type.INCONSISTENT_FILESYSTEM);
+    assertThat(error.getException())
+        .hasMessageThat()
+        .contains("We were previously told [/workspace]/[parent/child] was an existing file but");
   }
 
   private static class NonHermeticArtifactSkyKey extends AbstractSkyKey<SkyKey> {

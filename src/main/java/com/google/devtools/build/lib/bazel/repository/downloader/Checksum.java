@@ -34,18 +34,26 @@ public class Checksum {
 
   private final KeyType keyType;
   private final HashCode hashCode;
+  private final boolean useSubresourceIntegrity;
 
-  private Checksum(KeyType keyType, HashCode hashCode) {
+  private Checksum(KeyType keyType, HashCode hashCode, boolean useSubresourceIntegrity) {
     this.keyType = keyType;
     this.hashCode = hashCode;
+    this.useSubresourceIntegrity = useSubresourceIntegrity;
   }
 
   /** Constructs a new Checksum for a given key type and hash, in hex format. */
   public static Checksum fromString(KeyType keyType, String hash) throws InvalidChecksumException {
+    return fromString(keyType, hash, /* useSubresourceIntegrity= */ false);
+  }
+
+  private static Checksum fromString(KeyType keyType, String hash, boolean useSubresourceIntegrity)
+      throws InvalidChecksumException {
     if (!keyType.isValid(hash)) {
       throw new InvalidChecksumException(keyType, hash);
     }
-    return new Checksum(keyType, HashCode.fromString(Ascii.toLowerCase(hash)));
+    return new Checksum(
+        keyType, HashCode.fromString(Ascii.toLowerCase(hash)), useSubresourceIntegrity);
   }
 
   /** Constructs a new Checksum from a hash in Subresource Integrity format. */
@@ -89,12 +97,17 @@ public class Checksum {
           "Invalid " + keyType + " SRI checksum '" + integrity + "'");
     }
 
-    return Checksum.fromString(keyType, HashCode.fromBytes(hash).toString());
+    return Checksum.fromString(
+        keyType, HashCode.fromBytes(hash).toString(), /* useSubresourceIntegrity= */ true);
+  }
+
+  private static String toSubresourceIntegrity(KeyType keyType, HashCode hashCode) {
+    String encoded = Base64.getEncoder().encodeToString(hashCode.asBytes());
+    return keyType.getHashName() + "-" + encoded;
   }
 
   public String toSubresourceIntegrity() {
-    String encoded = Base64.getEncoder().encodeToString(hashCode.asBytes());
-    return keyType.getHashName() + "-" + encoded;
+    return toSubresourceIntegrity(keyType, hashCode);
   }
 
   @Override
@@ -108,5 +121,13 @@ public class Checksum {
 
   public KeyType getKeyType() {
     return keyType;
+  }
+
+  public String emitOtherHashInSameFormat(HashCode otherHash) {
+    if (useSubresourceIntegrity) {
+      return toSubresourceIntegrity(keyType, otherHash);
+    } else {
+      return otherHash.toString();
+    }
   }
 }

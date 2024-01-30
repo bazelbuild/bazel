@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
@@ -48,6 +50,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Permission;
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -57,6 +61,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.function.ThrowingRunnable;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -135,17 +140,17 @@ public final class BugReportTest {
   private enum ExceptionType {
     FATAL(
         new RuntimeException("fatal exception"),
-        /*isFatal=*/ true,
+        /* isFatal= */ true,
         Level.SEVERE,
         "myProductName crashed with args: arg foo"),
     NONFATAL(
         new IllegalStateException("bug report"),
-        /*isFatal=*/ false,
+        /* isFatal= */ false,
         Level.WARNING,
         "myProductName had a non fatal error with args: arg foo"),
     OOM(
         new OutOfMemoryError("Java heap space"),
-        /*isFatal=*/ true,
+        /* isFatal= */ true,
         Level.SEVERE,
         "myProductName OOMError: arg foo");
 
@@ -292,6 +297,62 @@ public final class BugReportTest {
   }
 
   @Test
+  public void haltOrReturnIfCrashInProgress_otherCrashInProgress_returnsEagerly(
+      @TestParameter CrashType crashType) throws Throwable {
+    // Arrange:
+    // A first thread will crash with CrashContext.halt(). We mock out the BlazeRuntimeInterface to
+    // force this thread to block while holding the BugReport global lock.
+    CountDownLatch cleanupBegunLatch = new CountDownLatch(1);
+    CountDownLatch cleanupMayFinishLatch = new CountDownLatch(1);
+    doAnswer(
+            (inv) -> {
+              cleanupBegunLatch.countDown();
+              cleanupMayFinishLatch.await();
+              return null;
+            })
+        .when(mockRuntime)
+        .cleanUpForCrash(any(DetailedExitCode.class));
+
+    Throwable firstThrown = new IllegalStateException("second crash in background thread");
+    ThrowingRunnable doFirstCrash =
+        () -> BugReport.handleCrash(Crash.from(firstThrown), CrashContext.halt());
+    AtomicReference<SecurityException> firstCrashThrownRef = new AtomicReference<>(null);
+    TestThread firstCrashThread =
+        new TestThread(
+            () -> firstCrashThrownRef.set(assertThrows(SecurityException.class, doFirstCrash)));
+    firstCrashThread.start();
+    cleanupBegunLatch.await();
+
+    // Act:
+    // Try to crash on a second thread, with a `haltOrReturnIfCrashInProgress` CrashContext. This
+    // should return without throwing because the BugReport global lock is held.
+    Throwable secondThrown = crashType.createThrowable();
+    CrashContext haltOrReturnCtx = CrashContext.haltOrReturnIfCrashInProgress();
+    ThrowingRunnable doSecondCrash =
+        () -> BugReport.handleCrash(Crash.from(secondThrown), haltOrReturnCtx);
+    doSecondCrash.run();
+
+    // Assert:
+    // Allow the first crashing thread to finish, then confirm that the
+    // `CrashContext.haltOrReturnIfCrashInProgress()` will halt when BugReport's lock is free.
+    cleanupMayFinishLatch.countDown();
+    firstCrashThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+
+    // TODO(b/222158599): These should always be ExitException.
+    SecurityException firstException = firstCrashThrownRef.get();
+    if (firstException instanceof ExitException) {
+      int code = ((ExitException) firstException).code;
+      assertThat(code).isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
+    }
+
+    SecurityException secondException = assertThrows(SecurityException.class, doSecondCrash);
+    if (secondException instanceof ExitException) {
+      int code = ((ExitException) secondException).code;
+      assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
+    }
+  }
+
+  @Test
   public void customContext_setUpFront(@TestParameter CrashType crashType) {
     Throwable t = crashType.createThrowable();
     EventHandler handler = mock(EventHandler.class);
@@ -401,4 +462,3 @@ public final class BugReportTest {
     public void checkPermission(Permission p) {} // Allow everything else.
   }
 }
-

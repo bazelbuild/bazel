@@ -23,7 +23,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 
 /** Utilites related to C++ support. */
 @StarlarkBuiltin(
-    name = "cc_common_internal_do_not_use",
+    name = "cc_common",
     category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface BazelCcModuleApi<
@@ -32,18 +32,8 @@ public interface BazelCcModuleApi<
         FdoContextT extends FdoContextApi<?>,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcToolchainProviderT extends
-            CcToolchainProviderApi<
-                    FeatureConfigurationT,
-                    ?,
-                    FdoContextT,
-                    ConstraintValueT,
-                    StarlarkRuleContextT,
-                    ?,
-                    ? extends CppConfigurationApi<?>,
-                    CcToolchainVariablesT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CompilationContextT extends CcCompilationContextApi<FileT>,
+        CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         LinkingOutputsT extends CcLinkingOutputsApi<FileT, LtoBackendArtifactsT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
@@ -58,7 +48,6 @@ public interface BazelCcModuleApi<
         StarlarkActionFactoryT,
         FileT,
         FdoContextT,
-        CcToolchainProviderT,
         FeatureConfigurationT,
         CompilationContextT,
         LtoBackendArtifactsT,

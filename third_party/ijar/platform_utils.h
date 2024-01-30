@@ -28,7 +28,7 @@ namespace devtools_ijar {
 // Platform-independent stat data.
 struct Stat {
   // Total size of the file in bytes.
-  int total_size;
+  u8 total_size;
   // The Unix file mode from the stat.st_mode field.
   mode_t file_mode;
   // True if this is a directory.

@@ -70,7 +70,7 @@ public final class ObjcLibraryAnalysisTest extends AnalysisTestCase {
           (ActionLookupValue)
               skyframeExecutor
                   .getEvaluator()
-                  .getExistingValue(generatingActionKey.getActionLookupKey().toKey());
+                  .getExistingValue(generatingActionKey.getActionLookupKey());
       Action generatingAction = actionLookupValue.getAction(generatingActionKey.getActionIndex());
 
       assertWithMessage(context).that(generatingAction).isInstanceOf(CppLinkAction.class);

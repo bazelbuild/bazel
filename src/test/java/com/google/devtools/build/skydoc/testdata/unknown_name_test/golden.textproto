@@ -1,0 +1,7 @@
+func_info {
+  function_name: "my_rule_impl"
+  parameter {
+    name: "ctx"
+    mandatory: true
+  }
+}

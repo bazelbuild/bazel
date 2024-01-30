@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.OS;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -99,12 +97,12 @@ public class BaseSpawn implements Spawn {
    */
   @Nullable
   private PathFragment getRunfilesRoot() {
-    Set<PathFragment> runfilesSupplierRoots = runfilesSupplier.getRunfilesDirs();
-    if (runfilesSupplierRoots.size() == 1) {
-      return Iterables.getOnlyElement(runfilesSupplierRoots);
-    } else {
+    if (runfilesSupplier.getRunfilesTrees().size() != 1) {
       return null;
     }
+
+    return RunfilesSupplier.getExecPathForTree(
+        runfilesSupplier, runfilesSupplier.getRunfilesTrees().get(0));
   }
 
   @Override

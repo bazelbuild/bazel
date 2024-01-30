@@ -111,18 +111,6 @@ public interface ObjectCodec<T> {
   /** Indicates how an {@link ObjectCodec} is memoized. */
   enum MemoizationStrategy {
     /**
-     * Indicates that memoization is not directly used by this codec.
-     *
-     * <p>Codecs with this strategy will always serialize payloads, never backreferences, even if
-     * the same value has been serialized before. This does not apply to other codecs that are
-     * delegated to within this codec. Deserialization behaves analogously.
-     *
-     * <p>This strategy is useful for codecs that write very little data themselves, but that still
-     * delegate to other codecs.
-     */
-    DO_NOT_MEMOIZE,
-
-    /**
      * Indicates that the value is memoized before recursing to its children, so that it is
      * available to form cyclic references from its children. If this strategy is used, {@link
      * DeserializationContext#registerInitialValue} must be called during the {@link #deserialize}

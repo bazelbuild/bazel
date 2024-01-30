@@ -34,6 +34,13 @@ public interface ExtendedEventHandler extends EventHandler {
     default Postable withTag(@Nullable String tag) {
       return this; // No tag-based filtering.
     }
+
+    /** Replays a sequence of posts on {@code handler}. */
+    public static void replayPostsOn(ExtendedEventHandler handler, Iterable<Postable> posts) {
+      for (Postable post : posts) {
+        handler.post(post);
+      }
+    }
   }
 
   /** Posts a {@link Postable} object about an important build event. */

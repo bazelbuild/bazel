@@ -15,21 +15,16 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.Diff;
-import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import java.time.Duration;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Predicate;
-import javax.annotation.Nullable;
 
 /**
  * An in-memory {@link MemoizingEvaluator} that uses the eager invalidation strategy. This class is,
@@ -37,7 +32,8 @@ import javax.annotation.Nullable;
  * the returned graphs. However, it is allowed to access the graph from multiple threads as long as
  * that does not happen in parallel with an {@link #evaluate} call.
  *
- * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion}.
+ * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion} for incremental
+ * evaluations and {@link Version#constant} for non-incremental evaluations.
  */
 public final class InMemoryMemoizingEvaluator
     extends AbstractIncrementalInMemoryMemoizingEvaluator {
@@ -46,15 +42,28 @@ public final class InMemoryMemoizingEvaluator
 
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
+  private Set<SkyKey> latestTopLevelEvaluations;
+  private Set<SkyKey> topLevelEvaluations = new HashSet<>();
+
+  @Override
+  public void updateTopLevelEvaluations() {
+    latestTopLevelEvaluations = topLevelEvaluations;
+    topLevelEvaluations = new HashSet<>();
+  }
+
+  public Set<SkyKey> getLatestTopLevelEvaluations() {
+    return latestTopLevelEvaluations;
+  }
+
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions, Differencer differencer) {
-    this(skyFunctions, differencer, /*progressReceiver=*/ null);
+    this(skyFunctions, differencer, EvaluationProgressReceiver.NULL);
   }
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions,
       Differencer differencer,
-      @Nullable EvaluationProgressReceiver progressReceiver) {
+      EvaluationProgressReceiver progressReceiver) {
     this(
         skyFunctions,
         differencer,
@@ -69,7 +78,7 @@ public final class InMemoryMemoizingEvaluator
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions,
       Differencer differencer,
-      @Nullable EvaluationProgressReceiver progressReceiver,
+      EvaluationProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       EventFilter eventFilter,
       EmittedEventState emittedEventState,
@@ -78,7 +87,7 @@ public final class InMemoryMemoizingEvaluator
     super(
         ImmutableMap.copyOf(skyFunctions),
         differencer,
-        new DirtyTrackingProgressReceiver(progressReceiver),
+        new DirtyAndInflightTrackingProgressReceiver(progressReceiver),
         eventFilter,
         emittedEventState,
         graphInconsistencyReceiver,
@@ -89,49 +98,26 @@ public final class InMemoryMemoizingEvaluator
             : InMemoryGraph.createEdgeless(usePooledInterning);
   }
 
-  private static final Duration MIN_TIME_TO_LOG_DELETION = Duration.ofMillis(10);
-
-  @Override
-  public void delete(Predicate<SkyKey> deletePredicate) {
-    try (AutoProfiler ignored =
-        GoogleAutoProfilerUtils.logged("deletion marking", MIN_TIME_TO_LOG_DELETION)) {
-      Set<SkyKey> toDelete = Sets.newConcurrentHashSet();
-      graph.parallelForEach(
-          e -> {
-            if (e.isDirty() || deletePredicate.test(e.getKey())) {
-              toDelete.add(e.getKey());
-            }
-          });
-      valuesToDelete.addAll(toDelete);
-    }
-  }
-
-  @Override
-  public void deleteDirty(long versionAgeLimit) {
-    Preconditions.checkArgument(versionAgeLimit >= 0, versionAgeLimit);
-    Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
-    valuesToDelete.addAll(
-        Sets.filter(
-            progressReceiver.getUnenqueuedDirtyKeys(),
-            skyKey -> {
-              NodeEntry entry = graph.get(null, Reason.OTHER, skyKey);
-              Preconditions.checkNotNull(entry, skyKey);
-              Preconditions.checkState(entry.isDirty(), skyKey);
-              return entry.getVersion().atMost(threshold);
-            }));
-  }
-
   @Override
   public <T extends SkyValue> EvaluationResult<T> evaluate(
       Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
-    IntVersion graphVersion = lastGraphVersion == null ? IntVersion.of(0) : lastGraphVersion.next();
+    Version graphVersion = getNextGraphVersion();
     setAndCheckEvaluateState(true, roots);
-    try {
-      // Mark for removal any inflight nodes from the previous evaluation.
-      valuesToDelete.addAll(progressReceiver.getAndClearInflightKeys());
 
+    // Only remember roots for focusing if we're tracking incremental states by keeping edges.
+    if (keepEdges) {
+      // Remember the top level evaluation of the last build-like invocation.
+      Iterables.addAll(topLevelEvaluations, roots);
+    }
+
+    // Mark for removal any nodes from the previous evaluation that were still inflight or were
+    // rewound but did not complete successfully. When the invalidator runs, it will delete the
+    // reverse transitive closure.
+    valuesToDelete.addAll(progressReceiver.getAndClearInflightKeys());
+    valuesToDelete.addAll(progressReceiver.getAndClearUnsuccessfullyRewoundKeys());
+    try {
       // The RecordingDifferencer implementation is not quite working as it should be at this point.
       // It clears the internal data structures after getDiff is called and will not return
       // diffs for historical versions. This makes the following code sensitive to interrupts.
@@ -172,7 +158,6 @@ public final class InMemoryMemoizingEvaluator
                                 evaluationContext.getParallelism(),
                                 ParallelEvaluatorErrorClassifier.instance())),
                 new SimpleCycleDetector(),
-                evaluationContext.mergingSkyframeAnalysisExecutionPhases(),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
         result = evaluator.eval(roots);
       }
@@ -181,7 +166,9 @@ public final class InMemoryMemoizingEvaluator
           .setWalkableGraph(new DelegatingWalkableGraph(graph))
           .build();
     } finally {
-      lastGraphVersion = graphVersion;
+      if (keepEdges) {
+        lastGraphVersion = (IntVersion) graphVersion;
+      }
       setAndCheckEvaluateState(false, roots);
     }
   }

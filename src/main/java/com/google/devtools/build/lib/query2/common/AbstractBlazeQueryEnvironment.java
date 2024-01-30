@@ -29,12 +29,15 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -48,11 +51,13 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -85,6 +90,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
   protected final Set<Setting> settings;
   protected final List<QueryFunction> extraFunctions;
+  protected final LabelPrinter labelPrinter;
 
   protected AbstractBlazeQueryEnvironment(
       boolean keepGoing,
@@ -92,7 +98,8 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
+      Iterable<QueryFunction> extraFunctions,
+      LabelPrinter labelPrinter) {
     this.eventHandler = new ErrorSensingEventHandler<>(eventHandler, DetailedExitCode.class);
     this.keepGoing = keepGoing;
     this.strictScope = strictScope;
@@ -100,10 +107,16 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     this.labelFilter = labelFilter;
     this.settings = Sets.immutableEnumSet(settings);
     this.extraFunctions = ImmutableList.copyOf(extraFunctions);
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
   public abstract void close();
+
+  @Override
+  public LabelPrinter getLabelPrinter() {
+    return labelPrinter;
+  }
 
   private static DependencyFilter constructDependencyFilter(Set<Setting> settings) {
     DependencyFilter specifiedFilter =
@@ -355,9 +368,26 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   @Override
   public <T1, T2> QueryTaskFuture<T2> transformAsync(
       QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function) {
+    QueryTaskFutureImpl<T1> futureImpl = (QueryTaskFutureImpl<T1>) future;
+    if (futureImpl.isDone()) {
+      // Due to how our subclasses use single-threaded query engines, in practice
+      // futureImpl will always already be done. Therefore this is a fast-path to make it harder to
+      // stack overflow on deeply nested expressions whose evaluation involves #transformAsync.
+      //
+      // TODO(b/283225081): Do something more effective and more pervasive.
+      T1 t1;
+      try {
+        t1 = futureImpl.getChecked();
+      } catch (QueryException e) {
+        return immediateFailedFuture(e);
+      } catch (InterruptedException e) {
+        return immediateCancelledFuture();
+      }
+      return function.apply(t1);
+    }
     return QueryTaskFutureImpl.ofDelegate(
         Futures.transformAsync(
-            (QueryTaskFutureImpl<T1>) future,
+            futureImpl,
             input -> (QueryTaskFutureImpl<T2>) function.apply(input),
             directExecutor()));
   }
@@ -457,6 +487,77 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       }
     }
     return true;
+  }
+
+  /** Abstract base class for {@link TransitiveLoadFilesHelper<Target>}. */
+  protected abstract static class TransitiveLoadFilesHelperForTargets
+      implements TransitiveLoadFilesHelper<Target> {
+    @Override
+    public PackageIdentifier getPkgId(Target target) {
+      return target.getLabel().getPackageIdentifier();
+    }
+
+    @Override
+    public Target getBuildFileTarget(Target originalTarget) {
+      return originalTarget.getPackage().getBuildFile();
+    }
+
+    @Override
+    public void visitLoads(
+        Target originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
+        throws QueryException, InterruptedException {
+      originalTarget.getPackage().visitLoadGraph(visitor);
+    }
+  }
+
+  @Override
+  public final void transitiveLoadFiles(
+      Iterable<T> targets,
+      boolean alsoAddBuildFiles,
+      Set<PackageIdentifier> seenPackages,
+      Set<Label> seenBzlLabels,
+      Uniquifier<T> uniquifier,
+      TransitiveLoadFilesHelper<T> helper,
+      Callback<T> callback)
+      throws QueryException, InterruptedException {
+    ArrayList<T> result = new ArrayList<>();
+    for (T target : targets) {
+      PackageIdentifier pkgId = helper.getPkgId(target);
+      if (!seenPackages.add(pkgId)) {
+        continue;
+      }
+
+      if (alsoAddBuildFiles) {
+        T buildFileTarget = helper.getBuildFileTarget(target);
+        if (uniquifier.unique(buildFileTarget)) {
+          result.add(buildFileTarget);
+        }
+      }
+
+      helper.visitLoads(
+          target,
+          bzlLabel -> {
+            if (!seenBzlLabels.add(bzlLabel)) {
+              return false;
+            }
+            T loadFileTarget = helper.getLoadFileTarget(target, bzlLabel);
+            if (uniquifier.unique(loadFileTarget)) {
+              result.add(loadFileTarget);
+            }
+            if (alsoAddBuildFiles) {
+              T buildFileTargetForLoadFileTarget =
+                  helper.maybeGetBuildFileTargetForLoadFileTarget(target, bzlLabel);
+              // Can be null in genquery: see http://b/123795023#comment6.
+              if (buildFileTargetForLoadFileTarget != null) {
+                if (uniquifier.unique(buildFileTargetForLoadFileTarget)) {
+                  result.add(buildFileTargetForLoadFileTarget);
+                }
+              }
+            }
+            return true;
+          });
+    }
+    callback.process(result);
   }
 
   /**

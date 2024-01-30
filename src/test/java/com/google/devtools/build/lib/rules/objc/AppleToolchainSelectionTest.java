@@ -21,10 +21,8 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,29 +31,6 @@ import org.junit.runners.JUnit4;
 /** Test case for the use of the OSX crosstool. */
 @RunWith(JUnit4.class)
 public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
-
-  @Test
-  public void testToolchainSelectionDefault() throws Exception {
-    createLibraryTargetWriter("//a:lib").write();
-    BuildConfigurationValue config = getAppleCrosstoolConfiguration();
-    CppConfiguration cppConfig = config.getFragment(CppConfiguration.class);
-
-    assertThat(cppConfig.getRuleProvidingCcToolchainProvider().toString())
-        .isEqualTo("//tools/osx/crosstool:crosstool");
-    assertThat(config.getCpu()).isEqualTo("darwin_x86_64");
-  }
-
-  @Test
-  public void testToolchainSelectionIosDevice() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7");
-    createLibraryTargetWriter("//a:lib").write();
-    BuildConfigurationValue config = getAppleCrosstoolConfiguration();
-    CppConfiguration cppConfig = config.getFragment(CppConfiguration.class);
-
-    assertThat(cppConfig.getRuleProvidingCcToolchainProvider().toString())
-        .isEqualTo("//tools/osx/crosstool:crosstool");
-    assertThat(config.getCpu()).isEqualTo("ios_armv7");
-  }
 
   @Test
   public void testToolchainSelectionCcDepDefault() throws Exception {
@@ -73,9 +48,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         "    deps = ['//b:lib'],",
         ")");
     Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
-    String x8664Bin =
-        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "a/bin_bin";
-    Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), x8664Bin);
+    Artifact binArtifact = lipoAction.getInputs().getSingleton();
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
     CppLinkAction ccArchiveAction =
         (CppLinkAction)
@@ -87,9 +60,9 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
 
   @Test
   public void testToolchainSelectionCcDepDevice() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7");
-    ScratchAttributeWriter
-        .fromLabelString(this, "cc_library", "//b:lib")
+    useConfiguration(
+        "--apple_platform_type=ios", "--cpu=ios_armv7", "--platforms=" + MockObjcSupport.IOS_ARMV7);
+    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "b.cc")
         .write();
     addAppleBinaryStarlarkRule(scratch);
@@ -102,9 +75,11 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         "    deps = ['//b:lib'],",
         ")");
     Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
-    String armv7Bin =
-        configurationBin("armv7", ConfigurationDistinguisher.APPLEBIN_IOS) + "a/bin_bin";
-    Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv7Bin);
+    Artifact binArtifact =
+        lipoAction.getInputs().toList().stream()
+            .filter(artifact -> artifact.getPath().toString().contains("armv7"))
+            .findAny()
+            .get();
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
     CppLinkAction ccArchiveAction =
         (CppLinkAction)
@@ -117,10 +92,9 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   @Test
   public void testToolchainSelectionMultiArchIos() throws Exception {
     useConfiguration("--ios_multi_cpus=armv7,arm64");
-    ScratchAttributeWriter
-        .fromLabelString(this, "cc_library", "//b:lib")
+    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "a.cc")
-        .write(getAppleCrosstoolConfiguration());
+        .write();
     addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "a/BUILD",
@@ -131,9 +105,11 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         "    deps = ['//b:lib'],",
         ")");
     Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
-    String armv64Bin =
-        configurationBin("arm64", ConfigurationDistinguisher.APPLEBIN_IOS) + "a/bin_bin";
-    Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv64Bin);
+    Artifact binArtifact =
+        lipoAction.getInputs().toList().stream()
+            .filter(artifact -> artifact.getPath().toString().contains("arm64"))
+            .findAny()
+            .get();
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
     CppLinkAction objcLibArchiveAction = (CppLinkAction) getGeneratingAction(
         getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
@@ -145,10 +121,9 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     useConfiguration(
         "--ios_multi_cpus=armv7,arm64",
         "--watchos_cpus=armv7k");
-    ScratchAttributeWriter
-        .fromLabelString(this, "cc_library", "//b:lib")
+    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "a.cc")
-        .write(getAppleCrosstoolConfiguration());
+        .write();
     addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "a/BUILD",

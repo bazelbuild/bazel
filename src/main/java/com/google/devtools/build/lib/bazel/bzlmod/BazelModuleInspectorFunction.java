@@ -15,19 +15,22 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -42,11 +45,14 @@ public class BazelModuleInspectorFunction implements SkyFunction {
 
   @Override
   @Nullable
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     RootModuleFileValue root =
         (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (root == null) {
+      return null;
+    }
+    BazelDepGraphValue depGraphValue = (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
+    if (depGraphValue == null) {
       return null;
     }
     BazelModuleResolutionValue resolutionValue =
@@ -61,6 +67,12 @@ public class BazelModuleInspectorFunction implements SkyFunction {
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         computeAugmentedGraph(unprunedDepGraph, resolvedDepGraph.keySet(), overrides);
 
+    ImmutableSetMultimap<ModuleExtensionId, String> extensionToRepoInternalNames =
+        computeExtensionToRepoInternalNames(depGraphValue, env);
+    if (extensionToRepoInternalNames == null) {
+      return null;
+    }
+
     // Group all ModuleKeys seen by their module name for easy lookup
     ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex =
         ImmutableMap.copyOf(
@@ -70,7 +82,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
                         AugmentedModule::getName,
                         Collectors.mapping(AugmentedModule::getKey, toImmutableSet()))));
 
-    return BazelModuleInspectorValue.create(depGraph, modulesIndex);
+    return BazelModuleInspectorValue.create(depGraph, modulesIndex, extensionToRepoInternalNames);
   }
 
   public static ImmutableMap<ModuleKey, AugmentedModule> computeAugmentedGraph(
@@ -156,5 +168,28 @@ public class BazelModuleInspectorFunction implements SkyFunction {
 
     return depGraphAugmentBuilder.entrySet().stream()
         .collect(toImmutableMap(Entry::getKey, e -> e.getValue().build()));
+  }
+
+  @Nullable
+  private ImmutableSetMultimap<ModuleExtensionId, String> computeExtensionToRepoInternalNames(
+      BazelDepGraphValue depGraphValue, Environment env) throws InterruptedException {
+    ImmutableSet<ModuleExtensionId> extensionEvalKeys =
+        depGraphValue.getExtensionUsagesTable().rowKeySet();
+    ImmutableList<SingleExtensionEvalValue.Key> singleEvalKeys =
+        extensionEvalKeys.stream().map(SingleExtensionEvalValue::key).collect(toImmutableList());
+    SkyframeLookupResult singleEvalValues = env.getValuesAndExceptions(singleEvalKeys);
+
+    ImmutableSetMultimap.Builder<ModuleExtensionId, String> extensionToRepoInternalNames =
+        ImmutableSetMultimap.builder();
+    for (SingleExtensionEvalValue.Key singleEvalKey : singleEvalKeys) {
+      SingleExtensionEvalValue singleEvalValue =
+          (SingleExtensionEvalValue) singleEvalValues.get(singleEvalKey);
+      if (singleEvalValue == null) {
+        return null;
+      }
+      extensionToRepoInternalNames.putAll(
+          singleEvalKey.argument(), singleEvalValue.getGeneratedRepoSpecs().keySet());
+    }
+    return extensionToRepoInternalNames.build();
   }
 }

@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper.attributeOrNull;
+import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -26,6 +29,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
@@ -43,6 +47,7 @@ import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -51,6 +56,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -421,7 +427,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * must exist (an exception is thrown otherwise).
    */
   public Object getAttrDefaultValue(String attrName) {
-    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue();
+    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
     // Computed defaults not expected here.
     Preconditions.checkState(!(defaultValue instanceof Attribute.ComputedDefault));
     return defaultValue;
@@ -543,7 +549,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       // which have not yet been populated. Note that in this situation returning null does not
       // result in a correctness issue, since the value for the attribute is actually a function to
       // compute the value.
-      return isFrozen() ? attr.getDefaultValue() : null;
+      return isFrozen() ? attr.getDefaultValue(this) : null;
     }
     if (attr.isLateBound()) {
       // Frozen rules don't store late bound defaults.
@@ -560,7 +566,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
             ? getName().substring(0, generatorNamePrefixLength)
             : "";
       default:
-        return attr.getDefaultValue();
+        return attr.getDefaultValue(this);
     }
   }
 
@@ -854,7 +860,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return false;
   }
 
-  /** Returns a new list containing all direct dependencies (all types). */
+  /**
+   * Returns a new list containing all direct dependencies (all types except outputs and nodeps).
+   */
   public List<Label> getLabels() {
     List<Label> labels = new ArrayList<>();
     AggregatingAttributeMapper.of(this).visitAllLabels((attribute, label) -> labels.add(label));
@@ -909,11 +917,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Collects the output files (both implicit and explicit). Must be called before the output
    * accessors methods can be used, and must be called only once.
    */
-  void populateOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
+  void populateOutputFiles(EventHandler eventHandler, PackageIdentifier pkgId)
       throws LabelSyntaxException, InterruptedException {
     populateOutputFilesInternal(
         eventHandler,
-        pkgBuilder.getPackageIdentifier(),
+        pkgId,
         ruleClass.getDefaultImplicitOutputsFunction(),
         /* checkLabels= */ true);
   }
@@ -1125,10 +1133,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return rawLabels == null ? getDefaultVisibility().getDeclaredLabels() : rawLabels;
   }
 
-  public boolean isVisibilitySpecified() {
-    return ruleClass.getName().equals("bind") || isAttributeValueExplicitlySpecified("visibility");
-  }
-
   @Nullable
   @SuppressWarnings("unchecked")
   private List<Label> getRawVisibilityLabels() {
@@ -1151,7 +1155,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         && pkg.getConfigSettingVisibilityPolicy() == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
       return RuleVisibility.PUBLIC; // Default: //visibility:public.
     }
-    return pkg.getDefaultVisibility();
+    return pkg.getPackageArgs().defaultVisibility();
   }
 
   @Override
@@ -1165,7 +1169,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         && isAttributeValueExplicitlySpecified("distribs")) {
       return NonconfigurableAttributeMapper.of(this).get("distribs", BuildType.DISTRIBUTIONS);
     } else {
-      return pkg.getDefaultDistribs();
+      return pkg.getPackageArgs().distribs();
     }
   }
 
@@ -1183,7 +1187,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     } else if (ruleClass.ignoreLicenses()) {
       return License.NO_LICENSE;
     } else {
-      return pkg.getDefaultLicense();
+      return pkg.getPackageArgs().license();
     }
   }
 
@@ -1216,6 +1220,41 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       }
     }
     return ruleTags;
+  }
+
+  @Override
+  public boolean isRule() {
+    return true;
+  }
+
+  @Override
+  @Nullable
+  public String getDeprecationWarning() {
+    return attributeOrNull(this, "deprecation", Type.STRING);
+  }
+
+  @Override
+  public boolean isTestOnly() {
+    Boolean value = attributeOrNull(this, "testonly", Type.BOOLEAN);
+    if (value == null) {
+      return false;
+    }
+    return value;
+  }
+
+  @Override
+  public boolean satisfies(RequiredProviders required) {
+    return required.isSatisfiedBy(getRuleClassObject().getAdvertisedProviders());
+  }
+
+  @Override
+  public TestTimeout getTestTimeout() {
+    return TestTimeout.getTestTimeout(this);
+  }
+
+  @Override
+  public AdvertisedProviderSet getAdvertisedProviders() {
+    return getRuleClassObject().getAdvertisedProviders();
   }
 
   /**
@@ -1270,5 +1309,142 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   /** Returns the suffix of target kind for all rules. */
   public static String targetKindSuffix() {
     return " rule";
+  }
+
+  @Override
+  public TargetData reduceForSerialization() {
+    return new RuleData(
+        ruleClass,
+        getLocation(),
+        ImmutableSet.copyOf(getRuleTags()),
+        getLabel(),
+        getDeprecationWarning(),
+        isTestOnly(),
+        getTestTimeout());
+  }
+
+  @VisibleForSerialization // (private) allows RuleDataCodec visibility
+  static class RuleData implements TargetData {
+    private final RuleClassData ruleClassData;
+    private final Location location;
+    // TODO(b/297857068): this is only used to report TargetCompletion, so it should never be
+    // read from a deserialized instance. Refine the ConfiguredTargetAndData API and delete this.
+    private final ImmutableSet<String> ruleTags;
+    private final Label label;
+    @Nullable private final String deprecationWarning;
+    private final boolean isTestOnly;
+    @Nullable private final TestTimeout testTimeout;
+
+    @VisibleForSerialization // (private) allows RuleDataCodec visibility
+    RuleData(
+        RuleClassData ruleClassData,
+        Location location,
+        ImmutableSet<String> ruleTags,
+        Label label,
+        @Nullable String deprecationWarning,
+        boolean isTestOnly,
+        @Nullable TestTimeout testTimeout) {
+      this.ruleClassData = ruleClassData;
+      this.location = location;
+      this.ruleTags = ruleTags;
+      this.label = label;
+      this.deprecationWarning = deprecationWarning;
+      this.isTestOnly = isTestOnly;
+      this.testTimeout = testTimeout;
+    }
+
+    RuleClassData getRuleClassData() {
+      return ruleClassData;
+    }
+
+    @Override
+    public String getTargetKind() {
+      return ruleClassData.getTargetKind();
+    }
+
+    @Override
+    public Location getLocation() {
+      return location;
+    }
+
+    @Override
+    public String getRuleClass() {
+      return ruleClassData.getName();
+    }
+
+    @Override
+    public ImmutableSet<String> getRuleTags() {
+      return ruleTags;
+    }
+
+    @Override
+    public Label getLabel() {
+      return label;
+    }
+
+    @Override
+    public boolean isRule() {
+      return true;
+    }
+
+    @Override
+    @Nullable
+    public String getDeprecationWarning() {
+      return deprecationWarning;
+    }
+
+    @Override
+    public boolean satisfies(RequiredProviders required) {
+      return required.isSatisfiedBy(ruleClassData.getAdvertisedProviders());
+    }
+
+    @Override
+    public boolean isTestOnly() {
+      return isTestOnly;
+    }
+
+    @Override
+    public AdvertisedProviderSet getAdvertisedProviders() {
+      return ruleClassData.getAdvertisedProviders();
+    }
+
+    @Override
+    @Nullable
+    public TestTimeout getTestTimeout() {
+      return testTimeout;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof RuleData)) {
+        return false;
+      }
+      RuleData that = (RuleData) obj;
+      return ruleClassData.equals(that.ruleClassData)
+          && location.equals(that.location)
+          && label.equals(that.label)
+          && Objects.equals(deprecationWarning, that.deprecationWarning)
+          && isTestOnly == that.isTestOnly
+          && Objects.equals(testTimeout, that.testTimeout);
+    }
+
+    @Override
+    public int hashCode() {
+      // Extremely likely equal if this many fields match.
+      return hashObjects(ruleClassData, location, label);
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this)
+          .add("ruleClassData", ruleClassData)
+          .add("location", location)
+          .add("ruleTags", ruleTags)
+          .add("label", label)
+          .add("deprecationWarning", deprecationWarning)
+          .add("isTestOnly", isTestOnly)
+          .add("testTimeout", testTimeout)
+          .toString();
+    }
   }
 }

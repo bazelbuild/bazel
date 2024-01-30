@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -58,7 +59,8 @@ public class QueryEnvironmentFactory {
       Iterable<QueryFunction> extraFunctions,
       @Nullable PathPackageLocator packagePath,
       boolean blockUniverseEvaluationErrors,
-      boolean useGraphlessQuery) {
+      boolean useGraphlessQuery,
+      LabelPrinter labelPrinter) {
     Preconditions.checkNotNull(universeScope);
     if (canUseSkyQuery(orderedResults, universeScope, packagePath, strictScope, labelFilter)) {
       return new SkyQueryEnvironment(
@@ -72,7 +74,8 @@ public class QueryEnvironmentFactory {
           graphFactory,
           universeScope,
           packagePath,
-          blockUniverseEvaluationErrors);
+          blockUniverseEvaluationErrors,
+          labelPrinter);
     } else if (useGraphlessQuery) {
       return new GraphlessBlazeQueryEnvironment(
           queryTransitivePackagePreloader,
@@ -86,7 +89,8 @@ public class QueryEnvironmentFactory {
           labelFilter,
           eventHandler,
           settings,
-          extraFunctions);
+          extraFunctions,
+          labelPrinter);
     } else {
       return new BlazeQueryEnvironment(
           queryTransitivePackagePreloader,
@@ -100,7 +104,8 @@ public class QueryEnvironmentFactory {
           labelFilter,
           eventHandler,
           settings,
-          extraFunctions);
+          extraFunctions,
+          labelPrinter);
     }
   }
 

@@ -32,7 +32,8 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
   private static final MockRule NO_CONFIG_RULE =
       () ->
           MockRule.define(
-              "no_config_rule", (builder, env) -> builder.cfg(NoConfigTransition.INSTANCE));
+              "no_config_rule",
+              (builder, env) -> builder.cfg(unused -> NoConfigTransition.INSTANCE));
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -77,8 +78,6 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
         "  attrs = {",
         "    'flag_value': attr.string(),",
         "    'dep': attr.label(),",
-        "    '_allowlist_function_transition':",
-        "      attr.label(default = '//tools/allowlists/function_transition_allowlist'),",
         "  },",
         ")");
     scratch.file(
@@ -135,8 +134,6 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
         "  attrs = {",
         "    'feature': attr.string(),",
         "    'dep': attr.label(),",
-        "    '_allowlist_function_transition':",
-        "      attr.label(default = '//tools/allowlists/function_transition_allowlist'),",
         "  },",
         ")");
     scratch.file(

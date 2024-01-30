@@ -95,4 +95,15 @@ public class BuildEventProtocolOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to publish TargetSummary events.")
   public boolean publishTargetSummary;
+
+  @Option(
+      name = "experimental_run_bep_event_include_residue",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Whether to include the command-line residue in run build events which could contain the"
+              + " residue. By default, the residue is not included in run command build events that"
+              + " could contain the residue.")
+  public boolean includeResidueInRunBepEvent;
 }

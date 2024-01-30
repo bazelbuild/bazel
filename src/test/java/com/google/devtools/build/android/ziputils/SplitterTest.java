@@ -51,7 +51,7 @@ public class SplitterTest {
       filter.add("dir" + i + ARCHIVE_FILE_SEPARATOR + "file" + i + CLASS_SUFFIX);
     }
     Splitter splitter = new Splitter(size + 1, input.size());
-    splitter.assign(filter);
+    splitter.assignAllToCurrentShard(filter);
     splitter.nextShard();
     output = new LinkedHashMap<>();
     for (String path : input) {

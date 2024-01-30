@@ -238,12 +238,13 @@ _SEPARATOR = 1
 _DOT = 2
 _DOTDOT = 3
 
-def _is_normalized(str):
+def _is_normalized(str, look_for_same_level_references = True):
     """
-    Returns true if the passed path contains uplevel references ".." or single-dot references ".".
+    Returns true if the passed path contains uplevel references "..". Also checks for single-dot references "." if look_for_same_level_references is True.
 
     Args:
         str: The path string to check.
+        look_for_same_level_references: If True checks if path contains uplevel references ".." or single-dot references ".".
 
     Returns:
         True if the path is normalized, False otherwise.
@@ -268,7 +269,10 @@ def _is_normalized(str):
                 state = _BASE
         elif state == _DOT:
             if is_separator:
-                return False
+                if look_for_same_level_references:
+                    # "." segment found.
+                    return False
+                state = _SEPARATOR
             elif c == ".":
                 state = _DOTDOT
             else:
@@ -280,7 +284,9 @@ def _is_normalized(str):
                 state = _BASE
 
     if state == _DOT:
-        return False
+        if look_for_same_level_references:
+            # "." segment found.
+            return False
     elif state == _DOTDOT:
         return False
     return True
@@ -289,6 +295,24 @@ def _get_relative(path_a, path_b):
     if paths.is_absolute(path_b):
         return path_b
     return paths.normalize(paths.join(path_a, path_b))
+
+def _contains_up_level_references(path):
+    return path.startswith("..") and (len(path) == 2 or path[2] == "/")
+
+def _starts_with(path_a, path_b):
+    """Returns True if and only if path_b is an ancestor of path_a.
+
+    Does not handle OS dependent case-insensitivty."""
+    if not path_b:
+        # all paths start with the empty string
+        return True
+    norm_a = _normalize(path_a)
+    norm_b = _normalize(path_b)
+    if len(norm_b) > len(norm_a):
+        return False
+    if not norm_a.startswith(norm_b):
+        return False
+    return len(norm_a) == len(norm_b) or norm_a[len(norm_b)] == "/"
 
 paths = struct(
     basename = _basename,
@@ -302,4 +326,6 @@ paths = struct(
     # The methods below this line are not in the skylib implementation.
     is_normalized = _is_normalized,
     get_relative = _get_relative,
+    contains_up_level_references = _contains_up_level_references,
+    starts_with = _starts_with,
 )

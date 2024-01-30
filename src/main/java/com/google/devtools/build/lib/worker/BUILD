@@ -33,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -49,12 +50,12 @@ java_library(
     deps = [
         ":error_message",
         ":worker",
-        ":worker_events",
         ":worker_files_hash",
         ":worker_key",
-        ":worker_metric",
         ":worker_options",
         ":worker_pool",
+        ":worker_process_metrics",
+        ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -92,9 +93,9 @@ java_library(
         ":multiplex_worker",
         ":singleplex_worker",
         ":worker_factory",
-        ":worker_metric",
         ":worker_options",
         ":worker_pool_impl",
+        ":worker_process_metrics",
         ":worker_spawn_runner",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -102,11 +103,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:runfiles_tree_updater",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
+        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_util",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
@@ -146,17 +149,17 @@ java_library(
 )
 
 java_library(
-    name = "worker_metric",
+    name = "worker_process_metrics",
     srcs = [
-        "WorkerMetric.java",
-        "WorkerMetricsCollector.java",
+        "WorkerProcessMetrics.java",
+        "WorkerProcessMetricsCollector.java",
     ],
     deps = [
+        ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/metrics:ps_info_collector",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -182,28 +185,17 @@ java_library(
         ":multiplex_worker",
         ":singleplex_worker",
         ":worker",
-        ":worker_events",
         ":worker_key",
+        ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:apache_commons_pool2",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "worker_events",
-    srcs = [
-        "WorkerCreatedEvent.java",
-        "WorkerDestroyedEvent.java",
-        "WorkerEvictedEvent.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:guava",
     ],
 )
 
@@ -216,7 +208,6 @@ java_library(
         ":worker",
         ":worker_key",
         "//third_party:apache_commons_pool2",
-        "//third_party:guava",
     ],
 )
 
@@ -228,11 +219,11 @@ java_library(
     ],
     deps = [
         ":worker",
-        ":worker_events",
         ":worker_factory",
         ":worker_key",
         ":worker_pool",
         "//third_party:apache_commons_pool2",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -243,12 +234,25 @@ java_library(
     srcs = ["Worker.java"],
     deps = [
         ":worker_key",
+        ":worker_process_metrics",
+        ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "worker_process_status",
+    srcs = ["WorkerProcessStatus.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
     ],
 )
@@ -264,8 +268,11 @@ java_library(
         ":worker",
         ":worker_exec_root",
         ":worker_key",
+        ":worker_process_status",
         ":worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_util",
@@ -294,6 +301,7 @@ java_library(
         ":worker",
         ":worker_exec_root",
         ":worker_key",
+        ":worker_process_status",
         ":worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -313,6 +321,7 @@ java_library(
     name = "worker_exec_root",
     srcs = ["WorkerExecRoot.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

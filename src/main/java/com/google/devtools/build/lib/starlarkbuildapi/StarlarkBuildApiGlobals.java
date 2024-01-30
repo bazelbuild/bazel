@@ -77,8 +77,8 @@ public interface StarlarkBuildApiGlobals {
       },
       // Ordinarily we'd use enableOnlyWithFlag here to gate access on
       // --experimental_bzl_visibility. However, the StarlarkSemantics isn't available at the point
-      // where the top-level environment is determined (see StarlarkModules#addPredeclared and
-      // notice that it relies on the overload of Starlark#addMethods that uses the default
+      // where the top-level environment is determined (see StarlarkGlobalsImpl#getFixedBzlToplevels
+      // and notice that it relies on the overload of Starlark#addMethods that uses the default
       // semantics). So instead we make this builtin unconditionally defined, but have it fail at
       // call time if used without the flag.
       useStarlarkThread = true)

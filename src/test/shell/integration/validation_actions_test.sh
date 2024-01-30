@@ -160,9 +160,9 @@ rule_with_implicit_and_host_deps(name = "target_with_implicit_and_host_deps")
 
 rule_with_implicit_outs_and_validation(name = "some_tool_dep")
 genrule(
-  name = "genrule_with_exec_tool_deps",
-  exec_tools = [":some_tool_dep"],
-  outs = ["genrule_with_exec_tool_deps_out"],
+  name = "genrule_with_tool_deps",
+  tools = [":some_tool_dep"],
+  outs = ["genrule_with_tool_deps_out"],
   cmd = "touch $@",
 )
 
@@ -274,11 +274,14 @@ simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
 
   bazel build --experimental_run_validations \
+      --show_result=2 \
       --experimental_use_validation_aspect \
       --aspects=validation_actions/simpleaspect.bzl%simple_aspect \
       --output_groups=+aspect-out \
       //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
 
+  expect_log "Target //validation_actions:foo0 up-to-date:"
+  expect_log "validation_actions/foo0.main"
   # Console printout includes other aspect but not validation aspect
   expect_log "Aspect //validation_actions:simpleaspect.bzl%simple_aspect of //validation_actions:foo0 up-to-date:"
   expect_log "validation_actions/foo0.aspect"
@@ -377,7 +380,7 @@ function test_failing_validation_action_for_tool_dep_does_not_fail_build() {
   # Validation actions in the exec configuration or from implicit deps should
   # not fail the overall build, since those dependencies should have their own
   # builds and tests that should surface any failing validations.
-  bazel build --experimental_run_validations //validation_actions:genrule_with_exec_tool_deps >& "$TEST_log" || fail "Expected build to succeed"
+  bazel build --experimental_run_validations //validation_actions:genrule_with_tool_deps >& "$TEST_log" || fail "Expected build to succeed"
   expect_not_log "validation failed!"
 }
 
@@ -506,6 +509,56 @@ function test_validation_actions_flags() {
   bazel build --norun_validations \
       //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
   expect_log "Target //validation_actions:foo0 up-to-date:"
+}
+
+function test_validation_actions_in_rule_and_aspect() {
+  setup_test_project
+
+  mkdir -p aspect
+  cat > aspect/BUILD <<'EOF'
+exports_files(["aspect_validation_tool"])
+EOF
+  cat > aspect/def.bzl <<'EOF'
+def _validation_aspect_impl(target, ctx):
+  validation_output = ctx.actions.declare_file(ctx.rule.attr.name + ".aspect_validation")
+  ctx.actions.run(
+      outputs = [validation_output],
+      executable = ctx.executable._validation_tool,
+      arguments = [validation_output.path])
+  return [
+    OutputGroupInfo(_validation = depset([validation_output])),
+  ]
+
+validation_aspect = aspect(
+  implementation = _validation_aspect_impl,
+  attrs = {
+    "_validation_tool": attr.label(
+        allow_single_file = True,
+        default = Label(":aspect_validation_tool"),
+        executable = True,
+        cfg = "exec"),
+  },
+)
+EOF
+  cat > aspect/aspect_validation_tool <<'EOF'
+#!/bin/bash
+echo "aspect validation output" > $1
+EOF
+  chmod +x aspect/aspect_validation_tool
+  setup_passing_validation_action
+
+  bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
+      //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+
+  cat > aspect/aspect_validation_tool <<'EOF'
+#!/bin/bash
+echo "aspect validation failed!"
+exit 1
+EOF
+
+  bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
+      //validation_actions:foo0 >& "$TEST_log" && fail "Expected build to fail"
+  expect_log "aspect validation failed!"
 }
 
 run_suite "Validation actions integration tests"

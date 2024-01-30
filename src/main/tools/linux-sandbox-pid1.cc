@@ -28,7 +28,6 @@
 #include <net/if.h>
 #include <pwd.h>
 #include <signal.h>
-#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,25 +68,6 @@
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 
-static void WriteFile(const std::string &filename, const char *fmt, ...) {
-  FILE *stream = fopen(filename.c_str(), "w");
-  if (stream == nullptr) {
-    DIE("fopen(%s)", filename.c_str());
-  }
-
-  va_list ap;
-  va_start(ap, fmt);
-  int r = vfprintf(stream, fmt, ap);
-  va_end(ap);
-
-  if (r < 0) {
-    DIE("vfprintf");
-  }
-
-  if (fclose(stream) != 0) {
-    DIE("fclose(%s)", filename.c_str());
-  }
-}
 
 static int global_child_pid;
 
@@ -172,7 +152,7 @@ static int CreateTarget(const char *path, bool is_directory) {
   return 0;
 }
 
-static void SetupSelfDestruction(int *sync_pipe) {
+static void SetupSelfDestruction(int *pipe_to_parent) {
   // We could also poll() on the pipe fd to find out when the parent goes away,
   // and rely on SIGCHLD interrupting that otherwise. That might require us to
   // install some trivial handler for SIGCHLD. Using O_ASYNC to turn the pipe
@@ -190,16 +170,7 @@ static void SetupSelfDestruction(int *sync_pipe) {
   }
 
   // Verify that the parent still lives.
-  char buf = 0;
-  if (close(sync_pipe[0]) < 0) {
-    DIE("close");
-  }
-  if (write(sync_pipe[1], &buf, 1) < 0) {
-    DIE("write");
-  }
-  if (close(sync_pipe[1]) < 0) {
-    DIE("close");
-  }
+  SignalPipe(pipe_to_parent);
 }
 
 static void SetupMountNamespace() {
@@ -271,15 +242,6 @@ static void SetupUtsNamespace() {
 }
 
 static void MountFilesystems() {
-  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
-    PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
-    if (mount("tmpfs", tmpfs_dir.c_str(), "tmpfs",
-              MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr) < 0) {
-      DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr)",
-          tmpfs_dir.c_str());
-    }
-  }
-
   // An attempt to mount the sandbox in tmpfs will always fail, so this block is
   // slightly redundant with the next mount() check, but dumping the mount()
   // syscall is incredibly cryptic, so we explicitly check against and warn
@@ -307,6 +269,15 @@ static void MountFilesystems() {
     }
   }
 
+  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
+    PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
+    if (mount("tmpfs", tmpfs_dir.c_str(), "tmpfs",
+              MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr) < 0) {
+      DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr)",
+          tmpfs_dir.c_str());
+    }
+  }
+
   for (const std::string &writable_file : opt.writable_files) {
     PRINT_DEBUG("writable: %s", writable_file.c_str());
     if (bind_mount_sources.find(writable_file) != bind_mount_sources.end()) {
@@ -322,8 +293,9 @@ static void MountFilesystems() {
     }
   }
 
-  // Make sure that our working directory is a mount point. The easiest way to
-  // do this is by bind-mounting it upon itself.
+  // Make sure that the working directory is writable (unlike most of the rest
+  // of the file system, which is read-only by default). The easiest way to do
+  // this is by bind-mounting it upon itself.
   PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
 
   if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
@@ -341,10 +313,6 @@ static bool ShouldBeWritable(const std::string &mnt_dir) {
   }
 
   if (opt.enable_pty && mnt_dir == "/dev/pts") {
-    return true;
-  }
-
-  if (mnt_dir == "/sys/fs/cgroup" && !opt.cgroups_dir.empty()) {
     return true;
   }
 
@@ -512,6 +480,13 @@ static void SpawnChild() {
     // Unblock all signals, restore default handlers.
     ClearSignalMask();
 
+    // Close the file PRINT_DEBUG writes to.
+    // Must happen late enough so we don't lose any debugging output.
+    if (global_debug) {
+      fclose(global_debug);
+      global_debug = nullptr;
+    }
+
     // Force umask to include read and execute for everyone, to make output
     // permissions predictable.
     umask(022);
@@ -563,13 +538,6 @@ static int WaitForChild() {
   }
 }
 
-static void AddProcessToCgroup() {
-  if (!opt.cgroups_dir.empty()) {
-    PRINT_DEBUG("Adding process to cgroups dir %s", opt.cgroups_dir.c_str());
-    WriteFile(opt.cgroups_dir + "/cgroup.procs", "1");
-  }
-}
-
 static void MountSandboxAndGoThere() {
   if (mount(opt.sandbox_root.c_str(), opt.sandbox_root.c_str(), nullptr,
             MS_BIND | MS_NOSUID, nullptr) < 0) {
@@ -615,15 +583,17 @@ static void MountAllMounts() {
     }
   }
 
-  // Make sure that our working directory is a mount point. The easiest way to
-  // do this is by bind-mounting it upon itself.
+  // Make sure that the working directory is writable (unlike most of the rest
+  // of the file system, which is read-only by default). The easiest way to do
+  // this is by bind-mounting it upon itself.
   if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
             nullptr) < 0) {
     DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
         opt.working_dir.c_str());
   }
+
   for (int i = 0; i < (signed)opt.bind_mount_sources.size(); i++) {
-    if (opt.debug) {
+    if (global_debug) {
       if (strcmp(opt.bind_mount_sources[i].c_str(),
                  opt.bind_mount_targets[i].c_str()) == 0) {
         // The file is mounted to the same path inside the sandbox, as outside
@@ -689,17 +659,23 @@ static void ChangeRoot() {
   }
 }
 
-int Pid1Main(void *sync_pipe_param) {
+int Pid1Main(void *args) {
   PRINT_DEBUG("Pid1Main started");
+
+  Pid1Args pid1Args = *(static_cast<Pid1Args *>(args));
 
   if (getpid() != 1) {
     DIE("Using PID namespaces, but we are not PID 1");
   }
 
+  // Before pid1 spawns a child pid2, we want to wait for the parent process to
+  // move pid1 to the cgroup so that pid2 will be created in the same cgroup.
+  WaitPipe(pid1Args.pipe_from_parent);
+
   // Start with default signal handlers and an empty signal mask.
   ClearSignalMask();
 
-  SetupSelfDestruction(reinterpret_cast<int *>(sync_pipe_param));
+  SetupSelfDestruction(pid1Args.pipe_to_parent);
 
   // Sandbox ourselves.
   SetupMountNamespace();
@@ -722,7 +698,6 @@ int Pid1Main(void *sync_pipe_param) {
   }
   SetupNetworking();
   EnterWorkingDirectory();
-  AddProcessToCgroup();
 
   // Ignore terminal signals; we hand off the terminal to the child in
   // SpawnChild below.

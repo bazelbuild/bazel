@@ -88,13 +88,6 @@ public class CanonicalStringIndexer extends AbstractIndexer {
   }
 
   @Override
-  public synchronized boolean addString(String s) {
-    int originalSize = size();
-    getOrCreateIndex(s);
-    return (size() > originalSize);
-  }
-
-  @Override
   public String getStringForIndex(int i) {
     return intToString.get(i);
   }

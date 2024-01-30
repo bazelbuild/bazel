@@ -27,9 +27,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -513,15 +515,82 @@ public final class BuildTypeTest {
             expectedLabels);
   }
 
+  @Test
+  @SuppressWarnings({"unchecked"})
+  public void testCopyAndLiftStarlarkList() throws Exception {
+    Object starlarkList = StarlarkList.immutableOf("//a:a1", "//a:a2");
+    ImmutableList<Label> expectedLabels =
+        ImmutableList.of(Label.create("@//a", "a1"), Label.create("@//a", "a2"));
+
+    Object converted =
+        BuildType.copyAndLiftStarlarkValue(
+            "ruleClass",
+            Attribute.attr("attrName", BuildType.LABEL_LIST).allowedFileTypes().build(),
+            starlarkList,
+            labelConverter);
+
+    assertThat(converted instanceof StarlarkList<?>).isTrue();
+    assertThat((List<Label>) converted).containsExactlyElementsIn(expectedLabels);
+  }
+
+  @Test
+  public void testCopyAndLiftStarlarkDict() throws Exception {
+    Object inputDict = Dict.immutableCopyOf(ImmutableMap.of("a", "b", "c", "d"));
+
+    Object converted =
+        BuildType.copyAndLiftStarlarkValue(
+            "ruleClass",
+            Attribute.attr("attrName", Type.STRING_DICT).build(),
+            inputDict,
+            labelConverter);
+
+    assertThat(converted instanceof Dict).isTrue();
+    assertThat(converted).isEqualTo(inputDict);
+    assertThat(converted).isNotSameInstanceAs(inputDict);
+  }
+
+  @Test
+  public void testCopyAndLiftSelectableStarlarkValue() throws Exception {
+    Object starlarkList = StarlarkList.immutableOf("//a:a1", "//a:a2");
+    Object selectableInput =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a",
+                    starlarkList,
+                    BuildType.Selector.DEFAULT_CONDITION_KEY,
+                    starlarkList),
+                ""));
+    StarlarkList<Label> expectedLabels =
+        StarlarkList.immutableOf(Label.create("@//a", "a1"), Label.create("@//a", "a2"));
+
+    Object converted =
+        BuildType.copyAndLiftStarlarkValue(
+            "ruleClass",
+            Attribute.attr("attrName", BuildType.LABEL_LIST).allowedFileTypes().build(),
+            selectableInput,
+            labelConverter);
+
+    assertThat(converted instanceof SelectorList).isTrue();
+    SelectorList selectorList = (SelectorList) converted;
+    assertThat(((SelectorValue) selectorList.getElements().get(0)).getDictionary())
+        .containsExactly(
+            Label.parseCanonical("//conditions:a"),
+            expectedLabels,
+            Label.parseCanonical(Selector.DEFAULT_CONDITION_KEY),
+            expectedLabels);
+  }
+
   /**
    * Tests that {@link com.google.devtools.build.lib.packages.Type#convert} fails on selector
    * inputs.
    */
   @Test
   public void testConvertDoesNotAcceptSelectables() throws Exception {
-    Object selectableInput = SelectorList.of(
-        new SelectorValue(
-            ImmutableMap.of("//conditions:a", Arrays.asList("//a:a1", "//a:a2")), ""));
+    Object selectableInput =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of("//conditions:a", Arrays.asList("//a:a1", "//a:a2")), ""));
     ConversionException e =
         assertThrows(
             ConversionException.class,

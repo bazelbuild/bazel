@@ -7,13 +7,6 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
-  ubuntu1804:
-    build_targets:
-      - "//src:bazel"
-      - "//src:bazel_nojdk"
-    build_flags:
-      - "-c"
-      - "opt"
   ubuntu2004:
     build_targets:
       - "//src:bazel"
@@ -21,8 +14,14 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
+  ubuntu2204:
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
+    build_flags:
+      - "-c"
+      - "opt"
   macos:
-    xcode_version: "13.0"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -30,7 +29,6 @@ platforms:
       - "-c"
       - "opt"
   macos_arm64:
-    xcode_version: "13.0"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -52,7 +50,7 @@ platforms:
       - "--host_copt=-w"
       - "-c"
       - "opt"
-      - "--cpu=x64_arm64_windows"
+      - "--config=windows_arm64"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_nojdk.exe"

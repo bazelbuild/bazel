@@ -110,7 +110,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(result.getStarlarkOptions()).hasSize(2);
     assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
         .isEqualTo(StarlarkInt.of(666));
-    assertThat(result.getStarlarkOptions().get("@repo2//:flag2")).isEqualTo(StarlarkInt.of(222));
+    assertThat(result.getStarlarkOptions().get("@@repo2//:flag2")).isEqualTo(StarlarkInt.of(222));
     assertThat(result.getResidue()).isEmpty();
   }
 
@@ -472,5 +472,27 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(result.getStarlarkOptions().keySet()).containsExactly("//test:cats");
     assertThat((List<String>) result.getStarlarkOptions().get("//test:cats"))
         .containsExactly("calico", "bengal");
+  }
+
+  @Test
+  public void flagReferencesExactlyOneTarget() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "string_flag = rule(",
+        "  implementation = lambda ctx, attr: [],",
+        "  build_setting = config.string(flag=True)",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'string_flag')",
+        "string_flag(name = 'one', build_setting_default = '')",
+        "string_flag(name = 'two', build_setting_default = '')");
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:all"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains("//test:all: user-defined flags must reference exactly one target");
   }
 }

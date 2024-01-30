@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -32,9 +31,6 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   static final String PCH_FILE_VARIABLE_NAME = "pch_file";
   static final String FRAMEWORKS_PATH_NAME = "framework_paths";
-  static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
-  static final String OBJC_MODULE_CACHE_KEY = "modules_cache_path";
-  static final String ARCHIVE_PATH_VARIABLE_NAME = "archive_path";
   static final String LINKMAP_EXEC_PATH = "linkmap_exec_path";
 
   // executable linking variables
@@ -50,70 +46,44 @@ class ObjcVariablesExtension implements VariablesExtension {
   // dsym variables
   static final String DSYM_PATH_VARIABLE_NAME = "dsym_path";
 
-  // ARC variables. Mutually exclusive.
-  static final String OBJC_ARC_VARIABLE_NAME = "objc_arc";
-  static final String NO_OBJC_ARC_VARIABLE_NAME = "no_objc_arc";
-
   private final RuleContext ruleContext;
   private final IntermediateArtifacts intermediateArtifacts;
-  private final BuildConfigurationValue buildConfiguration;
-  private final ImmutableList<String> frameworkSearchPaths;
-  private final ImmutableList<String> frameworkNames;
-  private final ImmutableList<String> weakFrameworkNames;
-  private final ImmutableList<String> libraryNames;
   private final ImmutableSet<Artifact> forceLoadArtifacts;
   private final ImmutableList<String> depLinkopts;
   private final ImmutableList<String> attributeLinkopts;
   private final ImmutableSet<VariableCategory> activeVariableCategories;
   private final Artifact dsymSymbol;
   private final Artifact linkmap;
-  private boolean arcEnabled = true;
 
   private ObjcVariablesExtension(
       RuleContext ruleContext,
       IntermediateArtifacts intermediateArtifacts,
-      BuildConfigurationValue buildConfiguration,
-      ImmutableList<String> frameworkSearchPaths,
-      ImmutableList<String> frameworkNames,
-      ImmutableList<String> weakFrameworkNames,
-      ImmutableList<String> libraryNames,
       ImmutableSet<Artifact> forceLoadArtifacts,
       ImmutableList<String> depLinkopts,
       ImmutableList<String> attributeLinkopts,
       ImmutableSet<VariableCategory> activeVariableCategories,
       Artifact dsymSymbol,
-      Artifact linkmap,
-      boolean arcEnabled) {
+      Artifact linkmap) {
     this.ruleContext = ruleContext;
     this.intermediateArtifacts = intermediateArtifacts;
-    this.buildConfiguration = buildConfiguration;
-    this.frameworkSearchPaths = frameworkSearchPaths;
-    this.frameworkNames = frameworkNames;
-    this.weakFrameworkNames = weakFrameworkNames;
-    this.libraryNames = libraryNames;
     this.forceLoadArtifacts = forceLoadArtifacts;
     this.depLinkopts = depLinkopts;
     this.attributeLinkopts = attributeLinkopts;
     this.activeVariableCategories = activeVariableCategories;
     this.dsymSymbol = dsymSymbol;
     this.linkmap = linkmap;
-    this.arcEnabled = arcEnabled;
   }
 
   /** Type of build variable that can optionally exported by this extension. */
   public enum VariableCategory {
     EXECUTABLE_LINKING_VARIABLES,
     DSYM_VARIABLES,
-    LINKMAP_VARIABLES,
-    MODULE_MAP_VARIABLES
+    LINKMAP_VARIABLES
   }
 
   @Override
   public void addVariables(CcToolchainVariables.Builder builder) {
     addPchVariables(builder);
-    if (activeVariableCategories.contains(VariableCategory.MODULE_MAP_VARIABLES)) {
-      addModuleMapVariables(builder);
-    }
     if (activeVariableCategories.contains(VariableCategory.EXECUTABLE_LINKING_VARIABLES)) {
       addExecutableLinkVariables(builder);
     }
@@ -122,11 +92,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
     if (activeVariableCategories.contains(VariableCategory.LINKMAP_VARIABLES)) {
       addLinkmapVariables(builder);
-    }
-    if (arcEnabled) {
-      builder.addStringVariable(OBJC_ARC_VARIABLE_NAME, "");
-    } else {
-      builder.addStringVariable(NO_OBJC_ARC_VARIABLE_NAME, "");
     }
   }
 
@@ -138,20 +103,12 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
   }
 
-  private void addModuleMapVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringVariable(
-        OBJC_MODULE_CACHE_KEY,
-        buildConfiguration.getGenfilesFragment(ruleContext.getRepository())
-            + "/"
-            + OBJC_MODULE_CACHE_DIR_NAME);
-  }
-
   private void addExecutableLinkVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringSequenceVariable(FRAMEWORKS_PATH_NAME, frameworkSearchPaths);
+    builder.addStringSequenceVariable(FRAMEWORKS_PATH_NAME, ImmutableList.<String>of());
+    builder.addStringSequenceVariable(FRAMEWORK_NAMES_VARIABLE_NAME, ImmutableList.<String>of());
     builder.addStringSequenceVariable(
-        FRAMEWORK_NAMES_VARIABLE_NAME, frameworkNames);
-    builder.addStringSequenceVariable(WEAK_FRAMEWORK_NAMES_VARIABLE_NAME, weakFrameworkNames);
-    builder.addStringSequenceVariable(LIBRARY_NAMES_VARIABLE_NAME, libraryNames);
+        WEAK_FRAMEWORK_NAMES_VARIABLE_NAME, ImmutableList.<String>of());
+    builder.addStringSequenceVariable(LIBRARY_NAMES_VARIABLE_NAME, ImmutableList.<String>of());
     builder.addStringVariable(
         FILELIST_VARIABLE_NAME, intermediateArtifacts.linkerObjList().getExecPathString());
     builder.addStringVariable(
@@ -183,17 +140,11 @@ class ObjcVariablesExtension implements VariablesExtension {
   static class Builder {
     private RuleContext ruleContext;
     private IntermediateArtifacts intermediateArtifacts;
-    private BuildConfigurationValue buildConfiguration;
-    private ImmutableList<String> frameworkSearchPaths;
-    private ImmutableList<String> frameworkNames;
-    private ImmutableList<String> weakFrameworkNames;
     private ImmutableSet<Artifact> forceLoadArtifacts;
-    private ImmutableList<String> libraryNames;
     private ImmutableList<String> depLinkopts;
     private ImmutableList<String> attributeLinkopts;
     private Artifact dsymSymbol;
     private Artifact linkmap;
-    private boolean arcEnabled = true;
 
     private final ImmutableSet.Builder<VariableCategory> activeVariableCategoriesBuilder =
         ImmutableSet.builder();
@@ -209,41 +160,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     @CanIgnoreReturnValue
     public Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = Preconditions.checkNotNull(intermediateArtifacts);
-      return this;
-    }
-
-    /** Sets the configuration for this extension. */
-    @CanIgnoreReturnValue
-    public Builder setConfiguration(BuildConfigurationValue buildConfiguration) {
-      this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
-      return this;
-    }
-
-    /** Sets the framework search paths to be passed to the compiler/linker using {@code -F}. */
-    @CanIgnoreReturnValue
-    public Builder setFrameworkSearchPath(ImmutableList<String> frameworkSearchPaths) {
-      this.frameworkSearchPaths = Preconditions.checkNotNull(frameworkSearchPaths);
-      return this;
-    }
-
-    /** Sets the framework names to be passed to the linker using {@code -framework}. */
-    @CanIgnoreReturnValue
-    public Builder setFrameworkNames(ImmutableList<String> frameworkNames) {
-      this.frameworkNames = Preconditions.checkNotNull(frameworkNames);
-      return this;
-    }
-
-    /** Sets the weak framework names to be passed to the linker using {@code -weak_framework}. */
-    @CanIgnoreReturnValue
-    public Builder setWeakFrameworkNames(ImmutableList<String> weakFrameworkNames) {
-      this.weakFrameworkNames = Preconditions.checkNotNull(weakFrameworkNames);
-      return this;
-    }
-
-    /** Sets binary input files to be passed to the linker with "-l" flags. */
-    @CanIgnoreReturnValue
-    public Builder setLibraryNames(ImmutableList<String> libraryNames) {
-      this.libraryNames = Preconditions.checkNotNull(libraryNames);
       return this;
     }
 
@@ -289,26 +205,14 @@ class ObjcVariablesExtension implements VariablesExtension {
       return this;
     }
 
-    /** Sets whether ARC is enabled. */
-    @CanIgnoreReturnValue
-    public Builder setArcEnabled(boolean enabled) {
-      this.arcEnabled = enabled;
-      return this;
-    }
-
     public ObjcVariablesExtension build() {
 
       ImmutableSet<VariableCategory> activeVariableCategories =
           activeVariableCategoriesBuilder.build();
 
       Preconditions.checkNotNull(ruleContext, "missing RuleContext");
-      Preconditions.checkNotNull(buildConfiguration, "missing BuildConfigurationValue");
       Preconditions.checkNotNull(intermediateArtifacts, "missing IntermediateArtifacts");
       if (activeVariableCategories.contains(VariableCategory.EXECUTABLE_LINKING_VARIABLES)) {
-        Preconditions.checkNotNull(frameworkSearchPaths, "missing FrameworkSearchPaths");
-        Preconditions.checkNotNull(frameworkNames, "missing framework names");
-        Preconditions.checkNotNull(weakFrameworkNames, "missing weak framework names");
-        Preconditions.checkNotNull(libraryNames, "missing library names");
         Preconditions.checkNotNull(forceLoadArtifacts, "missing force-load artifacts");
         Preconditions.checkNotNull(depLinkopts, "missing dep linkopts");
         Preconditions.checkNotNull(attributeLinkopts, "missing attribute linkopts");
@@ -323,18 +227,12 @@ class ObjcVariablesExtension implements VariablesExtension {
       return new ObjcVariablesExtension(
           ruleContext,
           intermediateArtifacts,
-          buildConfiguration,
-          frameworkSearchPaths,
-          frameworkNames,
-          weakFrameworkNames,
-          libraryNames,
           forceLoadArtifacts,
           depLinkopts,
           attributeLinkopts,
           activeVariableCategories,
           dsymSymbol,
-          linkmap,
-          arcEnabled);
+          linkmap);
     }
   }
 }

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
@@ -138,25 +137,25 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
     assertThat(expander.expand("foo $(rootpaths :foo) bar"))
         .matches("foo expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath :foo) bar"))
-        .isEqualTo("foo workspace/expansion/foo.txt bar");
+        .isEqualTo("foo " + ruleClassProvider.getRunfilesPrefix() + "/expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpaths :foo) bar"))
-        .isEqualTo("foo workspace/expansion/foo.txt bar");
+        .isEqualTo("foo " + ruleClassProvider.getRunfilesPrefix() + "/expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath //expansion:foo) bar"))
-        .isEqualTo("foo workspace/expansion/foo.txt bar");
+        .isEqualTo("foo " + ruleClassProvider.getRunfilesPrefix() + "/expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpaths //expansion:foo) bar"))
-        .isEqualTo("foo workspace/expansion/foo.txt bar");
+        .isEqualTo("foo " + ruleClassProvider.getRunfilesPrefix() + "/expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath @//expansion:foo) bar"))
-        .isEqualTo("foo workspace/expansion/foo.txt bar");
+        .isEqualTo("foo " + ruleClassProvider.getRunfilesPrefix() + "/expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpaths @//expansion:foo) bar"))
-        .isEqualTo("foo workspace/expansion/foo.txt bar");
+        .isEqualTo("foo " + ruleClassProvider.getRunfilesPrefix() + "/expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath @workspace//expansion:foo) bar"))
-        .isEqualTo("foo workspace/expansion/foo.txt bar");
+        .isEqualTo("foo " + ruleClassProvider.getRunfilesPrefix() + "/expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpaths @workspace//expansion:foo) bar"))
-        .isEqualTo("foo workspace/expansion/foo.txt bar");
+        .isEqualTo("foo " + ruleClassProvider.getRunfilesPrefix() + "/expansion/foo.txt bar");
   }
 
   @Test
-  public void otherPathExternalExpansion() throws Exception {
+  public void otherPathExternalExpansionLegacyExternalRunfiles() throws Exception {
     scratch.file(
         "expansion/BUILD",
         "sh_library(name='lib', srcs=['@r//p:foo'])");
@@ -172,6 +171,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
     scratch.file("/r/WORKSPACE", "workspace(name = 'r')");
     scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
 
+    useConfiguration("--legacy_external_runfiles");
     LocationExpander expander = makeExpander("//expansion:lib");
     assertThat(expander.expand("foo $(execpath @r//p:foo) bar"))
         .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
@@ -262,6 +262,6 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
     assertThat(expander.expand("foo $(rlocationpaths :foo) bar"))
         .isEqualTo(
             "foo __main__/expansion/bar.txt __main__/expansion/foo.txt bar"
-                .replace("__main__", TestConstants.WORKSPACE_NAME));
+                .replace("__main__", ruleClassProvider.getRunfilesPrefix()));
   }
 }

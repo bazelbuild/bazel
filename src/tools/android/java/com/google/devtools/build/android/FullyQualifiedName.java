@@ -352,11 +352,9 @@ public class FullyQualifiedName implements DataKey {
     RESOURCES_ATTRIBUTE("<resources>", "Resources Attribute");
 
     private final String name;
-    private final String displayName;
 
     private VirtualType(String name, String displayName) {
       this.name = name;
-      this.displayName = displayName;
     }
 
     /** Returns the enum represented by the {@code name}. */
@@ -383,11 +381,6 @@ public class FullyQualifiedName implements DataKey {
     @Override
     public String getName() {
       return name;
-    }
-
-    /** Returns a translated display name for the resource type. */
-    public String getDisplayName() {
-      return displayName;
     }
 
     @Override
@@ -700,10 +693,6 @@ public class FullyQualifiedName implements DataKey {
     }
 
     public FullyQualifiedName create(ResourceType type, String name) {
-      return create(new ResourceTypeWrapper(type), name, pkg);
-    }
-
-    public FullyQualifiedName create(ResourceType type, String name, String pkg) {
       return create(new ResourceTypeWrapper(type), name, pkg);
     }
 

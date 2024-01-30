@@ -31,11 +31,13 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -136,10 +138,11 @@ public final class StarlarkRepositoryContextTest {
     Package.Builder packageBuilder =
         Package.newExternalPackageBuilder(
             PackageSettings.DEFAULTS,
-            RootedPath.toRootedPath(root, workspaceFile),
+            WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFile)),
             "runfiles",
             RepositoryMapping.ALWAYS_FALLBACK,
-            starlarkSemantics);
+            starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+            PackageOverheadEstimator.NOOP_ESTIMATOR);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
@@ -314,7 +317,7 @@ public final class StarlarkRepositoryContextTest {
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     context.patch(patchFile, StarlarkInt.of(0), thread);
-    testOutputFile(foo.getPath(), String.format("line one%nline two%n"));
+    testOutputFile(foo.getPath(), "line one\nline two\n");
   }
 
   @Test
@@ -375,16 +378,9 @@ public final class StarlarkRepositoryContextTest {
           .hasCauseThat()
           .hasMessageThat()
           .isEqualTo(
-              "Error applying patch /outputDir/my.patch: Incorrect Chunk: the chunk content "
-                  + "doesn't match the target\n"
-                  + "**Original Position**: 1\n"
-                  + "\n"
-                  + "**Original Content**:\n"
-                  + "line one\n"
-                  + "\n"
-                  + "**Revised Content**:\n"
-                  + "line one\n"
-                  + "line two\n");
+              "Error applying patch /outputDir/my.patch: in patch applied to "
+                  + "/outputDir/foo: could not apply patch due to"
+                  + " CONTENT_DOES_NOT_MATCH_TARGET, error applying change near line 1");
     }
   }
 
@@ -393,7 +389,7 @@ public final class StarlarkRepositoryContextTest {
     // Test that context.execute() can call out to remote execution and correctly forward
     // execution properties.
 
-    // Arrange
+    // Prepare mocked remote repository and corresponding repository rule.
     ImmutableMap<String, Object> attrValues =
         ImmutableMap.of(
             "name",
@@ -423,7 +419,7 @@ public final class StarlarkRepositoryContextTest {
         Attribute.attr("$remotable", Type.BOOLEAN).build(),
         Attribute.attr("exec_properties", Type.STRING_DICT).build());
 
-    // Act
+    // Execute the `StarlarkRepositoryContext`.
     StarlarkExecutionResult starlarkExecutionResult =
         context.execute(
             StarlarkList.of(/* mutability= */ null, "/bin/cmd", "arg1"),
@@ -433,7 +429,7 @@ public final class StarlarkRepositoryContextTest {
             /* overrideWorkingDirectory= */ "",
             thread);
 
-    // Assert
+    // Verify the remote repository rule was run and its response returned.
     verify(repoRemoteExecutor)
         .execute(
             /* arguments= */ ImmutableList.of("/bin/cmd", "arg1"),

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +34,7 @@ import java.net.URLConnection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Class for establishing HTTP connections.
@@ -75,7 +75,7 @@ final class HttpConnectorMultiplexer {
   }
 
   public HttpStream connect(URL url, Optional<Checksum> checksum) throws IOException {
-    return connect(url, checksum, StaticCredentials.EMPTY, Optional.absent());
+    return connect(url, checksum, ImmutableMap.of(), StaticCredentials.EMPTY, Optional.empty());
   }
 
   /**
@@ -96,14 +96,23 @@ final class HttpConnectorMultiplexer {
    * @throws IllegalArgumentException if {@code urls} is empty or has an unsupported protocol
    */
   public HttpStream connect(
-      URL url, Optional<Checksum> checksum, Credentials credentials, Optional<String> type)
+      URL url,
+      Optional<Checksum> checksum,
+      Map<String, List<String>> headers,
+      Credentials credentials,
+      Optional<String> type)
       throws IOException {
     Preconditions.checkArgument(HttpUtils.isUrlSupportedByDownloader(url));
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
     }
+    ImmutableMap.Builder<String, List<String>> baseHeaders = new ImmutableMap.Builder<>();
+    baseHeaders.putAll(headers);
+    // REQUEST_HEADERS should not be overridable by user provided headers
+    baseHeaders.putAll(REQUEST_HEADERS);
+
     Function<URL, ImmutableMap<String, List<String>>> headerFunction =
-        getHeaderFunction(REQUEST_HEADERS, credentials);
+        getHeaderFunction(baseHeaders.buildKeepingLast(), credentials, eventHandler);
     URLConnection connection = connector.connect(url, headerFunction);
     return httpStreamFactory.create(
         connection,
@@ -125,7 +134,7 @@ final class HttpConnectorMultiplexer {
 
   @VisibleForTesting
   static Function<URL, ImmutableMap<String, List<String>>> getHeaderFunction(
-      Map<String, List<String>> baseHeaders, Credentials credentials) {
+      Map<String, List<String>> baseHeaders, Credentials credentials, EventHandler eventHandler) {
     Preconditions.checkNotNull(baseHeaders);
     Preconditions.checkNotNull(credentials);
 
@@ -137,6 +146,8 @@ final class HttpConnectorMultiplexer {
         // If we can't convert the URL to a URI (because it is syntactically malformed), or fetching
         // credentials fails for any other reason, still try to do the connection, not adding
         // authentication information as we cannot look it up.
+        eventHandler.handle(
+            Event.warn("Error retrieving auth headers, continuing without: " + e.getMessage()));
       }
       return ImmutableMap.copyOf(headers);
     };

@@ -44,16 +44,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_java_proto",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:network_metrics_collector",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
-        "//src/main/java/com/google/devtools/build/lib/worker:worker_events",
-        "//src/main/java/com/google/devtools/build/lib/worker:worker_metric",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe_graph_stats_event",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:action_cache_java_proto",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
         "//third_party:flogger",
@@ -87,7 +89,10 @@ java_library(
 
 java_library(
     name = "ps_info_collector",
-    srcs = ["PsInfoCollector.java"],
+    srcs = [
+        "PsInfoCollector.java",
+        "ResourceSnapshot.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//third_party:auto_value",

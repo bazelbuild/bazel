@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
@@ -108,7 +107,6 @@ public enum LinkBuildVariables {
       boolean mustKeepDebug,
       CcToolchainProvider ccToolchainProvider,
       CppConfiguration cppConfiguration,
-      BuildOptions buildOptions,
       FeatureConfiguration featureConfiguration,
       boolean useTestOnlyFlags,
       boolean isLtoIndexing,
@@ -116,16 +114,16 @@ public enum LinkBuildVariables {
       String interfaceLibraryBuilder,
       String interfaceLibraryOutput,
       PathFragment ltoOutputRootPrefix,
+      PathFragment ltoObjRootPrefix,
       String defFile,
       FdoContext fdoContext,
       NestedSet<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
       NestedSet<String> librarySearchDirectories,
       boolean addIfsoRelatedVariables)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CcToolchainVariables.Builder buildVariables =
-        CcToolchainVariables.builder(
-            ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration));
+        CcToolchainVariables.builder(ccToolchainProvider.getBuildVars());
 
     // pic
     if (cppConfiguration.forcePic()) {
@@ -137,17 +135,13 @@ public enum LinkBuildVariables {
     }
 
     if (isUsingLinkerNotArchiver
-        && ccToolchainProvider.shouldCreatePerObjectDebugInfo(
+        && CcToolchainProvider.shouldCreatePerObjectDebugInfo(
             featureConfiguration, cppConfiguration)) {
       buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
     }
 
     if (!cppConfiguration.useCcTestFeature()) {
-      if (useTestOnlyFlags) {
-        buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 1);
-      } else {
-        buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 0);
-      }
+      buildVariables.addBooleanValue(IS_CC_TEST.getVariableName(), useTestOnlyFlags);
     }
 
     if (runtimeLibrarySearchDirectories != null) {
@@ -187,13 +181,27 @@ public enum LinkBuildVariables {
         // TODO(b/33846234): Remove once all the relevant crosstools don't depend on the variable.
         buildVariables.addStringVariable("thinlto_optional_params_file", "");
       }
-      // Given "fullbitcode_prefix;thinlto_index_prefix", replaces fullbitcode_prefix with
-      // thinlto_index_prefix to generate the index and imports files.
+      // Given "fullbitcode_prefix;thinlto_index_prefix;native_object_prefix", replaces
+      // fullbitcode_prefix with thinlto_index_prefix to generate the index and imports files.
       // fullbitcode_prefix is the empty string because we are appending a prefix to the fullbitcode
       // instead of replacing it. This argument is passed to the linker.
-      buildVariables.addStringVariable(
-          THINLTO_PREFIX_REPLACE.getVariableName(),
-          ";" + binDirectoryPath.getRelative(ltoOutputRootPrefix) + '/');
+      // The native objects generated after the LTOBackend action are stored in a directory by
+      // replacing the prefix "fullbitcode_prefix" with "native_object_prefix", and this is used
+      // when generating the param file in the indexing step, which will be used during the final
+      // link step.
+      if (!ltoOutputRootPrefix.equals(ltoObjRootPrefix)) {
+        buildVariables.addStringVariable(
+            THINLTO_PREFIX_REPLACE.getVariableName(),
+            ";"
+                + binDirectoryPath.getRelative(ltoOutputRootPrefix)
+                + "/;"
+                + binDirectoryPath.getRelative(ltoObjRootPrefix)
+                + "/");
+      } else {
+        buildVariables.addStringVariable(
+            THINLTO_PREFIX_REPLACE.getVariableName(),
+            ";" + binDirectoryPath.getRelative(ltoOutputRootPrefix) + "/");
+      }
       String objectFileExtension =
           ccToolchainProvider
               .getFeatures()

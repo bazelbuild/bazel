@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.Type;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -51,11 +52,6 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getName() {
-    return ruleAttributes.getName();
-  }
-
-  @Override
   public Label getLabel() {
     return ruleAttributes.getLabel();
   }
@@ -67,9 +63,10 @@ class AspectAwareAttributeMapper implements AttributeMap {
     } else {
       Attribute attribute = aspectAttributes.get(attributeName);
       if (attribute == null) {
-        throw new IllegalArgumentException(String.format(
-            "no attribute '%s' in either %s or its aspects",
-            attributeName, ruleAttributes.getLabel()));
+        throw new IllegalArgumentException(
+            String.format(
+                "no attribute '%s' in either %s or its aspects",
+                attributeName, ruleAttributes.describeRule()));
       } else if (attribute.getType() != type) {
         throw new IllegalArgumentException(String.format(
             "attribute %s has type %s, not expected type %s",
@@ -137,23 +134,8 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return ruleAttributes.getPackageDefaultHdrsCheck();
-  }
-
-  @Override
-  public boolean isPackageDefaultHdrsCheckSet() {
-    return ruleAttributes.isPackageDefaultHdrsCheckSet();
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return ruleAttributes.getPackageDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return ruleAttributes.getPackageDefaultDeprecation();
+  public PackageArgs getPackageArgs() {
+    return ruleAttributes.getPackageArgs();
   }
 
   @Override

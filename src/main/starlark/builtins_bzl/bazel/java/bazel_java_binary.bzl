@@ -12,18 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":common/rule_util.bzl", "merge_attrs")
-load(":common/java/java_util.bzl", "shell_quote")
-load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/java/java_helper.bzl", helper = "util")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
+load(":common/java/android_lint.bzl", "android_lint_subrule")
 load(":common/java/java_binary.bzl", "BASE_TEST_ATTRIBUTES", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
+load(":common/java/java_helper.bzl", "helper")
+load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
-
-JavaInfo = _builtins.toplevel.JavaInfo
+load(":common/rule_util.bzl", "merge_attrs")
 
 def _bazel_java_binary_impl(ctx):
-    return _bazel_base_binary_impl(ctx, is_test_rule_class = False)
+    return _bazel_base_binary_impl(ctx, is_test_rule_class = False) + helper.executable_providers(ctx)
 
 def _bazel_java_test_impl(ctx):
     return _bazel_base_binary_impl(ctx, is_test_rule_class = True) + helper.test_providers(ctx)
@@ -34,7 +34,7 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
 
     main_class = _check_and_get_main_class(ctx)
     coverage_main_class = main_class
-    coverage_config = helper.get_coverage_config(ctx)
+    coverage_config = helper.get_coverage_config(ctx, _get_coverage_runner(ctx))
     if coverage_config:
         main_class = coverage_config.main_class
 
@@ -43,7 +43,11 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
     executable = _get_executable(ctx)
 
     feature_config = helper.get_feature_config(ctx)
-    strip_as_default = helper.should_strip_as_default(ctx, feature_config)
+    if feature_config:
+        strip_as_default = helper.should_strip_as_default(ctx, feature_config)
+    else:
+        # No C++ toolchain available.
+        strip_as_default = False
 
     providers, default_info, jvm_flags = basic_java_binary(
         ctx,
@@ -55,7 +59,6 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
         coverage_config,
         launcher_info,
         executable,
-        feature_config,
         strip_as_default,
         is_test_rule_class = is_test_rule_class,
     )
@@ -67,10 +70,11 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
         if test_class == "":
             test_class = helper.primary_class(ctx)
         if test_class == None:
-            fail("cannot determine test class")
+            fail("cannot determine test class. You might want to rename the " +
+                 " rule or add a 'test_class' attribute.")
         jvm_flags.extend([
             "-ea",
-            "-Dbazel.test_suite=" + shell_quote(test_class),
+            "-Dbazel.test_suite=" + helper.shell_escape(test_class),
         ])
 
     java_attrs = providers["InternalDeployJarInfo"].java_attrs
@@ -79,6 +83,10 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
         _create_stub(ctx, java_attrs, launcher_info.launcher, executable, jvm_flags, main_class, coverage_main_class)
 
     runfiles = default_info.runfiles
+
+    if executable:
+        runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
+        runfiles = runfiles.merge(ctx.runfiles(transitive_files = runtime_toolchain.files))
 
     test_support = helper.get_test_support(ctx)
     if test_support:
@@ -91,6 +99,19 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
     )
 
     return providers.values()
+
+def _get_coverage_runner(ctx):
+    if ctx.configuration.coverage_enabled and ctx.attr.create_executable:
+        toolchain = semantics.find_java_toolchain(ctx)
+        runner = toolchain.jacocorunner
+        if not runner:
+            fail("jacocorunner not set in java_toolchain: %s" % toolchain.label)
+        runner_jar = runner.executable
+
+        # wrap the jar in JavaInfo so we can add it to deps for java_common.compile()
+        return JavaInfo(output_jar = runner_jar, compile_jar = runner_jar)
+
+    return None
 
 def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
     deps = helper.collect_all_targets_as_deps(ctx, classpath_type = classpath_type)
@@ -152,7 +173,7 @@ def _get_executable(ctx):
     if not ctx.attr.create_executable:
         return None
     executable_name = ctx.label.name
-    if helper.is_windows(ctx):
+    if helper.is_target_platform_windows(ctx):
         executable_name = executable_name + ".exe"
 
     return ctx.actions.declare_file(executable_name)
@@ -174,14 +195,14 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
         ],
     )
 
-    if helper.is_windows(ctx):
+    if helper.is_target_platform_windows(ctx):
         jvm_flags_for_launcher = []
         for flag in jvm_flags:
             jvm_flags_for_launcher.extend(ctx.tokenize(flag))
         return _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, runfiles_enabled, executable)
 
     if runfiles_enabled:
-        prefix = "" if helper.is_absolute_path(ctx, java_executable) else "${JAVA_RUNFILES}/"
+        prefix = "" if helper.is_absolute_target_platform_path(ctx, java_executable) else "${JAVA_RUNFILES}/"
         java_bin = "JAVABIN=${JAVABIN:-" + prefix + java_executable + "}"
     else:
         java_bin = "JAVABIN=${JAVABIN:-$(rlocation " + java_executable + ")}"
@@ -203,11 +224,11 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
             "%runfiles_manifest_only%": "" if runfiles_enabled else "1",
             "%workspace_prefix%": workspace_prefix,
             "%javabin%": java_bin,
-            "%needs_runfiles%": "0" if helper.is_absolute_path(ctx, java_runtime_toolchain.java_executable_exec_path) else "1",
+            "%needs_runfiles%": "0" if helper.is_absolute_target_platform_path(ctx, java_runtime_toolchain.java_executable_exec_path) else "1",
             "%set_jacoco_metadata%": "",
             "%set_jacoco_main_class%": "export JACOCO_MAIN_CLASS=" + coverage_main_class if coverage_enabled else "",
             "%set_jacoco_java_runfiles_root%": "export JACOCO_JAVA_RUNFILES_ROOT=${JAVA_RUNFILES}/" + workspace_prefix if coverage_enabled else "",
-            "%java_start_class%": shell_quote(main_class),
+            "%java_start_class%": helper.shell_escape(main_class),
             "%jvm_flags%": " ".join(jvm_flags),
         },
         computed_substitutions = td,
@@ -230,8 +251,9 @@ def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jv
     launch_info.add(main_class, format = "java_start_class=%s")
     launch_info.add_joined(classpath, map_each = _short_path, join_with = ";", format_joined = "classpath=%s", omit_if_empty = False)
     launch_info.add_joined(jvm_flags_for_launcher, join_with = "\t", format_joined = "jvm_flags=%s", omit_if_empty = False)
-    jar_bin_path = semantics.find_java_runtime_toolchain(ctx).java_home + "/bin/jar.exe"
-    launch_info.add(jar_bin_path, format = "jar_bin_path=%s")
+    launch_info.add(semantics.find_java_runtime_toolchain(ctx).java_home_runfiles_path, format = "jar_bin_path=%s/bin/jar.exe")
+
+    # TODO(b/295221112): Change to use the "launcher" attribute (only windows use a fixed _launcher attribute)
     launcher_artifact = ctx.executable._launcher
     ctx.actions.run(
         executable = ctx.executable._windows_launcher_maker,
@@ -251,15 +273,19 @@ def _compute_test_support(use_testrunner):
 def _compute_launcher_attr(launcher):
     return launcher
 
-def _make_binary_rule(implementation, attrs, executable = False, test = False):
+def _make_binary_rule(implementation, *, doc, attrs, executable = False, test = False, initializer = None):
     return rule(
         implementation = implementation,
+        initializer = initializer,
+        doc = doc,
         attrs = attrs,
         executable = executable,
         test = test,
         fragments = ["cpp", "java"],
         provides = [JavaInfo],
-        toolchains = [semantics.JAVA_TOOLCHAIN, semantics.JAVA_RUNTIME_TOOLCHAIN] + cc_helper.use_cpp_toolchain(),
+        toolchains = [semantics.JAVA_TOOLCHAIN] + cc_helper.use_cpp_toolchain() + (
+            [semantics.JAVA_RUNTIME_TOOLCHAIN] if executable or test else []
+        ),
         # TODO(hvd): replace with filegroups?
         outputs = {
             "classjar": "%{name}.jar",
@@ -269,40 +295,135 @@ def _make_binary_rule(implementation, attrs, executable = False, test = False):
         exec_groups = {
             "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
         },
+        subrules = [android_lint_subrule],
     )
 
 _BASE_BINARY_ATTRS = merge_attrs(
     BASIC_JAVA_BINARY_ATTRIBUTES,
     {
+        "resource_strip_prefix": attr.string(
+            doc = """
+The path prefix to strip from Java resources.
+<p>
+If specified, this path prefix is stripped from every file in the <code>resources</code>
+attribute. It is an error for a resource file not to be under this directory. If not
+specified (the default), the path of resource file is determined according to the same
+logic as the Java package of source files. For example, a source file at
+<code>stuff/java/foo/bar/a.txt</code> will be located at <code>foo/bar/a.txt</code>.
+</p>
+            """,
+        ),
         "_test_support": attr.label(default = _compute_test_support),
         "_launcher": attr.label(
             cfg = "exec",
             executable = True,
             default = "@bazel_tools//tools/launcher:launcher",
         ),
-        "resource_strip_prefix": attr.string(),
         "_windows_launcher_maker": attr.label(
             default = "@bazel_tools//tools/launcher:launcher_maker",
             cfg = "exec",
             executable = True,
         ),
+        "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:optional_current_cc_toolchain"),
     },
 )
 
-def make_java_binary(executable, resolve_launcher_flag, has_launcher = False):
+def make_java_binary(executable):
     return _make_binary_rule(
         _bazel_java_binary_impl,
-        merge_attrs(
+        doc = """
+<p>
+  Builds a Java archive ("jar file"), plus a wrapper shell script with the same name as the rule.
+  The wrapper shell script uses a classpath that includes, among other things, a jar file for each
+  library on which the binary depends. When running the wrapper shell script, any nonempty
+  <code>JAVABIN</code> environment variable will take precedence over the version specified via
+  Bazel's <code>--java_runtime_version</code> flag.
+</p>
+<p>
+  The wrapper script accepts several unique flags. Refer to
+  <code>//src/main/java/com/google/devtools/build/lib/bazel/rules/java/java_stub_template.txt</code>
+  for a list of configurable flags and environment variables accepted by the wrapper.
+</p>
+
+<h4 id="java_binary_implicit_outputs">Implicit output targets</h4>
+<ul>
+  <li><code><var>name</var>.jar</code>: A Java archive, containing the class files and other
+    resources corresponding to the binary's direct dependencies.</li>
+  <li><code><var>name</var>-src.jar</code>: An archive containing the sources ("source
+    jar").</li>
+  <li><code><var>name</var>_deploy.jar</code>: A Java archive suitable for deployment (only
+    built if explicitly requested).
+    <p>
+      Building the <code>&lt;<var>name</var>&gt;_deploy.jar</code> target for your rule
+      creates a self-contained jar file with a manifest that allows it to be run with the
+      <code>java -jar</code> command or with the wrapper script's <code>--singlejar</code>
+      option. Using the wrapper script is preferred to <code>java -jar</code> because it
+      also passes the <a href="${link java_binary.jvm_flags}">JVM flags</a> and the options
+      to load native libraries.
+    </p>
+    <p>
+      The deploy jar contains all the classes that would be found by a classloader that
+      searched the classpath from the binary's wrapper script from beginning to end. It also
+      contains the native libraries needed for dependencies. These are automatically loaded
+      into the JVM at runtime.
+    </p>
+    <p>If your target specifies a <a href="#java_binary.launcher">launcher</a>
+      attribute, then instead of being a normal JAR file, the _deploy.jar will be a
+      native binary. This will contain the launcher plus any native (C++) dependencies of
+      your rule, all linked into a static binary. The actual jar file's bytes will be
+      appended to that native binary, creating a single binary blob containing both the
+      executable and the Java code. You can execute the resulting jar file directly
+      like you would execute any native binary.</p>
+  </li>
+  <li><code><var>name</var>_deploy-src.jar</code>: An archive containing the sources
+    collected from the transitive closure of the target. These will match the classes in the
+    <code>deploy.jar</code> except where jars have no matching source jar.</li>
+</ul>
+
+<p>
+It is good practice to use the name of the source file that is the main entry point of the
+application (minus the extension). For example, if your entry point is called
+<code>Main.java</code>, then your name could be <code>Main</code>.
+</p>
+
+<p>
+  A <code>deps</code> attribute is not allowed in a <code>java_binary</code> rule without
+  <a href="${link java_binary.srcs}"><code>srcs</code></a>; such a rule requires a
+  <a href="${link java_binary.main_class}"><code>main_class</code></a> provided by
+  <a href="${link java_binary.runtime_deps}"><code>runtime_deps</code></a>.
+</p>
+
+<p>The following code snippet illustrates a common mistake:</p>
+
+<pre class="code">
+<code class="lang-starlark">
+java_binary(
+    name = "DontDoThis",
+    srcs = [
+        <var>...</var>,
+        <code class="deprecated">"GeneratedJavaFile.java"</code>,  # a generated .java file
+    ],
+    deps = [<code class="deprecated">":generating_rule",</code>],  # rule that generates that file
+)
+</code>
+</pre>
+
+<p>Do this instead:</p>
+
+<pre class="code">
+<code class="lang-starlark">
+java_binary(
+    name = "DoThisInstead",
+    srcs = [
+        <var>...</var>,
+        ":generating_rule",
+    ],
+)
+</code>
+</pre>
+        """,
+        attrs = merge_attrs(
             _BASE_BINARY_ATTRS,
-            {
-                "_java_launcher": attr.label(
-                    default = configuration_field(
-                        fragment = "java",
-                        name = "launcher",
-                    ) if resolve_launcher_flag else (_compute_launcher_attr if has_launcher else None),
-                ),
-                "_use_auto_exec_groups": attr.bool(default = True),
-            },
             ({} if executable else {
                 "args": attr.string_list(),
                 "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
@@ -311,41 +432,129 @@ def make_java_binary(executable, resolve_launcher_flag, has_launcher = False):
         executable = executable,
     )
 
-java_binary = make_java_binary(executable = True, resolve_launcher_flag = True)
+java_binary = make_java_binary(executable = True)
 
-def make_java_test(resolve_launcher_flag, has_launcher = False):
-    return _make_binary_rule(
-        _bazel_java_test_impl,
-        merge_attrs(
-            BASE_TEST_ATTRIBUTES,
-            _BASE_BINARY_ATTRS,
-            {
-                "_java_launcher": attr.label(
-                    default = configuration_field(
-                        fragment = "java",
-                        name = "launcher",
-                    ) if resolve_launcher_flag else (_compute_launcher_attr if has_launcher else None),
-                ),
-                "_lcov_merger": attr.label(
-                    cfg = "exec",
-                    default = configuration_field(
-                        fragment = "coverage",
-                        name = "output_generator",
-                    ),
-                ),
-                "_collect_cc_coverage": attr.label(
-                    cfg = "exec",
-                    allow_single_file = True,
-                    default = "@bazel_tools//tools/test:collect_cc_coverage",
-                ),
-            },
-            override_attrs = {
-                "use_testrunner": attr.bool(default = True),
-                "stamp": attr.int(default = 0, values = [-1, 0, 1]),
-            },
-            remove_attrs = ["deploy_env"],
-        ),
-        test = True,
-    )
+def _java_test_initializer(**kwargs):
+    if "stamp" in kwargs and type(kwargs["stamp"]) == type(True):
+        kwargs["stamp"] = 1 if kwargs["stamp"] else 0
+    if "use_launcher" in kwargs and not kwargs["use_launcher"]:
+        kwargs["launcher"] = None
+    else:
+        # If launcher is not set or None, set it to config flag
+        if "launcher" not in kwargs or not kwargs["launcher"]:
+            kwargs["launcher"] = semantics.LAUNCHER_FLAG_LABEL
+    return kwargs
 
-java_test = make_java_test(True)
+java_test = _make_binary_rule(
+    _bazel_java_test_impl,
+    doc = """
+<p>
+A <code>java_test()</code> rule compiles a Java test. A test is a binary wrapper around your
+test code. The test runner's main method is invoked instead of the main class being compiled.
+</p>
+
+<h4 id="java_test_implicit_outputs">Implicit output targets</h4>
+<ul>
+  <li><code><var>name</var>.jar</code>: A Java archive.</li>
+  <li><code><var>name</var>_deploy.jar</code>: A Java archive suitable
+    for deployment. (Only built if explicitly requested.) See the description of the
+    <code><var>name</var>_deploy.jar</code> output from
+    <a href="#java_binary">java_binary</a> for more details.</li>
+</ul>
+
+<p>
+See the section on <code>java_binary()</code> arguments. This rule also
+supports all <a href="${link common-definitions#common-attributes-tests}">attributes common
+to all test rules (*_test)</a>.
+</p>
+
+<h4 id="java_test_examples">Examples</h4>
+
+<pre class="code">
+<code class="lang-starlark">
+
+java_library(
+    name = "tests",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//java/com/foo/base:testResources",
+        "//java/com/foo/testing/util",
+    ],
+)
+
+java_test(
+    name = "AllTests",
+    size = "small",
+    runtime_deps = [
+        ":tests",
+        "//util/mysql",
+    ],
+)
+</code>
+</pre>
+    """,
+    attrs = merge_attrs(
+        BASE_TEST_ATTRIBUTES,
+        _BASE_BINARY_ATTRS,
+        {
+            "_lcov_merger": attr.label(
+                cfg = "exec",
+                default = configuration_field(
+                    fragment = "coverage",
+                    name = "output_generator",
+                ),
+            ),
+            "_collect_cc_coverage": attr.label(
+                cfg = "exec",
+                allow_single_file = True,
+                default = "@bazel_tools//tools/test:collect_cc_coverage",
+            ),
+        },
+        override_attrs = {
+            "use_testrunner": attr.bool(
+                default = True,
+                doc = semantics.DOCS.for_attribute("use_testrunner") + """
+<br/>
+You can use this to override the default
+behavior, which is to use test runner for
+<code>java_test</code> rules,
+and not use it for <code>java_binary</code> rules.  It is unlikely
+you will want to do this.  One use is for <code>AllTest</code>
+rules that are invoked by another rule (to set up a database
+before running the tests, for example).  The <code>AllTest</code>
+rule must be declared as a <code>java_binary</code>, but should
+still use the test runner as its main entry point.
+
+The name of a test runner class can be overridden with <code>main_class</code> attribute.
+                """,
+            ),
+            "stamp": attr.int(
+                default = 0,
+                values = [-1, 0, 1],
+                doc = """
+Whether to encode build information into the binary. Possible values:
+<ul>
+<li>
+  <code>stamp = 1</code>: Always stamp the build information into the binary, even in
+  <a href="${link user-manual#flag--stamp}"><code>--nostamp</code></a> builds. <b>This
+  setting should be avoided</b>, since it potentially kills remote caching for the
+  binary and any downstream actions that depend on it.
+</li>
+<li>
+  <code>stamp = 0</code>: Always replace build information by constant values. This
+  gives good build result caching.
+</li>
+<li>
+  <code>stamp = -1</code>: Embedding of build information is controlled by the
+  <a href="${link user-manual#flag--stamp}"><code>--[no]stamp</code></a> flag.
+</li>
+</ul>
+<p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>
+                """,
+            ),
+        },
+        remove_attrs = ["deploy_env"],
+    ),
+    test = True,
+    initializer = _java_test_initializer,
+)

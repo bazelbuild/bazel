@@ -111,43 +111,6 @@ public class OutErr implements Closeable {
     }
   }
 
-  /**
-   * Creates a new OutErr instance from the specified stream. Writes to either the output or err of
-   * the new OutErr are written to outputStream, synchronized.
-   */
-  public static OutErr createSynchronizedFunnel(final OutputStream outputStream) {
-    OutputStream syncOut =
-        new OutputStream() {
-
-          @Override
-          public synchronized void write(int b) throws IOException {
-            outputStream.write(b);
-          }
-
-          @Override
-          public synchronized void write(byte[] b) throws IOException {
-            outputStream.write(b);
-          }
-
-          @Override
-          public synchronized void write(byte[] b, int off, int len) throws IOException {
-            outputStream.write(b, off, len);
-          }
-
-          @Override
-          public synchronized void flush() throws IOException {
-            outputStream.flush();
-          }
-
-          @Override
-          public synchronized void close() throws IOException {
-            outputStream.close();
-          }
-        };
-
-    return create(syncOut, syncOut);
-  }
-
   public OutputStream getOutputStream() {
     return out;
   }

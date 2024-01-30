@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -65,14 +64,14 @@ class TopLevelActionLookupConflictFindingFunction implements SkyFunction {
   }
 
   static Iterable<Key> keys(
-      Iterable<ActionLookupKeyOrProxy> keys, TopLevelArtifactContext topLevelArtifactContext) {
+      Iterable<ActionLookupKey> keys, TopLevelArtifactContext topLevelArtifactContext) {
     return Iterables.transform(keys, k -> Key.create(k, topLevelArtifactContext));
   }
 
   @AutoValue
   abstract static class Key implements TopLevelActionLookupKeyWrapper {
     static Key create(
-        ActionLookupKeyOrProxy actionLookupKey, TopLevelArtifactContext topLevelArtifactContext) {
+        ActionLookupKey actionLookupKey, TopLevelArtifactContext topLevelArtifactContext) {
       return new AutoValue_TopLevelActionLookupConflictFindingFunction_Key(
           actionLookupKey, topLevelArtifactContext);
     }

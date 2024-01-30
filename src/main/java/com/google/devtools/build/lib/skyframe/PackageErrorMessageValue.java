@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -56,7 +57,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
    * If {@code getResult().equals(NO_SUCH_PACKAGE_EXCEPTION)}, returns the error message from the
    * {@link com.google.devtools.build.lib.packages.NoSuchPackageException} encountered.
    */
-  abstract String getNoSuchPackageExceptionMessage();
+  public abstract String getNoSuchPackageExceptionMessage();
 
   static PackageErrorMessageValue ofPackageWithNoErrors() {
     return NO_ERROR_VALUE;
@@ -74,7 +75,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
     return Key.create(pkgId);
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<PackageIdentifier> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -83,10 +84,14 @@ public abstract class PackageErrorMessageValue implements SkyValue {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(PackageIdentifier arg) {
+    private static Key create(PackageIdentifier arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
@@ -109,7 +114,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
 
         @Override
-        String getNoSuchPackageExceptionMessage() {
+        public String getNoSuchPackageExceptionMessage() {
           throw new IllegalStateException();
         }
       };
@@ -123,7 +128,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
 
         @Override
-        String getNoSuchPackageExceptionMessage() {
+        public String getNoSuchPackageExceptionMessage() {
           throw new IllegalStateException();
         }
       };
@@ -141,7 +146,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
     }
 
     @Override
-    String getNoSuchPackageExceptionMessage() {
+    public String getNoSuchPackageExceptionMessage() {
       return errorMessage;
     }
 

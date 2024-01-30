@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -81,6 +84,9 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
                 .value(
                     environment.getToolsLabel(
                         "//tools/android:allow_android_library_deps_without_srcs_allowlist")))
+        .add(
+            attr("$build_info_translator", LABEL)
+                .value(environment.getToolsLabel("//tools/build_defs/build_info:java_build_info")))
         .build();
   }
 

@@ -243,7 +243,9 @@ public class BuildTool {
             throw new PostExecutionActionGraphDumpException(e);
           } catch (InvalidAqueryOutputFormatException e) {
             throw new PostExecutionActionGraphDumpException(
-                "--skyframe_state must be used with --output=proto|textproto|jsonproto.", e);
+                "--skyframe_state must be used with "
+                    + "--output=proto|streamed_proto|textproto|jsonproto.",
+                e);
           }
         }
       }
@@ -285,6 +287,10 @@ public class BuildTool {
           AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
+
+    // See https://github.com/bazelbuild/rules_nodejs/issues/3693.
+    env.getSkyframeExecutor().clearSyscallCache();
+
     boolean hasCatastrophe = false;
 
     ExecutionTool executionTool = new ExecutionTool(env, request);
@@ -342,8 +348,9 @@ public class BuildTool {
     } finally {
       if (result.getBuildConfiguration() != null) {
         // We still need to do this even in case of an exception.
-        executionTool.handleConvenienceSymlinks(
-            env.getBuildResultListener().getAnalyzedTargets(), result.getBuildConfiguration());
+        result.setConvenienceSymlinks(
+            executionTool.handleConvenienceSymlinks(
+                env.getBuildResultListener().getAnalyzedTargets(), result.getBuildConfiguration()));
       }
       executionTool.unconditionalExecutionPhaseFinalizations(
           executionTimer, env.getSkyframeExecutor());
@@ -430,9 +437,9 @@ public class BuildTool {
           new ActionGraphDump(
               /* includeActionCmdLine= */ false,
               /* includeArtifacts= */ true,
+              /* includeSchedulingDependencies= */ true,
               /* actionFilters= */ null,
               /* includeParamFiles= */ false,
-              /* deduplicateDepsets= */ true,
               /* includeFileWriteContents */ false,
               aqueryOutputHandler,
               getReporter());
@@ -444,6 +451,8 @@ public class BuildTool {
     switch (format) {
       case "proto":
         return "aquery_dump.proto";
+      case "streamed_proto":
+        return "aquery_dump.pb";
       case "textproto":
         return "aquery_dump.textproto";
       case "jsonproto":
@@ -646,6 +655,7 @@ public class BuildTool {
     InterruptedException ie = null;
     try {
       env.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
+      env.getSkyframeExecutor().getEvaluator().updateTopLevelEvaluations();
     } catch (InterruptedException e) {
       env.getReporter().handle(Event.error("Build interrupted during command completion"));
       ie = e;

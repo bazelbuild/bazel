@@ -26,9 +26,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -61,6 +59,8 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
@@ -75,19 +75,16 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -96,18 +93,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironmentForTesting;
-import com.google.devtools.build.skyframe.ErrorInfo;
-import com.google.devtools.build.skyframe.EvaluationContext;
-import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrUntypedException;
-import com.google.devtools.build.skyframe.Version;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -117,7 +104,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -125,7 +111,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -221,26 +206,6 @@ public final class ActionsTestUtil {
       FileOutErr fileOutErr,
       Path execRoot,
       OutputMetadataStore outputMetadataStore,
-      MemoizingEvaluator evaluator,
-      DiscoveredModulesPruner discoveredModulesPruner) {
-    return createContextForInputDiscovery(
-        executor,
-        eventHandler,
-        actionKeyContext,
-        fileOutErr,
-        execRoot,
-        outputMetadataStore,
-        new BlockingSkyFunctionEnvironment(evaluator, eventHandler),
-        discoveredModulesPruner);
-  }
-
-  public static ActionExecutionContext createContextForInputDiscovery(
-      Executor executor,
-      ExtendedEventHandler eventHandler,
-      ActionKeyContext actionKeyContext,
-      FileOutErr fileOutErr,
-      Path execRoot,
-      OutputMetadataStore outputMetadataStore,
       Environment environment,
       DiscoveredModulesPruner discoveredModulesPruner) {
     return ActionExecutionContext.forInputDiscovery(
@@ -272,7 +237,7 @@ public final class ActionsTestUtil {
   public static ActionExecutionValue createActionExecutionValue(
       ImmutableMap<Artifact, FileArtifactValue> artifactData,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createFromOutputMetadataStore(
         artifactData,
         treeArtifactData,
         /* outputSymlinks= */ ImmutableList.of(),
@@ -308,9 +273,9 @@ public final class ActionsTestUtil {
   }
 
   public static SpecialArtifact createTreeArtifactWithGeneratingAction(
-      ArtifactRoot root, String path) {
+      ArtifactRoot root, String rootRelativePath) {
     return createTreeArtifactWithGeneratingAction(
-        root, root.getExecPath().getRelative(PathFragment.create(path)));
+        root, root.getExecPath().getRelative(rootRelativePath));
   }
 
   public static SpecialArtifact createUnresolvedSymlinkArtifact(
@@ -372,102 +337,6 @@ public final class ActionsTestUtil {
     };
   }
 
-  /**
-   * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
-   * requested keys, blocking until the values are ready.
-   */
-  private static final class BlockingSkyFunctionEnvironment
-      extends AbstractSkyFunctionEnvironmentForTesting {
-    private final MemoizingEvaluator evaluator;
-    private final EventHandler eventHandler;
-
-    private BlockingSkyFunctionEnvironment(
-        MemoizingEvaluator evaluator, EventHandler eventHandler) {
-      this.evaluator = evaluator;
-      this.eventHandler = eventHandler;
-    }
-
-    @Override
-    protected ValueOrUntypedException getSingleValueOrUntypedException(SkyKey depKey)
-        throws InterruptedException {
-      return getOrderedValueOrUntypedExceptions(ImmutableList.of(depKey)).get(0);
-    }
-
-    @Override
-    protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-        Iterable<? extends SkyKey> depKeys) {
-      EvaluationResult<SkyValue> evaluationResult;
-      Map<SkyKey, ValueOrUntypedException> result = new HashMap<>();
-      try {
-        EvaluationContext evaluationContext =
-            EvaluationContext.newBuilder()
-                .setKeepGoing(false)
-                .setParallelism(ResourceUsage.getAvailableProcessors())
-                .setEventHandler(new Reporter(new EventBus(), eventHandler))
-                .build();
-        evaluationResult = evaluator.evaluate(depKeys, evaluationContext);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        for (SkyKey key : depKeys) {
-          result.put(key, ValueOrUntypedException.ofNull());
-        }
-        return result;
-      }
-      for (SkyKey key : depKeys) {
-        SkyValue value = evaluationResult.get(key);
-        if (value != null) {
-          result.put(key, ValueOrUntypedException.ofValueUntyped(value));
-          continue;
-        }
-        ErrorInfo errorInfo = evaluationResult.getError(key);
-        if (errorInfo == null || errorInfo.getException() == null) {
-          result.put(key, ValueOrUntypedException.ofNull());
-          continue;
-        }
-        result.put(key, ValueOrUntypedException.ofExn(errorInfo.getException()));
-      }
-      return result;
-    }
-
-    @Override
-    protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
-        Iterable<? extends SkyKey> depKeys) {
-      Map<SkyKey, ValueOrUntypedException> mapResult = getValueOrUntypedExceptions(depKeys);
-      return ImmutableList.copyOf(Iterables.transform(depKeys, mapResult::get));
-    }
-
-    @Override
-    public ExtendedEventHandler getListener() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void registerDependencies(Iterable<SkyKey> keys) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
-      return false;
-    }
-
-    @Override
-    public boolean restartPermitted() {
-      return false;
-    }
-
-    @Override
-    public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
-      return stateSupplier.get();
-    }
-
-    @Override
-    @Nullable
-    public Version getMaxTransitiveSourceVersionSoFar() {
-      throw new UnsupportedOperationException();
-    }
-  }
-
   @SerializationConstant
   public static final ActionLookupKey NULL_ARTIFACT_OWNER =
       new ActionLookupKey() {
@@ -509,7 +378,7 @@ public final class ActionsTestUtil {
           NULL_LABEL,
           new Location("dummy-file", 0, 0),
           /* targetKind= */ "dummy-kind",
-          /* mnemonic= */ "dummy-configuration-mnemonic",
+          /* buildConfigurationMnemonic= */ "dummy-configuration-mnemonic",
           /* configurationChecksum= */ "dummy-configuration",
           new BuildConfigurationEvent(
               BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
@@ -1051,6 +920,17 @@ public final class ActionsTestUtil {
       implements InputMetadataProvider, OutputMetadataStore {
     @Override
     public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Nullable
+    public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ImmutableList<RunfilesTree> getRunfilesTrees() {
       throw new UnsupportedOperationException();
     }
 

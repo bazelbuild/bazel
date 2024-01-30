@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -88,20 +87,16 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   // TODO(blaze-configurability): add more information to this exception e.g. originating target of
   // transition.
   public static class TransitionException extends Exception {
-    private final String message;
-
     public TransitionException(String message) {
-      this.message = message;
+      super(message);
     }
 
     public TransitionException(Throwable cause) {
-      this.message = cause.getMessage();
+      super(cause);
     }
 
-    /** Returns the error message. */
-    @Override
-    public String getMessage() {
-      return message;
+    public TransitionException(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 
@@ -138,9 +133,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * <p>Remove build settings in {@code toOptions} that have been set to their default value. This
    * is how we ensure that an unset build setting and a set-to-default build settings represent the
    * same configuration.
-   *
-   * <p>Deduplicate redundant build settings from the result of split transitions. The first
-   * encountered split key is used to represent the deduped build setting.
    *
    * @param root transition that was applied. Likely a {@link
    *     com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition} so we
@@ -196,7 +188,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     // Verify changed settings were changed to something reasonable for their type and filter out
     // default values.
     ImmutableMap.Builder<String, BuildOptions> cleanedOptionMap = ImmutableMap.builder();
-    Set<BuildOptions> cleanedOptionSet = Sets.newLinkedHashSetWithExpectedSize(toOptions.size());
     for (Map.Entry<String, BuildOptions> entry : toOptions.entrySet()) {
       // Lazily initialized to optimize for the common case where we don't modify anything.
       BuildOptions.Builder cleanedOptions = null;
@@ -230,9 +221,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       }
       // Keep the same instance if we didn't do anything to maintain reference equality later on.
       options = cleanedOptions != null ? cleanedOptions.build() : options;
-      if (cleanedOptionSet.add(options)) {
-        cleanedOptionMap.put(entry.getKey(), options);
-      }
+      cleanedOptionMap.put(entry.getKey(), options);
     }
     return cleanedOptionMap.buildOrThrow();
   }

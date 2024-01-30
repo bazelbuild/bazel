@@ -30,13 +30,13 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -68,6 +68,7 @@ public class ActionGraphDump {
   @Nullable private final AqueryActionFilter actionFilters;
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
+  private final boolean includeSchedulingDependencies;
   private final boolean includeParamFiles;
   private final boolean includeFileWriteContents;
   private final AqueryOutputHandler aqueryOutputHandler;
@@ -78,9 +79,9 @@ public class ActionGraphDump {
   public ActionGraphDump(
       boolean includeActionCmdLine,
       boolean includeArtifacts,
+      boolean includeSchedulingDependencies,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      boolean deduplicateDepsets,
       boolean includeFileWriteContents,
       AqueryOutputHandler aqueryOutputHandler,
       ExtendedEventHandler eventHandler) {
@@ -88,9 +89,9 @@ public class ActionGraphDump {
         /* actionGraphTargets= */ ImmutableList.of("..."),
         includeActionCmdLine,
         includeArtifacts,
+        includeSchedulingDependencies,
         actionFilters,
         includeParamFiles,
-        deduplicateDepsets,
         includeFileWriteContents,
         aqueryOutputHandler,
         eventHandler);
@@ -100,15 +101,16 @@ public class ActionGraphDump {
       List<String> actionGraphTargets,
       boolean includeActionCmdLine,
       boolean includeArtifacts,
+      boolean includeSchedulingDependencies,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      boolean deduplicateDepsets,
       boolean includeFileWriteContents,
       AqueryOutputHandler aqueryOutputHandler,
       ExtendedEventHandler eventHandler) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.includeArtifacts = includeArtifacts;
+    this.includeSchedulingDependencies = includeSchedulingDependencies;
     this.actionFilters = actionFilters;
     this.includeParamFiles = includeParamFiles;
     this.includeFileWriteContents = includeFileWriteContents;
@@ -118,7 +120,7 @@ public class ActionGraphDump {
     KnownRuleClassStrings knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
     knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
     knownConfigurations = new KnownConfigurations(aqueryOutputHandler);
-    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts, deduplicateDepsets);
+    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts);
     knownAspectDescriptors = new KnownAspectDescriptors(aqueryOutputHandler);
     knownTargets = new KnownTargets(aqueryOutputHandler, knownRuleClassStrings);
   }
@@ -198,14 +200,20 @@ public class ActionGraphDump {
       actionBuilder.addAllArguments(commandAction.getArguments());
     }
 
-    if (includeFileWriteContents && action instanceof FileWriteAction) {
-      FileWriteAction fileWriteAction = (FileWriteAction) action;
-      actionBuilder.setFileContents(fileWriteAction.getFileContents());
+    if (action instanceof AbstractFileWriteAction.FileContentsProvider) {
+      actionBuilder.setIsExecutable(
+          ((AbstractFileWriteAction.FileContentsProvider) action).makeExecutable());
+      if (includeFileWriteContents) {
+        String contents =
+            ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
+        actionBuilder.setFileContents(contents);
+      }
     }
 
-    if (includeFileWriteContents && action instanceof SourceManifestAction) {
-      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
-      actionBuilder.setFileContents(sourceManifestAction.getFileContentsAsString(eventHandler));
+
+    if (action instanceof UnresolvedSymlinkAction) {
+      actionBuilder.setUnresolvedSymlinkTarget(
+          ((UnresolvedSymlinkAction) action).getTarget().toString());
     }
 
     // Include the content of param files in output.
@@ -256,6 +264,12 @@ public class ActionGraphDump {
       NestedSet<Artifact> inputs = action.getInputs();
       if (!inputs.isEmpty()) {
         actionBuilder.addInputDepSetIds(knownNestedSets.dataToIdAndStreamOutputProto(inputs));
+      }
+
+      NestedSet<Artifact> schedulingDependencies = action.getSchedulingDependencies();
+      if (includeSchedulingDependencies && !schedulingDependencies.isEmpty()) {
+        actionBuilder.addInputDepSetIds(
+            knownNestedSets.dataToIdAndStreamOutputProto(schedulingDependencies));
       }
 
       // store outputs

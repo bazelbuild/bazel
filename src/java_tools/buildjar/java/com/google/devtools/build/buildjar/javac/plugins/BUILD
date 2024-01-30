@@ -1,5 +1,5 @@
-load("@rules_java//java:defs.bzl", "java_library")
 load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
+load("@rules_java//java:defs.bzl", "java_library")
 
 # Description:
 #   Plugins for the Java library builders, which are used by Bazel to
@@ -30,6 +30,7 @@ java_library(
     javacopts = [
         "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.resources=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",

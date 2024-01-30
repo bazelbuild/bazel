@@ -105,7 +105,7 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
         "  output_file1 = ctx.actions.declare_file('myfile1')",
         "  executable = ctx.actions.declare_file('executable')",
         "  ctx.actions.run(outputs=[output_file0], executable=executable,",
-        "      mnemonic='MyAction0', env={'foo':'bar', 'pet':'puppy'})",
+        "      toolchain = None, mnemonic='MyAction0', env={'foo':'bar', 'pet':'puppy'})",
         "  ctx.actions.run_shell(outputs=[executable, output_file1],",
         "      command='fakecmd', mnemonic='MyAction1', env={'pet':'bunny'})",
         "  return None",

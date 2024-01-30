@@ -36,8 +36,7 @@ example_worker=$(find $BAZEL_RUNFILES -name ExampleWorker_deploy.jar)
 add_to_bazelrc "build -s"
 add_to_bazelrc "build --spawn_strategy=worker,standalone"
 add_to_bazelrc "build --worker_verbose --worker_max_instances=1"
-add_to_bazelrc "build --debug_print_action_contexts"
-add_to_bazelrc "build --noexperimental_worker_multiplex"
+add_to_bazelrc "build --noworker_multiplex"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
 
 function set_up() {
@@ -753,7 +752,7 @@ EOF
 
   expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "Worker process did not return a WorkResponse:"
-  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) taking [0-9]\+MB"
+  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) because it is using more memory than the limit ([0-9]\+ KB > 1 MB)"
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 
@@ -773,14 +772,14 @@ EOF
   || fail "build failed"
 
 
-  expect_log "Worker Lifecycle Manager starts work with (total limit: 10000 MB, limit: 5000 MB, shrinking: disabled)"
+  expect_log "Worker Lifecycle Manager starts work with (total limit: 10000 MB, individual limit: 5000 MB, shrinking: disabled)"
 
   bazel build --experimental_total_worker_memory_limit_mb=15000 \
   --experimental_worker_memory_limit_mb=7000 --experimental_shrink_worker_pool :hello_world_2 &> "$TEST_log" \
   || fail "build failed"
 
   expect_not_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
-  expect_log "Worker Lifecycle Manager starts work with (total limit: 15000 MB, limit: 7000 MB, shrinking: enabled)"
+  expect_log "Worker Lifecycle Manager starts work with (total limit: 15000 MB, individual limit: 7000 MB, shrinking: enabled)"
 }
 
 function test_worker_metrics_collection() {

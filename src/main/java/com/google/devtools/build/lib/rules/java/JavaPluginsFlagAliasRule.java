@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import javax.annotation.Nullable;
 
@@ -37,9 +38,10 @@ import javax.annotation.Nullable;
  */
 public final class JavaPluginsFlagAliasRule implements RuleDefinition {
 
-  private static final ImmutableSet<String> ALLOWLISTED_LABELS =
+  private static final ImmutableSet<Label> ALLOWLISTED_LABELS =
       ImmutableSet.of(
-          "//tools/jdk:java_plugins_flag_alias", "@bazel_tools//tools/jdk:java_plugins_flag_alias");
+          Label.parseCanonicalUnchecked("//tools/jdk:java_plugins_flag_alias"),
+          Label.parseCanonicalUnchecked("@bazel_tools//tools/jdk:java_plugins_flag_alias"));
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
@@ -72,7 +74,7 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException,
             MutableActionGraph.ActionConflictException {
-      if (!ALLOWLISTED_LABELS.contains(ruleContext.getLabel().getCanonicalForm())) {
+      if (!ALLOWLISTED_LABELS.contains(ruleContext.getLabel())) {
         ruleContext.ruleError("Rule " + ruleContext.getLabel() + " cannot use private rule");
         return null;
       }

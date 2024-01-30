@@ -483,9 +483,6 @@ def _rule_class_transition_rule_impl(ctx):
 rule_class_transition_rule = rule(
     _rule_class_transition_rule_impl,
     cfg = _rule_class_transition,
-    attrs = {
-        "_allowlist_function_transition": attr.label(default = "//tools/allowlists/function_transition_allowlist"),
-    },
     outputs = {"artifact": "%{name}.output"},
 )
 EOF
@@ -609,11 +606,6 @@ def _impl(ctx):
 my_rule = rule(
   implementation = _impl,
   cfg = my_transition,
-  attrs = {
-    '_allowlist_function_transition': attr.label(
-        default = '//tools/allowlists/function_transition_allowlist',
-    ),
-  }
 )
 EOF
   cat > test/BUILD <<'EOF'
@@ -621,8 +613,8 @@ load('//test:rule.bzl', 'my_rule')
 my_rule(name = 'test')
 EOF
   bazel build //test:test >& "$TEST_log" || exit_code="$?"
-  assert_equals 2 "$exit_code" || fail "Expected exit code 2"
-  expect_log "CPU name '//bad:cpu'"
+  assert_equals 1 "$exit_code" || fail "Expected exit code 1"
+  expect_log "CPU/Platform descriptor '//bad:cpu'"
   expect_log "is invalid as part of a path: must not contain /"
 }
 
@@ -640,6 +632,19 @@ function test_rc_flag_alias_canonicalizes() {
   expect_log "--//$pkg:type=coffee"
 }
 
+function test_rc_flag_alias_supported_under_common_command() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  add_to_bazelrc "common --flag_alias=drink=//$pkg:type"
+  write_build_setting_bzl
+
+  bazel canonicalize-flags -- --drink=coffee \
+    >& "$TEST_log" || fail "Expected success"
+
+  bazel build //$pkg:my_drink >& "$TEST_log" || fail "Expected success"
+}
+
 function test_rc_flag_alias_unsupported_under_test_command() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -650,11 +655,11 @@ function test_rc_flag_alias_unsupported_under_test_command() {
   bazel canonicalize-flags -- --drink=coffee \
     >& "$TEST_log" && fail "Expected failure"
   expect_log "--flag_alias=drink=//$pkg:type\" disallowed. --flag_alias only "\
-"supports the \"build\" command."
+"supports these commands: build, common, always"
 
   bazel build //$pkg:my_drink >& "$TEST_log" && fail "Expected failure"
   expect_log "--flag_alias=drink=//$pkg:type\" disallowed. --flag_alias only "\
-"supports the \"build\" command."
+"supports these commands: build, common, always"
 
   # Post-test cleanup_workspace() calls "bazel clean", which would also fail
   # unless we reset the bazelrc.
@@ -671,11 +676,11 @@ function test_rc_flag_alias_unsupported_under_conditional_build_command() {
   bazel canonicalize-flags -- --drink=coffee \
 >& "$TEST_log" && fail "Expected failure"
   expect_log "--flag_alias=drink=//$pkg:type\" disallowed. --flag_alias only "\
-"supports the \"build\" command."
+"supports these commands: build, common, always"
 
   bazel build //$pkg:my_drink >& "$TEST_log" && fail "Expected failure"
   expect_log "--flag_alias=drink=//$pkg:type\" disallowed. --flag_alias only "\
-"supports the \"build\" command."
+"supports these commands: build, common, always"
 
   # Post-test cleanup_workspace() calls "bazel clean", which would also fail
   # unless we reset the bazelrc.
@@ -692,11 +697,11 @@ function test_rc_flag_alias_unsupported_with_space_assignment_syntax() {
   bazel canonicalize-flags -- --drink=coffee \
     >& "$TEST_log" && fail "Expected failure"
   expect_log "--flag_alias\" disallowed. --flag_alias only "\
-"supports the \"build\" command."
+"supports these commands: build, common, always"
 
   bazel build //$pkg:my_drink >& "$TEST_log" && fail "Expected failure"
   expect_log "--flag_alias\" disallowed. --flag_alias only "\
-"supports the \"build\" command."
+"supports these commands: build, common, always"
 
   # Post-test cleanup_workspace() calls "bazel clean", which would also fail
   # unless we reset the bazelrc.
@@ -727,7 +732,7 @@ EOF
 
   bazel build //$pkg:demo >& "$TEST_log" && fail "Expected failure"
   expect_not_log "crashed due to an internal error"
-  expect_log "`cfg` must be set to a transition appropriate for a rule"
+  expect_log "`cfg` must be set to a transition object initialized by the transition() function"
 }
 
 run_suite "${PRODUCT_NAME} starlark configurations tests"

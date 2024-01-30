@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -35,15 +36,12 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -51,15 +49,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction}. */
 @RunWith(JUnit4.class)
 public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
-
-  private Path moduleRoot;
-  private FakeRegistry registry;
-
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
-    setBuildLanguageOptions("--enable_bzlmod");
-  }
 
   private static SkyKey getKeyForLabel(Label label) {
     // Note that these tests used to look for TargetMarker SkyKeys before TargetMarker was
@@ -229,6 +218,34 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     assertValidValue(walkableGraph, getKeyForLabel(Label.create("@repo~1.0//a", "x")));
   }
 
+  // Regression test for b/225877591 ("Unexpected missing value in PrepareDepsOfPatternsFunction
+  // when there's both a dep with a cached cycle and another dep with an error").
+  @Test
+  public void testDepOnCachedPDOPNodeThatItselfDependsOnBothCycleAndError() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "sh_library(name = 't1', deps = ['//foo:t2'])",
+        "sh_library(name = 't2', deps = ['//foo:t1', '//nope:nope'])");
+    EvaluationResult<PrepareDepsOfPatternsValue> unusedJustWantSideEffectOfPrimingGraph =
+        evaluate(ImmutableList.of("//foo/..."), /* keepGoing= */ true);
+    // The main property we're trying to test is that we don't crash (due to
+    // PrepareDepsOfPatternsFunction's usage of BugReport.sendNonFatalBugReport). We get that by
+    // virtue of control flow getting past this statement.
+    EvaluationResult<PrepareDepsOfPatternsValue> evaluationResult =
+        evaluate(ImmutableList.of("//foo/...", "//doesnt:matter"), /* keepGoing= */ true);
+    SkyKey pdopsKey =
+        PrepareDepsOfPatternsValue.key(
+            ImmutableList.of("//foo/...", "//doesnt:matter"), PathFragment.EMPTY_FRAGMENT);
+    assertThatEvaluationResult(evaluationResult)
+        .hasErrorEntryForKeyThat(pdopsKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("no such package 'nope'");
+    assertThat(evaluationResult.getError(pdopsKey).getCycleInfo().get(0).getCycle())
+        .containsExactly(Label.parseCanonical("//foo:t1"), Label.parseCanonical("//foo:t2"))
+        .inOrder();
+  }
+
   @Override
   protected ImmutableList<Injected> extraPrecomputedValues() {
     try {
@@ -243,40 +260,39 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+        PrecomputedValue.injected(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
-        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF));
+        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE));
   }
 
   // Helpers:
 
-  private WalkableGraph getGraphFromPatternsEvaluation(ImmutableList<String> patternSequence)
-      throws InterruptedException {
-    return getGraphFromPatternsEvaluation(patternSequence, /*keepGoing=*/ true);
-  }
-
-  private WalkableGraph getGraphFromPatternsEvaluation(
+  private EvaluationResult<PrepareDepsOfPatternsValue> evaluate(
       ImmutableList<String> patternSequence, boolean keepGoing) throws InterruptedException {
     SkyKey independentTarget =
         PrepareDepsOfPatternsValue.key(patternSequence, PathFragment.EMPTY_FRAGMENT);
     ImmutableList<SkyKey> singletonTargetPattern = ImmutableList.of(independentTarget);
 
-    // When PrepareDepsOfPatternsFunction completes evaluation,
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setParallelism(LOADING_PHASE_THREADS)
             .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
-    EvaluationResult<SkyValue> evaluationResult =
-        getSkyframeExecutor().getEvaluator().evaluate(singletonTargetPattern, evaluationContext);
-    // Currently all callers either expect success or pass keepGoing=true, which implies success,
-    // since PrepareDepsOfPatternsFunction swallows all errors. Will need to be changed if a test
-    // that evaluates with keepGoing=false and expects errors is added.
-    assertThatEvaluationResult(evaluationResult).hasNoError();
+    return getSkyframeExecutor().getEvaluator().evaluate(singletonTargetPattern, evaluationContext);
+  }
 
+  private WalkableGraph getGraphFromPatternsEvaluation(ImmutableList<String> patternSequence)
+      throws InterruptedException {
+    return getGraphFromPatternsEvaluation(patternSequence, /* keepGoing= */ true);
+  }
+
+  private WalkableGraph getGraphFromPatternsEvaluation(
+      ImmutableList<String> patternSequence, boolean keepGoing) throws InterruptedException {
+    EvaluationResult<PrepareDepsOfPatternsValue> evaluationResult =
+        evaluate(patternSequence, keepGoing);
+    assertThatEvaluationResult(evaluationResult).hasNoError();
     return Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
   }
 
@@ -327,6 +343,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     scratch.file(moduleRoot.getRelative("repo~1.0/WORKSPACE").getPathString(), "");
     scratch.file(
         moduleRoot.getRelative("repo~1.0/a/BUILD").getPathString(), "exports_files(['x'])");
+    invalidatePackages();
   }
 
   private static void assertValidValue(WalkableGraph graph, SkyKey key)

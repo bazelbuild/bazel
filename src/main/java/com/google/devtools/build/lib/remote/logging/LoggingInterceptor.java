@@ -24,7 +24,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.protobuf.Timestamp;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -42,11 +42,11 @@ import javax.annotation.Nullable;
 public class LoggingInterceptor implements ClientInterceptor {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final AsynchronousFileOutputStream rpcLogFile;
+  private final AsynchronousMessageOutputStream<LogEntry> rpcLogFile;
   private final Clock clock;
 
   /** Constructs a LoggingInterceptor which logs RPC calls to the given file. */
-  public LoggingInterceptor(AsynchronousFileOutputStream rpcLogFile, Clock clock) {
+  public LoggingInterceptor(AsynchronousMessageOutputStream<LogEntry> rpcLogFile, Clock clock) {
     this.rpcLogFile = rpcLogFile;
     this.clock = clock;
   }

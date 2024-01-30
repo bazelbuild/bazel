@@ -39,13 +39,13 @@ public final class HashOutputStream extends OutputStream {
 
   private final OutputStream delegate;
   private final Hasher hasher;
-  private final HashCode code;
+  private final Checksum checksum;
   @Nullable private volatile HashCode actual;
 
   public HashOutputStream(@WillCloseWhenClosed OutputStream delegate, Checksum checksum) {
     this.delegate = delegate;
     this.hasher = checksum.getKeyType().newHasher();
-    this.code = checksum.getHashCode();
+    this.checksum = checksum;
   }
 
   @Override
@@ -81,9 +81,12 @@ public final class HashOutputStream extends OutputStream {
     if (actual == null) {
       actual = hasher.hash();
     }
-    if (!code.equals(actual)) {
+    if (!checksum.getHashCode().equals(actual)) {
       throw new UnrecoverableHttpException(
-          String.format("Checksum was %s but wanted %s", actual, code));
+          String.format(
+              "Checksum was %s but wanted %s",
+              checksum.emitOtherHashInSameFormat(actual),
+              checksum.emitOtherHashInSameFormat(checksum.getHashCode())));
     }
   }
 }

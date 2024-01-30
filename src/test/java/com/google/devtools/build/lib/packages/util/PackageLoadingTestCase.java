@@ -105,10 +105,10 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         loadingMock
             .getPackageFactoryBuilderForTesting(directories)
             .setPackageValidator(
-                (pkg, pkgOverhead, handler) -> {
+                (pkg, handler) -> {
                   // Delegate to late-bound this.validator.
                   if (validator != null) {
-                    validator.validate(pkg, pkgOverhead, handler);
+                    validator.validate(pkg, handler);
                   }
                 })
             .build(ruleClassProvider, fileSystem);
@@ -149,10 +149,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     packageOptions.defaultVisibility = defaultVisibility;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = GLOBBING_THREADS;
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,

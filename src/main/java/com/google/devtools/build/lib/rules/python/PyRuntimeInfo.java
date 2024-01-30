@@ -18,10 +18,12 @@ import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyRuntimeInfoApi;
@@ -41,8 +43,8 @@ import net.starlark.java.eval.Starlark;
  */
 @VisibleForTesting
 public final class PyRuntimeInfo {
-  /** The singular {@code PyRuntimeInfo} provider type object. */
-  public static final PyRuntimeInfoProvider PROVIDER = new PyRuntimeInfoProvider();
+  private static final BuiltinProvider BUILTIN_PROVIDER = new BuiltinProvider();
+  private static final RulesPythonProvider RULES_PYTHON_PROVIDER = new RulesPythonProvider();
 
   // Only present so PyRuntimeRule can reference it as a default.
   static final String DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3";
@@ -55,6 +57,30 @@ public final class PyRuntimeInfo {
 
   private PyRuntimeInfo(StarlarkInfo info) {
     this.info = info;
+  }
+
+  public static PyRuntimeInfo fromTarget(ConfiguredTarget target) throws RuleErrorException {
+    var provider = fromTargetNullable(target);
+    if (provider == null) {
+      throw new IllegalStateException(
+          String.format("Unable to find PyRuntimeInfo provider in %s", target));
+    } else {
+      return provider;
+    }
+  }
+
+  @Nullable
+  public static PyRuntimeInfo fromTargetNullable(ConfiguredTarget target)
+      throws RuleErrorException {
+    PyRuntimeInfo provider = target.get(RULES_PYTHON_PROVIDER);
+    if (provider != null) {
+      return provider;
+    }
+    provider = target.get(BUILTIN_PROVIDER);
+    if (provider != null) {
+      return provider;
+    }
+    return null;
   }
 
   @Nullable
@@ -93,18 +119,30 @@ public final class PyRuntimeInfo {
     return PythonVersion.parseTargetValue(info.getValue("python_version", String.class));
   }
 
-  /** The class of the {@code PyRuntimeInfo} provider type. */
-  public static class PyRuntimeInfoProvider extends StarlarkProviderWrapper<PyRuntimeInfo> {
-
-    private PyRuntimeInfoProvider() {
-      super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/python/providers.bzl"),
-          "PyRuntimeInfo");
+  private static class BaseProvider extends StarlarkProviderWrapper<PyRuntimeInfo> {
+    private BaseProvider(String bzlLabel) {
+      super(Label.parseCanonicalUnchecked(bzlLabel), "PyRuntimeInfo");
     }
 
     @Override
     public PyRuntimeInfo wrap(Info value) {
       return new PyRuntimeInfo((StarlarkInfo) value);
+    }
+  }
+
+  /** Provider instance for the builtin PyRuntimeInfo provider. */
+  private static class BuiltinProvider extends BaseProvider {
+
+    private BuiltinProvider() {
+      super("@_builtins//:common/python/providers.bzl");
+    }
+  }
+
+  /** Provider instance for the rules_python PyRuntimeInfo provider. */
+  private static class RulesPythonProvider extends BaseProvider {
+
+    private RulesPythonProvider() {
+      super("//third_party/bazel_rules/rules_python/python/private/common:providers.bzl");
     }
   }
 }

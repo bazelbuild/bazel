@@ -57,7 +57,7 @@ void FsEventsDiffAwarenessCallback(ConstFSEventStreamRef streamRef,
   JNIEventsDiffAwareness *info =
       static_cast<JNIEventsDiffAwareness *>(clientCallBackInfo);
   pthread_mutex_lock(&(info->mutex));
-  for (int i = 0; i < numEvents; i++) {
+  for (size_t i = 0; i < numEvents; i++) {
     if ((eventFlags[i] & kFSEventStreamEventFlagMustScanSubDirs) != 0) {
       // Either we lost events or they were coalesced. Assume everything changed
       // and give up, which matches the fsevents documentation in that the

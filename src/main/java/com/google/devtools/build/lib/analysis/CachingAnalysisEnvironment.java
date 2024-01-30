@@ -21,19 +21,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -60,7 +56,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   private final ArtifactFactory artifactFactory;
-  private final ActionLookupKeyOrProxy owner;
+  private final ActionLookupKey owner;
   private final boolean extendedSanityChecks;
   private final boolean allowAnalysisFailures;
   private final ActionKeyContext actionKeyContext;
@@ -91,7 +87,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   public CachingAnalysisEnvironment(
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
-      ActionLookupKeyOrProxy owner,
+      ActionLookupKey owner,
       boolean extendedSanityChecks,
       boolean allowAnalysisFailures,
       ExtendedEventHandler errorEventListener,
@@ -373,20 +369,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public ImmutableList<Artifact> getBuildInfo(
-      boolean stamp, BuildInfoKey key, BuildConfigurationValue config) throws InterruptedException {
-    BuildInfoCollectionValue collectionValue =
-        (BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(key, config));
-    if (collectionValue == null) {
-      throw new MissingDepException(
-          String.format("Restart due to missing BuildInfoCollectionValue (%s %s)", key, config));
-    }
-    BuildInfoCollection collection = collectionValue.getCollection();
-    return stamp ? collection.getStampedBuildInfo() : collection.getRedactedBuildInfo();
-  }
-
-  @Override
-  public ActionLookupKeyOrProxy getOwner() {
+  public ActionLookupKey getOwner() {
     return owner;
   }
 

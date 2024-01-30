@@ -158,26 +158,27 @@ public class PackageTest {
   }
 
   private Package.Builder pkgBuilder(String name) {
-    Package.Builder result =
-        new Package.Builder(
-            PackageSettings.DEFAULTS,
-            PackageIdentifier.createInMainRepo(name),
-            "workspace",
-            Optional.empty(),
-            Optional.empty(),
-            /* noImplicitFileExport= */ true,
-            RepositoryMapping.ALWAYS_FALLBACK,
-            RepositoryMapping.ALWAYS_FALLBACK);
-    result.setFilename(
-        RootedPath.toRootedPath(
-            Root.fromPath(fileSystem.getPath("/irrelevantRoot")), PathFragment.create(name)));
-    return result;
+    return Package.newPackageBuilder(
+        PackageSettings.DEFAULTS,
+        PackageIdentifier.createInMainRepo(name),
+        /* filename= */ RootedPath.toRootedPath(
+            Root.fromPath(fileSystem.getPath("/irrelevantRoot")), PathFragment.create(name)),
+        "workspace",
+        Optional.empty(),
+        Optional.empty(),
+        /* noImplicitFileExport= */ true,
+        /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
+        /* cpuBoundSemaphore= */ null,
+        PackageOverheadEstimator.NOOP_ESTIMATOR,
+        /* generatorMap= */ null,
+        /* configSettingVisibilityPolicy= */ null,
+        /* globber= */ null);
   }
 
   private static Rule addRule(Package.Builder pkgBuilder, Label label, RuleClass ruleClass)
       throws Exception {
     Rule rule = pkgBuilder.createRule(label, ruleClass, /* callstack= */ ImmutableList.of());
-    rule.populateOutputFiles(new StoredEventHandler(), pkgBuilder);
+    rule.populateOutputFiles(new StoredEventHandler(), pkgBuilder.getPackageIdentifier());
     pkgBuilder.addRule(rule);
     return rule;
   }

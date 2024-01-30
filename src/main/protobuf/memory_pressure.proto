@@ -20,11 +20,12 @@ option java_package = "com.google.devtools.build.lib.runtime";
 
 // Statistics about memory pressure handling.
 message MemoryPressureStats {
-  // The number of calls to System.gc() made by RetainedHeapLimiter.
-  int32 manually_triggered_gcs = 1;
-  // The maximum number of consecutive full GC events over the threshold ignored
-  // by RetainedHeapLimiter because it recently triggered a GC.
-  int32 max_consecutive_ignored_gcs_over_threshold = 2;
+  // Deprecated: An artifact of RetainedHeapLimiter. GcThrashingDetector (its
+  // replacement) does not manually trigger GC.
+  int32 manually_triggered_gcs = 1 [deprecated = true];
+  // Deprecated: An artifact of RetainedHeapLimiter. GcThrashingDetector (its
+  // replacement) does not ignore any non-manual full GC.
+  int32 max_consecutive_ignored_gcs_over_threshold = 2 [deprecated = true];
   // Number of times HighWaterMarkLimiter dropped caches after minor GCs.
   int32 minor_gc_drops = 3;
   // Number of times HighWaterMarkLimiter dropped caches after full GCs.

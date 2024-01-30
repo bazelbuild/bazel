@@ -14,17 +14,25 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import java.util.Map;
+import java.util.Optional;
 import net.starlark.java.syntax.Location;
 
 /**
  * Represents one usage of a module extension in one MODULE.bazel file. This class records all the
  * information pertinent to the proxy object returned from the {@code use_extension} call.
+ *
+ * <p>When adding new fields, make sure to update {@link #trimForEvaluation()} as well.
  */
 @AutoValue
 @GenerateTypeAdapter
@@ -34,6 +42,12 @@ public abstract class ModuleExtensionUsage {
 
   /** The name of the extension. */
   public abstract String getExtensionName();
+
+  /**
+   * The isolation key of this module extension usage. This is present if and only if the usage is
+   * created with {@code isolate = True}.
+   */
+  public abstract Optional<ModuleExtensionId.IsolationKey> getIsolationKey();
 
   /** The module that contains this particular extension usage. */
   public abstract ModuleKey getUsingModule();
@@ -61,8 +75,55 @@ public abstract class ModuleExtensionUsage {
   /** All the tags specified by this module for this extension. */
   public abstract ImmutableList<Tag> getTags();
 
+  /**
+   * Whether any <code>use_extension</code> calls for this usage had <code>dev_dependency = True
+   * </code> set.*
+   */
+  public abstract boolean getHasDevUseExtension();
+
+  /**
+   * Whether any <code>use_extension</code> calls for this usage had <code>dev_dependency = False
+   * </code> set.*
+   */
+  public abstract boolean getHasNonDevUseExtension();
+
+  public abstract Builder toBuilder();
+
   public static Builder builder() {
     return new AutoValue_ModuleExtensionUsage.Builder();
+  }
+
+  /**
+   * Turns the given collection of usages for a particular extension into an object that can be
+   * compared for equality with another object obtained in this way and compares equal only if the
+   * two original collections of usages are equivalent for the purpose of evaluating the extension.
+   */
+  static ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> trimForEvaluation(
+      ImmutableMap<ModuleKey, ModuleExtensionUsage> usages) {
+    // ImmutableMap#equals doesn't compare the order of entries, but it matters for the evaluation
+    // of the extension.
+    return ImmutableList.copyOf(
+        Maps.transformValues(usages, ModuleExtensionUsage::trimForEvaluation).entrySet());
+  }
+
+  /**
+   * Returns a new usage with all information removed that does not influence the evaluation of the
+   * extension.
+   */
+  private ModuleExtensionUsage trimForEvaluation() {
+    // We start with the full usage and selectively remove information that does not influence the
+    // evaluation of the extension. Compared to explicitly copying over the parts that do, this
+    // preserves correctness in case new fields are added without updating this code.
+    return toBuilder()
+        .setTags(getTags().stream().map(Tag::trimForEvaluation).collect(toImmutableList()))
+        // Locations are only used for error reporting and thus don't influence whether the
+        // evaluation of the extension is successful and what its result is in case of success.
+        .setLocation(Location.BUILTIN)
+        // Extension implementation functions do not see the imports, they are only validated
+        // against the set of generated repos in a validation step that comes afterward.
+        .setImports(ImmutableBiMap.of())
+        .setDevImports(ImmutableSet.of())
+        .build();
   }
 
   /** Builder for {@link ModuleExtensionUsage}. */
@@ -72,6 +133,8 @@ public abstract class ModuleExtensionUsage {
     public abstract Builder setExtensionBzlFile(String value);
 
     public abstract Builder setExtensionName(String value);
+
+    public abstract Builder setIsolationKey(Optional<ModuleExtensionId.IsolationKey> value);
 
     public abstract Builder setUsingModule(ModuleKey value);
 
@@ -90,6 +153,10 @@ public abstract class ModuleExtensionUsage {
       tagsBuilder().add(value);
       return this;
     }
+
+    public abstract Builder setHasDevUseExtension(boolean hasDevUseExtension);
+
+    public abstract Builder setHasNonDevUseExtension(boolean hasNonDevUseExtension);
 
     public abstract ModuleExtensionUsage build();
   }

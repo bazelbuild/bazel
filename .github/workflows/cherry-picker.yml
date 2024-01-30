@@ -1,0 +1,64 @@
+name: cherry-picker
+
+on:
+  pull_request_target:
+    types: [closed]
+  issues:
+    types: [closed, milestoned]
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
+
+jobs:
+  cherry-picker-on-closed:
+    if: github.event.action == 'closed' && github.event.sender.login == 'copybara-service[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@eb238b55efaa70779f274895e782ed17c84f2895
+        with:
+          egress-policy: audit
+      - if: github.event.pull_request
+        name: Run cherrypicker on closed PR
+        uses: bazelbuild/continuous-integration/actions/cherry_picker@d646a2d9a98e699bdba517276cf0e16cfff0c62c
+        with:
+          triggered-on: closed
+          pr-number: ${{ github.event.number }}
+          is-prod: True
+      - if: github.event.issue
+        name: Run cherrypicker on closed issue
+        uses: bazelbuild/continuous-integration/actions/cherry_picker@d646a2d9a98e699bdba517276cf0e16cfff0c62c
+        with:
+          triggered-on: closed
+          pr-number: ${{ github.event.issue.number }}
+          is-prod: True
+  cherry-picker-on-milestoned:
+    if: github.event.action == 'milestoned'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@eb238b55efaa70779f274895e782ed17c84f2895
+        with:
+          egress-policy: audit
+      - if: startsWith(github.event.issue.body, 'Forked from')
+        name: Run cherrypicker on comment
+        uses: bazelbuild/continuous-integration/actions/cherry_picker@d646a2d9a98e699bdba517276cf0e16cfff0c62c
+        with:
+          triggered-on: commented
+          pr-number: ${{ github.event.issue.body }}
+          milestone-title: ${{ github.event.milestone.title }}
+          milestoned-issue-number: ${{ github.event.issue.number }}
+          is-prod: True
+      - if: startsWith(github.event.issue.body, '### Commit IDs')
+        name: Run cherrypicker on demand
+        uses: bazelbuild/continuous-integration/actions/cherry_picker@d646a2d9a98e699bdba517276cf0e16cfff0c62c
+        with:
+          triggered-on: ondemand
+          milestone-title: ${{ github.event.milestone.title }}
+          milestoned-issue-number: ${{ github.event.issue.number }}
+          issue-title: ${{ github.event.issue.title }}
+          issue-body: ${{ github.event.issue.body }}
+          is-prod: True

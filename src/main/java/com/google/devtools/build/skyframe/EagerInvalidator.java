@@ -39,7 +39,7 @@ public final class EagerInvalidator {
   public static void delete(
       InMemoryGraph graph,
       Iterable<SkyKey> diff,
-      DirtyTrackingProgressReceiver progressReceiver,
+      DirtyAndInflightTrackingProgressReceiver progressReceiver,
       InvalidatingNodeVisitor.DeletingInvalidationState state,
       boolean traverseGraph)
       throws InterruptedException {
@@ -56,7 +56,7 @@ public final class EagerInvalidator {
   static DeletingNodeVisitor createDeletingVisitorIfNeeded(
       InMemoryGraph graph,
       Iterable<SkyKey> diff,
-      DirtyTrackingProgressReceiver progressReceiver,
+      DirtyAndInflightTrackingProgressReceiver progressReceiver,
       InvalidatingNodeVisitor.DeletingInvalidationState state,
       boolean traverseGraph) {
     state.update(diff);
@@ -69,7 +69,7 @@ public final class EagerInvalidator {
   static DirtyingNodeVisitor createInvalidatingVisitorIfNeeded(
       QueryableGraph graph,
       Iterable<SkyKey> diff,
-      DirtyTrackingProgressReceiver progressReceiver,
+      DirtyAndInflightTrackingProgressReceiver progressReceiver,
       InvalidationState state) {
     state.update(diff);
     return state.isEmpty() ? null : new DirtyingNodeVisitor(graph, progressReceiver, state);
@@ -79,7 +79,7 @@ public final class EagerInvalidator {
   public static void invalidate(
       QueryableGraph graph,
       Iterable<SkyKey> diff,
-      DirtyTrackingProgressReceiver progressReceiver,
+      DirtyAndInflightTrackingProgressReceiver progressReceiver,
       InvalidationState state)
       throws InterruptedException {
     DirtyingNodeVisitor visitor =

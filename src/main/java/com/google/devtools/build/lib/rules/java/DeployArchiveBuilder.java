@@ -45,6 +45,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 
 /** Utility for configuring an action to generate a deploy archive. */
 public class DeployArchiveBuilder {
@@ -56,7 +61,7 @@ public class DeployArchiveBuilder {
   private static final int SINGLEJAR_MEMORY_MB = 1600;
 
   private static final ResourceSet DEPLOY_ACTION_RESOURCE_SET =
-      ResourceSet.createWithRamCpu(/*memoryMb = */ SINGLEJAR_MEMORY_MB, /*cpuUsage = */ 1);
+      ResourceSet.createWithRamCpu(/* memoryMb= */ SINGLEJAR_MEMORY_MB, /* cpu= */ 1);
 
   private final RuleContext ruleContext;
 
@@ -67,7 +72,6 @@ public class DeployArchiveBuilder {
   private JavaTargetAttributes attributes;
   private boolean includeBuildData;
   private Compression compression = Compression.UNCOMPRESSED;
-  @Nullable private Artifact runfilesMiddleman;
   private Artifact outputJar;
   @Nullable private String javaStartClass;
   private ImmutableList<String> deployManifestLines = ImmutableList.of();
@@ -118,16 +122,6 @@ public class DeployArchiveBuilder {
   @CanIgnoreReturnValue
   public DeployArchiveBuilder setCompression(Compression compress) {
     this.compression = Preconditions.checkNotNull(compress);
-    return this;
-  }
-
-  /**
-   * Sets additional dependencies to be added to the action that creates the deploy jar so that we
-   * force the runtime dependencies to be built.
-   */
-  @CanIgnoreReturnValue
-  public DeployArchiveBuilder setRunfilesMiddleman(@Nullable Artifact runfilesMiddleman) {
-    this.runfilesMiddleman = runfilesMiddleman;
     return this;
   }
 
@@ -367,8 +361,37 @@ public class DeployArchiveBuilder {
     return inputs.build();
   }
 
+  @SuppressWarnings("unchecked")
+  @Nullable
+  private static ImmutableList<Artifact> asArtifactImmutableList(Object o) {
+    if (o == Starlark.UNBOUND) {
+      return null;
+    } else {
+      ImmutableList<Artifact> list = ((Sequence<Artifact>) o).getImmutableList();
+      if (list.isEmpty()) {
+        return null;
+      }
+      return list;
+    }
+  }
+
+  private static ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, int stamp)
+      throws RuleErrorException, InterruptedException {
+
+    StarlarkFunction getBuildInfo =
+        (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("get_build_info");
+    ruleContext.initStarlarkRuleContext();
+    Object buildInfoFilesObject =
+        ruleContext.callStarlarkOrThrowRuleError(
+            getBuildInfo,
+            ImmutableList.of(
+                /* ctx */ ruleContext.getStarlarkRuleContext(), /* stamp */ StarlarkInt.of(stamp)),
+            ImmutableMap.of());
+    return asArtifactImmutableList(buildInfoFilesObject);
+  }
+
   /** Builds the action as configured. */
-  public void build() throws InterruptedException {
+  public void build() throws InterruptedException, RuleErrorException {
     ImmutableList<Artifact> classpathResources = attributes.getClassPathResources();
     Set<String> classPathResourceNames = new HashSet<>();
     for (Artifact artifact : classpathResources) {
@@ -395,9 +418,7 @@ public class DeployArchiveBuilder {
     } else {
       inputs.addTransitive(runtimeJars);
     }
-    if (runfilesMiddleman != null) {
-      inputs.add(runfilesMiddleman);
-    }
+
     ImmutableList<Artifact> buildInfoArtifacts = ImmutableList.of();
     int stamp = 0;
     if (ruleContext.attributes().has("stamp", Type.INTEGER)) {
@@ -407,7 +428,7 @@ public class DeployArchiveBuilder {
       stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE).toInt();
     }
     try {
-      buildInfoArtifacts = semantics.getBuildInfo(ruleContext, stamp);
+      buildInfoArtifacts = getBuildInfo(ruleContext, stamp);
     } catch (RuleErrorException e) {
       throw new InterruptedException("Translating BuildInfo files failed: " + e);
     }
@@ -443,12 +464,12 @@ public class DeployArchiveBuilder {
 
     String toolchainIdentifier = null;
     try {
-      toolchainIdentifier =
-          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
-              .getToolchainIdentifier();
+      toolchainIdentifier = CppHelper.getToolchain(ruleContext).getToolchainIdentifier();
     } catch (RuleErrorException e) {
       // Something went wrong loading the toolchain, which is an exceptional condition.
       throw new IllegalStateException("Unable to load cc toolchain", e);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
     }
     CommandLine commandLine =
         semantics.buildSingleJarCommandLine(

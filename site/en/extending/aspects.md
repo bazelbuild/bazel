@@ -176,6 +176,10 @@ that counts files in targets, potentially filtering them by extension.
 It shows how to use a provider to return values, how to use parameters to pass
 an argument into an aspect implementation, and how to invoke an aspect from a rule.
 
+Note: Aspects added in rules' attributes are called *rule-propagated aspects* as
+opposed to *command-line aspects* that are specified using the ``--aspects``
+flag.
+
 `file_count.bzl` file:
 
 ```python
@@ -265,14 +269,19 @@ file_count_aspect = aspect(
 This example shows how the aspect propagates through the ``deps`` attribute.
 
 ``attrs`` defines a set of attributes for an aspect. Public aspect attributes
-are of type ``string`` and are called parameters. Parameters must have a``values``
-attribute specified on them. This example has a parameter called ``extension``
+define parameters and can only be of types ``bool``, ``int`` or ``string``.
+For rule-propagated aspects, ``int`` and ``string`` parameters must have
+``values`` specified on them. This example has a parameter called ``extension``
 that is allowed to have '``*``', '``h``', or '``cc``' as a value.
 
-Parameter values for the aspect are taken from the string attribute with the same
-name of the rule requesting the aspect (see the definition of ``file_count_rule``).
-Aspects with parameters cannot be used via the command line because there is no
-syntax to define the parameters.
+For rule-propagated aspects, parameter values are taken from the rule requesting
+the aspect, using the attribute of the rule that has the same name and type.
+(see the definition of ``file_count_rule``).
+
+For command-line aspects, the parameters values can be passed using
+[``--aspects_parameters``](/reference/command-line-reference#flag--aspects_parameters)
+flag. The ``values`` restriction of ``int`` and ``string`` parameters may be
+omitted.
 
 Aspects are also allowed to have private attributes of types ``label`` or
 ``label_list``. Private label attributes can be used to specify dependencies on

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.util.TargetDataSubject.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -91,5 +92,10 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent(
         "environment group empty_group must contain at least one environment");
+  }
+
+  @Test
+  public void reduceForSerialization_hasConsistentValues() {
+    assertThat(group).hasSamePropertiesAs(group.reduceForSerialization());
   }
 }

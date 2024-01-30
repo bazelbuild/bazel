@@ -55,8 +55,26 @@ public interface Version extends NodeVersion {
     return this;
   }
 
+  /**
+   * Returns a version indicating that a {@link NodeEntry} has never been built.
+   *
+   * <p>The minimal version is never used as the graph version for Skyframe evaluations. It is only
+   * used to indicatie that a node has never been built, since it is always {@link #lowerThan} the
+   * graph version.
+   */
   static MinimalVersion minimal() {
     return MinimalVersion.INSTANCE;
+  }
+
+  /**
+   * Returns a version indicating that a {@link NodeEntry} has been built without incrementality.
+   *
+   * <p>The constant version is used as the graph version for all non-incremental Skyframe
+   * evaluations. Without incrementality, it makes sense to use a version with no defined "previous"
+   * or "next" version.
+   */
+  static ConstantVersion constant() {
+    return ConstantVersion.INSTANCE;
   }
 
   /** A version {@link #lowerThan} all other versions, other than itself. */
@@ -68,6 +86,18 @@ public interface Version extends NodeVersion {
     @Override
     public boolean atMost(Version other) {
       return true;
+    }
+  }
+
+  /** A version that is not comparable to any version other than itself. */
+  final class ConstantVersion implements Version {
+    private static final ConstantVersion INSTANCE = new ConstantVersion();
+
+    private ConstantVersion() {}
+
+    @Override
+    public boolean atMost(Version other) {
+      return this == other;
     }
   }
 }

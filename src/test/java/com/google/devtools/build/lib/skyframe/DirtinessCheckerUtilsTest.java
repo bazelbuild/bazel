@@ -113,7 +113,7 @@ public class DirtinessCheckerUtilsTest {
 
     Assume.assumeTrue("Missing diff checker doesn't apply to external files", shouldCheck);
 
-    assertThat(underTest.check(rootedPath, null, spyCache, null))
+    assertThat(underTest.check(rootedPath, null, /* oldMtsv= */ null, spyCache, null))
         .isEqualTo(
             SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(
                 FileStateValue.NONEXISTENT_FILE_STATE_NODE));
@@ -152,7 +152,7 @@ public class DirtinessCheckerUtilsTest {
 
     SyscallCache mockCache = mock(SyscallCache.class);
 
-    assertThat(underTest.check(rootedPath, null, mockCache, null))
+    assertThat(underTest.check(rootedPath, null, /* oldMtsv= */ null, mockCache, null))
         .isEqualTo(SkyValueDirtinessChecker.DirtyResult.dirty());
 
     Mockito.verifyNoInteractions(mockCache);

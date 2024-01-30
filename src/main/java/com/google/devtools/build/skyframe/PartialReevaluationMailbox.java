@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.ClassToInstanceMapSkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -126,16 +127,16 @@ public class PartialReevaluationMailbox implements SkyKeyComputeState {
    *
    * <p>Skyframe may enqueue a node for evaluation for several other reasons, such as when the node
    * declared an external dependency (via {@link SkyFunction.Environment#dependOnFuture}) that
-   * completes, or when the node's {@link SkyFunction#compute} method returns a {@link
-   * SkyFunction.Restart} value and the node is restarted. In some of these cases (e.g. returning a
-   * {@link SkyFunction.Restart} value), the node's {@link SkyKeyComputeState} will be invalidated,
-   * which also drops its mailbox, and the next time that mailbox is read it will return a "freshly
-   * initialized" state. But in others (e.g. an external dependency completes), the node's {@link
-   * SkyKeyComputeState} is retained. In any of these cases in which a node is enqueued for
-   * evaluation and its mailbox is retained, a flag will be set in the node's mailbox to indicate
-   * that the node's {@link SkyFunction} should try its best to make progress, by, e.g., checking
-   * whether its external dep futures have completed, checking whether its previously requested deps
-   * are done, or reevaluating from scratch. ({@link Causes#other}) returns the value of that flag.
+   * completes, or when the node's {@link SkyFunction#compute} method returns a {@link Reset} value
+   * and the node is restarted. In some of these cases (e.g. returning a {@link Reset} value), the
+   * node's {@link SkyKeyComputeState} will be invalidated, which also drops its mailbox, and the
+   * next time that mailbox is read it will return a "freshly initialized" state. But in others
+   * (e.g. an external dependency completes), the node's {@link SkyKeyComputeState} is retained. In
+   * any of these cases in which a node is enqueued for evaluation and its mailbox is retained, a
+   * flag will be set in the node's mailbox to indicate that the node's {@link SkyFunction} should
+   * try its best to make progress, by, e.g., checking whether its external dep futures have
+   * completed, checking whether its previously requested deps are done, or reevaluating from
+   * scratch. ({@link Causes#other}) returns the value of that flag.
    */
   @AutoValue
   public abstract static class Causes {

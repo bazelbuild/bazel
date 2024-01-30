@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnCache;
-import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -40,6 +39,7 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionR
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.vfs.Path;
@@ -50,23 +50,23 @@ import java.util.NoSuchElementException;
 @ThreadSafe // If the RemoteActionCache implementation is thread-safe.
 final class RemoteSpawnCache implements SpawnCache {
 
-  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
-      SpawnCheckingCacheEvent.create("remote-cache");
-
   private final Path execRoot;
   private final RemoteOptions options;
-  private final boolean verboseFailures;
   private final RemoteExecutionService remoteExecutionService;
+  private final DigestUtil digestUtil;
+  private final boolean verboseFailures;
 
   RemoteSpawnCache(
       Path execRoot,
       RemoteOptions options,
       boolean verboseFailures,
-      RemoteExecutionService remoteExecutionService) {
+      RemoteExecutionService remoteExecutionService,
+      DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.options = options;
     this.verboseFailures = verboseFailures;
     this.remoteExecutionService = remoteExecutionService;
+    this.digestUtil = digestUtil;
   }
 
   @VisibleForTesting
@@ -93,9 +93,10 @@ final class RemoteSpawnCache implements SpawnCache {
             .setInputBytes(action.getInputBytes())
             .setInputFiles(action.getInputFiles());
 
+    context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
+
     Profiler prof = Profiler.instance();
     if (shouldAcceptCachedResult) {
-      context.report(SPAWN_CHECKING_CACHE_EVENT);
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
       try {
@@ -119,9 +120,10 @@ final class RemoteSpawnCache implements SpawnCache {
               .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
           SpawnResult spawnResult =
               createSpawnResult(
+                  digestUtil,
                   action.getActionKey(),
                   result.getExitCode(),
-                  /*cacheHit=*/ true,
+                  /* cacheHit= */ true,
                   result.cacheName(),
                   inMemoryOutput,
                   result.getExecutionMetadata().getExecutionStartTimestamp(),
@@ -185,9 +187,6 @@ final class RemoteSpawnCache implements SpawnCache {
 
           remoteExecutionService.uploadOutputs(action, result);
         }
-
-        @Override
-        public void close() {}
 
         private void checkForConcurrentModifications()
             throws IOException, ForbiddenActionInputException {

@@ -151,14 +151,12 @@ assert_fails(lambda: json.decode('"\\u1'), r"incomplete \\uXXXX escape")
 
 ## json.decode with default specified
 
+assert_eq(json.decode('{"valid": "json"}', default = "default value"), {"valid": "json"})
 assert_eq(json.decode('{"valid": "json"}', "default value"), {"valid": "json"})
+assert_eq(json.decode('{"invalid": "json"', default = "default value"), "default value")
 assert_eq(json.decode('{"invalid": "json"', "default value"), "default value")
+assert_eq(json.decode('{"invalid": "json"', default = None), None)
 assert_eq(json.decode('{"invalid": "json"', None), None)
-
-assert_fails(
-    lambda: json.decode('{"invalid": "json"', default = "default value"),
-    "got named argument for positional-only parameter 'default'",
-)
 
 def codec(x):
     return json.decode(json.encode(x))

@@ -93,7 +93,10 @@ public interface WorkspaceGlobalsApi {
           @Param(
               name = "toolchain_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc = "The labels of the toolchains to register."),
+              doc =
+                  "The labels of the toolchains to register. Labels can include "
+                      + "<code>:all</code>, in which case, all toolchain-providing targets in the "
+                      + "package will be registered in lexicographical order by name."),
       useStarlarkThread = true)
   void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
@@ -101,10 +104,10 @@ public interface WorkspaceGlobalsApi {
   @StarlarkMethod(
       name = "bind",
       doc =
-          "<p>Warning: use of <code>bind()</code> is not recommended. See <a"
-              + " href=\"https://github.com/bazelbuild/bazel/issues/1952\">Consider removing"
-              + " bind</a> for a long discussion of its issues and alternatives.</p> <p>Gives a"
-              + " target an alias in the <code>//external</code> package.</p>",
+          "<p>DEPRECATED: see <a href=\"https://github.com/bazelbuild/bazel/issues/1952\">Consider"
+              + " removing bind</a> for a long discussion of its issues and alternatives."
+              + " <code>bind()</code> is not be available in Bzlmod.</p> <p>Gives a target an alias"
+              + " in the <code>//external</code> package.</p>",
       parameters = {
         @Param(
             name = "name",

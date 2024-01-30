@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -123,5 +125,27 @@ public class JavaUtilTest {
                 .getPathString())
         .isEqualTo("com/google/foo/FooModule.java");
     assertThat(JavaUtil.getJavaPath(PathFragment.create("org/foo/FooUtil.java"))).isNull();
+  }
+
+  @Test
+  public void testDetokenization() {
+    ImmutableList<String> options =
+        ImmutableList.of(
+            "-source",
+            "8",
+            "-target",
+            "8",
+            "-Xmx1G",
+            "--arg=val",
+            "-XepExcludedPaths:.*/\\\\$$?\\\\$$?AutoValue(Gson)?_.*\\.java");
+
+    NestedSet<String> detokenized = JavaHelper.detokenizeJavaOptions(options);
+    ImmutableList<String> retokenized = JavaHelper.tokenizeJavaOptions(detokenized);
+
+    assertThat(detokenized.toList())
+        .containsExactly(
+            "-source 8 -target 8 -Xmx1G '--arg=val'"
+                + " '-XepExcludedPaths:.*/\\\\$$?\\\\$$?AutoValue(Gson)?_.*\\.java'");
+    assertThat(retokenized).isEqualTo(options);
   }
 }

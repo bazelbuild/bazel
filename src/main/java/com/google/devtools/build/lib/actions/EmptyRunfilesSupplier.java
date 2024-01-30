@@ -15,14 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
 
 /** Empty implementation of RunfilesSupplier */
 public final class EmptyRunfilesSupplier implements RunfilesSupplier {
@@ -33,37 +26,8 @@ public final class EmptyRunfilesSupplier implements RunfilesSupplier {
   private EmptyRunfilesSupplier() {}
 
   @Override
-  public NestedSet<Artifact> getArtifacts() {
-    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
-
-  @Override
-  public ImmutableSet<PathFragment> getRunfilesDirs() {
-    return ImmutableSet.of();
-  }
-
-  @Override
-  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
-    return ImmutableMap.of();
-  }
-
-  @Override
-  public ImmutableList<Artifact> getManifests() {
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
     return ImmutableList.of();
   }
 
-  @Override
-  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
-    return false;
-  }
-
-  @Override
-  public boolean isRunfileLinksEnabled(PathFragment runfilesDir) {
-    return false;
-  }
-
-  @Override
-  public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
-    throw new UnsupportedOperationException();
-  }
 }

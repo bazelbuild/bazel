@@ -50,7 +50,6 @@ import com.google.errorprone.annotations.FormatString;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -78,12 +77,6 @@ import javax.annotation.Nullable;
 public class DynamicSpawnStrategy implements SpawnStrategy {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  /**
-   * String indicating that an action is for a tool. Defined in {@link
-   * com.google.devtools.build.lib.analysis.RuleContext}. I wish I could find a nicer way to check
-   * if something is for tool.
-   */
-  private static final String FOR_TOOL = "[for tool]";
 
   private final ListeningExecutorService executorService;
   private final DynamicExecutionOptions options;
@@ -158,31 +151,52 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private static boolean canExecLocal(
       Spawn spawn,
       ExecutionPolicy executionPolicy,
-      ActionContext.ActionContextRegistry actionContextRegistry,
-      DynamicStrategyRegistry dynamicStrategyRegistry) {
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
+    return getLocalStrategy(spawn, executionPolicy, acr, dsr) != null;
+  }
+
+  @Nullable
+  private static SandboxedSpawnStrategy getLocalStrategy(
+      Spawn spawn,
+      ExecutionPolicy executionPolicy,
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
     if (!executionPolicy.canRunLocally()) {
-      return false;
+      return null;
     }
-    List<SandboxedSpawnStrategy> localStrategies =
-        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, LOCAL);
-    return localStrategies.stream()
-        .anyMatch(
-            s ->
-                (s.canExec(spawn, actionContextRegistry)
-                    || s.canExecWithLegacyFallback(spawn, actionContextRegistry)));
+    for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, LOCAL)) {
+      if ((s.canExec(spawn, acr) || s.canExecWithLegacyFallback(spawn, acr))) {
+        return s;
+      }
+    }
+    return null;
   }
 
   private static boolean canExecRemote(
       Spawn spawn,
       ExecutionPolicy executionPolicy,
-      ActionContext.ActionContextRegistry actionContextRegistry,
-      DynamicStrategyRegistry dynamicStrategyRegistry) {
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
+    return getRemoteStrategy(spawn, executionPolicy, acr, dsr) != null;
+  }
+
+  @Nullable
+  private static SandboxedSpawnStrategy getRemoteStrategy(
+      Spawn spawn,
+      ExecutionPolicy executionPolicy,
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
     if (!executionPolicy.canRunRemotely()) {
-      return false;
+      return null;
     }
-    List<SandboxedSpawnStrategy> remoteStrategies =
-        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE);
-    return remoteStrategies.stream().anyMatch(s -> s.canExec(spawn, actionContextRegistry));
+
+    for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, REMOTE)) {
+      if (s.canExec(spawn, acr)) {
+        return s;
+      }
+    }
+    return null;
   }
 
   @Override
@@ -225,11 +239,18 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     }
     remoteBranch.execute(executorService);
 
+    ImmutableList<SpawnResult> results = null;
     try {
-      return waitBranches(localBranch, remoteBranch, spawn, options, actionExecutionContext);
+      results = waitBranches(localBranch, remoteBranch, spawn, options, actionExecutionContext);
+      return results;
     } finally {
       checkState(localBranch.isDone());
       checkState(remoteBranch.isDone());
+
+      if (results != null && !results.isEmpty()) {
+        updateStrategyWinner(actionExecutionContext, spawn, results.get(0), strategyThatCancelled);
+      }
+
       synchronized (waitingLocalJobs) {
         if (!waitingLocalJobs.remove(localBranch)) {
           threadLimiter.release();
@@ -242,6 +263,53 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           localBranch.isCancelled() ? "cancelled" : "done",
           remoteBranch.isCancelled() ? "cancelled" : "done");
     }
+  }
+
+  void updateStrategyWinner(
+      ActionExecutionContext context,
+      Spawn spawn,
+      SpawnResult result,
+      AtomicReference<DynamicMode> strategyThatCancelled) {
+    DynamicStrategyRegistry dynamicStrategyRegistry =
+        context.getContext(DynamicStrategyRegistry.class);
+    ExecutionPolicy executionPolicy = getExecutionPolicy.apply(spawn);
+
+    // In case of remote runner, we could have "runner-name-cached" instead of "runner-name", in
+    // this case we want more precise name of branch.
+    String winner = result.getRunnerName();
+    SandboxedSpawnStrategy localStrategy =
+        getLocalStrategy(spawn, executionPolicy, context, dynamicStrategyRegistry);
+    SandboxedSpawnStrategy remoteStrategy =
+        getRemoteStrategy(spawn, executionPolicy, context, dynamicStrategyRegistry);
+
+    if (localStrategy == null || remoteStrategy == null) {
+      return;
+    }
+
+    String localName = localStrategy.toString();
+    String remoteName = remoteStrategy.toString();
+
+    DynamicMode winnerBranchType = null;
+    if (strategyThatCancelled.get() == null) {
+      return;
+    }
+
+    switch (strategyThatCancelled.get()) {
+      case LOCAL:
+        localName = winner;
+        winnerBranchType = LOCAL;
+        break;
+      case REMOTE:
+        remoteName = winner;
+        winnerBranchType = REMOTE;
+        break;
+    }
+
+    context
+        .getEventHandler()
+        .post(
+            new DynamicExecutionFinishedEvent(
+                spawn.getMnemonic(), localName, remoteName, winnerBranchType));
   }
 
   /**
@@ -328,8 +396,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       return LocalBranch.runLocally(
           spawn, actionExecutionContext, null, getExtraSpawnForLocalExecution);
     } else if (options.excludeTools) {
-      String msg = spawn.getResourceOwner().getProgressMessage();
-      if (msg != null && msg.contains(FOR_TOOL)) {
+      if (spawn.getResourceOwner().getOwner().isBuildConfigurationForTool()) {
         return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
       }
     }

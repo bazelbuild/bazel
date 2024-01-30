@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.hash.HashFunction;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -61,7 +61,7 @@ public class QueryOutputUtils {
       AspectResolver aspectResolver,
       @Nullable EventHandler eventHandler,
       HashFunction hashFunction,
-      RepositoryMapping mainRepoMapping)
+      LabelPrinter labelPrinter)
       throws IOException, InterruptedException {
     /*
      * This is not really streaming, but we are using the streaming interface for writing into the
@@ -73,8 +73,7 @@ public class QueryOutputUtils {
       streamedFormatter.setOptions(queryOptions, aspectResolver, hashFunction);
       streamedFormatter.setEventHandler(eventHandler);
       OutputFormatterCallback.processAllTargets(
-          streamedFormatter.createPostFactoStreamCallback(
-              outputStream, queryOptions, mainRepoMapping),
+          streamedFormatter.createPostFactoStreamCallback(outputStream, queryOptions, labelPrinter),
           targetsResult);
     } else {
       @SuppressWarnings("unchecked")
@@ -94,7 +93,7 @@ public class QueryOutputUtils {
             aspectResolver,
             eventHandler,
             hashFunction,
-            mainRepoMapping);
+            labelPrinter);
       }
     }
   }

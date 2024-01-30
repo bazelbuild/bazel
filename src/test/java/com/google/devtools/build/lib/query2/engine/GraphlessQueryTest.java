@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -77,24 +78,6 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
   }
 
   @Override
-  @Test
-  public void testFilesetPackageDeps() {
-    // Fileset doesn't exist in Bazel.
-  }
-
-  @Override
-  @Test
-  public void testRegressionBug1686119() {
-    // Fileset doesn't exist in Bazel.
-  }
-
-  @Override
-  @Test
-  public void testHdrsCheck() throws Exception {
-    // There's no hdrs_check attribute in Bazel.
-  }
-
-  @Override
   protected QueryHelper<Target> createQueryHelper() {
     return new SkyframeQueryHelper() {
       @Override
@@ -128,7 +111,8 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               Iterable<QueryFunction> extraFunctions,
               @Nullable PathPackageLocator packagePath,
               boolean blockUniverseEvaluationErrors,
-              boolean useGraphlessQuery) {
+              boolean useGraphlessQuery,
+              LabelPrinter labelPrinter) {
             return new GraphlessBlazeQueryEnvironment(
                 queryTransitivePackagePreloader,
                 targetProvider,
@@ -141,7 +125,8 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
                 labelFilter,
                 eventHandler,
                 settings,
-                extraFunctions);
+                extraFunctions,
+                labelPrinter);
           }
         };
       }

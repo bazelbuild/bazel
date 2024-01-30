@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Root;
@@ -56,7 +57,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   public abstract String getError(); // on failure
 
   /** If the file is compiled successfully, this class encapsulates the compiled program. */
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   public static class Success extends BzlCompileValue {
     private final Program prog;
     private final byte[] digest;
@@ -89,7 +90,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   }
 
   /** If the file isn't found or has errors, this class encapsulates a message with the reason. */
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   public static class Failure extends BzlCompileValue {
     private final String errorMsg;
 
@@ -175,15 +176,26 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       }
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(Root root, Label label, Kind kind) {
+    private static Key create(Root root, Label label, Kind kind) {
       return interner.intern(new Key(root, label, kind));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     /** Returns whether this key is for a {@code @_builtins} .bzl file. */
     public boolean isBuiltins() {
       return kind == Kind.BUILTINS;
+    }
+
+    /** Returns true if the requested file follows the .scl dialect. */
+    // See comment in BzlLoadValue#isSclDialect about distinguishing .scl keys by label as opposed
+    // to by Kind.
+    final boolean isSclDialect() {
+      return label != null && label.getName().endsWith(".scl");
     }
 
     boolean isBuildPrelude() {

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -29,9 +30,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
@@ -165,7 +168,22 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // Override BuildViewTestCase's behavior of setting all sorts of extra options that don't exist
     // on our minimal rule class provider.
     // We do need the host platform. Set it to something trivial.
-    return ImmutableList.of("--host_platform=//minimal_buildenv/platforms:default_host");
+    return ImmutableList.of(
+        "--host_platform=//minimal_buildenv/platforms:default_host",
+        // Since this file tests builtins injection, replace the standard exec transition (which is
+        // in builtins) with a no-op to avoid interference.
+        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_transition");
+  }
+
+  @Override
+  protected AnalysisMock getAnalysisMock() {
+    return new AnalysisMock.Delegate(super.getAnalysisMock()) {
+      @Override
+      public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+          BlazeDirectories directories) {
+        return ImmutableMap.of();
+      }
+    };
   }
 
   @Override
@@ -177,6 +195,15 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     mockToolsConfig.create(
         "minimal_buildenv/platforms/BUILD", //
         "platform(name = 'default_host')");
+    // No-op exec transition:
+    scratch.overwriteFile("pkg2/BUILD", "");
+    scratch.file(
+        "pkg2/dummy_exec_platforms.bzl",
+        "noop_transition = transition(",
+        "  implementation = lambda settings, attr: { '//command_line_option:is exec configuration':"
+            + " True },",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:is exec configuration'])");
   }
 
   @Override
@@ -192,8 +219,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         .addRuleDefinition(SANDWICH_RULE)
         .addRuleDefinition(SANDWICH_LOGIC_RULE)
         .addRuleDefinition(SANDWICH_CTX_RULE)
-        .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
-        .addStarlarkAccessibleTopLevels(
+        .addBzlToplevel("overridable_symbol", "original_value")
+        .addBzlToplevel(
             "flag_guarded_symbol",
             // For this mock symbol, we reuse the same flag that guards the production
             // _builtins_dummy symbol.
@@ -206,6 +233,20 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     setBuildLanguageOptionsWithBuiltinsStaging();
+  }
+
+  @Override
+  protected List<String> getDefaultBuildLanguageOptions() throws Exception {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    builder.addAll(super.getDefaultBuildLanguageOptions());
+    // This is important for test initialization. BuildViewTestCase calls initializeSkyframeExecutor
+    // which creates the top-level build configuration. That loads the Starlark exec transition from
+    // a .bzl file (see --experimental_exec_config above). Without this, BzlLoadFunction tries to
+    // resolve the builtins path and exports.bzl, which fails.
+    //
+    // Most tests override this by calling setBuildLanguageOptionsWithBuiltinsStaging()
+    builder.add("--experimental_builtins_bzl_path=");
+    return builder.build();
   }
 
   private void setBuildLanguageOptionsWithBuiltinsStaging(String... options) throws Exception {
@@ -345,7 +386,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void otherBzlsCannotLoadFromBuiltins() throws Exception {
+  public void otherBzlsCannotLoadFromBuiltins_apparent() throws Exception {
     writeExportsBzl(
         "exported_toplevels = {}", //
         "exported_rules = {}",
@@ -354,7 +395,20 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     writePkgBzl("load('@_builtins//:exports.bzl', 'exported_toplevels')");
 
     buildAndAssertFailure();
-    assertContainsEvent("The repository '@_builtins' could not be resolved");
+    assertContainsEvent("No repository visible as '@_builtins' from");
+  }
+
+  @Test
+  public void otherBzlsCannotLoadFromBuiltins_canonical() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl("load('@@_builtins//:exports.bzl', 'exported_toplevels')");
+
+    buildAndAssertFailure();
+    assertContainsEvent("The repository '@@_builtins' could not be resolved");
   }
 
   @Test

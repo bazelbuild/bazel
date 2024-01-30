@@ -1,4 +1,4 @@
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
+load("//:workspace_deps.bzl", "gen_workspace_stanza")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -14,7 +14,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh:srcs",
     ],
@@ -55,8 +54,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java/proto",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -78,12 +75,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:toolchain_type",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple/swift",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:CcProtoLibrary",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery",
         "//src/main/java/com/google/devtools/build/lib/rules/genrule",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
@@ -102,13 +96,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/python",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/stubs",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -129,7 +120,7 @@ genrule(
 # 1. bazel build tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_zip
 # 2. Copy and rename the zip file with a new version locally.
 # 3. Upload the file under https://mirror.bazel.build/bazel_coverage_output_generator/releases.
-# 4. Update //distdir_deps.bzl and //tools/test/extensions.bzl to point to the new release.
+# 4. Update //workspace_deps.bzl and //tools/test/extensions.bzl to point to the new release.
 gen_workspace_stanza(
     name = "workspace_with_coverage_output_generator",
     out = "coverage.WORKSPACE",

@@ -45,6 +45,9 @@ public final class CcDebugInfoContext implements CcDebugInfoContextApi {
 
   /** Merge multiple {@link CcDebugInfoContext}s into one. */
   public static CcDebugInfoContext merge(Collection<CcDebugInfoContext> contexts) {
+    if (contexts.isEmpty()) {
+      return EMPTY;
+    }
     NestedSetBuilder<Artifact> transitiveDwoFiles = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> transitivePicDwoFiles = NestedSetBuilder.stableOrder();
 

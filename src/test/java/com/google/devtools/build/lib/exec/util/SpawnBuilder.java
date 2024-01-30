@@ -26,11 +26,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DelegateSpawn;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -60,26 +62,27 @@ public final class SpawnBuilder {
 
   private RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
   private ResourceSet resourceSet = ResourceSet.ZERO;
-  private boolean stripOutputPaths;
+  private PathMapper pathMapper = PathMapper.NOOP;
+  private boolean builtForToolConfiguration;
 
   /**
-   * A {@link DelegateSpawn} that supports output path stripping as described in {@link
-   * com.google.devtools.build.lib.actions.PathStripper}.
+   * A {@link DelegateSpawn} that supports output path mapping as described in {@link
+   * com.google.devtools.build.lib.actions.PathMapper}.
    *
-   * <p>By overriding {@link #stripOutputPaths} - and only in test code - instead of adding an extra
-   * boolean in {@link SimpleSpawn}, we avoid further pressuring memory on large build graphs.
+   * <p>By overriding {@link #getPathMapper()} - and only in test code - instead of adding an extra
+   * field in {@link SimpleSpawn}, we avoid further pressuring memory on large build graphs.
    */
   private static class PathStrippableSpawn extends DelegateSpawn {
-    private final boolean stripOutputPaths;
+    private final PathMapper pathMapper;
 
-    public PathStrippableSpawn(Spawn spawn, boolean stripOutputPaths) {
+    public PathStrippableSpawn(Spawn spawn, PathMapper pathMapper) {
       super(spawn);
-      this.stripOutputPaths = stripOutputPaths;
+      this.pathMapper = pathMapper;
     }
 
     @Override
-    public boolean stripOutputPaths() {
-      return stripOutputPaths;
+    public PathMapper getPathMapper() {
+      return pathMapper;
     }
   }
 
@@ -90,7 +93,13 @@ public final class SpawnBuilder {
   public Spawn build() {
     ActionExecutionMetadata owner =
         new FakeOwner(
-            mnemonic, progressMessage, ownerLabel, ownerPrimaryOutput, platform, execProperties);
+            mnemonic,
+            progressMessage,
+            ownerLabel,
+            ownerPrimaryOutput,
+            platform,
+            execProperties,
+            builtForToolConfiguration);
     return new PathStrippableSpawn(
         new SimpleSpawn(
             owner,
@@ -104,7 +113,7 @@ public final class SpawnBuilder {
             ImmutableSet.copyOf(outputs),
             mandatoryOutputs,
             resourceSet),
-        stripOutputPaths);
+        pathMapper);
   }
 
   @CanIgnoreReturnValue
@@ -184,6 +193,12 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
+  public SpawnBuilder withInputs(NestedSet<ActionInput> inputs) {
+    this.inputs.addTransitive(inputs);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public SpawnBuilder withOutput(ActionInput output) {
     outputs.add(output);
     return this;
@@ -236,14 +251,34 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
+  public SpawnBuilder withTools(ActionInput... tools) {
+    for (ActionInput tool : tools) {
+      this.tools.add(tool);
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder withTools(NestedSet<ActionInput> tools) {
+    this.tools.addTransitive(tools);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public SpawnBuilder withLocalResources(ResourceSet resourceSet) {
     this.resourceSet = resourceSet;
     return this;
   }
 
   @CanIgnoreReturnValue
-  public SpawnBuilder stripOutputPaths(boolean strip) {
-    this.stripOutputPaths = strip;
+  public SpawnBuilder setPathMapper(PathMapper pathMapper) {
+    this.pathMapper = pathMapper;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder setBuiltForToolConfiguration(boolean builtForToolConfiguration) {
+    this.builtForToolConfiguration = builtForToolConfiguration;
     return this;
   }
 }

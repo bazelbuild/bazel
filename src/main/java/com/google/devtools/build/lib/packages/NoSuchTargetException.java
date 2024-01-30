@@ -26,6 +26,15 @@ import javax.annotation.Nullable;
  * not exist.
  */
 public class NoSuchTargetException extends NoSuchThingException {
+  /**
+   * This factory is used when {@link Target} was loaded but isn't available to the caller.
+   *
+   * <p>This is used when an error is bubbled up from a child to parent {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction} invocation.
+   */
+  public static NoSuchTargetException createForParentPropagation(Label label) {
+    return new NoSuchTargetException(label);
+  }
 
   @Nullable private final Label label;
   private final boolean hasTarget;
@@ -45,10 +54,14 @@ public class NoSuchTargetException extends NoSuchThingException {
   }
 
   public NoSuchTargetException(Target targetInError) {
+    this(targetInError.getLabel());
+  }
+
+  private NoSuchTargetException(Label label) {
     this(
-        "Target '" + targetInError.getLabel() + "' contains an error and its package is in error",
-        targetInError.getLabel(),
-        /*hasTarget=*/ true);
+        "Target '" + label + "' contains an error and its package is in error",
+        label,
+        /* hasTarget= */ true);
   }
 
   private NoSuchTargetException(String message, @Nullable Label label, boolean hasTarget) {

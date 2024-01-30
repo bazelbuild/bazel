@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_binary", "java_import")
 load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
+load("@rules_java//java:defs.bzl", "java_binary", "java_import")
 
 def _bool_flag_impl(_unused_ctx):
     pass
@@ -83,7 +83,13 @@ def create_android_sdk_rules(
         "build-tools/%s/zipalign.exe" % build_tools_directory,
         "platform-tools/adb.exe",
     ] + native.glob(
-        ["build-tools/%s/aapt2.exe" % build_tools_directory],
+        [
+            "build-tools/%s/aapt2.exe" % build_tools_directory,
+            # This should exist, but until cl/553941342 is in the bazel that's
+            # used to run android_sdk_integration, it won't get put into the
+            # test sandbox, and hence the test will fail.
+            "build-tools/%s/dexdump.exe" % build_tools_directory,
+        ],
         allow_empty = True,
     )
 
@@ -93,7 +99,14 @@ def create_android_sdk_rules(
         "build-tools/%s/zipalign" % build_tools_directory,
         "platform-tools/adb",
     ] + native.glob(
-        ["extras", "build-tools/%s/aapt2" % build_tools_directory],
+        [
+            "extras",
+            "build-tools/%s/aapt2" % build_tools_directory,
+            # This should exist, but until cl/553941342 is in the bazel that's
+            # used to run android_sdk_integration, it won't get put into the
+            # test sandbox, and hence the test will fail.
+            "build-tools/%s/dexdump" % build_tools_directory,
+        ],
         allow_empty = True,
         exclude_directories = 0,
     )
@@ -186,9 +199,6 @@ def create_android_sdk_rules(
         native.toolchain(
             name = "sdk-%d-toolchain" % api_level,
             exec_compatible_with = HOST_CONSTRAINTS,
-            target_compatible_with = [
-                "@platforms//os:android",
-            ],
             toolchain = ":sdk-%d" % api_level,
             toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
         )
@@ -204,6 +214,11 @@ def create_android_sdk_rules(
         name = "sdk",
         actual = ":sdk-%d" % default_api_level,
     )
+    native.alias(
+        name = "sdk-toolchain",
+        actual = ":sdk-%d-toolchain" % default_api_level,
+    )
+
     java_binary(
         name = "apksigner",
         main_class = "com.android.apksigner.ApkSignerTool",

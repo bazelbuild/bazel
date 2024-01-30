@@ -35,4 +35,3 @@ alias(
     actual = "@com_google_protobuf//:protoc_lib",
     visibility = ["//visibility:public"],
 )
-

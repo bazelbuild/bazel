@@ -113,7 +113,7 @@ Bazel has several flags related to the Build Event Service protocol, including:
 *  `--[no]bes_lifecycle_events`
 *  `--bes_results_url`
 *  `--bes_timeout`
-*  `--project_id`
+*  `--bes_instance_name`
 
 For a description of each of these flags, see the
 [Command-Line Reference](/reference/command-line-reference).

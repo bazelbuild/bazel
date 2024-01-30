@@ -58,12 +58,4 @@ public final class ConfigFeatureFlagOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INTERNAL},
       defaultValue = "true")
   public boolean allFeatureFlagValuesArePresent = true;
-
-  @Override
-  public ConfigFeatureFlagOptions getExec() {
-    ConfigFeatureFlagOptions exec = (ConfigFeatureFlagOptions) super.getExec();
-    exec.enforceTransitiveConfigsForConfigFeatureFlag = false;
-    exec.allFeatureFlagValuesArePresent = this.allFeatureFlagValuesArePresent;
-    return exec;
-  }
 }

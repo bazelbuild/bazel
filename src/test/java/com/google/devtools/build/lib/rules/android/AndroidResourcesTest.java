@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesTest.WithPlatforms;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -36,25 +34,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests {@link AndroidResources} */
-@RunWith(Suite.class)
-@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
-public abstract class AndroidResourcesTest extends ResourceTestBase {
-  /** Use legacy toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithoutPlatforms extends AndroidResourcesTest {}
-
-  /** Use platform-based toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithPlatforms extends AndroidResourcesTest {
-    @Override
-    protected boolean platformBasedToolchains() {
-      return true;
-    }
-  }
+@RunWith(JUnit4.class)
+public class AndroidResourcesTest extends ResourceTestBase {
 
   private static final PathFragment DEFAULT_RESOURCE_ROOT = PathFragment.create(RESOURCE_ROOT);
   private static final ImmutableList<PathFragment> RESOURCES_ROOTS =
@@ -260,24 +243,6 @@ public abstract class AndroidResourcesTest extends ResourceTestBase {
         ruleContext,
         /* inputs = */ parsed.getResources(),
         /* outputs = */ ImmutableList.of(parsed.getCompiledSymbols()));
-  }
-
-  @Test
-  public void testParseWithDataBinding() throws Exception {
-    RuleContext ruleContext = getRuleContextWithDataBinding();
-
-    ParsedAndroidResources parsed = assertParse(ruleContext);
-
-    // The compile action should take in resources and manifest in and output compiled symbols and
-    // a databinding zip.
-    assertActionArtifacts(
-        ruleContext,
-        /* inputs = */ ImmutableList.<Artifact>builder()
-            .addAll(parsed.getResources())
-            .add(parsed.getManifest())
-            .build(),
-        /* outputs = */ ImmutableList.of(
-            parsed.getCompiledSymbols(), DataBinding.getLayoutInfoFile(ruleContext)));
   }
 
   @Test
@@ -502,9 +467,5 @@ public abstract class AndroidResourcesTest extends ResourceTestBase {
                 .build()
                 .toArray(new String[0]));
     return getRuleContextForActionTesting(target);
-  }
-
-  private RuleContext getRuleContextWithDataBinding() throws Exception {
-    return getRuleContext("android_library", "enable_data_binding = 1");
   }
 }

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
@@ -25,6 +24,9 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -34,15 +36,16 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.vfs.DelegateFileSystem;
+import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -55,51 +58,214 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
- * This is a basic implementation and incomplete implementation of an action file system that's been
- * tuned to what internal (non-spawn) actions in Bazel currently use.
+ * An action filesystem suitable for use when building with remote caching or execution.
  *
- * <p>The implementation mostly delegates to the local file system except for the case where an
- * action input is a remotely stored action output. Most notably {@link
- * #getInputStream(PathFragment)} and {@link #createSymbolicLink(PathFragment, PathFragment)}.
+ * <p>It acts as a union filesystem over three different sources:
  *
- * <p>This implementation only supports creating local action outputs.
+ * <ul>
+ *   <li>The action input map, providing read-only in-memory access to the metadata (but not the
+ *       contents) of the action's declared inputs.
+ *   <li>The remote output tree, an in-memory filesystem providing read/write access to the metadata
+ *       (but not the contents) of remotely stored files injected during action execution.
+ *   <li>The local filesystem, providing read/write access to the metadata and contents of files
+ *       residing on disk, including the inputs and outputs of local spawns.
+ * </ul>
+ *
+ * <p>Generally speaking, file operations consult the underlying sources in that order and operate
+ * on the first result found, although some (e.g. readdir) collate information from all sources. The
+ * contents of remotely stored files are transparently downloaded when an operation requires them.
+ *
+ * <p>Special care must be taken with operations that follow symlinks, as the symlink and its target
+ * path may reside on different sources, with an arbitrary number of indirections in between. This
+ * is required because some actions (notably SymlinkAction) may materialize an output as a symlink
+ * to an input. Most operations call resolveSymbolicLinks upfront (which is able to canonicalize
+ * paths taking every source into account) and only then delegate to the underlying sources.
+ *
+ * <p>The implementation assumes that an action never modifies its input files, but may otherwise
+ * modify any path in the output tree, including modifications that undo previous ones (e.g.,
+ * writing to a path and then moving it elsewhere). No effort is made to detect irreconcilable
+ * differences between sources (e.g., distinct files of the same name in two different sources).
  */
-public class RemoteActionFileSystem extends DelegateFileSystem {
+public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final InputMetadataProvider fileCache;
   private final ActionInputMap inputArtifactData;
+  private final TreeArtifactDirectoryCache inputTreeArtifactDirectoryCache;
   private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
+  private final FileSystem localFs;
   private final RemoteInMemoryFileSystem remoteOutputTree;
 
-  @Nullable private MetadataInjector metadataInjector = null;
+  @Nullable private ActionExecutionMetadata action = null;
 
-  RemoteActionFileSystem(
-      FileSystem localDelegate,
+  /** Describes how to handle symlinks when calling {@link #statUnchecked}. */
+  private enum FollowMode {
+    /** Dereference the entire path. This is equivalent to {@link Symlinks.FOLLOW}. */
+    FOLLOW_ALL,
+    /** Dereference the parent path. This is equivalent to {@link Symlinks.NOFOLLOW}. */
+    FOLLOW_PARENT,
+    /** Do not dereference. This is only used internally to resolve symlinks efficiently. */
+    FOLLOW_NONE
+  };
+
+  /** Describes which sources to consider when statting a file. */
+  private enum StatSources {
+    /** Consider all sources (action input map, in-memory filesystem and local filesystem). */
+    ALL,
+    /** Consider only in-memory sources (action input map and in-memory filesystem). */
+    IN_MEMORY_ONLY,
+  }
+
+  private static final FileStatus DIRECTORY_FILE_STATUS =
+      new FileStatus() {
+        @Override
+        public boolean isFile() {
+          return false;
+        }
+
+        @Override
+        public boolean isDirectory() {
+          return true;
+        }
+
+        @Override
+        public boolean isSymbolicLink() {
+          return false;
+        }
+
+        @Override
+        public boolean isSpecialFile() {
+          return false;
+        }
+
+        @Override
+        public long getSize() {
+          return 0;
+        }
+
+        @Override
+        public long getLastModifiedTime() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getLastChangeTime() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getNodeId() {
+          throw new UnsupportedOperationException();
+        }
+      };
+
+  /**
+   * Caches the contents of intermediate subdirectories of tree artifact inputs, to speed up {@link
+   * #stat} and {@link #readdir} operations. Note that actions are not expected to modify their
+   * inputs.
+   *
+   * <p>Safe for concurrent access.
+   */
+  private class TreeArtifactDirectoryCache {
+    private final Set<SpecialArtifact> cachedTrees = new HashSet<>();
+    private final HashMap<PathFragment, HashSet<Dirent>> dirToEntries = new HashMap<>();
+
+    @Nullable
+    public synchronized Collection<Dirent> get(PathFragment execPath) {
+      ensureCached(execPath);
+      return dirToEntries.get(execPath);
+    }
+
+    private void ensureCached(PathFragment execPath) {
+      TreeArtifactValue treeMetadata = inputArtifactData.getTreeMetadataForPrefix(execPath);
+      if (treeMetadata == null || treeMetadata.getChildren().isEmpty()) {
+        return;
+      }
+      SpecialArtifact parent = Iterables.getFirst(treeMetadata.getChildren(), null).getParent();
+      if (!cachedTrees.contains(parent)) {
+        insertTree(treeMetadata);
+        cachedTrees.add(parent);
+      }
+    }
+
+    private void insertTree(TreeArtifactValue treeMetadata) {
+      for (TreeFileArtifact child : treeMetadata.getChildren()) {
+        insertChild(child);
+      }
+    }
+
+    private void insertChild(TreeFileArtifact child) {
+      PathFragment treeRoot = child.getParent().getExecPath();
+      PathFragment path = child.getExecPath();
+
+      while (!path.equals(treeRoot)) {
+        PathFragment parentPath = path.getParentDirectory();
+        String name = path.getBaseName();
+        Dirent.Type type =
+            path.equals(child.getExecPath()) ? Dirent.Type.FILE : Dirent.Type.DIRECTORY;
+
+        HashSet<Dirent> entries =
+            dirToEntries.computeIfAbsent(parentPath, unused -> new HashSet<>());
+
+        if (!entries.add(new Dirent(name, type))) {
+          // Avoid wasted work on common prefixes.
+          break;
+        }
+
+        path = parentPath;
+      }
+    }
+  }
+
+  public RemoteActionFileSystem(
+      FileSystem localFs,
       PathFragment execRootFragment,
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
       InputMetadataProvider fileCache,
       RemoteActionInputFetcher inputFetcher) {
-    super(localDelegate);
+    super(localFs.getDigestFunction());
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
+    this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
     this.outputMapping =
         stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
     this.fileCache = checkNotNull(fileCache, "fileCache");
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
+    this.localFs = checkNotNull(localFs, "localFs");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
+  }
+
+  @Override
+  public boolean supportsModifications(PathFragment path) {
+    return localFs.supportsModifications(path);
+  }
+
+  @Override
+  public boolean supportsSymbolicLinksNatively(PathFragment path) {
+    return localFs.supportsSymbolicLinksNatively(path);
+  }
+
+  @Override
+  public boolean supportsHardLinksNatively(PathFragment path) {
+    return localFs.supportsHardLinksNatively(path);
+  }
+
+  @Override
+  public boolean isFilePathCaseSensitive() {
+    return localFs.isFilePathCaseSensitive();
   }
 
   @VisibleForTesting
@@ -109,20 +275,27 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @VisibleForTesting
   protected FileSystem getLocalFileSystem() {
-    return delegateFs;
+    return localFs;
   }
 
-  /** Returns true if {@code path} is a file that's stored remotely. */
-  boolean isRemote(Path path) {
+  /** Returns whether a path is stored remotely. Follows symlinks. */
+  boolean isRemote(Path path) throws IOException {
     return isRemote(path.asFragment());
   }
 
-  private boolean isRemote(PathFragment path) {
-    return getRemoteMetadata(path) != null;
+  private boolean isRemote(PathFragment path) throws IOException {
+    // Files in the local filesystem are non-remote by definition, so stat only in-memory sources.
+    try {
+      var status = statUnchecked(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
+      return (status instanceof FileStatusWithMetadata)
+          && ((FileStatusWithMetadata) status).getMetadata().isRemote();
+    } catch (FileNotFoundException e) {
+      return false;
+    }
   }
 
-  public void updateContext(MetadataInjector metadataInjector) {
-    this.metadataInjector = metadataInjector;
+  public void updateContext(ActionExecutionMetadata action) {
+    this.action = action;
   }
 
   void injectRemoteFile(PathFragment path, byte[] digest, long size, long expireAtEpochMilli)
@@ -130,121 +303,9 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     if (!isOutput(path)) {
       return;
     }
-    remoteOutputTree.injectRemoteFile(path, digest, size, expireAtEpochMilli);
-  }
-
-  void flush() throws IOException, InterruptedException {
-    checkNotNull(metadataInjector, "metadataInjector is null");
-
-    for (Map.Entry<PathFragment, Artifact> entry : outputMapping.entrySet()) {
-      PathFragment path = execRoot.getRelative(entry.getKey());
-      Artifact output = entry.getValue();
-
-      maybeInjectMetadataForSymlinkOrDownload(path, output);
-    }
-  }
-
-  /**
-   * Inject metadata for non-symlink outputs that were materialized as a symlink to a remote
-   * artifact, and download the target artifact if required by the remote output mode.
-   *
-   * <p>If a non-symlink output is materialized as a symlink, the symlink has "copy" semantics,
-   * i.e., the output metadata is identical to that of the symlink target. For these artifacts, we
-   * inject their metadata instead of collecting it from the filesystem. This is done for two
-   * reasons:
-   *
-   * <ul>
-   *   <li>It avoids implementing filesystem operations for resolving symlinks and (in the case of a
-   *       tree artifact) listing directories, which are especially tricky since the symlink and its
-   *       target may reside on different filesystems;
-   *   <li>It lets us add a special field to the output metadata to tell the input prefetcher that
-   *       the output should be materialized as a symlink to the original location, which avoids
-   *       fetching multiple copies when multiple symlinks to the same artifact are created in the
-   *       same build.
-   */
-  private void maybeInjectMetadataForSymlinkOrDownload(PathFragment linkPath, Artifact output)
-      throws IOException, InterruptedException {
-    if (output.isSymlink()) {
-      return;
-    }
-
-    Path outputTreePath = remoteOutputTree.getPath(linkPath);
-
-    if (!outputTreePath.exists(Symlinks.NOFOLLOW)) {
-      return;
-    }
-
-    PathFragment targetPath;
-    try {
-      targetPath = outputTreePath.readSymbolicLink();
-    } catch (NotASymlinkException e) {
-      return;
-    }
-
-    checkState(
-        targetPath.isAbsolute(),
-        "non-symlink artifact materialized as symlink must point to absolute path");
-
-    if (isOutput(targetPath)
-        && inputFetcher
-            .getRemoteOutputChecker()
-            .shouldDownloadOutputDuringActionExecution(output)) {
-      var targetActionInput = getInput(targetPath.relativeTo(execRoot).getPathString());
-      if (targetActionInput != null) {
-        if (output.isTreeArtifact()) {
-          var metadata = getRemoteTreeMetadata(targetPath);
-          if (metadata != null) {
-            getFromFuture(
-                inputFetcher.prefetchFiles(
-                    metadata.getChildren(), this::getInputMetadata, Priority.LOW));
-          }
-        } else {
-          getFromFuture(
-              inputFetcher.prefetchFiles(
-                  ImmutableList.of(targetActionInput), this::getInputMetadata, Priority.LOW));
-        }
-      }
-      return;
-    }
-
-    if (output.isTreeArtifact()) {
-      TreeArtifactValue metadata = getRemoteTreeMetadata(targetPath);
-      if (metadata == null) {
-        return;
-      }
-
-      SpecialArtifact parent = (SpecialArtifact) output;
-      TreeArtifactValue.Builder injectedTree = TreeArtifactValue.newBuilder(parent);
-      // Avoid a double indirection when the target is already materialized as a symlink.
-      injectedTree.setMaterializationExecPath(
-          metadata.getMaterializationExecPath().orElse(targetPath.relativeTo(execRoot)));
-      // TODO: Check directory content on the local fs to support mixed tree.
-      for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
-          metadata.getChildValues().entrySet()) {
-        TreeFileArtifact child =
-            TreeFileArtifact.createTreeOutput(parent, entry.getKey().getParentRelativePath());
-        RemoteFileArtifactValue childMetadata = (RemoteFileArtifactValue) entry.getValue();
-        injectedTree.putChild(child, childMetadata);
-      }
-
-      metadataInjector.injectTree(parent, injectedTree.build());
-    } else {
-      RemoteFileArtifactValue metadata = getRemoteMetadata(targetPath);
-      if (metadata == null) {
-        return;
-      }
-
-      RemoteFileArtifactValue injectedMetadata =
-          RemoteFileArtifactValue.create(
-              metadata.getDigest(),
-              metadata.getSize(),
-              metadata.getLocationIndex(),
-              metadata.getExpireAtEpochMilli(),
-              // Avoid a double indirection when the target is already materialized as a symlink.
-              metadata.getMaterializationExecPath().orElse(targetPath.relativeTo(execRoot)));
-
-      metadataInjector.injectFile(output, injectedMetadata);
-    }
+    var metadata =
+        RemoteFileArtifactValue.create(digest, size, /* locationIndex= */ 1, expireAtEpochMilli);
+    remoteOutputTree.injectFile(path, metadata);
   }
 
   @Override
@@ -254,7 +315,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected boolean delete(PathFragment path) throws IOException {
-    boolean deleted = super.delete(path);
+    boolean deleted = localFs.getPath(path).delete();
     if (isOutput(path)) {
       deleted = remoteOutputTree.getPath(path).delete() || deleted;
     }
@@ -266,17 +327,24 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     downloadFileIfRemote(path);
     // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
     // See getMetadata() for why this isn't currently possible.
-    return super.getInputStream(path);
+    return localFs.getPath(path).getInputStream();
   }
 
   @Override
-  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
-    downloadFileIfRemote(path);
-    return super.createReadableByteChannel(path);
+  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+      throws IOException {
+    return localFs.getPath(path).getOutputStream(append, internal);
+  }
+
+  @Override
+  protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+    return localFs.getPath(path).createReadWriteByteChannel();
   }
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
+
     FileNotFoundException remoteException = null;
     try {
       // We can't set mtime for a remote file, set mtime of in-memory file node instead.
@@ -287,7 +355,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
     FileNotFoundException localException = null;
     try {
-      super.setLastModifiedTime(path, newTime);
+      localFs.getPath(path).setLastModifiedTime(newTime);
     } catch (FileNotFoundException e) {
       localException = e;
     }
@@ -301,141 +369,186 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Override
+  public byte[] getxattr(PathFragment path, String name, boolean followSymlinks)
+      throws IOException {
+    return localFs
+        .getPath(path)
+        .getxattr(name, followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW);
+  }
+
+  @Override
   protected byte[] getFastDigest(PathFragment path) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
-      return m.getDigest();
+    path = resolveSymbolicLinks(path).asFragment();
+    // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
+    // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
+    // effectively the same as FOLLOW_PARENT, but more efficient.
+    try {
+      var status = statUnchecked(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
+      if (status instanceof FileStatusWithDigest) {
+        return ((FileStatusWithDigest) status).getDigest();
+      }
+    } catch (FileNotFoundException e) {
+      // Intentionally ignored.
     }
-    return super.getFastDigest(path);
+    return localFs.getPath(path).getFastDigest();
   }
 
   @Override
   protected byte[] getDigest(PathFragment path) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
-      return m.getDigest();
+    path = resolveSymbolicLinks(path).asFragment();
+    // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
+    // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
+    // effectively the same as FOLLOW_PARENT, but more efficient.
+    try {
+      var status = statUnchecked(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
+      if (status instanceof FileStatusWithDigest) {
+        return ((FileStatusWithDigest) status).getDigest();
+      }
+    } catch (FileNotFoundException e) {
+      // Intentionally ignored.
     }
-    return super.getDigest(path);
-  }
-
-  // -------------------- File Permissions --------------------
-  // Remote files are always readable, writable and executable since we can't control their
-  // permissions.
-
-  private boolean existsInMemory(PathFragment path) {
-    return remoteOutputTree.getPath(path).isDirectory() || getRemoteMetadata(path) != null;
+    return localFs.getPath(path).getDigest();
   }
 
   @Override
   protected boolean isReadable(PathFragment path) throws IOException {
-    return existsInMemory(path) || super.isReadable(path);
+    path = resolveSymbolicLinks(path).asFragment();
+    try {
+      return localFs.getPath(path).isReadable();
+    } catch (FileNotFoundException e) {
+      // Remote files are always readable since we can't control their permissions.
+      return true;
+    }
   }
 
   @Override
   protected boolean isWritable(PathFragment path) throws IOException {
-    if (existsInMemory(path)) {
-      // If path exists locally, also check whether it's writable. We need this check for the case
-      // where the action need to delete their local outputs but the parent directory is not
-      // writable.
-      try {
-        return super.isWritable(path);
-      } catch (FileNotFoundException e) {
-        // Intentionally ignored
-        return true;
-      }
+    path = resolveSymbolicLinks(path).asFragment();
+    try {
+      return localFs.getPath(path).isWritable();
+    } catch (FileNotFoundException e) {
+      // Remote files are always writable since we can't control their permissions.
+      return true;
     }
-
-    return super.isWritable(path);
   }
 
   @Override
   protected boolean isExecutable(PathFragment path) throws IOException {
-    return existsInMemory(path) || super.isExecutable(path);
+    path = resolveSymbolicLinks(path).asFragment();
+    try {
+      return localFs.getPath(path).isExecutable();
+    } catch (FileNotFoundException e) {
+      // Remote files are always executable since we can't control their permissions.
+      return true;
+    }
   }
 
   @Override
   protected void setReadable(PathFragment path, boolean readable) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
     try {
-      super.setReadable(path, readable);
+      localFs.getPath(path).setReadable(readable);
     } catch (FileNotFoundException e) {
-      // in case of missing in-memory path, re-throw the error.
-      if (!existsInMemory(path)) {
-        throw e;
-      }
+      // Intentionally ignored.
     }
   }
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
     try {
-      super.setWritable(path, writable);
+      localFs.getPath(path).setWritable(writable);
     } catch (FileNotFoundException e) {
-      // in case of missing in-memory path, re-throw the error.
-      if (!existsInMemory(path)) {
-        throw e;
-      }
+      // Intentionally ignored.
     }
   }
 
   @Override
   protected void setExecutable(PathFragment path, boolean executable) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
     try {
-      super.setExecutable(path, executable);
+      localFs.getPath(path).setExecutable(executable);
     } catch (FileNotFoundException e) {
-      // in case of missing in-memory path, re-throw the error.
-      if (!existsInMemory(path)) {
-        throw e;
-      }
+      // Intentionally ignored.
     }
   }
 
   @Override
   protected void chmod(PathFragment path, int mode) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
     try {
-      super.chmod(path, mode);
+      localFs.getPath(path).chmod(mode);
     } catch (FileNotFoundException e) {
-      // in case of missing in-memory path, re-throw the error.
-      if (!existsInMemory(path)) {
-        throw e;
-      }
+      // Intentionally ignored.
     }
   }
 
-  // -------------------- Symlinks --------------------
-
   @Override
   protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
-      // We don't support symlinks as remote action outputs.
-      throw new IOException(path + " is not a symbolic link");
+    PathFragment parentPath = path.getParentDirectory();
+    if (parentPath != null) {
+      path = resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
     }
-    return super.readSymbolicLink(path);
+
+    if (path.startsWith(execRoot)) {
+      var execPath = path.relativeTo(execRoot);
+      var metadata = inputArtifactData.getMetadata(execPath);
+      if (metadata instanceof UnresolvedSymlinkArtifactValue) {
+        return PathFragment.create(((UnresolvedSymlinkArtifactValue) metadata).getSymlinkTarget());
+      }
+      if (metadata != null) {
+        // Other input artifacts are never symlinks.
+        throw new NotASymlinkException(path);
+      }
+      if (inputTreeArtifactDirectoryCache.get(execPath) != null) {
+        // Tree artifacts never contain symlinks.
+        throw new NotASymlinkException(path);
+      }
+    }
+
+    if (isOutput(path)) {
+      try {
+        return remoteOutputTree.getPath(path).readSymbolicLink();
+      } catch (FileNotFoundException e) {
+        // Intentionally ignored.
+      }
+    }
+
+    return localFs.getPath(path).readSymbolicLink();
   }
 
   @Override
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
-    super.createSymbolicLink(linkPath, targetFragment);
+    PathFragment parentPath = linkPath.getParentDirectory();
+    if (parentPath != null) {
+      linkPath = resolveSymbolicLinks(parentPath).asFragment().getChild(linkPath.getBaseName());
+    }
+
     if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
     }
+
+    localFs.getPath(linkPath).createSymbolicLink(targetFragment);
   }
 
-  // -------------------- Implementations based on stat() --------------------
+  @Nullable
+  @Override
+  protected PathFragment resolveOneLink(PathFragment path) throws IOException {
+    // The base implementation attempts to readSymbolicLink first and falls back to stat, but that
+    // unnecessarily allocates a NotASymlinkException in the overwhelmingly likely non-symlink case.
+    // It's more efficient to stat unconditionally.
+    //
+    // The parent path has already been canonicalized, so FOLLOW_NONE is effectively the same as
+    // FOLLOW_PARENT, but much more efficient as it doesn't call stat recursively.
+    var stat = statUnchecked(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
+    return stat.isSymbolicLink() ? readSymbolicLink(path) : null;
+  }
 
   @Override
   protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    try {
-      // We can't get mtime for a remote file, use mtime of in-memory file node instead.
-      return remoteOutputTree
-          .getPath(path)
-          .getLastModifiedTime(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW);
-    } catch (FileNotFoundException e) {
-      // Intentionally ignored
-    }
-
-    return super.getLastModifiedTime(path, followSymlinks);
+    FileStatus stat = stat(path, followSymlinks);
+    return stat.getLastModifiedTime();
   }
 
   @Override
@@ -445,41 +558,12 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Override
-  protected boolean isFile(PathFragment path, boolean followSymlinks) {
-    FileStatus stat = statNullable(path, followSymlinks);
-    return stat != null && stat.isFile();
-  }
-
-  @Override
-  protected boolean isSymbolicLink(PathFragment path) {
-    FileStatus stat = statNullable(path, /* followSymlinks= */ false);
-    return stat != null && stat.isSymbolicLink();
-  }
-
-  @Override
-  protected boolean isDirectory(PathFragment path, boolean followSymlinks) {
-    FileStatus stat = statNullable(path, followSymlinks);
-    return stat != null && stat.isDirectory();
-  }
-
-  @Override
-  protected boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
-    FileStatus stat = statNullable(path, followSymlinks);
-    return stat != null && stat.isDirectory();
-  }
-
-  @Override
   protected boolean exists(PathFragment path, boolean followSymlinks) {
     try {
       return statIfFound(path, followSymlinks) != null;
     } catch (IOException e) {
       return false;
     }
-  }
-
-  @Override
-  public boolean exists(PathFragment path) {
-    return exists(path, /* followSymlinks= */ true);
   }
 
   @Nullable
@@ -504,14 +588,46 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
-      return statFromRemoteMetadata(m);
-    }
-    return super.stat(path, followSymlinks);
+    return statUnchecked(
+        path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
 
-  private static FileStatus statFromRemoteMetadata(RemoteFileArtifactValue m) {
+  private FileStatus statUnchecked(
+      PathFragment path, FollowMode followMode, StatSources statSources) throws IOException {
+    // Canonicalize the path.
+    if (followMode == FollowMode.FOLLOW_ALL) {
+      path = resolveSymbolicLinks(path).asFragment();
+    } else if (followMode == FollowMode.FOLLOW_PARENT) {
+      PathFragment parent = path.getParentDirectory();
+      if (parent != null) {
+        path = resolveSymbolicLinks(parent).asFragment().getChild(path.getBaseName());
+      }
+    }
+
+    // Since the path has been canonicalized, the operations below never need to follow symlinks.
+
+    if (path.startsWith(execRoot)) {
+      var execPath = path.relativeTo(execRoot);
+      var metadata = inputArtifactData.getMetadata(execPath);
+      if (metadata != null) {
+        return statFromMetadata(metadata);
+      }
+      if (inputTreeArtifactDirectoryCache.get(execPath) != null) {
+        return DIRECTORY_FILE_STATUS;
+      }
+    }
+
+    try {
+      return remoteOutputTree.stat(path, /* followSymlinks= */ false);
+    } catch (FileNotFoundException e) {
+      if (statSources == StatSources.ALL) {
+        return localFs.getPath(path).stat(Symlinks.NOFOLLOW);
+      }
+      throw e;
+    }
+  }
+
+  private static FileStatusWithMetadata statFromMetadata(FileArtifactValue m) {
     return new FileStatusWithMetadata() {
       @Override
       public byte[] getDigest() {
@@ -559,7 +675,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
 
       @Override
-      public RemoteFileArtifactValue getMetadata() {
+      public FileArtifactValue getMetadata() {
         return m;
       }
     };
@@ -582,73 +698,11 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     return null;
   }
 
-  public FileArtifactValue getOutputMetadataForTopLevelArtifactDownloader(ActionInput input)
-      throws IOException {
-    RemoteFileInfo remoteFile =
-        remoteOutputTree.getRemoteFileInfo(
-            execRoot.getRelative(input.getExecPath()), /* followSymlinks= */ true);
-    if (remoteFile != null) {
-      return remoteFile.getMetadata();
-    }
-
-    // TODO(tjgq): This should not work.
-    // The astute reader will notice that when this method is called, the artifact to be downloaded
-    // is an *output* artifact from the point of view of this RemoteActionFileSystem. The way this
-    // apparently works is that this is a SingleBuildFileCache, which then stat()s the actual file
-    // system, where the output file is materialized in mysterious ways.
-    //
-    // For further bafflement, see the comment at ToplevelArtifactsDownloader.downloadTestOutput().
-    return fileCache.getInputMetadata(input);
-  }
-
   @Nullable
   @VisibleForTesting
   FileArtifactValue getInputMetadata(ActionInput input) {
     PathFragment execPath = input.getExecPath();
     return inputArtifactData.getMetadata(execPath);
-  }
-
-  @Nullable
-  private FileArtifactValue getMetadataByExecPath(PathFragment execPath) {
-    FileArtifactValue m = inputArtifactData.getMetadata(execPath);
-    if (m != null) {
-      return m;
-    }
-
-    RemoteFileInfo remoteFile =
-        remoteOutputTree.getRemoteFileInfo(
-            execRoot.getRelative(execPath), /* followSymlinks= */ true);
-    if (remoteFile != null) {
-      return remoteFile.getMetadata();
-    }
-
-    return null;
-  }
-
-  @Nullable
-  private RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
-    if (!isOutput(path)) {
-      return null;
-    }
-    FileArtifactValue m = getMetadataByExecPath(path.relativeTo(execRoot));
-    if (m != null && m.isRemote()) {
-      return (RemoteFileArtifactValue) m;
-    }
-    return null;
-  }
-
-  @Nullable
-  private TreeArtifactValue getRemoteTreeMetadata(PathFragment path) {
-    if (!isOutput(path)) {
-      return null;
-    }
-    TreeArtifactValue m = inputArtifactData.getTreeMetadata(path.relativeTo(execRoot));
-    // TODO: Handle partially remote tree artifacts.
-    if (m != null && m.isEntirelyRemote()) {
-      return m;
-    }
-    // TODO(tjgq): Synthesize TreeArtifactValue from remoteOutputTree.
-    return null;
   }
 
   private void downloadFileIfRemote(PathFragment path) throws IOException {
@@ -665,7 +719,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
       getFromFuture(
           inputFetcher.prefetchFiles(
-              ImmutableList.of(input), this::getInputMetadata, Priority.CRITICAL));
+              action, ImmutableList.of(input), this::getInputMetadata, Priority.CRITICAL));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
@@ -690,7 +744,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
     FileNotFoundException localException = null;
     try {
-      delegateFs.renameTo(sourcePath, targetPath);
+      localFs.renameTo(sourcePath, targetPath);
     } catch (FileNotFoundException e) {
       localException = e;
     }
@@ -705,7 +759,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
-    super.createDirectoryAndParents(path);
+    localFs.createDirectoryAndParents(path);
     if (isOutput(path)) {
       remoteOutputTree.createDirectoryAndParents(path);
     }
@@ -714,7 +768,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @CanIgnoreReturnValue
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
-    boolean created = delegateFs.createDirectory(path);
+    boolean created = localFs.createDirectory(path);
     if (isOutput(path)) {
       created = remoteOutputTree.createDirectory(path) || created;
     }
@@ -722,91 +776,90 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Override
-  protected ImmutableList<String> getDirectoryEntries(PathFragment path) throws IOException {
-    HashSet<String> entries = new HashSet<>();
-
-    boolean ignoredNotFoundInRemote = false;
-    if (isOutput(path)) {
-      try {
-        delegateFs.getPath(path).getDirectoryEntries().stream()
-            .map(Path::getBaseName)
-            .forEach(entries::add);
-        ignoredNotFoundInRemote = true;
-      } catch (FileNotFoundException ignored) {
-        // Intentionally ignored
-      }
-    }
-
-    try {
-      remoteOutputTree.getPath(path).getDirectoryEntries().stream()
-          .map(Path::getBaseName)
-          .forEach(entries::add);
-    } catch (FileNotFoundException e) {
-      if (!ignoredNotFoundInRemote) {
-        throw e;
-      }
-    }
-
-    // sort entries to get a deterministic order.
-    return ImmutableList.sortedCopyOf(entries);
+  protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
+    return getDirectoryContents(path, /* followSymlinks= */ false, Dirent::getName);
   }
 
   @Override
   protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
       throws IOException {
-    HashMap<String, Dirent> entries = new HashMap<>();
+    return getDirectoryContents(path, followSymlinks, Function.identity());
+  }
 
-    boolean ignoredNotFoundInRemote = false;
-    if (isOutput(path)) {
-      try {
-        for (var entry :
-            delegateFs
-                .getPath(path)
-                .readdir(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW)) {
+  private <T extends Comparable<T>> ImmutableSortedSet<T> getDirectoryContents(
+      PathFragment path, boolean followSymlinks, Function<Dirent, T> transformer)
+      throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
+
+    HashMap<String, Dirent> entries = new HashMap<>();
+    boolean found = false;
+
+    if (path.startsWith(execRoot)) {
+      var execPath = path.relativeTo(execRoot);
+      Collection<Dirent> treeEntries = inputTreeArtifactDirectoryCache.get(execPath);
+      if (treeEntries != null) {
+        for (var entry : treeEntries) {
           entries.put(entry.getName(), entry);
         }
-        ignoredNotFoundInRemote = true;
+        found = true;
+      }
+    }
+
+    if (isOutput(path)) {
+      try {
+        for (var entry : remoteOutputTree.getPath(path).readdir(Symlinks.NOFOLLOW)) {
+          entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
+          entries.put(entry.getName(), entry);
+        }
+        found = true;
       } catch (FileNotFoundException ignored) {
-        // Intentionally ignored
+        // Will be rethrown below if directory exists on neither side.
       }
     }
 
     try {
-      for (var entry :
-          remoteOutputTree
-              .getPath(path)
-              .readdir(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW)) {
+      for (var entry : localFs.getPath(path).readdir(Symlinks.NOFOLLOW)) {
+        entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
         entries.put(entry.getName(), entry);
       }
     } catch (FileNotFoundException e) {
-      if (!ignoredNotFoundInRemote) {
+      if (!found) {
         throw e;
       }
     }
 
-    // sort entries to get a deterministic order.
-    return ImmutableList.sortedCopyOf(entries.values());
+    // Sort entries to get a deterministic order.
+    ImmutableSortedSet.Builder<T> builder = ImmutableSortedSet.naturalOrder();
+    for (var entry : entries.values()) {
+      builder.add(transformer.apply(entry));
+    }
+    return builder.build();
   }
 
-  /*
-   * -------------------- TODO(buchgr): Not yet implemented --------------------
-   *
-   * The below methods have not (yet) been properly implemented due to time constraints mostly and
-   * with little risk as they currently don't seem to be used by internal actions in Bazel. However,
-   * before making the --experimental_remote_download_outputs flag non-experimental we should make
-   * sure to fully implement this file system.
-   */
+  private Dirent maybeFollowSymlinkForDirent(
+      PathFragment dirPath, Dirent entry, boolean followSymlinks) {
+    if (!followSymlinks || !entry.getType().equals(Dirent.Type.SYMLINK)) {
+      return entry;
+    }
+    PathFragment path = dirPath.getChild(entry.getName());
+    FileStatus st = statNullable(path, /* followSymlinks= */ true);
+    if (st == null) {
+      return new Dirent(entry.getName(), Dirent.Type.UNKNOWN);
+    }
+    return new Dirent(entry.getName(), direntFromStat(st));
+  }
 
   @Override
   protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
-    super.createFSDependentHardLink(linkPath, originalPath);
+    // Only called by the AbstractFileSystem#createHardLink base implementation, overridden below.
+    throw new UnsupportedOperationException();
   }
 
   @Override
   protected void createHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
-    super.createHardLink(linkPath, originalPath);
+    localFs.getPath(linkPath).createHardLink(getPath(originalPath));
   }
 
   static class RemoteInMemoryFileSystem extends InMemoryFileSystem {
@@ -816,52 +869,46 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     }
 
     @Override
-    protected synchronized OutputStream getOutputStream(PathFragment path, boolean append)
-        throws IOException {
+    protected synchronized OutputStream getOutputStream(
+        PathFragment path, boolean append, boolean internal) throws IOException {
       // To get an output stream from remote file, we need to first stage it.
       throw new IllegalStateException("Shouldn't be called directly");
     }
 
     @Override
     protected FileInfo newFile(Clock clock, PathFragment path) {
-      return new RemoteFileInfo(clock);
+      return new RemoteInMemoryFileInfo(clock);
     }
 
-    void injectRemoteFile(PathFragment path, byte[] digest, long size, long expireAtEpochMilli)
-        throws IOException {
+    protected void injectFile(PathFragment path, FileArtifactValue metadata) throws IOException {
       createDirectoryAndParents(path.getParentDirectory());
       InMemoryContentInfo node = getOrCreateWritableInode(path);
       // If a node was already existed and is not a remote file node (i.e. directory or symlink node
       // ), throw an error.
-      if (!(node instanceof RemoteFileInfo)) {
+      if (!(node instanceof RemoteInMemoryFileInfo)) {
         throw new IOException("Could not inject into " + node);
       }
 
-      RemoteFileInfo remoteFileInfo = (RemoteFileInfo) node;
-
-      var metadata =
-          RemoteFileArtifactValue.create(digest, size, /* locationIndex= */ 1, expireAtEpochMilli);
-      remoteFileInfo.set(metadata);
+      RemoteInMemoryFileInfo remoteInMemoryFileInfo = (RemoteInMemoryFileInfo) node;
+      remoteInMemoryFileInfo.set(metadata);
     }
 
+    // Override for access within this class
     @Nullable
-    RemoteFileInfo getRemoteFileInfo(PathFragment path, boolean followSymlinks) {
-      InMemoryContentInfo node = inodeStatErrno(path, followSymlinks).inode();
-      if (!(node instanceof RemoteFileInfo)) {
-        return null;
-      }
-      return (RemoteFileInfo) node;
+    @Override
+    protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
+      return super.statNullable(path, followSymlinks);
     }
   }
 
-  static class RemoteFileInfo extends FileInfo implements FileStatusWithMetadata {
-    private RemoteFileArtifactValue metadata;
+  static class RemoteInMemoryFileInfo extends FileInfo implements FileStatusWithMetadata {
+    private FileArtifactValue metadata;
 
-    RemoteFileInfo(Clock clock) {
+    RemoteInMemoryFileInfo(Clock clock) {
       super(clock);
     }
 
-    private void set(RemoteFileArtifactValue metadata) {
+    private void set(FileArtifactValue metadata) {
       this.metadata = metadata;
     }
 
@@ -872,6 +919,11 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
     @Override
     public InputStream getInputStream() throws IOException {
+      throw new IllegalStateException("Shouldn't be called directly");
+    }
+
+    @Override
+    public SeekableByteChannel createReadWriteByteChannel() throws IOException {
       throw new IllegalStateException("Shouldn't be called directly");
     }
 
@@ -895,12 +947,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       return metadata.getSize();
     }
 
-    public long getExpireAtEpochMilli() {
-      return metadata.getExpireAtEpochMilli();
-    }
-
     @Override
-    public RemoteFileArtifactValue getMetadata() {
+    public FileArtifactValue getMetadata() {
       return metadata;
     }
   }

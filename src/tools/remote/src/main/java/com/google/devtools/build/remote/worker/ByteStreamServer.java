@@ -141,7 +141,15 @@ final class ByteStreamServer extends ByteStreamImplBase {
         }
 
         if (offset == 0) {
-          if (cache.containsKey(digest)) {
+          boolean exists = false;
+          try {
+            exists = cache.refresh(digest);
+          } catch (IOException e) {
+            responseObserver.onError(StatusUtils.internalError(e));
+            closed = true;
+            return;
+          }
+          if (exists) {
             responseObserver.onNext(
                 WriteResponse.newBuilder().setCommittedSize(digest.getSizeBytes()).build());
             responseObserver.onCompleted();

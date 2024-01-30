@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.DescribableExecutionUnit;
 import java.util.Collection;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -171,9 +170,9 @@ public interface Spawn extends DescribableExecutionUnit {
 
   @Override
   @Nullable
-  default String getExecutionPlatformLabelString() {
+  default Label getExecutionPlatformLabel() {
     PlatformInfo executionPlatform = getExecutionPlatform();
-    return executionPlatform == null ? null : Objects.toString(executionPlatform.label());
+    return executionPlatform != null ? executionPlatform.label() : null;
   }
 
   @Override
@@ -184,18 +183,15 @@ public interface Spawn extends DescribableExecutionUnit {
 
   @Override
   @Nullable
-  default String getTargetLabel() {
-    Label label = getResourceOwner().getOwner().getLabel();
-    return label == null ? null : label.toString();
+  default Label getTargetLabel() {
+    return getResourceOwner().getOwner().getLabel();
   }
 
   /**
-   * If true, this spawn strips output path config prefixes from its inputs, outputs, and command
-   * line (including .params files) before running on an executor.
-   *
-   * <p>See {@link PathStripper}.
+   * Returns the {@link PathMapper} that was used to create this spawn and that should be used to
+   * map the paths of the spawn's inputs and outputs.
    */
-  default boolean stripOutputPaths() {
-    return false;
+  default PathMapper getPathMapper() {
+    return PathMapper.NOOP;
   }
 }

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.EvalException;
@@ -72,7 +72,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
     this.language = language;
   }
 
-  private static final String CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type";
+  private static final String CPP_TOOLCHAIN_TYPE =
+      Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain_type").toString();
 
   @Override
   public String getCppToolchainType() {
@@ -89,7 +90,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder,
-      RuleErrorConsumer ruleErrorConsumer) {
+      RuleErrorConsumer ruleErrorConsumer)
+      throws RuleErrorException {
     CcToolchainProvider toolchain = actionBuilder.getToolchain();
     if (language == Language.CPP) {
       CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);
@@ -111,15 +113,6 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
           .addTransitiveMandatoryInputs(toolchain.getAllFilesIncludingLibc())
           .setShouldScanIncludes(false);
     }
-  }
-
-  @Override
-  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
-      RuleContext ruleContext, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
-    if (cppConfig.strictHeaderCheckingFromStarlark()) {
-      return HeadersCheckingMode.STRICT;
-    }
-    return HeadersCheckingMode.LOOSE;
   }
 
   @Override

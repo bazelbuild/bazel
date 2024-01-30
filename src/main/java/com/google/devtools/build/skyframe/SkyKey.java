@@ -33,6 +33,12 @@ import javax.annotation.Nullable;
  * {@link #argument} in order to reduce the cost of wrapper objects.
  */
 public interface SkyKey extends Serializable {
+
+  /** Returns the canonical representation of the key as a string. */
+  default String getCanonicalName() {
+    return String.format("%s:%s\n", functionName(), argument().toString().replace('\n', '_'));
+  }
+
   SkyFunctionName functionName();
 
   default Object argument() {
@@ -115,14 +121,5 @@ public interface SkyKey extends Serializable {
     T weakInternUnchecked(SkyKey sample) {
       return weakIntern((T) sample);
     }
-  }
-
-  /**
-   * A hint to schedulers that evaluating this key shouldn't cause high fanout.
-   *
-   * <p>Keys with high fan-out create memory pressure and are assigned low priority.
-   */
-  default boolean hasLowFanout() {
-    return false;
   }
 }

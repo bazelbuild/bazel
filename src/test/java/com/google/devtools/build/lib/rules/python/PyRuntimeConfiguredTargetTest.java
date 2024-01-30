@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -36,13 +37,14 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   public void hermeticRuntime() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    files = [':myfile'],",
         "    interpreter = ':myinterpreter',",
         "    python_version = 'PY3',",
         ")");
-    PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
+    PyRuntimeInfo info = PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime"));
 
     assertThat(info.getInterpreterPathString()).isNull();
     assertThat(info.getInterpreter().getExecPathString()).isEqualTo("pkg/myinterpreter");
@@ -54,12 +56,13 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   public void nonhermeticRuntime() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = '/system/interpreter',",
         "    python_version = 'PY3',",
         ")");
-    PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
+    PyRuntimeInfo info = PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime"));
 
     assertThat(info.getInterpreterPathString()).isEqualTo("/system/interpreter");
     assertThat(info.getInterpreter()).isNull();
@@ -73,6 +76,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--incompatible_use_python_toolchains=false");
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime_default',",
         "    interpreter_path = '/default/interpreter',",
@@ -83,9 +87,9 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         "    python_version = 'PY3',",
         ")");
     PyRuntimeInfo infoDefault =
-        getConfiguredTarget("//pkg:myruntime_default").get(PyRuntimeInfo.PROVIDER);
+        PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime_default"));
     PyRuntimeInfo infoExplicit =
-        getConfiguredTarget("//pkg:myruntime_explicit").get(PyRuntimeInfo.PROVIDER);
+        PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime_explicit"));
 
     assertThat(infoDefault.getPythonVersion()).isEqualTo(PythonVersion.PY3);
     assertThat(infoExplicit.getPythonVersion()).isEqualTo(PythonVersion.PY3);
@@ -96,6 +100,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter = ':myinterpreter',",
@@ -113,6 +118,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD", //
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    python_version = 'PY3',",
@@ -128,6 +134,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = 'some/relative/path',",
@@ -143,6 +150,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    files = [':myfile'],",
@@ -159,6 +167,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = '/system/interpreter',",
@@ -175,6 +184,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--incompatible_use_python_toolchains=true");
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = '/system/interpreter',",

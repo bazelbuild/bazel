@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -101,6 +102,7 @@ public class MoreFutures {
    * an {@link ExecutionException}), throws that underlying {@link InterruptedException}. Crashes on
    * all other exceptions.
    */
+  @CanIgnoreReturnValue
   public static <R> R waitForFutureAndGet(Future<R> future) throws InterruptedException {
     try {
       return future.get();

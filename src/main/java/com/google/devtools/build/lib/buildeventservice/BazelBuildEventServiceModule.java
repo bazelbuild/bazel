@@ -64,7 +64,11 @@ public class BazelBuildEventServiceModule
       return new AutoValue_BazelBuildEventServiceModule_BackendConfig(
           besOptions.besBackend,
           besOptions.besProxy,
-          ImmutableMap.copyOf(besOptions.besHeaders).entrySet().asList(),
+          ImmutableMap.<String, String>builder()
+              .putAll(besOptions.besHeaders)
+              .buildKeepingLast()
+              .entrySet()
+              .asList(),
           authAndTLSOptions);
     }
   }
@@ -179,7 +183,7 @@ public class BazelBuildEventServiceModule
   }
 
   @Override
-  protected String getInvocationIdPrefix() {
+  protected String getInvocationIdPrefix(String commandName) {
     if (Strings.isNullOrEmpty(besOptions.besResultsUrl)) {
       return "";
     }

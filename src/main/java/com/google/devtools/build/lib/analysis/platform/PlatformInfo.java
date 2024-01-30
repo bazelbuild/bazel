@@ -26,16 +26,9 @@ import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /** Provider for a platform, which is a group of constraints and values. */
@@ -53,70 +46,6 @@ public class PlatformInfo extends NativeInfo
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "PlatformInfo";
 
-  /** Provider singleton constant. */
-  public static final BuiltinProvider<PlatformInfo> PROVIDER = new Provider();
-
-  /** Provider for {@link ToolchainInfo} objects. */
-  private static class Provider extends BuiltinProvider<PlatformInfo>
-      implements PlatformInfoApi.Provider<
-          ConstraintSettingInfo, ConstraintValueInfo, PlatformInfo> {
-    private Provider() {
-      super(STARLARK_NAME, PlatformInfo.class);
-    }
-
-    @Override
-    public PlatformInfo platformInfo(
-        Label label,
-        Object parentUnchecked,
-        Sequence<?> constraintValuesUnchecked,
-        Object execPropertiesUnchecked,
-        StarlarkThread thread)
-        throws EvalException {
-      PlatformInfo.Builder builder = PlatformInfo.builder();
-      builder.setLabel(label);
-      if (parentUnchecked != Starlark.NONE) {
-        builder.setParent((PlatformInfo) parentUnchecked);
-      }
-      if (!constraintValuesUnchecked.isEmpty()) {
-        builder.addConstraints(
-            Sequence.cast(
-                constraintValuesUnchecked, ConstraintValueInfo.class, "constraint_values"));
-      }
-      if (execPropertiesUnchecked != null) {
-        Dict<String, String> execProperties =
-            Dict.noneableCast(
-                execPropertiesUnchecked, String.class, String.class, "exec_properties");
-        builder.setExecProperties(ImmutableMap.copyOf(execProperties));
-      }
-      builder.setLocation(thread.getCallerLocation());
-
-      try {
-        return builder.build();
-      } catch (DuplicateConstraintException | ExecPropertiesException e) {
-        throw new EvalException(e);
-      }
-    }
-  }
-
-  private final Label label;
-  private final ConstraintCollection constraints;
-  private final String remoteExecutionProperties;
-  /** execProperties will deprecate and replace remoteExecutionProperties */
-  private final ImmutableMap<String, String> execProperties;
-
-  private PlatformInfo(
-      Label label,
-      ConstraintCollection constraints,
-      String remoteExecutionProperties,
-      ImmutableMap<String, String> execProperties,
-      Location creationLocation) {
-    super(creationLocation);
-    this.label = label;
-    this.constraints = constraints;
-    this.remoteExecutionProperties = Strings.nullToEmpty(remoteExecutionProperties);
-    this.execProperties = execProperties;
-  }
-
   /** Empty {@link PlatformInfo} instance representing an invalid or empty platform. */
   public static final PlatformInfo EMPTY_PLATFORM_INFO;
 
@@ -127,6 +56,32 @@ public class PlatformInfo extends NativeInfo
       // This can never happen since we're not passing any values to the builder.
       throw new VerifyException(e);
     }
+  }
+
+  /** Provider singleton constant. */
+  public static final BuiltinProvider<PlatformInfo> PROVIDER =
+      new BuiltinProvider<PlatformInfo>(STARLARK_NAME, PlatformInfo.class) {};
+
+  private final Label label;
+  private final ConstraintCollection constraints;
+  private final String remoteExecutionProperties;
+
+  /** execProperties will deprecate and replace remoteExecutionProperties */
+  // TODO(blaze-configurability): If we want to remove remoteExecutionProperties, we need to fix
+  // PlatformUtils.getPlatformProto to use the dict-typed execProperties and do a migration.
+  private final PlatformProperties execProperties;
+
+  private PlatformInfo(
+      Label label,
+      ConstraintCollection constraints,
+      String remoteExecutionProperties,
+      PlatformProperties execProperties,
+      Location creationLocation) {
+    super(creationLocation);
+    this.label = label;
+    this.constraints = constraints;
+    this.remoteExecutionProperties = Strings.nullToEmpty(remoteExecutionProperties);
+    this.execProperties = execProperties;
   }
 
   @Override
@@ -144,14 +99,12 @@ public class PlatformInfo extends NativeInfo
     return constraints;
   }
 
-  @Override
   public String remoteExecutionProperties() {
     return remoteExecutionProperties;
   }
 
-  @Override
   public ImmutableMap<String, String> execProperties() {
-    return execProperties;
+    return execProperties.properties();
   }
 
   @Override
@@ -159,17 +112,34 @@ public class PlatformInfo extends NativeInfo
     printer.append(String.format("PlatformInfo(%s, constraints=%s)", label, constraints));
   }
 
-  /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
-  public static Builder builder() {
-    return new Builder();
-  }
-
   /** Add this platform to the given fingerprint. */
   public void addTo(Fingerprint fp) {
     fp.addString(label.toString());
     fp.addNullableString(remoteExecutionProperties);
-    fp.addStringMap(execProperties);
+    fp.addStringMap(execProperties.properties());
     constraints.addToFingerprint(fp);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof PlatformInfo)) {
+      return false;
+    }
+    PlatformInfo that = (PlatformInfo) o;
+    return Objects.equals(label, that.label)
+        && Objects.equals(constraints, that.constraints)
+        && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties)
+        && Objects.equals(execProperties, that.execProperties);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(label, constraints, remoteExecutionProperties, execProperties);
+  }
+
+  /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
+  public static Builder builder() {
+    return new Builder();
   }
 
   /** Builder class to facilitate creating valid {@link PlatformInfo} instances. */
@@ -179,7 +149,7 @@ public class PlatformInfo extends NativeInfo
     private Label label;
     private final ConstraintCollection.Builder constraints = ConstraintCollection.builder();
     private String remoteExecutionProperties = null;
-    @Nullable private ImmutableMap<String, String> execProperties;
+    private final PlatformProperties.Builder execPropertiesBuilder = PlatformProperties.builder();
     private Location creationLocation = Location.BUILTIN;
 
     /**
@@ -195,8 +165,10 @@ public class PlatformInfo extends NativeInfo
       this.parent = parent;
       if (parent == null) {
         this.constraints.parent(null);
+        this.execPropertiesBuilder.setParent(null);
       } else {
         this.constraints.parent(parent.constraints);
+        this.execPropertiesBuilder.setParent(parent.execProperties);
       }
       return this;
     }
@@ -237,18 +209,6 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
-    /** Returns the remote execution properties. */
-    @Nullable
-    public String getRemoteExecutionProperties() {
-      return remoteExecutionProperties;
-    }
-
-    /** Returns the exec properties. */
-    @Nullable
-    public ImmutableMap<String, String> getExecProperties() {
-      return execProperties;
-    }
-
     /**
      * Sets the data being sent to a potential remote executor. If there is a parent {@link
      * PlatformInfo} set, the literal string "{PARENT_REMOTE_EXECUTION_PROPERTIES}" will be replaced
@@ -287,7 +247,7 @@ public class PlatformInfo extends NativeInfo
      */
     @CanIgnoreReturnValue
     public Builder setExecProperties(@Nullable ImmutableMap<String, String> properties) {
-      this.execProperties = properties;
+      this.execPropertiesBuilder.setProperties(properties);
       return this;
     }
 
@@ -303,13 +263,17 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
-    private void checkRemoteExecutionProperties() throws ExecPropertiesException {
-      if (execProperties != null && !Strings.isNullOrEmpty(remoteExecutionProperties)) {
+    private static void checkRemoteExecutionProperties(
+        PlatformInfo parent,
+        String remoteExecutionProperties,
+        ImmutableMap<String, String> execProperties)
+        throws ExecPropertiesException {
+      if (!execProperties.isEmpty() && !Strings.isNullOrEmpty(remoteExecutionProperties)) {
         throw new ExecPropertiesException(
             "Platform contains both remote_execution_properties and exec_properties. Prefer"
                 + " exec_properties over the deprecated remote_execution_properties.");
       }
-      if (execProperties != null
+      if (!execProperties.isEmpty()
           && parent != null
           && !Strings.isNullOrEmpty(parent.remoteExecutionProperties())) {
         throw new ExecPropertiesException(
@@ -335,20 +299,19 @@ public class PlatformInfo extends NativeInfo
      *     constraint setting
      */
     public PlatformInfo build() throws DuplicateConstraintException, ExecPropertiesException {
-      checkRemoteExecutionProperties();
+      checkRemoteExecutionProperties(
+          this.parent, this.remoteExecutionProperties, execPropertiesBuilder.getProperties());
 
       // Merge the remote execution properties.
       String remoteExecutionProperties =
           mergeRemoteExecutionProperties(parent, this.remoteExecutionProperties);
 
-      ImmutableMap<String, String> execProperties =
-          mergeExecProperties(parent, this.execProperties);
-      if (execProperties == null) {
-        execProperties = ImmutableMap.of();
-      }
-
       return new PlatformInfo(
-          label, constraints.build(), remoteExecutionProperties, execProperties, creationLocation);
+          label,
+          constraints.build(),
+          remoteExecutionProperties,
+          execPropertiesBuilder.build(),
+          creationLocation);
     }
 
     private static String mergeRemoteExecutionProperties(
@@ -365,48 +328,6 @@ public class PlatformInfo extends NativeInfo
       return StringUtilities.replaceAllLiteral(
           remoteExecutionProperties, PARENT_REMOTE_EXECUTION_KEY, parentRemoteExecutionProperties);
     }
-
-    @Nullable
-    private static ImmutableMap<String, String> mergeExecProperties(
-        PlatformInfo parent, Map<String, String> execProperties) {
-      if ((parent == null || parent.execProperties() == null) && execProperties == null) {
-        return null;
-      }
-
-      HashMap<String, String> result = new HashMap<>();
-      if (parent != null && parent.execProperties() != null) {
-        result.putAll(parent.execProperties());
-      }
-
-      if (execProperties != null) {
-        for (Map.Entry<String, String> entry : execProperties.entrySet()) {
-          if (Strings.isNullOrEmpty(entry.getValue())) {
-            result.remove(entry.getKey());
-          } else {
-            result.put(entry.getKey(), entry.getValue());
-          }
-        }
-      }
-
-      return ImmutableMap.copyOf(result);
-    }
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (!(o instanceof PlatformInfo)) {
-      return false;
-    }
-    PlatformInfo that = (PlatformInfo) o;
-    return Objects.equals(label, that.label)
-        && Objects.equals(constraints, that.constraints)
-        && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties)
-        && Objects.equals(execProperties, that.execProperties);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(label, constraints, remoteExecutionProperties);
   }
 
   /** Exception that indicates something is wrong in exec_properties configuration. */

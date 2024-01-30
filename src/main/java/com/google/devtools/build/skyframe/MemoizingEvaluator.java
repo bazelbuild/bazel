@@ -185,8 +185,17 @@ public interface MemoizingEvaluator {
 
   /**
    * Writes a detailed summary of the graph to the given output stream. For each key matching the
-   * given filter, prints the key name and deps are printed. The deps are printed in groups
-   * according to the dependency order registered in Skyframe.
+   * given filter, prints the key name and value.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpValues(PrintStream out, Predicate<String> filter) throws InterruptedException;
+
+  /**
+   * Writes a detailed summary of the graph to the given output stream. For each key matching the
+   * given filter, prints the key name and deps. The deps are printed in groups according to the
+   * dependency order registered in Skyframe.
    *
    * <p>Not necessarily thread-safe. Use only for debugging purposes.
    */
@@ -203,8 +212,19 @@ public interface MemoizingEvaluator {
   void dumpRdeps(PrintStream out, Predicate<String> filter) throws InterruptedException;
 
   /**
-   * Cleans up the pool when {@link InMemoryGraph} serves as an alternative global pool to weak
-   * interner for interning {@link SkyKey} and {@link com.google.devtools.build.lib.cmdline.Label}.
+   * Cleans up {@linkplain com.google.devtools.build.lib.concurrent.PooledInterner.Pool interning
+   * pools} by moving objects to weak interners and uninstalling the current pools.
+   *
+   * <p>May destroy this evaluator's {@linkplain #getInMemoryGraph graph}. Only call when the graph
+   * is about to be thrown away.
    */
   void cleanupInterningPools();
+
+  /**
+   * Implementations of MemoizingEvaluator can choose to remember the top level SkyKeys evaluated
+   * from a previous build for further optimizations, like the focus command.
+   *
+   * <p>This can be called to purge an existing set of SkyKeys, and replace it with a new set.
+   */
+  void updateTopLevelEvaluations();
 }

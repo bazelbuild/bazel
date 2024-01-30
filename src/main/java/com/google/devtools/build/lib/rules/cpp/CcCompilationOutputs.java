@@ -76,6 +76,9 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
    */
   private final ImmutableList<Artifact> headerTokenFiles;
 
+  /** All .pcm files built by the target. */
+  private final ImmutableList<Artifact> moduleFiles;
+
   private CcCompilationOutputs(
       ImmutableList<Artifact> objectFiles,
       ImmutableList<Artifact> picObjectFiles,
@@ -85,7 +88,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       ImmutableList<Artifact> gcnoFiles,
       ImmutableList<Artifact> picGcnoFiles,
       NestedSet<Artifact> temps,
-      ImmutableList<Artifact> headerTokenFiles) {
+      ImmutableList<Artifact> headerTokenFiles,
+      ImmutableList<Artifact> moduleFiles) {
     this.objectFiles = objectFiles;
     this.picObjectFiles = picObjectFiles;
     this.ltoCompilationContext = ltoCompilationContext;
@@ -95,6 +99,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     this.picGcnoFiles = picGcnoFiles;
     this.temps = temps;
     this.headerTokenFiles = headerTokenFiles;
+    this.moduleFiles = moduleFiles;
   }
 
   /**
@@ -133,6 +138,12 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   public Sequence<Artifact> getStarlarkHeaderTokens(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return StarlarkList.immutableCopyOf(getHeaderTokenFiles());
+  }
+
+  @Override
+  public Sequence<Artifact> getStarlarkModuleFiles(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getModuleFiles());
   }
 
   /** Returns information about bitcode object files resulting from compilation. */
@@ -209,6 +220,11 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     return headerTokenFiles;
   }
 
+  /** Returns an unmodifiable view of the .pcm files. */
+  public Iterable<Artifact> getModuleFiles() {
+    return moduleFiles;
+  }
+
   /** Returns the output files that are considered "compiled" by this C++ compile action. */
   NestedSet<Artifact> getFilesToCompile(boolean parseHeaders, boolean usePic) {
     NestedSetBuilder<Artifact> files = NestedSetBuilder.stableOrder();
@@ -236,6 +252,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     private final Set<Artifact> picGcnoFiles = new LinkedHashSet<>();
     private final NestedSetBuilder<Artifact> temps = NestedSetBuilder.stableOrder();
     private final Set<Artifact> headerTokenFiles = new LinkedHashSet<>();
+    private final Set<Artifact> moduleFiles = new LinkedHashSet<>();
 
     private Builder() {
       // private to avoid class initialization deadlock between this class and its outer class
@@ -251,7 +268,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
           ImmutableList.copyOf(gcnoFiles),
           ImmutableList.copyOf(picGcnoFiles),
           temps.build(),
-          ImmutableList.copyOf(headerTokenFiles));
+          ImmutableList.copyOf(headerTokenFiles),
+          ImmutableList.copyOf(moduleFiles));
     }
 
     @CanIgnoreReturnValue
@@ -264,6 +282,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       this.picGcnoFiles.addAll(outputs.picGcnoFiles);
       this.temps.addTransitive(outputs.temps);
       this.headerTokenFiles.addAll(outputs.headerTokenFiles);
+      this.moduleFiles.addAll(outputs.moduleFiles);
       this.ltoCompilationContext.addAll(outputs.ltoCompilationContext);
       return this;
     }
@@ -354,6 +373,12 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     @CanIgnoreReturnValue
     public Builder addHeaderTokenFile(Artifact artifact) {
       headerTokenFiles.add(artifact);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addModuleFile(Artifact artifact) {
+      moduleFiles.add(artifact);
       return this;
     }
   }

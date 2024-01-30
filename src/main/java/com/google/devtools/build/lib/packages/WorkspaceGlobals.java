@@ -14,20 +14,22 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.WorkspaceFactoryHelper.originatesInWorkspaceSuffix;
 import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -41,11 +43,12 @@ import net.starlark.java.eval.StarlarkThread;
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
-  private final boolean allowOverride;
+  private final boolean allowWorkspaceFunction;
   private final ImmutableMap<String, RuleClass> ruleClassMap;
 
-  public WorkspaceGlobals(boolean allowOverride, ImmutableMap<String, RuleClass> ruleClassMap) {
-    this.allowOverride = allowOverride;
+  public WorkspaceGlobals(
+      boolean allowWorkspaceFunction, ImmutableMap<String, RuleClass> ruleClassMap) {
+    this.allowWorkspaceFunction = allowWorkspaceFunction;
     this.ruleClassMap = ruleClassMap;
   }
 
@@ -54,7 +57,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       String name,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    if (!allowOverride) {
+    if (!allowWorkspaceFunction) {
       throw Starlark.errorf(
           "workspace() function should be used only at the top of the WORKSPACE file");
     }
@@ -63,43 +66,26 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     if (errorMessage != null) {
       throw Starlark.errorf("%s", errorMessage);
     }
-    PackageFactory.getContext(thread).pkgBuilder.setWorkspaceName(name);
-    Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
-    RuleClass localRepositoryRuleClass = ruleClassMap.get("local_repository");
-    RuleClass bindRuleClass = ruleClassMap.get("bind");
-    ImmutableMap<String, Object> kwargs = ImmutableMap.of("name", name, "path", ".");
-    try {
-      // This effectively adds a "local_repository(name = "<ws>", path = ".")"
-      // definition to the WORKSPACE file.
-      WorkspaceFactoryHelper.createAndAddRepositoryRule(
-          builder,
-          localRepositoryRuleClass,
-          bindRuleClass,
-          kwargs,
-          thread.getCallStack());
-    } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
-      throw Starlark.errorf("%s", e.getMessage());
-    }
     // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
     // treats references to @name as a separate external repo
-    builder.addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
+    PackageFactory.getContext(thread)
+        .setWorkspaceName(name)
+        .addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
   }
 
-  private static RepositoryName getRepositoryName(@Nullable Label label) {
-    if (label == null) {
-      // registration happened directly in the main WORKSPACE
+  private static RepositoryName getCurrentRepoName(StarlarkThread thread) {
+    @Nullable // moduleContext is null if we're called directly from a WORKSPACE file.
+    BazelModuleContext moduleContext =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    if (moduleContext == null) {
       return RepositoryName.MAIN;
     }
-
-    // registration happened in a loaded bzl file
-    return label.getRepository();
+    return moduleContext.label().getRepository();
   }
 
   private static ImmutableList<TargetPattern> parsePatterns(
       List<String> patterns, Package.Builder builder, StarlarkThread thread) throws EvalException {
-    BazelModuleContext bzlModule =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
-    RepositoryName myName = getRepositoryName((bzlModule != null ? bzlModule.label() : null));
+    RepositoryName myName = getCurrentRepoName(thread);
     RepositoryMapping renaming = builder.getRepositoryMappingFor(myName);
     TargetPattern.Parser parser =
         new TargetPattern.Parser(PathFragment.EMPTY_FRAGMENT, myName, renaming);
@@ -118,7 +104,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   public void registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException {
     // Add to the package definition for later.
-    Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
+    Package.Builder builder = PackageFactory.getContext(thread);
     List<String> patterns = Sequence.cast(platformLabels, String.class, "platform_labels");
     builder.addRegisteredExecutionPlatforms(parsePatterns(patterns, builder, thread));
   }
@@ -127,9 +113,11 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   public void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException {
     // Add to the package definition for later.
-    Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
+    Package.Builder builder = PackageFactory.getContext(thread);
     List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
-    builder.addRegisteredToolchains(parsePatterns(patterns, builder, thread));
+    builder.addRegisteredToolchains(
+        parsePatterns(patterns, builder, thread),
+        originatesInWorkspaceSuffix(thread.getCallStack()));
   }
 
   @Override
@@ -142,15 +130,20 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throw Starlark.errorf("%s", e.getMessage());
     }
     try {
-      Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
+      Package.Builder builder = PackageFactory.getContext(thread);
       RuleClass ruleClass = ruleClassMap.get("bind");
+      RepositoryName currentRepo = getCurrentRepoName(thread);
       WorkspaceFactoryHelper.addBindRule(
           builder,
           ruleClass,
           nameLabel,
-          actual == NONE ? null : Label.parseCanonical((String) actual),
+          actual == NONE
+              ? null
+              : Label.parseWithRepoContext(
+                  (String) actual,
+                  RepoContext.of(currentRepo, builder.getRepositoryMappingFor(currentRepo))),
           thread.getCallStack());
-    } catch (InvalidRuleException | Package.NameConflictException | LabelSyntaxException e) {
+    } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
   }

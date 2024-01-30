@@ -161,10 +161,9 @@ def _is_compiler_option_supported(repository_ctx, cc, option):
     ])
     return result.stderr.find(option) == -1
 
-def _is_linker_option_supported(repository_ctx, cc, option, pattern):
+def _is_linker_option_supported(repository_ctx, cc, force_linker_flags, option, pattern):
     """Checks that `option` is supported by the C linker. Doesn't %-escape the option."""
-    result = repository_ctx.execute([
-        cc,
+    result = repository_ctx.execute([cc] + force_linker_flags + [
         option,
         "-o",
         "/dev/null",
@@ -213,9 +212,9 @@ def _add_compiler_option_if_supported(repository_ctx, cc, option):
     """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
     return [option] if _is_compiler_option_supported(repository_ctx, cc, option) else []
 
-def _add_linker_option_if_supported(repository_ctx, cc, option, pattern):
+def _add_linker_option_if_supported(repository_ctx, cc, force_linker_flags, option, pattern):
     """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
-    return [option] if _is_linker_option_supported(repository_ctx, cc, option, pattern) else []
+    return [option] if _is_linker_option_supported(repository_ctx, cc, force_linker_flags, option, pattern) else []
 
 def _get_no_canonical_prefixes_opt(repository_ctx, cc):
     # If the compiler sometimes rewrites paths in the .d files without symlinks
@@ -416,26 +415,10 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     cxx_opts = split_escaped(get_env_var(
         repository_ctx,
         "BAZEL_CXXOPTS",
-        "-std=c++14",
+        "-std=c++17",
         False,
     ), ":")
 
-    use_libcpp = darwin or bsd
-    bazel_linklibs = "-lc++:-lm" if use_libcpp else "-lstdc++:-lm"
-    bazel_linkopts = ""
-
-    link_opts = split_escaped(get_env_var(
-        repository_ctx,
-        "BAZEL_LINKOPTS",
-        bazel_linkopts,
-        False,
-    ), ":")
-    link_libs = split_escaped(get_env_var(
-        repository_ctx,
-        "BAZEL_LINKLIBS",
-        bazel_linklibs,
-        False,
-    ), ":")
     gold_or_lld_linker_path = (
         _find_linker_path(repository_ctx, cc, "lld", is_clang) or
         _find_linker_path(repository_ctx, cc, "gold", is_clang)
@@ -451,6 +434,58 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         ld_path = repository_ctx.path(tool_paths["ld"])
         if ld_path.dirname != cc_path.dirname:
             bin_search_flags.append("-B" + str(ld_path.dirname))
+    force_linker_flags = []
+    if gold_or_lld_linker_path:
+        force_linker_flags.append("-fuse-ld=" + gold_or_lld_linker_path)
+
+    # TODO: It's unclear why these flags aren't added on macOS.
+    if bin_search_flags and not darwin:
+        force_linker_flags.extend(bin_search_flags)
+    use_libcpp = darwin or bsd
+    is_as_needed_supported = _is_linker_option_supported(
+        repository_ctx,
+        cc,
+        force_linker_flags,
+        "-Wl,-no-as-needed",
+        "-no-as-needed",
+    )
+    is_push_state_supported = _is_linker_option_supported(
+        repository_ctx,
+        cc,
+        force_linker_flags,
+        "-Wl,--push-state",
+        "--push-state",
+    )
+    if use_libcpp:
+        bazel_default_libs = ["-lc++", "-lm"]
+    else:
+        bazel_default_libs = ["-lstdc++", "-lm"]
+    if is_as_needed_supported and is_push_state_supported:
+        # Do not link against C++ standard libraries unless they are actually
+        # used.
+        # We assume that --push-state support implies --pop-state support.
+        bazel_linklibs_elements = [
+            arg
+            for lib in bazel_default_libs
+            for arg in ["-Wl,--push-state,-as-needed", lib, "-Wl,--pop-state"]
+        ]
+    else:
+        bazel_linklibs_elements = bazel_default_libs
+    bazel_linklibs = ":".join(bazel_linklibs_elements)
+    bazel_linkopts = ""
+
+    link_opts = split_escaped(get_env_var(
+        repository_ctx,
+        "BAZEL_LINKOPTS",
+        bazel_linkopts,
+        False,
+    ), ":")
+    link_libs = split_escaped(get_env_var(
+        repository_ctx,
+        "BAZEL_LINKLIBS",
+        bazel_linklibs,
+        False,
+    ), ":")
     coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
     print_resource_dir_supported = _is_compiler_option_supported(
         repository_ctx,
@@ -583,22 +618,18 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             ),
             "%{cxx_flags}": get_starlark_list(cxx_opts + _escaped_cplus_include_paths(repository_ctx)),
             "%{conly_flags}": get_starlark_list(conly_opts),
-            "%{link_flags}": get_starlark_list((
-                ["-fuse-ld=" + gold_or_lld_linker_path] if gold_or_lld_linker_path else []
+            "%{link_flags}": get_starlark_list(force_linker_flags + (
+                ["-Wl,-no-as-needed"] if is_as_needed_supported else []
             ) + _add_linker_option_if_supported(
                 repository_ctx,
                 cc,
-                "-Wl,-no-as-needed",
-                "-no-as-needed",
-            ) + _add_linker_option_if_supported(
-                repository_ctx,
-                cc,
+                force_linker_flags,
                 "-Wl,-z,relro,-z,now",
                 "-z",
             ) + (
                 [
                     "-headerpad_max_install_names",
-                ] if darwin else bin_search_flags + [
+                ] if darwin else [
                     # Gold linker only? Can we enable this by default?
                     # "-Wl,--warn-execstack",
                     # "-Wl,--detect-odr-violations"
@@ -640,6 +671,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                 ["-Wl,-dead_strip"] if darwin else _add_linker_option_if_supported(
                     repository_ctx,
                     cc,
+                    force_linker_flags,
                     "-Wl,--gc-sections",
                     "-gc-sections",
                 ),

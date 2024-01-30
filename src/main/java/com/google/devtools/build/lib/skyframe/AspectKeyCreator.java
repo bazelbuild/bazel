@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,7 +24,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Comparator;
@@ -81,48 +88,68 @@ public final class AspectKeyCreator {
 
   // Specific subtypes of aspect keys.
 
-  /** Represents an aspect applied to a particular target. */
+  /**
+   * Represents an aspect applied to a particular target.
+   *
+   * <p>Extended by two classes: {@link SimpleAspectKey} for aspects that do not depend on other
+   * aspects and {@link AspectKeyWithBaseAspects} for aspects depending on one or more base aspects.
+   * This separation is for memory optimization as in most cases the aspect will not depend on other
+   * aspects and its {@code baseKeys} list will be empty.
+   */
   @AutoCodec
-  public static final class AspectKey extends AspectBaseKey {
+  public abstract static class AspectKey extends AspectBaseKey implements CqueryNode {
     private static final SkyKeyInterner<AspectKey> interner = SkyKey.newInterner();
 
-    private final ImmutableList<AspectKey> baseKeys;
     private final AspectDescriptor aspectDescriptor;
 
     private AspectKey(
         ConfiguredTargetKey baseConfiguredTargetKey,
-        ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor,
         int hashCode) {
       super(baseConfiguredTargetKey, hashCode);
-      this.baseKeys = baseKeys;
       this.aspectDescriptor = aspectDescriptor;
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static AspectKey createAspectKey(
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor) {
-      // Keep the list of {@code baseKeys} sorted to avoid running the same aspect twice because of
-      // different {@code baseKeys} order even if the {@link AspectKey} objects in the list are the
-      // same.
+      if (baseKeys.isEmpty()) {
+        return interner.intern(
+            new SimpleAspectKey(
+                baseConfiguredTargetKey,
+                aspectDescriptor,
+                HashCodes.hashObjects(baseConfiguredTargetKey, aspectDescriptor)));
+      }
+      // Keep the list of {@code baseKeys} sorted to avoid running the same aspect twice because
+      // of different {@code baseKeys} order even if the {@link AspectKey} objects in the list are
+      // the same.
       ImmutableList<AspectKey> sortedBaseKeys =
           ImmutableList.sortedCopyOf(
               Comparator.comparing((AspectKey k) -> k.getAspectClass().getName())
                   // For aspects that appear more than once, comparing aspects parameters based on
-                  // their string representation to avoid adding a lot of logic for this comparison
-                  // which is expected to be not frequently needed.
+                  // their string representation to avoid adding a lot of logic for this
+                  // comparison which is expected to be not frequently needed.
                   .thenComparing(k -> k.getParameters().toString()),
               baseKeys);
 
       return interner.intern(
-          new AspectKey(
+          new AspectKeyWithBaseAspects(
               baseConfiguredTargetKey,
               sortedBaseKeys,
               aspectDescriptor,
-              Objects.hashCode(baseConfiguredTargetKey, sortedBaseKeys, aspectDescriptor)));
+              HashCodes.hashObjects(baseConfiguredTargetKey, sortedBaseKeys, aspectDescriptor)));
+    }
+
+    public abstract ImmutableList<AspectKey> getBaseKeys();
+
+    public abstract String getDescription();
+
+    @Override
+    public String getDescription(LabelPrinter labelPrinter) {
+      return getDescription();
     }
 
     @Override
@@ -145,6 +172,16 @@ public final class AspectKeyCreator {
       return getBaseConfiguredTargetKey().getLabel();
     }
 
+    @Override
+    public SkyKeyInterner<AspectKey> getSkyKeyInterner() {
+      return interner;
+    }
+
+    @Override
+    public ActionLookupKey getLookupKey() {
+      return this;
+    }
+
     public AspectClass getAspectClass() {
       return aspectDescriptor.getAspectClass();
     }
@@ -156,20 +193,6 @@ public final class AspectKeyCreator {
 
     public AspectDescriptor getAspectDescriptor() {
       return aspectDescriptor;
-    }
-
-    @Nullable
-    public ImmutableList<AspectKey> getBaseKeys() {
-      return baseKeys;
-    }
-
-    public String getDescription() {
-      if (baseKeys.isEmpty()) {
-        return String.format("%s of %s", aspectDescriptor.getAspectClass().getName(), getLabel());
-      } else {
-        return String.format(
-            "%s on top of %s", aspectDescriptor.getAspectClass().getName(), baseKeys);
-      }
     }
 
     /**
@@ -192,7 +215,7 @@ public final class AspectKeyCreator {
       }
       AspectKey that = (AspectKey) other;
       return hashCode() == that.hashCode()
-          && Objects.equal(baseKeys, that.baseKeys)
+          && Objects.equal(getBaseKeys(), that.getBaseKeys())
           && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
           && Objects.equal(aspectDescriptor, that.aspectDescriptor);
     }
@@ -202,17 +225,22 @@ public final class AspectKeyCreator {
         return "null";
       }
 
-      String baseKeysString = baseKeys.isEmpty() ? "" : String.format(" (over %s)", baseKeys);
+      String baseKeysString =
+          getBaseKeys().isEmpty() ? "" : String.format(" (over %s)", getBaseKeys());
       return String.format(
           "%s with aspect %s%s",
           getLabel(), aspectDescriptor.getAspectClass().getName(), baseKeysString);
     }
 
+    public String getAspectLabel() {
+      return (getBaseKeys().isEmpty() ? getLabel() : getBaseKeys().toString())
+          + "#"
+          + aspectDescriptor;
+    }
+
     @Override
     public String toString() {
-      return (baseKeys == null ? getLabel() : baseKeys.toString())
-          + "#"
-          + aspectDescriptor
+      return getAspectLabel()
           + " "
           + getBaseConfiguredTargetKey()
           + " "
@@ -220,23 +248,61 @@ public final class AspectKeyCreator {
     }
 
     AspectKey withLabel(Label label) {
-      ImmutableList.Builder<AspectKey> newBaseKeys = ImmutableList.builder();
-      for (AspectKey baseKey : baseKeys) {
-        newBaseKeys.add(baseKey.withLabel(label));
-      }
+      ImmutableList<AspectKey> newBaseKeys =
+          getBaseKeys().stream().map(k -> k.withLabel(label)).collect(toImmutableList());
 
       return createAspectKey(
           ConfiguredTargetKey.builder()
               .setLabel(label)
               .setConfigurationKey(getBaseConfiguredTargetKey().getConfigurationKey())
               .build(),
-          newBaseKeys.build(),
+          newBaseKeys,
           aspectDescriptor);
     }
 
-    @Override
-    public SkyKeyInterner<AspectKey> getSkyKeyInterner() {
-      return interner;
+    static class SimpleAspectKey extends AspectKey {
+      SimpleAspectKey(
+          ConfiguredTargetKey baseConfiguredTargetKey,
+          AspectDescriptor aspectDescriptor,
+          int hashCode) {
+        super(baseConfiguredTargetKey, aspectDescriptor, hashCode);
+      }
+
+      @Override
+      public ImmutableList<AspectKey> getBaseKeys() {
+        return ImmutableList.of();
+      }
+
+      @Override
+      public String getDescription() {
+        return String.format("%s of %s", getAspectClass().getName(), getLabel());
+      }
+    }
+
+    static class AspectKeyWithBaseAspects extends AspectKey {
+      private final ImmutableList<AspectKey> baseKeys;
+
+      private AspectKeyWithBaseAspects(
+          ConfiguredTargetKey baseConfiguredTargetKey,
+          ImmutableList<AspectKey> baseKeys,
+          AspectDescriptor aspectDescriptor,
+          int hashCode) {
+        super(baseConfiguredTargetKey, aspectDescriptor, hashCode);
+        this.baseKeys = baseKeys;
+      }
+
+      @Override
+      public ImmutableList<AspectKey> getBaseKeys() {
+        return baseKeys;
+      }
+
+      @Override
+      public String getDescription() {
+        return String.format(
+            "%s on top of %s",
+            getAspectClass().getName(),
+            baseKeys.stream().map(AspectKey::getDescription).collect(toImmutableList()));
+      }
     }
   }
 
@@ -253,7 +319,7 @@ public final class AspectKeyCreator {
     private final ImmutableMap<String, String> topLevelAspectsParameters;
 
     @AutoCodec.Instantiator
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     static TopLevelAspectsKey createInternal(
         ImmutableList<AspectClass> topLevelAspectsClasses,
         Label targetLabel,
@@ -265,7 +331,7 @@ public final class AspectKeyCreator {
               targetLabel,
               baseConfiguredTargetKey,
               topLevelAspectsParameters,
-              Objects.hashCode(
+              HashCodes.hashObjects(
                   topLevelAspectsClasses,
                   targetLabel,
                   baseConfiguredTargetKey,

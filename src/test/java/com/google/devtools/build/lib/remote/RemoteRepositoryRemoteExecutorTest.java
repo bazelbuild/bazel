@@ -73,12 +73,10 @@ public class RemoteRepositoryRemoteExecutorTest {
   public void testZeroExitCodeFromCache() throws IOException, InterruptedException {
     // Test that an ActionResult with exit code zero is accepted as cached.
 
-    // Arrange
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
         .thenReturn(CachedActionResult.remote(cachedResult));
 
-    // Act
     ExecutionResult executionResult =
         repoExecutor.execute(
             ImmutableList.of("/bin/bash", "-c", "exit 0"),
@@ -88,7 +86,6 @@ public class RemoteRepositoryRemoteExecutorTest {
             /* workingDirectory= */ null,
             /* timeout= */ Duration.ZERO);
 
-    // Assert
     verify(remoteCache).downloadActionResult(any(), any(), anyBoolean());
     // Don't fallback to execution
     verify(remoteExecutor, never()).executeRemotely(any(), any(), any());
@@ -100,7 +97,6 @@ public class RemoteRepositoryRemoteExecutorTest {
   public void testNoneZeroExitCodeFromCache() throws IOException, InterruptedException {
     // Test that an ActionResult with a none-zero exit code is not accepted as cached.
 
-    // Arrange
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(1).build();
     when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
         .thenReturn(CachedActionResult.remote(cachedResult));
@@ -108,7 +104,6 @@ public class RemoteRepositoryRemoteExecutorTest {
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
     when(remoteExecutor.executeRemotely(any(), any(), any())).thenReturn(response);
 
-    // Act
     ExecutionResult executionResult =
         repoExecutor.execute(
             ImmutableList.of("/bin/bash", "-c", "exit 1"),
@@ -118,7 +113,6 @@ public class RemoteRepositoryRemoteExecutorTest {
             /* workingDirectory= */ null,
             /* timeout= */ Duration.ZERO);
 
-    // Assert
     verify(remoteCache).downloadActionResult(any(), any(), anyBoolean());
     // Fallback to execution
     verify(remoteExecutor).executeRemotely(any(), any(), any());
@@ -128,9 +122,8 @@ public class RemoteRepositoryRemoteExecutorTest {
 
   @Test
   public void testInlineStdoutStderr() throws IOException, InterruptedException {
-    // Test that
+    // Test that inline stdout/stderr responses are returned in execution results.
 
-    // Arrange
     byte[] stdout = "hello".getBytes(StandardCharsets.UTF_8);
     byte[] stderr = "world".getBytes(StandardCharsets.UTF_8);
     ActionResult cachedResult =
@@ -145,7 +138,6 @@ public class RemoteRepositoryRemoteExecutorTest {
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
     when(remoteExecutor.executeRemotely(any(), any(), any())).thenReturn(response);
 
-    // Act
     ExecutionResult executionResult =
         repoExecutor.execute(
             ImmutableList.of("/bin/bash", "-c", "echo hello"),
@@ -155,7 +147,6 @@ public class RemoteRepositoryRemoteExecutorTest {
             /* workingDirectory= */ null,
             /* timeout= */ Duration.ZERO);
 
-    // Assert
     verify(remoteCache).downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true));
 
     assertThat(executionResult.exitCode()).isEqualTo(0);

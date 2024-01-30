@@ -44,7 +44,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       name = "compilation_context",
       doc = "Returns the <code>CompilationContext</code>",
       structField = true)
-  CcCompilationContextApi<FileT> getCcCompilationContext();
+  CcCompilationContextApi<FileT, ? extends CppModuleMapApi<FileT>> getCcCompilationContext();
 
   @StarlarkMethod(
       name = "linking_context",

@@ -32,7 +32,7 @@ source "${CURRENT_DIR}/../sandboxing_test_utils.sh" \
 readonly OUT_DIR="${TEST_TMPDIR}/out"
 readonly SANDBOX_DIR="${OUT_DIR}/sandbox"
 
-SANDBOX_DEFAULT_OPTS="-W $SANDBOX_DIR -D"
+SANDBOX_DEFAULT_OPTS="-W $SANDBOX_DIR"
 
 function set_up {
   rm -rf $OUT_DIR

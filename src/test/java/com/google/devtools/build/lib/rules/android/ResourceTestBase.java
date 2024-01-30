@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.After;
@@ -110,43 +109,6 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
     @Override
     public boolean hasErrors() {
       return ruleErrorMessage != null || attributeErrorMessage != null;
-    }
-
-    public Collection<String> getAndClearRuleWarnings() {
-      Collection<String> warnings = ImmutableList.copyOf(ruleWarnings);
-      ruleWarnings.clear();
-      return warnings;
-    }
-
-    public void assertNoRuleWarnings() {
-      assertThat(ruleWarnings).isEmpty();
-    }
-
-    public Collection<String> getAndClearAttributeWarnings(String attrName) {
-      if (!attributeWarnings.containsKey(attrName)) {
-        return ImmutableList.of();
-      }
-
-      return attributeWarnings.removeAll(attrName);
-    }
-
-    public void assertNoAttributeWarnings(String attrName) {
-      assertThat(attributeWarnings).doesNotContainKey(attrName);
-    }
-
-    /**
-     * Called at the end of a test to assert that that test produced a rule error
-     *
-     * @param expectedMessage a substring of the expected message
-     */
-    public void assertRuleError(String expectedMessage) {
-      // Clear the message before asserting so that if we fail here the error is not masked by the
-      // @After call to assertNoUnexpectedErrors.
-
-      String message = ruleErrorMessage;
-      ruleErrorMessage = null;
-
-      assertThat(message).contains(expectedMessage);
     }
 
     /**
@@ -223,7 +185,6 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
    * AndroidConfiguration}.
    */
   public RuleContext getRuleContextForActionTesting(ConfiguredTarget dummyTarget) throws Exception {
-    RuleContext dummy = getRuleContext(dummyTarget);
     ExtendedEventHandler eventHandler = new StoredEventHandler();
 
     SkyFunction.Environment skyframeEnv =
@@ -245,8 +206,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             skyframeEnv,
             starlarkBuiltinsValue);
 
-    return view.getRuleContextForTesting(
-        eventHandler, dummyTarget, analysisEnv, dummy.getConfiguration());
+    return view.getRuleContextForTesting(eventHandler, dummyTarget, analysisEnv);
   }
 
   /**

@@ -33,7 +33,7 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-resolve_android_toolchains "$1"
+resolve_android_toolchains
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/1928.
 function test_empty_tree_artifact_action_inputs_mount_empty_directories() {
@@ -125,7 +125,7 @@ function test_android_binary_fat_apk_contains_all_shared_libraries() {
   add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
 
   # sample.aar contains native shared libraries for x86 and armeabi-v7a
-  cp "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/android/sample.aar" .
+  cp "$(rlocation io_bazel/src/test/shell/bazel/android/sample.aar)" .
   cat > AndroidManifest.xml <<EOF
 <manifest package="com.example"/>
 EOF
@@ -145,6 +145,40 @@ EOF
   apk_contents="$(zipinfo -1 bazel-bin/app.apk)"
   assert_one_of $apk_contents "lib/x86/libapp.so"
   assert_one_of $apk_contents "lib/armeabi-v7a/libapp.so"
+}
+
+function test_aar_extractor_worker() {
+  create_new_workspace
+  setup_android_sdk_support
+  cat > AndroidManifest.xml <<EOF
+<manifest package="com.example"/>
+EOF
+  mkdir -p res/layout
+  cat > res/layout/mylayout.xml <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" />
+EOF
+  mkdir assets
+  echo "some asset" > assets/a
+  zip example.aar AndroidManifest.xml res/layout/mylayout.xml assets/a
+  cat > BUILD <<EOF
+aar_import(
+  name = "example",
+  aar = "example.aar",
+)
+android_binary(
+  name = "app",
+  custom_package = "com.example",
+  manifest = "AndroidManifest.xml",
+  deps = [":example"],
+)
+EOF
+
+  bazel clean
+  bazel build --experimental_persistent_aar_extractor :app || fail "build failed"
+  apk_contents="$(zipinfo -1 bazel-bin/app.apk)"
+  assert_one_of $apk_contents "assets/a"
+  assert_one_of $apk_contents "res/layout/mylayout.xml"
 }
 
 run_suite "aar_import integration tests"

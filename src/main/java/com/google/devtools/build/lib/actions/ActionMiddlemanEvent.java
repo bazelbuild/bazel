@@ -25,20 +25,22 @@ public final class ActionMiddlemanEvent implements Postable {
 
   private final Action action;
   private final long nanoTimeStart;
+  private final long nanoTimeFinish;
 
   /**
    * Create an event for action that has been started.
    *
    * @param action the middleman action.
    * @param nanoTimeStart the time when the action was started. This allow us to record more
-   * accurately the time spent by the middleman action, since even for middleman actions we execute
-   * some.
+   *     accurately the time spent by the middleman action, since even for middleman actions we
+   *     execute some.
    */
-  public ActionMiddlemanEvent(Action action, long nanoTimeStart) {
+  public ActionMiddlemanEvent(Action action, long nanoTimeStart, long nanoTimeFinish) {
     Preconditions.checkArgument(action.getActionType().isMiddleman(),
         "Only middleman actions should be passed: %s", action);
     this.action = action;
     this.nanoTimeStart = nanoTimeStart;
+    this.nanoTimeFinish = nanoTimeFinish;
   }
 
   /**
@@ -52,4 +54,7 @@ public final class ActionMiddlemanEvent implements Postable {
     return nanoTimeStart;
   }
 
+  public long getNanoTimeFinish() {
+    return nanoTimeFinish;
+  }
 }

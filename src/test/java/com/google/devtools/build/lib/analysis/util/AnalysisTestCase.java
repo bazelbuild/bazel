@@ -42,16 +42,12 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.TransitionResolver;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -61,8 +57,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -76,11 +70,11 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -98,12 +92,14 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 
@@ -125,8 +121,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public enum Flag {
     // The --keep_going flag.
     KEEP_GOING,
-    // The --skyframe_prepare_analysis flag.
-    SKYFRAME_PREPARE_ANALYSIS,
     // Flags for visibility to default to public.
     PUBLIC_VISIBILITY,
     // Flags for CPU to work (be set to k8) in test mode.
@@ -134,7 +128,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     // Flags from TestConstants.PRODUCT_SPECIFIC_FLAGS.
     PRODUCT_SPECIFIC_FLAGS,
     // The --enable_bzlmod flags.
-    ENABLE_BZLMOD
+    ENABLE_BZLMOD,
+    // The --nolegacy_external_runfiles flag.
+    NO_LEGACY_EXTERNAL_RUNFILES
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -144,12 +140,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     @CanIgnoreReturnValue
     public FlagBuilder with(Flag flag) {
       flags.add(flag);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public FlagBuilder without(Flag flag) {
-      flags.remove(flag);
       return this;
     }
 
@@ -200,7 +190,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             analysisMock.getProductName());
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
 
-    scratch.file(rootDirectory.getRelative("MODULE.bazel").getPathString(), "");
     moduleRoot = scratch.dir("modules");
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
 
@@ -226,7 +215,14 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
         .setSyscallCache(delegatingSyscallCache)
+        .setRepositoryHelpersHolder(getRepositoryHelpersHolder())
         .build();
+  }
+
+  @ForOverride
+  @Nullable
+  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
+    return null;
   }
 
   /** Changes the rule class provider to be used for the loading and the analysis phase. */
@@ -247,12 +243,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                         CheckDirectDepsMode.WARNING),
                     PrecomputedValue.injected(
-                        BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+                        YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                         BazelCompatibilityMode.ERROR),
                     PrecomputedValue.injected(
-                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)))
+                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)))
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor = createSkyframeExecutor(pkgFactory);
@@ -286,11 +282,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+                RepositoryDelegatorFunction.FORCE_FETCH,
+                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
             PrecomputedValue.injected(
-                BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
-                ruleClassProvider.getBuildInfoFactoriesAsMap()),
+                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
             PrecomputedValue.injected(
                 ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
@@ -298,11 +293,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                 CheckDirectDepsMode.WARNING),
             PrecomputedValue.injected(
-                BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+                YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
             PrecomputedValue.injected(
                 BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                 BazelCompatibilityMode.WARNING),
-            PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)));
+            PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */
@@ -350,6 +345,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     if (defaultFlags().contains(Flag.ENABLE_BZLMOD)) {
       optionsParser.parse("--enable_bzlmod");
+    } else {
+      optionsParser.parse("--noenable_bzlmod");
+    }
+    if (defaultFlags().contains(Flag.NO_LEGACY_EXTERNAL_RUNFILES)) {
+      optionsParser.parse("--nolegacy_external_runfiles");
     }
     optionsParser.parse(args);
 
@@ -361,7 +361,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return new FlagBuilder()
         .with(Flag.PUBLIC_VISIBILITY)
         .with(Flag.CPU_K8)
-        .with(Flag.PRODUCT_SPECIFIC_FLAGS);
+        .with(Flag.PRODUCT_SPECIFIC_FLAGS)
+        .with(Flag.NO_LEGACY_EXTERNAL_RUNFILES);
   }
 
   protected Action getGeneratingAction(Artifact artifact) {
@@ -375,10 +376,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } else {
       return null;
     }
-  }
-
-  protected BuildConfigurationValue getBuildConfiguration() {
-    return universeConfig;
   }
 
   /**
@@ -414,7 +411,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     // update --keep_going option if test requested it.
     boolean keepGoing = flags.contains(Flag.KEEP_GOING);
     boolean discardAnalysisCache = viewOptions.discardAnalysisCache;
-    viewOptions.skyframePrepareAnalysis = flags.contains(Flag.SKYFRAME_PREPARE_ANALYSIS);
 
     PackageOptions packageOptions = optionsParser.getOptions(PackageOptions.class);
     PathPackageLocator pathPackageLocator =
@@ -476,7 +472,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     execConfig =
         skyframeExecutor.getConfiguration(
             reporter,
-            AnalysisTestUtil.execOptions(universeConfig.getOptions(), reporter),
+            AnalysisTestUtil.execOptions(universeConfig.getOptions(), skyframeExecutor, reporter),
             /* keepGoing= */ false);
 
     return analysisResult;
@@ -543,9 +539,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     try {
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
-    } catch (StarlarkTransition.TransitionException
-        | InvalidConfigurationException
-        | InterruptedException e) {
+    } catch (InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -593,22 +587,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       throw new AssertionError(e);
     }
     try {
-      // Need to emulate the activities of the top-level trimming transition since not going
-      // through sufficiently normal evaluation channels.
-      Target target = skyframeExecutor.getPackageManager().getTarget(reporter, parsedLabel);
-      ConfigurationTransition transition =
-          TransitionResolver.evaluateTransition(
-              configuration,
-              NoTransition.INSTANCE,
-              target,
-              ruleClassProvider.getTrimmingTransitionFactory());
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(
-          reporter, parsedLabel, configuration, transition);
-    } catch (StarlarkTransition.TransitionException
-        | InvalidConfigurationException
-        | InterruptedException
-        | NoSuchPackageException
-        | NoSuchTargetException e) {
+          reporter, parsedLabel, configuration);
+    } catch (InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -637,8 +618,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ConfiguredTargetKey.builder()
             .setLabel(label)
             .setConfigurationKey(owner.getConfigurationKey())
-            .build()
-            .toKey();
+            .build();
     ActionLookupValue actionLookupValue;
     try {
       actionLookupValue =

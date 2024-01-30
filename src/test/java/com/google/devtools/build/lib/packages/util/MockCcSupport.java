@@ -278,7 +278,7 @@ public abstract class MockCcSupport {
             "cc/private/rules_impl/BUILD")) {
       try {
         config.create(
-            TestConstants.RULES_CC_REPOSITORY_SCRATCH + path,
+            "third_party/bazel_rules/rules_cc/" + path,
             ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
       } catch (Exception e) {
         throw new RuntimeException("Couldn't read rules_cc file from " + path, e);
@@ -293,8 +293,27 @@ public abstract class MockCcSupport {
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
         ResourceLoader.readFromResources(
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl"));
+    config.create(
+        TestConstants.RULES_CC_REPOSITORY_EXECROOT + "BUILD",
+        "genrule(name='license', cmd='exit 0', outs=['dummy_license'])");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
     config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
+
+    // These could be a distinct method
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + TestConstants.MOCK_LICENSE_SCRATCH + "BUILD",
+        "genrule(name='license', cmd='exit 0', outs=['dummy_license'])");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + TestConstants.MOCK_LICENSE_SCRATCH
+            + "rules/BUILD");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + TestConstants.MOCK_LICENSE_SCRATCH
+            + "rules/license.bzl",
+        "def license(name, **kwargs):",
+        "    pass",
+        "");
   }
 
   protected static void createParseHeadersAndLayeringCheckWhitelist(MockToolsConfig config)
@@ -362,7 +381,6 @@ public abstract class MockCcSupport {
             "objc_import",
             "objc_library",
             "cc_toolchain",
-            "cc_toolchain_suite",
             "fdo_profile",
             "fdo_prefetch_hints",
             "cc_proto_library");
@@ -428,10 +446,8 @@ public abstract class MockCcSupport {
         "cc_runtimes_toolchain = rule(",
         "    implementation = _cc_runtimes_toolchain_impl,",
         "    attrs = {",
-        "        'runtimes': attr.label_list(cfg = _include_runtimes_transition),",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = Label('//tools/allowlists/function_transition_allowlist'))}",
-        ")");
+        "        'runtimes': attr.label_list(cfg = _include_runtimes_transition)",
+        "    })");
 
     scratch.file(
         "runtimes/BUILD",

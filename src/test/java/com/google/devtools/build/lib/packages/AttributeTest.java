@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -24,6 +25,8 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -34,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.FileType;
@@ -52,7 +56,7 @@ import org.junit.runners.JUnit4;
 public final class AttributeTest {
 
   private static void assertDefaultValue(Object expected, Attribute attr) {
-    assertThat(attr.getDefaultValue()).isEqualTo(expected);
+    assertThat(attr.getDefaultValue(null)).isEqualTo(expected);
   }
 
   private static void assertType(Type<?> expectedType, Attribute attr) {
@@ -63,7 +67,7 @@ public final class AttributeTest {
   public void testBasics() {
     Attribute attr = attr("foo", Type.INTEGER).mandatory().value(StarlarkInt.of(3)).build();
     assertThat(attr.getName()).isEqualTo("foo");
-    assertThat(attr.getDefaultValue()).isEqualTo(StarlarkInt.of(3));
+    assertThat(attr.getDefaultValue(null)).isEqualTo(StarlarkInt.of(3));
     assertThat(attr.getType()).isEqualTo(Type.INTEGER);
     assertThat(attr.isMandatory()).isTrue();
     assertThat(attr.isDocumented()).isTrue();
@@ -324,5 +328,78 @@ public final class AttributeTest {
                     .allowedFileTypes()
                     .build());
     assertThat(e).hasMessageThat().contains("may not contain the same rule classes");
+  }
+
+  @Test
+  public void factoryEquality() throws Exception {
+    new EqualsTester()
+        .addEqualityGroup(attr("foo", LABEL).buildPartial(), attr("foo", LABEL).buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL).value(Label.parseCanonicalUnchecked("//a:b")).buildPartial(),
+            attr("foo", LABEL).value(Label.parseCanonicalUnchecked("//a:b")).buildPartial())
+        .addEqualityGroup(
+            attr("foo", NODEP_LABEL).value(Label.parseCanonicalUnchecked("//a:b")).buildPartial(),
+            attr("foo", NODEP_LABEL).value(Label.parseCanonicalUnchecked("//a:b")).buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL).value(Label.parseCanonicalUnchecked("//c:d")).buildPartial(),
+            attr("foo", LABEL).value(Label.parseCanonicalUnchecked("//c:d")).buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .setDoc("My doc")
+                .buildPartial(),
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .setDoc("My doc")
+                .buildPartial())
+        .addEqualityGroup(
+            // PredicateWithMessage does not define any particular equality semantics
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .allowedValues(new AllowedValueSet(Label.parseCanonical("//a:b")))
+                .buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .validityPredicate(Attribute.ANY_EDGE)
+                .buildPartial(),
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .validityPredicate(Attribute.ANY_EDGE)
+                .buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .allowedRuleClasses("java_binary")
+                .buildPartial(),
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .allowedRuleClasses("java_binary")
+                .buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .buildPartial(),
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .mandatoryProviders(DefaultInfo.PROVIDER.id())
+                .buildPartial(),
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .mandatoryProviders(DefaultInfo.PROVIDER.id())
+                .buildPartial())
+        .addEqualityGroup(
+            // Aspects list builder does not define any particular equality semantics
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .aspect(TestAspects.SIMPLE_ASPECT)
+                .buildPartial())
+        .testEquals();
   }
 }

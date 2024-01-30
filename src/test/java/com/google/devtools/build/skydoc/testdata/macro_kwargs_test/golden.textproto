@@ -1,0 +1,68 @@
+func_info {
+  function_name: "macro_with_args"
+  parameter {
+    name: "name"
+    doc_string: "The name of the test rule."
+    mandatory: true
+  }
+  parameter {
+    name: "args"
+    doc_string: "Other arguments to include"
+  }
+  doc_string: "My args macro is OK."
+  return {
+    doc_string: "An empty list."
+  }
+}
+func_info {
+  function_name: "macro_with_both"
+  parameter {
+    name: "name"
+    doc_string: "The name of the test rule."
+    mandatory: true
+  }
+  parameter {
+    name: "number"
+    doc_string: "Some number used for important things"
+    default_value: "3"
+  }
+  parameter {
+    name: "args"
+    doc_string: "Other arguments to include"
+  }
+  parameter {
+    name: "kwargs"
+    doc_string: "Other attributes to include"
+  }
+  doc_string: "Oh wow this macro has both.\n\nNot much else to say.\n"
+  return {
+    doc_string: "An empty list."
+  }
+}
+func_info {
+  function_name: "macro_with_kwargs"
+  parameter {
+    name: "name"
+    doc_string: "The name of the test rule."
+    mandatory: true
+  }
+  parameter {
+    name: "config"
+    doc_string: "Config to use for my macro"
+    mandatory: true
+  }
+  parameter {
+    name: "deps"
+    doc_string: "List of my macro\'s dependencies"
+    default_value: "[]"
+  }
+  parameter {
+    name: "kwargs"
+    doc_string: "Other attributes to include"
+  }
+  doc_string: "My kwargs macro is the best.\n\nThis is a long multi-line doc string.\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Integer\nelementum, diam vitae tincidunt pulvinar, nunc tortor volutpat dui,\nvitae facilisis odio ligula a tortor. Donec ullamcorper odio eget ipsum tincidunt,\nvel mollis eros pellentesque.\n"
+  return {
+    doc_string: "An empty list."
+  }
+}
+module_docstring: "Tests for functions which use *args or **kwargs"

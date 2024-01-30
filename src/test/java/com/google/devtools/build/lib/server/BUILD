@@ -26,6 +26,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -49,6 +50,7 @@ java_library(
 java_test(
     name = "ServerTests",
     size = "medium",
+    tags = ["requires-network"],  # https://github.com/bazelbuild/bazel/issues/20743
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":ServerTests_lib",

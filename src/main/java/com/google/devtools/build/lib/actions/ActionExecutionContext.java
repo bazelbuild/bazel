@@ -329,7 +329,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         reason.append(owner.getExecutionPlatform().label());
       }
       reason.append(", mnemonic: ");
-      reason.append(owner.getMnemonic());
+      reason.append(spawn.getMnemonic());
       reason.append("]");
     }
 
@@ -345,7 +345,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
             /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),
             spawn.getConfigurationChecksum(),
-            spawn.getExecutionPlatformLabelString());
+            spawn.getExecutionPlatformLabel());
     getEventHandler().handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
   }
 

@@ -15,13 +15,16 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheFutureStub;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageFutureStub;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
@@ -45,6 +48,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
@@ -78,6 +82,9 @@ import javax.annotation.Nullable;
 public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
+      SpawnCheckingCacheEvent.create("remote-cache");
+
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
   private final RemoteOptions options;
@@ -107,7 +114,8 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             callCredentialsProvider,
             options.remoteTimeout.getSeconds(),
             retrier,
-            options.maximumOpenFiles);
+            options.maximumOpenFiles,
+            digestUtil.getDigestFunction());
     maxMissingBlobsDigestsPerMessage = computeMaxMissingBlobsDigestsPerMessage();
     Preconditions.checkState(
         maxMissingBlobsDigestsPerMessage > 0, "Error: gRPC message size too small.");
@@ -258,8 +266,22 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
+  public CacheCapabilities getCacheCapabilities() throws IOException {
+    return channel.getServerCapabilities().getCacheCapabilities();
+  }
+
+  @Override
+  public ListenableFuture<String> getAuthority() {
+    return channel.withChannelFuture(ch -> Futures.immediateFuture(ch.authority()));
+  }
+
+  @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+    if (context.getSpawnExecutionContext() != null) {
+      context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
+    }
+
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
@@ -352,12 +374,16 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         MoreExecutors.directExecutor());
   }
 
-  public static String getResourceName(String instanceName, Digest digest, boolean compressed) {
+  public static String getResourceName(
+      String instanceName, Digest digest, boolean compressed, DigestFunction.Value digestFunction) {
     String resourceName = "";
     if (!instanceName.isEmpty()) {
       resourceName += instanceName + "/";
     }
     resourceName += compressed ? "compressed-blobs/zstd/" : "blobs/";
+    if (!isOldStyleDigestFunction(digestFunction)) {
+      resourceName += Ascii.toLowerCase(digestFunction.getValueDescriptor().getName()) + "/";
+    }
     return resourceName + DigestUtil.toString(digest);
   }
 
@@ -368,12 +394,14 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       CountingOutputStream rawOut,
       @Nullable Supplier<Digest> digestSupplier,
       Channel channel) {
+    boolean compressed = shouldCompress(digest);
     String resourceName =
-        getResourceName(options.remoteInstanceName, digest, options.cacheCompression);
+        getResourceName(
+            options.remoteInstanceName, digest, compressed, digestUtil.getDigestFunction());
     SettableFuture<Long> future = SettableFuture.create();
     OutputStream out;
     try {
-      out = options.cacheCompression ? new ZstdDecompressingOutputStream(rawOut) : rawOut;
+      out = compressed ? new ZstdDecompressingOutputStream(rawOut) : rawOut;
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -469,7 +497,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         digest,
         Chunker.builder()
             .setInput(digest.getSizeBytes(), path)
-            .setCompressed(options.cacheCompression)
+            .setCompressed(shouldCompress(digest))
             .build());
   }
 
@@ -481,7 +509,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         digest,
         Chunker.builder()
             .setInput(data.toByteArray())
-            .setCompressed(options.cacheCompression)
+            .setCompressed(shouldCompress(digest))
             .build());
   }
 
@@ -499,5 +527,17 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         },
         MoreExecutors.directExecutor());
     return f;
+  }
+
+  Retrier getRetrier() {
+    return this.retrier;
+  }
+
+  private boolean shouldCompress(Digest digest) {
+    return options.cacheCompression && digest.getSizeBytes() >= options.cacheCompressionThreshold;
+  }
+
+  public ReferenceCountedChannel getChannel() {
+    return channel;
   }
 }

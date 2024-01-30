@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -21,10 +21,20 @@ class BazelWindowsTest(test_base.TestBase):
 
   def createProjectFiles(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', ['cc_binary(name="x", srcs=["x.cc"])'])
+    self.ScratchFile('foo/BUILD', [
+        'platform(',
+        '    name = "x64_windows-msys-gcc",',
+        '    constraint_values = [',
+        '        "@platforms//cpu:x86_64",',
+        '        "@platforms//os:windows",',
+        '        "@bazel_tools//tools/cpp:msys",',
+        '    ],',
+        ')',
+        'cc_binary(name="x", srcs=["x.cc"])',
+    ])
     self.ScratchFile('foo/x.cc', [
         '#include <stdio.h>',
-        'int main(int, char**) {'
+        'int main(int, char**) {',
         '  printf("hello\\n");',
         '  return 0;',
         '}',
@@ -39,16 +49,22 @@ class BazelWindowsTest(test_base.TestBase):
             '--host_jvm_args=-Dbazel.windows_unix_root=',
             'build',
             '//foo:x',
-            '--cpu=x64_windows_msys',
-            '--noincompatible_enable_cc_toolchain_resolution',
+            '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys',
+            '--extra_execution_platforms=//foo:x64_windows-msys-gcc',
         ],
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 37, stderr)
-    self.assertIn('"bazel.windows_unix_root" JVM flag is not set',
-                  '\n'.join(stderr))
+    self.assertIn(
+        '"bazel.windows_unix_root" JVM flag is not set', '\n'.join(stderr)
+    )
 
-    self.RunBazel(['--batch', 'build', '//foo:x', '--cpu=x64_windows_msys'])
+    self.RunBazel([
+        '--batch', 'build',
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys',
+        '--extra_execution_platforms=//foo:x64_windows-msys-gcc',
+        '//foo:x',
+    ])
 
   def testWindowsParameterFile(self):
     self.createProjectFiles()
@@ -262,23 +278,55 @@ class BazelWindowsTest(test_base.TestBase):
         env_add={'BAZEL_VC': 'C:/not/exists/VC'},
     )
 
-  def testDeleteReadOnlyFileAndDirectory(self):
+  def testDeleteReadOnlyFile(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('BUILD', [
-        'genrule(',
-        '  name = "gen_read_only_dir",',
-        '  cmd_bat = "mkdir $@ && attrib +r $@",',
-        '  outs = ["dir_foo"],',
-        ')',
-        '',
-        'genrule(',
-        '  name = "gen_read_only_file",',
-        '  cmd_bat = "echo hello > $@ && attrib +r $@",',
-        '  outs = ["file_foo"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'genrule(',
+            '  name = "gen_read_only_file",',
+            '  cmd_bat = "echo hello > $@ && attrib +r $@",',
+            '  outs = ["file_foo"],',
+            ')',
+        ],
+    )
 
     self.RunBazel(['build', '//...'])
+    self.RunBazel(['clean'])
+
+  def testDeleteReadOnlyDirectory(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            'def _impl(ctx):',
+            '  dir = ctx.actions.declare_directory(ctx.label.name)',
+            '  bat = ctx.actions.declare_file(ctx.label.name + ".bat")',
+            '  ctx.actions.write(',
+            '    output = bat,',
+            '    content = "attrib +r " + dir.path,',
+            '    is_executable = True,',
+            '  )',
+            '  ctx.actions.run(',
+            '    outputs = [dir],',
+            '    executable = bat,',
+            '    use_default_shell_env = True,',
+            '  )',
+            '  return DefaultInfo(files = depset([dir]))',
+            'read_only_dir = rule(_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load(":defs.bzl", "read_only_dir")',
+            'read_only_dir(',
+            '  name = "gen_read_only_dir",',
+            ')',
+        ],
+    )
+
+    self.RunBazel(['build', '--subcommands', '--verbose_failures', '//...'])
     self.RunBazel(['clean'])
 
   def testBuildJavaTargetWithClasspathJar(self):
@@ -476,4 +524,4 @@ class BazelWindowsTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

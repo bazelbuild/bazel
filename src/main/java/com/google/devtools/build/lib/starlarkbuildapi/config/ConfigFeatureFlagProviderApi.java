@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.config;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -29,9 +30,23 @@ public interface ConfigFeatureFlagProviderApi extends StructApi {
 
   @StarlarkMethod(
       name = "value",
-      doc = "The current value of the flag in the flag's current configuration.",
-      structField = true)
+      doc =
+          "The current value of the flag in the flag's current configuration. None if there is an"
+              + " error.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
   String getFlagValue();
+
+  // TODO(blaze-configurability-team, brandjon): Make part of the struct?
+  //   Technically, this is in union with value as both should never be non-empty.
+  @StarlarkMethod(
+      name = "error",
+      doc = "If non-None, this error was generated when trying to compute current value of flag.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  String getError();
 
   @StarlarkMethod(
       name = "is_valid_value",

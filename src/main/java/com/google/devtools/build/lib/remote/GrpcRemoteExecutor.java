@@ -44,7 +44,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 class GrpcRemoteExecutor implements RemoteExecutionClient {
 
-  private final ServerCapabilities serverCapabilities;
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
   private final RemoteRetrier retrier;
@@ -52,11 +51,9 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
   private final AtomicBoolean closed = new AtomicBoolean();
 
   public GrpcRemoteExecutor(
-      ServerCapabilities serverCapabilities,
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
       RemoteRetrier retrier) {
-    this.serverCapabilities = serverCapabilities;
     this.channel = channel;
     this.callCredentialsProvider = callCredentialsProvider;
     this.retrier = retrier;
@@ -94,8 +91,8 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
   }
 
   @Override
-  public ServerCapabilities getServerCapabilities() {
-    return this.serverCapabilities;
+  public ServerCapabilities getServerCapabilities() throws IOException {
+    return channel.getServerCapabilities();
   }
 
   /* Execute has two components: the Execute call and (optionally) the WaitExecution call.
@@ -251,5 +248,9 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
       return;
     }
     channel.release();
+  }
+
+  RemoteRetrier getRetrier() {
+    return this.retrier;
   }
 }

@@ -226,6 +226,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
+            context.getInputMetadataProvider(),
             execRoot,
             execRoot,
             packageRoots,
@@ -293,6 +294,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         outputs,
         ImmutableSet.of(),
         treeDeleter,
+        /* sandboxDebugPath= */ null,
         /* statisticsPath= */ null,
         () -> containersToCleanup.remove(uuid),
         spawn.getMnemonic());

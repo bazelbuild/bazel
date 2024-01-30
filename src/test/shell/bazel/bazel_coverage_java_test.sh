@@ -20,38 +20,38 @@ set -eu
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/coverage_helpers.sh" \
+  || { echo "coverage_helpers.sh not found!" >&2; exit 1; }
 
+
+RULES_JAVA_REPO_NAME=$(cat "$(rlocation io_bazel/src/test/shell/bazel/RULES_JAVA_REPO_NAME)")
+JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}~toolchains~"
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
-    if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
-        JAVA_TOOLS_ZIP_FILE_URL="${JAVA_TOOLS_ZIP}"
-    else
-        JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
-    fi
+  JAVA_TOOLS_ZIP_FILE="$(rlocation "${JAVA_TOOLS_ZIP}")"
+  JAVA_TOOLS_DIR="$TEST_TMPDIR/_java_tools"
+  unzip -q "${JAVA_TOOLS_ZIP_FILE}" -d "$JAVA_TOOLS_DIR"
+  touch "$JAVA_TOOLS_DIR/WORKSPACE"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools=${JAVA_TOOLS_DIR}"
 fi
-JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
 JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
-    if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" == file* ]]; then
-        JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="${JAVA_TOOLS_PREBUILT_ZIP}"
-    else
-        JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
-    fi
-    # Remove the repo overrides that are set up some for Bazel CI workers.
-    inplace-sed "/override_repository=remote_java_tools=/d" "$TEST_TMPDIR/bazelrc"
-    inplace-sed "/override_repository=remote_java_tools_linux=/d" "$TEST_TMPDIR/bazelrc"
-    inplace-sed "/override_repository=remote_java_tools_windows=/d" "$TEST_TMPDIR/bazelrc"
-    inplace-sed "/override_repository=remote_java_tools_darwin_x86_64=/d" "$TEST_TMPDIR/bazelrc"
-    inplace-sed "/override_repository=remote_java_tools_darwin_arm64=/d" "$TEST_TMPDIR/bazelrc"
+  JAVA_TOOLS_PREBUILT_ZIP_FILE="$(rlocation "${JAVA_TOOLS_PREBUILT_ZIP}")"
+  JAVA_TOOLS_PREBUILT_DIR="$TEST_TMPDIR/_java_tools_prebuilt"
+  unzip -q "${JAVA_TOOLS_PREBUILT_ZIP_FILE}" -d "$JAVA_TOOLS_PREBUILT_DIR"
+  touch "$JAVA_TOOLS_PREBUILT_DIR/WORKSPACE"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux=${JAVA_TOOLS_PREBUILT_DIR}"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_windows=${JAVA_TOOLS_PREBUILT_DIR}"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_x86_64=${JAVA_TOOLS_PREBUILT_DIR}"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
 fi
-JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
-COVERAGE_GENERATOR_DIR="$1"; shift
-if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
-  COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
-  add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
+COVERAGE_GENERATOR_WORKSPACE_FILE="$1"; shift
+if [[ "${COVERAGE_GENERATOR_WORKSPACE_FILE}" != "released" ]]; then
+  COVERAGE_GENERATOR_DIR="$(dirname "$(rlocation $COVERAGE_GENERATOR_WORKSPACE_FILE)")"
+  add_to_bazelrc "build --override_repository=bazel_tools~remote_coverage_tools_extension~remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
 
 if [[ $# -gt 0 ]]; then
@@ -59,91 +59,6 @@ if [[ $# -gt 0 ]]; then
     add_to_bazelrc "build --java_runtime_version=${JAVA_RUNTIME_VERSION}"
     add_to_bazelrc "build --tool_java_runtime_version=${JAVA_RUNTIME_VERSION}"
 fi
-
-function set_up() {
-    cat >>WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-# java_tools versions only used to test Bazel with various JDK toolchains.
-EOF
-
-    if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
-    cat >>WORKSPACE <<EOF
-http_archive(
-    name = "remote_java_tools",
-    urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_linux",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_windows",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_darwin_x86_64",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_darwin_arm64",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-EOF
-    fi
-
-    cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
-}
-
-# Returns 0 if gcov is not installed or if a version before 7.0 was found.
-# Returns 1 otherwise.
-function is_gcov_missing_or_wrong_version() {
-  local -r gcov_location=$(which gcov)
-  if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
-    echo "gcov not installed."
-    return 0
-  fi
-
-  "$gcov_location" -version | grep "LLVM" && \
-      echo "gcov LLVM version not supported." && return 0
-  # gcov -v | grep "gcov" outputs a line that looks like this:
-  # gcov (Debian 7.3.0-5) 7.3.0
-  local gcov_version="$(gcov -v | grep "gcov" | cut -d " " -f 4 | cut -d "." -f 1)"
-  [ "$gcov_version" -lt 7 ] \
-      && echo "gcov versions before 7.0 is not supported." && return 0
-  return 1
-}
-
-# Asserts if the given expected coverage result is included in the given output
-# file.
-#
-# - expected_coverage The expected result that must be included in the output.
-# - output_file       The location of the coverage output file.
-function assert_coverage_result() {
-    local expected_coverage="${1}"; shift
-    local output_file="${1}"; shift
-
-    # Replace newlines with commas to facilitate the assertion.
-    local expected_coverage_no_newlines="$( echo "$expected_coverage" | tr '\n' ',' )"
-    local output_file_no_newlines="$( cat "$output_file" | tr '\n' ',' )"
-
-    (echo "$output_file_no_newlines" \
-        | grep -F "$expected_coverage_no_newlines") \
-        || fail "Expected coverage result
-<$expected_coverage>
-was not found in actual coverage report:
-<$( cat "$output_file" )>"
-}
-
-# Returns the path of the code coverage report that was generated by Bazel by
-# looking at the current $TEST_log. The method fails if TEST_log does not
-# contain any coverage report for a passed test.
-function get_coverage_file_path_from_test_log() {
-  local ending_part="$(sed -n -e '/PASSED/,$p' "$TEST_log")"
-
-  local coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
-  [[ -e "$coverage_file_path" ]] || fail "Coverage output file does not exist!"
-  echo "$coverage_file_path"
-}
 
 function test_java_test_coverage() {
   cat <<EOF > BUILD
@@ -454,7 +369,7 @@ import java.nio.channels.*;
 import java.net.InetAddress;
 public class CovTest extends TestCase {
   private static Process startSubprocess(String arg) throws Exception {
-   String path = System.getenv("TEST_SRCDIR") + "/main/java/cov/Cov_deploy.jar";
+   String path = System.getenv("TEST_SRCDIR") + "/_main/java/cov/Cov_deploy.jar";
     String[] command = {
       // Run the deploy jar by invoking JVM because the integration tests
       // cannot use the java launcher (b/29388516).
@@ -631,7 +546,7 @@ import java.nio.channels.*;
 import java.net.InetAddress;
 public class CovTest extends TestCase {
   private static Process startSubprocess(String arg) throws Exception {
-   String path = System.getenv("TEST_SRCDIR") + "/main/java/cov/Cov_deploy.jar";
+   String path = System.getenv("TEST_SRCDIR") + "/_main/java/cov/Cov_deploy.jar";
     String[] command = {
       // Run the deploy jar by invoking JVM because the integration tests
       // cannot use the java launcher (b/29388516).
@@ -1135,6 +1050,14 @@ FN:5,main
 FNDA:1,main
 FNF:1
 FNH:1
+BRDA:6,0,0,1
+BRDA:6,0,1,0
+BRDA:8,0,0,0
+BRDA:8,0,1,1
+BRDA:11,0,0,1
+BRDA:11,0,1,0
+BRF:6
+BRH:3
 DA:5,1
 DA:6,1
 DA:7,1
@@ -1145,7 +1068,7 @@ DA:12,1
 LH:6
 LF:7
 end_of_record"
-  assert_coverage_result "$coverage_result_num_lib_header" "$coverage_file_path"
+  assert_cc_coverage_result "$coverage_result_num_lib_header" "$coverage_file_path"
 }
 
 function setup_external_java_target() {

@@ -17,10 +17,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BzlVisibility;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -50,12 +53,18 @@ public class BzlLoadValue implements SkyValue {
   // from the Module as client data?
   private final byte[] transitiveDigest; // of .bzl file and load dependencies
   private final BzlVisibility bzlVisibility;
+  private final ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings;
 
   @VisibleForTesting
-  public BzlLoadValue(Module module, byte[] transitiveDigest, BzlVisibility bzlVisibility) {
+  public BzlLoadValue(
+      Module module,
+      byte[] transitiveDigest,
+      BzlVisibility bzlVisibility,
+      ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings) {
     this.module = checkNotNull(module);
     this.transitiveDigest = checkNotNull(transitiveDigest);
     this.bzlVisibility = checkNotNull(bzlVisibility);
+    this.recordedRepoMappings = checkNotNull(recordedRepoMappings);
   }
 
   /** Returns the .bzl module. */
@@ -71,6 +80,14 @@ public class BzlLoadValue implements SkyValue {
   /** Returns the visibility of this module for the purpose of {@code load()} statements. */
   public BzlVisibility getBzlVisibility() {
     return bzlVisibility;
+  }
+
+  /**
+   * Returns the repo mapping entries used to laod this bzl file. Stored for correctness across
+   * Bazel server restarts.
+   */
+  public ImmutableTable<RepositoryName, String, RepositoryName> getRecordedRepoMappings() {
+    return recordedRepoMappings;
   }
 
   private static final SkyKeyInterner<Key> keyInterner = SkyKey.newInterner();
@@ -185,7 +202,7 @@ public class BzlLoadValue implements SkyValue {
 
   /** A key for loading a .bzl during package loading (BUILD evaluation). */
   @Immutable
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static final class KeyForBuild extends Key {
     private final Label label;
 
@@ -243,7 +260,7 @@ public class BzlLoadValue implements SkyValue {
   // are we reevaluating whether its loads are still valid? AI: fix if broken, improve this comment
   // if not broken.
   @Immutable
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static final class KeyForWorkspace extends Key {
     private final Label label;
     private final int workspaceChunk;
@@ -305,7 +322,7 @@ public class BzlLoadValue implements SkyValue {
    */
   // TODO(#11437): Prevent users from trying to declare a repo named "@_builtins".
   @Immutable
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static final class KeyForBuiltins extends Key {
     private final Label label;
 
@@ -339,8 +356,8 @@ public class BzlLoadValue implements SkyValue {
 
   /** A key for loading a .bzl to get the repo rule required by Bzlmod generated repositories. */
   @Immutable
-  @AutoCodec.VisibleForSerialization
-  static final class KeyForBzlmod extends Key {
+  @VisibleForSerialization
+  static class KeyForBzlmod extends Key {
     private final Label label;
 
     private KeyForBzlmod(Label label) {
@@ -363,9 +380,22 @@ public class BzlLoadValue implements SkyValue {
     }
   }
 
+  @Immutable
+  @VisibleForSerialization
+  static class KeyForBzlmodBootstrap extends KeyForBzlmod {
+    private KeyForBzlmodBootstrap(Label label) {
+      super(label);
+    }
+
+    @Override
+    Key getKeyForLoad(Label loadLabel) {
+      return keyForBzlmodBootstrap(loadLabel);
+    }
+  }
+
   /** Constructs a key for loading a regular (non-workspace) .bzl file, from the .bzl's label. */
   public static Key keyForBuild(Label label) {
-    return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ false));
+    return keyInterner.intern(new KeyForBuild(label, /* isBuildPrelude= */ false));
   }
 
   /**
@@ -381,17 +411,24 @@ public class BzlLoadValue implements SkyValue {
   }
 
   /** Constructs a key for loading a .bzl file within the {@code @_builtins} pseudo-repository. */
-  static Key keyForBuiltins(Label label) {
+  public static Key keyForBuiltins(Label label) {
     return keyInterner.intern(new KeyForBuiltins(label));
   }
 
   /** Constructs a key for loading the special prelude .bzl. */
   static Key keyForBuildPrelude(Label label) {
-    return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ true));
+    return keyInterner.intern(new KeyForBuild(label, /* isBuildPrelude= */ true));
   }
 
   /** Constructs a key for loading a .bzl for Bzlmod repos */
   public static Key keyForBzlmod(Label label) {
     return keyInterner.intern(new KeyForBzlmod(label));
+  }
+
+  public static Key keyForBzlmodBootstrap(Label label) {
+    Preconditions.checkArgument(
+        label.getRepository().equals(RepositoryName.BAZEL_TOOLS),
+        "keyForBzlmodBootstrap must be called with a label in the bazel_tools repository");
+    return keyInterner.intern(new KeyForBzlmodBootstrap(label));
   }
 }

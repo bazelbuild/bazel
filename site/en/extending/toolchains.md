@@ -268,7 +268,7 @@ To define some toolchains for a given toolchain type, you need three things:
    suite for different platforms.
 
 3. For each such target, an associated target of the generic
-  [`toolchain`](/reference/be/platform#toolchain)
+  [`toolchain`](/reference/be/platforms-and-toolchains#toolchain)
    rule, to provide metadata used by the toolchain framework. This `toolchain`
    target also refers to the `toolchain_type` associated with this toolchain.
    This means that a given `_toolchain` rule could be associated with any
@@ -430,7 +430,7 @@ be able to run on the execution platform.
 
 At this point all the building blocks are assembled, and you just need to make
 the toolchains available to Bazel's resolution procedure. This is done by
-registering the toolchain, either in a `WORKSPACE` file using
+registering the toolchain, either in a `MODULE.bazel` file using
 `register_toolchains()`, or by passing the toolchains' labels on the command
 line using the `--extra_toolchains` flag.
 
@@ -440,8 +440,18 @@ register_toolchains(
     "//bar_tools:barc_windows_toolchain",
     # Target patterns are also permitted, so you could have also written:
     # "//bar_tools:all",
+    # or even
+    # "//bar_tools/...",
 )
 ```
+
+When using target patterns to register toolchains, the order in which the
+individual toolchains are registered is determined by the following rules:
+
+* The toolchains defined in a subpackage of a package are registered before the
+  toolchains defined in the package itself.
+* Within a package, toolchains are registered in the lexicographical order of
+  their names.
 
 Now when you build a target that depends on a toolchain type, an appropriate
 toolchain will be selected based on the target and execution platforms.
@@ -478,17 +488,18 @@ Note: [Some Bazel rules](/concepts/platforms#status) do not yet support
 toolchain resolution.
 
 For each target that uses toolchains, Bazel's toolchain resolution procedure
-determines the target's concrete toolchain dependencies. The procedure takes as input a
-set of required toolchain types, the target platform, the list of available
-execution platforms, and the list of available toolchains. Its outputs are a
-selected toolchain for each toolchain type as well as a selected execution
+determines the target's concrete toolchain dependencies. The procedure takes as
+input a set of required toolchain types, the target platform, the list of
+available execution platforms, and the list of available toolchains. Its outputs
+are a selected toolchain for each toolchain type as well as a selected execution
 platform for the current target.
 
 The available execution platforms and toolchains are gathered from the
-`WORKSPACE` file via
-[`register_execution_platforms`](/rules/lib/globals/workspace#register_execution_platforms)
+external dependency graph via
+[`register_execution_platforms`](/rules/lib/globals/module#register_execution_platforms)
 and
-[`register_toolchains`](/rules/lib/globals/workspace#register_toolchains).
+[`register_toolchains`](/rules/lib/globals/module#register_toolchains) calls in
+`MODULE.bazel`` files.
 Additional execution platforms and toolchains may also be specified on the
 command line via
 [`--extra_execution_platforms`](/reference/command-line-reference#flag--extra_execution_platforms)
@@ -497,6 +508,27 @@ and
 The host platform is automatically included as an available execution platform.
 Available platforms and toolchains are tracked as ordered lists for determinism,
 with preference given to earlier items in the list.
+
+The set of available toolchains, in priority order, is created from
+`--extra_toolchains` and `register_toolchains`:
+
+1. Toolchains registered using `--extra_toolchains` are added first. (Within
+   these, the **last** toolchain has highest priority.)
+2. Toolchains registered using `register_toolchains` in the transitive external
+   dependency graph, in the following order: (Within these, the **first**
+   mentioned toolchain has highest priority.)
+  1. Toolchains registered by the root module (as in, the `MODULE.bazel` at the
+     workspace root);
+  2. Toolchains registered in the user's `WORKSPACE` file, including in any
+     macros invoked from there;
+  3. Toolchains registered by non-root modules (as in, dependencies specified by
+     the root module, and their dependencies, and so forth);
+  4. Toolchains registered in the "WORKSPACE suffix"; this is only used by
+     certain native rules bundled with the Bazel installation.
+
+**NOTE:** [Pseudo-targets like `:all`, `:*`, and
+`/...`](/run/build#specifying-build-targets) are ordered by Bazel's package
+loading mechanism, which uses a lexicographic ordering.
 
 The resolution steps are as follows.
 
@@ -513,6 +545,9 @@ The resolution steps are as follows.
    [`exec_compatible_with` argument](/rules/lib/globals/bzl#rule.exec_compatible_with)),
    the list of available execution platforms is filtered to remove
    any that do not match the execution constraints.
+
+1. The list of available toolchains is filtered to remove any toolchains
+   specifying `target_settings` that don't match the current configuration.
 
 1. For each available execution platform, you associate each toolchain type with
    the first available toolchain, if any, that is compatible with this execution

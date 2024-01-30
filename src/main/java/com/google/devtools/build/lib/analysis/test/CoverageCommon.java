@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -86,9 +85,6 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
               Depset.cast(supportFilesElement, Artifact.class, "coverage_support_files"));
         } else if (supportFilesElement instanceof Artifact) {
           supportFilesBuilder.add((Artifact) supportFilesElement);
-        } else if (supportFilesElement instanceof FilesToRunProvider) {
-          supportFilesBuilder.addTransitive(
-              ((FilesToRunProvider) supportFilesElement).getFilesToRun());
         } else {
           throw Starlark.errorf(
               "at index %d of coverage_support_files, got element of type %s, want one of depset,"
@@ -100,11 +96,10 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       // Should have been verified by Starlark before this function is called
       throw new IllegalStateException();
     }
-    if (!supportFilesBuilder.isEmpty() || !environmentPairs.isEmpty()) {
-      BuiltinRestriction.throwIfNotBuiltinUsage(thread);
-    }
-    if (!metadataFiles.isEmpty() || !reportedToActualSources.isEmpty()) {
-      BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    if (!supportFilesBuilder.isEmpty()
+        || !reportedToActualSources.isEmpty()
+        || !environmentPairs.isEmpty()) {
+      BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     }
     return createInstrumentedFilesInfo(
         starlarkRuleContext.getRuleContext(),

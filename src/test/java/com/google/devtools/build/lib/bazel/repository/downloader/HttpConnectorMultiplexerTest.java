@@ -29,7 +29,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
@@ -44,6 +43,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
 import org.junit.Rule;
@@ -98,7 +98,7 @@ public class HttpConnectorMultiplexerTest {
   public void ftpUrl_throwsIae() throws Exception {
     assertThrows(
         IllegalArgumentException.class,
-        () -> multiplexer.connect(new URL("ftp://lol.example"), Optional.absent()));
+        () -> multiplexer.connect(new URL("ftp://lol.example"), Optional.empty()));
   }
 
   @Test
@@ -111,7 +111,7 @@ public class HttpConnectorMultiplexerTest {
               public void run() {
                 Thread.currentThread().interrupt();
                 try {
-                  multiplexer.connect(new URL("http://lol.example"), Optional.absent());
+                  var unused = multiplexer.connect(new URL("http://lol.example"), Optional.empty());
                 } catch (InterruptedIOException ignored) {
                   return;
                 } catch (Exception ignored) {
@@ -144,7 +144,7 @@ public class HttpConnectorMultiplexerTest {
   public void failure() throws Exception {
     when(connector.connect(any(URL.class), any(Function.class))).thenThrow(new IOException("oops"));
     IOException e =
-        assertThrows(IOException.class, () -> multiplexer.connect(TEST_URL, Optional.absent()));
+        assertThrows(IOException.class, () -> multiplexer.connect(TEST_URL, Optional.empty()));
     assertThat(e).hasMessageThat().contains("oops");
     verify(connector).connect(any(URL.class), any(Function.class));
     verifyNoMoreInteractions(connector, streamFactory);
@@ -165,7 +165,7 @@ public class HttpConnectorMultiplexerTest {
 
     Function<URL, ImmutableMap<String, List<String>>> headerFunction =
         HttpConnectorMultiplexer.getHeaderFunction(
-            baseHeaders, new StaticCredentials(additionalHeaders));
+            baseHeaders, new StaticCredentials(additionalHeaders), eventHandler);
 
     // Unrelated URL
     assertThat(headerFunction.apply(new URL("http://example.org/some/path/file.txt")))
@@ -218,7 +218,7 @@ public class HttpConnectorMultiplexerTest {
         ImmutableMap.of("Authentication", ImmutableList.of("YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw=="));
     Function<URL, ImmutableMap<String, List<String>>> combinedHeaders =
         HttpConnectorMultiplexer.getHeaderFunction(
-            annonAuth, new StaticCredentials(additionalHeaders));
+            annonAuth, new StaticCredentials(additionalHeaders), eventHandler);
     assertThat(combinedHeaders.apply(new URL("http://hosting.example.com/user/foo/file.txt")))
         .containsExactly("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
     assertThat(combinedHeaders.apply(new URL("http://unreleated.example.org/user/foo/file.txt")))

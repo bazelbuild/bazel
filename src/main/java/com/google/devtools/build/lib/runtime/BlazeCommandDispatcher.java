@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -67,6 +69,7 @@ import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TriState;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -74,10 +77,14 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -140,6 +147,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   @Override
+  @CanIgnoreReturnValue
   public BlazeCommandResult exec(
       InvocationPolicy invocationPolicy,
       List<String> args,
@@ -148,10 +156,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       String clientDescription,
       long firstContactTimeMillis,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-      List<Any> commandExtensions)
+      List<Any> commandExtensions,
+      CommandExtensionReporter commandExtensionReporter)
       throws InterruptedException {
-    OriginalUnstructuredCommandLineEvent originalCommandLine =
-        new OriginalUnstructuredCommandLineEvent(args);
     Preconditions.checkNotNull(clientDescription);
     if (args.isEmpty()) { // Default to help command if no arguments specified.
       args = HELP_COMMAND;
@@ -233,12 +240,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             retrievedShutdownReason, FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
       }
       BlazeCommandResult result;
-      int attempt = 0;
+      int attemptNumber = 0;
+      Set<UUID> attemptedCommandIds = new HashSet<>();
+      BlazeCommandResult lastResult = null;
       while (true) {
+        attemptNumber += 1;
         try {
           result =
               execExclusively(
-                  originalCommandLine,
                   invocationPolicy,
                   args,
                   outErr,
@@ -248,11 +257,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   waitTimeInMs,
                   startupOptionsTaggedWithBazelRc,
                   commandExtensions,
-                  attempt);
+                  attemptNumber,
+                  attemptedCommandIds,
+                  lastResult,
+                  commandExtensionReporter);
           break;
         } catch (RemoteCacheEvictedException e) {
-          outErr.printErrLn("Found remote cache eviction error, retrying the build...");
-          attempt += 1;
+          attemptedCommandIds.add(e.getCommandId());
+          lastResult = e.getResult();
         }
       }
       if (result.shutdown()) {
@@ -275,8 +287,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   /**
-   * For testing ONLY. Same as {@link #exec(InvocationPolicy, List, OutErr, LockingMode, String,
-   * long, Optional, List)} but automatically uses the current time.
+   * For testing ONLY. Same as {@link CommandDispatcher#exec(InvocationPolicy, List, OutErr,
+   * LockingMode, String, long, Optional, List, CommandExtensionReporter)} but automatically uses
+   * the current time.
    */
   @VisibleForTesting
   public BlazeCommandResult exec(List<String> args, String clientDescription, OutErr originalOutErr)
@@ -288,12 +301,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         LockingMode.ERROR_OUT,
         clientDescription,
         runtime.getClock().currentTimeMillis(),
-        /*startupOptionsTaggedWithBazelRc=*/ Optional.empty(),
-        /*commandExtensions=*/ ImmutableList.of());
+        /* startupOptionsTaggedWithBazelRc= */ Optional.empty(),
+        /* commandExtensions= */ ImmutableList.of(),
+        /* commandExtensionReporter= */ (ext) -> {});
   }
 
   private BlazeCommandResult execExclusively(
-      OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent,
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
@@ -303,7 +316,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       long waitTimeInMs,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       List<Any> commandExtensions,
-      int attempt)
+      int attemptNumber,
+      Set<UUID> attemptedCommandIds,
+      @Nullable BlazeCommandResult lastResult,
+      CommandExtensionReporter commandExtensionReporter)
       throws RemoteCacheEvictedException {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
@@ -330,7 +346,22 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             waitTimeInMs,
             firstContactTime,
             commandExtensions,
-            this::setShutdownReason);
+            this::setShutdownReason,
+            commandExtensionReporter,
+            attemptNumber);
+
+    if (!attemptedCommandIds.isEmpty()) {
+      if (attemptedCommandIds.contains(env.getCommandId())) {
+        outErr.printErrLn(
+            String.format(
+                "Failed to retry the build: invocation id `%s` has already been used.",
+                env.getCommandId()));
+        return Preconditions.checkNotNull(lastResult);
+      } else {
+        outErr.printErrLn("Found remote cache eviction error, retrying the build...");
+      }
+    }
+
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     boolean tracerEnabled = false;
     if (commonOptions.enableTracer == TriState.YES) {
@@ -387,9 +418,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     Reporter reporter = env.getReporter();
     OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher();
     try {
-      // Temporary: there are modules that output events during beforeCommand, but the reporter
-      // isn't setup yet. Add the stored event handler to catch those events.
+      // Both the call to env.decideKeepIncrementalState() and module.beforeCommand() may emit
+      // events, but the reporter isn't setup yet. Use a stored event handler to catch those events.
       reporter.addHandler(storedEventHandler);
+      env.decideKeepIncrementalState();
       for (BlazeModule module : runtime.getBlazeModules()) {
         try (SilentCloseable closeable = Profiler.instance().profile(module + ".beforeCommand")) {
           module.beforeCommand(env);
@@ -448,7 +480,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         DebugLoggerConfigurator.setupLogging(commonOptions.verbosity);
 
-        EventHandler handler = createEventHandler(outErr, eventHandlerOptions);
+        EventHandler handler =
+            createEventHandler(
+                outErr, eventHandlerOptions, env.withMergedAnalysisAndExecutionSourceOfTruth());
         reporter.addHandler(handler);
         env.getEventBus().register(handler);
 
@@ -458,7 +492,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // modified.
         if (!eventHandlerOptions.useColor()) {
           UiEventHandler ansiAllowingHandler =
-              createEventHandler(colorfulOutErr, eventHandlerOptions);
+              createEventHandler(
+                  colorfulOutErr,
+                  eventHandlerOptions,
+                  env.withMergedAnalysisAndExecutionSourceOfTruth());
           reporter.registerAnsiAllowingHandler(handler, ansiAllowingHandler);
           env.getEventBus().register(new PassiveExperimentalEventHandler(ansiAllowingHandler));
         }
@@ -564,7 +601,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // Compute the repo mapping of the main repo and re-parse options so that we get correct
         // values for label-typed options.
         env.getEventBus().post(new MainRepoMappingComputationStartingEvent());
-        try {
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.BZLMOD, "compute main repo mapping")) {
           RepositoryMapping mainRepoMapping =
               env.getSkyframeExecutor().getMainRepoMapping(reporter);
           optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping).build();
@@ -585,10 +623,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           result = BlazeCommandResult.detailedExitCode(earlyExitCode);
           return result;
         }
-        optionHandler =
-            new BlazeOptionHandler(
-                runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
-        earlyExitCode = optionHandler.parseOptions(args, reporter);
+        try (SilentCloseable c =
+            Profiler.instance()
+                .profile(ProfilerTask.BZLMOD, "reparse options with main repo mapping")) {
+          optionHandler =
+              new BlazeOptionHandler(
+                  runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
+          earlyExitCode = optionHandler.parseOptions(args, reporter);
+        }
         if (!earlyExitCode.isSuccess()) {
           reporter.post(
               new NoBuildEvent(
@@ -599,7 +641,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Parse starlark options.
-      earlyExitCode = optionHandler.parseStarlarkOptions(env);
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
+        earlyExitCode = optionHandler.parseStarlarkOptions(env);
+      }
       if (!earlyExitCode.isSuccess()) {
         reporter.post(
             new NoBuildEvent(
@@ -616,6 +661,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               runtime, commandName, options, startupOptionsTaggedWithBazelRc);
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
+      BuildEventProtocolOptions bepOptions =
+          env.getOptions().getOptions(BuildEventProtocolOptions.class);
+      OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent;
+      if (commandName.equals("run") && !bepOptions.includeResidueInRunBepEvent) {
+        unstructuredServerCommandLineEvent =
+            OriginalUnstructuredCommandLineEvent.REDACTED_UNSTRUCTURED_COMMAND_LINE_EVENT;
+      } else {
+        unstructuredServerCommandLineEvent = new OriginalUnstructuredCommandLineEvent(args);
+      }
       env.getEventBus().post(unstructuredServerCommandLineEvent);
       env.getEventBus().post(originalCommandLineEvent);
       env.getEventBus().post(canonicalCommandLineEvent);
@@ -650,8 +704,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
-        if (attempt < executionOptions.remoteRetryOnCacheEviction) {
-          throw new RemoteCacheEvictedException();
+        if (attemptedCommandIds.size() < executionOptions.remoteRetryOnCacheEviction) {
+          throw new RemoteCacheEvictedException(env.getCommandId(), newResult);
         }
       }
 
@@ -691,7 +745,23 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     }
   }
 
-  private static class RemoteCacheEvictedException extends IOException {}
+  private static class RemoteCacheEvictedException extends IOException {
+    private final UUID commandId;
+    private final BlazeCommandResult result;
+
+    private RemoteCacheEvictedException(UUID commandId, BlazeCommandResult result) {
+      this.commandId = commandId;
+      this.result = result;
+    }
+
+    public UUID getCommandId() {
+      return commandId;
+    }
+
+    public BlazeCommandResult getResult() {
+      return result;
+    }
+  }
 
   private static void replayEarlyExitEvents(
       OutErr outErr,
@@ -794,10 +864,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   /** Returns the event handler to use for this Blaze command. */
-  private UiEventHandler createEventHandler(OutErr outErr, UiOptions eventOptions) {
+  private UiEventHandler createEventHandler(
+      OutErr outErr, UiOptions eventOptions, boolean skymeldMode) {
     Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
     PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
-    return new UiEventHandler(outErr, eventOptions, runtime.getClock(), workspacePathFragment);
+    return new UiEventHandler(
+        outErr, eventOptions, runtime.getClock(), workspacePathFragment, skymeldMode);
   }
 
   /** Returns the runtime instance shared by the commands that this dispatcher dispatches to. */

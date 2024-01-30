@@ -12,7 +12,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/commands:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/coverage:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/execlog:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:srcs",
     ],
@@ -129,7 +128,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib/bazel/execlog:stable_sort",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
@@ -138,10 +136,30 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:failure_details_java_proto",
-        "//src/main/protobuf:spawn_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "bazel_filesystem_module",
+    srcs = ["BazelFileSystemModule.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
+        "//src/main/java/com/google/devtools/build/lib/windows",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
     ],
 )
 
@@ -149,6 +167,7 @@ java_library(
     name = "main",
     srcs = ["Bazel.java"],
     deps = [
+        ":bazel_filesystem_module",
         ":builtin_command_module",
         ":modules",
         ":repository_module",
@@ -156,6 +175,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:bazel_lockfile_module",
         "//src/main/java/com/google/devtools/build/lib/bazel/coverage",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-module",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
@@ -172,7 +192,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/platform:sleep_prevention_module",
         "//src/main/java/com/google/devtools/build/lib/platform:system_suspension_module",
         "//src/main/java/com/google/devtools/build/lib/profiler:command_profiler_module",
-        "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:callcounts_module",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker_module",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall",

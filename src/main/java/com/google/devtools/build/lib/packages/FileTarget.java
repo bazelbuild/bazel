@@ -60,13 +60,18 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   }
 
   @Override
+  public boolean isFile() {
+    return true;
+  }
+
+  @Override
   public String toString() {
     return getTargetKind() + "(" + label + ")"; // Just for debugging
   }
 
   @Override
   public Set<DistributionType> getDistributions() {
-    return getPackage().getDefaultDistribs();
+    return getPackage().getPackageArgs().distribs();
   }
 
   /**
@@ -83,6 +88,6 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
    */
   @Override
   public License getLicense() {
-    return getPackage().getDefaultLicense();
+    return getPackage().getPackageArgs().license();
   }
 }

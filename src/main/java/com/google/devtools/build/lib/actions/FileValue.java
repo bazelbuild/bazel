@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -150,7 +151,7 @@ public abstract class FileValue implements SkyValue {
   }
 
   /** Key type for FileValue. */
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   public static class Key extends AbstractSkyKey<RootedPath> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -159,10 +160,14 @@ public abstract class FileValue implements SkyValue {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(RootedPath arg) {
+    private static Key create(RootedPath arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override

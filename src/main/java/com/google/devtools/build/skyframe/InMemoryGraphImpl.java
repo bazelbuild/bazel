@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ForwardingConcurrentMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,9 +36,11 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -52,7 +55,18 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   private static final int PARALLELISM_THRESHOLD = 1024;
 
-  protected final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
+  // Use ForwardingConcurrentMap as a live reference to nodeMap so that it's safe to mutate
+  // nodeMap and not have callers see the stale map. See getValues, getDoneValues,
+  // getAllNodeEntries.
+  private final ConcurrentMap<SkyKey, InMemoryNodeEntry> liveView =
+      new ForwardingConcurrentMap<>() {
+        @Override
+        protected ConcurrentMap<SkyKey, InMemoryNodeEntry> delegate() {
+          return nodeMap;
+        }
+      };
+
+  protected ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
   private final NodeBatch getBatch;
   private final NodeBatch createIfAbsentBatch;
   private final boolean usePooledInterning;
@@ -75,14 +89,12 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   private InMemoryGraphImpl(int initialCapacity, boolean usePooledInterning) {
     this.nodeMap = new ConcurrentHashMap<>(initialCapacity);
-    this.getBatch = nodeMap::get;
+    this.getBatch = this::getIfPresent;
     this.createIfAbsentBatch = this::createIfAbsent;
     this.usePooledInterning = usePooledInterning;
     if (usePooledInterning) {
       SkyKeyInterner.setGlobalPool(new SkyKeyPool());
-      if (UsePooledLabelInterningFlag.usePooledLabelInterningFlag()) {
-        LabelInterner.setGlobalPool(new LabelPool());
-      }
+      LabelInterner.setGlobalPool(new LabelPool());
     }
   }
 
@@ -127,9 +139,6 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       return;
     }
     LabelInterner interner = Label.getLabelInterner();
-    if (interner == null) {
-      return;
-    }
 
     ImmutableSortedMap<String, Target> targets = packageValue.getPackage().getTargets();
     targets.values().forEach(t -> interner.weakIntern(t.getLabel()));
@@ -169,7 +178,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @ForOverride
   protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
-    return new InMemoryNodeEntry(key);
+    return new IncrementalInMemoryNodeEntry(key);
   }
 
   @Override
@@ -206,7 +215,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps) {
+  public DepsReport analyzeDepsDoneness(SkyKey parent, List<SkyKey> deps) {
     return DepsReport.NO_INFORMATION;
   }
 
@@ -217,14 +226,14 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @Override
   public Map<SkyKey, SkyValue> getValues() {
-    return Collections.unmodifiableMap(Maps.transformValues(nodeMap, InMemoryNodeEntry::toValue));
+    return Collections.unmodifiableMap(Maps.transformValues(liveView, InMemoryNodeEntry::toValue));
   }
 
   @Override
   public Map<SkyKey, SkyValue> getDoneValues() {
     return Collections.unmodifiableMap(
         Maps.filterValues(
-            Maps.transformValues(nodeMap, entry -> entry.isDone() ? entry.getValue() : null),
+            Maps.transformValues(liveView, entry -> entry.isDone() ? entry.getValue() : null),
             Objects::nonNull));
   }
 
@@ -238,17 +247,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     nodeMap.forEachValue(PARALLELISM_THRESHOLD, consumer);
   }
 
-  /**
-   * Re-interns {@link SkyKey} instances that use {@link SkyKeyInterner} in node map back to the
-   * {@link SkyKeyInterner}'s weak interner.
-   *
-   * <p>Also uninstalls current {@link SkyKeyPool} instance from being {@link SkyKeyInterner}'s
-   * static global pool.
-   */
   @Override
-  public void cleanupInterningPool() {
+  public void cleanupInterningPools() {
     if (!usePooledInterning) {
-      // No clean up is needed when `usePooledInterning` is false for shell integration tests.
       return;
     }
     try (AutoProfiler ignored =
@@ -257,18 +258,30 @@ public class InMemoryGraphImpl implements InMemoryGraph {
           e -> {
             weakInternSkyKey(e.getKey());
 
-            if (!UsePooledLabelInterningFlag.usePooledLabelInterningFlag()
-                || !e.isDone()
-                || !e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
-              return;
+            if (e.isDone() && e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
+              weakInternPackageTargetsLabels((PackageValue) e.toValue());
             }
 
-            weakInternPackageTargetsLabels((PackageValue) e.toValue());
+            // The graph is about to be thrown away. Remove as we go to avoid temporarily storing
+            // everything in both the weak interner and the graph.
+            nodeMap.remove(e.getKey());
           });
     }
 
     SkyKeyInterner.setGlobalPool(null);
     LabelInterner.setGlobalPool(null);
+  }
+
+  @Override
+  @Nullable
+  public InMemoryNodeEntry getIfPresent(SkyKey key) {
+    return nodeMap.get(key);
+  }
+
+  /** Minimizes the size of the ConcurrentHashMap backing the graph. May be costly to run (O(n)). */
+  @Override
+  public void shrinkNodeMap() {
+    nodeMap = new ConcurrentHashMap<>(nodeMap);
   }
 
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {
@@ -279,7 +292,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
     @Override
     protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
-      return new EdgelessInMemoryNodeEntry(key);
+      return new NonIncrementalInMemoryNodeEntry(key);
     }
   }
 

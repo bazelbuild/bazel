@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestBaseRule;
+import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
 /** Rule definition for Bazel android_local_test */
 public class BazelAndroidLocalTestRule implements RuleDefinition {
@@ -52,10 +52,11 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
           "java_library",
           "java_lite_proto_library");
 
-  static final ImplicitOutputsFunction ANDROID_ROBOLECTRIC_IMPLICIT_OUTPUTS = fromFunctions(
-      JavaSemantics.JAVA_BINARY_CLASS_JAR,
-      JavaSemantics.JAVA_BINARY_SOURCE_JAR,
-      JavaSemantics.JAVA_BINARY_DEPLOY_JAR);
+  static final ImplicitOutputsFunction ANDROID_ROBOLECTRIC_IMPLICIT_OUTPUTS =
+      fromFunctions(
+          AndroidSemantics.ANDROID_BINARY_CLASS_JAR,
+          AndroidSemantics.ANDROID_BINARY_SOURCE_JAR,
+          AndroidSemantics.ANDROID_BINARY_DEPLOY_JAR);
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
@@ -70,10 +71,13 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
                     ImmutableList.of(
                         ImmutableList.of(
                             StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))))
-        .override(attr("$testsupport", LABEL).value(environment.getToolsLabel(JUNIT_TESTRUNNER)))
+        .add(attr("$testsupport", LABEL).value(environment.getToolsLabel(JUNIT_TESTRUNNER)))
         .add(
             attr("$robolectric_implicit_classpath", LABEL_LIST)
                 .value(ImmutableList.of(environment.getToolsLabel("//tools/android:android_jar"))))
+        .add(
+            attr("$build_info_translator", LABEL)
+                .value(environment.getToolsLabel("//tools/build_defs/build_info:java_build_info")))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .removeAttribute("classpath_resources")
         .removeAttribute("create_executable")
@@ -83,7 +87,6 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
         .removeAttribute("main_class")
         .removeAttribute("resources")
         .removeAttribute("use_testrunner")
-        .removeAttribute(":java_launcher") // Input files for test actions collecting code coverage
         .add(
             attr(":lcov_merger", LABEL)
                 .cfg(ExecutionTransitionFactory.createFactory())
@@ -94,14 +97,15 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
   }
 
   @Override
-  public Metadata getMetadata() {
+  public RuleDefinition.Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("android_local_test")
         .type(RuleClassType.TEST)
         .ancestors(
             AndroidLocalTestBaseRule.class,
             BaseJavaBinaryRule.class,
-            BaseRuleClasses.TestBaseRule.class)
+            BaseRuleClasses.TestBaseRule.class,
+            BazelSdkToolchainRule.class)
         .factoryClass(BazelAndroidLocalTest.class)
         .build();
   }

@@ -116,6 +116,11 @@ public interface DependencyKind {
     return dependencyKind instanceof ToolchainDependencyKind;
   }
 
+  /** Predicate to check if a dependency represents an attribute dependency. */
+  static boolean isAttribute(DependencyKind dependencyKind) {
+    return dependencyKind instanceof AttributeDependencyKind;
+  }
+
   /** A dependency through an attribute, either that of an aspect or the rule itself. */
   @AutoValue
   abstract class AttributeDependencyKind implements DependencyKind {

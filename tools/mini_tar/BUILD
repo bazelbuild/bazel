@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//tools/mini_tar:tar.bzl", "mini_tar")
 
 licenses(["notice"])

@@ -56,6 +56,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
   private LocalDiffAwareness localDiff;
   private DiffAwareness.View oldView;
   private Path testCaseRoot;
+  private Path testCaseIgnoredDir;
 
   @org.junit.Rule
   public TestName name = new TestName();
@@ -66,7 +67,11 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
     // Make sure all test functions have their own directory to test
     testCaseRoot = testRoot.getChild(name.getMethodName());
     testCaseRoot.createDirectoryAndParents();
-    localDiff = (LocalDiffAwareness) factory.maybeCreate(Root.fromPath(testCaseRoot));
+    testCaseIgnoredDir = testCaseRoot.getChild("ignored-dir");
+    testCaseIgnoredDir.createDirectoryAndParents();
+    localDiff =
+        (LocalDiffAwareness)
+            factory.maybeCreate(Root.fromPath(testCaseRoot), ImmutableSet.of(testCaseIgnoredDir));
 
     LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
     localDiffOptions.watchFS = true;
@@ -141,6 +146,14 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
 
     touch("foo.txt");
     new ModifiedFileSetChecker().modify("foo.txt").check();
+  }
+
+  @Test
+  public void testIgnoredFileModified() throws Exception {
+    captureFirstView(watchFsEnabledProvider);
+
+    touch(testCaseIgnoredDir.getRelative("foo").getPathString());
+    new ModifiedFileSetChecker().check();
   }
 
   @Test

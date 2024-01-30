@@ -27,10 +27,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -43,7 +41,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
@@ -61,6 +58,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Helper class to create a dynamic library for rules which support integration with native code.
@@ -71,26 +69,6 @@ import javax.annotation.Nullable;
  * that some rules are implicitly neverlink.
  */
 public abstract class NativeDepsHelper {
-  /**
-   * An implementation of {@link
-   * com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory} that can create
-   * artifacts anywhere.
-   *
-   * <p>Necessary because the actions of nativedeps libraries should be shareable, and thus cannot
-   * be under the package directory.
-   */
-  private static final CppLinkAction.LinkArtifactFactory SHAREABLE_LINK_ARTIFACT_FACTORY =
-      new CppLinkAction.LinkArtifactFactory() {
-        @Override
-        public Artifact create(
-            ActionConstructionContext actionConstructionContext,
-            RepositoryName repositoryName,
-            BuildConfigurationValue configuration,
-            PathFragment rootRelativePath) {
-          return actionConstructionContext.getShareableArtifact(
-              rootRelativePath, configuration.getBinDirectory(repositoryName));
-        }
-      };
 
   private NativeDepsHelper() {}
 
@@ -208,97 +186,106 @@ public abstract class NativeDepsHelper {
 
     CppHelper.checkLinkstampsUnique(ruleContext, ccLinkingContext.getLinkstamps().toList());
     ImmutableSet<Linkstamp> linkstamps = ccLinkingContext.getLinkstamps().toSet();
-    List<Artifact> buildInfoArtifacts =
-        linkstamps.isEmpty()
-            ? ImmutableList.<Artifact>of()
-            : ruleContext
-                .getAnalysisEnvironment()
-                .getBuildInfo(
-                    AnalysisUtils.isStampingEnabled(ruleContext, configuration),
-                    CppBuildInfo.KEY,
-                    configuration);
+    try {
+      List<Artifact> buildInfoArtifacts =
+          linkstamps.isEmpty()
+              ? ImmutableList.<Artifact>of()
+              : AnalysisUtils.isStampingEnabled(ruleContext, configuration)
+                  ? toolchain
+                      .getCcBuildInfoTranslator()
+                      .getOutputGroup("non_redacted_build_info_files")
+                      .toList()
+                  : toolchain
+                      .getCcBuildInfoTranslator()
+                      .getOutputGroup("redacted_build_info_files")
+                      .toList();
 
-    ImmutableSortedSet.Builder<String> requestedFeaturesBuilder =
-        ImmutableSortedSet.<String>naturalOrder()
-            .addAll(ruleContext.getFeatures())
-            .add(STATIC_LINKING_MODE)
-            .add(NATIVE_DEPS_LINK);
-    if (!ruleContext.getDisabledFeatures().contains(CppRuleClasses.LEGACY_WHOLE_ARCHIVE)) {
-      requestedFeaturesBuilder.add(CppRuleClasses.LEGACY_WHOLE_ARCHIVE);
-    }
-    ImmutableSortedSet<String> requestedFeatures = requestedFeaturesBuilder.build();
+      ImmutableSortedSet.Builder<String> requestedFeaturesBuilder =
+          ImmutableSortedSet.<String>naturalOrder()
+              .addAll(ruleContext.getFeatures())
+              .add(STATIC_LINKING_MODE)
+              .add(NATIVE_DEPS_LINK);
+      if (!ruleContext.getDisabledFeatures().contains(CppRuleClasses.LEGACY_WHOLE_ARCHIVE)) {
+        requestedFeaturesBuilder.add(CppRuleClasses.LEGACY_WHOLE_ARCHIVE);
+      }
+      ImmutableSortedSet<String> requestedFeatures = requestedFeaturesBuilder.build();
 
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(
-            ruleContext,
-            requestedFeatures,
-            /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
-            Language.CPP,
-            toolchain,
-            cppSemantics);
-
-    boolean shareNativeDeps = configuration.getFragment(CppConfiguration.class).shareNativeDeps();
-    boolean isThinLtoDisabledOnlyForLinkStaticTestAndTestOnlyTargets =
-        !featureConfiguration.isEnabled(
-                CppRuleClasses.THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS)
-            && featureConfiguration.isEnabled(
-                CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS);
-    boolean isTestOrTestOnlyTarget = ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget();
-    Artifact sharedLibrary;
-    if (shareNativeDeps) {
-      PathFragment sharedPath =
-          getSharedNativeDepsPath(
-              ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries(),
-              linkopts,
-              linkstamps.stream()
-                  .map(CcLinkingContext.Linkstamp::getArtifact)
-                  .collect(ImmutableList.toImmutableList()),
-              buildInfoArtifacts,
+      FeatureConfiguration featureConfiguration =
+          CcCommon.configureFeaturesOrReportRuleError(
+              ruleContext,
               requestedFeatures,
-              isTestOrTestOnlyTarget && isThinLtoDisabledOnlyForLinkStaticTestAndTestOnlyTargets);
+              /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+              Language.CPP,
+              toolchain,
+              cppSemantics);
 
-      sharedLibrary = ruleContext.getShareableArtifact(
-          sharedPath.replaceName(sharedPath.getBaseName() + ".so"),
-          configuration.getBinDirectory(ruleContext.getRule().getRepository()));
-    } else {
-      sharedLibrary = nativeDeps;
+      boolean shareNativeDeps = configuration.getFragment(CppConfiguration.class).shareNativeDeps();
+      boolean isThinLtoDisabledOnlyForLinkStaticTestAndTestOnlyTargets =
+          !featureConfiguration.isEnabled(
+                  CppRuleClasses.THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS)
+              && featureConfiguration.isEnabled(
+                  CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS);
+      boolean isTestOrTestOnlyTarget = ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget();
+      Artifact sharedLibrary;
+      if (shareNativeDeps) {
+        PathFragment sharedPath =
+            getSharedNativeDepsPath(
+                ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries(),
+                linkopts,
+                linkstamps.stream()
+                    .map(CcLinkingContext.Linkstamp::getArtifact)
+                    .collect(ImmutableList.toImmutableList()),
+                buildInfoArtifacts,
+                requestedFeatures,
+                isTestOrTestOnlyTarget && isThinLtoDisabledOnlyForLinkStaticTestAndTestOnlyTargets);
+
+        sharedLibrary =
+            ruleContext.getShareableArtifact(
+                sharedPath.replaceName(sharedPath.getBaseName() + ".so"),
+                configuration.getBinDirectory(ruleContext.getRule().getRepository()));
+      } else {
+        sharedLibrary = nativeDeps;
+      }
+      FdoContext fdoContext = toolchain.getFdoContext();
+
+      new CcLinkingHelper(
+              ruleContext,
+              ruleContext.getLabel(),
+              ruleContext,
+              ruleContext,
+              cppSemantics,
+              featureConfiguration,
+              toolchain,
+              fdoContext,
+              configuration,
+              ruleContext.getFragment(CppConfiguration.class),
+              ruleContext.getSymbolGenerator(),
+              TargetUtils.getExecutionInfo(
+                  ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+          .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+          .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
+          .setLinkerOutputArtifact(sharedLibrary)
+          .setLinkingMode(LinkingMode.STATIC)
+          .addLinkopts(extraLinkOpts)
+          .setNativeDeps(true)
+          .setNeverLink(true)
+          .setShouldCreateStaticLibraries(false)
+          .addCcLinkingContexts(ImmutableList.of(ccLinkingContext))
+          .setLinkArtifactFactory(CppLinkAction.SHAREABLE_LINK_ARTIFACT_FACTORY)
+          .setDynamicLinkType(LinkTargetType.DYNAMIC_LIBRARY)
+          .link(CcCompilationOutputs.EMPTY);
+
+      if (shareNativeDeps) {
+        ruleContext.registerAction(
+            SymlinkAction.toArtifact(
+                ruleContext.getActionOwner(), sharedLibrary, nativeDeps, null));
+        return new NativeDepsRunfiles(nativeDeps);
+      }
+
+      return new NativeDepsRunfiles(sharedLibrary);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
     }
-    FdoContext fdoContext = toolchain.getFdoContext();
-
-    new CcLinkingHelper(
-            ruleContext,
-            ruleContext.getLabel(),
-            ruleContext,
-            ruleContext,
-            cppSemantics,
-            featureConfiguration,
-            toolchain,
-            fdoContext,
-            configuration,
-            ruleContext.getFragment(CppConfiguration.class),
-            ruleContext.getSymbolGenerator(),
-            TargetUtils.getExecutionInfo(
-                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-        .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
-        .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
-        .setLinkerOutputArtifact(sharedLibrary)
-        .setLinkingMode(LinkingMode.STATIC)
-        .addLinkopts(extraLinkOpts)
-        .setNativeDeps(true)
-        .setNeverLink(true)
-        .setShouldCreateStaticLibraries(false)
-        .addCcLinkingContexts(ImmutableList.of(ccLinkingContext))
-        .setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY)
-        .setDynamicLinkType(LinkTargetType.DYNAMIC_LIBRARY)
-        .link(CcCompilationOutputs.EMPTY);
-
-    if (shareNativeDeps) {
-      ruleContext.registerAction(
-          SymlinkAction.toArtifact(ruleContext.getActionOwner(), sharedLibrary, nativeDeps, null));
-      return new NativeDepsRunfiles(nativeDeps);
-    }
-
-    return new NativeDepsRunfiles(sharedLibrary);
   }
 
   /**

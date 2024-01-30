@@ -87,7 +87,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   @Before
   public void createComputer() {
     clock = new ManualClock();
-    computer = new CriticalPathComputer(new ActionKeyContext(), clock);
+    computer = new CriticalPathComputer(new ActionKeyContext());
   }
 
   private static void assertActionMatches(Action action, CriticalPathComponent component) {
@@ -542,7 +542,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
         new MockAction(
             Collections.singleton(artifact("cached.out")), ImmutableSet.of(artifact("top.out")));
 
-    computer.actionCached(new CachedActionEvent(cachedAction, clock.nanoTime()));
+    computer.actionCached(new CachedActionEvent(cachedAction, clock.nanoTime(), clock.nanoTime()));
     simulateActionExec(topLevelAction, 1000);
 
     AggregatedCriticalPath aggregated = computer.aggregate();
@@ -592,14 +592,15 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     clock.advanceMillis(1000);
     long shared2Start = clock.nanoTime();
     // We concurrently execute shared2 before shared1 could finish. But we record it as a cache hit.
-    computer.actionCached(new CachedActionEvent(shared2, shared2Start));
+    computer.actionCached(new CachedActionEvent(shared2, clock.nanoTime(), shared2Start));
     clock.advanceMillis(1);
     // Action2 depends on shared2, so it can start executing without waiting to shared1. This will
     // prevent us from identifying the critical path in some circumstance, but we are OK with that.
     simulateActionExec(action2, 11);
 
     computer.actionComplete(
-        new ActionCompletionEvent(shared1Start, shared1, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            shared1Start, clock.nanoTime(), shared1, mock(ActionLookupData.class)));
     simulateActionExec(action1, 10);
     AggregatedCriticalPath criticalPath = computer.aggregate();
 
@@ -648,21 +649,24 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     computer.actionStarted(new ActionStartedEvent(action1, action1Start));
     clock.advanceMillis(1000);
     computer.actionComplete(
-        new ActionCompletionEvent(action1Start, action1, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            action1Start, clock.nanoTime(), action1, mock(ActionLookupData.class)));
 
     clock.advanceMillis(2000);
     long action2Start = clock.nanoTime();
     computer.actionStarted(new ActionStartedEvent(action2, action2Start));
     clock.advanceMillis(3000);
     computer.actionComplete(
-        new ActionCompletionEvent(action2Start, action2, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            action2Start, clock.nanoTime(), action2, mock(ActionLookupData.class)));
 
     clock.advanceMillis(2000);
     long action3Start = clock.nanoTime();
     computer.actionStarted(new ActionStartedEvent(action3, action3Start));
     clock.advanceMillis(4000);
     computer.actionComplete(
-        new ActionCompletionEvent(action3Start, action3, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            action3Start, clock.nanoTime(), action3, mock(ActionLookupData.class)));
 
     // The runtime of the critical path ignoring gaps is 8 seconds.
     assertThat(computer.getMaxCriticalPath().getAggregatedElapsedTime())
@@ -685,10 +689,12 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     computer.actionStarted(new ActionStartedEvent(action2, action2Start));
     clock.advanceMillis(2000);
     computer.actionComplete(
-        new ActionCompletionEvent(action1Start, action1, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            action1Start, clock.nanoTime(), action1, mock(ActionLookupData.class)));
     clock.advanceMillis(2000);
     computer.actionComplete(
-        new ActionCompletionEvent(action2Start, action2, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            action2Start, clock.nanoTime(), action2, mock(ActionLookupData.class)));
 
     // The total run time of all actions in the critical path is 5 seconds.
     assertThat(computer.getMaxCriticalPath().getAggregatedElapsedTime())
@@ -716,10 +722,12 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     computer.actionStarted(new ActionStartedEvent(action1, action1Start));
     clock.advanceMillis(2000);
     computer.actionComplete(
-        new ActionCompletionEvent(action1Start, action1, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            action1Start, clock.nanoTime(), action1, mock(ActionLookupData.class)));
     clock.advanceMillis(2000);
     computer.actionComplete(
-        new ActionCompletionEvent(action2Start, action2, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            action2Start, clock.nanoTime(), action2, mock(ActionLookupData.class)));
 
     // The total run time of all actions in the critical path is 5 seconds.
     assertThat(computer.getMaxCriticalPath().getAggregatedElapsedTime())
@@ -748,7 +756,8 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     computer.actionStarted(new ActionStartedEvent(action1, action1Start));
     clock.advanceMillis(3000);
     computer.actionComplete(
-        new ActionCompletionEvent(action1Start, action1, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            action1Start, clock.nanoTime(), action1, mock(ActionLookupData.class)));
     // Action 2 - 3s - 7s
     long action2Start = clock.nanoTime();
     computer.actionStarted(new ActionStartedEvent(action2, action2Start));
@@ -758,9 +767,11 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     computer.actionStarted(new ActionStartedEvent(action3, action3Start));
     clock.advanceMillis(3000);
     computer.actionComplete(
-        new ActionCompletionEvent(action2Start, action2, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            action2Start, clock.nanoTime(), action2, mock(ActionLookupData.class)));
     computer.actionComplete(
-        new ActionCompletionEvent(action3Start, action3, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            action3Start, clock.nanoTime(), action3, mock(ActionLookupData.class)));
 
     // The total run time should be 6s (Action 1 + Action 3) since Action 2 overlaps with
     // action 3, they will not be aggregated.
@@ -790,7 +801,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     long consumerFirstStart = clock.nanoTime();
     computer.actionStarted(new ActionStartedEvent(consumer, consumerFirstStart));
     clock.advanceMillis(5);
-    computer.actionRewound(new ActionRewoundEvent(consumerFirstStart, consumer));
+    computer.actionRewound(new ActionRewoundEvent(consumerFirstStart, clock.nanoTime(), consumer));
 
     // In a real rewinding case, "producer" would be re-evaluated, and the events for that
     // re-evaluation would be suppressed. This statement simulates that process by advancing the
@@ -882,7 +893,8 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             action,
             /* startTimeNanos= */ 0));
 
-    computer.actionComplete(new ActionCompletionEvent(0, action, mock(ActionLookupData.class)));
+    computer.actionComplete(
+        new ActionCompletionEvent(0, clock.nanoTime(), action, mock(ActionLookupData.class)));
     SpawnMetrics metrics = computer.getMaxCriticalPath().getSpawnMetrics().getRemoteMetrics();
     assertThat(metrics.parseTimeInMs()).isEqualTo(5 * 1000);
     assertThat(metrics.totalTimeInMs()).isEqualTo(5 * 1000);
@@ -924,7 +936,8 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     // Complete the parent action while the dep action is still running and check that the resulting
     // critical path ignores the still-running dep.
     computer.actionComplete(
-        new ActionCompletionEvent(clock.nanoTime(), parentAction, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            clock.nanoTime(), clock.nanoTime(), parentAction, mock(ActionLookupData.class)));
     assertThat(Iterables.getOnlyElement(computer.aggregate().components()).getAction())
         .isEqualTo(parentAction);
   }
@@ -933,12 +946,13 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     long nanoTimeStart = clock.nanoTime();
     if (action.getActionType().isMiddleman()) {
       clock.advanceMillis(totalTime);
-      computer.middlemanAction(new ActionMiddlemanEvent(action, nanoTimeStart));
+      computer.middlemanAction(new ActionMiddlemanEvent(action, nanoTimeStart, clock.nanoTime()));
     } else {
       computer.actionStarted(new ActionStartedEvent(action, nanoTimeStart));
       clock.advanceMillis(totalTime);
       computer.actionComplete(
-          new ActionCompletionEvent(nanoTimeStart, action, mock(ActionLookupData.class)));
+          new ActionCompletionEvent(
+              nanoTimeStart, clock.nanoTime(), action, mock(ActionLookupData.class)));
     }
   }
 
@@ -1003,7 +1017,8 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     computer.spawnExecuted(new SpawnExecutedEvent(spawn, spawnResult, Instant.now()));
     if (completeAction) {
       computer.actionComplete(
-          new ActionCompletionEvent(startTime, action, mock(ActionLookupData.class)));
+          new ActionCompletionEvent(
+              startTime, clock.nanoTime(), action, mock(ActionLookupData.class)));
     }
   }
 
@@ -1018,7 +1033,8 @@ public class CriticalPathComputerTest extends FoundationTestCase {
       computer.nextCriticalPathPhase(new ChangePhase(action));
     }
     computer.actionComplete(
-        new ActionCompletionEvent(startTime, action, mock(ActionLookupData.class)));
+        new ActionCompletionEvent(
+            startTime, clock.nanoTime(), action, mock(ActionLookupData.class)));
   }
 
   private Artifact derivedArtifact(String path) {

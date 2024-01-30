@@ -19,18 +19,22 @@ import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
+import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.time.Duration;
@@ -230,6 +234,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean remoteAcceptCached;
 
   @Option(
+      name = "experimental_remote_require_cached",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, enforce that all actions that can run remotely are cached, or else "
+              + "fail the build. This is useful to troubleshoot non-determinism issues as it "
+              + "allows checking whether actions that should be cached are actually cached "
+              + "without spuriously injecting new results into the cache.")
+  public boolean remoteRequireCached;
+
+  @Option(
       name = "remote_local_fallback",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -300,16 +316,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, --noremote_upload_local_results and --noremote_accept_cached will not"
-              + " apply to the disk cache. If both --disk_cache and --remote_cache are set"
-              + " (combined cache):\n"
-              + "\t--noremote_upload_local_results will cause results to be written to the disk"
-              + " cache, but not uploaded to the remote cache.\n"
-              + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
-              + " cache, but not in the remote cache.\n"
-              + "\tno-remote-exec actions can hit the disk cache.\n"
-              + "See #8216 for details.")
+      help = "No-op")
   public boolean incompatibleRemoteResultsIgnoreDisk;
 
   @Option(
@@ -418,24 +425,25 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean incompatibleRemoteDanglingSymlinks;
 
   @Option(
-      name = "incompatible_remote_disallow_symlink_in_tree_artifact",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, a remotely executed action cannot produce a tree artifact containing a"
-              + " relative symlink. Absolute symlinks are never allowed irrespective of this flag.")
-  public boolean incompatibleRemoteDisallowSymlinkInTreeArtifact;
-
-  @Option(
       name = "remote_cache_compression",
       oldName = "experimental_remote_cache_compression",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If enabled, compress/decompress cache blobs with zstd.")
+      help =
+          "If enabled, compress/decompress cache blobs with zstd when their size is at least"
+              + " --experimental_remote_cache_compression_threshold.")
   public boolean cacheCompression;
+
+  @Option(
+      name = "experimental_remote_cache_compression_threshold",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The minimum blob size required to compress/decompress with zstd. Ineffectual unless"
+              + " --remote_cache_compression is set.")
+  public int cacheCompressionThreshold;
 
   @Option(
       name = "build_event_upload_max_threads",
@@ -448,7 +456,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_download_outputs",
       oldName = "experimental_remote_download_outputs",
-      defaultValue = "all",
+      defaultValue = "toplevel",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -472,42 +480,39 @@ public final class RemoteOptions extends CommonRemoteOptions {
       name = "remote_download_minimal",
       oldName = "experimental_remote_download_minimal",
       defaultValue = "null",
-      expansion = {
-        "--nobuild_runfile_links",
-        "--action_cache_store_output_metadata",
-        "--experimental_inmemory_jdeps_files",
-        "--experimental_inmemory_dotd_files",
-        "--remote_download_outputs=minimal"
-      },
+      expansion = {"--remote_download_outputs=minimal"},
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Does not download any remote build outputs to the local machine. This flag is a shortcut"
-              + " for flags: --action_cache_store_output_metadata,"
-              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
-              + "--remote_download_outputs=minimal.")
+          "Does not download any remote build outputs to the local machine. This flag is an alias"
+              + " for --remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
   @Option(
       name = "remote_download_toplevel",
       oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
-      expansion = {
-        "--action_cache_store_output_metadata",
-        "--experimental_inmemory_jdeps_files",
-        "--experimental_inmemory_dotd_files",
-        "--remote_download_outputs=toplevel"
-      },
+      expansion = {"--remote_download_outputs=toplevel"},
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Only downloads remote outputs of top level targets to the local machine. This flag is a"
-              + " shortcut for flags: --action_cache_store_output_metadata,"
-              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
-              + "--remote_download_outputs=toplevel.")
+          "Only downloads remote outputs of top level targets to the local machine. This flag is an"
+              + " alias for --remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
+
+  @Option(
+      name = "remote_download_all",
+      defaultValue = "null",
+      expansion = {"--remote_download_outputs=all"},
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Downloads all remote outputs to the local machine. This flag is an alias for"
+              + " --remote_download_outputs=all.")
+  public Void remoteOutputsAll;
 
   @Option(
       name = "remote_result_cache_priority",
@@ -650,7 +655,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "experimental_remote_discard_merkle_trees",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -659,6 +664,110 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "memory usage significantly, but does require Bazel to recompute them upon remote "
               + "cache misses and retries.")
   public boolean remoteDiscardMerkleTrees;
+
+  @Option(
+      name = "experimental_circuit_breaker_strategy",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      defaultValue = "null",
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = CircuitBreakerStrategy.Converter.class,
+      help =
+          "Specifies the strategy for the circuit breaker to use. Available strategies are"
+              + " \"failure\". On invalid value for the option the behavior same as the option is"
+              + " not set.")
+  public CircuitBreakerStrategy circuitBreakerStrategy;
+
+  @Option(
+      name = "experimental_remote_failure_rate_threshold",
+      defaultValue = "10",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = Converters.PercentageConverter.class,
+      help =
+          "Sets the allowed number of failure rate in percentage for a specific time window after"
+              + " which it stops calling to the remote cache/executor. By default the value is 10."
+              + " Setting this to 0 means no limitation.")
+  public int remoteFailureRateThreshold;
+
+  @Option(
+      name = "experimental_remote_failure_window_interval",
+      defaultValue = "60s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The interval in which the failure rate of the remote requests are computed. On zero or"
+              + " negative value the failure duration is computed the whole duration of the"
+              + " execution.Following units can be used: Days (d), hours (h), minutes (m), seconds"
+              + " (s), and milliseconds (ms). If the unit is omitted, the value is interpreted as"
+              + " seconds.")
+  public Duration remoteFailureWindowInterval;
+
+  @Option(
+      name = "experimental_remote_cache_lease_extension",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will extend the lease for outputs of remote actions during the"
+              + " build by sending `FindMissingBlobs` calls periodically to remote cache. The"
+              + " frequency is based on the value of `--experimental_remote_cache_ttl`.")
+  public boolean remoteCacheLeaseExtension;
+
+  @Option(
+      name = "experimental_remote_scrubbing_config",
+      converter = ScrubberConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Enables remote cache key scrubbing with the supplied configuration file, which must be a"
+              + " protocol buffer in text format (see"
+              + " src/main/protobuf/remote_scrubbing.proto).\n\n"
+              + "This feature is intended to facilitate sharing a remote/disk cache between actions"
+              + " executing on different platforms but targeting the same platform. It should be"
+              + " used with extreme care, as improper settings may cause accidental sharing of"
+              + " cache entries and result in incorrect builds.\n\n"
+              + "Scrubbing does not affect how an action is executed, only how its remote/disk"
+              + " cache key is computed for the purpose of retrieving or storing an action result."
+              + " It cannot be used in conjunction with remote execution. Modifying the scrubbing"
+              + " configuration does not invalidate outputs present in the local filesystem or"
+              + " internal caches; a clean build is required to reexecute affected actions.\n\n"
+              + "In order to successfully use this feature, you likely want to set a custom"
+              + " --host_platform together with --experimental_platform_in_output_dir (to normalize"
+              + " output prefixes) and --incompatible_strict_action_env (to normalize environment"
+              + " variables).")
+  public Scrubber scrubber;
+
+  @Option(
+      name = "experimental_throttle_remote_action_building",
+      defaultValue = "true",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Whether to throttle the building of remote action to avoid OOM. Defaults to true.\n\n"
+              + "This is a temporary flag to allow users switch off the behaviour. Once Bazel is"
+              + " smart enough about the RAM/CPU usages, this flag will be removed.")
+  public boolean throttleRemoteActionBuilding;
+
+  private static final class ScrubberConverter extends Converter.Contextless<Scrubber> {
+
+    @Override
+    public Scrubber convert(String path) throws OptionsParsingException {
+      try {
+        return Scrubber.parse(path);
+      } catch (Scrubber.ConfigParseException e) {
+        throw new OptionsParsingException("Failed to parse ScrubbingConfig: " + e.getMessage(), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Converts to a Scrubber";
+    }
+  }
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
@@ -747,6 +856,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
       return ((!success && this == ExecutionMessagePrintMode.FAILURE)
           || (success && this == ExecutionMessagePrintMode.SUCCESS)
           || this == ExecutionMessagePrintMode.ALL);
+    }
+  }
+
+  /** An enum for specifying different strategy for circuit breaker. */
+  public enum CircuitBreakerStrategy {
+    FAILURE;
+
+    /** Converts to {@link CircuitBreakerStrategy}. */
+    public static class Converter extends EnumConverter<CircuitBreakerStrategy> {
+      public Converter() {
+        super(CircuitBreakerStrategy.class, "CircuitBreaker strategy");
+      }
     }
   }
 }

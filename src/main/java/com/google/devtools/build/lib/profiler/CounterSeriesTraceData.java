@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.profiler;
 
 import static java.util.Map.entry;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.stream.JsonWriter;
@@ -30,11 +31,14 @@ import javax.annotation.Nullable;
  * opposed to individual tasks such as executing an action).
  */
 final class CounterSeriesTraceData implements TraceData {
+  @VisibleForTesting static final long PROCESS_ID = 1;
   private final Map<ProfilerTask, double[]> counterSeriesMap;
   private final Duration profileStart;
   private final Duration bucketDuration;
   private final int len;
+  private final long threadId;
   private String displayName;
+
   @Nullable private String colorName;
 
   /**
@@ -63,6 +67,7 @@ final class CounterSeriesTraceData implements TraceData {
       }
     }
     this.len = len;
+    this.threadId = Thread.currentThread().getId();
     this.counterSeriesMap = counterSeriesMap;
     this.profileStart = profileStart;
     this.bucketDuration = bucketDuration;
@@ -115,7 +120,8 @@ final class CounterSeriesTraceData implements TraceData {
       jsonWriter.beginObject();
       jsonWriter.setIndent("");
       jsonWriter.name("name").value(displayName);
-      jsonWriter.name("pid").value(1);
+      jsonWriter.name("pid").value(PROCESS_ID);
+      jsonWriter.name("tid").value(threadId);
       if (colorName != null) {
         jsonWriter.name("cname").value(colorName);
       }

@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
@@ -338,8 +337,7 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
     return elements.contains(key);
   }
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
-  static final @Compressed Object EMPTY_COMPRESSED = new Object();
+  @SerializationConstant static final @Compressed Object EMPTY_COMPRESSED = new Object();
 
   /**
    * Returns a memory-efficient representation of dependency groups.

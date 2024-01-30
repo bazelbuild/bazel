@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages.util;
 
-import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.rules.proto.ProtoConstants;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
@@ -34,12 +34,23 @@ public final class MockProtoSupport {
    */
   public static void setup(MockToolsConfig config) throws IOException {
     createNetProto2(config);
+    setupWorkspace(config);
+    registerProtoToolchain(config);
   }
 
-  /**
-   * Create a dummy "net/proto2 compiler and proto APIs for all languages
-   * and versions.
-   */
+  private static void registerProtoToolchain(MockToolsConfig config) throws IOException {
+    config.append("WORKSPACE", "register_toolchains('tools/proto/toolchains:all')");
+    config.create(
+        "tools/proto/toolchains/BUILD",
+        TestConstants.LOAD_PROTO_TOOLCHAIN,
+        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
+        "proto_toolchain(name = 'protoc_sources',"
+            + "proto_compiler = '"
+            + ProtoConstants.DEFAULT_PROTOC_LABEL
+            + "')");
+  }
+
+  /** Create a dummy "net/proto2 compiler and proto APIs for all languages and versions. */
   private static void createNetProto2(MockToolsConfig config) throws IOException {
     config.create(
         "net/proto2/compiler/public/BUILD",
@@ -193,17 +204,23 @@ public final class MockProtoSupport {
         "           srcs = [ 'metadata.go' ])");
   }
 
-  public static void setupWorkspace(Scratch scratch) throws Exception {
-    scratch.appendFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'rules_proto',",
-        "    path = 'third_party/rules_proto',",
-        ")");
-    scratch.file("third_party/rules_proto/WORKSPACE");
-    scratch.file("third_party/rules_proto/proto/BUILD", "licenses(['notice'])");
-    scratch.file(
-        "third_party/rules_proto/proto/defs.bzl",
+  public static void setupWorkspace(MockToolsConfig config) throws IOException {
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      config.append(
+          "WORKSPACE",
+          "local_repository(",
+          "    name = 'rules_proto',",
+          "    path = 'third_party/bazel_rules/rules_proto',",
+          ")");
+    }
+
+    config.create(
+        "third_party/bazel_rules/rules_proto/proto/BUILD",
+        "licenses(['notice'])",
+        "toolchain_type(name = 'toolchain_type', visibility = ['//visibility:public'])");
+    config.create(
+        "third_party/bazel_rules/rules_proto/proto/defs.bzl",
+        "load(':proto_lang_toolchain.bzl', _proto_lang_toolchain = 'proto_lang_toolchain')",
         "def _add_tags(kargs):",
         "    if 'tags' in kargs:",
         "        kargs['tags'] += ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
@@ -212,6 +229,72 @@ public final class MockProtoSupport {
         "    return kargs",
         "",
         "def proto_library(**kargs): native.proto_library(**_add_tags(kargs))",
-        "def proto_lang_toolchain(**kargs): native.proto_lang_toolchain(**_add_tags(kargs))");
+        "def proto_lang_toolchain(**kargs): _proto_lang_toolchain(**_add_tags(kargs))");
+    config.create(
+        "third_party/bazel_rules/rules_proto/proto/proto_toolchain.bzl",
+        "load(':proto_toolchain_rule.bzl', _proto_toolchain_rule = 'proto_toolchain')",
+        "def proto_toolchain(*, name, proto_compiler, exec_compatible_with = []):",
+        "  _proto_toolchain_rule(name = name, proto_compiler = proto_compiler)",
+        "  native.toolchain(",
+        "    name = name + '_toolchain',",
+        "    toolchain_type = '" + TestConstants.PROTO_TOOLCHAIN + "',",
+        "    exec_compatible_with = exec_compatible_with,",
+        "    target_compatible_with = [],",
+        "    toolchain = name,",
+        "  )");
+    config.create(
+        "third_party/bazel_rules/rules_proto/proto/proto_toolchain_rule.bzl",
+        "ProtoLangToolchainInfo = proto_common_do_not_use.ProtoLangToolchainInfo",
+        "def _impl(ctx):",
+        "  return [",
+        "    DefaultInfo(",
+        "      files = depset(),",
+        "      runfiles = ctx.runfiles(),",
+        "    ),",
+        "    platform_common.ToolchainInfo(",
+        "      proto = ProtoLangToolchainInfo(",
+        "        out_replacement_format_flag = ctx.attr.command_line,",
+        "        output_files = ctx.attr.output_files,",
+        "        plugin = None,",
+        "        runtime = None,",
+        "        proto_compiler = ctx.attr.proto_compiler.files_to_run,",
+        "        protoc_opts = ctx.fragments.proto.experimental_protoc_opts,",
+        "        progress_message = ctx.attr.progress_message,",
+        "        mnemonic = ctx.attr.mnemonic,",
+        "        allowlist_different_package = None,",
+        "        toolchain_type = '//third_party/bazel_rules/rules_proto/proto:toolchain_type'",
+        "      ),",
+        "    ),",
+        "  ]",
+        "proto_toolchain = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "     'progress_message': attr.string(default = ",
+        "          'Generating Descriptor Set proto_library %{label}'),",
+        "    'mnemonic': attr.string(default = 'GenProtoDescriptorSet'),",
+        "    'command_line': attr.string(default = '--descriptor_set_out=%s'),",
+        "    'output_files': attr.string(values = ['single', 'multiple', 'legacy'],",
+        "       default = 'single'),",
+        "    'proto_compiler': attr.label(",
+        "       cfg = 'exec',",
+        "       executable = True,",
+        "       allow_files = True,",
+        "     ),",
+        "  },",
+        "  provides = [platform_common.ToolchainInfo],",
+        "  fragments = ['proto'],",
+        ")");
+    config.create(
+        "third_party/bazel_rules/rules_proto/proto/proto_lang_toolchain.bzl",
+        "def proto_lang_toolchain(*, name, toolchain_type = None, exec_compatible_with = [],",
+        "         target_compatible_with = [], **attrs):",
+        "  native.proto_lang_toolchain(name = name, toolchain_type = toolchain_type, **attrs)",
+        "  if toolchain_type:",
+        "    native.toolchain(",
+        "      name = name + '_toolchain',",
+        "      toolchain_type = toolchain_type,",
+        "      exec_compatible_with = exec_compatible_with,",
+        "      target_compatible_with = target_compatible_with,",
+        "      toolchain = name)");
   }
 }

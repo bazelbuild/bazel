@@ -24,6 +24,11 @@ alias(
 )
 
 alias(
+    name = "dexdump",
+    actual = "build-tools/%s/dexdump" % "%build_tools_directory%",
+)
+
+alias(
     name = "emulator",
     actual = "emulator/emulator",
 )

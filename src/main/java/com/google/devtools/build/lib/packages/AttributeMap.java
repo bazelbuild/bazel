@@ -28,10 +28,10 @@ import javax.annotation.Nullable;
  * its particular needs are.
  */
 public interface AttributeMap {
-  /**
-   * Returns the name of the rule; this is equivalent to {@code getLabel().getName()}.
-   */
-  String getName();
+  /** Describe the underlying rule, for use in messages. */
+  default String describeRule() {
+    return getLabel().toString();
+  }
 
   /**
    * Returns the label of the rule.
@@ -130,16 +130,5 @@ public interface AttributeMap {
   /** Same as {@link #visitAllLabels} but for attributes matching a {@link DependencyFilter}. */
   void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer);
 
-  // TODO(bazel-team): These methods are here to support computed defaults that inherit
-  // package-level default values. Instead, we should auto-inherit and remove the computed
-  // defaults. If we really need to give access to package-level defaults, we should come up with
-  // a more generic interface.
-  String getPackageDefaultHdrsCheck();
-
-  boolean isPackageDefaultHdrsCheckSet();
-
-  Boolean getPackageDefaultTestOnly();
-
-  String getPackageDefaultDeprecation();
-
+  PackageArgs getPackageArgs();
 }

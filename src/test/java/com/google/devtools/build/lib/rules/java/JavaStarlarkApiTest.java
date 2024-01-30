@@ -13,30 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
-import static java.util.stream.Collectors.joining;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructure;
+import static java.util.Arrays.stream;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -44,31 +44,63 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.OS;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
+import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
+import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValuesProvider;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
-import net.starlark.java.eval.EvalException;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests Starlark API for Java rules. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class JavaStarlarkApiTest extends BuildViewTestCase {
+
+  private static final String PLATFORMS_PACKAGE_PATH = "my/java/platforms";
+
+  private final String targetPlatform;
+  private final String targetOs;
+  private final String targetCpu;
+
+  @TestParameters(valuesProvider = PlatformsParametersProvider.class)
+  public JavaStarlarkApiTest(String platform, String os, String cpu) {
+    this.targetPlatform = platform;
+    this.targetOs = os;
+    this.targetCpu = cpu;
+  }
+
+  @Before
+  public void setupTargetPlatform() throws Exception {
+    JavaTestUtil.setupPlatform(
+        getAnalysisMock(),
+        mockToolsConfig,
+        scratch,
+        PLATFORMS_PACKAGE_PATH,
+        targetPlatform,
+        targetOs,
+        targetCpu);
+  }
+
   @Before
   public void setupMyInfo() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
 
     scratch.file("myinfo/BUILD");
+  }
+
+  @Override
+  protected void useConfiguration(String... args) throws Exception {
+    super.useConfiguration(
+        ObjectArrays.concat(
+            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
   }
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
@@ -257,7 +289,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     Depset fullCompileJars = ((Depset) info.getValue("full_compile_jars"));
     @SuppressWarnings("unchecked")
     Sequence<Artifact> sourceJars = ((Sequence<Artifact>) info.getValue("source_jars"));
-    JavaRuleOutputJarsProvider outputs = ((JavaRuleOutputJarsProvider) info.getValue("outputs"));
+    JavaRuleOutputJarsProvider outputs =
+        JavaRuleOutputJarsProvider.fromStarlark(info.getValue("outputs"));
 
     assertThat(artifactFilesNames(transitiveRuntimeJars.toList(Artifact.class)))
         .containsExactly("libdep.jar");
@@ -272,7 +305,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaOutput javaOutput = outputs.getJavaOutputs().get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(artifactFilesNames(javaOutput.getSourceJars())).containsExactly("libdep-src.jar");
+    assertThat(artifactFilesNames(javaOutput.getSourceJarsAsList()))
+        .containsExactly("libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getCompileJdeps().getFilename()).isEqualTo("libdep-hjar.jdeps");
   }
@@ -319,14 +353,15 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaOutput javaOutput = javaOutputs.get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(artifactFilesNames(javaOutput.getSourceJars())).containsExactly("libdep-src.jar");
+    assertThat(artifactFilesNames(javaOutput.getSourceJarsAsList()))
+        .containsExactly("libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getCompileJdeps().getFilename()).isEqualTo("libdep-hjar.jdeps");
   }
 
   @Test
   public void javaToolchainInfo_jacocoRunnerAttribute() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file("java/test/B.jar");
     scratch.file(
         "java/test/BUILD",
@@ -357,7 +392,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileExposesOutputJarProvider() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file("java/test/B.jar");
     scratch.file(
         "java/test/BUILD",
@@ -415,6 +450,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'sourcepath': attr.label_list(allow_files=['.jar']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -425,13 +461,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(
                     Label.parseCanonical("//java/test:extension.bzl"), "result"));
 
-    JavaRuleOutputJarsProvider outputs = ((JavaRuleOutputJarsProvider) info.getValue("outputs"));
+    JavaRuleOutputJarsProvider outputs =
+        JavaRuleOutputJarsProvider.fromStarlark(info.getValue("outputs"));
     assertThat(outputs.getJavaOutputs()).hasSize(1);
 
     JavaOutput javaOutput = outputs.getJavaOutputs().get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(prettyArtifactNames(javaOutput.getSourceJars()))
+    assertThat(prettyArtifactNames(javaOutput.getSourceJarsAsList()))
         .containsExactly("java/test/libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getNativeHeadersJar().getFilename())
@@ -441,7 +478,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void javaCommonCompile_setsRuntimeDeps() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -491,13 +528,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'runtime_deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
     JavaCompilationArgsProvider compilationArgs =
-        info.getProviders().getProvider(JavaCompilationArgsProvider.class);
+        info.getProvider(JavaCompilationArgsProvider.class);
     JavaCompilationInfoProvider compilationInfo = info.getCompilationInfoProvider();
     JavaSourceJarsProvider sourceJarsProvider = info.getProvider(JavaSourceJarsProvider.class);
 
@@ -531,7 +569,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     // Set up a Starlark rule that uses java_common.compile and supports annotation processing in
     // the same way as java_library, then use a helper method to test that the custom rule produces
     // the same annotation processing information as java_library would.
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -557,12 +595,13 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'plugins': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
     testAnnotationProcessingInfoIsStarlarkAccessible(
-        /*toBeProcessedRuleName=*/ "java_custom_library",
-        /*extraLoad=*/ "load(':custom_rule.bzl', 'java_custom_library')");
+        /* toBeProcessedRuleName= */ "java_custom_library",
+        /* extraLoad= */ "load(':custom_rule.bzl', 'java_custom_library')");
   }
 
   /**
@@ -571,8 +610,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void javaCommonCompile_requiresJavaPluginInfo() throws Exception {
-    useConfiguration("--incompatible_require_javaplugininfo_in_javacommon");
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -594,6 +632,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -615,7 +654,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileCompilationInfo() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -658,6 +697,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -671,12 +711,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(compilationInfo.getRuntimeClasspath().toList(Artifact.class)))
         .containsExactly("java/test/libdep.jar", "java/test/libcustom.jar");
 
-    assertThat(compilationInfo.getJavacOpts()).contains("-XDone");
+    assertThat(compilationInfo.getJavacOptsList()).contains("-XDone");
   }
 
   @Test
   public void testJavaCommonCompileTransitiveSourceJars() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -718,6 +758,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -735,7 +776,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileSourceJarName() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -786,6 +827,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -802,7 +844,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileWithOnlyOneSourceJar() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -835,6 +877,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.jar']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -854,7 +897,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompile_noSources() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -884,6 +927,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  attrs = {",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -900,7 +944,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileCustomSourceJar() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -935,6 +979,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.jar']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -954,7 +999,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaCommonCompileAdditionalInputsAndOutputs() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -986,6 +1031,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'additional_inputs': attr.label_list(allow_files=['.bin']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -995,16 +1041,16 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(artifactFilesNames(javaAction.getOutputs())).contains("custom_additional_output");
   }
 
-  private static Collection<String> artifactFilesNames(NestedSet<Artifact> artifacts) {
+  private static ImmutableList<String> artifactFilesNames(NestedSet<Artifact> artifacts) {
     return artifactFilesNames(artifacts.toList());
   }
 
-  private static Collection<String> artifactFilesNames(Iterable<Artifact> artifacts) {
-    List<String> result = new ArrayList<>();
+  private static ImmutableList<String> artifactFilesNames(Iterable<Artifact> artifacts) {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
     for (Artifact artifact : artifacts) {
       result.add(artifact.getFilename());
     }
-    return result;
+    return result.build();
   }
 
   /**
@@ -1014,7 +1060,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   @Test
   public void testJavaPlugin() throws Exception {
     testAnnotationProcessingInfoIsStarlarkAccessible(
-        /*toBeProcessedRuleName=*/ "java_library", /*extraLoad=*/ "");
+        /* toBeProcessedRuleName= */ "java_library", /* extraLoad= */ "");
   }
 
   /**
@@ -1157,10 +1203,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaPluginData pluginData =
         retrieveStarlarkPluginData(
-            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ false);
+            "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ false);
     JavaPluginData apiPluginData =
         retrieveStarlarkPluginData(
-            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ true);
+            "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ true);
 
     assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
     assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
@@ -1191,10 +1237,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaPluginData pluginData =
         retrieveStarlarkPluginData(
-            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ false);
+            "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ false);
     JavaPluginData apiPluginData =
         retrieveStarlarkPluginData(
-            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ true);
+            "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ true);
 
     assertThat(apiPluginData.processorClasses().toList())
         .containsExactly("com.google.process.stuff");
@@ -1234,10 +1280,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaPluginData pluginData =
         retrieveStarlarkPluginData(
-            "//java/test:library", /* provider = */ "JavaInfo", /* apiGenerating = */ false);
+            "//java/test:library", /* provider= */ "JavaInfo", /* apiGenerating= */ false);
     JavaPluginData apiPluginData =
         retrieveStarlarkPluginData(
-            "//java/test:library", /* provider = */ "JavaInfo", /* apiGenerating = */ true);
+            "//java/test:library", /* provider= */ "JavaInfo", /* apiGenerating= */ true);
 
     assertThat(pluginData.processorClasses().toList())
         .containsExactly("com.google.process.stuff", "com.google.process.apistuff");
@@ -1499,8 +1545,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         jlJavaCompilationArgsProvider.getTransitiveCompileTimeJars();
 
     // Using reference equality since should be precisely identical
-    assertThat(myCompileJars == jlCompileJars).isTrue();
-    assertThat(myTransitiveRuntimeJars == jlTransitiveRuntimeJars).isTrue();
+    assertThat(myCompileJars).isSameInstanceAs(jlCompileJars);
+    assertThat(myTransitiveRuntimeJars).isSameInstanceAs(jlTransitiveRuntimeJars);
     assertThat(myTransitiveCompileTimeJars).isEqualTo(jlTransitiveCompileTimeJars);
   }
 
@@ -1524,9 +1570,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StarlarkProvider.Key myProviderKey =
         new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "my_provider");
     StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
-    Object javaProvider = declaredProvider.getValue("p");
-    assertThat(javaProvider).isInstanceOf(JavaInfo.class);
-    assertThat(javaLibraryTarget.get(JavaInfo.PROVIDER)).isEqualTo(javaProvider);
+    // attempting to wrap will error out if not a JavaInfo
+    Object javaProvider = JavaInfo.PROVIDER.wrap(declaredProvider.getValue("p", Info.class));
+    // Compares providers structurally rather than by reference equality. References will not match
+    // after serialization.
+    assertThat(dumpStructure(javaLibraryTarget.get(JavaInfo.PROVIDER)))
+        .isEqualTo(dumpStructure(javaProvider));
   }
 
   @Test
@@ -1548,12 +1597,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
     ConfiguredTarget topJavaLibraryTarget = getConfiguredTarget("//foo:jl_top");
 
-    Object javaProvider = myRuleTarget.get(JavaInfo.PROVIDER.getKey());
+    Object javaProvider = myRuleTarget.get(JavaInfo.PROVIDER);
     assertThat(javaProvider).isInstanceOf(JavaInfo.class);
 
     JavaInfo jlJavaInfo = javaLibraryTarget.get(JavaInfo.PROVIDER);
 
-    assertThat(jlJavaInfo == javaProvider).isTrue();
+    // Compares providers structurally rather than by reference equality. References will not match
+    // after serialization.
+    assertThat(dumpStructure(jlJavaInfo)).isEqualTo(dumpStructure(javaProvider));
 
     JavaInfo jlTopJavaInfo = topJavaLibraryTarget.get(JavaInfo.PROVIDER);
 
@@ -1693,18 +1744,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "bad_exports(name='bad_exports')",
         "bad_libs(name='bad_libs')");
 
-    checkError(
-        "//foo:bad_deps",
-        "Error in JavaInfo: at index 0 of deps, got element of type File, want JavaInfo");
+    checkError("//foo:bad_deps", "at index 0 of deps, got element of type File, want JavaInfo");
     checkError(
         "//foo:bad_runtime_deps",
-        "Error in JavaInfo: at index 0 of runtime_deps, got element of type File, want JavaInfo");
+        "at index 0 of runtime_deps, got element of type File, want JavaInfo");
     checkError(
-        "//foo:bad_exports",
-        "Error in JavaInfo: at index 0 of exports, got element of type File, want JavaInfo");
+        "//foo:bad_exports", "at index 0 of exports, got element of type File, want JavaInfo");
     checkError(
-        "//foo:bad_libs",
-        "Error in JavaInfo: at index 0 of native_libraries, got element of type File, want CcInfo");
+        "//foo:bad_libs", "at index 0 of native_libraries, got element of type File, want CcInfo");
   }
 
   @Test
@@ -1742,8 +1789,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "load(':javainfo_rules.bzl', 'only_outputjar')",
         "only_outputjar(name='only_outputjar')");
 
-    checkError(
-        "//foo:only_outputjar", "JavaInfo() missing 1 required positional argument: compile_jar");
+    checkError("//foo:only_outputjar", "missing 1 required positional argument: compile_jar");
   }
 
   @Test
@@ -1833,7 +1879,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/extension.bzl",
         "result = provider()",
         "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_deps)]",
+        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_compile_time_jars)]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
 
     scratch.file(
@@ -1865,7 +1911,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/extension.bzl",
         "result = provider()",
         "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_runtime_deps)]",
+        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_runtime_jars)]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
 
     scratch.file(
@@ -1984,7 +2030,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget testTarget = getConfiguredTarget("//foo:binary");
 
     // Check that the directory name is on the java.library.path
-    assertThat(getJvmFlags(getExecutable(testTarget)))
+    assertThat(
+            JavaTestUtil.getJvmFlagsForJavaBinaryExecutable(
+                getRuleContext(testTarget), getGeneratingAction(getExecutable(testTarget))))
         .containsMatch("-Djava.library.path=\\$\\{JAVA_RUNFILES\\}/.*/foo");
   }
 
@@ -2012,7 +2060,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget testTarget = getConfiguredTarget("//foo:test");
     // Check that the directory name is on the java.library.path
-    assertThat(getJvmFlags(getExecutable(testTarget)))
+    assertThat(
+            JavaTestUtil.getJvmFlagsForJavaBinaryExecutable(
+                getRuleContext(testTarget), getGeneratingAction(getExecutable(testTarget))))
         .containsMatch("-Djava.library.path=\\$\\{JAVA_RUNFILES\\}/.*/foo");
   }
 
@@ -2055,7 +2105,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   /** Tests that JavaInfo propagates native libraries from deps, runtime_deps, and exports. */
   @Test
   public void javaInfo_nativeLibrariesPropagate() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -2136,7 +2186,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             myRuleTarget.get(
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
 
-    JavaGenJarsProvider javaGenJarsProvider = (JavaGenJarsProvider) info.getValue("property");
+    JavaGenJarsProvider javaGenJarsProvider = JavaGenJarsProvider.from(info.getValue("property"));
 
     assertThat(javaGenJarsProvider.getGenClassJar().getFilename())
         .isEqualTo("libmy_java_lib_a-gen.jar");
@@ -2156,7 +2206,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'])",
+        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], javacopts = ['opt1'])",
         "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
@@ -2166,18 +2216,48 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
 
     JavaCompilationInfoProvider javaCompilationInfoProvider =
-        (JavaCompilationInfoProvider) info.getValue("property");
+        JavaCompilationInfoProvider.fromStarlarkCompilationInfo(info.getValue("property"));
 
     assertThat(
             prettyArtifactNames(
                 javaCompilationInfoProvider.getRuntimeClasspath().getSet(Artifact.class)))
         .containsExactly("foo/libmy_java_lib_a.jar");
+    assertThat(javaCompilationInfoProvider.getJavacOpts().toList()).contains("opt1");
+    assertThat(javaCompilationInfoProvider.getJavacOptsList()).contains("opt1");
+  }
+
+  @Test
+  public void javaInfoStarlarkCompilationInfoJavacOpts() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(property = ctx.attr.dep[JavaInfo].compilation_info.javac_options)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], javacopts = ['opt1',"
+            + " 'opt2'])",
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
+
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+    ImmutableList<String> javacOptionsList =
+        JavaHelper.tokenizeJavaOptions(
+            Depset.cast(info.getValue("property"), String.class, "javac_options"));
+
+    assertThat(javacOptionsList).containsAtLeast("opt1", "opt2").inOrder();
   }
 
   /* Test inspired by {@link AbstractJavaLibraryConfiguredTargetTest#testNeverlink}.*/
   @Test
   public void javaCommonCompileNeverlink() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -2221,6 +2301,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "     'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -2239,7 +2320,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void javaInfoConstructorWithNeverlink() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -2265,13 +2346,13 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
   @Test
   public void javaCommonMergeWithNeverlink() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -2302,13 +2383,13 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
   @Test
   public void javaCommonCompileWithNeverlink() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -2334,13 +2415,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.java']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java'],",
         "  provides = [JavaInfo],",
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
@@ -2350,7 +2432,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void javaCommonCompile_nativeLibrariesPropagate() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -2395,6 +2477,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'exports': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -2415,7 +2498,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void javaCommonCompile_directNativeLibraries() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -2452,6 +2535,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'ccdeps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -2567,48 +2651,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void useIjars_fails() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
-    scratch.file(
-        "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.use_ijars()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void disallowJavaImportExports_fails() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
-    scratch.file(
-        "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.disallow_java_import_exports()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
   public void mergeRuntimeOutputJarsTest() throws Exception {
     scratch.file(
         "foo/custom_library.bzl",
@@ -2630,14 +2672,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_library(name = 'b', srcs = ['java/B.java'])");
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
-    JavaInfo javaInfo = (JavaInfo) myRuleTarget.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = myRuleTarget.get(JavaInfo.PROVIDER);
     List<String> directJars = prettyArtifactNames(javaInfo.getRuntimeOutputJars());
     assertThat(directJars).containsExactly("foo/liba.jar", "foo/libb.jar");
   }
 
   @Test
   public void javaToolchainFlag_default() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/rule.bzl",
         "result = provider()",
@@ -2674,7 +2716,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void javaToolchainFlag_set() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/rule.bzl",
         "result = provider()",
@@ -2739,7 +2781,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testCompileExports() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -2780,6 +2822,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'exports': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -2795,7 +2838,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testCompileOutputJarHasManifestProto() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/java_custom_library.bzl",
         "def _impl(ctx):",
@@ -2813,6 +2856,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.java']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java'],",
         ")");
     scratch.file(
@@ -2830,7 +2874,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testCompileWithNeverlinkDeps() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/java_custom_library.bzl",
         "def _impl(ctx):",
@@ -2851,6 +2895,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java'],",
         ")");
     scratch.file(
@@ -2871,7 +2916,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testCompileOutputJarNotInRuntimePathWithoutAnySourcesDefined() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/java_custom_library.bzl",
         "def _impl(ctx):",
@@ -2892,6 +2937,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'exports': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java'],",
         ")");
     scratch.file(
@@ -2915,7 +2961,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testConfiguredTargetToolchain() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
 
     scratch.file(
         "a/BUILD",
@@ -2931,7 +2977,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    source_files = ctx.files.srcs,",
         "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    java_toolchain = ctx.attr._java_toolchain[platform_common.ToolchainInfo],",
         "  )",
         "  return []",
         "jrule = rule(",
@@ -2943,16 +2989,17 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.java']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java'])");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("got value of type 'Target', want 'JavaToolchainInfo'");
+    assertContainsEvent("got element of type ToolchainInfo, want JavaToolchainInfo");
   }
 
   @Test
   public void defaultJavacOpts() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "a/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -2977,8 +3024,35 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void defaultJavacOpts_asDepset() throws Exception {
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  return MyInfo(",
+        "    javac_opts = java_common.default_javac_opts_depset(",
+        "        java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    ))",
+        "get_javac_opts = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  }",
+        ");");
+
+    scratch.file("a/BUILD", "load(':rule.bzl', 'get_javac_opts')", "get_javac_opts(name='r')");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    NestedSet<String> javacopts =
+        Depset.cast(getMyInfoFromTarget(r).getValue("javac_opts"), String.class, "javac_opts");
+
+    assertThat(String.join(" ", javacopts.toList())).contains("-source 6 -target 6");
+  }
+
+  @Test
   public void defaultJavacOpts_toolchainProvider() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "a/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -3038,7 +3112,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaLibaryCollectsCoverageDependenciesFromResources() throws Exception {
+  public void testJavaLibraryCollectsCoverageDependenciesFromResources() throws Exception {
     useConfiguration("--collect_code_coverage");
 
     scratch.file(
@@ -3063,7 +3137,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testSkipAnnotationProcessing() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
@@ -3092,6 +3166,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'plugins': attr.label_list(providers=[JavaPluginInfo]),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3133,7 +3208,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaCompileAction turbineAction =
         (JavaCompileAction) getGeneratingAction(getBinArtifact("libcustom-hjar.jar", custom));
     assertThat(turbineAction.getMnemonic()).isEqualTo("JavacTurbine");
-    List<String> args = turbineAction.getArguments();
+    ImmutableList<String> args = turbineAction.getArguments();
     assertThat(args).doesNotContain("--processors");
 
     // enable_annotation_processing=False shouldn't disable direct classpaths if there are no
@@ -3147,7 +3222,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testCompileWithDisablingCompileJarIsPrivateApi() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
@@ -3164,6 +3239,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3174,12 +3250,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: enable_compile_jar_action");
   }
 
   @Test
   public void testCompileWithClasspathResourcesIsPrivateApi() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file("foo/resource.txt", "Totally real resource content");
     scratch.file(
         "foo/custom_rule.bzl",
@@ -3198,6 +3274,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'classpath_resources': attr.label_list(allow_files = True),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3208,32 +3285,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void testGetBuildInfoArtifactsIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx, True)",
-        "  return [DefaultInfo(files = depset(artifacts))]",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: classpath_resources");
   }
 
   @Test
   public void testInjectingRuleKindIsPrivateApi() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
@@ -3250,6 +3307,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3260,12 +3318,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: injecting_rule_kind");
   }
 
   @Test
   public void testEnableJSpecifyIsPrivateApi() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
@@ -3282,6 +3340,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3292,7 +3351,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: enable_jspecify");
   }
 
   @Test
@@ -3318,7 +3377,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: merge_java_outputs");
   }
 
   @Test
@@ -3344,12 +3403,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: merge_source_jars");
   }
 
   @Test
   public void testCompileIncludeCompilationInfoIsPrivateApi() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
@@ -3366,6 +3425,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3376,12 +3436,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: include_compilation_info");
   }
 
   @Test
-  public void testCompileWithResorceJarsIsPrivateApi() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+  public void testCompileWithResourceJarsIsPrivateApi() throws Exception {
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
@@ -3390,7 +3450,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    output = ctx.actions.declare_file('output.jar'),",
         "    java_toolchain = java_toolchain,",
-        "    resource_jars = [java_toolchain.timezone_data()],",
+        "    resource_jars = ['foo.jar'],",
         "  )",
         "  return []",
         "java_custom_library = rule(",
@@ -3399,6 +3459,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3409,7 +3470,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: resource_jars");
   }
 
   @Test
@@ -3429,12 +3490,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test
-  public void testRunIjarIsPrivateApi() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+  public void testRunIjarWithOutputParameterIsPrivateApi() throws Exception {
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
@@ -3451,6 +3512,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  attrs = {",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3461,51 +3523,58 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: output");
   }
 
   @Test
-  public void testGetRemoveDeadCodeFromJ2ObjcConfigurationForStarlarkIsPrivateAPI()
-      throws Exception {
+  public void testPackSourcesWithExternalResourceArtifact() throws Exception {
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
-        "foo/rule.bzl",
+        "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  ctx.fragments.j2objc.remove_dead_code()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['j2objc']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void testGetBuildInfoArtifacts() throws Exception {
-    scratch.file(
-        "bazel_internal/test/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx, False)",
-        "  return [DefaultInfo(files = depset(artifacts))]",
-        "custom_rule = rule(",
+        "  out = ctx.actions.declare_file('output.jar')",
+        "  java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]",
+        "  java_common.pack_sources(",
+        "    ctx.actions,",
+        "    java_toolchain = java_toolchain,",
+        "    output_source_jar = out,",
+        "    sources = ctx.files.srcs,",
+        "  )",
+        "  return [DefaultInfo(files = depset([out]))]",
+        "java_custom_library = rule(",
         "  implementation = _impl,",
-        "  attrs = {},",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = True),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  fragments = ['java']",
         ")");
+    scratch.file("my_other_repo/WORKSPACE");
+    scratch.file("my_other_repo/external-file.txt");
+    scratch.file("my_other_repo/BUILD", "exports_files(['external-file.txt'])");
+    rewriteWorkspace("local_repository(name = 'other_repo', path = './my_other_repo')");
     scratch.file(
-        "bazel_internal/test/BUILD",
-        "load(':custom_rule.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom')");
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  srcs = [",
+        "    'internal-file.txt',",
+        "    '@other_repo//:external-file.txt',",
+        "  ]",
+        ")");
 
-    NestedSet<Artifact> artifacts =
-        getConfiguredTarget("//bazel_internal/test:custom")
-            .getProvider(FileProvider.class)
-            .getFilesToBuild();
+    List<String> arguments =
+        ((SpawnAction) getGeneratingAction(getConfiguredTarget("//foo:custom"), "foo/output.jar"))
+            .getArguments();
 
-    assertThat(prettyArtifactNames(artifacts)).containsExactly("build-info-redacted.properties");
+    assertThat(arguments)
+        .containsAtLeast(
+            "--resources",
+            "foo/internal-file.txt:foo/internal-file.txt",
+            "external/other_repo/external-file.txt:external-file.txt")
+        .inOrder();
   }
 
   @Test
@@ -3584,78 +3653,235 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCollectNativeLibsDirsIsPrivateApi() throws Exception {
+  public void implicitLibCtSym() throws Exception {
+    scratch.file("a/libStatic.a");
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "load('"
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
+        "java_runtime(",
+        "    name='jvm',",
+        "    srcs=[",
+        "        'foo/bar/bin/java',",
+        "        'foo/bar/lib/ct.sym',",
+        "    ],",
+        "    java='foo/bar/bin/java',",
+        ")",
+        "java_runtime_alias(name='alias')",
+        "jrule(name='r')",
+        "toolchain(",
+        "    name = 'java_runtime_toolchain',",
+        "    toolchain = ':jvm',",
+        "    toolchain_type = '"
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/jdk:runtime_toolchain_type',",
+        ")");
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
+        "  return MyInfo(",
+        "    lib_ct_sym = provider.lib_ct_sym,",
+        "  )",
+        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+
+    useConfiguration("--extra_toolchains=//a:all");
+    ConfiguredTarget ct = getConfiguredTarget("//a:r");
+    StructImpl myInfo = getMyInfoFromTarget(ct);
+    Artifact libCtSym = myInfo.getValue("lib_ct_sym", Artifact.class);
+    assertThat(libCtSym).isNotNull();
+    assertThat(libCtSym.getExecPathString()).isEqualTo("a/foo/bar/lib/ct.sym");
+  }
+
+  @Test
+  public void explicitLibCtSym() throws Exception {
+    scratch.file("a/libStatic.a");
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "load('"
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
+        "java_runtime(",
+        "    name='jvm',",
+        "    srcs=[",
+        "        'foo/bar/bin/java',",
+        "        'foo/bar/lib/ct.sym',",
+        "    ],",
+        "    java='foo/bar/bin/java',",
+        "    lib_ct_sym='lib/ct.sym',",
+        ")",
+        "java_runtime_alias(name='alias')",
+        "jrule(name='r')",
+        "toolchain(",
+        "    name = 'java_runtime_toolchain',",
+        "    toolchain = ':jvm',",
+        "    toolchain_type = '"
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/jdk:runtime_toolchain_type',",
+        ")");
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
+        "  return MyInfo(",
+        "    lib_ct_sym = provider.lib_ct_sym,",
+        "  )",
+        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+
+    useConfiguration("--extra_toolchains=//a:all");
+    ConfiguredTarget ct = getConfiguredTarget("//a:r");
+    StructImpl myInfo = getMyInfoFromTarget(ct);
+    Artifact libCtSym = myInfo.getValue("lib_ct_sym", Artifact.class);
+    assertThat(libCtSym).isNotNull();
+    assertThat(libCtSym.getExecPathString()).isEqualTo("a/lib/ct.sym");
+  }
+
+  @Test
+  @TestParameters({
+    "{module: java_config, api: use_ijars}",
+    "{module: java_config, api: disallow_java_import_exports}",
+    "{module: java_config, api: enforce_explicit_java_test_deps}",
+    "{module: java_config, api: use_header_compilation}",
+    "{module: java_config, api: generate_java_deps}",
+    "{module: java_config, api: reduce_java_classpath}",
+  })
+  public void testNoArgsPrivateAPIsAreIndeedPrivate(String module, String api) throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
+    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.collect_native_deps_dirs([])",
+        "  java_config = ctx.fragments.java",
+        "  java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java",
+        "  " + module + "." + api + "()",
         "  return []",
-        "custom_rule = rule(",
+        "java_custom_library = rule(",
         "  implementation = _impl,",
-        "  attrs = {},",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  fragments = ['java']",
         ")");
     scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'custom')");
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent(
+        "Error in " + api + ": file '//foo:custom_rule.bzl' cannot use private API");
   }
 
   @Test
-  public void testGetRuntimeClasspathForArchiveIsPrivateApi() throws Exception {
+  @TestParameters({
+    "{api: create_header_compilation_action}",
+    "{api: create_compilation_action}",
+    "{api: target_kind}",
+    "{api: collect_native_deps_dirs}",
+    "{api: get_runtime_classpath_for_archive}",
+    "{api: check_provider_instances}",
+    "{api: _google_legacy_api_enabled}",
+    "{api: _check_java_toolchain_is_declared_on_rule}",
+    "{api: wrap_java_info}",
+    "{api: tokenize_javacopts}",
+  })
+  public void testJavaCommonPrivateApis_areNotVisibleToPublicStarlark(String api) throws Exception {
+    // validate that this api is present on the module, so this test fails when the API is deleted
+    var unused =
+        stream(JavaCommonApi.class.getDeclaredMethods())
+            .filter(method -> method.isAnnotationPresent(StarlarkMethod.class))
+            .filter(method -> method.getAnnotation(StarlarkMethod.class).name().equals(api))
+            .findAny()
+            .orElseThrow(
+                () -> new IllegalArgumentException("API not declared on java_common: " + api));
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  d = depset()",
-        "  artifact = java_common.get_runtime_classpath_for_archive(d, d)",
+        "  java_common." + api + "()",
         "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
+        "custom_rule = rule(implementation = _impl)");
     scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+        "foo/BUILD",
+        //
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom')");
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("no field or method '" + api + "'");
   }
 
   @Test
-  public void testEnforceExplicitJavaTestDepsIsPrivateApi() throws Exception {
+  public void testProviderValidationPrintsProviderName() throws Exception {
     scratch.file(
         "foo/rule.bzl",
         "def _impl(ctx):",
-        "  ctx.fragments.java.enforce_explicit_java_test_deps()",
+        "  cc_info = ctx.attr.dep[CcInfo]",
+        "  JavaInfo(output_jar = None, compile_jar = None, deps = [cc_info])",
         "  return []",
         "myrule = rule(",
         "  implementation=_impl,",
-        "  fragments = ['java']",
+        "  attrs = {'dep' : attr.label()},",
+        "  fragments = []",
         ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "cc_library(name = 'cc_lib')",
+        "myrule(name='myrule',",
+        "    dep = ':cc_lib',",
+        ")");
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got element of type CcInfo, want JavaInfo");
   }
 
-  private String getJvmFlags(Artifact executable)
-      throws CommandLineExpansionException, InterruptedException, EvalException {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return getGeneratingSpawnActionArgs(executable).stream()
-          .filter(a -> a.startsWith("jvm_flags="))
-          .flatMap(a -> Arrays.stream(a.substring("jvm_flags=".length()).split("\t")))
-          .collect(joining(" "));
-    } else {
-      return ((TemplateExpansionAction) getGeneratingAction(executable))
-          .getSubstitutions().stream()
-              .filter(s -> Objects.equals(s.getKey(), "%jvm_flags%"))
-              .collect(onlyElement())
-              .getValue();
+  @Test
+  public void testNativeJavaInfoPrintableType_isJavaInfo() {
+    String type = JavaStarlarkCommon.printableType(JavaInfo.EMPTY);
+
+    assertThat(type).isEqualTo("JavaInfo");
+  }
+
+  private static class PlatformsParametersProvider implements TestParametersValuesProvider {
+
+    @Override
+    public List<TestParametersValues> provideValues() {
+      ImmutableList.Builder<TestParametersValues> parameters = ImmutableList.builder();
+      parameters
+          .add(
+              TestParametersValues.builder()
+                  .name("linux")
+                  .addParameter("platform", "linux-x86_64")
+                  .addParameter("os", "linux")
+                  .addParameter("cpu", "x86_64")
+                  .build())
+          .add(
+              TestParametersValues.builder()
+                  .name("darwin")
+                  .addParameter("platform", "darwin-x86_64")
+                  .addParameter("os", "macos")
+                  .addParameter("cpu", "x86_64")
+                  .build());
+      // building for windows is only supported in Bazel
+      if (AnalysisMock.get().isThisBazel()) {
+        parameters.add(
+            TestParametersValues.builder()
+                .name("windows")
+                .addParameter("platform", "windows-x86_64")
+                .addParameter("os", "windows")
+                .addParameter("cpu", "x86_64")
+                .build());
+      }
+      return parameters.build();
     }
   }
 }

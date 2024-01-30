@@ -37,12 +37,13 @@ public class AndroidBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("rules_android", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/android"));
 
-  private final AndroidStarlarkCommonApi<?, ?> androidCommon;
+  private final AndroidStarlarkCommonApi<?, ?, ?, ?, ?> androidCommon;
+  private final AndroidIdeInfoProviderApi.Provider<?, ?> androidIdeInfoProvider;
   private final ImmutableMap<String, Object> providers;
 
   public AndroidBootstrap(
-      AndroidStarlarkCommonApi<?, ?> androidCommon,
-      ApkInfoApiProvider apkInfoProvider,
+      AndroidStarlarkCommonApi<?, ?, ?, ?, ?> androidCommon,
+      ApkInfoApiProvider<?> apkInfoProvider,
       AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider,
       AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider,
       AndroidResourcesInfoApiProvider<?, ?, ?> androidResourcesInfoProvider,
@@ -67,9 +68,11 @@ public class AndroidBootstrap implements Bootstrap {
       BaselineProfileProviderApi.Provider<?> baselineProfileProvider,
       AndroidNeverLinkLibrariesProviderApi.Provider<?> androidNeverLinkLibrariesProvider,
       AndroidOptimizedJarInfoApi.Provider<?> androidOptimizedJarInfo,
-      AndroidDexInfoApi.Provider<?> androidDexInfoApiProvider) {
+      AndroidDexInfoApi.Provider<?> androidDexInfoApiProvider,
+      AndroidOptimizationInfoApi.Provider<?> androidOptimizationInfoProvider) {
 
     this.androidCommon = androidCommon;
+    this.androidIdeInfoProvider = androidIdeInfoProvider;
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     builder.put(ApkInfoApi.NAME, apkInfoProvider);
     builder.put(AndroidInstrumentationInfoApi.NAME, androidInstrumentationInfoProvider);
@@ -85,7 +88,6 @@ public class AndroidBootstrap implements Bootstrap {
     builder.put(AndroidLibraryAarInfoApi.NAME, androidLibraryAarInfoProvider);
     builder.put(AndroidProguardInfoApi.NAME, androidProguardInfoProvider);
     builder.put(AndroidIdlProviderApi.NAME, androidIdlProvider);
-    builder.put(AndroidIdeInfoProviderApi.NAME, androidIdeInfoProvider);
     builder.put(AndroidPreDexJarProviderApi.NAME, androidPreDexJarProviderApiProvider);
     builder.put(AndroidCcLinkParamsProviderApi.NAME, androidCcLinkParamsProviderApiProvider);
     builder.put(DataBindingV2ProviderApi.NAME, dataBindingV2ProviderApiProvider);
@@ -99,6 +101,7 @@ public class AndroidBootstrap implements Bootstrap {
     builder.put(AndroidNeverLinkLibrariesProviderApi.NAME, androidNeverLinkLibrariesProvider);
     builder.put(AndroidOptimizedJarInfoApi.NAME, androidOptimizedJarInfo);
     builder.put(AndroidDexInfoApi.NAME, androidDexInfoApiProvider);
+    builder.put(AndroidOptimizationInfoApi.NAME, androidOptimizationInfoProvider);
     providers = builder.build();
   }
 
@@ -115,6 +118,11 @@ public class AndroidBootstrap implements Bootstrap {
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
             androidCommon,
             allowedRepositories));
+
+    // Expose AndroidIdeInfo without any flag guarding. This provider is referenced by the intellij
+    // aspect (for all languages, not just Android) and we do not want to ask all users to put
+    // `--experimental_google_legacy_api` in their bazelrc.
+    builder.put(AndroidIdeInfoProviderApi.NAME, androidIdeInfoProvider);
 
     for (Map.Entry<String, Object> provider : providers.entrySet()) {
       builder.put(

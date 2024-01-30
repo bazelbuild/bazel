@@ -39,14 +39,6 @@ public class BazelConfiguration extends Fragment {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "If enabled, visibility checking also applies to toolchain implementations.")
     public boolean checkVisibilityForToolchains;
-
-    @Override
-    public FragmentOptions getExec() {
-      Options exec = (Options) getDefault();
-      exec.checkVisibilityForToolchains = checkVisibilityForToolchains;
-
-      return exec;
-    }
   }
 
   private final Options options;

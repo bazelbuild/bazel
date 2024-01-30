@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -93,8 +94,8 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public DirtyState getDirtyState() {
-    return getDelegate().getDirtyState();
+  public LifecycleState getLifecycleState() {
+    return getDelegate().getLifecycleState();
   }
 
   @Override
@@ -103,7 +104,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
+  public ImmutableSet<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
     return getDelegate().getAllDirectDepsForIncompleteNode();
   }
 
@@ -113,7 +114,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
+  public Collection<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
     return getDelegate().getAllReverseDepsForNodeBeingDeleted();
   }
 
@@ -138,8 +139,13 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void resetForRestartFromScratch() {
-    getDelegate().resetForRestartFromScratch();
+  public void resetEvaluationFromScratch() {
+    getDelegate().resetEvaluationFromScratch();
+  }
+
+  @Override
+  public ImmutableSet<SkyKey> getResetDirectDeps() {
+    return getDelegate().getResetDirectDeps();
   }
 
   @Override
@@ -193,12 +199,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void removeInProgressReverseDep(SkyKey reverseDep) {
-    getDelegate().removeInProgressReverseDep(reverseDep);
-  }
-
-  @Override
-  public Iterable<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException {
+  public Collection<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException {
     return getDelegate().getReverseDepsForDoneEntry();
   }
 
@@ -221,25 +222,5 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   @Override
   public void addExternalDep() {
     getDelegate().addExternalDep();
-  }
-
-  @Override
-  public int getPriority() {
-    return getDelegate().getPriority();
-  }
-
-  @Override
-  public int depth() {
-    return getDelegate().depth();
-  }
-
-  @Override
-  public void updateDepthIfGreater(int proposedDepth) {
-    getDelegate().updateDepthIfGreater(proposedDepth);
-  }
-
-  @Override
-  public void incrementEvaluationCount() {
-    getDelegate().incrementEvaluationCount();
   }
 }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -23,16 +24,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -49,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -113,6 +118,8 @@ public class CommandEnvironment {
   private final Consumer<String> shutdownReasonConsumer;
   private final BuildResultListener buildResultListener;
   private final CommandLinePathFactory commandLinePathFactory;
+  private final CommandExtensionReporter commandExtensionReporter;
+  private final int attemptNumber;
 
   private boolean mergedAnalysisAndExecution;
 
@@ -134,6 +141,11 @@ public class CommandEnvironment {
 
   @GuardedBy("fileCacheLock")
   private InputMetadataProvider fileCache;
+
+  private final Object outputDirectoryHelperLock = new Object();
+
+  @GuardedBy("outputDirectoryHelperLock")
+  private ActionOutputDirectoryHelper outputDirectoryHelper;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Nullable
@@ -179,7 +191,11 @@ public class CommandEnvironment {
       long waitTimeInMs,
       long commandStartTime,
       List<Any> commandExtensions,
-      Consumer<String> shutdownReasonConsumer) {
+      Consumer<String> shutdownReasonConsumer,
+      CommandExtensionReporter commandExtensionReporter,
+      int attemptNumber) {
+    checkArgument(attemptNumber >= 1);
+
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -191,8 +207,10 @@ public class CommandEnvironment {
     this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.syscallCache = syscallCache;
     this.quiescingExecutors = quiescingExecutors;
+    this.commandExtensionReporter = commandExtensionReporter;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
+    this.attemptNumber = attemptNumber;
     // Record the command's starting time again, for use by
     // TimestampGranularityMonitor.waitForTimestampGranularity().
     // This should be done as close as possible to the start of
@@ -357,6 +375,10 @@ public class CommandEnvironment {
 
   public Clock getClock() {
     return getRuntime().getClock();
+  }
+
+  public CommandExtensionReporter getCommandExtensionReporter() {
+    return commandExtensionReporter;
   }
 
   void notifyOnCrash(String message) {
@@ -747,7 +769,30 @@ public class CommandEnvironment {
   }
 
   /**
+   * Calls {@link SkyframeExecutor#decideKeepIncrementalState} with this command's options.
+   *
+   * <p>Must be called prior to {@link BlazeModule#beforeCommand} so that modules can use the result
+   * of {@link SkyframeExecutor#tracksStateForIncrementality}.
+   */
+  public void decideKeepIncrementalState() {
+    SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
+    skyframeExecutor.setActive(false);
+    var commonOptions = options.getOptions(CommonCommandOptions.class);
+    var analysisOptions = options.getOptions(AnalysisOptions.class);
+    skyframeExecutor.decideKeepIncrementalState(
+        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
+        commonOptions.keepStateAfterBuild,
+        commonOptions.trackIncrementalState,
+        commonOptions.heuristicallyDropNodes,
+        analysisOptions != null && analysisOptions.discardAnalysisCache,
+        reporter);
+  }
+
+  /**
    * Hook method called by the BlazeCommandDispatcher prior to the dispatch of each command.
+   *
+   * <p>Both {@link #decideKeepIncrementalState} and {@link BlazeModule#beforeCommand} on each
+   * module should have already been called before this.
    *
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
@@ -781,17 +826,9 @@ public class CommandEnvironment {
     skyframeExecutor.setOutputService(outputService);
     skyframeExecutor.noteCommandStart();
 
-    // Fail fast in the case where a Blaze command forgets to install the package path correctly.
-    skyframeExecutor.setActive(false);
-    // Let skyframe figure out how much incremental state it will be keeping.
-    AnalysisOptions viewOptions = options.getOptions(AnalysisOptions.class);
-    skyframeExecutor.decideKeepIncrementalState(
-        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        commonOptions.keepStateAfterBuild,
-        commonOptions.trackIncrementalState,
-        commonOptions.heuristicallyDropNodes,
-        viewOptions != null && viewOptions.discardAnalysisCache,
-        reporter);
+    var executionOptions = options.getOptions(ExecutionOptions.class);
+    skyframeExecutor.setClearNestedSetAfterActionExecution(
+        executionOptions != null && executionOptions.clearNestedSetAfterActionExecution);
 
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, commonOptions);
@@ -830,6 +867,17 @@ public class CommandEnvironment {
                 getExecRoot().getPathString(), getRuntime().getFileSystem(), syscallCache);
       }
       return fileCache;
+    }
+  }
+
+  public ActionOutputDirectoryHelper getOutputDirectoryHelper() {
+    synchronized (outputDirectoryHelperLock) {
+      if (outputDirectoryHelper == null) {
+        var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+        outputDirectoryHelper =
+            new ActionOutputDirectoryHelper(buildRequestOptions.directoryCreationCacheSpec);
+      }
+      return outputDirectoryHelper;
     }
   }
 
@@ -895,5 +943,14 @@ public class CommandEnvironment {
   @SuppressWarnings("unused")
   void gotBuildInfo(BuildInfoEvent event) {
     buildInfoPosted = true;
+  }
+
+  /**
+   * Returns the number of the invocation attempt, starting at 1 and increasing by 1 for each new
+   * attempt. Can be used to determine if there is a build retry by {@code
+   * --experimental_remote_cache_eviction_retries}.
+   */
+  public int getAttemptNumber() {
+    return attemptNumber;
   }
 }

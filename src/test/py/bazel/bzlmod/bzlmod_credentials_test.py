@@ -17,8 +17,7 @@
 import base64
 import os
 import tempfile
-import unittest
-
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import StaticHTTPServer
@@ -39,15 +38,11 @@ class BzlmodCredentialsTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --enable_bzlmod',
+            'common --noenable_workspace',
             # Disable yanked version check so we are not affected BCR changes.
             'common --allow_yanked_versions=all',
         ],
     )
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -125,7 +120,7 @@ class BzlmodCredentialsTest(test_base.TestBase):
     ) as static_server:
       _, stdout, _ = self.RunBazel([
           'run',
-          '--experimental_credential_helper=%workspace%/credhelper',
+          '--credential_helper=%workspace%/credhelper',
           '--registry=' + static_server.getURL(),
           '--registry=https://bcr.bazel.build',
           '//:main',
@@ -156,7 +151,7 @@ class BzlmodCredentialsTest(test_base.TestBase):
       _, stdout, _ = self.RunBazel(
           [
               'run',
-              '--experimental_credential_helper=%workspace%/credhelper',
+              '--credential_helper=%workspace%/credhelper',
               '--registry=' + static_server.getURL(),
               '--registry=https://bcr.bazel.build',
               '//:main',
@@ -167,4 +162,4 @@ class BzlmodCredentialsTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -243,7 +244,7 @@ public final class TopLevelArtifactHelper {
    *
    * <p>Always returns false for hidden rules and source file targets.
    */
-  public static boolean shouldConsiderForDisplay(ConfiguredTarget configuredTarget) {
+  public static boolean shouldConsiderForDisplay(CqueryNode configuredTarget) {
     // TODO(bazel-team): this is quite ugly. Add a marker provider for this check.
     if (configuredTarget instanceof InputFileConfiguredTarget) {
       // Suppress display of source files (because we do no work to build them).

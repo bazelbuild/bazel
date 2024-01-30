@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.GnuLibStdCppStlImpl;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.LibCppStlImpl;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -71,7 +73,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
   private static final String PATH_ENV_VAR = "ANDROID_NDK_HOME";
   private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
 
-  private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
+  private static final ImmutableSet<String> PATH_ENV_VAR_AS_SET = ImmutableSet.of(PATH_ENV_VAR);
 
   private static String getDefaultCrosstool(Integer majorRevision) {
     // From NDK 17, libc++ replaces gnu-libstdc++ as the default STL.
@@ -87,14 +89,12 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       String ruleName, String defaultCrosstool, List<CrosstoolStlPair> crosstools) {
 
     String buildFileTemplate = getTemplate("android_ndk_build_file_template.txt");
-    String ccToolchainSuiteTemplate = getTemplate("android_ndk_cc_toolchain_suite_template.txt");
     String ccToolchainTemplate = getTemplate("android_ndk_cc_toolchain_template.txt");
     String stlFilegroupTemplate = getTemplate("android_ndk_stl_filegroup_template.txt");
     String vulkanValidationLayersTemplate =
         getTemplate("android_ndk_vulkan_validation_layers_template.txt");
     String miscLibrariesTemplate = getTemplate("android_ndk_misc_libraries_template.txt");
 
-    StringBuilder ccToolchainSuites = new StringBuilder();
     StringBuilder ccToolchainRules = new StringBuilder();
     StringBuilder stlFilegroups = new StringBuilder();
     StringBuilder vulkanValidationLayers = new StringBuilder();
@@ -114,14 +114,6 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
                 toolchain.getCompiler(),
                 toolchain.getToolchainIdentifier()));
       }
-
-      String toolchainName = createToolchainName(crosstoolStlPair.stlImpl.getName());
-
-      ccToolchainSuites.append(
-          ccToolchainSuiteTemplate
-              .replace("%toolchainName%", toolchainName)
-              .replace("%toolchainMap%", toolchainMap.toString().trim())
-              .replace("%crosstoolReleaseProto%", crosstool.toString()));
 
       // Create the cc_toolchain rules
       for (CToolchain toolchain : crosstool.getToolchainList()) {
@@ -152,7 +144,6 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     return buildFileTemplate
         .replace("%ruleName%", ruleName)
         .replace("%defaultCrosstool%", "//:toolchain-" + defaultCrosstool)
-        .replace("%ccToolchainSuites%", ccToolchainSuites)
         .replace("%ccToolchainRules%", ccToolchainRules)
         .replace("%stlFilegroups%", stlFilegroups)
         .replace("%vulkanValidationLayers%", vulkanValidationLayers)
@@ -262,7 +253,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       return true;
     }
-    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_LIST);
+    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_SET);
   }
 
   @Override
@@ -276,11 +267,16 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
     Map<String, String> environ =
-        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
+        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_SET);
     if (environ == null) {
       return null;
     }
-    prepareLocalRepositorySymlinkTree(rule, outputDirectory);
+    try {
+      outputDirectory.createDirectoryAndParents();
+      FileSystemUtils.createEmptyFile(outputDirectory.getRelative(LabelConstants.REPO_FILE_NAME));
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     PathFragment pathFragment;
     String userDefinedPath = null;

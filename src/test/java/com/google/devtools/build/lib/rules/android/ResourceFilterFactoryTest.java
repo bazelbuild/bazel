@@ -16,31 +16,14 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.rules.android.ResourceFilterFactoryTest.WithPlatforms;
-import com.google.devtools.build.lib.rules.android.ResourceFilterFactoryTest.WithoutPlatforms;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests {@link ResourceFilterFactory}. */
-@RunWith(Suite.class)
-@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+@RunWith(JUnit4.class)
 public class ResourceFilterFactoryTest extends ResourceTestBase {
-  /** Use legacy toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithoutPlatforms extends ResourceFilterFactoryTest {}
-
-  /** Use platform-based toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithPlatforms extends ResourceFilterFactoryTest {
-    @Override
-    protected boolean platformBasedToolchains() {
-      return true;
-    }
-  }
 
   @Before
   public void setupCcToolchain() throws Exception {

@@ -57,18 +57,6 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   Map<String, NativeAspectClass> getNativeAspectClassMap();
 
   /**
-   * Returns the Starlark builtins registered with this RuleClassProvider.
-   *
-   * <p>Does not account for builtins injection. Excludes universal bindings (e.g. True, len).
-   *
-   * <p>See {@link BazelStarlarkEnvironment#getUninjectedBuildBzlNativeBindings} for the canonical
-   * determination of the bzl environment (before injection).
-   */
-  // TODO(b/280446865): See about eliminating this accessor, in favor of
-  // BazelStarlarkEnvironment#getUninjectedBuildBzlEnv().
-  ImmutableMap<String, Object> getEnvironment();
-
-  /**
    * Returns the {@link BazelStarlarkEnvironment}, which is the final determiner of the BUILD and
    * .bzl environment (with and without builtins injection).
    */

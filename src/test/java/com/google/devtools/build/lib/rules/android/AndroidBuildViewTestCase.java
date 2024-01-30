@@ -68,11 +68,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
-  /** Override this to trigger platform-based Android toolchain resolution. */
-  protected boolean platformBasedToolchains() {
-    return false;
-  }
-
+  // TODO(jcater): Remove this and clean up legacy flags that still remain.
   protected String defaultPlatformFlag() {
     return "";
   }
@@ -80,17 +76,6 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   @Override
   protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
       throws Exception {
-
-    if (!platformBasedToolchains()) {
-      super.useConfiguration(
-          starlarkOptions,
-          ImmutableList.builder()
-              .add((Object[]) args)
-              .add("--noincompatible_enable_cc_toolchain_resolution")
-              .build()
-              .toArray(new String[0]));
-      return;
-    }
 
     // Platform-based toolchain resolution:
     ImmutableList.Builder<String> fullArgs = ImmutableList.builder();
@@ -113,9 +98,8 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
             String.format("    toolchain = '%s',", sdkLabel),
             ")");
         fullArgs.add("--extra_toolchains=//legacy_to_platform_sdk:custom_sdk_toolchain");
-      } else {
-        fullArgs.add(arg);
       }
+      fullArgs.add(arg);
 
       if (arg.startsWith("--platforms=") || arg.startsWith("--android_platforms=")) {
         hasPlatform = true;
@@ -232,7 +216,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         : info.getDirectAndroidResources().getSingleton();
   }
 
-  protected Artifact getResourceClassJar(final ConfiguredTargetAndData target) {
+  protected Artifact getResourceClassJar(final ConfiguredTargetAndData target) throws Exception {
     JavaRuleOutputJarsProvider jarProvider =
         JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target.getConfiguredTarget());
     assertThat(jarProvider).isNotNull();
@@ -546,13 +530,5 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         .contains(
             ActionsTestUtil.getFirstArtifactEndingWith(
                 generateProguardAction.getOutputs(), "_proguard.cfg"));
-  }
-
-  protected void assertProguardNotUsed(ConfiguredTarget binary) {
-    assertWithMessage("proguard.jar is in the rule output")
-        .that(
-            actionsTestUtil()
-                .getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar"))
-        .isNull();
   }
 }

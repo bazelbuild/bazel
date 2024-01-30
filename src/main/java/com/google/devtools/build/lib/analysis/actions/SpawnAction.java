@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -50,11 +51,11 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.PathStripper;
-import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -65,10 +66,12 @@ import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -112,7 +115,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   private final ResourceSetOrBuilder resourceSetOrBuilder;
   private final ImmutableMap<String, String> executionInfo;
-  protected final boolean stripOutputPaths;
+  private final OutputPathsMode outputPathsMode;
 
   /**
    * Constructs a SpawnAction using direct initialization arguments.
@@ -146,7 +149,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
-      boolean stripOutputPaths) {
+      OutputPathsMode outputPathsMode) {
     super(owner, inputs, outputs);
     this.tools = tools;
     this.runfilesSupplier = runfilesSupplier;
@@ -159,7 +162,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.env = env;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
-    this.stripOutputPaths = stripOutputPaths;
+    this.outputPathsMode = outputPathsMode;
   }
 
   @Override
@@ -182,16 +185,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return commandLines;
   }
 
-  private PathMapper getPathStripper() {
-    return PathStripper.createForAction(
-        stripOutputPaths,
-        this instanceof StarlarkAction ? mnemonic : null,
-        getPrimaryOutput().getExecPath().subFragment(0, 1));
-  }
-
   @Override
   public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
-    return commandLines.allArguments(getPathStripper());
+    return commandLines.allArguments(PathMappers.create(this, outputPathsMode));
   }
 
   @Override
@@ -250,7 +246,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    */
   @ForOverride
   protected void afterExecute(
-      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+      ActionExecutionContext actionExecutionContext,
+      List<SpawnResult> spawnResults,
+      PathMapper pathMapper)
       throws ExecException, InterruptedException {}
 
   @Override
@@ -263,11 +261,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           actionExecutionContext
               .getContext(SpawnStrategyResolver.class)
               .exec(spawn, actionExecutionContext);
-      afterExecute(actionExecutionContext, result);
+      afterExecute(actionExecutionContext, result, spawn.getPathMapper());
       return ActionResult.create(result);
     } catch (CommandLineExpansionException e) {
       throw createCommandLineException(e);
     } catch (ExecException e) {
+      if (e instanceof SpawnExecException) {
+        throw ((SpawnExecException) e).toActionExecutionException(this);
+      }
       throw ActionExecutionException.fromExecException(e, this);
     }
   }
@@ -294,25 +295,34 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    *
    * <p>This method is final, as it is merely a shorthand use of the generic way to obtain a spawn,
    * which also depends on the client environment. Subclasses that wish to override the way to get a
-   * spawn should override the other getSpawn() methods instead.
+   * spawn should override getSpawn() instead.
    */
   @VisibleForTesting
-  public final Spawn getSpawn() throws CommandLineExpansionException, InterruptedException {
-    return getSpawn(getInputs());
+  public final Spawn getSpawnForTesting()
+      throws CommandLineExpansionException, InterruptedException {
+    return getSpawnForExtraActionSpawnInfo(getInputs());
   }
 
-  final Spawn getSpawn(NestedSet<Artifact> inputs)
+  Spawn getSpawnForExtraActionSpawnInfo()
+      throws CommandLineExpansionException, InterruptedException {
+    return getSpawnForExtraActionSpawnInfo(getInputs());
+  }
+
+  final Spawn getSpawnForExtraActionSpawnInfo(NestedSet<Artifact> inputs)
       throws CommandLineExpansionException, InterruptedException {
     return new ActionSpawn(
         commandLines.allArguments(),
         this,
-        /*env=*/ ImmutableMap.of(),
-        /*envResolved=*/ false,
+        /* env= */ ImmutableMap.of(),
+        /* envResolved= */ false,
         inputs,
-        /*additionalInputs=*/ ImmutableList.of(),
-        /*filesetMappings=*/ ImmutableMap.of(),
-        /*reportOutputs=*/ true,
-        stripOutputPaths);
+        // SpawnInfo doesn't report the runfiles trees of the Spawn, so it's fine to just pass in
+        // an empty list here.
+        /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
+        /* additionalInputs= */ ImmutableList.of(),
+        /* filesetMappings= */ ImmutableMap.of(),
+        /* reportOutputs= */ true,
+        PathMapper.NOOP);
   }
 
   /**
@@ -322,11 +332,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
       throws CommandLineExpansionException, InterruptedException {
     return getSpawn(
-        actionExecutionContext.getArtifactExpander(),
+        actionExecutionContext,
         actionExecutionContext.getClientEnv(),
-        /*envResolved=*/ false,
-        actionExecutionContext.getTopLevelFilesets(),
-        /*reportOutputs=*/ true);
+        /* envResolved= */ false,
+        /* reportOutputs= */ true);
   }
 
   /**
@@ -338,17 +347,17 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    *     action env.
    */
   protected Spawn getSpawn(
-      ArtifactExpander artifactExpander,
+      ActionExecutionContext actionExecutionContext,
       Map<String, String> env,
       boolean envResolved,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
+    PathMapper pathMapper = PathMappers.create(this, outputPathsMode);
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
-            artifactExpander,
+            actionExecutionContext.getArtifactExpander(),
             getPrimaryOutput().getExecPath(),
-            getPathStripper(),
+            pathMapper,
             getCommandLineLimits());
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
@@ -356,19 +365,17 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         env,
         envResolved,
         getInputs(),
+        CompositeRunfilesSupplier.fromRunfilesTrees(
+            actionExecutionContext.getInputMetadataProvider().getRunfilesTrees()),
         expandedCommandLines.getParamFiles(),
-        filesetMappings,
+        actionExecutionContext.getTopLevelFilesets(),
         reportOutputs,
-        stripOutputPaths);
+        pathMapper);
   }
 
   @ForOverride
   protected CommandLineLimits getCommandLineLimits() {
     return getOwner().getBuildConfigurationInfo().getCommandLineLimits();
-  }
-
-  Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
-    return getSpawn(getInputs());
   }
 
   @Override
@@ -380,18 +387,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     fp.addString(GUID);
     commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp);
     fp.addString(mnemonic);
-    // We don't need the toolManifests here, because they are a subset of the inputManifests by
-    // definition and the output of an action shouldn't change whether something is considered a
-    // tool or not.
-    fp.addPaths(runfilesSupplier.getRunfilesDirs());
-    ImmutableList<Artifact> runfilesManifests = runfilesSupplier.getManifests();
-    fp.addInt(runfilesManifests.size());
-    for (Artifact runfilesManifest : runfilesManifests) {
-      fp.addPath(runfilesManifest.getExecPath());
-    }
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
-    fp.addBoolean(stripOutputPaths);
+    PathMappers.addToFingerprint(getMnemonic(), getExecutionInfo(), outputPathsMode, fp);
   }
 
   @Override
@@ -425,6 +423,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       message.append(e);
       message.append('\n');
     }
+    message.append("  Output paths mode: ");
+    message.append(outputPathsMode);
+    message.append('\n');
     return message.toString();
   }
 
@@ -457,7 +458,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private SpawnInfo getExtraActionSpawnInfo()
       throws CommandLineExpansionException, InterruptedException {
     SpawnInfo.Builder info = SpawnInfo.newBuilder();
-    Spawn spawn = getSpawnForExtraAction();
+    Spawn spawn = getSpawnForExtraActionSpawnInfo();
     info.addAllArgument(spawn.getArguments());
     for (Map.Entry<String, String> variable : spawn.getEnvironment().entrySet()) {
       info.addVariable(
@@ -498,7 +499,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
-    private final boolean stripOutputPaths;
+    private final PathMapper pathMapper;
 
     /**
      * Creates an ActionSpawn with the given environment variables.
@@ -512,29 +513,26 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Map<String, String> env,
         boolean envResolved,
         NestedSet<Artifact> inputs,
+        RunfilesSupplier runfilesSupplier,
         Iterable<? extends ActionInput> additionalInputs,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
         boolean reportOutputs,
-        boolean stripOutputPaths)
+        PathMapper pathMapper)
         throws CommandLineExpansionException {
       super(
           arguments,
           ImmutableMap.of(),
           parent.getExecutionInfo(),
-          parent.getRunfilesSupplier(),
+          runfilesSupplier,
           parent,
           parent.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
-      ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
-      for (Artifact input : inputs.toList()) {
-        if (!input.isFileset() && !manifests.contains(input)) {
-          inputsBuilder.add(input);
-        }
-      }
+      addNonFilesetInputs(inputsBuilder, inputs, filesetMappings);
       inputsBuilder.addAll(additionalInputs);
+
       this.inputs = inputsBuilder.build();
       this.filesetMappings = filesetMappings;
-      this.stripOutputPaths = stripOutputPaths;
+      this.pathMapper = pathMapper;
 
       // If the action environment is already resolved using the client environment, the given
       // environment variables are used as they are. Otherwise, they are used as clientEnv to
@@ -547,9 +545,26 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.reportOutputs = reportOutputs;
     }
 
+    private static void addNonFilesetInputs(
+        NestedSetBuilder<ActionInput> builder,
+        NestedSet<Artifact> inputs,
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
+      if (filesetMappings.isEmpty()) {
+        // Keep the original nested set intact. This aids callers that exploit the nested set
+        // structure to perform optimizations (see SpawnInputExpander#walkInputs and its callers).
+        builder.addTransitive(inputs);
+        return;
+      }
+      for (Artifact input : inputs.toList()) {
+        if (!input.isFileset()) {
+          builder.add(input);
+        }
+      }
+    }
+
     @Override
-    public boolean stripOutputPaths() {
-      return stripOutputPaths;
+    public PathMapper getPathMapper() {
+      return pathMapper;
     }
 
     @Override
@@ -594,13 +609,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private CharSequence progressMessage;
     private String mnemonic = "Unknown";
     private String execGroup = DEFAULT_EXEC_GROUP_NAME;
-    private boolean stripOutputPaths = false;
 
     /** Creates a SpawnAction builder. */
     public Builder() {}
 
     /** Creates a builder that is a copy of another builder. */
-    Builder(Builder other) {
+    public Builder(Builder other) {
       this.toolsBuilder.addTransitive(other.toolsBuilder.build());
       this.inputsBuilder.addTransitive(other.inputsBuilder.build());
       this.outputs.addAll(other.outputs);
@@ -614,7 +628,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.commandLines = new ArrayList<>(other.commandLines);
       this.progressMessage = other.progressMessage;
       this.mnemonic = other.mnemonic;
-      this.stripOutputPaths = other.stripOutputPaths;
     }
 
     /**
@@ -649,15 +662,36 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         result.addCommandLine(pair);
       }
       CommandLines commandLines = result.build();
-      ActionEnvironment env =
-          useDefaultShellEnvironment
-              ? configuration.getActionEnvironment()
-              : ActionEnvironment.create(environment);
+      ActionEnvironment env;
+      if (useDefaultShellEnvironment && environment != null) {
+        // Inherited variables override fixed variables in ActionEnvironment. Since we want the
+        // fixed part of the action-provided environment to override the inherited part of the
+        // user-provided environment, we have to explicitly filter the inherited part.
+        var userFilteredInheritedEnv =
+            ImmutableSet.copyOf(
+                Sets.difference(
+                    configuration.getActionEnvironment().getInheritedEnv(), environment.keySet()));
+        // Do not create a new ActionEnvironment in the common case where no vars have been filtered
+        // out.
+        if (userFilteredInheritedEnv.equals(
+            configuration.getActionEnvironment().getInheritedEnv())) {
+          env = configuration.getActionEnvironment();
+        } else {
+          env =
+              ActionEnvironment.create(
+                  configuration.getActionEnvironment().getFixedEnv(), userFilteredInheritedEnv);
+        }
+        env = env.withAdditionalFixedVariables(environment);
+      } else if (useDefaultShellEnvironment) {
+        env = configuration.getActionEnvironment();
+      } else {
+        env = ActionEnvironment.create(environment);
+      }
       return buildSpawnAction(owner, commandLines, configuration, env);
     }
 
     @CheckReturnValue
-    SpawnAction buildForActionTemplate(ActionOwner owner) {
+    public SpawnAction buildForActionTemplate(ActionOwner owner) {
       CommandLines.Builder result = CommandLines.builder();
       if (executableArg != null) {
         result.addSingleArgument(executableArg);
@@ -683,7 +717,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         ActionEnvironment env) {
       NestedSet<Artifact> tools = toolsBuilder.build();
 
-      // Tools are by definition a subset of the inputs, so make sure they're present there, too.
+      // Don't call getInputsAndTools - it wouldn't reuse the built set of tools.
       NestedSet<Artifact> inputsAndTools =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(inputsBuilder.build())
@@ -733,7 +767,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          stripOutputPaths);
+          PathMappers.getOutputPathsMode(configuration));
     }
 
     /**
@@ -786,6 +820,21 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder addInputs(Iterable<Artifact> artifacts) {
       inputsBuilder.addAll(artifacts);
       return this;
+    }
+
+    /**
+     * Returns the inputs that the spawn action will depend on. Tools are by definition a subset of
+     * the inputs, so they are also present.
+     *
+     * <p>Warning: this calls {@link NestedSetBuilder#build} on both inputs and tools.
+     */
+    // TODO(antunesi): Refactor so this method isn't needed. Building new NestedSets on every call
+    // is a memory vulnerability, see b/291063247.
+    public NestedSet<Artifact> getInputsAndTools() {
+      return NestedSetBuilder.<Artifact>stableOrder()
+          .addTransitive(inputsBuilder.build())
+          .addTransitive(toolsBuilder.build())
+          .build();
     }
 
     /** Adds transitive inputs to this action. */
@@ -875,6 +924,18 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder useDefaultShellEnvironment() {
       this.environment = null;
+      this.useDefaultShellEnvironment = true;
+      return this;
+    }
+
+    /**
+     * Same as {@link #useDefaultShellEnvironment()}, but additionally sets the provided fixed
+     * environment variables, which take precedence over the variables contained in the default
+     * shell environment.
+     */
+    @CanIgnoreReturnValue
+    public Builder useDefaultShellEnvironmentWithOverrides(Map<String, String> environment) {
+      this.environment = ImmutableMap.copyOf(environment);
       this.useDefaultShellEnvironment = true;
       return this;
     }
@@ -1168,12 +1229,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           "mnemonic must only contain letters and/or digits, and have non-zero length, was: \"%s\"",
           mnemonic);
       this.mnemonic = mnemonic;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder stripOutputPaths(boolean stripPaths) {
-      this.stripOutputPaths = stripPaths;
       return this;
     }
 

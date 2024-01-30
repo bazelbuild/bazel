@@ -51,7 +51,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
   @Test
   public void analysisFailureInfoStarlarkApi() throws Exception {
     Label label = Label.create("test", "test");
-    AnalysisFailure failure = new AnalysisFailure(label, "ErrorMessage");
+    AnalysisFailure failure = AnalysisFailure.create(label, "ErrorMessage");
     assertThat(getattr(failure, "label")).isSameInstanceAs(label);
     assertThat(getattr(failure, "message")).isEqualTo("ErrorMessage");
 
@@ -296,10 +296,10 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
 
     AnalysisFailure expectedOne =
-        new AnalysisFailure(
+        AnalysisFailure.create(
             Label.parseCanonicalUnchecked("//test:one"), "This Is My Failure Message");
     AnalysisFailure expectedTwo =
-        new AnalysisFailure(
+        AnalysisFailure.create(
             Label.parseCanonicalUnchecked("//test:two"), "This Is My Failure Message");
 
     assertThat(info.getCausesNestedSet().toList())
@@ -332,7 +332,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure expectedOne =
-        new AnalysisFailure(
+        AnalysisFailure.create(
             Label.parseCanonicalUnchecked("//test:one"), "This Is My Aspect Failure Message");
 
     assertThat(info.getCausesNestedSet().toList())
@@ -369,7 +369,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure expectedOne =
-        new AnalysisFailure(
+        AnalysisFailure.create(
             Label.parseCanonicalUnchecked("//test:one"), "This Is My Aspect Failure Message");
 
     assertThat(info.getCausesNestedSet().toList())
@@ -403,8 +403,43 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure expectedRuleFailure =
-        new AnalysisFailure(
+        AnalysisFailure.create(
             Label.parseCanonicalUnchecked("//test:one"), "This Is My Rule Failure Message");
+
+    assertThat(info.getCausesNestedSet().toList())
+        .comparingElementsUsing(analysisFailureCorrespondence)
+        .containsExactly(expectedRuleFailure);
+  }
+
+  @Test
+  public void starlarkAspectWithAdvertisedProvidersFailure_analysisFailurePropagates()
+      throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "MyInfo = provider()",
+        "",
+        "def custom_aspect_impl(target, ctx):",
+        "   fail('Aspect Failure')",
+        "",
+        "custom_aspect = aspect(implementation = custom_aspect_impl, provides = [MyInfo])",
+        "",
+        "def custom_rule_impl(ctx):",
+        "   pass",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "     attrs = {'deps' : attr.label_list(aspects = [custom_aspect])})");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'one')",
+        "custom_rule(name = 'two', deps = [':one'])");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:two");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
+    AnalysisFailure expectedRuleFailure =
+        AnalysisFailure.create(Label.parseCanonicalUnchecked("//test:one"), "Aspect Failure");
 
     assertThat(info.getCausesNestedSet().toList())
         .comparingElementsUsing(analysisFailureCorrespondence)

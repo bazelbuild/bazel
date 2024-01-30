@@ -45,7 +45,7 @@ BazelLogHandler::~BazelLogHandler() {
       std::cerr << debug_buffer_stream_->rdbuf();
     } else {
       std::cerr << "Illegal state - neither a logfile nor a logbuffer "
-                << "existed at program end." << std::endl;
+                << "existed at program end." << '\n';
     }
   }
 }
@@ -55,9 +55,9 @@ BazelLogHandler::~BazelLogHandler() {
 void PrintUserLevelMessageToStream(std::ostream* stream, LogLevel level,
                                    const std::string& message) {
   if (level == LOGLEVEL_USER) {
-    (*stream) << message << std::endl;
+    (*stream) << message << '\n';
   } else if (level > LOGLEVEL_USER) {
-    (*stream) << LogLevelName(level) << ": " << message << std::endl;
+    (*stream) << LogLevelName(level) << ": " << message << '\n';
   }
   // If level < USER, this is an INFO message. It's useful for debugging but
   // should not be printed to the user unless the user has asked for debugging
@@ -88,7 +88,7 @@ void PrintDebugLevelMessageToStream(std::ostream* stream,
                                     LogLevel level,
                                     const std::string& message) {
   (*stream) << "[" << LogLevelName(level) << " " << Timestamp() << " "
-            << filename << ":" << line << "] " << message << std::endl;
+            << filename << ":" << line << "] " << message << '\n';
 }
 
 void BazelLogHandler::HandleMessage(LogLevel level, const std::string& filename,

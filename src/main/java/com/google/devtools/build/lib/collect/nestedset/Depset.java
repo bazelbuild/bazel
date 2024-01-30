@@ -102,7 +102,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   @Nullable private final Class<?> elemClass;
   private final NestedSet<?> set;
 
-  private Depset(@Nullable Class<?> elemClass, NestedSet<?> set) {
+  Depset(@Nullable Class<?> elemClass, NestedSet<?> set) {
     this.elemClass = elemClass;
     this.set = set;
   }
@@ -145,9 +145,10 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   // Object.class means "any Starlark value" but in fact allows any Java value.
   public static <T> Depset of(Class<T> elemClass, NestedSet<T> set) {
     Preconditions.checkNotNull(elemClass, "elemClass cannot be null");
-    // Having a shared EMPTY_DEPSET instance, could reduce working heap. Empty depsets are not
-    // retained though, because of optimization in StarlarkProvider.optimizeField.
-    return new Depset(set.isEmpty() ? null : ElementType.getTypeClass(elemClass), set);
+    if (set.isEmpty()) {
+      return set.getOrder().emptyDepset();
+    }
+    return new Depset(ElementType.getTypeClass(elemClass), set);
   }
 
   /**
@@ -259,14 +260,10 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   public static <T> NestedSet<T> noneableCast(Object x, Class<T> type, String what)
       throws EvalException {
     if (x == Starlark.NONE) {
-      @SuppressWarnings("unchecked")
-      NestedSet<T> empty = (NestedSet<T>) EMPTY;
-      return empty;
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     return cast(x, type, what);
   }
-
-  private static final NestedSet<?> EMPTY = NestedSetBuilder.<Object>emptySet(Order.STABLE_ORDER);
 
   public boolean isEmpty() {
     return set.isEmpty();
@@ -377,7 +374,19 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       }
     }
 
-    return new Depset(type, builder.build());
+    if (builder.isEmpty()) {
+      return builder.getOrder().emptyDepset();
+    }
+    NestedSet<Object> set = builder.build();
+    // If the nested set was optimized to one of the transitive elements, reuse the corresponding
+    // depset.
+    for (Depset x : transitive) {
+      if (x.getSet() == set) {
+        return x;
+      }
+    }
+
+    return new Depset(type, set);
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */
@@ -569,15 +578,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
                 + "<p> The order of the created depset should be <i>compatible</i> with the order"
                 + " of its <code>transitive</code> depsets. <code>\"default\"</code> order is"
                 + " compatible with any other order, all other orders are only compatible with"
-                + " themselves.\n" //
-                + "<p> Note on backward/forward compatibility. This function currently accepts a"
-                + " positional <code>items</code> parameter. It is deprecated and will be removed"
-                + " in the future, and after its removal <code>direct</code> will become a sole"
-                + " positional parameter of the <code>depset</code> function. Thus, both of the"
-                + " following calls are equivalent and future-proof:<br>\n" //
-                + "<pre class=language-python>depset(['a', 'b'], transitive = [...])\n" //
-                + "depset(direct = ['a', 'b'], transitive = [...])\n" //
-                + "</pre>",
+                + " themselves.",
         parameters = {
           // TODO(cparsons): Make 'order' keyword-only.
           @Param(

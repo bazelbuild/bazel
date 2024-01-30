@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -35,6 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -59,25 +59,20 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     useConfiguration(
         "--proto_compiler=//proto:compiler",
         "--proto_toolchain_for_javalite=//tools/proto/toolchains:javalite");
+    MockProtoSupport.setup(mockToolsConfig);
 
     scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
 
     mockToolchains();
+    invalidatePackages();
 
     actionsTestUtil = actionsTestUtil();
-  }
-
-  @Before
-  public final void setupStarlarkRule() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_builtins_injection_override=+java_lite_proto_library",
-        "--experimental_google_legacy_api");
   }
 
   private void mockToolchains() throws IOException {
     mockRuntimes();
 
-    scratch.file(
+    scratch.appendFile(
         "tools/proto/toolchains/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "proto_lang_toolchain(",
@@ -143,7 +138,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
             "--java_out=lite,immutable,no_enforce_api_compatibility:"
                 + genfilesDir
                 + "/x/protolib-lite-src.jar",
-            "-Ix/file.proto=x/file.proto",
+            "-I.",
             "x/file.proto")
         .inOrder();
   }
@@ -190,10 +185,11 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
             "java_lite_proto_library(name = 'lite_pb2', deps = [':null_lib'])",
             "proto_library(name = 'null_lib')");
     JavaCompilationArgsProvider compilationArgsProvider =
-        getProvider(JavaCompilationArgsProvider.class, target);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, target);
     assertThat(compilationArgsProvider).isNotNull();
     assertThat(compilationArgsProvider.getDirectCompileTimeJars()).isNotNull();
-    JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class, target);
+    JavaSourceJarsProvider sourceJarsProvider =
+        JavaInfo.getProvider(JavaSourceJarsProvider.class, target);
     assertThat(sourceJarsProvider).isNotNull();
     assertThat(sourceJarsProvider.getSourceJars()).isNotNull();
   }
@@ -217,13 +213,13 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
             "--java_out=lite,immutable,no_enforce_api_compatibility:"
                 + genfilesDir
                 + "/cross/bravo-lite-src.jar",
-            "-Icross/bravo.proto=cross/bravo.proto",
+            "-I.",
             "cross/bravo.proto")
         .inOrder();
 
     List<String> directJars =
         prettyArtifactNames(
-            getProvider(JavaCompilationArgsProvider.class, litepb2).getRuntimeJars());
+            JavaInfo.getProvider(JavaCompilationArgsProvider.class, litepb2).getRuntimeJars());
     assertThat(directJars)
         .containsExactly("cross/libbravo-lite.jar", "protobuf/libjavalite_runtime.jar");
   }
@@ -318,7 +314,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         /* doAnalysis= */ true,
         new EventBus());
     // Implicitly check that `update()` above didn't throw an exception. This implicitly checks that
-    // ctx.attr.dep.java.{transitive_deps, outputs}, above, is defined.
+    // ctx.attr.dep.java.{transitive_compile_time_jars, outputs}, above, is defined.
   }
 
   @Test
@@ -362,7 +358,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         ")");
 
     JavaCompilationArgsProvider compilationArgsProvider =
-        getProvider(
+        JavaInfo.getProvider(
             JavaCompilationArgsProvider.class, getConfiguredTarget("//x:foo_java_proto_lite"));
 
     Iterable<String> directJars =
@@ -448,9 +444,4 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     assertThat(result).isTrue();
   }
 
-  private static <P extends TransitiveInfoProvider> P getProvider(
-      Class<P> providerClass, ConfiguredTarget target) {
-    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
-    return javaInfo.getProvider(providerClass);
-  }
 }

@@ -38,13 +38,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       documented = false,
       useStarlarkThread = true)
   boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "experimental_cc_shared_library_debug",
-      documented = false,
-      useStarlarkThread = true)
-  boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException;
-
+  
   @StarlarkMethod(
       name = "experimental_platform_cc_test",
       documented = false,
@@ -146,14 +140,6 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       useStarlarkThread = true)
   boolean fissionActiveForCurrentCompilationModeStarlark(StarlarkThread thread)
       throws EvalException;
-
-  @StarlarkMethod(
-      name = "apple_bitcode_mode",
-      doc =
-          "Deprecated: Returns the Bitcode mode to use for compilation steps. "
-              + "Always returns <code>'none'</code>.",
-      structField = true)
-  String getAppleBitcodeMode();
 
   @StarlarkMethod(
       name = "apple_generate_dsym",

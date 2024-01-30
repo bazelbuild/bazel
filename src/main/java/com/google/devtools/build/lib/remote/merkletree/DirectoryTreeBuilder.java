@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.SymlinkNode;
@@ -39,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /** Builder for directory trees. */
 class DirectoryTreeBuilder {
@@ -63,6 +65,7 @@ class DirectoryTreeBuilder {
       InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber spawnScrubber,
       DigestUtil digestUtil)
       throws IOException {
     return fromActionInputs(
@@ -71,6 +74,7 @@ class DirectoryTreeBuilder {
         inputMetadataProvider,
         execRoot,
         artifactPathResolver,
+        spawnScrubber,
         digestUtil);
   }
 
@@ -80,6 +84,7 @@ class DirectoryTreeBuilder {
       InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber spawnScrubber,
       DigestUtil digestUtil)
       throws IOException {
     Map<PathFragment, DirectoryNode> tree = new HashMap<>();
@@ -90,6 +95,7 @@ class DirectoryTreeBuilder {
             inputMetadataProvider,
             execRoot,
             artifactPathResolver,
+            spawnScrubber,
             digestUtil,
             tree);
     return new DirectoryTree(tree, numFiles);
@@ -114,6 +120,9 @@ class DirectoryTreeBuilder {
   /**
    * Adds the files in {@code inputs} as nodes to {@code tree}.
    *
+   * <p>Prefer {@link #buildFromActionInputs} if this Merkle tree is for an action spawn (as opposed
+   * to repository fetching).
+   *
    * <p>This method mutates {@code tree}.
    *
    * @param inputs map of paths to files. The key determines the path at which the file should be
@@ -128,6 +137,7 @@ class DirectoryTreeBuilder {
     return build(
         inputs,
         tree,
+        /* scrubber= */ null,
         (input, path, currDir) -> {
           if (!input.isFile(Symlinks.NOFOLLOW)) {
             throw new IOException(String.format("Input '%s' is not a file.", input));
@@ -152,12 +162,14 @@ class DirectoryTreeBuilder {
       InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber spawnScrubber,
       DigestUtil digestUtil,
       Map<PathFragment, DirectoryNode> tree)
       throws IOException {
     return build(
         inputs,
         tree,
+        spawnScrubber,
         (input, path, currDir) -> {
           if (input instanceof VirtualActionInput) {
             VirtualActionInput virtualActionInput = (VirtualActionInput) input;
@@ -198,6 +210,7 @@ class DirectoryTreeBuilder {
                   inputMetadataProvider,
                   execRoot,
                   artifactPathResolver,
+                  spawnScrubber,
                   digestUtil,
                   tree);
 
@@ -234,6 +247,7 @@ class DirectoryTreeBuilder {
   private static <T> int build(
       SortedMap<PathFragment, T> inputs,
       Map<PathFragment, DirectoryNode> tree,
+      @Nullable SpawnScrubber scrubber,
       FileNodeVisitor<T> fileNodeVisitor)
       throws IOException {
     if (inputs.isEmpty()) {
@@ -247,6 +261,12 @@ class DirectoryTreeBuilder {
       // Path relative to the exec root
       PathFragment path = e.getKey();
       T input = e.getValue();
+
+      if (scrubber != null
+          && input instanceof ActionInput
+          && scrubber.shouldOmitInput((ActionInput) input)) {
+        continue;
+      }
 
       if (input instanceof DerivedArtifact && ((DerivedArtifact) input).isTreeArtifact()) {
         // SpawnInputExpander has already expanded non-empty tree artifacts into a collection of

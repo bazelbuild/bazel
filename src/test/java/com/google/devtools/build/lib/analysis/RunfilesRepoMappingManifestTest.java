@@ -22,19 +22,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map.Entry;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,30 +37,13 @@ import org.junit.runners.JUnit4;
 /** Tests that the repo mapping manifest file is properly generated for runfiles. */
 @RunWith(JUnit4.class)
 public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
-  private Path moduleRoot;
-  private FakeRegistry registry;
 
   @Override
-  protected ImmutableList<Injected> extraPrecomputedValues() throws Exception {
-    moduleRoot = scratch.dir("modules");
-    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
-    return ImmutableList.of(
-        PrecomputedValue.injected(
-            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
-        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
-        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()));
-  }
-
-  @Before
-  public void enableBzlmod() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
+  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
+    // Transitive packages are needed for RepoMappingManifestAction and are only stored when
+    // external repositories are enabled.
+    return SkyframeExecutorRepositoryHelpersHolder.create(
+        new RepositoryDirectoryDirtinessChecker());
   }
 
   /**
@@ -123,7 +100,6 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
   @Test
   public void diamond() throws Exception {
-    rewriteWorkspace("workspace(name='aaa_ws')");
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(name='aaa',version='1.0')",
@@ -168,10 +144,13 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
           entry.getValue());
     }
 
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
+    rewriteWorkspace("workspace(name='aaa_ws')");
+
     assertThat(getRepoMappingManifestForTarget("//:aaa"))
         .containsExactly(
-            ",aaa,_main",
-            ",aaa_ws,_main",
+            ",aaa," + getRuleClassProvider().getRunfilesPrefix(),
+            ",aaa_ws," + getRuleClassProvider().getRunfilesPrefix(),
             ",bbb,bbb~1.0",
             "bbb~1.0,bbb,bbb~1.0",
             "bbb~1.0,ddd,ddd~2.0",
@@ -184,7 +163,6 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
   @Test
   public void runfilesFromToolchain() throws Exception {
-    rewriteWorkspace("workspace(name='main')");
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='tooled_rule',version='1.0')");
     // tooled_rule offers a tooled_binary rule, which uses a toolchain backed by a binary from
     // bare_rule. tooled_binary explicitly requests that runfiles from this binary are included in
@@ -236,9 +214,12 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         "load('@tooled_rule//:defs.bzl', 'tooled_binary')",
         "tooled_binary(name='tooled')");
 
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
+    rewriteWorkspace("workspace(name='main')");
+
     assertThat(getRepoMappingManifestForTarget("//:tooled"))
         .containsExactly(
-            ",main,_main",
+            ",main," + getRuleClassProvider().getRunfilesPrefix(),
             "bare_rule~1.0,bare_rule,bare_rule~1.0",
             "tooled_rule~1.0,bare_rule,bare_rule~1.0")
         .inOrder();
@@ -246,17 +227,19 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
   @Test
   public void actionRerunsOnRepoMappingChange_workspaceName() throws Exception {
-    rewriteWorkspace("workspace(name='aaa_ws')");
+    overwriteWorkspaceFile("workspace(name='aaa_ws')");
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(name='aaa',version='1.0')",
         "bazel_dep(name='bare_rule',version='1.0')");
     scratch.overwriteFile(
         "BUILD", "load('@bare_rule//:defs.bzl', 'bare_binary')", "bare_binary(name='aaa')");
+    invalidatePackages();
 
     RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
 
-    rewriteWorkspace("workspace(name='not_aaa_ws')");
+    overwriteWorkspaceFile("workspace(name='not_aaa_ws')");
+    invalidatePackages();
 
     RepoMappingManifestAction actionAfterChange = getRepoMappingManifestActionForTarget("//:aaa");
     assertThat(computeKey(actionBeforeChange)).isNotEqualTo(computeKey(actionAfterChange));
@@ -264,13 +247,14 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
   @Test
   public void actionRerunsOnRepoMappingChange_repoName() throws Exception {
-    rewriteWorkspace("workspace(name='aaa_ws')");
+    overwriteWorkspaceFile("workspace(name='aaa_ws')");
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(name='aaa',version='1.0')",
         "bazel_dep(name='bare_rule',version='1.0')");
     scratch.overwriteFile(
         "BUILD", "load('@bare_rule//:defs.bzl', 'bare_binary')", "bare_binary(name='aaa')");
+    invalidatePackages();
 
     RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
 
@@ -286,7 +270,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
   @Test
   public void actionRerunsOnRepoMappingChange_newEntry() throws Exception {
-    rewriteWorkspace("workspace(name='aaa_ws')");
+    overwriteWorkspaceFile("workspace(name='aaa_ws')");
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(name='aaa',version='1.0')",
@@ -303,6 +287,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     scratch.overwriteFile(moduleRoot.getRelative("bbb~1.0").getRelative("BUILD").getPathString());
     scratch.overwriteFile(
         moduleRoot.getRelative("bbb~1.0").getRelative("def.bzl").getPathString(), "BBB = '1'");
+    invalidatePackages();
 
     RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
 
@@ -320,5 +305,127 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
     RepoMappingManifestAction actionAfterChange = getRepoMappingManifestActionForTarget("//:aaa");
     assertThat(computeKey(actionBeforeChange)).isNotEqualTo(computeKey(actionAfterChange));
+  }
+
+  @Test
+  public void hasMappingForSymlinks() throws Exception {
+    overwriteWorkspaceFile("workspace(name='my_workspace')");
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='my_module',version='1.0')",
+        "bazel_dep(name='aaa',version='1.0')");
+
+    registry.addModule(
+        createModuleKey("aaa", "1.0"),
+        "module(name='aaa',version='1.0')",
+        "bazel_dep(name='my_module',version='1.0')",
+        "bazel_dep(name='bare_rule',version='1.0')",
+        "bazel_dep(name='symlinks',version='1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("aaa~1.0/WORKSPACE").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("aaa~1.0/BUILD").getPathString(),
+        "load('@bare_rule//:defs.bzl', 'bare_binary')",
+        "bare_binary(name='aaa',data=['@symlinks'])");
+
+    registry.addModule(
+        createModuleKey("symlinks", "1.0"),
+        "module(name='symlinks',version='1.0')",
+        "bazel_dep(name='ddd',version='1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("symlinks~1.0/WORKSPACE").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("symlinks~1.0/defs.bzl").getPathString(),
+        "def _symlinks_impl(ctx):",
+        "  runfiles = ctx.runfiles(",
+        "    symlinks = {'path/to/pkg/symlink': ctx.file.data},",
+        "    root_symlinks = {ctx.label.workspace_name + '/path/to/pkg/root_symlink':"
+            + " ctx.file.data},",
+        "  )",
+        "  return DefaultInfo(runfiles=runfiles)",
+        "symlinks = rule(",
+        "  implementation=_symlinks_impl,",
+        "  attrs={'data':attr.label(allow_single_file=True)},",
+        ")");
+    scratch.overwriteFile(
+        moduleRoot.getRelative("symlinks~1.0/BUILD").getPathString(),
+        "load('//:defs.bzl', 'symlinks')",
+        "symlinks(name='symlinks',data='@ddd')");
+
+    registry.addModule(
+        createModuleKey("ddd", "1.0"),
+        "module(name='ddd',version='1.0')",
+        "bazel_dep(name='bare_rule',version='1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ddd~1.0/WORKSPACE").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ddd~1.0/BUILD").getPathString(),
+        "load('@bare_rule//:defs.bzl', 'bare_binary')",
+        "bare_binary(name='ddd')");
+    invalidatePackages();
+
+    RunfilesSupport runfilesSupport = getRunfilesSupport("@aaa~1.0//:aaa");
+    ImmutableList<String> runfilesPaths =
+        runfilesSupport
+            .getRunfiles()
+            .getRunfilesInputs(reporter, Location.BUILTIN, runfilesSupport.getRepoMappingManifest())
+            .keySet()
+            .stream()
+            .map(PathFragment::getPathString)
+            .collect(toImmutableList());
+    assertThat(runfilesPaths)
+        .containsAtLeast(
+            "aaa~1.0/aaa",
+            getRuleClassProvider().getRunfilesPrefix() + "/path/to/pkg/symlink",
+            "symlinks~1.0/path/to/pkg/root_symlink",
+            "_repo_mapping");
+
+    assertThat(getRepoMappingManifestForTarget("@aaa~1.0//:aaa"))
+        .containsExactly(
+            // @aaa~1.0 contributes the top-level executable to runfiles.
+            "aaa~1.0,aaa,aaa~1.0",
+            // The symlink is staged under the main repository's runfiles directory and aaa has a
+            // repo mapping entry for it.
+            "aaa~1.0,my_module," + getRuleClassProvider().getRunfilesPrefix(),
+            // @symlinks~1.0 appears as the first segment of a root symlink.
+            "aaa~1.0,symlinks,symlinks~1.0",
+            "symlinks~1.0,symlinks,symlinks~1.0")
+        .inOrder();
+  }
+
+  @Test
+  public void repoMappingOnFilesToRunProvider() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='bare_rule',version='1.0')");
+    scratch.overwriteFile(
+        "defs.bzl",
+        "def _get_repo_mapping_impl(ctx):",
+        "    files_to_run = ctx.attr.bin[DefaultInfo].files_to_run",
+        "    return [",
+        "        DefaultInfo(files = depset([files_to_run.repo_mapping_manifest])),",
+        "    ]",
+        "get_repo_mapping = rule(",
+        "    implementation = _get_repo_mapping_impl,",
+        "    attrs = {'bin':attr.label(cfg='target',executable=True)}",
+        ")");
+    scratch.overwriteFile(
+        "BUILD",
+        "load('@bare_rule//:defs.bzl', 'bare_binary')",
+        "load('//:defs.bzl', 'get_repo_mapping')",
+        "bare_binary(name='aaa')",
+        "get_repo_mapping(name='get_repo_mapping', bin=':aaa')");
+    invalidatePackages();
+
+    assertThat(getFilesToBuild(getConfiguredTarget("//:get_repo_mapping")).toList())
+        .containsExactly(getRunfilesSupport("//:aaa").getRepoMappingManifest());
+  }
+
+  /**
+   * Similar to {@link BuildViewTestCase#rewriteWorkspace(String...)}, but does not call {@link
+   * BuildViewTestCase#invalidatePackages()}.
+   */
+  public void overwriteWorkspaceFile(String... lines) throws Exception {
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .addAll(ImmutableList.copyOf(lines))
+            .build());
   }
 }

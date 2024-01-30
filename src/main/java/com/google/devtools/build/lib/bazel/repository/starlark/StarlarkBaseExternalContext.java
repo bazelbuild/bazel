@@ -18,13 +18,14 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -35,6 +36,8 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -49,6 +52,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
+import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -75,14 +79,21 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
@@ -93,8 +104,33 @@ import net.starlark.java.syntax.Location;
 
 /** A common base class for Starlark "ctx" objects related to external dependencies. */
 public abstract class StarlarkBaseExternalContext implements StarlarkValue {
-  /** Max. number of command line args added as a profiler description. */
-  private static final int MAX_PROFILE_ARGS_LEN = 80;
+
+  /**
+   * An asynchronous task run as part of fetching the repository.
+   *
+   * <p>The main property of such tasks is that they should under no circumstances keep running
+   * after fetching the repository is finished, whether successfully or not. To this end, the {@link
+   * #cancel()} method must stop all such work.
+   */
+  private interface AsyncTask {
+    /** Returns a user-friendly description of the task. */
+    String getDescription();
+
+    /** Returns where the task was started from. */
+    Location getLocation();
+
+    /**
+     * Cancels the task, if not done yet. Returns false if the task was still in progress.
+     *
+     * <p>No means of error reporting is provided. Any errors should be reported by other means. The
+     * only possible error reported as a consequence of calling this method is one that tells the
+     * user that they didn't wait for an async task they should have waited for.
+     */
+    boolean cancel();
+  }
+
+  /** Max. length of command line args added as a profiler description. */
+  private static final int MAX_PROFILE_ARGS_LEN = 512;
 
   protected final Path workingDirectory;
   protected final Environment env;
@@ -105,7 +141,9 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   @Nullable private final ProcessWrapper processWrapper;
   protected final StarlarkSemantics starlarkSemantics;
   private final HashMap<Label, String> accumulatedFileDigests = new HashMap<>();
+  private final HashSet<String> accumulatedEnvKeys = new HashSet<>();
   private final RepositoryRemoteExecutor remoteExecutor;
+  private final List<AsyncTask> asyncTasks;
 
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
@@ -125,6 +163,31 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     this.processWrapper = processWrapper;
     this.starlarkSemantics = starlarkSemantics;
     this.remoteExecutor = remoteExecutor;
+    this.asyncTasks = new ArrayList<>();
+  }
+
+  public boolean ensureNoPendingAsyncTasks(EventHandler eventHandler, boolean forSuccessfulFetch) {
+    boolean hadPendingItems = false;
+    for (AsyncTask task : asyncTasks) {
+      if (!task.cancel()) {
+        hadPendingItems = true;
+        if (forSuccessfulFetch) {
+          eventHandler.handle(
+              Event.error(
+                  task.getLocation(),
+                  "Work pending after repository rule finished execution: "
+                      + task.getDescription()));
+        }
+      }
+    }
+
+    return hadPendingItems;
+  }
+
+  // There is no unregister(). We don't have that many futures in each repository and it just
+  // introduces the failure mode of erroneously unregistering async work that's not done.
+  protected void registerAsyncTask(AsyncTask task) {
+    asyncTasks.add(task);
   }
 
   /** A string that can be used to identify this context object. Used for logging purposes. */
@@ -133,6 +196,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   /** Returns the file digests used by this context object so far. */
   public ImmutableMap<Label, String> getAccumulatedFileDigests() {
     return ImmutableMap.copyOf(accumulatedFileDigests);
+  }
+
+  /** Returns set of environment variable keys encountered so far. */
+  public ImmutableSet<String> getAccumulatedEnvKeys() {
+    return ImmutableSet.copyOf(accumulatedEnvKeys);
   }
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
@@ -223,6 +291,32 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return res;
   }
 
+  private static ImmutableMap<String, List<String>> getHeaderContents(Dict<?, ?> x, String what)
+      throws EvalException {
+    Dict<String, Object> headersUnchecked =
+        (Dict<String, Object>) Dict.cast(x, String.class, Object.class, what);
+    ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
+
+    for (Map.Entry<String, Object> entry : headersUnchecked.entrySet()) {
+      ImmutableList<String> headerValue;
+      Object valueUnchecked = entry.getValue();
+      if (valueUnchecked instanceof Sequence) {
+        headerValue =
+            Sequence.cast(valueUnchecked, String.class, "header values").getImmutableList();
+      } else if (valueUnchecked instanceof String) {
+        headerValue = ImmutableList.of(valueUnchecked.toString());
+      } else {
+        throw new EvalException(
+            String.format(
+                "%s argument must be a dict whose keys are string and whose values are either"
+                    + " string or sequence of string",
+                what));
+      }
+      headers.put(entry.getKey(), headerValue);
+    }
+    return headers.buildOrThrow();
+  }
+
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {
     ImmutableList.Builder<String> result = ImmutableList.builder();
 
@@ -310,7 +404,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     }
 
     if (integrity.isEmpty()) {
-      return Optional.absent();
+      return Optional.empty();
     }
 
     try {
@@ -361,6 +455,101 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       out.put("sha256", finalChecksum.toString());
     }
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
+  }
+
+  private class PendingDownload implements StarlarkValue, AsyncTask {
+    private final boolean executable;
+    private final boolean allowFail;
+    private final StarlarkPath outputPath;
+    private final Optional<Checksum> checksum;
+    private final RepositoryFunctionException checksumValidation;
+    private final Future<Path> future;
+    private final Location location;
+
+    private PendingDownload(
+        boolean executable,
+        boolean allowFail,
+        StarlarkPath outputPath,
+        Optional<Checksum> checksum,
+        RepositoryFunctionException checksumValidation,
+        Future<Path> future,
+        Location location) {
+      this.executable = executable;
+      this.allowFail = allowFail;
+      this.outputPath = outputPath;
+      this.checksum = checksum;
+      this.checksumValidation = checksumValidation;
+      this.future = future;
+      this.location = location;
+    }
+
+    @Override
+    public String getDescription() {
+      return String.format("downloading to '%s'", outputPath);
+    }
+
+    @Override
+    public Location getLocation() {
+      return location;
+    }
+
+    @Override
+    public boolean cancel() {
+      if (!future.cancel(true)) {
+        return true;
+      }
+
+      try {
+        future.get();
+        return false;
+      } catch (InterruptedException | ExecutionException | CancellationException e) {
+        // Ignore. The only thing we care about is that there is no async work in progress after
+        // this point. Any error reporting should have been done before.
+        return false;
+      }
+    }
+
+    @StarlarkMethod(
+        name = "wait",
+        doc =
+            "Blocks until the completion of the download and returns or throws as blocking "
+                + " download() call would")
+    public StructImpl await() throws InterruptedException, RepositoryFunctionException {
+      return completeDownload(this);
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append(String.format("<pending download to '%s'>", outputPath));
+    }
+  }
+
+  private StructImpl completeDownload(PendingDownload pendingDownload)
+      throws RepositoryFunctionException, InterruptedException {
+    Path downloadedPath;
+    try {
+      downloadedPath = downloadManager.finalizeDownload(pendingDownload.future);
+      if (pendingDownload.executable) {
+        pendingDownload.outputPath.getPath().setExecutable(true);
+      }
+    } catch (IOException e) {
+      if (pendingDownload.allowFail) {
+        return StarlarkInfo.create(
+            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+      } else {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf(
+              "Could not create output path %s: %s", pendingDownload.outputPath, e.getMessage()),
+          Transience.PERSISTENT);
+    }
+    if (pendingDownload.checksumValidation != null) {
+      throw pendingDownload.checksumValidation;
+    }
+
+    return calculateDownloadResult(pendingDownload.checksum, downloadedPath);
   }
 
   @StarlarkMethod(
@@ -425,6 +614,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             named = true,
             doc = "An optional dict specifying authentication information for some of the URLs."),
         @Param(
+            name = "headers",
+            defaultValue = "{}",
+            named = true,
+            doc = "An optional dict specifying http headers for all URLs."),
+        @Param(
             name = "integrity",
             defaultValue = "''",
             named = true,
@@ -435,8 +629,18 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
                     + " risk to omit the checksum as remote files can change. At best omitting this"
                     + " field will make your build non-hermetic. It is optional to make development"
                     + " easier but should be set before shipping."),
+        @Param(
+            name = "block",
+            defaultValue = "True",
+            named = true,
+            positional = false,
+            doc =
+                "If set to false, the call returns immediately and instead of the regular return"
+                    + " value, it returns a token with one single method, wait(), which blocks"
+                    + " until the download is finished and returns the usual return value or"
+                    + " throws as usual.")
       })
-  public StructImpl download(
+  public Object download(
       Object url,
       Object output,
       String sha256,
@@ -444,23 +648,29 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       Boolean allowFail,
       String canonicalId,
       Dict<?, ?> authUnchecked, // <String, Dict> expected
+      Dict<?, ?> headersUnchecked, // <String, List<String> | String> expected
       String integrity,
+      Boolean block,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
+    PendingDownload download = null;
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
+
+    ImmutableMap<String, List<String>> headers = getHeaderContents(headersUnchecked, "headers");
 
     ImmutableList<URL> urls =
         getUrls(
             url,
-            /*ensureNonEmpty=*/ !allowFail,
-            /*checksumGiven=*/ !Strings.isNullOrEmpty(sha256) || !Strings.isNullOrEmpty(integrity));
-    Optional<Checksum> checksum;
+            /* ensureNonEmpty= */ !allowFail,
+            /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
+                || !Strings.isNullOrEmpty(integrity));
+    Optional<Checksum> checksum = null;
     RepositoryFunctionException checksumValidation = null;
     try {
       checksum = validateChecksum(sha256, integrity, urls);
     } catch (RepositoryFunctionException e) {
-      checksum = Optional.<Checksum>absent();
+      checksum = Optional.<Checksum>empty();
       checksumValidation = e;
     }
 
@@ -475,45 +685,50 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
-    Path downloadedPath;
-    try (SilentCloseable c =
-        Profiler.instance().profile("fetching: " + getIdentifyingStringForLogging())) {
+
+    try {
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
-      downloadedPath =
-          downloadManager.download(
+    } catch (IOException e) {
+      download =
+          new PendingDownload(
+              executable,
+              allowFail,
+              outputPath,
+              checksum,
+              checksumValidation,
+              Futures.immediateFailedFuture(e),
+              thread.getCallerLocation());
+    }
+    if (download == null) {
+      Future<Path> downloadFuture =
+          downloadManager.startDownload(
               urls,
+              headers,
               authHeaders,
               checksum,
               canonicalId,
-              Optional.<String>absent(),
+              Optional.<String>empty(),
               outputPath.getPath(),
               env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
-      if (executable) {
-        outputPath.getPath().setExecutable(true);
-      }
-    } catch (InterruptedException e) {
-      throw new RepositoryFunctionException(
-          new IOException("thread interrupted"), Transience.TRANSIENT);
-    } catch (IOException e) {
-      if (allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
-      } else {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-      }
-    } catch (InvalidPathException e) {
-      throw new RepositoryFunctionException(
-          Starlark.errorf("Could not create output path %s: %s", outputPath, e.getMessage()),
-          Transience.PERSISTENT);
+      download =
+          new PendingDownload(
+              executable,
+              allowFail,
+              outputPath,
+              checksum,
+              checksumValidation,
+              downloadFuture,
+              thread.getCallerLocation());
+      registerAsyncTask(download);
     }
-    if (checksumValidation != null) {
-      throw checksumValidation;
+    if (!block) {
+      return download;
+    } else {
+      return completeDownload(download);
     }
-
-    return calculateDownloadResult(checksum, downloadedPath);
   }
 
   @StarlarkMethod(
@@ -599,6 +814,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             named = true,
             doc = "An optional dict specifying authentication information for some of the URLs."),
         @Param(
+            name = "headers",
+            defaultValue = "{}",
+            named = true,
+            doc = "An optional dict specifying http headers for all URLs."),
+        @Param(
             name = "integrity",
             defaultValue = "''",
             named = true,
@@ -629,13 +849,16 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
-      Dict<?, ?> auth, // <String, Dict> expected
+      Dict<?, ?> authUnchecked, // <String, Dict> expected
+      Dict<?, ?> headersUnchecked, // <String, List<String> | String> expected
       String integrity,
       Dict<?, ?> renameFiles, // <String, String> expected
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
-        getAuthHeaders(getAuthContents(auth, "auth"));
+        getAuthHeaders(getAuthContents(authUnchecked, "auth"));
+
+    ImmutableMap<String, List<String>> headers = getHeaderContents(headersUnchecked, "headers");
 
     ImmutableList<URL> urls =
         getUrls(
@@ -647,7 +870,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     try {
       checksum = validateChecksum(sha256, integrity, urls);
     } catch (RepositoryFunctionException e) {
-      checksum = Optional.absent();
+      checksum = Optional.empty();
       checksumValidation = e;
     }
 
@@ -672,18 +895,17 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
     Path downloadedPath;
     Path downloadDirectory;
-    try (SilentCloseable c =
-        Profiler.instance().profile("fetching: " + getIdentifyingStringForLogging())) {
-
+    try {
       // Download to temp directory inside the outputDirectory and delete it after extraction
       java.nio.file.Path tempDirectory =
           Files.createTempDirectory(Paths.get(outputPath.toString()), "temp");
       downloadDirectory =
           workingDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
 
-      downloadedPath =
-          downloadManager.download(
+      Future<Path> pendingDownload =
+          downloadManager.startDownload(
               urls,
+              headers,
               authHeaders,
               checksum,
               canonicalId,
@@ -692,10 +914,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
-    } catch (InterruptedException e) {
-      env.getListener().post(w);
-      throw new RepositoryFunctionException(
-          new IOException("thread interrupted"), Transience.TRANSIENT);
+      downloadedPath = downloadManager.finalizeDownload(pendingDownload);
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
@@ -734,7 +953,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
-              "Couldn't delete temporary directory (" + downloadDirectory.getPathString() + ")", e),
+              "Couldn't delete temporary directory ("
+                  + downloadDirectory.getPathString()
+                  + "): "
+                  + e.getMessage(),
+              e),
           Transience.TRANSIENT);
     }
     return downloadResult;
@@ -839,6 +1062,47 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       throw new RepositoryFunctionException(
           Starlark.errorf("Could not create %s: %s", p, e.getMessage()), Transience.PERSISTENT);
     }
+  }
+
+  // Move to a common location like net.starlark.java.eval.Starlark?
+  @Nullable
+  private static <T> T nullIfNone(Object object, Class<T> type) {
+    return object != Starlark.NONE ? type.cast(object) : null;
+  }
+
+  @StarlarkMethod(
+      name = "getenv",
+      doc =
+          "Returns the value of an environment variable <code>name</code> as a string if exists, "
+              + "or <code>default</code> if it doesn't."
+              + "<p>When building incrementally, any change to the value of the variable named by "
+              + "<code>name</code> will cause this repository to be re-fetched.",
+      parameters = {
+        @Param(
+            name = "name",
+            doc = "name of desired environment variable",
+            allowedTypes = {@ParamType(type = String.class)}),
+        @Param(
+            name = "default",
+            doc = "Default value to return if `name` is not found",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None")
+      },
+      allowReturnNones = true)
+  @Nullable
+  public String getEnvironmentValue(String name, Object defaultValue)
+      throws InterruptedException, NeedsSkyframeRestartException {
+    // Must look up via AEF, rather than solely copy from `this.envVariables`, in order to
+    // establish a SkyKey dependency relationship.
+    if (env.getValue(ActionEnvironmentFunction.key(name)) == null) {
+      throw new NeedsSkyframeRestartException();
+    }
+
+    // However, to account for --repo_env we take the value from `this.envVariables`.
+    // See https://github.com/bazelbuild/bazel/pull/20787#discussion_r1445571248 .
+    String envVarValue = envVariables.get(name);
+    accumulatedEnvKeys.add(name);
+    return envVarValue != null ? envVarValue : nullIfNone(defaultValue, String.class);
   }
 
   @StarlarkMethod(

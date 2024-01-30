@@ -375,7 +375,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    toolchain_config = ':toolchain_config',",
         "    module_map = ':multiple-maps',",
-        "    cpu = 'cherry',",
         "    ar_files = 'ar-cherry',",
         "    as_files = 'as-cherry',",
         "    compiler_files = 'compile-cherry',",
@@ -474,10 +473,10 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         "cc_toolchain_alias(name = 'b')",
-        "fdo_profile(name='out.xfdo', profile='profile.xfdo')");
+        "genrule(name='profile.xfdo', outs = ['c.txt'], cmd = '')");
     useConfiguration("-c", "opt", "--xbinary_fdo=//a:profile.xfdo");
     assertThat(getConfiguredTarget("//a:b")).isNull();
-    assertContainsEvent("--fdo_profile/--xbinary_fdo input needs to be an fdo_profile rule");
+    assertContainsEvent("does not have mandatory providers: 'FdoProfileInfo'");
   }
 
   @Test
@@ -557,12 +556,24 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     useConfiguration("--cpu=k8");
 
-    ConfiguredTarget target = getConfiguredTarget("//a:a");
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
     RuleContext ruleContext = getRuleContext(target);
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
-    assertThat(toolchainProvider.getToolPathFragment(Tool.AR, ruleContext).toString())
+    assertThat(
+            CcToolchainProvider.getToolPathString(
+                toolchainProvider.getToolPaths(),
+                Tool.AR,
+                toolchainProvider.getCcToolchainLabel(),
+                toolchainProvider.getToolchainIdentifier(),
+                ruleContext))
         .isEqualTo("/absolute/path");
-    assertThat(toolchainProvider.getToolPathFragment(Tool.CPP, ruleContext).toString())
+    assertThat(
+            CcToolchainProvider.getToolPathString(
+                toolchainProvider.getToolPaths(),
+                Tool.CPP,
+                toolchainProvider.getCcToolchainLabel(),
+                toolchainProvider.getToolchainIdentifier(),
+                ruleContext))
         .isEqualTo("a/relative/path");
   }
 
@@ -573,10 +584,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "cc_toolchain_config_rule(name = 'toolchain_config')",
         "filegroup(",
         "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",
@@ -652,21 +659,10 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSupportsDynamicLinkerIsFalseWhenFeatureNotSet() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
-
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
-
-    assertThat(toolchainProvider.supportsDynamicLinker(FeatureConfiguration.EMPTY)).isFalse();
-  }
-
-  @Test
   public void testSysroot_fromCrosstool_unset() throws Exception {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
-    useConfiguration("--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
@@ -738,28 +734,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_toolchain"),
         getToolchainRule("a"));
-  }
-
-  @Test
-  public void setupTestCcToolchainSuiteLoadedThroughMacro() throws Exception {
-    setupTestCcToolchainSuiteLoadedThroughMacro(/* loadMacro= */ true);
-    assertThat(getConfiguredTarget("//a:a")).isNotNull();
-    assertNoEvents();
-  }
-
-  private void setupTestCcToolchainSuiteLoadedThroughMacro(boolean loadMacro) throws Exception {
-    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
-    scratch.file(
-        "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        getAnalysisMock()
-            .ccSupport()
-            .getMacroLoadStatement(loadMacro, "cc_toolchain", "cc_toolchain_suite"),
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
-        getToolchainRule("b"));
   }
 
   private static String getToolchainRule(String targetName) {

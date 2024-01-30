@@ -14,12 +14,10 @@
 
 package com.google.devtools.build.lib.packages.util;
 
-import com.google.devtools.build.lib.rules.python.PythonSemantics;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import java.io.IOException;
 
-/**
- * Creates mock BUILD files required for the python rules.
- */
+/** Creates mock BUILD files required for the python rules. */
 public abstract class MockPythonSupport {
 
   /** Setup the support for building Python. */
@@ -33,5 +31,5 @@ public abstract class MockPythonSupport {
   public abstract String createPythonTopEntryPoint(MockToolsConfig config, String pyRuntimeLabel)
       throws IOException;
 
-  public abstract PythonSemantics getPythonSemantics();
+  public abstract Runfiles.EmptyFilesSupplier getEmptyRunfilesSupplier();
 }

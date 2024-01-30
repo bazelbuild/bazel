@@ -20,15 +20,15 @@ option java_package = "com.google.devtools.build.lib.view.test";
 
 // Status data of test cases which failed (used only for printing test summary)
 enum FailedTestCasesStatus {
-   /** Information about every test case is available. */
-   FULL = 1;
-   /** Information about some test cases may be missing. */
-   PARTIAL = 2;
-   /** No information about individual test cases. */
-   NOT_AVAILABLE = 3;
-   /** This is an empty object still without data. */
-   EMPTY = 4;
-};
+  /** Information about every test case is available. */
+  FULL = 1;
+  /** Information about some test cases may be missing. */
+  PARTIAL = 2;
+  /** No information about individual test cases. */
+  NOT_AVAILABLE = 3;
+  /** This is an empty object still without data. */
+  EMPTY = 4;
+}
 
 // Detailed status data for a TestRunnerAction execution.
 enum BlazeTestStatus {
@@ -41,7 +41,7 @@ enum BlazeTestStatus {
   REMOTE_FAILURE = 6;
   FAILED_TO_BUILD = 7;
   BLAZE_HALTED_BEFORE_TESTING = 8;
-};
+}
 
 // TestCase contains detailed data about all tests (cases/suites/decorators)
 // ran, structured in a tree. This data will be later used to present the tests
@@ -68,7 +68,7 @@ message TestCase {
   optional Type type = 6;
   optional Status status = 7;
   optional bool run = 8 [default = true];
-};
+}
 
 // TestResultData holds the outcome data for a single test action (A
 // single test rule can result in multiple actions due to sharding and
@@ -83,6 +83,7 @@ message TestResultData {
   // Following data is informational.
   optional BlazeTestStatus status = 3 [default = NO_STATUS];
   optional string status_details = 16;
+  optional int32 exit_code = 17;
   repeated string failed_logs = 4;
   repeated string warning = 5;
   optional bool has_coverage = 6;
@@ -111,4 +112,4 @@ message TestResultData {
   // Additional build info
   optional TestCase test_case = 13;
   optional FailedTestCasesStatus failed_status = 14;
-};
+}

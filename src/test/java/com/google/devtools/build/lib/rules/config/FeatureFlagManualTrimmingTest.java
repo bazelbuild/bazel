@@ -72,15 +72,28 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   public void setUpFlagReadingRule() throws Exception {
     scratch.file(
         "test/read_flags.bzl",
+        "_FFI = config_common.FeatureFlagInfo",
         "def _read_flags_impl(ctx):",
-        "  ctx.actions.write(",
-        "    ctx.outputs.flagdict,",
-        "    '\\n'.join(['%s:::%s' % (dep.label, dep[config_common.FeatureFlagInfo].value)",
-        "                for dep in ctx.attr.flags]))",
+        "  result=''",
+        "  for dep in ctx.attr.flags:",
+        "     if result:",
+        "       result += '\\n'",
+        "     result += str(dep.label) + ':::'",
+        "     if dep[_FFI].error == None:",
+        "       result += dep[_FFI].value",
+        "     else:",
+        "       if ctx.attr.skip_if_error:",
+        "         result += '[unresolvable]'",
+        "       else:",
+        "         fail(dep[_FFI].error)",
+        "  ctx.actions.write(ctx.outputs.flagdict, result)",
         "  return [DefaultInfo(files = depset([ctx.outputs.flagdict]))]",
         "read_flags = rule(",
         "  implementation = _read_flags_impl,",
-        "  attrs = {'flags': attr.label_list()},",
+        "  attrs = {",
+        "    'flags': attr.label_list(),",
+        "    'skip_if_error': attr.bool(default=False),",
+        "  },",
         "  outputs = {'flagdict': '%{name}.flags'},",
         ")");
   }
@@ -96,11 +109,6 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         "  implementation = _host_transition_impl,",
         "  attrs = {'srcs': attr.label_list(cfg='exec')},",
         ")");
-  }
-
-  private ImmutableSortedMap<Label, String> getFlagMapFromConfiguration(
-      BuildConfigurationValue config) throws Exception {
-    return FeatureFlagValue.getFlagValues(config.getOptions());
   }
 
   private ImmutableSortedMap<Label, String> getFlagValuesFromOutputFile(Artifact flagDict) {
@@ -163,7 +171,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagSetAndInTransitiveConfigs_GetsSetValue() throws Exception {
+  public void featureFlagSetAndInTransitiveConfigs_getsSetValue() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':read_flags.bzl', 'read_flags')",
@@ -200,7 +208,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagSetButNotInTransitiveConfigs_IsTrimmedOutAndCollapsesDuplicates()
+  public void featureFlagSetButNotInTransitiveConfigs_isTrimmedOutAndCollapsesDuplicates()
       throws Exception {
     scratch.file(
         "test/BUILD",
@@ -249,7 +257,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagInTransitiveConfigsButNotSet_GetsDefaultValue() throws Exception {
+  public void featureFlagInTransitiveConfigsButNotSet_getsDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':read_flags.bzl', 'read_flags')",
@@ -285,7 +293,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagInTransitiveConfigsButNotInTransitiveClosure_IsWastefulButDoesNotError()
+  public void featureFlagInTransitiveConfigsButNotInTransitiveClosure_isWastefulButDoesNotError()
       throws Exception {
     scratch.file(
         "test/BUILD",
@@ -334,7 +342,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void emptyTransitiveConfigs_EquivalentRegardlessOfFeatureFlags() throws Exception {
+  public void emptyTransitiveConfigs_equivalentRegardlessOfFeatureFlags() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':read_flags.bzl', 'read_flags')",
@@ -376,7 +384,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void absentTransitiveConfigs_EquivalentRegardlessOfFeatureFlags() throws Exception {
+  public void absentTransitiveConfigs_equivalentRegardlessOfFeatureFlags() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':read_flags.bzl', 'read_flags')",
@@ -418,7 +426,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void nonexistentLabelInTransitiveConfigs_DoesNotError() throws Exception {
+  public void nonexistentLabelInTransitiveConfigs_doesNotError() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':read_flags.bzl', 'read_flags')",
@@ -445,7 +453,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void magicLabelInTransitiveConfigs_DoesNotError() throws Exception {
+  public void magicLabelInTransitiveConfigs_doesNotError() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':read_flags.bzl', 'read_flags')",
@@ -472,7 +480,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void flagSetBySetterButNotInTransitiveConfigs_CanBeUsedByDeps() throws Exception {
+  public void flagSetBySetterButNotInTransitiveConfigs_canBeUsedByDeps() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':read_flags.bzl', 'read_flags')",
@@ -500,7 +508,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError()
+  public void featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_doesNotError()
       throws Exception {
     scratch.file(
         "test/BUILD",
@@ -521,6 +529,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         "config_setting(",
         "    name = 'used_flag@other',",
         "    flag_values = {':used_flag': 'other'},",
+        "    transitive_configs = [':used_flag'],",
         ")",
         "config_feature_flag(",
         "    name = 'trimmed_flag',",
@@ -538,7 +547,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagTarget_IsTrimmedToOnlyItself() throws Exception {
+  public void featureFlagTarget_isTrimmedToOnlyItself() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':read_flags.bzl', 'read_flags')",
@@ -569,12 +578,47 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
             .getConfiguration();
 
     Label childLabel = Label.parseCanonicalUnchecked("//test:read_flag");
-    assertThat(getFlagMapFromConfiguration(childConfiguration).keySet())
+    assertThat(childConfiguration.getOptions().getStarlarkOptions().keySet())
         .containsExactly(childLabel);
   }
 
   @Test
-  public void featureFlagAccessedByPathWithMissingLabel_ProducesError() throws Exception {
+  public void featureFlagReferencedByPathWithMissingLabel_producesNoImmediateError()
+      throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':read_flags.bzl', 'read_flags')",
+        "feature_flag_setter(",
+        "    name = 'target',",
+        "    deps = [':broken'],",
+        "    flag_values = {",
+        "        ':used_flag': 'configured',",
+        "    },",
+        "    transitive_configs = [':used_flag'],",
+        ")",
+        "filegroup(",
+        "    name = 'broken',",
+        "    srcs = [':reader'],",
+        "    transitive_configs = [],",
+        ")",
+        "read_flags(",
+        "    name = 'reader',",
+        "    flags = [':used_flag'],",
+        "    skip_if_error = True,",
+        "    transitive_configs = [':used_flag'],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'used_flag',",
+        "    allowed_values = ['default', 'configured', 'other'],",
+        "    default_value = 'default',",
+        ")");
+
+    getConfiguredTarget("//test:target");
+    assertNoEvents();
+  }
+
+  @Test
+  public void featureFlagAccessedByPathWithMissingLabel_producesImmediateError() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.file(
         "test/BUILD",
@@ -595,6 +639,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         "read_flags(",
         "    name = 'reader',",
         "    flags = [':used_flag'],",
+        "    skip_if_error = False,",
         "    transitive_configs = [':used_flag'],",
         ")",
         "config_feature_flag(",
@@ -611,7 +656,51 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagAccessedByPathWithMissingTransitiveConfigs_ProducesError()
+  public void featureFlagAccessedByPathWithMissingLabelAndSelect_producesError() throws Exception {
+    reporter.removeHandler(failFastHandler); // expecting an error
+    scratch.file(
+        "test/BUILD",
+        "feature_flag_setter(",
+        "    name = 'target',",
+        "    deps = [':broken'],",
+        "    flag_values = {",
+        "        ':used_flag': 'configured',",
+        "    },",
+        "    transitive_configs = [':used_flag'],",
+        ")",
+        "filegroup(",
+        "    name = 'broken',",
+        "    srcs = [':reader'],",
+        "    transitive_configs = [],",
+        ")",
+        "filegroup(",
+        "    name = 'reader',",
+        "    srcs = select({",
+        "      ':used_flag@configured': ['a.txt'],",
+        "      '//conditions:default': ['b.txt'],",
+        "    }),",
+        "    transitive_configs = [':used_flag'],",
+        ")",
+        "config_setting(",
+        "    name = 'used_flag@configured',",
+        "    flag_values = {':used_flag': 'configured'},",
+        "    transitive_configs = [':used_flag'],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'used_flag',",
+        "    allowed_values = ['default', 'configured', 'other'],",
+        "    default_value = 'default',",
+        ")");
+
+    assertThat(getConfiguredTarget("//test:target")).isNull();
+    assertContainsEvent(
+        "Feature flag //test:used_flag was accessed in a configuration it is not present in. All "
+            + "targets which depend on //test:used_flag directly or indirectly must name it in "
+            + "their transitive_configs attribute.");
+  }
+
+  @Test
+  public void featureFlagAccessedByPathWithMissingTransitiveConfigs_producesError()
       throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.file(
@@ -630,9 +719,17 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         "    srcs = [':reader'],",
         // no transitive_configs = equivalent to []
         ")",
-        "read_flags(",
+        "filegroup(",
         "    name = 'reader',",
-        "    flags = [':used_flag'],",
+        "    srcs = select({",
+        "      ':used_flag@configured': ['a.txt'],",
+        "      '//conditions:default': ['b.txt'],",
+        "    }),",
+        "    transitive_configs = [':used_flag'],",
+        ")",
+        "config_setting(",
+        "    name = 'used_flag@configured',",
+        "    flag_values = {':used_flag': 'configured'},",
         "    transitive_configs = [':used_flag'],",
         ")",
         "config_feature_flag(",
@@ -720,7 +817,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagAccessedDirectly_ReturnsDefaultValue() throws Exception {
+  public void featureFlagAccessedDirectly_returnsDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",
         "config_feature_flag(",
@@ -736,7 +833,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagAccessedViaTopLevelLibraryTarget_ReturnsDefaultValue() throws Exception {
+  public void featureFlagAccessedViaTopLevelLibraryTarget_returnsDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':read_flags.bzl', 'read_flags')",
@@ -758,8 +855,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagSettingRules_OverrideFlagsFromReverseTransitiveClosure()
-      throws Exception {
+  public void featureFlagSettingRules_overrideFlagsFromReverseTransitiveClosure() throws Exception {
     // In other words: if you have a dependency which sets feature flags itself, you don't need to
     // name any of the feature flags used by that target or its transitive closure, as it sets
     // feature flags itself.
@@ -838,7 +934,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         getConfiguration(getConfiguredTarget("//test:toplevel_target")).getOptions();
     PatchTransition transition =
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
-            .create(RuleTransitionData.create((Rule) getTarget("//test:dep")));
+            .create(RuleTransitionData.create((Rule) getTarget("//test:dep"), null, ""));
     BuildOptions depOptions =
         transition.patch(
             new BuildOptionsView(topLevelOptions, transition.requiresOptionFragments()),
@@ -847,7 +943,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagSetAndInTransitiveConfigs_GetsSetValueWhenTrimTest() throws Exception {
+  public void featureFlagSetAndInTransitiveConfigs_getsSetValueWhenTrimTest() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':read_flags.bzl', 'read_flags')",

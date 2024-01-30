@@ -109,6 +109,13 @@ public class Alias implements RuleConfiguredTargetFactory {
 </p>
 
 <p>
+  Aliasing may be of help in large repositories where renaming a target would require making
+  changes to lots of files. You can also use alias rule to store a
+  <a href="${link select}">select</a> function call if you want to reuse that logic for
+  multiple targets.
+</p>
+
+<p>
   The alias rule has its own visibility declaration. In all other respects, it behaves
   like the rule it references (e.g. testonly <em>on the alias</em> is ignored; the testonly-ness
    of the referenced rule is used instead) with some minor exceptions:

@@ -508,47 +508,23 @@ py_binary(
 EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
-  # The incompatible_display_source_file_location flag displays the location of
-  # line 1 of the actual source file
+  # Check that Bazel displays the location of line 1 of the actual source file
   bazel query \
     --output=location \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "source file //foo:main.py"
   expect_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
   expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 
-  # The noincompatible_display_source_file_location flag displays its location
-  # in the BUILD file
-  bazel query \
-    --output=location \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "source file //foo:main.py"
-  expect_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
-  expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
-
-  # The incompatible_display_source_file_location should still be affected by
-  # relative_locations flag to display the relative location of the source file
+  # Location should still be affected by relative_locations flag to display the
+  # relative location of the source file
   bazel query \
     --output=location \
     --relative_locations \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "source file //foo:main.py"
   expect_log "^foo/main.py:1:1"
   expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
-
-  # The noincompatible_display_source_file_location flag should still be
-  # affected by relative_locations flag to display the relative location of
-  # the BUILD file.
-  bazel query --output=location \
-    --relative_locations \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "source file //foo:main.py"
-  expect_log "^foo/BUILD:[0-9]*:[0-9]*"
-  expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 }
 
 function test_proto_output_source_files() {
@@ -563,17 +539,10 @@ EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
   bazel query --output=proto \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
 
   expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
   expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
-
-  bazel query --output=proto \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
-  expect_not_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
 }
 
 function test_xml_output_source_files() {
@@ -588,16 +557,9 @@ EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
   bazel query --output=xml \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
   expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
-
-  bazel query --output=xml \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
-  expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
 }
 
 function test_subdirectory_named_external() {
@@ -668,7 +630,7 @@ genquery(name='q',
          opts = ["--output=blargh"],)
 EOF
 
-  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, jsonproto, xml, proto"
+  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, xml, proto, streamed_jsonproto, "
   bazel build //starfruit:q >& $TEST_log && fail "Expected failure"
   expect_log "$expected_error_msg"
 }
@@ -730,8 +692,7 @@ EOF
 EOF
 
   # Genquery uses a graphless blaze environment by default.
-  bazel build --experimental_genquery_use_graphless_query \
-      //foo:q || fail "Expected success"
+  bazel build //foo:q || fail "Expected success"
 
   # The --incompatible_lexicographical_output flag is used to
   # switch order_output=auto to use graphless query and output in
@@ -1098,7 +1059,7 @@ EOF
   expect_log "//pkg3:t4"
 }
 
-function test_basic_query_jsonproto() {
+function test_basic_query_streamed_jsonproto() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
@@ -1108,17 +1069,39 @@ genrule(
     outs = ["bar_out.txt"],
     cmd = "echo unused > $(OUTS)",
 )
+genrule(
+    name = "foo",
+    srcs = ["dummy.txt"],
+    outs = ["foo_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
 EOF
-  bazel query --output=jsonproto --noimplicit_deps "//$pkg:bar" > output 2> "$TEST_log" \
+  bazel query --output=streamed_jsonproto --noimplicit_deps "//$pkg/..." > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
   # Verify that the appropriate attributes were included.
-  assert_contains "\"ruleClass\": \"genrule\"" output
-  assert_contains "\"name\": \"//$pkg:bar\"" output
-  assert_contains "\"ruleInput\": \[\"//$pkg:dummy.txt\"\]" output
-  assert_contains "\"ruleOutput\": \[\"//$pkg:bar_out.txt\"\]" output
-  assert_contains "echo unused" output
+
+  foo_line_number=$(grep -n "foo" output | cut -d':' -f1)
+  bar_line_number=$(grep -n "bar" output | cut -d':' -f1)
+
+  foo_ndjson_line=$(sed -n "${foo_line_number}p" output)
+  bar_ndjson_line=$(sed -n "${bar_line_number}p" output)
+
+  echo "$foo_ndjson_line" > foo_ndjson_file
+  echo "$bar_ndjson_line" > bar_ndjson_file
+
+  assert_contains "\"ruleClass\":\"genrule\"" foo_ndjson_file
+  assert_contains "\"name\":\"//$pkg:foo\"" foo_ndjson_file
+  assert_contains "\"ruleInput\":\[\"//$pkg:dummy.txt\"\]" foo_ndjson_file
+  assert_contains "\"ruleOutput\":\[\"//$pkg:foo_out.txt\"\]" foo_ndjson_file
+  assert_contains "echo unused" foo_ndjson_file
+
+  assert_contains "\"ruleClass\":\"genrule\"" bar_ndjson_file
+  assert_contains "\"name\":\"//$pkg:bar\"" bar_ndjson_file
+  assert_contains "\"ruleInput\":\[\"//$pkg:dummy.txt\"\]" bar_ndjson_file
+  assert_contains "\"ruleOutput\":\[\"//$pkg:bar_out.txt\"\]" bar_ndjson_file
+  assert_contains "echo unused" bar_ndjson_file
 }
 
 run_suite "${PRODUCT_NAME} query tests"

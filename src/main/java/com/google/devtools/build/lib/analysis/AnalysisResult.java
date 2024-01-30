@@ -154,10 +154,6 @@ public class AnalysisResult {
     return topLevelContext;
   }
 
-  public String getWorkspaceName() {
-    return workspaceName;
-  }
-
   public Collection<TargetAndConfiguration> getTopLevelTargetsWithConfigs() {
     return topLevelTargetsWithConfigs;
   }

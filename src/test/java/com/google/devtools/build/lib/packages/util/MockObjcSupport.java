@@ -14,12 +14,16 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
+import java.util.stream.Stream;
 
 /** Creates mock BUILD files required for the objc rules. */
 public final class MockObjcSupport {
@@ -54,34 +58,50 @@ public final class MockObjcSupport {
   public static final String DEFAULT_XCODE_VERSION = "7.3.1";
   public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
 
-  public static ImmutableList<String> requiredObjcPlatformFlags() {
+  public static final String APPLE_SIMULATOR_PLATFORM_PACKAGE =
+      TestConstants.APPLE_PLATFORM_PACKAGE_ROOT
+          + (TestConstants.PRODUCT_NAME.equals("bazel") ? "" : "/simulator");
+
+  public static final String DARWIN_X86_64 =
+      TestConstants.APPLE_PLATFORM_PACKAGE_ROOT + ":darwin_x86_64";
+  public static final String IOS_X86_64 = APPLE_SIMULATOR_PLATFORM_PACKAGE + ":ios_x86_64";
+  public static final String IOS_ARM64 = TestConstants.APPLE_PLATFORM_PACKAGE_ROOT + ":ios_arm64";
+  public static final String IOS_ARMV7 =
+      TestConstants.APPLE_PLATFORM_PACKAGE_ROOT + ":ios_armv7"; // legacy for testing
+  public static final String IOS_I386 =
+      APPLE_SIMULATOR_PLATFORM_PACKAGE + ":ios_i386"; // legacy for testing
+  public static final String WATCHOS_ARMV7K =
+      TestConstants.APPLE_PLATFORM_PACKAGE_ROOT + ":watchos_armv7k";
+
+  public static ImmutableList<String> requiredObjcPlatformFlags(String... args) {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     return builder
-        .addAll(requiredObjcPlatformFlagsNoXcodeConfig())
+        .addAll(requiredObjcPlatformFlagsNoXcodeConfig(args))
         .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
         .build();
   }
 
   /** Returns the set of flags required to build objc libraries using the mock OSX crosstool. */
-  public static ImmutableList<String> requiredObjcCrosstoolFlags() {
+  public static ImmutableList<String> requiredObjcCrosstoolFlags(String... args) {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     return builder
-        .addAll(requiredObjcCrosstoolFlagsNoXcodeConfig())
+        .addAll(requiredObjcCrosstoolFlagsNoXcodeConfig(args))
         .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
         .build();
   }
 
-  public static ImmutableList<String> requiredObjcPlatformFlagsNoXcodeConfig() {
+  public static ImmutableList<String> requiredObjcPlatformFlagsNoXcodeConfig(String... args) {
     ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
-
-    argsBuilder.add("--platforms=" + TestConstants.CONSTRAINTS_PATH + "/apple:darwin_x86_64");
+    argsBuilder.addAll(Stream.of(args).collect(toImmutableList()));
+    if (Stream.of(args).noneMatch(arg -> arg.startsWith("--platforms="))) {
+      argsBuilder.add("--platforms=" + MockObjcSupport.DARWIN_X86_64);
+    }
 
     // Set a crosstool_top that is compatible with Apple transitions. Currently, even though this
     // references the old cc_toolchain_suite, it's still required of cc builds even when the
     // incompatible_enable_cc_toolchain_resolution flag is active.
     argsBuilder.add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
 
-    argsBuilder.add("--incompatible_enable_cc_toolchain_resolution");
     argsBuilder.add("--incompatible_enable_apple_toolchain_resolution");
 
     return argsBuilder.build();
@@ -91,16 +111,19 @@ public final class MockObjcSupport {
    * Returns the set of flags required to build objc libraries using the mock OSX crosstool except
    * for --xcode_version_config.
    */
-  public static ImmutableList<String> requiredObjcCrosstoolFlagsNoXcodeConfig() {
+  public static ImmutableList<String> requiredObjcCrosstoolFlagsNoXcodeConfig(String... args) {
 
     ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
+    argsBuilder.addAll(Stream.of(args).collect(toImmutableList()));
+    if (Stream.of(args).noneMatch(arg -> arg.startsWith("--platforms="))) {
+      argsBuilder.add("--platforms=" + MockObjcSupport.DARWIN_X86_64);
+    }
 
     // TODO(b/68751876): Set --apple_crosstool_top and --crosstool_top using the
     // AppleCrosstoolTransition
     argsBuilder
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
-        .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
-        .add("--noincompatible_enable_cc_toolchain_resolution");
+        .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     return argsBuilder.build();
   }
 
@@ -141,7 +164,7 @@ public final class MockObjcSupport {
     // Any device, simulator or maccatalyst platforms created by Apple tests should consider
     // building on one of these targets as parents, to ensure that the proper constraints are set.
     config.create(
-        TestConstants.CONSTRAINTS_PATH + "/apple/BUILD",
+        TestConstants.APPLE_PLATFORM_PATH + "/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "platform(",
@@ -158,32 +181,60 @@ public final class MockObjcSupport {
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64',",
         "  ],",
         ")",
-        "platform(",
-        "  name = 'ios_x86_64',",
+        "platform(", // legacy platform only used to support tests
+        "  name = 'ios_armv7',",
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
-        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
         "  ],",
         ")",
         "platform(",
-        "  name = 'watchos_x86_64',",
+        "  name = 'watchos_armv7k',",
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos',",
-        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7k',",
         "  ],",
         ")");
 
-    for (String tool :
-        ImmutableSet.of(
-            "objc_dummy.mm", "gcov", "testrunner", "xcrunwrapper.sh", "mcov", "libtool")) {
+    String[] simulatorPlatforms = {
+      "platform(",
+      "  name = 'ios_x86_64',",
+      "  constraint_values = [",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+      "  ],",
+      ")",
+      "platform(",
+      "  name = 'ios_i386',", // legacy platform only used to support tests
+      "  constraint_values = [",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32',",
+      "  ],",
+      ")",
+      "platform(",
+      "  name = 'watchos_x86_64',",
+      "  constraint_values = [",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos',",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+      "  ],",
+      ")"
+    };
+
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      config.append(TestConstants.APPLE_PLATFORM_PATH + "/BUILD", simulatorPlatforms);
+    } else {
+      config.create(TestConstants.APPLE_PLATFORM_PATH + "/simulator/BUILD", simulatorPlatforms);
+    }
+
+    for (String tool : ImmutableSet.of("objc_dummy.mm", "gcov", "testrunner", "mcov", "libtool")) {
       config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/" + tool);
     }
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/BUILD",
+        getPyLoad("py_binary"),
         "package(default_visibility=['//visibility:public'])",
         "exports_files(glob(['**']))",
         "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
-        "sh_binary(name = 'xcrunwrapper', srcs = ['xcrunwrapper.sh'])",
         "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])",
         "py_binary(",
         "  name = 'j2objc_dead_code_pruner_binary',",

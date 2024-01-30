@@ -221,7 +221,9 @@ public class ManifestMergerAction {
       if (manifest == null) {
         // No primary manifest was passed. Generate a dummy primary.
 
-        manifest = AndroidManifest.asEmpty().writeDummyManifestForAapt(tmp, options.customPackage);
+        String minSdk = options.manifestValues.getOrDefault("minSdkVersion", "1");
+        manifest =
+            AndroidManifest.of("", minSdk).writeDummyManifestForAapt(tmp, options.customPackage);
       }
 
       mergedManifest =

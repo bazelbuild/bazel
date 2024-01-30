@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.CodedInputStream;
@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  * thread-safe and should only be accessed on a single thread for deserializing one serialized
  * object (that may contain other serialized objects inside it).
  */
-public class DeserializationContext implements SerializationDependencyProvider {
+public class DeserializationContext implements AsyncDeserializationContext {
   private final ObjectCodecRegistry registry;
   private final ImmutableClassToInstanceMap<Object> dependencies;
   @Nullable private final Memoizer.Deserializer deserializer;
@@ -59,29 +59,15 @@ public class DeserializationContext implements SerializationDependencyProvider {
     this(AutoRegistry.get(), dependencies);
   }
 
-  // TODO(shahan): consider making codedIn a member of this class.
-  @SuppressWarnings({"TypeParameterUnusedInFormals"})
-  public <T> T deserialize(CodedInputStream codedIn) throws IOException, SerializationException {
-    return deserializeInternal(codedIn, /*customMemoizationStrategy=*/ null);
-  }
-
-  @SuppressWarnings({"TypeParameterUnusedInFormals"})
-  public <T> T deserializeWithAdHocMemoizationStrategy(
-      CodedInputStream codedIn, MemoizationStrategy memoizationStrategy)
-      throws IOException, SerializationException {
-    return deserializeInternal(codedIn, memoizationStrategy);
-  }
-
+  @Nullable
   @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
-  private <T> T deserializeInternal(
-      CodedInputStream codedIn, @Nullable MemoizationStrategy customMemoizationStrategy)
-      throws IOException, SerializationException {
+  public <T> T deserialize(CodedInputStream codedIn) throws IOException, SerializationException {
     int tag = codedIn.readSInt32();
     if (tag == 0) {
       return null;
     }
     if (tag < 0) {
-      // Subtract 1 to undo transformation from SerializationContext to avoid null.
+      // Subtracts 1 to undo transformation from SerializationContext to avoid null.
       return (T) deserializer.getMemoized(-tag - 1); // unchecked cast
     }
     T constant = (T) registry.maybeGetConstantByTag(tag);
@@ -89,25 +75,68 @@ public class DeserializationContext implements SerializationDependencyProvider {
       return constant;
     }
     CodecDescriptor codecDescriptor = registry.getCodecDescriptorByTag(tag);
+    ObjectCodec<T> castCodec = (ObjectCodec<T>) codecDescriptor.getCodec(); // unchecked cast
     if (deserializer == null) {
-      return (T) codecDescriptor.deserialize(this, codedIn); // unchecked cast
-    } else {
-      @SuppressWarnings("unchecked")
-      ObjectCodec<T> castCodec = (ObjectCodec<T>) codecDescriptor.getCodec();
-      MemoizationStrategy memoizationStrategy =
-          customMemoizationStrategy != null ? customMemoizationStrategy : castCodec.getStrategy();
-      return deserializer.deserialize(this, castCodec, memoizationStrategy, codedIn);
+      return castCodec.deserialize(this, codedIn);
     }
+    return deserializer.deserialize(this, castCodec, codedIn);
   }
 
-
   /**
-   * Register an initial value for the currently deserializing value, for use by child objects that
-   * may have references to it.
+   * Deserializes into {@code obj} using {@code setter}.
    *
-   * <p>This is a noop when memoization is disabled.
+   * <p>This allows custom processing of the deserialized object.
    */
-  public <T> void registerInitialValue(T initialValue) {
+  @Override
+  public <T> void deserialize(CodedInputStream codedIn, T obj, FieldSetter<? super T> setter)
+      throws IOException, SerializationException {
+    Object value = deserialize(codedIn);
+    if (value == null) {
+      return;
+    }
+    setter.set(obj, value);
+  }
+
+  @Override
+  public void deserialize(CodedInputStream codedIn, Object obj, long offset)
+      throws IOException, SerializationException {
+    Object value = deserialize(codedIn);
+    if (value == null) {
+      return;
+    }
+    unsafe().putObject(obj, offset, value);
+  }
+
+  @Override
+  public void deserialize(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException {
+    deserialize(codedIn, obj, offset);
+    done.run();
+  }
+
+  @Override
+  public void deserializeFully(CodedInputStream codedIn, Object obj, long offset)
+      throws IOException, SerializationException {
+    // This method is identical to the call below in the synchronous implementation.
+    deserialize(codedIn, obj, offset);
+  }
+
+  @Override
+  public <T> void deserializeFully(CodedInputStream codedIn, T obj, FieldSetter<? super T> setter)
+      throws IOException, SerializationException {
+    // This method is identical to the call below in the synchronous implementation.
+    deserialize(codedIn, obj, setter);
+  }
+
+  @Override
+  public void deserializeFully(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException {
+    // This method is identical to the call below in the synchronous implementation.
+    deserialize(codedIn, obj, offset, done);
+  }
+
+  @Override
+  public void registerInitialValue(Object initialValue) {
     if (deserializer != null) {
       deserializer.registerInitialValue(initialValue);
     }

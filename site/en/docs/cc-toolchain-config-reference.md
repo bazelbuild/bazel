@@ -33,7 +33,8 @@ granularity for configuring the behavior of Bazel's C++ rules. By default,
 Bazel automatically configures `CcToolchainConfigInfo` for your build, but you
 have the option to configure it manually. For that, you need a Starlark rule
 that provides the `CcToolchainConfigInfo` and you need to point the
-[`toolchain_config`](/reference/be/c-cpp#cc_toolchain.toolchain_config) attribute of the `cc_toolchain` to your rule.
+[`toolchain_config`](/reference/be/c-cpp#cc_toolchain.toolchain_config) attribute of the
+[`cc_toolchain`](/reference/be/c-cpp#cc_toolchain) to your rule.
 You can create the `CcToolchainConfigInfo` by calling
 [`cc_common.create_cc_toolchain_config_info()`](/rules/lib/toplevel/cc_common#create_cc_toolchain_config_info).
 You can find Starlark constructors for all structs you'll need in the process in
@@ -443,7 +444,7 @@ The `tool()` constructor takes in the following parameters:
    </td>
   </tr>
   <tr>
-   <td><code>tool_path</code>
+   <td><code>path</code>
    </td>
    <td>Path to the tool in question (relative to the current location).
    </td>
@@ -481,16 +482,15 @@ With Bazel, this process can instead be implemented as follows, with
 
     action_configs = [
         action_config (
-            config_name = ACTION_NAMES.cpp_link_executable,
             action_name = ACTION_NAMES.cpp_link_executable,
             tools = [
                 tool(
                     with_features = [
                         with_feature(features=["generate-debug-symbols"]),
                     ],
-                    tool_path = "toolchain/mac/ld-with-dsym-packaging",
+                    path = "toolchain/mac/ld-with-dsym-packaging",
                 ),
-                tool (tool_path = "toolchain/mac/ld"),
+                tool (path = "toolchain/mac/ld"),
             ],
         ),
     ]
@@ -528,7 +528,7 @@ follows:
             name = ACTION_NAMES.cpp_compile,
             tools = [
                 tool(
-                    tool_path = "toolchain/bin/gcc",
+                    path = "toolchain/bin/gcc",
                 ),
             ],
         ),

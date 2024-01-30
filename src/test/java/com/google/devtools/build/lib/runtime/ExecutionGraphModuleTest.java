@@ -407,7 +407,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
     var options = new ExecutionGraphModule.ExecutionGraphOptions();
-    options.logMissedActions = true;
     module.setOptions(options);
 
     module.spawnExecuted(
@@ -417,7 +416,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             Instant.ofEpochMilli(100)));
     module.actionComplete(
         new ActionCompletionEvent(
-            0, new ActionsTestUtil.NullAction(createOutputArtifact("foo/out")), null));
+            0, 0, new ActionsTestUtil.NullAction(createOutputArtifact("foo/out")), null));
     module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
 
     assertThat(parse(buffer))
@@ -430,6 +429,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setDurationMillis(200)
                         .setOtherMillis(200))
                 .setRunner("remote")
+                .setRuleClass("dummy-target-kind")
                 .build());
   }
 
@@ -438,7 +438,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
     var options = new ExecutionGraphModule.ExecutionGraphOptions();
-    options.logMissedActions = true;
     module.setOptions(options);
     var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
     module.setNanosToMillis(nanosToMillis);
@@ -449,7 +448,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100)));
     var action = new ActionsTestUtil.NullAction(createOutputArtifact("bar/out"));
-    module.actionComplete(new ActionCompletionEvent(0, action, null));
+    module.actionComplete(new ActionCompletionEvent(0, 0, action, null));
     module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
 
     assertThat(parse(buffer))
@@ -461,6 +460,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setStartTimestampMillis(100)
                         .setDurationMillis(200)
                         .setOtherMillis(200))
+                .setRuleClass("dummy-target-kind")
                 .setRunner("remote")
                 .build(),
             executionGraphNodeBuilderForAction(action)
@@ -468,6 +468,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                 .setMetrics(
                     ExecutionGraph.Metrics.newBuilder()
                         .setStartTimestampMillis(nanosToMillis.toEpochMillis(0)))
+                .setRuleClass("dummy-kind")
                 .build());
   }
 
@@ -697,6 +698,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         .setDescription("action 'progress message'")
         .setTargetLabel("//dummy:label")
         .setMnemonic("Mnemonic")
+        .setRuleClass("dummy-target-kind")
         // This comes from SpawnResult.Builder, which defaults to an empty string.
         .setRunnerSubtype("");
   }

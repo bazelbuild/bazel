@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -30,6 +32,7 @@ import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
@@ -43,12 +46,13 @@ public class DigestUtil {
     this.digestFunction = getDigestFunctionFromHashFunction(hashFn);
   }
 
+  private static final ImmutableSet<String> DIGEST_FUNCTION_NAMES =
+      Arrays.stream(DigestFunction.Value.values()).map(Enum::name).collect(toImmutableSet());
+
   private static DigestFunction.Value getDigestFunctionFromHashFunction(DigestHashFunction hashFn) {
     for (String name : hashFn.getNames()) {
-      try {
+      if (DIGEST_FUNCTION_NAMES.contains(name)) {
         return DigestFunction.Value.valueOf(name);
-      } catch (IllegalArgumentException e) {
-        // continue.
       }
     }
     return DigestFunction.Value.UNKNOWN;
@@ -103,6 +107,14 @@ public class DigestUtil {
     return new ActionKey(digest);
   }
 
+  public com.google.devtools.build.lib.exec.Protos.Digest asSpawnLogProto(ActionKey actionKey) {
+    return com.google.devtools.build.lib.exec.Protos.Digest.newBuilder()
+        .setHash(actionKey.getDigest().getHash())
+        .setSizeBytes(actionKey.getDigest().getSizeBytes())
+        .setHashFunctionName(getDigestFunction().toString())
+        .build();
+  }
+
   /** Returns the hash of {@code data} in binary. */
   public byte[] hash(byte[] data) {
     return hashFn.getHashFunction().hashBytes(data).asBytes();
@@ -130,5 +142,13 @@ public class DigestUtil {
 
   public static byte[] toBinaryDigest(Digest digest) {
     return HashCode.fromString(digest.getHash()).asBytes();
+  }
+
+  public static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {
+    // Old-style digest functions (SHA256, etc) are distinguishable by the length
+    // of their hash alone and do not require extra specification, but newer
+    // digest functions (which may have the same length hashes as the older
+    // functions!) must be explicitly specified in the upload resource name.
+    return digestFunction.getNumber() <= 7;
   }
 }

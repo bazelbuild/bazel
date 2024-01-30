@@ -17,7 +17,7 @@ import io
 import os
 import socket
 import threading
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 # pylint: disable=g-import-not-at-top,g-importing-member
@@ -64,12 +64,21 @@ class MemoryStorageHandler(BaseHTTPRequestHandler):
     self.finish()
 
 
+class HTTPServerV6(HTTPServer):
+  address_family = socket.AF_INET6
+
+
 class CacheDecompressionTest(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
     server_port = self.GetFreeTCPPort()
-    self.httpd = HTTPServer(('localhost', server_port), MemoryStorageHandler)
+    if self.IsDarwin():
+      self.httpd = HTTPServerV6(
+          ('localhost', server_port), MemoryStorageHandler
+      )
+    else:
+      self.httpd = HTTPServer(('localhost', server_port), MemoryStorageHandler)
     self.httpd.storage = {}
     self.url = 'http://localhost:{}'.format(server_port)
     self.background = threading.Thread(target=self.httpd.serve_forever)
@@ -127,4 +136,4 @@ class CacheDecompressionTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

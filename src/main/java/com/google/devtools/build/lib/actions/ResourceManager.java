@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.io.IOException;
 import java.util.Deque;
 import java.util.HashMap;
@@ -101,7 +103,31 @@ public class ResourceManager implements ResourceEstimator {
       rm.releaseResources(actionMetadata, resourceSet, worker);
     }
 
-    public void invalidateAndClose() throws IOException, InterruptedException {
+    public void invalidateAndClose(@Nullable Exception e) throws IOException, InterruptedException {
+      // If there is an exception, we need to set the kill cause before invalidating the object.
+      // This ensures that the worker implementation updates their worker metrics accordingly
+      // if/when it destroys itself.
+      if (e != null) {
+        if (e instanceof InterruptedException) {
+          worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_INTERRUPTED_EXCEPTION);
+        } else if (e instanceof IOException) {
+          worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_IO_EXCEPTION);
+        } else if (e instanceof UserExecException) {
+          UserExecException userExecException = (UserExecException) e;
+          if (userExecException.getFailureDetail().hasWorker()) {
+            worker
+                .getStatus()
+                .maybeUpdateStatus(
+                    Status.PENDING_KILL_DUE_TO_USER_EXEC_EXCEPTION,
+                    userExecException.getFailureDetail().getWorker().getCode());
+          }
+        } else {
+          worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_USER_EXEC_EXCEPTION);
+        }
+      } else {
+        worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_UNKNOWN);
+      }
+
       rm.workerPool.invalidateObject(resourceSet.getWorkerKey(), worker);
       worker = null;
       this.close();
@@ -139,23 +165,23 @@ public class ResourceManager implements ResourceEstimator {
   /** Returns prediction of RAM in Mb used by registered actions. */
   @Override
   public double getUsedMemoryInMb() {
-    return usedRam;
+    return usedResources.get(ResourceSet.MEMORY);
   }
 
   /** Returns prediction of CPUs used by registered actions. */
   @Override
   public double getUsedCPU() {
-    return usedCpu;
+    return usedResources.get(ResourceSet.CPU);
   }
 
   // Allocated resources are allowed to go "negative", but at least
-  // MIN_AVAILABLE_CPU_RATIO portion of CPU and MIN_AVAILABLE_RAM_RATIO portion
-  // of RAM should be available.
+  // MIN_NECESSARY_RATIO portion of each resource should be available.
   // Please note that this value is purely empirical - we assume that generally
   // requested resources are somewhat pessimistic and thread would end up
   // using less than requested amount.
-  private static final double MIN_NECESSARY_CPU_RATIO = 0.6;
-  private static final double MIN_NECESSARY_RAM_RATIO = 1.0;
+  private static final Double DEFAULT_MIN_NECESSARY_RATIO = 1.0;
+  private static final ImmutableMap<String, Double> MIN_NECESSARY_RATIO =
+      ImmutableMap.of(ResourceSet.CPU, 0.6);
 
   // Lists of blocked threads. Associated CountDownLatch object will always
   // be initialized to 1 during creation in the acquire() method.
@@ -179,24 +205,12 @@ public class ResourceManager implements ResourceEstimator {
   // LocalHostCapacity.getLocalHostCapacity() as an argument.
   @VisibleForTesting public ResourceSet availableResources = null;
 
-  // Used amount of CPU capacity (where 1.0 corresponds to the one fully
-  // occupied CPU core. Corresponds to the CPU resource definition in the
-  // ResourceSet class.
-  private double usedCpu;
-
-  // Used amount of RAM capacity in MB. Corresponds to the RAM resource
+  // Used amount of resources. Corresponds to the resource
   // definition in the ResourceSet class.
-  private double usedRam;
-
-  // Used amount of extra resources. Corresponds to the extra resource
-  // definition in the ResourceSet class.
-  private Map<String, Float> usedExtraResources;
+  private Map<String, Double> usedResources;
 
   // Used local test count. Corresponds to the local test count definition in the ResourceSet class.
   private int usedLocalTestCount;
-
-  /** If set, local-only actions are given priority over dynamically run actions. */
-  private boolean prioritizeLocalActions;
 
   @VisibleForTesting
   public static ResourceManager instanceForTestingOnly() {
@@ -209,9 +223,7 @@ public class ResourceManager implements ResourceEstimator {
    * <p>Note - it does not reset available resources. Use separate call to setAvailableResources().
    */
   public synchronized void resetResourceUsage() {
-    usedCpu = 0;
-    usedRam = 0;
-    usedExtraResources = new HashMap<>();
+    usedResources = new HashMap<>();
     usedLocalTestCount = 0;
     for (Pair<ResourceSet, LatchWithWorker> request : localRequests) {
       request.second.latch.countDown();
@@ -241,11 +253,6 @@ public class ResourceManager implements ResourceEstimator {
   /** Sets worker pool for taking the workers. Must be called before requesting the workers. */
   public void setWorkerPool(WorkerPool workerPool) {
     this.workerPool = workerPool;
-  }
-
-  /** Sets whether to prioritize local-only actions in resource allocation. */
-  public void setPrioritizeLocalActions(boolean prioritizeLocalActions) {
-    this.prioritizeLocalActions = prioritizeLocalActions;
   }
 
   /**
@@ -306,20 +313,14 @@ public class ResourceManager implements ResourceEstimator {
   @Nullable
   private Worker incrementResources(ResourceSet resources)
       throws IOException, InterruptedException {
-    usedCpu += resources.getCpuUsage();
-    usedRam += resources.getMemoryMb();
-
     resources
-        .getExtraResourceUsage()
-        .entrySet()
+        .getResources()
         .forEach(
-            resource -> {
-              String key = (String) resource.getKey();
-              float value = resource.getValue();
-              if (usedExtraResources.containsKey(key)) {
-                value += (float) usedExtraResources.get(key);
+            (key, value) -> {
+              if (usedResources.containsKey(key)) {
+                value += usedResources.get(key);
               }
-              usedExtraResources.put(key, value);
+              usedResources.put(key, value);
             });
 
     usedLocalTestCount += resources.getLocalTestCount();
@@ -332,9 +333,7 @@ public class ResourceManager implements ResourceEstimator {
 
   /** Return true if any resources have been claimed through this manager. */
   public synchronized boolean inUse() {
-    return usedCpu != 0.0
-        || usedRam != 0.0
-        || !usedExtraResources.isEmpty()
+    return !usedResources.isEmpty()
         || usedLocalTestCount != 0
         || !localRequests.isEmpty()
         || !dynamicWorkerRequests.isEmpty()
@@ -401,24 +400,20 @@ public class ResourceManager implements ResourceEstimator {
     }
     Pair<ResourceSet, LatchWithWorker> request =
         new Pair<>(resources, new LatchWithWorker(new CountDownLatch(1), /* worker= */ null));
-    if (this.prioritizeLocalActions) {
-      switch (priority) {
-        case LOCAL:
-          localRequests.addLast(request);
-          break;
-        case DYNAMIC_WORKER:
-          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
-          // actions.
-          dynamicWorkerRequests.addFirst(request);
-          break;
-        case DYNAMIC_STANDALONE:
-          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
-          // actions.
-          dynamicStandaloneRequests.addFirst(request);
-          break;
-      }
-    } else {
-      localRequests.addLast(request);
+    switch (priority) {
+      case LOCAL:
+        localRequests.addLast(request);
+        break;
+      case DYNAMIC_WORKER:
+        // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+        // actions.
+        dynamicWorkerRequests.addFirst(request);
+        break;
+      case DYNAMIC_STANDALONE:
+        // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+        // actions.
+        dynamicStandaloneRequests.addFirst(request);
+        break;
     }
     return request.second;
   }
@@ -440,32 +435,24 @@ public class ResourceManager implements ResourceEstimator {
   }
 
   private synchronized void releaseResourcesOnly(ResourceSet resources) {
-    usedCpu -= resources.getCpuUsage();
-    usedRam -= resources.getMemoryMb();
-
     usedLocalTestCount -= resources.getLocalTestCount();
 
     // TODO(bazel-team): (2010) rounding error can accumulate and value below can end up being
     // e.g. 1E-15. So if it is small enough, we set it to 0. But maybe there is a better solution.
     double epsilon = 0.0001;
-    if (usedCpu < epsilon) {
-      usedCpu = 0;
-    }
-    if (usedRam < epsilon) {
-      usedRam = 0;
-    }
 
     Set<String> toRemove = new HashSet<>();
-    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
-      String key = (String) resource.getKey();
-      float value = (float) usedExtraResources.get(key) - resource.getValue();
-      usedExtraResources.put(key, value);
+    for (Map.Entry<String, Double> resource : resources.getResources().entrySet()) {
+      String key = resource.getKey();
+      double value = usedResources.getOrDefault(key, 0.0) - resource.getValue();
+      usedResources.put(key, value);
       if (value < epsilon) {
         toRemove.add(key);
       }
     }
+    usedResources.keySet().removeAll(toRemove);
     for (String key : toRemove) {
-      usedExtraResources.remove(key);
+      usedResources.remove(key);
     }
   }
 
@@ -486,8 +473,8 @@ public class ResourceManager implements ResourceEstimator {
     return anyProcessed;
   }
 
-  private synchronized void processWaitingThreads(Deque<Pair<ResourceSet, LatchWithWorker>> requests)
-      throws IOException, InterruptedException {
+  private synchronized void processWaitingThreads(
+      Deque<Pair<ResourceSet, LatchWithWorker>> requests) throws IOException, InterruptedException {
     Iterator<Pair<ResourceSet, LatchWithWorker>> iterator = requests.iterator();
     while (iterator.hasNext()) {
       Pair<ResourceSet, LatchWithWorker> request = iterator.next();
@@ -506,29 +493,27 @@ public class ResourceManager implements ResourceEstimator {
   }
 
   /** Throws an exception if requested extra resource isn't being tracked */
-  private void assertExtraResourcesTracked(ResourceSet resources) throws NoSuchElementException {
-    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
-      String key = (String) resource.getKey();
-      if (!availableResources.getExtraResourceUsage().containsKey(key)) {
+  private void assertResourcesTracked(ResourceSet resources) throws NoSuchElementException {
+    for (Map.Entry<String, Double> resource : resources.getResources().entrySet()) {
+      String key = resource.getKey();
+      if (!availableResources.getResources().containsKey(key)) {
         throw new NoSuchElementException(
             "Resource " + key + " is not tracked in this resource set.");
       }
     }
   }
 
-  /** Return true iff all requested extra resources are considered to be available. */
-  private boolean areExtraResourcesAvailable(ResourceSet resources) throws NoSuchElementException {
-    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
-      String key = (String) resource.getKey();
-      float used = (float) usedExtraResources.getOrDefault(key, 0f);
-      float requested = resource.getValue();
-      float available = availableResources.getExtraResourceUsage().get(key);
-      float epsilon = 0.0001f; // Account for possible rounding errors.
-      if (requested != 0.0 && used != 0.0 && requested + used > available + epsilon) {
-        return false;
-      }
-    }
-    return true;
+  private static <T extends Number> boolean isAvailable(T available, T used, T requested) {
+    // Resources are considered available if any one of the conditions below is true:
+    // 1) If resource is not requested at all, it is available.
+    // 2) If resource is not used at the moment, it is considered to be
+    // available regardless of how much is requested. This is necessary to
+    // ensure that at any given time, at least one thread is able to acquire
+    // resources even if it requests more than available.
+    // 3) If used resource amount is less than total available resource amount.
+    return requested.doubleValue() == 0
+        || used.doubleValue() == 0
+        || used.doubleValue() + requested.doubleValue() <= available.doubleValue();
   }
 
   // Method will return true if all requested resources are considered to be available.
@@ -539,59 +524,44 @@ public class ResourceManager implements ResourceEstimator {
     // by the release() method.
 
     WorkerKey workerKey = resources.getWorkerKey();
-    int availableWorkers = 0;
-    int activeWorkers = 0;
     if (workerKey != null) {
-      availableWorkers = this.workerPool.getMaxTotalPerKey(workerKey);
-      activeWorkers = this.workerPool.getNumActive(workerKey);
+      int availableWorkers = this.workerPool.getMaxTotalPerKey(workerKey);
+      int activeWorkers = this.workerPool.getNumActive(workerKey);
+      if (activeWorkers >= availableWorkers) {
+        return false;
+      }
     }
-    boolean workerIsAvailable = workerKey == null || (activeWorkers < availableWorkers);
 
     // We test for tracking of extra resources whenever acquired and throw an
     // exception before acquiring any untracked resource.
-    assertExtraResourcesTracked(resources);
+    assertResourcesTracked(resources);
 
-    if (usedCpu == 0.0
-        && usedRam == 0.0
-        && usedExtraResources.isEmpty()
-        && usedLocalTestCount == 0
-        && workerIsAvailable) {
+    if (usedResources.isEmpty() && usedLocalTestCount == 0) {
       return true;
     }
-    // Use only MIN_NECESSARY_???_RATIO of the resource value to check for
-    // allocation. This is necessary to account for the fact that most of the
-    // requested resource sets use pessimistic estimations. Note that this
-    // ratio is used only during comparison - for tracking we will actually
-    // mark whole requested amount as used.
-    double cpu = resources.getCpuUsage() * MIN_NECESSARY_CPU_RATIO;
-    double ram = resources.getMemoryMb() * MIN_NECESSARY_RAM_RATIO;
-    int localTestCount = resources.getLocalTestCount();
 
-    double availableCpu = availableResources.getCpuUsage();
-    double availableRam = availableResources.getMemoryMb();
     int availableLocalTestCount = availableResources.getLocalTestCount();
+    if (!isAvailable(availableLocalTestCount, usedLocalTestCount, resources.getLocalTestCount())) {
+      return false;
+    }
 
-    double remainingRam = availableRam - usedRam;
+    for (Map.Entry<String, Double> resource : resources.getResources().entrySet()) {
+      String key = resource.getKey();
 
-    // Resources are considered available if any one of the conditions below is true:
-    // 1) If resource is not requested at all, it is available.
-    // 2) If resource is not used at the moment, it is considered to be
-    // available regardless of how much is requested. This is necessary to
-    // ensure that at any given time, at least one thread is able to acquire
-    // resources even if it requests more than available.
-    // 3) If used resource amount is less than total available resource amount.
-    boolean cpuIsAvailable = cpu == 0.0 || usedCpu == 0.0 || usedCpu + cpu <= availableCpu;
-    boolean ramIsAvailable = ram == 0.0 || usedRam == 0.0 || ram <= remainingRam;
-    boolean localTestCountIsAvailable =
-        localTestCount == 0
-            || usedLocalTestCount == 0
-            || usedLocalTestCount + localTestCount <= availableLocalTestCount;
-    boolean extraResourcesIsAvailable = areExtraResourcesAvailable(resources);
-    return cpuIsAvailable
-        && ramIsAvailable
-        && extraResourcesIsAvailable
-        && localTestCountIsAvailable
-        && workerIsAvailable;
+      // Use only MIN_NECESSARY_RATIO of the resource value to check for
+      // allocation. This is necessary to account for the fact that most of the
+      // requested resource sets use pessimistic estimations. Note that this
+      // ratio is used only during comparison - for tracking we will actually
+      // mark whole requested amount as used.
+      double requested =
+          resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
+      double used = usedResources.getOrDefault(key, 0.0);
+      double available = availableResources.get(key);
+      if (!isAvailable(available, used, requested)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @VisibleForTesting

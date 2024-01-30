@@ -21,8 +21,6 @@ import static org.junit.Assert.fail;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction.AndroidRevision;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryTest.WithPlatforms;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.android.AndroidBuildViewTestCase;
@@ -33,25 +31,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link AndroidSdkRepositoryFunction}. */
-@RunWith(Suite.class)
-@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
-public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase {
-  /** Use legacy toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithoutPlatforms extends AndroidSdkRepositoryTest {}
-
-  /** Use platform-based toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithPlatforms extends AndroidSdkRepositoryTest {
-    @Override
-    protected boolean platformBasedToolchains() {
-      return true;
-    }
-  }
+@RunWith(JUnit4.class)
+public class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase {
 
   @Before
   public void setup() throws Exception {
@@ -59,6 +42,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
         "embedded_tools/tools/android/android_sdk_repository_template.bzl",
         ResourceLoader.readFromResources("tools/android/android_sdk_repository_template.bzl"));
     scratch.appendFile("WORKSPACE", "local_config_platform(name='local_config_platform')");
+    scratch.overwriteFile("local_config_platform_workspace/constraints.bzl", "HOST_CONSTRAINTS=[]");
   }
 
   private void scratchPlatformsDirectories(int... apiLevels) throws Exception {
@@ -387,8 +371,9 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
       fail("android_sdk_repository should have failed due to missing SDK platforms dir.");
     } catch (RepositoryFetchException e) {
       assertThat(e.getMessage())
-          .contains("Expected directory at /sdk/platforms but it is not a directory or it does "
-              + "not exist.");
+          .contains(
+              "Expected directory at /sdk/platforms but it is not a directory or it does "
+                  + "not exist.");
     }
   }
 
@@ -411,8 +396,9 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
       fail("android_sdk_repository should have failed due to missing SDK build tools dir.");
     } catch (RepositoryFetchException e) {
       assertThat(e.getMessage())
-          .contains("Expected directory at /sdk/build-tools but it is not a directory or it does "
-              + "not exist.");
+          .contains(
+              "Expected directory at /sdk/build-tools but it is not a directory or it does "
+                  + "not exist.");
     }
   }
 

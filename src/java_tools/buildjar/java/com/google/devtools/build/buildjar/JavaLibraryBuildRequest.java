@@ -62,7 +62,6 @@ public final class JavaLibraryBuildRequest {
 
   private final ImmutableList<Path> processorPath;
   private final List<String> processorNames;
-  private final ImmutableSet<String> builtinProcessorNames;
 
   private final Path outputJar;
   private final Path nativeHeaderOutput;
@@ -188,7 +187,6 @@ public final class JavaLibraryBuildRequest {
     this.system = asPath(optionsParser.getSystem());
     this.processorPath = asPaths(optionsParser.getProcessorPath());
     this.processorNames = optionsParser.getProcessorNames();
-    this.builtinProcessorNames = ImmutableSet.copyOf(optionsParser.getBuiltinProcessorNames());
     this.classDir =
         deriveDirectory(optionsParser.getTargetLabel(), optionsParser.getOutputJar(), "_classes");
     this.tempDir =
@@ -365,7 +363,6 @@ public final class JavaLibraryBuildRequest {
             .bootClassPath(getBootClassPath())
             .system(getSystem())
             .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
-            .builtinProcessors(builtinProcessorNames)
             .sourcePath(getSourcePath())
             .sourceOutput(getSourceGenDir())
             .processorPath(getProcessorPath())

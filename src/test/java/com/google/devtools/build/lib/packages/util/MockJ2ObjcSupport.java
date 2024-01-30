@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
@@ -73,6 +75,7 @@ public final class MockJ2ObjcSupport {
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/BUILD",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
+        getPyLoad("py_binary"),
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "py_binary(",

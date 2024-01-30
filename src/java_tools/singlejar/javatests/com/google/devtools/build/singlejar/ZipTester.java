@@ -228,7 +228,7 @@ final class ZipTester {
 
     String name = new String(filename, "UTF-8");
     for (int i = 0; i < filename.length; i++) {
-      if ((filename[i] < ' ') || (filename[i] > 127)) {
+      if ((filename[i] < ' ')) {
         warn(entryDesc + ": file name has unexpected non-ascii characters");
       }
     }

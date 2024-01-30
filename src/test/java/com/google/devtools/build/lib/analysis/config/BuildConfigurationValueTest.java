@@ -14,19 +14,15 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
-import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -47,14 +43,12 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
     BuildConfigurationValue config = create("--cpu=piii");
     String outputDirPrefix =
-        outputBase + "/execroot/" + config.getMainRepositoryName() + "/blaze-out/.*piii-fastbuild";
+        outputBase + "/execroot/" + config.getWorkspaceName() + "/blaze-out/.*piii-fastbuild";
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix);
     assertThat(config.getBinDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/bin");
-    assertThat(config.getBuildInfoDirectory(RepositoryName.MAIN).getRoot().toString())
-        .matches(outputDirPrefix + "/include");
     assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/testlogs");
   }
@@ -70,7 +64,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         .matches(
             outputBase
                 + "/execroot/"
-                + config.getMainRepositoryName()
+                + config.getWorkspaceName()
                 + "/blaze-out/.*k8-fastbuild-test");
   }
 
@@ -84,21 +78,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     assertThat(env).containsEntry("LANG", "en_US");
     assertThat(env).containsKey("PATH");
     assertThat(env.get("PATH")).contains("/bin:/usr/bin");
-  }
-
-  @Test
-  public void testHostCrosstoolTop() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-
-    BuildConfigurationValue config = createConfiguration("--cpu=piii");
-    assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain"));
-
-    BuildConfigurationValue execConfig = createExec();
-    assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain"));
   }
 
   @Test
@@ -183,21 +162,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testNormalization_definesWithSameName_collapseDuplicateDefinesDisabled()
-      throws Exception {
-    BuildConfigurationValue config =
-        create("--nocollapse_duplicate_defines", "--define", "a=1", "--define", "a=2");
-    CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableListMultimap.copyOf(options.commandLineBuildVariables))
-        .containsExactly("a", "1", "a", "2")
-        .inOrder();
-    assertThat(config).isNotEqualTo(create("--nocollapse_duplicate_defines", "--define", "a=2"));
-  }
-
-  @Test
   public void testNormalization_definesWithDifferentNames() throws Exception {
-    BuildConfigurationValue config =
-        create("--collapse_duplicate_defines", "--define", "a=1", "--define", "b=2");
+    BuildConfigurationValue config = create("--define", "a=1", "--define", "b=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables))
         .containsExactly("a", "1", "b", "2");
@@ -205,11 +171,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testNormalization_definesWithSameName() throws Exception {
-    BuildConfigurationValue config =
-        create("--collapse_duplicate_defines", "--define", "a=1", "--define", "a=2");
+    BuildConfigurationValue config = create("--define", "a=1", "--define", "a=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables)).containsExactly("a", "2");
-    assertThat(config).isEqualTo(create("--collapse_duplicate_defines", "--define", "a=2"));
+    assertThat(config).isEqualTo(create("--define", "a=2"));
   }
 
   // This is really a test of option parsing, not command-line variable
@@ -233,9 +198,124 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testExecDefine() throws Exception {
+  public void testExecDefine_isAllowedByDefault() throws Exception {
     BuildConfigurationValue cfg = createExec("--define=foo=bar");
     assertThat(cfg.getCommandLineBuildVariables().get("foo")).isEqualTo("bar");
+  }
+
+  @Test
+  public void testExecDefine_isIgnoredIfExcludedAndNotAllowed() throws Exception {
+    BuildConfigurationValue cfg =
+        createExec("--define=foo=bar", "--experimental_exclude_defines_from_exec_config=true");
+    assertThat(cfg.getCommandLineBuildVariables()).doesNotContainKey("foo");
+  }
+
+  @Test
+  public void testExecDefine_isPropagatedIfAllowedByFlag() throws Exception {
+    BuildConfigurationValue cfg =
+        createExec(
+            "--define=foo=bar",
+            "--experimental_exclude_defines_from_exec_config=true",
+            "--experimental_propagate_custom_flag=foo",
+            "--define=baz=qux");
+    assertThat(cfg.getCommandLineBuildVariables()).containsEntry("foo", "bar");
+    assertThat(cfg.getCommandLineBuildVariables()).doesNotContainEntry("baz", "qux");
+  }
+
+  @Test
+  public void testExecStarlarkFlag_isAllowedByDefault() throws Exception {
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "bool_flag = rule(",
+        "  implementation = _basic_impl,",
+        "  build_setting = config.bool(flag = True),",
+        ")");
+    scratch.file(
+        "my_starlark_flag/BUILD",
+        "load('//:my_starlark_flag:rule_defs.bzl', 'bool_flag')",
+        "bool_flag(",
+        "   name = 'starlark_flag',",
+        "   build_setting_default = 'False',",
+        ")");
+    BuildConfigurationValue cfg =
+        createExec(ImmutableMap.of("//my_starlark_flag:starlark_flag", "true"));
+    assertThat(
+            cfg.getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//my_starlark_flag:starlark_flag")))
+        .isEqualTo("true");
+  }
+
+  @Test
+  public void testExecStarlarkFlag_isIgnoredIfExcludedAndNotAllowed() throws Exception {
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "bool_flag = rule(",
+        "  implementation = _basic_impl,",
+        "  build_setting = config.bool(flag = True),",
+        ")");
+    scratch.file(
+        "my_starlark_flag/BUILD",
+        "load('//my_starlark_flag:rule_defs.bzl', 'bool_flag')",
+        "bool_flag(",
+        "   name = 'starlark_flag',",
+        "   build_setting_default = 'False',",
+        ")");
+    BuildConfigurationValue cfg =
+        createExec(
+            ImmutableMap.of("//my_starlark_flag:starlark_flag", "true"),
+            "--experimental_exclude_starlark_flags_from_exec_config=true");
+    assertThat(
+            cfg.getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//my_starlark_flag:starlark_flag")))
+        .isNull();
+  }
+
+  @Test
+  public void testExecStarlarkFlag_isPropagatedIfAllowedByFlag() throws Exception {
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "bool_flag = rule(",
+        "  implementation = _basic_impl,",
+        "  build_setting = config.bool(flag = True),",
+        ")");
+    scratch.file(
+        "my_starlark_flag/BUILD",
+        "load('//my_starlark_flag:rule_defs.bzl', 'bool_flag')",
+        "bool_flag(",
+        "   name = 'starlark_flag',",
+        "   build_setting_default = 'False',",
+        ")",
+        "bool_flag(",
+        "   name = 'other_starlark_flag',",
+        "   build_setting_default = 'False',",
+        ")");
+    BuildConfigurationValue cfg =
+        createExec(
+            ImmutableMap.of(
+                "//my_starlark_flag:starlark_flag",
+                "true",
+                "//my_starlark_flag:other_starlark_flag",
+                "true"),
+            "--experimental_exclude_starlark_flags_from_exec_config=true",
+            "--experimental_propagate_custom_flag=//my_starlark_flag:starlark_flag");
+    assertThat(
+            cfg.getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//my_starlark_flag:starlark_flag")))
+        .isEqualTo("true");
+    assertThat(
+            cfg.getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//my_starlark_flag:other_starlark_flag")))
+        .isNull();
   }
 
   @Test
@@ -284,22 +364,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void throwsOnBadMnemonic() {
-    InvalidMnemonicException e =
-        assertThrows(InvalidMnemonicException.class, () -> create("--cpu=//bad/cpu"));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo("CPU name '//bad/cpu' is invalid as part of a path: must not contain /");
-    e =
-        assertThrows(
-            InvalidMnemonicException.class, () -> create("--platform_suffix=//bad/suffix"));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo(
-            "Platform suffix '//bad/suffix' is invalid as part of a path: must not contain /");
-  }
-
-  @Test
   public void testCodec() throws Exception {
     // Unnecessary ImmutableList.copyOf apparently necessary to choose non-varargs constructor.
     new SerializationTester(ImmutableList.copyOf(getTestConfigurations()))
@@ -320,20 +384,77 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testPlatformInOutputDir_defaultPlatform() throws Exception {
-    BuildConfigurationValue config = create("--experimental_platform_in_output_dir", "--cpu=k8");
+  public void testPlatformInOutputDir_legacy_defaultPlatform() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--experimental_platform_in_output_dir",
+            "--experimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--cpu=k8");
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(".*/[^/]+-out/k8-fastbuild");
   }
 
   @Test
-  public void testPlatformInOutputDir() throws Exception {
+  public void testPlatformInOutputDir_legacy_withPlatform() throws Exception {
     BuildConfigurationValue config =
-        create("--experimental_platform_in_output_dir", "--platforms=//platform:alpha");
+        create(
+            "--experimental_platform_in_output_dir",
+            "--experimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--platforms=//platform:alpha");
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(".*/[^/]+-out/alpha-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir_defaultPlatform() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--experimental_platform_in_output_dir",
+            "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--cpu=k8");
+    // See tests of these flags with platform_mappings for more realistic results.
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir_withPlatform() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--experimental_platform_in_output_dir",
+            "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--platforms=//platform:alpha");
+
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir_withPlatformAndMatchingOverride() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--experimental_platform_in_output_dir",
+            "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--experimental_override_name_platform_in_output_dir=//platform:alpha=alpha",
+            "--platforms=//platform:alpha");
+
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/alpha-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir_withPlatformAndNonMatchingOverride() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--experimental_platform_in_output_dir",
+            "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--experimental_override_name_platform_in_output_dir=//platform:beta=beta",
+            "--platforms=//platform:alpha");
+
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
   }
 
   @Test
@@ -342,20 +463,20 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // these configurations are never trimmed nor even used to build targets so not an issue.
     new EqualsTester()
         .addEqualityGroup(
-            createRaw(parseBuildOptions("--test_arg=1a"), "testrepo", false, ""),
-            createRaw(parseBuildOptions("--test_arg=1a"), "testrepo", false, ""))
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8", "testrepo", false),
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8", "testrepo", false))
         // Different BuildOptions means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "testrepo", false, ""))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8", "testrepo", false))
         // Different --experimental_sibling_repository_layout means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "testrepo", true, ""))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "testrepo", false, ""))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", "testrepo", true))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", "testrepo", false))
         // Different repositoryName means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo1", false, ""))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo2", false, ""))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo1", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo2", false))
         // Different transitionDirectoryNameFragment means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo", false, ""))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo", false, "a"))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo", false, "b"))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm", "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc", "testrepo", false))
         .testEquals();
   }
 

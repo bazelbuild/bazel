@@ -112,6 +112,41 @@ public abstract class OutputFile extends FileTarget {
     return generatingRule.getLocation();
   }
 
+  @Override
+  public final boolean isOutputFile() {
+    return true;
+  }
+
+  @Override
+  public final Label getGeneratingRuleLabel() {
+    return generatingRule.getLabel();
+  }
+
+  @Override
+  public final String getDeprecationWarning() {
+    return generatingRule.getDeprecationWarning();
+  }
+
+  @Override
+  public final boolean isTestOnly() {
+    return generatingRule.isTestOnly();
+  }
+
+  @Override
+  public final boolean satisfies(RequiredProviders required) {
+    return generatingRule.satisfies(required);
+  }
+
+  @Override
+  public final TestTimeout getTestTimeout() {
+    return TestTimeout.getTestTimeout(generatingRule);
+  }
+
+  @Override
+  public AdvertisedProviderSet getAdvertisedProviders() {
+    return generatingRule.getAdvertisedProviders();
+  }
+
   /**
    * Returns this output file's output key.
    *
@@ -132,6 +167,11 @@ public abstract class OutputFile extends FileTarget {
   /** Returns the target kind for all output files. */
   public static String targetKind() {
     return "generated file";
+  }
+
+  @Override
+  public TargetData reduceForSerialization() {
+    return new OutputFileData(getLocation(), getLabel(), generatingRule.reduceForSerialization());
   }
 
   private static final class Implicit extends OutputFile {
@@ -155,6 +195,74 @@ public abstract class OutputFile extends FileTarget {
     @Override
     boolean isImplicit() {
       return false;
+    }
+  }
+
+  private static class OutputFileData implements TargetData {
+    private final Location location;
+    private final Label label;
+    // TODO(b/297857068): ensure this is not duplicated on deserialization.
+    private final TargetData generatingRuleData;
+
+    private OutputFileData(Location location, Label label, TargetData generatingRuleData) {
+      this.location = location;
+      this.label = label;
+      this.generatingRuleData = generatingRuleData;
+    }
+
+    @Override
+    public String getTargetKind() {
+      return targetKind();
+    }
+
+    @Override
+    public Location getLocation() {
+      return location;
+    }
+
+    @Override
+    public Label getLabel() {
+      return label;
+    }
+
+    @Override
+    public boolean isFile() {
+      return true;
+    }
+
+    @Override
+    public boolean isOutputFile() {
+      return true;
+    }
+
+    @Override
+    public Label getGeneratingRuleLabel() {
+      return generatingRuleData.getLabel();
+    }
+
+    @Override
+    public String getDeprecationWarning() {
+      return generatingRuleData.getDeprecationWarning();
+    }
+
+    @Override
+    public boolean isTestOnly() {
+      return generatingRuleData.isTestOnly();
+    }
+
+    @Override
+    public final boolean satisfies(RequiredProviders required) {
+      return generatingRuleData.satisfies(required);
+    }
+
+    @Override
+    public TestTimeout getTestTimeout() {
+      return generatingRuleData.getTestTimeout();
+    }
+
+    @Override
+    public AdvertisedProviderSet getAdvertisedProviders() {
+      return generatingRuleData.getAdvertisedProviders();
     }
   }
 }

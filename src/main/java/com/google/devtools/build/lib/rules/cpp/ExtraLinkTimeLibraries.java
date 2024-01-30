@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -43,6 +44,9 @@ import net.starlark.java.eval.Tuple;
  * and all ExtraLinkTimeLibrary objects of the same class will be gathered together.
  */
 public final class ExtraLinkTimeLibraries implements StarlarkValue {
+
+  static final ExtraLinkTimeLibraries EMPTY = new ExtraLinkTimeLibraries(ImmutableList.of());
+
   /**
    * We can have multiple different kinds of lists of libraries to include
    * at link time.  We map from the class type to an actual instance.
@@ -86,6 +90,9 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
      * Build a {@link ExtraLinkTimeLibraries} object.
      */
     public ExtraLinkTimeLibraries build() {
+      if (libraries.isEmpty()) {
+        return EMPTY;
+      }
       List<ExtraLinkTimeLibrary> extraLibraries = Lists.newArrayList();
       for (ExtraLinkTimeLibrary.Builder builder : libraries.values()) {
         extraLibraries.add(builder.build());

@@ -83,7 +83,6 @@ public final class OptionsParser {
 
   private final List<String> processorPath = new ArrayList<>();
   private final List<String> processorNames = new ArrayList<>();
-  private final List<String> builtinProcessorNames = new ArrayList<>();
 
   private String outputJar;
   @Nullable private String nativeHeaderOutput;
@@ -190,9 +189,6 @@ public final class OptionsParser {
           break;
         case "--processors":
           collectProcessorArguments(processorNames, argQueue, "-");
-          break;
-        case "--builtin_processors":
-          collectProcessorArguments(builtinProcessorNames, argQueue, "-");
           break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
@@ -419,10 +415,6 @@ public final class OptionsParser {
 
   public List<String> getProcessorNames() {
     return processorNames;
-  }
-
-  public List<String> getBuiltinProcessorNames() {
-    return builtinProcessorNames;
   }
 
   public String getOutputJar() {

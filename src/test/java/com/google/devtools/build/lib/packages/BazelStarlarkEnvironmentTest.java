@@ -54,8 +54,8 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
             // While reading, feel free to mentally substitute overridable_rule -> cc_library and
             // overridable_symbol -> CcInfo.
             .addRuleDefinition(OVERRIDABLE_RULE)
-            .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
-            .addStarlarkAccessibleTopLevels("another_overridable_symbol", "another_original_value");
+            .addBzlToplevel("overridable_symbol", "original_value")
+            .addBzlToplevel("another_overridable_symbol", "another_original_value");
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }

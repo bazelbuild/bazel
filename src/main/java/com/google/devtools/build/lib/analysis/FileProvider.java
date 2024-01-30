@@ -29,12 +29,17 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileProviderApi;
  */
 @Immutable
 public final class FileProvider implements TransitiveInfoProvider, FileProviderApi {
+
   public static final FileProvider EMPTY =
-      new FileProvider(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+      new FileProvider(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+
+  public static FileProvider of(NestedSet<Artifact> filesToBuild) {
+    return filesToBuild.isEmpty() ? EMPTY : new FileProvider(filesToBuild);
+  }
 
   private final NestedSet<Artifact> filesToBuild;
 
-  public FileProvider(NestedSet<Artifact> filesToBuild) {
+  private FileProvider(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
   }
 
@@ -43,21 +48,6 @@ public final class FileProvider implements TransitiveInfoProvider, FileProviderA
     return true; // immutable and Starlark-hashable
   }
 
-  /**
-   * Returns the set of artifacts that are the "output" of this rule.
-   *
-   * <p>The term "output" is somewhat hazily defined; it is vaguely the set of files that are passed
-   * on to dependent rules that list the rule in their {@code srcs} attribute and the set of files
-   * that are built when a rule is mentioned on the command line. It does <b>not</b> include the
-   * runfiles; that is the bailiwick of {@code FilesToRunProvider}.
-   *
-   * <p>Note that the above definition is somewhat imprecise; in particular, when a rule is
-   * mentioned on the command line, some other files are also built {@code TopLevelArtifactHelper}
-   * and dependent rules are free to filter this set of artifacts e.g. based on their extension.
-   *
-   * <p>Also, some rules may generate artifacts that are not listed here by way of defining other
-   * implicit targets, for example, deploy jars.
-   */
   @Override
   public Depset /*<Artifact>*/ getFilesToBuildForStarlark() {
     return Depset.of(Artifact.class, filesToBuild);

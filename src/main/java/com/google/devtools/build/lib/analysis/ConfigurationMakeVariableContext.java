@@ -52,8 +52,12 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
     providers.addAll(fromAttributes);
 
     // Also collect template variable providers from any resolved toolchains.
-    if (ruleContext.getToolchainContext() != null) {
-      providers.addAll(ruleContext.getToolchainContext().templateVariableProviders());
+    if (ruleContext.getToolchainContexts() != null) {
+      ruleContext
+          .getToolchainContexts()
+          .getContextMap()
+          .values()
+          .forEach(context -> providers.addAll(context.templateVariableProviders()));
     }
 
     return providers.build();
@@ -106,7 +110,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
   }
 
   @Override
-  public String lookupVariable(String name) throws ExpansionException {
+  public String lookupVariable(String name) throws ExpansionException, InterruptedException {
     for (MakeVariableSupplier supplier : allMakeVariableSuppliers) {
       String variableValue = supplier.getMakeVariable(name);
       if (variableValue != null) {
@@ -116,7 +120,8 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
     throw new ExpansionException(String.format("$(%s) not defined", name));
   }
 
-  public Dict.Builder<String, String> collectMakeVariables() throws ExpansionException {
+  public Dict.Builder<String, String> collectMakeVariables()
+      throws ExpansionException, InterruptedException {
     Dict.Builder<String, String> map = Dict.builder();
     // Collect variables in the reverse order as in lookupMakeVariable
     // because each update is overwriting.

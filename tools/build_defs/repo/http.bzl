@@ -11,32 +11,49 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# WARNING:
+# https://github.com/bazelbuild/bazel/issues/17713
+# .bzl files in this package (tools/build_defs/repo) are evaluated
+# in a Starlark environment without "@_builtins" injection, and must not refer
+# to symbols associated with build/workspace .bzl files
+
 """Rules for downloading files and archives over HTTP.
 
 ### Setup
 
-To use these rules, load them in your `WORKSPACE` file as follows:
+To use these rules in a module extension, load them in your .bzl file and then call them from your
+extension's implementation function. For example, to use `http_archive`:
 
 ```python
-load(
-    "@bazel_tools//tools/build_defs/repo:http.bzl",
-    "http_archive",
-    "http_file",
-    "http_jar",
-)
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def _my_extension_impl(mctx):
+  http_archive(name = "foo", urls = [...])
+
+my_extension = module_extension(implementation = _my_extension_impl)
 ```
 
-These rules are improved versions of the native http rules and will eventually
-replace the native rules.
+Alternatively, you can directly call these repo rules in your MODULE.bazel file with
+`use_repo_rule`:
+
+```python
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(name = "foo", urls = [...])
+```
 """
 
 load(
+    ":cache.bzl",
+    "CANONICAL_ID_DOC",
+    "DEFAULT_CANONICAL_ID_ENV",
+    "get_default_canonical_id",
+)
+load(
     ":utils.bzl",
+    "get_auth",
     "patch",
-    "read_netrc",
-    "read_user_netrc",
     "update_attrs",
-    "use_netrc",
     "workspace_and_buildfile",
 )
 
@@ -106,20 +123,10 @@ Authorization: Bearer RANDOM-TOKEN
 </pre>
 """
 
-def _get_auth(ctx, urls):
-    """Given the list of URLs obtain the correct auth dict."""
-    if ctx.attr.netrc:
-        netrc = read_netrc(ctx, ctx.attr.netrc)
-    elif "NETRC" in ctx.os.environ:
-        netrc = read_netrc(ctx, ctx.os.environ["NETRC"])
-    else:
-        netrc = read_user_netrc(ctx)
-    return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-def _update_sha256_attr(ctx, attrs, download_info):
-    # We don't need to override the sha256 attribute if integrity is already specified.
-    sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
-    return update_attrs(ctx.attr, attrs.keys(), sha256_override)
+def _update_integrity_attr(ctx, attrs, download_info):
+    # We don't need to override the integrity attribute if sha256 is already specified.
+    integrity_override = {} if ctx.attr.sha256 else {"integrity": download_info.integrity}
+    return update_attrs(ctx.attr, attrs.keys(), integrity_override)
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
@@ -127,7 +134,7 @@ def _http_archive_impl(ctx):
         fail("Only one of build_file and build_file_content can be provided.")
 
     all_urls = _get_all_urls(ctx)
-    auth = _get_auth(ctx, all_urls)
+    auth = get_auth(ctx, all_urls)
 
     download_info = ctx.download_and_extract(
         all_urls,
@@ -135,14 +142,14 @@ def _http_archive_impl(ctx):
         ctx.attr.sha256,
         ctx.attr.type,
         ctx.attr.strip_prefix,
-        canonical_id = ctx.attr.canonical_id,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
         auth = auth,
         integrity = ctx.attr.integrity,
     )
     workspace_and_buildfile(ctx)
     patch(ctx, auth = auth)
 
-    return _update_sha256_attr(ctx, _http_archive_attrs, download_info)
+    return _update_integrity_attr(ctx, _http_archive_attrs, download_info)
 
 _HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
@@ -169,24 +176,22 @@ def _http_file_impl(ctx):
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
     all_urls = _get_all_urls(ctx)
-    auth = _get_auth(ctx, all_urls)
+    auth = get_auth(ctx, all_urls)
     download_info = ctx.download(
         all_urls,
         "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
-        canonical_id = ctx.attr.canonical_id,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
         auth = auth,
         integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
 
-    return _update_sha256_attr(ctx, _http_file_attrs, download_info)
+    return _update_integrity_attr(ctx, _http_file_attrs, download_info)
 
 _HTTP_JAR_BUILD = """\
-load("@rules_java//java:defs.bzl", "java_import")
-
 package(default_visibility = ["//visibility:public"])
 
 java_import(
@@ -206,20 +211,22 @@ filegroup(
 def _http_jar_impl(ctx):
     """Implementation of the http_jar rule."""
     all_urls = _get_all_urls(ctx)
-    auth = _get_auth(ctx, all_urls)
+    auth = get_auth(ctx, all_urls)
     downloaded_file_name = ctx.attr.downloaded_file_name
     download_info = ctx.download(
         all_urls,
         "jar/" + downloaded_file_name,
         ctx.attr.sha256,
-        canonical_id = ctx.attr.canonical_id,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
         auth = auth,
         integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(file_name = downloaded_file_name))
+    ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(
+        file_name = downloaded_file_name,
+    ))
 
-    return _update_sha256_attr(ctx, _http_jar_attrs, download_info)
+    return _update_integrity_attr(ctx, _http_jar_attrs, download_info)
 
 _http_archive_attrs = {
     "url": attr.string(doc = _URL_DOC),
@@ -247,11 +254,7 @@ easier but either this attribute or `sha256` should be set before shipping.""",
         doc = _AUTH_PATTERN_DOC,
     ),
     "canonical_id": attr.string(
-        doc = """A canonical id of the archive downloaded.
-
-If specified and non-empty, bazel will not take the archive from cache,
-unless it was added to the cache by a request with the same canonical id.
-""",
+        doc = CANONICAL_ID_DOC,
     ),
     "strip_prefix": attr.string(
         doc = """A directory prefix to strip from the extracted files.
@@ -372,6 +375,7 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
 http_archive = repository_rule(
     implementation = _http_archive_impl,
     attrs = _http_archive_attrs,
+    environ = [DEFAULT_CANONICAL_ID_ENV],
     doc =
         """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
@@ -447,11 +451,7 @@ field will make your build non-hermetic. It is optional to make development
 easier but either this attribute or `sha256` should be set before shipping.""",
     ),
     "canonical_id": attr.string(
-        doc = """A canonical id of the archive downloaded.
-
-If specified and non-empty, bazel will not take the archive from cache,
-unless it was added to the cache by a request with the same canonical id.
-""",
+        doc = CANONICAL_ID_DOC,
     ),
     "url": attr.string(doc = _URL_DOC),
     "urls": attr.string_list(doc = _URLS_DOC),
@@ -466,6 +466,7 @@ unless it was added to the cache by a request with the same canonical id.
 http_file = repository_rule(
     implementation = _http_file_impl,
     attrs = _http_file_attrs,
+    environ = [DEFAULT_CANONICAL_ID_ENV],
     doc =
         """Downloads a file from a URL and makes it available to be used as a file
 group.
@@ -507,11 +508,7 @@ field will make your build non-hermetic. It is optional to make development
 easier but either this attribute or `sha256` should be set before shipping.""",
     ),
     "canonical_id": attr.string(
-        doc = """A canonical id of the archive downloaded.
-
-If specified and non-empty, bazel will not take the archive from cache,
-unless it was added to the cache by a request with the same canonical id.
-""",
+        doc = CANONICAL_ID_DOC,
     ),
     "url": attr.string(doc = _URL_DOC + "\n\nThe URL must end in `.jar`."),
     "urls": attr.string_list(doc = _URLS_DOC + "\n\nAll URLs must end in `.jar`."),
@@ -530,6 +527,7 @@ unless it was added to the cache by a request with the same canonical id.
 http_jar = repository_rule(
     implementation = _http_jar_impl,
     attrs = _http_jar_attrs,
+    environ = [DEFAULT_CANONICAL_ID_ENV],
     doc =
         """Downloads a jar from a URL and makes it available as java_import
 

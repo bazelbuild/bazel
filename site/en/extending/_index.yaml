@@ -125,6 +125,8 @@ landing_page:
       path: /extending/platforms
     - heading: Execution groups
       path: /extending/exec-groups
+    - heading: Automatic execution groups
+      path: /extending/auto-exec-groups
     - heading: Toolchains
       path: /extending/toolchains
 

@@ -11,9 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisFailureApi;
 import net.starlark.java.eval.Printer;
@@ -21,34 +21,16 @@ import net.starlark.java.eval.Printer;
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
  */
-public class AnalysisFailure implements AnalysisFailureApi {
-  private final Label label;
-  private final String message;
-
-  public AnalysisFailure(
-      Label label,
-      String message) {
-    this.label = label;
-    this.message = message;
+@AutoValue
+public abstract class AnalysisFailure implements AnalysisFailureApi {
+  public static AnalysisFailure create(Label label, String message) {
+    return new AutoValue_AnalysisFailure(label, message);
   }
 
   @Override
-  public Label getLabel() {
-    return label;
-  }
-
-  @Override
-  public String getMessage() {
-    return message;
-  }
-
-  @Override
-  public void repr(Printer printer) {
+  public final void repr(Printer printer) {
     printer.append("<AnalyisFailure object>");
   }
 
-  @Override
-  public String toString() {
-    return "AnalysisFailure(" + label + ", " + message + ")";
-  }
+  AnalysisFailure() {} // Should not be extended.
 }

@@ -14,16 +14,18 @@
 
 """Utility functions for C++ rules."""
 
+load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
-load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/cc_common.bzl", "cc_common")
 
 cc_internal = _builtins.internal.cc_internal
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 config_common = _builtins.toplevel.config_common
 coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common
+apple_common = _builtins.toplevel.apple_common
 
 artifact_category = struct(
     STATIC_LIBRARY = "STATIC_LIBRARY",
@@ -51,17 +53,6 @@ linker_mode = struct(
     LINKING_STATIC = "static_linking_mode",
 )
 
-ios_cpus = struct(
-    IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"],
-    IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"],
-    WATCHOS_SIMULATOR_TARGET_CPUS = ["watchos_i386", "watchos_x86_64", "watchos_arm64"],
-    WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32", "watchos_device_arm64", "watchos_device_arm64e"],
-    TVOS_SIMULATOR_TARGET_CPUS = ["tvos_x86_64", "tvos_sim_arm64"],
-    TVOS_DEVICE_TARGET_CPUS = ["tvos_arm64"],
-    CATALYST_TARGET_CPUS = ["catalyst_x86_64"],
-    MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e"],
-)
-
 cpp_file_types = struct(
     LINKER_SCRIPT = ["ld", "lds", "ldscript"],
 )
@@ -81,11 +72,6 @@ def _build_linking_context_from_libraries(ctx, libraries):
     )
 
     return linking_context
-
-def _grep_includes_executable(grep_includes):
-    if grep_includes == None:
-        return None
-    return grep_includes.files_to_run.executable
 
 def _check_file_extension(file, allowed_extensions, allow_versioned_shared_libraries):
     extension = "." + file.extension
@@ -220,28 +206,19 @@ def _find_cpp_toolchain(ctx, *, mandatory = True):
       optional, mandatory is False and no toolchain has been found.
     """
 
-    # Check the incompatible flag for toolchain resolution.
-    if hasattr(cc_common, "is_cc_toolchain_resolution_enabled_do_not_use") and cc_common.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        if not _CPP_TOOLCHAIN_TYPE in ctx.toolchains:
-            fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
-        toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
-        if toolchain_info == None:
-            if not mandatory:
-                return None
+    if not _CPP_TOOLCHAIN_TYPE in ctx.toolchains:
+        fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
+    toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
+    if toolchain_info == None:
+        if not mandatory:
+            return None
 
-            # No cpp toolchain was found, so report an error.
-            fail("Unable to find a CC toolchain using toolchain resolution. Target: %s, Platform: %s, Exec platform: %s" %
-                 (ctx.label, ctx.fragments.platform.platform, ctx.fragments.platform.host_platform))
-        if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
-            return toolchain_info.cc
-        return toolchain_info
-
-    # Otherwise, fall back to the legacy attribute.
-    if hasattr(ctx.attr, "_cc_toolchain"):
-        return ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
-
-    # We didn't find anything.
-    fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
+        # No cpp toolchain was found, so report an error.
+        fail("Unable to find a CC toolchain using toolchain resolution. Target: %s, Platform: %s, Exec platform: %s" %
+             (ctx.label, ctx.fragments.platform.platform, ctx.fragments.platform.host_platform))
+    if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
+        return toolchain_info.cc
+    return toolchain_info
 
 def _use_cpp_toolchain(mandatory = False):
     """
@@ -256,7 +233,6 @@ def _use_cpp_toolchain(mandatory = False):
 
     Args:
       mandatory: Whether or not it should be an error if the toolchain cannot be resolved.
-        Currently ignored, this will be enabled when optional toolchain types are added.
 
     Returns:
       A list that can be used as the value for `rule.toolchains`.
@@ -299,6 +275,7 @@ def _build_output_groups_for_emitting_compile_providers(
     )
     output_groups_builder["compilation_outputs"] = files_to_compile
     output_groups_builder["compilation_prerequisites_INTERNAL_"] = _collect_compilation_prerequisites(ctx = ctx, compilation_context = compilation_context)
+    output_groups_builder["module_files"] = depset(compilation_outputs.module_files())
 
     if generate_hidden_top_level_group:
         output_groups_builder["_hidden_top_level_INTERNAL_"] = _collect_library_hidden_top_level_artifacts(
@@ -664,7 +641,7 @@ def _get_artifact_name_for_category(cc_toolchain, is_dynamic_link_type, output_n
     else:
         linked_artifact_category = artifact_category.EXECUTABLE
 
-    return cc_toolchain.get_artifact_name_for_category(category = linked_artifact_category, output_name = output_name)
+    return cc_internal.get_artifact_name_for_category(cc_toolchain = cc_toolchain, category = linked_artifact_category, output_name = output_name)
 
 def _get_linked_artifact(ctx, cc_toolchain, is_dynamic_link_type):
     name = ctx.label.name
@@ -677,20 +654,23 @@ def _collect_native_cc_libraries(deps, libraries):
     transitive_libraries = [dep[CcInfo].transitive_native_libraries() for dep in deps if CcInfo in dep]
     return CcNativeLibraryInfo(libraries_to_link = depset(direct = libraries, transitive = transitive_libraries))
 
+def _tool_path(cc_toolchain, tool):
+    return cc_toolchain._tool_paths.get(tool, None)
+
 def _get_toolchain_global_make_variables(cc_toolchain):
     result = {
-        "CC": cc_toolchain.tool_path(tool = "GCC"),
-        "AR": cc_toolchain.tool_path(tool = "AR"),
-        "NM": cc_toolchain.tool_path(tool = "NM"),
-        "LD": cc_toolchain.tool_path(tool = "LD"),
-        "STRIP": cc_toolchain.tool_path(tool = "STRIP"),
+        "CC": _tool_path(cc_toolchain, "gcc"),
+        "AR": _tool_path(cc_toolchain, "ar"),
+        "NM": _tool_path(cc_toolchain, "nm"),
+        "LD": _tool_path(cc_toolchain, "ld"),
+        "STRIP": _tool_path(cc_toolchain, "strip"),
         "C_COMPILER": cc_toolchain.compiler,
     }
-    obj_copy_tool = cc_toolchain.tool_path(tool = "OBJCOPY")
+    obj_copy_tool = _tool_path(cc_toolchain, "objcopy")
     if obj_copy_tool != None:
         # objcopy is optional in Crostool.
         result["OBJCOPY"] = obj_copy_tool
-    gcov_tool = cc_toolchain.tool_path(tool = "GCOVTOOL")
+    gcov_tool = _tool_path(cc_toolchain, "gcov-tool")
     if gcov_tool != None:
         # gcovtool is optional in Crostool.
         result["GCOVTOOL"] = gcov_tool
@@ -702,16 +682,15 @@ def _get_toolchain_global_make_variables(cc_toolchain):
     else:
         result["GLIBC_VERSION"] = libc
 
-    abi_glibc_version = cc_toolchain.get_abi_glibc_version()
+    abi_glibc_version = cc_toolchain._abi_glibc_version
     if abi_glibc_version != None:
         result["ABI_GLIBC_VERSION"] = abi_glibc_version
 
-    abi = cc_toolchain.get_abi()
+    abi = cc_toolchain._abi
     if abi != None:
         result["ABI"] = abi
 
-    result["CROSSTOOLTOP"] = cc_toolchain.get_crosstool_top_path()
-
+    result["CROSSTOOLTOP"] = cc_toolchain._crosstool_top_path
     return result
 
 def _contains_sysroot(original_cc_flags, feature_config_cc_flags):
@@ -733,12 +712,17 @@ def _lookup_var(ctx, additional_vars, var):
     fail("{}: {} not defined".format(ctx.label, "$(" + var + ")"))
 
 def _get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain):
-    original_cc_flags = cc_toolchain.legacy_cc_flags_make_variable()
+    original_cc_flags = cc_toolchain._legacy_cc_flags_make_variable
     sysroot_cc_flag = ""
     if cc_toolchain.sysroot != None:
         sysroot_cc_flag = SYSROOT_FLAG + cc_toolchain.sysroot
-    build_vars = cc_toolchain.get_build_variables(ctx = ctx, cpp_configuration = ctx.fragments.cpp)
-    feature_config_cc_flags = cc_common.get_memory_inefficient_command_line(feature_configuration = feature_configuration, action_name = "cc-flags-make-variable", variables = build_vars)
+
+    build_vars = cc_toolchain._build_variables
+    feature_config_cc_flags = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = "cc-flags-make-variable",
+        variables = build_vars,
+    )
     cc_flags = [original_cc_flags]
 
     # Only add sysroots flag if nothing else adds sysroot, BUT it must appear
@@ -917,16 +901,19 @@ def _expand_single_make_variable(ctx, token, additional_make_variable_substituti
 
 def _expand_make_variables_for_copts(ctx, tokenization, unexpanded_tokens, additional_make_variable_substitutions):
     tokens = []
+    targets = []
+    for additional_compiler_input in getattr(ctx.attr, "additional_compiler_inputs", []):
+        targets.append(additional_compiler_input)
     for token in unexpanded_tokens:
         if tokenization:
-            expanded_token = _expand(ctx, token, additional_make_variable_substitutions)
+            expanded_token = _expand(ctx, token, additional_make_variable_substitutions, targets = targets)
             _tokenize(tokens, expanded_token)
         else:
             exp = _expand_single_make_variable(ctx, token, additional_make_variable_substitutions)
             if exp != None:
                 _tokenize(tokens, exp)
             else:
-                tokens.append(_expand(ctx, token, additional_make_variable_substitutions))
+                tokens.append(_expand(ctx, token, additional_make_variable_substitutions, targets = targets))
     return tokens
 
 def _get_copts(ctx, feature_configuration, additional_make_variable_substitutions):
@@ -976,8 +963,13 @@ def _is_stamping_enabled_for_aspect(ctx):
         stamp = ctx.rule.attr.stamp
     return stamp
 
-def _get_local_defines_for_runfiles_lookup(ctx):
-    return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
+_RUNFILES_LIBRARY_TARGET = Label("@bazel_tools//tools/cpp/runfiles")
+
+def _get_local_defines_for_runfiles_lookup(ctx, all_deps):
+    for dep in all_deps:
+        if dep.label == _RUNFILES_LIBRARY_TARGET:
+            return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
+    return []
 
 # This should be enough to assume if two labels are equal.
 def _are_labels_equal(a, b):
@@ -1045,8 +1037,7 @@ def _report_invalid_options(cc_toolchain, cpp_config):
 def _is_repository_main(repository):
     return repository == ""
 
-def _repository_exec_path(ctx, sibling_repository_layout):
-    repository = ctx.label.workspace_name
+def _repository_exec_path(repository, sibling_repository_layout):
     if _is_repository_main(repository):
         return ""
     prefix = "external"
@@ -1057,31 +1048,27 @@ def _repository_exec_path(ctx, sibling_repository_layout):
     return paths.get_relative(prefix, repository)
 
 def _package_exec_path(ctx, package, sibling_repository_layout):
-    return paths.get_relative(_repository_exec_path(ctx, sibling_repository_layout), package)
+    return paths.get_relative(_repository_exec_path(ctx.label.workspace_name, sibling_repository_layout), package)
 
-def _package_source_root(ctx, package, sibling_repository_layout):
-    repository = ctx.label.workspace_name
+def _package_source_root(repository, package, sibling_repository_layout):
     if _is_repository_main(repository) or sibling_repository_layout:
         return package
     if repository.startswith("@"):
         repository = repository[1:]
     return paths.get_relative(paths.get_relative("external", repository), package)
 
-def _contains_up_level_references(path):
-    return path.startswith("..") and (len(path) == 2 or path[2] == "/")
-
 def _system_include_dirs(ctx, additional_make_variable_substitutions):
     result = []
     sibling_repository_layout = ctx.configuration.is_sibling_repository_layout()
     package = ctx.label.package
     package_exec_path = _package_exec_path(ctx, package, sibling_repository_layout)
-    package_source_root = _package_source_root(ctx, package, sibling_repository_layout)
+    package_source_root = _package_source_root(ctx.label.workspace_name, package, sibling_repository_layout)
     for include in ctx.attr.includes:
         includes_attr = _expand(ctx, include, additional_make_variable_substitutions)
         if includes_attr.startswith("/"):
             continue
         includes_path = paths.get_relative(package_exec_path, includes_attr)
-        if not sibling_repository_layout and _contains_up_level_references(includes_path):
+        if not sibling_repository_layout and paths.contains_up_level_references(includes_path):
             fail("Path references a path above the execution root.", attr = "includes")
 
         if includes_path == ".":
@@ -1102,9 +1089,9 @@ def _get_coverage_environment(ctx, cc_config, cc_toolchain):
     if not ctx.configuration.coverage_enabled:
         return {}
     env = {
-        "COVERAGE_GCOV_PATH": cc_toolchain.tool_path(tool = "GCOV"),
-        "LLVM_COV": cc_toolchain.tool_path(tool = "LLVM_COV"),
-        "LLVM_PROFDATA": cc_toolchain.tool_path(tool = "LLVM_PROFDATA"),
+        "COVERAGE_GCOV_PATH": _tool_path(cc_toolchain, "gcov"),
+        "LLVM_COV": _tool_path(cc_toolchain, "llvm-cov"),
+        "LLVM_PROFDATA": _tool_path(cc_toolchain, "llvm-profdata"),
         "GENERATE_LLVM_LCOV": "1" if cc_config.generate_llvm_lcov() else "0",
     }
     for k in list(env.keys()):
@@ -1123,7 +1110,7 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
     coverage_environment = {}
     if ctx.configuration.coverage_enabled:
         coverage_environment = _get_coverage_environment(ctx, cc_config, cc_toolchain)
-    coverage_support_files = cc_toolchain.coverage_files() if ctx.configuration.coverage_enabled else depset([])
+    coverage_support_files = cc_toolchain._coverage_files if ctx.configuration.coverage_enabled else depset([])
     info = coverage_common.instrumented_files_info(
         ctx = ctx,
         source_attributes = ["srcs", "hdrs"],
@@ -1136,16 +1123,6 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
     )
     return info
 
-def _is_apple_platform(cpu):
-    return cpu in ios_cpus.IOS_SIMULATOR_TARGET_CPUS or \
-           cpu in ios_cpus.IOS_DEVICE_TARGET_CPUS or \
-           cpu in ios_cpus.WATCHOS_SIMULATOR_TARGET_CPUS or \
-           cpu in ios_cpus.WATCHOS_DEVICE_TARGET_CPUS or \
-           cpu in ios_cpus.TVOS_SIMULATOR_TARGET_CPUS or \
-           cpu in ios_cpus.TVOS_DEVICE_TARGET_CPUS or \
-           cpu in ios_cpus.CATALYST_TARGET_CPUS or \
-           cpu in ios_cpus.MACOS_TARGET_CPUS
-
 def _linkopts(ctx, additional_make_variable_substitutions, cc_toolchain):
     linkopts = getattr(ctx.attr, "linkopts", [])
     if len(linkopts) == 0:
@@ -1157,7 +1134,7 @@ def _linkopts(ctx, additional_make_variable_substitutions, cc_toolchain):
     for linkopt in linkopts:
         expanded_linkopt = _expand(ctx, linkopt, additional_make_variable_substitutions, targets = targets)
         _tokenize(tokens, expanded_linkopt)
-    if _is_apple_platform(cc_toolchain.cpu) and "-static" in tokens:
+    if objc_common.is_apple_platform(cc_toolchain.cpu) and "-static" in tokens:
         fail("in linkopts attribute of cc_library rule {}: Apple builds do not support statically linked binaries".format(ctx.label))
     return tokens
 
@@ -1209,12 +1186,12 @@ def _copts_filter(ctx, additional_make_variable_substitutions):
     # Expand nocopts and create CoptsFilter.
     return _expand(ctx, nocopts, additional_make_variable_substitutions)
 
-def _proto_output_root(proto_root, genfiles_dir_path, bin_dir_path):
+def _proto_output_root(proto_root, bin_dir_path):
     if proto_root == ".":
         return bin_dir_path
 
-    if proto_root.startswith(genfiles_dir_path):
-        return bin_dir_path + "/" + proto_root[len(genfiles_dir_path):]
+    if proto_root.startswith(bin_dir_path):
+        return proto_root
     else:
         return bin_dir_path + "/" + proto_root
 
@@ -1260,7 +1237,6 @@ cc_helper = struct(
     get_expanded_env = _get_expanded_env,
     has_target_constraints = _has_target_constraints,
     is_non_empty_list_or_select = _is_non_empty_list_or_select,
-    grep_includes_executable = _grep_includes_executable,
     expand_make_variables_for_copts = _expand_make_variables_for_copts,
     build_linking_context_from_libraries = _build_linking_context_from_libraries,
     is_stamping_enabled = _is_stamping_enabled,
@@ -1282,4 +1258,6 @@ cc_helper = struct(
     package_exec_path = _package_exec_path,
     repository_exec_path = _repository_exec_path,
     proto_output_root = _proto_output_root,
+    package_source_root = _package_source_root,
+    tokenize = _tokenize,
 )

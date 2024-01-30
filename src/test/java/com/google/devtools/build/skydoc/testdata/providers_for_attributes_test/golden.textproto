@@ -1,0 +1,96 @@
+rule_info {
+  rule_name: "my_rule"
+  doc_string: "This rule does things."
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "fifth"
+    type: LABEL
+    provider_name_group {
+      provider_name: "LegacyProvider"
+      provider_name: "ObjectProvider"
+    }
+    provider_name_group {
+      provider_name: "DefaultInfo"
+      provider_name: "JavaInfo"
+    }
+    default_value: "None"
+  }
+  attribute {
+    name: "first"
+    doc_string: "this is the first attribute."
+    type: LABEL_STRING_DICT
+    provider_name_group {
+      provider_name: "MyProviderInfo"
+      provider_name: "PyInfo"
+      provider_name: "CcToolchainInfo"
+      provider_name: "MyInfo"
+    }
+    default_value: "{}"
+  }
+  attribute {
+    name: "fourth"
+    type: LABEL
+    provider_name_group {
+      provider_name: "ProtoInfo"
+      provider_name: "DefaultInfo"
+      provider_name: "JavaInfo"
+      provider_name: "MyUndefinedInfo"
+    }
+    default_value: "None"
+  }
+  attribute {
+    name: "second"
+    type: LABEL_LIST
+    provider_name_group {
+      provider_name: "CcInfo"
+    }
+    provider_name_group {
+      provider_name: "OtherProviderInfo"
+      provider_name: "DepProviderInfo"
+    }
+    default_value: "[]"
+  }
+  attribute {
+    name: "sixth"
+    type: LABEL
+    provider_name_group {
+      provider_name: "LegacyProvider"
+    }
+    default_value: "None"
+  }
+  attribute {
+    name: "third"
+    type: LABEL
+    provider_name_group {
+      provider_name: "OtherProviderInfo"
+    }
+    default_value: "None"
+  }
+}
+provider_info {
+  provider_name: "MyProviderInfo"
+  field_info {
+    name: "foo"
+    doc_string: "Something foo-related."
+  }
+  field_info {
+    name: "bar"
+    doc_string: "Something bar-related."
+  }
+}
+provider_info {
+  provider_name: "OtherProviderInfo"
+}
+func_info {
+  function_name: "my_rule_impl"
+  parameter {
+    name: "ctx"
+    mandatory: true
+  }
+}
+module_docstring: "The input file for the providers for attributes test"

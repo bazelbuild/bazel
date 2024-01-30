@@ -158,7 +158,7 @@ EOF
   "$jmaptool" -histo:live "$server_pid" > histo.txt
   cat histo.txt >> "$TEST_log"
   ct_count="$(extract_histogram_count histo.txt 'RuleConfiguredTarget$')"
-  aspect_count="$(extract_histogram_count histo.txt 'ConfiguredAspect$')"
+  aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
   [[ "$ct_count" -ge 2 ]] \
       || fail "Too few configured targets: $ct_count. Did you move/rename the class?"
   [[ "$aspect_count" -ge 1 ]] \
@@ -170,7 +170,7 @@ EOF
   "$jmaptool" -histo:live "$server_pid" > histo.txt
   cat histo.txt >> "$TEST_log"
   ct_count="$(extract_histogram_count histo.txt 'RuleConfiguredTarget$')"
-  aspect_count="$(extract_histogram_count histo.txt 'ConfiguredAspect$')"
+  aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
   # One top-level configured target is allowed to stick around.
   [[ "$ct_count" -le 1 ]] \
       || fail "Too many configured targets: $ct_count"
@@ -188,7 +188,7 @@ EOF
   "$jmaptool" -histo:live "$server_pid" > histo.txt
   cat histo.txt >> "$TEST_log"
   ct_count="$(extract_histogram_count histo.txt 'RuleConfiguredTarget$')"
-  aspect_count="$(extract_histogram_count histo.txt 'ConfiguredAspect$')"
+  aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
   # One top-level aspect is allowed to stick around.
   [[ "$aspect_count" -le 1 ]] || fail "Too many aspects: $aspect_count"
   [[ "$ct_count" -le 1 ]] || fail "Too many configured targets: $ct_count"

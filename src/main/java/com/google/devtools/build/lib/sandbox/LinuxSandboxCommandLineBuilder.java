@@ -51,7 +51,6 @@ public class LinuxSandboxCommandLineBuilder {
   }
 
   private final Path linuxSandboxPath;
-  private final List<String> commandArguments;
   private Path hermeticSandboxPath;
   private Path workingDirectory;
   private Duration timeout;
@@ -68,19 +67,17 @@ public class LinuxSandboxCommandLineBuilder {
   private boolean useFakeRoot = false;
   private boolean useFakeUsername = false;
   private boolean enablePseudoterminal = false;
-  private boolean useDebugMode = false;
+  private String sandboxDebugPath = null;
   private boolean sigintSendsSigterm = false;
   private String cgroupsDir;
 
-  private LinuxSandboxCommandLineBuilder(Path linuxSandboxPath, List<String> commandArguments) {
+  private LinuxSandboxCommandLineBuilder(Path linuxSandboxPath) {
     this.linuxSandboxPath = linuxSandboxPath;
-    this.commandArguments = commandArguments;
   }
 
   /** Returns a new command line builder for the {@code linux-sandbox} tool. */
-  public static LinuxSandboxCommandLineBuilder commandLineBuilder(
-      Path linuxSandboxPath, List<String> commandArguments) {
-    return new LinuxSandboxCommandLineBuilder(linuxSandboxPath, commandArguments);
+  public static LinuxSandboxCommandLineBuilder commandLineBuilder(Path linuxSandboxPath) {
+    return new LinuxSandboxCommandLineBuilder(linuxSandboxPath);
   }
 
   /**
@@ -218,10 +215,10 @@ public class LinuxSandboxCommandLineBuilder {
     return this;
   }
 
-  /** Sets whether to enable debug mode (e.g. to print debugging messages). */
+  /** Sets the output path for sandbox debugging messages. */
   @CanIgnoreReturnValue
-  public LinuxSandboxCommandLineBuilder setUseDebugMode(boolean useDebugMode) {
-    this.useDebugMode = useDebugMode;
+  public LinuxSandboxCommandLineBuilder setSandboxDebugPath(String sandboxDebugPath) {
+    this.sandboxDebugPath = sandboxDebugPath;
     return this;
   }
 
@@ -247,7 +244,7 @@ public class LinuxSandboxCommandLineBuilder {
   }
 
   /** Builds the command line to invoke a specific command using the {@code linux-sandbox} tool. */
-  public ImmutableList<String> build() {
+  public ImmutableList<String> buildForCommand(List<String> commandArguments) {
     Preconditions.checkState(
         !(this.useFakeUsername && this.useFakeRoot),
         "useFakeUsername and useFakeRoot are exclusive");
@@ -306,8 +303,8 @@ public class LinuxSandboxCommandLineBuilder {
     if (enablePseudoterminal) {
       commandLineBuilder.add("-P");
     }
-    if (useDebugMode) {
-      commandLineBuilder.add("-D");
+    if (sandboxDebugPath != null) {
+      commandLineBuilder.add("-D", sandboxDebugPath);
     }
     if (sigintSendsSigterm) {
       commandLineBuilder.add("-i");

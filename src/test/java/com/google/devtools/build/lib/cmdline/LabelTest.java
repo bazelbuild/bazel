@@ -17,10 +17,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Tables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
+import com.google.devtools.build.lib.cmdline.Label.RepoMappingRecorder;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 import net.starlark.java.eval.Starlark;
@@ -189,27 +192,7 @@ public class LabelTest {
     }
     {
       Label l = Label.parseCanonical("@foo");
-      assertThat(l.toString()).isEqualTo("@foo//:foo");
-    }
-  }
-
-  @Test
-  public void testToShorthandString() throws Exception {
-    {
-      Label l = Label.parseCanonical("//bar/baz:baz");
-      assertThat(l.toShorthandString()).isEqualTo("//bar/baz");
-    }
-    {
-      Label l = Label.parseCanonical("//bar/baz:bat");
-      assertThat(l.toShorthandString()).isEqualTo("//bar/baz:bat");
-    }
-    {
-      Label l = Label.parseCanonical("@foo//bar/baz:baz");
-      assertThat(l.toShorthandString()).isEqualTo("@foo//bar/baz");
-    }
-    {
-      Label l = Label.parseCanonical("@foo//bar/baz:bat");
-      assertThat(l.toShorthandString()).isEqualTo("@foo//bar/baz:bat");
+      assertThat(l.toString()).isEqualTo("@@foo//:foo");
     }
   }
 
@@ -322,7 +305,7 @@ public class LabelTest {
   @Test
   public void testRepoLabel() throws Exception {
     Label label = Label.parseCanonical("@foo//bar/baz:bat/boo");
-    assertThat(label.toString()).isEqualTo("@foo//bar/baz:bat/boo");
+    assertThat(label.toString()).isEqualTo("@@foo//bar/baz:bat/boo");
   }
 
   @Test
@@ -349,7 +332,7 @@ public class LabelTest {
         assertThrows(LabelSyntaxException.class, () -> Label.parseCanonical("@foo:xyz"));
     assertThat(e)
         .hasMessageThat()
-        .containsMatch("invalid repository name '@foo:xyz': repo names may contain only");
+        .containsMatch("invalid repository name 'foo:xyz': repo names may contain only");
   }
 
   @Test
@@ -393,7 +376,7 @@ public class LabelTest {
                         PathFragment.create("baz")),
                     "quux")
                 .getUnambiguousCanonicalForm())
-        .isEqualTo("@@[unknown repo 'foo' requested from @bar]//baz:quux");
+        .isEqualTo("@@[unknown repo 'foo' requested from @@bar]//baz:quux");
   }
 
   private static String displayFormFor(String rawLabel, RepositoryMapping repositoryMapping)
@@ -405,7 +388,8 @@ public class LabelTest {
   public void testDisplayForm() throws Exception {
     RepositoryName canonicalName = RepositoryName.create("canonical");
     RepositoryMapping repositoryMapping =
-        RepositoryMapping.create(ImmutableMap.of("local", canonicalName), RepositoryName.MAIN);
+        RepositoryMapping.create(
+            ImmutableMap.of("", RepositoryName.MAIN, "local", canonicalName), RepositoryName.MAIN);
 
     assertThat(displayFormFor("//foo/bar:bar", repositoryMapping)).isEqualTo("//foo/bar:bar");
     assertThat(displayFormFor("//foo/bar:baz", repositoryMapping)).isEqualTo("//foo/bar:baz");
@@ -423,6 +407,12 @@ public class LabelTest {
     assertThat(displayFormFor("@other//:other", repositoryMapping)).isEqualTo("@@other//:other");
     assertThat(displayFormFor("@@other", repositoryMapping)).isEqualTo("@@other//:other");
 
+    assertThat(
+            Label.parseWithRepoContext(
+                    "@bad//abc", RepoContext.of(RepositoryName.MAIN, repositoryMapping))
+                .getDisplayForm(repositoryMapping))
+        .isEqualTo("@@[unknown repo 'bad' requested from @@]//abc:abc");
+
     assertThat(displayFormFor("@unremapped//:unremapped", RepositoryMapping.ALWAYS_FALLBACK))
         .isEqualTo("@unremapped//:unremapped");
     assertThat(displayFormFor("@unremapped", RepositoryMapping.ALWAYS_FALLBACK))
@@ -438,7 +428,8 @@ public class LabelTest {
   public void testShorthandDisplayForm() throws Exception {
     RepositoryName canonicalName = RepositoryName.create("canonical");
     RepositoryMapping repositoryMapping =
-        RepositoryMapping.create(ImmutableMap.of("local", canonicalName), RepositoryName.MAIN);
+        RepositoryMapping.create(
+            ImmutableMap.of("", RepositoryName.MAIN, "local", canonicalName), RepositoryName.MAIN);
 
     assertThat(shorthandDisplayFormFor("//foo/bar:bar", repositoryMapping)).isEqualTo("//foo/bar");
     assertThat(shorthandDisplayFormFor("//foo/bar:baz", repositoryMapping))
@@ -461,6 +452,12 @@ public class LabelTest {
     assertThat(shorthandDisplayFormFor("@@other", repositoryMapping)).isEqualTo("@@other");
 
     assertThat(
+            Label.parseWithRepoContext(
+                    "@bad//abc", RepoContext.of(RepositoryName.MAIN, repositoryMapping))
+                .getShorthandDisplayForm(repositoryMapping))
+        .isEqualTo("@@[unknown repo 'bad' requested from @@]//abc");
+
+    assertThat(
             shorthandDisplayFormFor("@unremapped//:unremapped", RepositoryMapping.ALWAYS_FALLBACK))
         .isEqualTo("@unremapped");
     assertThat(shorthandDisplayFormFor("@unremapped", RepositoryMapping.ALWAYS_FALLBACK))
@@ -470,12 +467,12 @@ public class LabelTest {
   @Test
   public void starlarkStrAndRepr() throws Exception {
     Label label = Label.parseCanonical("//x");
-    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@//x:x");
+    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@//x:x");
     assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
 
     label = Label.parseCanonical("@hello//x");
-    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@hello//x:x");
-    assertThat(Starlark.repr(label)).isEqualTo("Label(\"@hello//x:x\")");
+    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@hello//x:x");
+    assertThat(Starlark.repr(label)).isEqualTo("Label(\"@@hello//x:x\")");
   }
 
   @Test
@@ -483,6 +480,7 @@ public class LabelTest {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, false)
+            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, false)
             .build();
     assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
     assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@x//y:y");
@@ -505,5 +503,52 @@ public class LabelTest {
             .build();
     assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
     assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(
+            Label.parseCanonical("//foo/bar:baz"),
+            Label.parseCanonical("@foo"),
+            Label.parseCanonical("@@foo//bar"),
+            Label.parseCanonical("//xyz/@foo:abc"))
+        .setVerificationFunction(
+            (original, deserialized) -> assertThat(original).isSameInstanceAs(deserialized))
+        .runTests();
+  }
+
+  @Test
+  public void parseWithPackageContext_recordingRepoMapping() throws Exception {
+    RepositoryName foo = RepositoryName.createUnvalidated("foo");
+    RepositoryName bar = RepositoryName.createUnvalidated("bar");
+    RepositoryName quux = RepositoryName.createUnvalidated("quux");
+    PackageContext fooPackageContext =
+        PackageContext.of(
+            PackageIdentifier.create(foo, PathFragment.create("hah")),
+            RepositoryMapping.create(ImmutableMap.of("bar", quux, "quux", bar), foo));
+    PackageContext barPackageContext =
+        PackageContext.of(
+            PackageIdentifier.create(bar, PathFragment.EMPTY_FRAGMENT),
+            RepositoryMapping.create(ImmutableMap.of("foo", quux, "quux", foo), bar));
+
+    RepoMappingRecorder recorder = new RepoMappingRecorder();
+    // Not recorded: no repo part
+    var unused = Label.parseWithPackageContext("//foo/bar", fooPackageContext, recorder);
+    // Recorded: <foo, bar, quux>
+    unused = Label.parseWithPackageContext("@bar//foo/bar", fooPackageContext, recorder);
+    // Recorded: <bar, quux, foo>
+    unused = Label.parseWithPackageContext("@quux//foo/bar", barPackageContext, recorder);
+    // Recorded: <bar, foo, quux>
+    unused = Label.parseWithPackageContext("@foo//foo/bar", barPackageContext, recorder);
+    // Not recorded: canonical repo name
+    unused = Label.parseWithPackageContext("@@quux//foo/bar", fooPackageContext, recorder);
+
+    // Recorded entries are sorted by row and then column
+    assertThat(recorder.recordedEntries().cellSet())
+        .containsExactly(
+            Tables.immutableCell(bar, "foo", quux),
+            Tables.immutableCell(bar, "quux", foo),
+            Tables.immutableCell(foo, "bar", quux))
+        .inOrder();
   }
 }

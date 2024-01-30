@@ -254,8 +254,9 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     PeakMemInfoItem() {
       super(
           "peak-heap-size",
-          "The peak amount of used memory in bytes after any call to System.gc().",
-          /*hidden=*/ true);
+          "The peak amount of used memory in bytes after any full GC during the most recent"
+              + " invocation.",
+          /* hidden= */ true);
     }
 
     @Override

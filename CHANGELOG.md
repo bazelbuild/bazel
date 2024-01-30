@@ -1,3 +1,1251 @@
+## Release 8.0.0-pre.20240108.6 (2024-01-29)
+
+```
+Baseline: 8e8ddaba0e90c280bfd85644d6ccd91df5b6d353
+
+Cherry picks:
+
+   + bbc51a06ba4db1c88bfce6dfa3c7b0622cb56d72:
+     Fix `cc_test` coverage broken by
+     https://github.com/bazelbuild/bazel/commit/92cba040904c2ccbd0b5a7
+     0263de739f72c592ae
+   + 162cacd30dc19352ec34fe1de6a056d6b1ee9374:
+     Automated rollback of commit
+     915fb3e861dd28e16f42072101adf498242d26d0.
+   + 7788abb73f09921197d27c45ac9eb23b5a4f89a0:
+     Release 8.0.0-pre.20240108.6 (2024-01-29)
+   + 581c8b5cbfc772d8b13d96e0bbf40cbb8c2a1cc9:
+     Release 8.0.0-pre.20240108.6 (2024-01-29)
+```
+
+Initial release.
+
+## Release 7.0.2 (2024-01-25)
+
+```
+Baseline:  2634a6ec8bef0d8eef9870b23befdddb3dbe0005
+
+Release Notes:
+
++ Disregard WORKSPACE while verifying lockfile repo mapping entries in extension eval (#21003)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Xdng Yng.
+```
+
+## Release 6.5.0 (2024-01-23)
+
+```
+Baseline:  50b61e38fb6eaa08a6c811a313824a59f1c2abbf
+
+Release Notes:
+
++ Fix tree file materialized as symlink to another file when building without the bytes. (#20409)
++ Don't pass --add-opens= to javac (#20472)
++ Flip --incompatible_visibility_private_attributes_at_definition (#20520)
++ Fix extraction of tar archives containing sparse files. (#20531)
++ RemoteSpawnRunner: record inbetween phases in timing profile (#20550)
++ Add profiling to `remoteActionBuildingSemaphore.acquire()` (#20549)
++ The label API shakeup & docs cleanup (#20590)
++ Disable rewriter test (#20758)
++ Disable PyTest.testSmoke on macOS (#20729)
++ Upgrade abseil-cpp to fix build on macos_arm64 (#20785)
++ Ignore read-only errors when updating the `mtime` of the `install_base` (#20568)
++ Restart at most once when prepopulating repository rule environment (#20667)
++ Fix bootstrapped Bazel binary (#20804)
++ Add flag `experimental_throttle_remote_action_building` (#20861)
++ Fix versioned shared libraries for macOS toolchain (#20847)
++ Proto toolchainisation cherrypicks (#20925)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Brentley Jones, Fabian Meumertzheim, Jordan Mele, Mai Hussien, oquenchil, Rahul Butani, Son Luong Ngoc, Xùdōng Yáng.
+```
+
+## Release 7.0.1 (2024-01-18)
+
+```
+Baseline:  d798ebde6c6394203a87b5f1a6b62ecfc3880991
+
+Release Notes:
+
++ Consider MODULE.bazel for workspace detection in bazel.sh (#20594)
++ Auto-create deploy jars for Bazel `java_test` targets if requested (#20602)
++ `java_binary` wrapper should forward `restricted_to` (#20611)
++ Mount user-specified bind mounts before Bazel's own magic. (#20609)
++ Fix bootstrapped Bazel binary (#20612)
++ Attempt to make main repo mapping inverse more efficient (#20625)
++ Cherry-pick all presubmit.yml changes (#20733)
++ Print interactive sandboxed shell command with `--sandbox_debug` (#20734)
++ Fix two issues with --incompatible_sandbox_hermetic_tmp that manifested themselves when the output base was under /tmp (#20718)
++ Let module extensions track calls to `Label()` (#20750)
++ Add support for bind mounts under `/tmp` with hermetic tmp (#20749)
++ Fixes for Bazel's own integration tests fail locally on Linux  (#20821)
++ Fix NPE in BzlmodRepoRuleFunction (#20828)
++ Avoid emitting canonical labels into generated repos (#20840)
++ Let .bzl files record their usages of repo mapping (#20848)
++ Force output checking for incremental run commands without the bytes. (#20881)
++ Retry binding to ipv6 localhost (#20903)
++ Fix linker feature detection being performed on wrong linker (#20901)
++ Fix singlejar resource mapping for external repositories (#20904)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, David Ostrovsky, Fabian Meumertzheim, hvd, Siddhartha Bagaria, Tianyu Geng, Xdng Yng, Xùdōng Yáng.
+```
+
+## Release 8.0.0-pre.20240101.1 (2024-01-17)
+
+```
+Baseline: 40271d7642fb6b76d68289d73b73a1eb4acb80bd
+```
+
+Initial release.
+
+## Release 7.0.0 (2023-12-11)
+
+```
+Baseline:  d60ce2c7c86393638c77698c00c2168a7a936a53
+
+Release Notes:
+
++ **[Incompatible]** This has the side effect of changing the message on unsuccessful builds from ``` FAILED: Build did NOT complete successfully (0 packages loaded) ``` to ``` ERROR: Build did NOT complete successfully ```
++ The new path variable `$(rlocationpath ...)` and its plural form `$(rlocationpaths ...)` can be used to expand labels to the paths accepted by the `Rlocation` function of runfiles libraries. This is the preferred way to access data dependencies at runtime and works on all platforms, even when runfiles are not enabled (e.g., on Windows by default).
++ The `aquery` and `cquery` commands now respect the `--query_file` flag just like the `query` command.
++ **[Incompatible]** the --experimental_async_execution flag is now a no-op.
++ **[Incompatible]** --experimental_replay_action_out_err is not a no-op.
++ **[Incompatible]** `cquery --output=files` also outputs source files.
++ removed outdated ctx.host_fragments
++ **[Incompatible]** When multiple --deleted_packages options are passed on the command line, they will be concatenated instead of the latest one taking effect.
++ removed outdated ctx.host_configuration
++ **[Incompatible]** JSON profile: Use doubles instead of strings for counter series.
++ Now that the host configuration is finished, `genrule` should prefer the use of `tools` and stop using `exec_tools`.
++ **[Incompatible]** --experimental_build_transitive_python_runfiles is flipped to false. See #16303 for details
++ **[Incompatible]** --incompatible_python_disable_py2 is flipped to true. See #17293 for details.
++ Update Android manifest merger to v30.1.3, and also drop support for legacy (pre-D8) desugaring.
++ Correctly encode double value positive infinity as "inf" instead of "+inf" for textprotos.
++ **[Incompatible]** When remote cache evicts blobs, Bazel will exit with code 39.
++ Add --use_target_platform_for_tests which uses the target platform for executing tests instead of the execution platform.
++ **[Incompatible]** `--features` only applies to targets built in the target configuration, and `--host_features` is used for the host / exec configuration (gated behind `--incompatible_use_host_features`)
++ Custom C++ rules on Windows calling cc_common.create_linking_context_from_compilation_outputs should review whether each target of the rule type should produce a dynamic library since a condition which blocked their creation has been moved to the rules from behind the API.
++ Add flag `--experimental_remote_cache_ttl` and set the default value to 3 hours.
++ making --incompatible_use_platforms_repo_for_constraints do nothing. Using constraints from @bazel_tools//platforms with or without the flag will throw error with message "Constraints from @bazel_tools//platforms have been removed. Please use constraints from @platforms repository embedded in Bazel, or preferably declare dependency on https://github.com/bazelbuild/platforms"
++ **[Incompatible]** Bazel's local CPU resource on Linux is now container aware. Use `--local_cpu_resources`, `--loading_phase_threads` or `--jobs` to override.
++ Subsequent settings of --extra_execution_platforms now override previous settings, instead of adding them to a list. If you currently set --extra_execution_platforms more than once, please migrate by passing a list of values to --extra_execution_platforms instead so that earlier values aren't overwritten.
++ @bazel_tools//config:common_settings.bzl has been removed. Use @bazel_skylib//rules:common_settings.bzl instead.
++ **[Incompatible]** `copy_from_rule` is exec_groups is deprecated (https://github.com/bazelbuild/bazel/issues/17668).
++ cc_shared_library is no longer experimental, see https://github.com/bazelbuild/bazel/issues/16709 for details
++ **[Incompatible]** --legacy_bazel_java_test is now a no-op
++ The flag `--distinct_host_configuration` is removed. It has been a no-op since Bazel 6.0.0.
++ Add `--skip_incompatible_explicit_targets` option
++ **[Incompatible]** `--experimental_execution_graph_log` no longer exists. Current users that want local logs need to pass `--experimental_enable_execution_graph_log --experimental_execution_graph_log_path=/some/local/path`. Current users that want logs uploaded to BEP need to pass `--experimental_enable_execution_graph_log --experimental_stream_log_file_uploads`.
++ Remove 'darwin' as a CPU value, use 'darwin_x86_64' instead
++ **[Incompatible]** Remove 'darwin' as a CPU value, use 'darwin_x86_64' instead
++ cc_test can now be configured by using a native.toolchain().
++ The location of rules that explicitly specify `generator_name` and/or `generator_function` attributes (typically because they are incidentally copied from `native.existing_rule()`) is now the top-level call in the `BUILD` file, which is consistent with rules that do not explicitly specify these attributes.
++ Warnings (most notably those associated with the `deprecation` rule attribute) are no longer replayed on subsequent invocations unless the target in question is re-analyzed. Warnings are purely informational, so this change has no bearing on the correctness of the build. Downstream tests that break due to this change should update their expectations.
++ `--experimental_remote_build_event_upload` has been renamed to `--remote_build_event_upload`
++ **[Incompatible]** Remove high priority workers functionality from blaze.
++ [Breaking change] platform, constraint_setting, and constraint_value can no longer take an applicable_licenses value. Remediation is to remove the attribute and rely on the package level default.
++ `--experimental_action_cache_store_output_metadata` has been renamed to `--action_cache_store_output_metadata`
++ Changed the default value for `--remote_build_event_upload` to `minimal`.
++ `--experimental_remote_cache_compression` has been renamed to `--remote_cache_compression`
++ Added a new `max_compatibility_level` attribute to the `bazel_dep` directive, which allows version selection to upgrade a dependency up to the specified compatibility level.
++ `--experimental_remote_grpc_log` has been renamed to `--remote_grpc_log`
++ `--incompatible_remote_build_event_upload_respect_no_cache` is now a no-op.
++ json.decode now takes an optional `default` positional parameter; if this parameter is specified and decoding fails, json.decode will return the `default` value instead of failing Starlark evaluation.
++ --experimental_repository_disable_download is now promoted to stable and is also available under the name --repository_disable_download .
++ `applicable_licenses` is no longer allowed on the `platform` rule. Additionally, `default_package_metadata` from any `package` rule will not be applied.
++ **[Incompatible]** Duplicates in <rule-inputs> when using `query --output=xml --aspect_deps=precise` are removed. Added flag `--proto:include_attribute_source_aspects` that will include a new field `source_aspect_name` to the `Attribute` message that indicates the source aspect that the attribute comes from.
++ Options specified on the pseudo-command `common` in `.rc` files are now ignored by commands that do not support them as long as they are valid options for *any* Bazel command. Previously, commands that did not support all options given for `common` would fail to run. These previous semantics of `common` are now available via the new `always` pseudo-command.
++ **[Incompatible]** `--incompatible_check_sharding_support` is enabled by default. Sharded tests with test runners that do not properly advertise support for test sharding will fail. Refer to https://github.com/bazelbuild/bazel/issues/18339 for migration advice.
++ the 'default' param of json.decode can now be used as a keyword parameter.
++ As a transitional step in a larger refactoring, rule transitions are applied twice. Once during dependency resolution and once right before analysis of those rules. After the refactoring is complete, rule transitions will be applied only once.
++ Add aquery --output=streamed_proto which writes a stream of length delimited ActionGraphContainer containing a single Artifact, Action, Target, DepSetOfFiles, Configuration, AspectDescriptor, RuleClass, PathFragment proto. This breaks up the ActionGraphContainer into multiple which will prevent large protos from crashing blaze.
++ (BEP) TargetConfigured events will be marked aborted instead of published when there is an analysis error. This is motivated by a low level Blaze change aimed at improving scalability.
++ **[Incompatible]** cc_binary targets with dynamic_deps attributes no longer link indirect dynamic_deps on Unix. This might be an incompatible change if you are using RUNPATHs (instead of RPATHs) in your cc_shared_libraries. Enable the feature "exclude_bazel_rpaths_in_transitive_libs" or "use_rpath_instead_of_runpath" for those cc_shared_libraries.
++ Enable starlark_doc_extract - a native rule for Starlark documentation extraction. This rule is intended mainly for internal use by Stardoc.
++ **[Incompatible]** Remove deprecated and unused `--experimental_show_artifacts` flag.
++ Added the target path of an UnresolvedSymlink action to the aquery results
++ Additional source inputs can now be specified for compilation in cc_library targets using the additional_compiler_inputs attribute, and these inputs can be used in the $(location) function.
++ More descriptive error messages for unexpected cc absolute includes; unexpected absolute includes for cc compiles shouldn't be reported as "undeclared inclusion(s)"
++ Enable C++ branch coverage if gcov version is 8 or newer.
++ Deduplicates the result of split transitions uniformly, regardless of whether they are Starlark or native transitions. This used to apply only if either the attribute or rule transition contained a Starlark transition.
++ Support for optimizers rewriting baseline profiles.
++ This is a breaking change. `cc_host_toolchain_alias` rule is obsolete and can be interchangeably used with `cc_toolchain_alias` rule.
++ Fixes non-ascii arguments written to parameter files as mojibake.
++ NA
++ The `genrule` attribute `exec_tools` will be removed in a future Bazel release. Please follow directions at #19132 to migrate away from it.
++ **[Incompatible]** Removed multi_arch_split, use transition_support.apple_platform_split_transition from rules_apple instead.
++ Supports for android_binary.startup_profiles attribute.
++ **[Incompatible]** Removed apple_crosstool_transition, use transition_support.apple_rule_transition from rules_apple instead.
++ **[Incompatible]** Drop deprecated 'transitive_deps', 'transitive_runtime_deps' from JavaInfo
++ **[Incompatible]** The --android_include_proguard_location_references flag is not supported anymore.
++ **[Incompatible]** The --apple_compiler command line option is not available anymore.
++ `rule()` and `attr.*` can no longer be (pointlessly) called during WORKSPACE evaluation and repository rule evaluation.
++ Expands baseline profile wildcards before optimizer tools see them.
++ **[Incompatible]** --no_proguard_location_reference is now added unconditionally to the command line of aapt2.
++ **[Incompatible]** The command line flag --apple_enable_auto_dsym_dbg is not supported anymore.
++ **[Incompatible]** The --apple_compiler command line option is not available anymore.
++ **[Incompatible]** py_transitions top-level was removed.
++ Android resources will no longer propagate through neverlinked libraries by default.
++ Set Android Databinding to v2 and Databinging AndroidX to true and remove support for Databinding V1.
++ Added whether or not a FileWrite action's output is executable to the aquery results
++ --use_single_jar_apk_builder is removed. It's been a no-op for years.
++ **[Incompatible]** --incompatible_merge_fixed_and_default_shell_env is flipped to true. See #19317 for details.
++ JVM options in environment variables JAVA_TOOL_OPTIONS and JDK_JAVA_OPTIONS now do not get to the server; use --host_jvm_args instead.
++ --remote_download_minimal no longer implies --nobuild_runfile_links.
++ attr objects in Starlark now use value equality rather than reference equality.
++ **[Incompatible]** `cmd_helper` module was removed
++ **[Incompatible]** `ctx.new_file` was removed, `ctx.actions.declare_file` is to be used instead.
++ **[Incompatible]** Fails on unknown attributes (even when set to None). See https://github.com/bazelbuild/bazel/issues/19403
++ Change output paths to consistently start with [cpu]-[compilation_mode] along with other cleanups to output path generation logic.
++ Compilation actions using the auto-configured MSVC toolchain are forced to emit error messages in English if the English language pack for Visual Studio is installed.
++ **[Incompatible]** Flip incompatible_enable_cc_toolchain_resolution (https://github.com/bazelbuild/bazel/issues/7260)
++ The new `--consistent_labels` option on `query`, `cquery`, and `aquery` can be used to force consistent label formatting across all output modes that is also compatible with `str(Label(...))` in Starlark.
++ **[Incompatible]** proto_compiler attribute removed from proto_lang_toolchain (it was recently introduced, and there is no evidence of use)
++ **[Incompatible]** --experimental_genquery_use_graphless_query is made to be a NO-OP.
++ **[Incompatible]** The --call_count_output_path command line option is not supported anymore.
++ **[Incompatible]** The no-op --dynamic_worker_strategy command line option is no available anymore.
++ **[Incompatible]** the --experimental_allow_top_level_aspects_parameters, --experimental_async_execution, --experimental_availability_info_exempt, --experimental_dynamic_execution_cpu_limited, --experimental_dynamic_skip_first_build, --experimental_keep_config_nodes_on_analysis_discard, --experimental_local_memory_estimate, --experimental_multi_cpu, --experimental_multi_threaded_digest, --experimental_replay_action_out_err and --experimental_shortened_obj_file_path command line options are not available anymore.
++ **[Incompatible]** The --experimental_cc_shared_library_debug command line flag is not available anymore.
++ **[Incompatible]** testing.analysis_test is not experimental anymore
++ **[Incompatible]** The (no-op) --android_include_proguard_location_references flag is not available anymore.
++ **[Incompatible]** The --experimental_android_local_test_binary_resources command line option is not available anymore.
++ **[Incompatible]** The --experimental_includes_attribute_subpackage_traversal command line option is not available anymore.
++ **[Incompatible]** The --debug_print_action_contexts command line option is not available anymore.
++ **[Incompatible]** The --experimental_skyframe_include_scanning command line option is not available anymore.
++ **[Incompatible]** The --experimental_supports_info_crosstool_configuration command line option is not available anymore.
++ **[Incompatible]** THe --incompatible_avoid_conflict_dlls command line option is not available anymore.
++ **[Incompatible]** The --experimental_prioritize_local_actions command line option is not available anymore.
++ **[Incompatible]** The following command line options are not supported anymore: --incompatible_disable_cc_configuration_make_variables, --incompatible_disable_cc_toolchain_label_from_crosstool_proto, --incompatible_disable_crosstool_file, --incompatible_disable_depset_in_cc_user_flags, --incompatible_disable_legacy_cpp_toolchain_skylark_api, --incompatible_disable_legacy_cpp_toolchain_skylark_api, incompatible_disable_legacy_flags_cc_toolchain_api, --incompatible_disable_managed_directories, --incompatible_disable_runtimes_filegroups, --incompatible_disable_sysroot_from_configuration, --incompatible_disable_tools_defaults_package, --incompatible_disallow_legacy_javainfo, --incompatible_dont_emit_static_libgcc, --incompatible_enable_legacy_cpp_toolchain_skylark_api, --incompatible_linkopts_in_user_link_flags, --incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite, --incompatible_require_feature_configuration_for_pic .
++ **[Incompatible]** The --experimental_execution_graph_log_cached and --experimental_execution_graph_log_missed command line options are not available anymore.
++ **[Incompatible]** The --experimental_use_sh_binary_stub_script command line option is not available anymore.
++ **[Incompatible]** The --incompatible_disable_expand_if_all_available_in_flag_set command line option is not available anymore.
++ default_applicable_licenses in package() now applies to the entire BUILD file, regardless of where in the BUILD that package() is called.
++ **[Incompatible]** The --incompatible_load_cc_rules_from_bzl command line option is not available anymore.
++ **[Incompatible]** The --incompatible_display_source_file_location command line option is not available anymore.
++ **[Incompatible]** The --experimental_repository_hash_file and --experimental_verify_repository_rules command line options are not available anymore.
++ **[Incompatible]** The following previously no-op command line options are not available anymore: --legacy_spawn_scheduler, --use_workers_with_dexbuilder, --print_workspace_in_output_paths_if_needed, --watchos_simulator_version, --watchos_simulator_device, --tvos_simulator_version, --tvos_simulator_device.
++ **[Incompatible]** The --show_warnings command line option of the command "canonicalize-flags" is not available anymore.
++ **[Incompatible]** The command line option --remove_all_convenience_symlinks is not available anymore.
++ **[Incompatible]** java_test doesn't produce deploy jars anymore
++ **[Incompatible]** The lazy template expansion is not experimental anymore (--experimental_lazy_template_expansion command line option is not available anymore).
++ **[Incompatible]** The --incompatible_disallow_legacy_javainfo command line option is not available anymore.
++ **[Incompatible]** The --incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain command line option is not available anymore. Using the "cpu" and "compiler" options of the cc_toolchain rule now results in a slightly different error that is signaled earlier.
++ **[Incompatible]** THe --incompatible_force_strict_header_check_from_starlark command line option is not available anymore.
++ **[Incompatible]** --incompatible_visibility_private_attributes_at_definition is flipped to true. See https://github.com/bazelbuild/bazel/issues/19330 for details.
++ **[Incompatible]** The --experimental_java_proto_library_default_has_services command line option and the Starlark symbol java_common.experimental_java_proto_library_default_has_services function are not available anymore.
++ **[Incompatible]** The no-op --experimental_cpp_compile_argv_ignore_param_file command line option is not available anymore.
++ Make variable expansion of `objc_library` produces better error messages.
++ **[Incompatible]** rule function takes only implementation function positionally, other parameters have to be named
++ **[Incompatible]** The --incompatible_genquery_use_graphless_query command line options is not available anymore.
++ Added support for a new directive `use_repo_rule` in MODULE.bazel files, which allows you to conveniently declare repos that are only visible within your module.
++ Bazel now throws an error if the root module specifies overrides on nonexistent modules.
++ Fix includes attribute of `objc_library` when sibling repository layout is used.
++ Directories used by sandboxed non-worker execution may be reused to avoid unnecessary setup costs. Disable behavior with --noreuse_sandbox_directories.
++ **[Incompatible]** The sandboxfs sandboxing strategy is removed. It hadn't been maintained for a long time, it didn't work for most users and it was not consistently faster while being complex to set up. sandboxfs performance is heavily dependent on the specific setup (setup costs are lower, but you have to pay a penalty for the use of each input) and there are scenarios where it is faster and scenarios where it is slower. Overall it is not worth its weight.
++ Symlink trees created by sandboxing will be deleted asynchronously. Disable behavior with --experimental_sandbox_async_tree_delete_idle_threads=0.
++ **[Incompatible]** Bzlmod is enabled by default, please consider migrating your external dependencies from WORKSPACE to MODULE.bazel. Find more details at https://github.com/bazelbuild/bazel/issues/18958
++ Enable Platforms and Toolchains for Android. Android projects will need to stop passing the legacy flag `--fat_apk_cpu`, and instead use `--android_platforms` using platforms defined with the `@platforms//os:android` constraint. The https://github.com/bazelbuild/rules_android repository defines four standard Android platforms for projects that use those rules, `@rules_android//:armeabi-v7a`, `@rules_android//:arm64-v8a`, `@rules_android//:x86`, `@rules_android//:x86_64`.
++ **[Incompatible]** Java runtime toolchains created via `local_java_repository` from `@bazel_tools//tools/jdk:local_java_repository.bzl`, which includes `local_jdk`, now have `target_compatible_with` set to the auto-detected host constraints. This can result in errors about toolchain resolution failures for `@bazel_tools//tools/jdk:runtime_toolchain_type`, especially when cross-compiling. These failures can be fixed in the following ways (listed in decreasing order of preference): * Replace `java_binary` targets that aren't meant to be run with `bazel run` or as tools during the build with `java_single_jar` (available in `@rules_java//java:java_single_jar.bzl`). Such targets do not require a Java runtime for the target configuration. * Set `--java_runtime_version=remotejdk_N` for some Java version `N` to let Bazel choose and download an appropriate remote JDK for the current target platform. This setting defaults to `local_jdk`, which means that Bazel can only use the local JDK, which isn't compatible with any other platform. * Manually define and register a `local_java_runtime` with no value set for `exec_compatible_with` (defaults to `[]`) and select it by setting `--java_runtime_version` to its `name`. This fully restores the previous behavior, but can result in incorrect results when cross-compiling (see #18265). Closes #18262. Commit https://github.com/bazelbuild/bazel/commit/f79ca0275e14d7c8fb478bd910ad7fb127440fd8
++ none Commit https://github.com/bazelbuild/bazel/commit/7d87996d2c2018f0c6dd9b200482320d0e40f024
++ None Commit https://github.com/bazelbuild/bazel/commit/0a1dce27650a233d8acb1f09a1181279f510cae8
++ **[Incompatible]** The attribute `new_local_repository.build_file` no longer accepts a path; a label must be passed instead. Closes #19992. Commit https://github.com/bazelbuild/bazel/commit/76d71d93c5baa233bd1dca3f2862eebe827a1eb4
++ **[Incompatible]** Delete the --experimental_execution_log_file flag. Use --execution_log_binary_file in conjunction with --noexecution_log_sort instead.
++ **[Incompatible]** transition is removed from objc_library (https://github.com/bazelbuild/bazel/issues/19688) (cherry picked from commit b4292d2ee1154c15d1f099b3e8941c3c448725ba) Co-authored-by: Googler <ilist@google.com>
++ **[Incompatible]** All labels in Bazel error messages, log output, Build Event Protocol, etc. are now prefixed with double-at (`@@`) instead of single-at (`@`) where applicable, to properly denote that they contain canonical repo names.
++ None. Commit https://github.com/bazelbuild/bazel/commit/491284b0c782e0df25dd0a8bc921a9c2de0e6881
++ **[Incompatible]** `--incompatible_sandbox_hermetic_tmp` is enabled by default. See #19915 for migration advice. Closes #19943. Commit https://github.com/bazelbuild/bazel/commit/e2c0276d1fd69c19d6946fb17f9e983e9ea68025
++ **[Incompatible]** The `--experimental_repository_cache_urls_as_default_canonical_id` flag is no longer available. Instead, the `http_archive`, `http_file`, `http_jar`, `jvm_maven_import_external`, and `jvm_import_external` repository rules now use the URLs as the canonical ID if none is provided explicitly. If this behavior is not desired, it can be disabled via `--repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0`. Fixes #19749 Closes #20047.
++ None Commit https://github.com/bazelbuild/bazel/commit/65f847a0103329f684e4313d49154583de15d164
++ None Commit https://github.com/bazelbuild/bazel/commit/9bbc2cbebf5c395c5504db7dfcfc5bda7e00bd3c
++ none Fixes #19920 Commit https://github.com/bazelbuild/bazel/commit/886b13fd00b5a17161d9558b6b11dd135355e5cb
++ **[Incompatible]** The `BAZEL_CURRENT_REPOSITORY` preprocessor variable, which holds the canonical name of the Bazel repository containing a `cc_*` target, is now only set during compilation if the target depends on the C/C++ runfiles library `@bazel_tools//tools/cpp/runfiles` via `deps` or `implementation_deps`. Fixes #20371 Closes #20388. Commit https://github.com/bazelbuild/bazel/commit/454b5506d82584616fcd707ed2e9bd1fe627c974
++ `--zip_undeclared_test_outputs` now preserves symlinks when zipping `$TEST_UNDECLARED_OUTPUTS_DIR`. Closes #19948. Change-Id: Ia4a8a9699e4e2f40498342af55babc5554a9ac93 Commit https://github.com/bazelbuild/bazel/commit/8e639dfa8c7aa0723123ee90dc933d528a4f2b68
++ **[Incompatible]** Toolchains and execution platforms are now registered in the following order with `--enable_bzlmod`: 1. root module's module file 2. `WORKSPACE` or `WORKSPACE.bzlmod` 3. non-root modules' module files 4. default toolchains registered by Bazel (does not apply with `WORKSPACE.bzlmod` or execution platforms) Fixes #20354 Closes #20407. Commit https://github.com/bazelbuild/bazel/commit/96b361205ee05dcacdcf5055ca9cc3e5ca5d126c#diff-a8d3aed419e661d4dbecb2dc6668444212d7b1707ff61330b7d8aae61e75d4df
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Adam Lavin, Adrian Imboden, Alan Falloon, Alessandro Patti, Alex Eagle, Alexander Grund, AlexTereshenkov, Amanda L Martin, Amet Umerov, Andreas Herrmann, Andy Hamon, andyrinne12, Ankit Agarwal, Ankush Goyal, Anshuman Mishra, Anthony Ter-Saakov, Antoine Musso, Artem Zinnatullin, arun.sampathkumar, aryeh, Austin Schuh, bazel.build machine account, Ben Lee, Benjamin Lee, Benjamin Peterson, Benjamin Sigonneau, Boleyn Su, Brentley Jones, Cameron Martin, Chirag Ramani, Chris Sauer, Christopher Peterson Sauer, Christopher Rydell, Christopher Sauer, Conall O'Brien, Daniel Grunwald, Daniel KT, Daniel Wagner-Hall, David Ostrovsky, dhmemi, Dimi Shahbaz, eareilg, Ed Schouten, Emil Kattainen, Ezekiel Warren, Fabian Meumertzheim, Fahrzin Hemmati, Gaspare Vitta, George Gensure, Greg, Greg Magolan, Grzegorz Lukasik, Guillaume Maudoux, Gunnar Wagenknecht, Halil Sener, Hao Yuan, hvadehra, hvd, Ilan Keshet, Ivan Golub, Jack Dai, James Ma, Jason Mobarak, Jasper, Jay Conrod, Jeff Hodges, Jeremy Volkman, Jimm chja20, Joel Jeske, John Hinnegan, Jon Landis, Jon Parise, jonrose-dev, Joseph Lisee, Joseph Tilahun, Julio Merino, Kai Zhang, keertk, Keith Smiley, Konstantin Erman, Krzysztof Naglik, kshyanashree, Kun-Lu, Laurenz Altenmller, Lee Mracek, Letu Ren, lripoche, Maksim, Malte Poll, Marc Redemske, Marc Zych, Matt Mackay, Matt Vollmer, Mauricio G, Mauricio Galindo, Maxim Matyunin, Maxwell Elliott, mohamadk, Nathan (Blaise) Bruer, nathyong, NelsonLi0701, nglevin, Nicholas Junge, Nick Biryulin, Nick Korostelev, Oliver Lee, Orion Hodson, Oscar Garzon, Patrice Duroux, Patrick Balestra, Peter Lobsinger, Philipp Schrader, Rasrack, Red Daly, redwrasse, Robin Tweedie, robincaloudis, Roger Hu, Romain Chossart, Roman Salvador, Sagar Pathare, Saleem Abdulrasool, Sam Shadwell, Sara Adams, Sascha Moecker, Scott Minor, Severin Strobl, Shaygan Hooshyari, Siddhesh Bhupendra Kuakde, Simon Mavi Stewart, something_vague, Son Luong Ngoc, Steve Barrau, Stiopa Koltsov, stoozy, Sushain Cherivirala, Takeo Sawada, Taylor Barrella, tbaing, Ted Kaplan, Ted Logan, Thi Don, Thulio Ferraz Assis, Timothy Gu, Tom Cnops, Tyler Williams, Ulf Adams, Ulrik Falklof, Uri Baghin, Vertexwahn, Xavier Bonaventura, Xdng Yng, Xiangquan Xiao, Xùdōng Yáng, Yannic, Yannic Bonenberger, Yi Cheng, Yuval Kaplan, yuzhy8701, Zheng Wei Tan.
+```
+
+## Release 8.0.0-pre.20231030.2 (2023-11-14)
+
+```
+Baseline: 8cab6aa21fa765985a962e59264e12251e4d479f
+
+Cherry picks:
+
+   + d78bdd2f7143da31087c3ab88298b52defb90fdc:
+     Temporarily disable `BaselineOptionsFunction` + Starlark exec
+     transition.
+```
+
+Incompatible changes:
+
+  - Java runtime toolchains created via `local_java_repository` from
+    `@bazel_tools//tools/jdk:local_java_repository.bzl`, which
+    includes `local_jdk`, now have `target_compatible_with` set to
+    the auto-detected host constraints. This can result in errors
+    about toolchain resolution failures for
+    `@bazel_tools//tools/jdk:runtime_toolchain_type`, especially when
+    cross-compiling. These failures can be fixed in the following
+    ways (listed in decreasing order of preference):
+    * Replace `java_binary` targets that aren't meant to be run with
+    `bazel run` or as tools during the build with `java_single_jar`
+    (available in `@rules_java//java:java_single_jar.bzl`). Such
+    targets do not require a Java runtime for the target
+    configuration.
+    * Set `--java_runtime_version=remotejdk_N` for some Java version
+    `N` to let Bazel choose and download an appropriate remote JDK
+    for the current target platform. This setting defaults to
+    `local_jdk`, which means that Bazel can only use the local JDK,
+    which isn't compatible with any other platform.
+    * Manually define and register a `local_java_runtime` with no
+    value set for `exec_compatible_with` (defaults to `[]`) and
+    select it by setting `--java_runtime_version` to its `name`. This
+    fully restores the previous behavior, but can result in incorrect
+    results when cross-compiling (see #18265).
+  - transition is removed from objc_library
+    (https://github.com/bazelbuild/bazel/issues/19688)
+
+New features:
+
+  - "bazel aquery" now returns the headers C++ compilation actions
+    can include if the --include_scheduling_dependencies command line
+    option is set.
+
+Important changes:
+
+  - Enable Platforms and Toolchains for Android. Android projects
+    will need to stop passing the legacy flag `--fat_apk_cpu`, and
+    instead use `--android_platforms` using platforms defined with
+    the `@platforms//os:android` constraint. The
+    https://github.com/bazelbuild/rules_android repository defines
+    four standard Android platforms for projects that use those
+    rules, `@rules_android//:armeabi-v7a`,
+    `@rules_android//:arm64-v8a`, `@rules_android//:x86`,
+    `@rules_android//:x86_64`.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Fredrik Medley, Guillaume Maudoux, Ulf Adams, Wade Carpenter.
+
+## Release 7.0.0-pre.20231018.3 (2023-11-07)
+
+```
+Baseline: eeb9c911bf16271f807c687e8eae246edaecd005
+
+Cherry picks:
+
+   + bb7fb2d32f055f2a70a5ab394cf5aef29bc74b2e:
+     Automatically add function transition allow list when needed
+   + c59739e72a2b4ee50f4ba205fb1561f10f0b344d:
+     Automated rollback of commit
+     f7946d0107dd75b2f45bcc79b91c016d075a756d.
+   + f6eabdc51eb54416361be4b3528d67717a11fdfd:
+     Automated rollback of commit
+     774fdb4be128b642332531f1d0376810b4c5377f.
+```
+
+Incompatible changes:
+
+  - The sandboxfs sandboxing strategy is removed. It hadn't been
+    maintained for a long time, it didn't work for most users and it
+    was not consistently faster while being complex to set up.
+    sandboxfs performance is heavily dependent on the specific setup
+    (setup costs are lower, but you have to pay a penalty for the use
+    of each input) and there are scenarios where it is faster and
+    scenarios where it is slower. Overall it is not worth its weight.
+  - Bzlmod is enabled by default, please consider migrating your
+    external dependencies from WORKSPACE to MODULE.bazel. Find more
+    details at https://github.com/bazelbuild/bazel/issues/18958
+
+Important changes:
+
+  - Directories used by sandboxed non-worker execution may be reused
+    to
+    avoid unnecessary setup costs. Disable behavior with
+    --noreuse_sandbox_directories.
+  - Symlink trees created by sandboxing will be deleted
+    asynchronously.
+    Disable behavior with
+    --experimental_sandbox_async_tree_delete_idle_threads=0.
+
+This release contains contributions from many people at Google, as well as Antoine Musso, Benjamin Peterson, Fabian Meumertzheim, Nick Biryulin, Steve Barrau, Thi Don.
+
+## Release 7.0.0-pre.20231011.2 (2023-10-23)
+
+```
+Baseline: e66a10f473ed853393061633e3803a8f71e47bff
+```
+
+Initial release.
+
+## Release 6.4.0 (2023-10-19)
+
+```
+Baseline:  0f231ac8acabcd8aa309da041c98ab90a1552418
+
+Release Notes:
+
++ Support multiple remote execution digest functions (#19042)
++ Release 6.4.0 remote (#18959)
++ Move BazelFileSystemModule into bazel package (#19043)
++ Fix a bug where frozen targets list was mutated while expanding env attribute (#19053)
++ Mark isolated extension usages as experimental (#19065)
++ Add the remote_require_cached flag (#19075)
++ Advertise CcInfo from cc_import (#19086) (#19088)
++ Update java_tools version to 12.6 (#19092)
++ Set the digest_function field as part of all relevant gRPC requests (#19049)
++ Merge `use_repo` buildifier fixups into a single command (#19134)
++ Ensure that extension unique names followed by `~` are prefix-free (#19164)
++ Lockfile updates & fixes (#19153)
++ Switch xcode_autoconf to use 'configure = True' (#19174)
++ Cherry pick Add a Starlark flag that allows disabling proguard. This will be useful for testing later. (#19179)
++ Update CODEOWNERS for 6.4.0 (#19194)
++ Friendlier error message for `bazel_dep`s without `version` (#19196)
++ Always check `$config_dependencies` visibility at use (#19197)
++ Add support for the BLAKE3 digest function (#19191)
++ Enable cc toolchain resolution when cross compiling to windows arm64. (#19198)
++ Ensure disk cache root exists (#19225)
++ Fix valid json when using jsonproto output in queries  with new `--ouput=streamed_jsonproto` implementation. (#19226)
++ Add toolchain type for Java bootstrap runtime (#19220)
++ Add Starlark implementation for several CcCommon methods. (#19076)
++ Rename `cc_test_wrapper` to `cc_test` (#19231)
++ Cherry-pick commits to fix a Windows issue (#19232)
++ Add support for more workspace boundary files to bash completion (#19281)
++ Use `debugPrint` instead of `str` for `fail` arguments (#19283)
++ Include name in `repr` of exported `rule`s (#19229)
++ Download `BazelRegistryJson` only once per registry (#19300)
++ Make module extension tag's `debugPrint` useful for error messages (#19285)
++ Intern repository mapping entries (#19293)
++ Add `additional_linker_inputs` option to `cc_library` rule (#19264)
++ Do not rerun module extensions when only imports or locations change (#19284)
++ Add profiling for Bzlmod operations (#19313)
++ Retry on javax.net.ssl.SSLException ... BAD_DECRYPT (#19346)
++ Fetch `RepoSpecs` in parallel (#19354)
++ Make `MODULE.bazel.lock` deterministic (#19370)
++ Ensure lockfile is updated after reset to pre-build state (#19371)
++ build-runfiles: remove temporary file prior to creating it (#19386)
++ Always fail on unknown attributes (#19404)
++ Ignore Starlark options on commands with `allowResidue = False` (#19417)
++ Separate PackageSpecificationProvider from its target (PackageGroupConfiguredTarget) (#19420)
++ Expose PackageSpecificationInfo provider as a top level symbol (#19422)
++ Revert "Report remote execution messages as events" (#19415)
++ [6.4] Add --incompatible_disable_objc_library_transition (#19393)
++ Create .bazelversion to address postsubmit timeout issues (#19435)
++ Add `contains` method inside `PackageSpecificationProvider`  (#19425)
++ Wrong include path to Clang 16 on Windows (#19430)
++ Simplify release notes by just printing the first line of the commit … (#19448)
++ Remove PackageGroupConfiguredTarget.isAvailableFor function (#19444)
++ Remove default -s flag from macOS libtool invocation (#19454)
++ Turn off lockfile feature by default (#19462)
++ Take the no-remote-exec tag into account when computing the action salt (#19457)
++ Add `--incompatible_merge_fixed_and_default_shell_env` (#19319)
++ Improve error when a label is provided in `config_setting`'s `values` (#19484)
++ Mark tool inputs in the execution log. (#19483)
++ Add visionOS support (#19436)
++ Intern empty `Depset`s (#19443)
++ Do not allow applicable_licenses on platform. (#19426)
++ Cherry pick Bzlmod fixes (#19494)
++ Optimize classpath pre-processing in java_stub_template.txt (#19491)
++ Add output name to CacheNotFoundException (#19452)
++ feat: add option to exit early if analysis cache is discarded (#19503)
++ Cherry pick platform dependent lockfile (#19498)
++ Print Passed and Failed methods in detailed test summary (#19505)
++ Add formatted timestamp entries to volatile workspace status file. (#19499)
++ Write an explicit line ending to the lockfile (#19519)
++ Only use `/showIncludes` if supported (#19521)
++ Also apply `NestedSet` optimizations to `Depset` (#19492)
++ Add diff_against_dynamic_baseline option to experimental_output_direc… (#19514)
++ Update java_tools to v12.7 (#19522)
++ Advertise CcInfo from cc_proto_library (#19534)
++ Update unknown Xcode version error message and provide an environment variable to force re-evaluation (#19540)
++ Print dep chain leading to a module that is in error (#19543)
++ Show fetch progress for the `mod` command (#19542)
++ Revert "Switch xcode_autoconf to use 'configure = True' (#19174)" (#19550)
++ Explain the use of `str(Label(...))` in the docs (#19554)
++ Add `--consistent_labels` flag to all query commands (#19567)
++ Inject builtin modules at the end of the MODULE.bazel file (#19573)
++ Disable bzlmod_query_test for RBE build (#19585)
++ Clear runfiles environment variables for `bazel run` (#19606)
++ cc_library: propagate data dependencies via implementation_deps. (#19590)
++ Error on potential unsupported `/showIncludes` lines (#19611)
++ Use case-insensitive comparison for Windows paths in `runfiles.bash`  (#19626)
++ Show test labels in summaries in display form (#19625)
++ Remove stale extension entries from lockfile (#19683)
++ Keep leading zero in formatted date (#19694)
++ Bzlmod lockfile: fix pretty printing for attributes  (#19691)
++ MODULE.bazel.lock file contains user specific paths (#19698)
++ Consider RCs equivalent to release for `bazel_compatibility` (#19689)
++ Use `Label` in `@bazel_tools//tools/jdk` macros (#19675)
++ Remove stale extension entries from lockfile if module order changes (#19730)
++ Update rules_java 5.5.1 (#19701)
++ Fix Java compilation for jdk21 (#19735)
++ Fix output materialized as symlink when building without the bytes. (#19739)
++ Make lockfile's `RepoSpec` attributes more readable (#19748)
++ Merge rule and aspect validation output groups (#19745)
++ Fix handling of non-ASCII characters in archive entry file names (#19765)
++ Raise an early error on invalid labels in transitions inputs/outputs (#19764)
++ Handle synthetic method parameters entries that don't have names (#19758)
++ Bazel release process: Fix push justification. (#19768)
++ Flip --experimental_cc_implementation_deps (#19751)
++ Add blake3 NEON instructions on linux arm64 (#19804)
++ Fix crash when `environ` contains duplicate entries (#19827)
++ Bump c++ standard to c++14 per default (#19794)
++ Collect debug info context from implementation deps (#19836)
++ Fix unconditional Skyframe invalidation with --lockfile_mode=… (#19848)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Andreas Herrmann, bazel.build machine account, Brentley Jones, buildbreaker2021, Chirag Ramani, David Ostrovsky, Ed Schouten, Fabian Meumertzheim, George Gensure, Greg, John Laxson, Julio Merino, Keith Smiley, Matt Mackay, Mauricio G, NelsonLi0701, nglevin, Nicholas Junge, oquenchil, Orion Hodson, Roman Salvador, Ted Kaplan, Thi Doan, Thi Don, Tyler Williams, Xùdōng Yáng.
+```
+
+## Release 7.0.0-pre.20230926.1 (2023-10-06)
+
+```
+Baseline: ea4ab7d8e696f48253fd172fcfbd37661e4710d5
+
+Cherry picks:
+
+   + 3453d035bb335a0e792fb379807dbdb812065619:
+     Keep leading zero in formatted date
+   + 8893f2ee0efbdeb0816b13e7cb57c69d70b941c6:
+     Bazel release process: Fix broken "git push" by setting direct
+     push justification.
+   + 3f8e0964f4525cee71f8b7051e6996a906dd78d0:
+     Bazel release process: Fix push justification. (#19754)
+   + 95296e81853a4c93a47fba1812e1f849b6b16480:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + fbcc487642c567a63f6503670d6d4f46f98308c1:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + 3f9dc1c789e4bb2523fcd5236f53db8b3edb4733:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + f46bf7067991fea6c650cb1fb75d1f7844916ff0:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 7.0.0-pre.20230926.1 (2023-10-06)
+
+```
+Baseline: ea4ab7d8e696f48253fd172fcfbd37661e4710d5
+
+Cherry picks:
+
+   + 3453d035bb335a0e792fb379807dbdb812065619:
+     Keep leading zero in formatted date
+   + 5b7da83d94d94204d1d95cbe3ed361ec742f8acb:
+     Bazel release process: Fix broken "git push" by setting direct
+     push j… (#19747)
+   + 2bf83ab8e58b96df994e59ffbe93d6d28a0f7897:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + 0cc1b4e0aa2d3937bd47ca8d7506f4ca88453a26:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 7.0.0-pre.20230926.1 (2023-10-05)
+
+```
+Baseline: ea4ab7d8e696f48253fd172fcfbd37661e4710d5
+
+Cherry picks:
+
+   + 3453d035bb335a0e792fb379807dbdb812065619:
+     Keep leading zero in formatted date
+   + b63af1ec3c09d50e7b96dd496874c98ca2907209:
+     Release 7.0.0-pre.20230926.1 (2023-10-05)
+   + dc23c2fbc5ae5ef14d59afbedd3e0d29d2ee3d6b:
+     Release 7.0.0-pre.20230926.1 (2023-10-05)
+```
+
+Incompatible changes:
+
+  - proto_compiler attribute removed from proto_lang_toolchain
+    (it was recently introduced, and there is no evidence of use)
+  - --experimental_genquery_use_graphless_query is made to be a NO-OP.
+
+Important changes:
+
+  - The new `--consistent_labels` option on `query`, `cquery`, and
+    `aquery` can be used to force consistent label formatting across
+    all output modes that is also compatible with `str(Label(...))`
+    in Starlark.
+
+This release contains contributions from many people at Google, as well as Alexander Grund, Fabian Meumertzheim, Joseph Lisee, Patrick Balestra, Son Luong Ngoc, Zheng Wei Tan.
+
+## Release  (2023-10-05)
+
+```
+Error: Not a release branch.
+```
+
+## Release  (2023-10-05)
+
+```
+Error: Not a release branch.
+```
+
+## Release 7.0.0-pre.20230917.3 (2023-09-22)
+
+```
+Baseline: 1cf392ff3918386858b8c038f82c013b1e04be98
+
+Cherry picks:
+
+   + 32563ca1728a69437b26efa19d18eebfcecc4765:
+     [Skymeld] Avoid printing extra WARNINGS for execution failures
+     in -k.
+   + 19f5e933d3fc91848b2b786cb11a6decaa96cf6e:
+     Automated rollback of commit
+     f06418470988721c8c3efe38723f910989180ad4.
+```
+
+Incompatible changes:
+
+  - `cmd_helper` module was removed
+  - `ctx.new_file` was removed, `ctx.actions.declare_file` is to be
+    used instead.
+  - Fails on unknown attributes (even when set to None). See
+    https://github.com/bazelbuild/bazel/issues/19403
+  - Flip incompatible_enable_cc_toolchain_resolution
+    (https://github.com/bazelbuild/bazel/issues/7260)
+
+Important changes:
+
+  - Change output paths to consistently start with
+    [cpu]-[compilation_mode] along with other cleanups to output path
+    generation logic.
+  - Compilation actions using the auto-configured MSVC toolchain are
+    forced to emit error messages in English if the English language
+    pack for Visual Studio is installed.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Boleyn Su, Brentley Jones, Daniel Wagner-Hall, Fabian Meumertzheim, Keith Smiley, Roman Salvador, Timothy Gu.
+
+## Release 7.0.0-pre.20230906.2 (2023-09-14)
+
+```
+Baseline: 08070932379cd3dafaefe5b546c84ad26cd72951
+
+Cherry picks:
+
+   + 4fb701adb5cdf4a87d7457bfe75b76338a8d351a:
+     fix forward for
+     https://github.com/bazelbuild/bazel/commit/ceddfb1ece1f8ed7ff8155
+     8fa1751e6526df031b. Make sure the use the appropriate check for
+     alias + feature flag so trimming does not get applied
+```
+
+Incompatible changes:
+
+  - --incompatible_merge_fixed_and_default_shell_env is flipped to
+    true. See #19317 for details.
+  - Fails on unknown attributes (even when set to None)
+
+Important changes:
+
+  - Set Android Databinding to v2 and Databinging AndroidX to true
+    and remove support for Databinding V1.
+  - Added whether or not a FileWrite action's output is executable to
+    the aquery results
+  - --use_single_jar_apk_builder is removed. It's been a no-op for
+    years.
+  - JVM options in environment variables JAVA_TOOL_OPTIONS and
+    JDK_JAVA_OPTIONS now do not get to the server; use
+    --host_jvm_args instead.
+  - --remote_download_minimal no longer implies
+    --nobuild_runfile_links.
+  - attr objects in Starlark now use value equality rather than
+    reference
+    equality.
+
+This release contains contributions from many people at Google, as well as Benjamin Lee, Benjamin Peterson, Ed Schouten, Fabian Meumertzheim, Keith Smiley, Letu Ren, Mauricio Galindo, Mauricio G, Orion Hodson, Shaygan Hooshyari.
+
+## Release 7.0.0-pre.20230823.4 (2023-08-30)
+
+```
+Baseline: d55c11b658255a4574e0b3eb50d76dd6123866e6
+
+Cherry picks:
+
+   + 34c5ef22e88eba60238ad3735b74ea71db1c993e:
+     make sure IdempotencyChecker use the correct rule transition and
+     remove redundant computeTransition calls.
+   + 32d018ea402a5acbb574b7f4bf600b3cc040778c:
+     Make targets in analysis completed events visible.
+```
+
+Incompatible changes:
+
+  - The --apple_compiler command line option is not available anymore.
+  - py_transitions top-level was removed.
+
+Important changes:
+
+  - Android resources will no longer propagate through neverlinked
+    libraries by default.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, arun.sampathkumar, Benjamin Lee, Fabian Meumertzheim, Gunnar Wagenknecht, Julio Merino, Keith Smiley, Nicholas Junge.
+
+## Release 7.0.0-pre.20230816.3 (2023-08-25)
+
+```
+Baseline: 27aaccccb674090493d52d3340b7df69f5ed43f8
+
+Cherry picks:
+
+   + baace69c0c7cb2fe927214dae78c43bd10865c43:
+     Automated rollback of commit
+     37268de708224bba900036b8b3fe9e123d2eae6d.
+```
+
+Incompatible changes:
+
+  - The --android_include_proguard_location_references flag is not
+    supported anymore.
+  - The --apple_compiler command line option is not available anymore.
+  - --no_proguard_location_reference is now added unconditionally to
+    the command line of aapt2.
+  - The command line flag --apple_enable_auto_dsym_dbg is not
+    supported anymore.
+
+Important changes:
+
+  - `rule()` and `attr.*` can no longer be (pointlessly) called
+    during WORKSPACE evaluation and repository rule evaluation.
+  - Expands baseline profile wildcards before optimizer tools see
+    them.
+
+This release contains contributions from many people at Google, as well as Chirag Ramani, Fabian Meumertzheim, Keith Smiley, nglevin, Tyler Williams.
+
+## Release 7.0.0-pre.20230810.1 (2023-08-22)
+
+```
+Baseline: c279c7b2f125fcb5a7e67595c0044c32fe944aa9
+
+Cherry picks:
+
+   + 4d157ee3530762c9392ccc08a0073103293a6391:
+     Cherry-pick required commits into 7.0.0-pre.20230810.1rc1
+     (#19298)
+```
+
+Initial release.
+
+## Release 6.3.2 (2023-08-08)
+
+```
+Baseline:  283ed362e6ccceb047553c2517a0331afd02db90
+
+Release Notes:
+
++ Ensure that extension unique names followed by `~` are prefix-free (#19167)
++ Lockfile updates & fixes (#19153) (#19175)
++ Empty commit to try to fix CI issue (#19177)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Fabian Meumertzheim.
+```
+
+## Release 7.0.0-pre.20230724.1 (2023-08-07)
+
+```
+Baseline: f6344ffcacdea6c4a61e112d0f60beda8068eac5
+```
+
+Initial release.
+
+## Release 6.3.1 (2023-07-31)
+
+```
+Baseline:  0f231ac8acabcd8aa309da041c98ab90a1552418
+
+Release Notes:
+
++ Mark isolated extension usages as experimental (#19050)
++ Fix a bug where frozen targets list was mutated while expanding env attribute (#19052)
++ Add documentation for --experimental_isolated_extension_usage (#19071)
++ Advertise CcInfo from cc_import (#19086)
++ Create .bazelversion to address postsubmit issues (#19089)
++ Update java_tools version to 12.6 (#19091)
++ Disable lockfiles by default (#19106)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim, oquenchil, Xùdōng Yáng.
+```
+
+## Release 7.0.0-pre.20230710.5 (2023-07-28)
+
+```
+Baseline: 7845acae9769a72dc507dc2f57c4e032ebf429d3
+
+Cherry picks:
+
+   + d9e2f9181f8fa283e3986ee3b261e610c41cf61b:
+     Avoid overcounting in ActionLookupValueProgressReceiver.
+   + da23370dcdf6ea19545002fb86bd5d3e6519cdf6:
+     Fix crash for top level aspects on targets with non-idempotent
+     rule transitions.
+   + 4714cd70c83de43ba7ab10c29e63af716216770a:
+     Reuse the built set of tools in `SpawnAction.Builder`.
+   + 0a1d50533078283fab93024681c917303a91c46c:
+     Correctly handle symlinks when prefetching.
+```
+
+Initial release.
+
+## Release 6.3.0 (2023-07-24)
+
+```
+Baseline:  758b44dab552f31b378874b5bf4c0609bfef6f5d
+
+Release Notes:
+
++ Automatic code cleanup. (#18417)
++ Update CODEOWNERS for 6.3.0 (#18369)
++ Overrides specified by non-root modules no longer cause an error, and are silently ignored instead. They were originally treated as an error to allow for the future possibility of overrides in the transitive dependency graph working together; but we've deemed that infeasible (and even if it was, it'd be so complicated and confusing to users that it would not be a good addition). (#18388)
++ Add implementation deps support for Objective-C (#18372)
++ Update release notes scripts (#18400)
++ Prevent CredentialHelperEnvironment crash when invoking Bazel outside of a workspace. (#18430)
++ Use wall-time for credential helper invalidation (#18413)
++ blaze_util_posix: handle killpg failures (#18403)
++ Pass version to java_runtimes created by local_java_repository (#18415)
++ Add jsonproto option to query --output flag (#18438)
++ Don't eagerly flatten a `NestedSet` in `RepoMappingManifestAction` (#18419)
++ rules_go & rules_python are failing in Downstream CI with Bazel@HEAD (#18447)
++ Move credential helper setup into remote_helpers.sh so it can be reused by other shell tests. (#18453)
++ Wire credential helper to repository fetching. (#18429)
++ Updates/fixes to relnotes script (#18470)
++ Report percentual download progress in repository rules (#18471)
++ Support remote symlink outputs when building without the bytes. (#18476)
++ Enrich local BEP upload errors with file path and digest possible. (#18481)
++ Set `GTEST_SHARD_STATUS_FILE` in test setup (#18482)
++ Fix relnotes script (#18491)
++ Fix Xcode 14.3 compatibility (#18490)
++ Fix https://github.com/bazelbuild/bazel/issues/18493. (#18514)
++ Extend the credential helper default timeout to 10s. (#18527)
++ Fix formatting of release notes (#18534)
++ Use extension rather than local names in ModuleExtensionMetadata (#18536)
++ [credentialhelper] Ignore all errors when writing stdin (#18540)
++ Improve error on invalid `-//foo` and `-@repo//foo` options (#18516)
++ Implement failure circuit breaker (#18541)
++ Actually check `TEST_SHARD_STATUS_FILE` has been touched (#18418)
++ Ignore hash string casing (#18414)
++ Error if repository name isn't supplied (#18425)
++ Track repo rule label attributes after the first non-existent one (#18412)
++ Add ServerCapabilities into RemoteExecutionClient (#18442)
++ RemoteExecutionService: support output_symlinks in ActionResult (#18441)
++ RemoteExecutionService: Action.Command to set output_paths (#18440)
++ Use local_termination_grace_seconds when testing LinuxSandbox availability (#18568)
++ Fix dangling string literal in `extension_metadata` docs (#18598)
++ Include actual MODULE.bazel location in stack traces (#18612)
++ Make cpp file extensions case sensitive again (#18552)
++ Fix error when script is run after the final tag is created. (#18638)
++ Fix WORKSPACE toolchain resolution with `--enable_bzlmod` (#18649)
++ Add `ActionExecutionMetadata` as a parameter to `ActionInputPrefetcher#prefetchFiles`. (#18656)
++ Use failure_rate instead of failure count for circuit breaker  (#18559)
++ Update ignored_error logic for circuit_breaker (#18662)
++ Don't rewind the build if invocation id stays the same (#18670)
++ Fix potential memory leak in UI (#18659)
++ Test that a credential helper can supply credentials for bzlmod. (#18663)
++ Add flag --experimental_collect_code_coverage_for_generated_files. (#18664)
++ Options specified on the pseudo-command `common` in `.rc` files are now ignored by commands that do not support them as long as they are valid options for *any* Bazel command. Previously, commands that did not support all options given for `common` would fail to run. These previous semantics of `common` are now available via the new `always` pseudo-command. Closes #18130. (#18609)
++ Fix split post-processing of LLVM-based coverage (#18737)
++ Allow module extension usages to be isolated (#18727)
++ BEGIN_PUBLIC (#18729)
++ Declare credential helpers to be a stable feature. (#18752)
++ Add a new provider for injecting native libs in android_binary (#18753)
++ Properly handle invalid credential files (#18779)
++ The REPO.bazel and MODULE.bazel files are now also considered workspace boundary markers. (#18787)
++ Report remote execution messages as events (#18780)
++ Fail on isolated extension usages without imports (#18793)
++ Add changes to cc_shared_library from head to 6.3 (#18606)
++ Remove option to disable FJP. (#18791)
++ Update to latest turbine version (#18803)
++ None. None (#18808)
++ Wait for outputs downloads before emitting local BEP events that reference these outputs. (#18815)
++ Perform builtins injection for WORKSPACE-loaded bzl files. (#18819)
++ Fix non-declared symlink issue for local actions when BwoB. (#18817)
++ Make grep_includes optional inside cc_common.register_linkstamp_compile_action (#18823)
++ add feature on windows toolchain with right tag (#18654)
++ coverage_common.instrumented_files_info now has a metadata_files argument (#18838)
++ Download directory output for test actions (#18846)
++ Teach DexMapper to not separate synthetic classes from their context … (#18853)
++ **[Incompatible]** query --output=proto --order_output=deps now returns targets in topological order (previously there was no ordering). (#18870)
++ Revert "Don't eagerly flatten a `NestedSet` in `RepoMappingManifestAction` (#18419)" (#18886)
++ Additional source inputs can now be specified for compilation in cc_library targets using the additional_compiler_inputs attribute, and these inputs can be used in the $(location) function. Fixes #18766. (#18882)
++ Open-source Google test `ConvenienceSymlinkTest` (#18890)
++ Update Error Prone to 2.20.0 (#18885)
++ Check if json.gz files exist, not the gcov version. (#18889)
++ Lockfile updates (#18894)
++ handle exception instead of crashing (#18895)
++ Add a new provider for passing dex related artifacts in android_binary (#18899)
++ Prevent most side effects of yanked modules (#18908)
++ Restore the classic desugar tool in the Bazel 6.3.0 branch so that the Bazel Android tools can be built for 6.3.0 without breaking backwards compatibility (#18909)
++ Update java_tools to v12.5 (#18868)
++ Add ActionCacheStatistics to BEP (#18914)
++ Adjust --top_level_targets_for_symlinks (#18916)
++ Track dev/non-dev `use_extension` calls (#18918)
++ Overrides specified by non-root modules no longer cause an error, and are silently ignored instead. They were originally treated as an error to allow for the future possibility of overrides in the transitive dependency graph working together; but we've deemed that infeasible (and even if it was, it'd be so complicated and confusing to users that it would not be a good addition). (#18921)
++ Rollforward of https://github.com/bazelbuild/bazel/commit/482d2be27ab… (#18773)
++ Update Android tools to 0.27.2 for fixes to DexMapper for https://gith... (#18891)
++ Report dev/non-dev deps imported via non-dev/dev usages (#18922)
++ Add reverted 'isolate' changes (#18928)
++ Identify isolated extensions by exported name (#18923)
++ test-setup.sh: Attempt to raise the original signal once more (#18932)
++ Ignore broken classic desugar tests (#18933)
++ Disable UseCorrectAssertInTests by default (#18948)
++ Fix VS 2022 autodetection (#18960)
++ Fix absolute file paths showing up in lockfiles (#18993)
++ Add support for isolated extension usages to the lockfile (#19008)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as amishra-u, Andreas Herrmann, Andy Hamon, andyrinne12, Benjamin Lee, Benjamin Peterson, Brentley Jones, Chirag Ramani, Christopher Rydell, Daniel Wagner-Hall, Ed Schouten, Fabian Brandstetter, Fabian Meumertzheim, Greg, Ivan Golub, Jon Landis, JY Lin, Kai Zhang, Keith Smiley, kotlaja, lripoche, oquenchil, Pavan Singh, Rasrack, Son Luong Ngoc, Takeo Sawada, Vertexwahn, Xùdōng Yáng, Yannic.
+```
+
+## Release 7.0.0-pre.20230628.2 (2023-07-12)
+
+```
+Baseline: 604a9ef6332d49110d14d427317bd726225fff1d
+
+Cherry picks:
+
+   + 15c412eb9aa38e1b81f7dd2047849bbb55417a83:
+     Automated rollback of commit
+     52dbdc7a92cedfa212ef681f88e0b733cb5280e0.
+   + 990d97e576d4ec7d0c45f3efa5732171492d50b1:
+     Automated rollback of commit
+     0bda661e589ded1caad9edd58c9bebc3f647e41d.
+   + 6c393ec5539b34e9708b43b0145488b9df1c0878:
+     Add temporary rules_go bazel_dep to restore CI
+```
+
+Incompatible changes:
+
+  - Loading `.bzl` files under `@bazel_tools//tools/jdk` in WORKSPACE
+    now requires `rules_java` to be defined in advance.
+  - cc_binary targets with dynamic_deps attributes no longer link
+    indirect dynamic_deps on Unix. This might be an incompatible
+    change if you are using RUNPATHs (instead of RPATHs) in your
+    cc_shared_libraries. Enable the feature
+    "exclude_bazel_rpaths_in_transitive_libs" or
+    "use_rpath_instead_of_runpath" for those cc_shared_libraries.
+
+Important changes:
+
+  - Add aquery --output=streamed_proto which writes a stream of
+    length delimited ActionGraphContainer containing a single
+    Artifact, Action, Target, DepSetOfFiles, Configuration,
+    AspectDescriptor, RuleClass, PathFragment proto. This breaks up
+    the ActionGraphContainer into multiple which will prevent large
+    protos from crashing blaze.
+  - (BEP) TargetConfigured events will be marked aborted instead
+    of published when there is an analysis error. This is motivated
+    by a
+    low level Blaze change aimed at improving scalability.
+  - Add flag --experimental_collect_code_coverage_for_generated_files.
+  - Added a new output format for cquery --output=streamed_proto that
+    writes multiple length-delimited CqueryResult protos, each
+    containing a single ConfiguredTarget or Configuration. This
+    allows us to "bypass" the hard limit of 2GB on the size of
+    protocol buffers by splitting it up into multiple.
+  - Enable starlark_doc_extract - a native rule for Starlark
+    documentation
+    extraction. This rule is intended mainly for internal use by
+    Stardoc.
+
+This release contains contributions from many people at Google, as well as Anshuman Mishra, Benjamin Peterson, Benjamin Peterson, Daniel Wagner-Hall, Fabian Meumertzheim, Jay Conrod, Maksim, Rasrack, Sam Shadwell, Son Luong Ngoc, Takeo Sawada, Tyler Williams, Xavier Bonaventura, Yannic, Yuval Kaplan.
+
+## Release 7.0.0-pre.20230530.3 (2023-06-09)
+
+```
+Baseline: 67446d625e4daafadcb5918a88ed52f517a8871f
+
+Cherry picks:
+
+   + 4344a0358f44c0290f85f8d90dede5824593ce77:
+     Automated rollback of commit
+     00a4fefe594069d47d1bde99b28c6b8dcca0a7c1.
+```
+
+Incompatible changes:
+
+  - `--incompatible_check_sharding_support` is enabled by default.
+    Sharded tests with test runners that do not properly advertise
+    support for test sharding will fail. Refer to
+    https://github.com/bazelbuild/bazel/issues/18339 for migration
+    advice.
+
+Important changes:
+
+  - Options specified on the pseudo-command `common` in `.rc` files
+    are now ignored by commands that do not support them as long as
+    they are valid options for *any* Bazel command. Previously,
+    commands that did not support all options given for `common`
+    would fail to run. These previous semantics of `common` are now
+    available via the new `always` pseudo-command.
+  - the 'default' param of json.decode can now be used as a keyword
+    parameter.
+  - As a transitional step in a larger refactoring, rule transitions
+    are applied twice. Once during dependency resolution and once
+    right before
+    analysis of those rules. After the refactoring is complete, rule
+    transitions
+    will be applied only once.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jimm chja20, Keith Smiley.
+
+## Release 7.0.0-pre.20230524.3 (2023-06-05)
+
+```
+Baseline: ea2d5043113a34ce341c53168141f13f14053240
+
+Cherry picks:
+
+   + 2e34965242280d861f688628ed2bbc5209350d9f:
+     Have `Package#defaultPackageMetadata` be in the same order that
+     the `package.default_applicable_licenses` list was in.
+```
+
+Initial release.
+
+## Release 6.2.1 (2023-06-02)
+
+```
+Baseline:  758b44dab552f31b378874b5bf4c0609bfef6f5d
+
+Release Notes:
+
++ Automatic code cleanup. (#18504)
++ Update relnotes scripts (#18503)
++ Fix https://github.com/bazelbuild/bazel/issues/18493. (#18512)
++ Fix formatting of release notes (#18533)
++ Use extension rather than local names in ModuleExtensionMetadata (#18535)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Pavan Singh.
+```
+
+## Release 7.0.0-pre.20230517.4 (2023-05-26)
+
+```
+Baseline: 267ac1f14f733a41380c1f70d095f096b8798c6b
+
+Cherry picks:
+
+   + 98d5d5f6980ec8513dc5c0ee95fcabe3b80beb47:
+     Download outputs that were not downloaded during spawn execution
+     in `finalizeAction`.
+   + 02853f888cd8cea6a0e06b0ca417e0470de2cec0:
+     Fix non-determinism in the `FailureDetail` produced for a
+     package with multiple label crosses subpackage boundary errors.
+```
+
+Incompatible changes:
+
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+    ```
+    FAILED: Build did NOT complete successfully (0 packages loaded)
+    ```
+    to
+    ```
+    ERROR: Build did NOT complete successfully
+    ```
+  - Bazel no longer increases the delay between progress updates when
+    there is no cursor control.
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+    ```
+    FAILED: Build did NOT complete successfully (0 packages loaded)
+    ```
+    to
+    ```
+    ERROR: Build did NOT complete successfully
+    ```
+  - the --experimental_async_execution flag is now a no-op.
+  - --experimental_replay_action_out_err is not a no-op.
+  - `cquery --output=files` also outputs source files.
+  - `--incompatible_strict_conflict_checks` is flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/16729 for details.
+  - `--incompatible_strict_conflict_checks` is flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/16729 for details.
+  - `--incompatible_always_include_files_in_data` is flipped to true.
+    See https://github.com/bazelbuild/bazel/issues/16654 for details.
+  - This changes the behavior of Python version in exec/host
+    configuration. Mitigation is to set Python version on the targets.
+  - When multiple --deleted_packages options are passed on the
+    command line, they will be concatenated instead of the latest one
+    taking effect.
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+  - JSON profile: Use doubles instead of strings for counter series.
+  - query --output=proto --order_output=deps now returns targets in
+    topological order (previously there was no ordering).
+  - --experimental_build_transitive_python_runfiles is flipped to
+    false. See #16303 for details
+  - --incompatible_python_disable_py2 is flipped to true. See #17293
+    for details.
+  - When remote cache evicts blobs, Bazel will exit with code 39.
+  - `--features` only applies to targets built in the target
+    configuration, and `--host_features` is used for the host / exec
+    configuration (gated behind `--incompatible_use_host_features`)
+  - `--incompatible_strict_conflict_checks` is flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/16729 for details.
+  - Bazel's local CPU resource on Linux is now container aware. Use
+    `--local_cpu_resources`, `--loading_phase_threads` or `--jobs` to
+    override.
+  - `copy_from_rule` is exec_groups is deprecated
+    (https://github.com/bazelbuild/bazel/issues/17668).
+  - --legacy_bazel_java_test is now a no-op
+  - --legacy_bazel_java_test is now a no-op
+  - --legacy_bazel_java_test is now a no-op
+  - `--experimental_execution_graph_log` no longer exists. Current
+    users that want local logs need to pass
+    `--experimental_enable_execution_graph_log
+    --experimental_execution_graph_log_path=/some/local/path`.
+    Current users that want logs uploaded to BEP need to pass
+    `--experimental_enable_execution_graph_log
+    --experimental_stream_log_file_uploads`.
+  - Remove 'darwin' as a CPU value, use 'darwin_x86_64' instead
+  - Remove high priority workers functionality from blaze.
+  - Renamed PackageMetrics proto message to PackageLoadMetrics. The
+    formats should be wire compatible.
+
+New features:
+
+  - The `aquery` and `cquery` commands now respect the
+    `--query_file` flag just like the `query` command.
+  - --experimental_repository_disable_download is now promoted to
+    stable and is also available under the name
+    --repository_disable_download .
+
+Important changes:
+
+  - The new path variable `$(rlocationpath ...)` and its plural form
+    `$(rlocationpaths ...)` can be used to expand labels to the paths
+    accepted by the `Rlocation` function of runfiles libraries. This
+    is the preferred way to access data dependencies at runtime and
+    works on all platforms, even when runfiles are not enabled (e.g.,
+    on Windows by default).
+  - Starlark `print()` statements are now emitted iff the line of
+    code is executed. They are no longer replayed on subsequent
+    invocations unless the Starlark code is re-executed.
+    Additionally, multiple identical `print()` statements (same
+    string from the same line of code, e.g. from a loop) are all
+    emitted and no longer deduplicated.
+  - Fixes a bug where some compilation flags would not be applied to
+    a cc_test
+  - removed outdated ctx.host_fragments
+  - removed outdated ctx.host_configuration
+  - Now that the host configuration is finished, `genrule` should
+    prefer the use of `tools` and stop using `exec_tools`.
+  - Added a `native.package_relative_label()` function, which
+    converts a label string to a Label object in the context of the
+    calling package, in contrast to `Label()`, which does so in the
+    context of the current .bzl file. Both functions now also accept
+    relative labels such as `:foo`, and are idempotent.
+  - Update Android manifest merger to v30.1.3, and also drop support
+    for legacy (pre-D8) desugaring.
+  - Adds coverage metric support to android_local_test
+  - Correctly encode double value positive infinity as "inf" instead
+    of "+inf" for textprotos.
+  - Add --use_target_platform_for_tests which uses the target
+    platform for executing tests instead of the execution platform.
+  - Custom C++ rules on Windows calling
+    cc_common.create_linking_context_from_compilation_outputs should
+    review whether each target of the rule type should produce a
+    dynamic library since a condition which blocked their creation
+    has been moved to the rules from behind the API.
+  - Add flag `--experimental_remote_cache_ttl` and set the default
+    value to 3 hours.
+  - making --incompatible_use_platforms_repo_for_constraints do
+    nothing. Using constraints from @bazel_tools//platforms with or
+    without the flag will throw error with message "Constraints from
+    @bazel_tools//platforms have been removed. Please use constraints
+    from @platforms repository embedded in Bazel, or preferably
+    declare dependency on https://github.com/bazelbuild/platforms"
+  - Fixed an issue where WORKSPACE and WORKSPACE-loaded .bzl files
+    couldn't see the Bzlmod root module's mappings when Bzlmod is
+    enabled.
+  - Subsequent settings of --extra_execution_platforms now override
+    previous settings, instead of adding them to a list. If you
+    currently set --extra_execution_platforms more than once, please
+    migrate by passing a list of values to
+    --extra_execution_platforms instead so that earlier values aren't
+    overwritten.
+  - @bazel_tools//config:common_settings.bzl has been removed.
+    Use @bazel_skylib//rules:common_settings.bzl instead.
+  - cc_shared_library is no longer experimental, see
+    https://github.com/bazelbuild/bazel/issues/16709 for details
+  - The flag `--distinct_host_configuration` is removed. It has been
+    a no-op since Bazel 6.0.0.
+  - Added `native.module_name()` and `native.module_version()` to
+    allow BUILD macro authors to acquire information about which
+    Bazel module the current repo is associated with.
+  - Add `--skip_incompatible_explicit_targets` option
+  - Remove 'darwin' as a CPU value, use 'darwin_x86_64' instead
+  - cc_test can now be configured by using a native.toolchain().
+  - `@foo` labels can now be used on the command line as the
+    top-level target (that is, `bazel build @foo` now works).
+    Double-dot syntax is now forbidden (`bazel build ../foo` will no
+    longer work).
+  - The location of rules that explicitly specify `generator_name`
+    and/or `generator_function` attributes (typically because they
+    are incidentally copied from `native.existing_rule()`) is now the
+    top-level call in the `BUILD` file, which is consistent with
+    rules that do not explicitly specify these attributes.
+  - Warnings (most notably those associated with the `deprecation`
+    rule attribute) are no longer replayed on subsequent invocations
+    unless the target in question is re-analyzed. Warnings are purely
+    informational, so this change has no bearing on the correctness
+    of the build. Downstream tests that break due to this change
+    should update their expectations.
+  - `--experimental_remote_build_event_upload` has been renamed to
+    `--remote_build_event_upload`
+  - [Breaking change] platform, constraint_setting, and
+    constraint_value can no longer take an applicable_licenses value.
+    Remediation is to remove the attribute and rely on the package
+    level default.
+  - `--experimental_action_cache_store_output_metadata` has been
+    renamed to `--action_cache_store_output_metadata`
+  - Changed the default value for `--remote_build_event_upload` to
+    `minimal`.
+  - `--experimental_remote_cache_compression` has been renamed to
+    `--remote_cache_compression`
+  - The REPO.bazel and MODULE.bazel files are now also considered
+    workspace boundary markers.
+  - Added a new `max_compatibility_level` attribute to the
+    `bazel_dep` directive, which allows version selection to upgrade
+    a dependency up to the specified compatibility level.
+  - `--experimental_remote_grpc_log` has been renamed to
+    `--remote_grpc_log`
+  - `--incompatible_remote_build_event_upload_respect_no_cache` is
+    now a no-op.
+  - json.decode now takes an optional `default` positional parameter;
+    if this parameter is specified and decoding fails, json.decode
+    will return
+    the `default` value instead of failing Starlark evaluation.
+  - Overrides specified by non-root modules no longer cause an error,
+    and are silently ignored instead. They were originally treated as
+    an error to allow for the future possibility of overrides in the
+    transitive dependency graph working together; but we've deemed
+    that infeasible (and even if it was, it'd be so complicated and
+    confusing to users that it would not be a good addition).
+  - `applicable_licenses` is no longer allowed on the `platform` rule.
+    Additionally, `default_package_metadata` from any `package` rule
+    will not be applied.
+
+This release contains contributions from many people at Google, as well as Adam Lavin, Alessandro Patti, Alex Eagle, AlexTereshenkov, Amanda L Martin, Andreas Herrmann, Andy Hamon, Ankit Agarwal, Ankush Goyal, Anthony Ter-Saakov, Artem Zinnatullin, aryeh, Austin Schuh, Benjamin Lee, Benjamin Peterson, Benjamin Peterson, Benjamin Sigonneau, Ben Lee, Brentley Jones, Cameron Martin, Chirag Ramani, Chirag Ramani, Chris Sauer, Christopher Peterson Sauer, Christopher Rydell, Christopher Sauer, Daniel Grunwald, Daniel KT, Daniel Wagner-Hall, David Ostrovsky, Dimi Shahbaz, eareilg, Ed Schouten, Emil Kattainen, Ezekiel Warren, Fabian Meumertzheim, Fabian Meumertzheim, Fahrzin Hemmati, Fahrzin Hemmati, Gaspare Vitta, George Gensure, Greg, Greg Magolan, Halil Sener, Hao Yuan, hvadehra, hvd, Ivan Golub, Jack Dai, James Ma, Jasper, Jeff Hodges, Jeremy Volkman, Joel Jeske, John Hinnegan, Jon Landis, Jon Parise, jonrose-dev, Joseph Tilahun, Julio Merino, Kai Zhang, keertk, Keith Smiley, Konstantin Erman, Krzysztof Naglik, kshyanashree, Kun-Lu, Lee Mracek, lripoche, Malte Poll, Marc Redemske, Marc Zych, Matt Mackay, Mauricio Galindo, Maxwell Elliott, mohamadk, nathyong, Nick Korostelev, Oliver Lee, Oscar Garzon, Patrick Balestra, Patrick Balestra, Philipp Schrader, Red Daly, redwrasse, robincaloudis, Robin Tweedie, Roger Hu, Sagar Pathare, Saleem Abdulrasool, Sara Adams, Sascha Moecker, Severin Strobl, Siddhesh Bhupendra Kuakde, Simon Mavi Stewart, something_vague, Son Luong Ngoc, Stiopa Koltsov, stoozy, Sushain Cherivirala, tbaing, Ted Kaplan, Ted Kaplan, Ted Logan, Thulio Ferraz Assis, Tom Cnops, Ulf Adams, Ulf Adams, Ulrik Falklof, Uri Baghin, Xavier Bonaventura, Xdng Yng, Xiangquan Xiao, Yannic Bonenberger, Yannic, Yi Cheng, yuzhy8701.
+
 ## Release 6.2.0 (2023-05-09)
 
 ```

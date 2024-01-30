@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -65,7 +64,7 @@ import javax.annotation.Nullable;
 public class SpawnIncludeScanner {
   /** The grep-includes tool is very lightweight, so don't use the default from AbstractAction. */
   private static final ResourceSet LOCAL_RESOURCES =
-      ResourceSet.createWithRamCpu(/*memoryMb=*/ 10, /*cpuUsage=*/ 1);
+      ResourceSet.createWithRamCpu(/* memoryMb= */ 10, /* cpu= */ 1);
 
   private final Path execRoot;
   private OutputService outputService;
@@ -285,11 +284,6 @@ public class SpawnIncludeScanner {
 
     @Override
     public MiddlemanType getActionType() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
       throw new UnsupportedOperationException();
     }
   }

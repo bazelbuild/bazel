@@ -59,7 +59,7 @@ public class PyInfoTest extends BuildViewTestCase {
   }
 
   private PyInfo getPyInfo() throws Exception {
-    return getConfiguredTarget("//:subject").get(PyInfo.PROVIDER);
+    return PyInfo.fromTarget(getConfiguredTarget("//:subject"));
   }
 
   /** We need this because {@code NestedSet}s don't have value equality. */

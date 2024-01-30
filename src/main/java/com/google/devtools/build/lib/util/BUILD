@@ -1,3 +1,4 @@
+load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -30,7 +31,7 @@ java_library(
     ],
 )
 
-java_library(
+java_11_library(
     name = "os",
     srcs = ["OS.java"],
 )
@@ -83,6 +84,7 @@ java_library(
     name = "describable_execution_unit",
     srcs = ["DescribableExecutionUnit.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -100,9 +102,19 @@ java_library(
         ":describable_execution_unit",
         ":os",
         ":shell_escaper",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "maybe_complete_set",
+    srcs = ["MaybeCompleteSet.java"],
+    deps = [
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -116,6 +128,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -128,7 +141,6 @@ java_library(
     ],
     deps = [
         ":resource_converter",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//third_party:guava",
     ],
 )
@@ -140,12 +152,11 @@ java_library(
     ],
     deps = [
         ":resource_converter",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//third_party:guava",
     ],
 )
 
-java_library(
+java_11_library(
     name = "pair",
     srcs = [
         "Pair.java",
@@ -168,6 +179,7 @@ java_library(
         "FileHandlerQuerier.java",
         "Fingerprint.java",
         "JavaSleeper.java",
+        "LatestObjectMetricExporter.java",
         "LogHandlerQuerier.java",
         "LoggingUtil.java",
         "LongArrayList.java",
@@ -216,6 +228,7 @@ java_library(
     ],
     deps = [
         ":string",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
@@ -276,7 +289,7 @@ java_library(
     ],
 )
 
-java_library(
+java_11_library(
     name = "exit_code",
     srcs = [
         "ExitCode.java",
@@ -334,6 +347,14 @@ java_library(
     name = "hash_codes",
     srcs = ["HashCodes.java"],
     deps = ["//third_party:jsr305"],
+)
+
+java_library(
+    name = "heap_offset_helper",
+    srcs = ["HeapOffsetHelper.java"],
+    deps = [
+        "//third_party:flogger",
+    ],
 )
 
 java_library(

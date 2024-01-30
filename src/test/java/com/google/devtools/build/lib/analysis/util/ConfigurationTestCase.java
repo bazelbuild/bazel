@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -95,6 +93,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     analysisMock = AnalysisMock.get();
 
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
+    buildOptionClasses = ruleClassProvider.getFragmentRegistry().getOptionsClasses();
     PathPackageLocator pkgLocator =
         new PathPackageLocator(
             outputBase,
@@ -129,29 +128,33 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .setSyscallCache(SyscallCache.NO_CACHE)
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
+    BuildOptions defaultBuildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(buildOptionClasses).clone();
+    defaultBuildOptions.get(CoreOptions.class).starlarkExecConfig =
+        TestConstants.STARLARK_EXEC_TRANSITION;
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
-            PrecomputedValue.injected(
-                PrecomputedValue.BASELINE_CONFIGURATION,
-                BuildOptions.getDefaultBuildOptionsForFragments(
-                    ImmutableList.of(CoreOptions.class))),
+            PrecomputedValue.injected(PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptions),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+                RepositoryDelegatorFunction.FORCE_FETCH,
+                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
             PrecomputedValue.injected(
-                BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
-                ruleClassProvider.getBuildInfoFactoriesAsMap())));
+                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
+    BuildLanguageOptions options = Options.getDefaults(BuildLanguageOptions.class);
+    // TODO: enable Bzlmod for this test case
+    // https://github.com/bazelbuild/bazel/issues/19824
+    options.enableBzlmod = false;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        Options.getDefaults(BuildLanguageOptions.class),
+        options,
         UUID.randomUUID(),
         ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
@@ -161,7 +164,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
-    buildOptionClasses = ruleClassProvider.getFragmentRegistry().getOptionsClasses();
     fragmentFactory = new FragmentFactory();
   }
 
@@ -231,15 +233,15 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   /** Returns a raw {@link BuildConfigurationValue} with the given parameters. */
   protected BuildConfigurationValue createRaw(
       BuildOptions buildOptions,
-      String repositoryName,
-      boolean siblingRepositoryLayout,
-      String transitionDirectoryNameFragment)
+      String mnemonic,
+      String workspaceName,
+      boolean siblingRepositoryLayout)
       throws Exception {
-    return BuildConfigurationValue.create(
+    return BuildConfigurationValue.createForTesting(
         buildOptions,
-        RepositoryName.create(repositoryName),
+        mnemonic,
+        workspaceName,
         siblingRepositoryLayout,
-        transitionDirectoryNameFragment,
         skyframeExecutor.getBlazeDirectoriesForTesting(),
         skyframeExecutor.getRuleClassProviderForTesting(),
         fragmentFactory);
@@ -268,14 +270,28 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   /**
    * Returns an exec {@link BuildConfigurationValue} derived from a target configuration with the
-   * given non-default options.
+   * given non-default options. Supports Starlark Options.
+   *
+   * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
+   *     form of label-like strings) and the values are option values
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
+  protected BuildConfigurationValue createExec(
+      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
+    return skyframeExecutor.getConfiguration(
+        reporter,
+        AnalysisTestUtil.execOptions(
+            parseBuildOptions(starlarkOptions, args), skyframeExecutor, reporter),
+        /* keepGoing= */ false);
+  }
+
+  /**
+   * Returns an exec {@link BuildConfigurationValue} derived from a target configuration with the
+   * given non-default options. Does not support Starlark Options
    *
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
   protected BuildConfigurationValue createExec(String... args) throws Exception {
-    return skyframeExecutor.getConfiguration(
-        reporter,
-        AnalysisTestUtil.execOptions(parseBuildOptions(args), reporter),
-        /* keepGoing= */ false);
+    return createExec(ImmutableMap.of(), args);
   }
 }

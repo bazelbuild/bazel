@@ -42,8 +42,6 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
     scratch.file("myinfo/BUILD");
     MockProtoSupport.setup(mockToolsConfig);
-
-    MockProtoSupport.setupWorkspace(scratch);
     invalidatePackages();
   }
 

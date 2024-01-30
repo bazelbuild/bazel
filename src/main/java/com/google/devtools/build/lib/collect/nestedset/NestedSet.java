@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -138,6 +138,17 @@ public final class NestedSet<E> {
     this.depthAndOrder = order.ordinal();
     this.children = EMPTY_CHILDREN;
     this.memo = NO_MEMO;
+  }
+
+  /**
+   * Clear the memo field to free up memory when no other traversal of the NestedSet is expected.
+   */
+  public void clearMemo() {
+    if (memo != NO_MEMO) {
+      synchronized (this) {
+        memo = null;
+      }
+    }
   }
 
   NestedSet(
@@ -483,14 +494,8 @@ public final class NestedSet<E> {
    * @return the size of the nested set.
    */
   public int memoizedFlattenAndGetSize() {
-    // before flattening?
-    if (memo == null) {
-      return toList().size(); // side effect: set memo
-    }
-
-    // After flattening: inspect memo.
-
-    // shallow?
+    // This special value NO_MEMO is only set in the constructor and is immutable once set, so
+    // it's safe to test here with no lock.
     if (memo == NO_MEMO) {
       Object children = getChildrenUninterruptibly();
       return children == EMPTY_CHILDREN
@@ -500,9 +505,11 @@ public final class NestedSet<E> {
               : ((Object[]) children).length;
     }
 
-    // Make sure we have a full view of memo from a possible concurrent lockedExpand call.
+    // Make sure we have a full view of memo from a possible concurrent lockedExpand/clearMemo call.
     synchronized (this) {
-      // Read size from end of memo.
+      if (memo == null) {
+        return toList().size(); // side effect: set memo
+      }
       int size = 0;
       for (int i = memo.length - 1; ; i--) {
         size = (size << 7) | (memo[i] & 0x7f);
@@ -584,17 +591,26 @@ public final class NestedSet<E> {
    * {@link #walk}, or call {@link #replay} if we have a nontrivial memo.
    */
   private ImmutableList<E> expand(Object[] children) {
-    // This value is only set in the constructor, so safe to test here with no lock.
+    // This special value NO_MEMO is only set in the constructor and is immutable once set, so
+    // it's safe to test here with no lock.
     if (memo == NO_MEMO) {
       return ImmutableList.copyOf(new ArraySharingCollection<>(children));
     }
-    CompactHashSet<E> members = lockedExpand(children);
-    if (members != null) {
-      return ImmutableList.copyOf(members);
+
+    byte[] memoRef;
+    ImmutableList.Builder<E> output;
+    // memo might have been cleared by another thread, hence synchronization is required here.
+    synchronized (this) {
+      if (memo == null) {
+        return ImmutableList.copyOf(lockedExpand(children));
+      } else {
+        memoRef = memo;
+        output = ImmutableList.builderWithExpectedSize(memoizedFlattenAndGetSize());
+      }
     }
-    ImmutableList.Builder<E> output =
-        ImmutableList.builderWithExpectedSize(memoizedFlattenAndGetSize());
-    replay(output, children, memo, 0);
+
+    // With a non-null local ref of memo, it's safe to proceed without synchronization.
+    replay(output, children, memoRef, 0);
     return output.build();
   }
 
@@ -624,17 +640,16 @@ public final class NestedSet<E> {
   }
 
   /**
-   * If this is the first call for this object, fills {@code this.memo} and returns a set from
-   * {@link #walk}. Otherwise returns null, in which case some other thread must have completely
-   * populated memo; the caller should use {@link #replay} instead.
+   * This must be the first call for this object, fills {@code this.memo} and returns a set from
+   * {@link #walk}. In case some other thread already populated memo, the caller should use {@link
+   * #replay} instead.
+   *
+   * <p>The caller of this method is responsible for the synchronization around the {@code
+   * this.memo} object.
    */
-  @Nullable
-  private synchronized CompactHashSet<E> lockedExpand(Object[] children) {
+  private CompactHashSet<E> lockedExpand(Object[] children) {
     // Precondition: this is a non-leaf node with non-leaf successors (depth > 2).
     // Postcondition: memo is completely populated.
-    if (memo != null) {
-      return null;
-    }
     CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
     CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(128);
     sets.add(children);

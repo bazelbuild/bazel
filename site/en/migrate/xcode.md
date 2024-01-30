@@ -131,23 +131,17 @@ In the target, specify the following at the minimum:
 #### Step 3b: (Optional) Add the test target(s) {:#add-test-target}
 
 Bazel's [Apple build rules](https://github.com/bazelbuild/rules_apple){: .external} support
-running library-based unit tests on iOS and macOS, as well as application-based
-tests on macOS. For application-based tests on iOS or UI tests on either
-platform, Bazel will build the test outputs but the tests must run within Xcode
-through a project generated with rules_xcodeproj. Add test targets as follows:
+running unit and UI tests on all Apple platforms. Add test targets as follows:
 
 *   [`macos_unit_test`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-macos.md#macos_unit_test){: .external} to run library-based and application-based unit tests on a macOS.
 
 *   [`ios_unit_test`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-ios.md#ios_unit_test){: .external}
-    to run library-based unit tests on iOS. For tests requiring the iOS
-    simulator, Bazel will build the test outputs but not run the tests. You must
-    [generate an Xcode project with rules_xcodeproj](#generate-the-xcode-project-with-rules_xcodeproj)
-    and run the tests from within Xcode.
+    to build and run library-based unit tests on iOS.
 
 *   [`ios_ui_test`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-ios.md#ios_ui_test){: .external}
-    to build outputs required to run user interface tests in the iOS simulator
-    using Xcode. You must [generate an Xcode project with rules_xcodeproj](#generate-the-xcode-project-with-rules_xcodeproj)
-    and run the tests from within Xcode. Bazel cannot natively run UI tests.
+    to build and run user interface tests in the iOS simulator.
+
+*   Similar test rules exist for [tvOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-tvos.md){: .external}, [watchOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-watchos.md){: .external} and [visionOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-visionos.md){: .external}.
 
 At the minimum, specify a value for the `minimum_os_version` attribute. While
 other packaging attributes, such as `bundle_identifier` and `infoplists`,

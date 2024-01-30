@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.AspectsListBuilder;
+import com.google.devtools.build.lib.packages.AspectsList;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -123,7 +123,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
       ImmutableList<AspectClass> topLevelAspectsClasses,
       ImmutableMap<String, String> topLevelAspectsParameters)
       throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {
-    AspectsListBuilder aspectsList = new AspectsListBuilder();
+    AspectsList.Builder builder = new AspectsList.Builder();
 
     for (AspectClass aspectClass : topLevelAspectsClasses) {
       if (aspectClass instanceof StarlarkAspectClass) {
@@ -132,7 +132,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
           return null;
         }
         try {
-          starlarkAspect.attachToAspectsList(/*baseAspectName=*/ null, aspectsList);
+          builder.addAspect(starlarkAspect);
         } catch (EvalException e) {
           env.getListener().handle(Event.error(e.getMessage()));
           throw new BuildTopLevelAspectsDetailsFunctionException(
@@ -141,7 +141,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
         }
       } else {
         try {
-          aspectsList.addAspect((NativeAspectClass) aspectClass);
+          builder.addAspect((NativeAspectClass) aspectClass);
         } catch (AssertionError e) {
           env.getListener().handle(Event.error(e.getMessage()));
           throw new BuildTopLevelAspectsDetailsFunctionException(
@@ -151,6 +151,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
       }
     }
 
+    AspectsList aspectsList = builder.build();
     try {
         aspectsList.validateTopLevelAspectsParameters(topLevelAspectsParameters);
         return aspectsList.buildAspects(topLevelAspectsParameters);
@@ -249,7 +250,6 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
     private final ImmutableMap<String, String> topLevelAspectsParameters;
     private final int hashCode;
 
-    @AutoCodec.Instantiator
     static BuildTopLevelAspectsDetailsKey create(
         ImmutableList<AspectClass> topLevelAspectsClasses,
         ImmutableMap<String, String> topLevelAspectsParameters) {
@@ -258,6 +258,12 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
               topLevelAspectsClasses,
               topLevelAspectsParameters,
               Objects.hashCode(topLevelAspectsClasses, topLevelAspectsParameters)));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static BuildTopLevelAspectsDetailsKey intern(BuildTopLevelAspectsDetailsKey key) {
+      return interner.intern(key);
     }
 
     private BuildTopLevelAspectsDetailsKey(

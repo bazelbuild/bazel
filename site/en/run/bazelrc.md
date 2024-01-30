@@ -105,7 +105,14 @@ line specifies when these defaults are applied:
 
 -   `startup`: startup options, which go before the command, and are described
     in `bazel help startup_options`.
--   `common`: options that apply to all Bazel commands.
+-   `common`: options that should be applied to all Bazel commands that support
+    them. If a command does not support an option specified in this way, the
+    option is ignored so long as it is valid for *some* other Bazel command.
+    Note that this only applies to option names: If the current command accepts
+    an option with the specified name, but doesn't support the specified value,
+    it will fail.
+-   `always`: options that apply to all Bazel commands. If a command does not
+    support an option specified in this way, it will fail.
 -   _`command`_: Bazel command, such as `build` or `query` to which the options
     apply. These options also apply to all commands that inherit from the
     specified command. (For example, `test` inherits from `build`.)

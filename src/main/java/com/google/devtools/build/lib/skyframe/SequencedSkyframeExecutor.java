@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -26,9 +25,12 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -39,6 +41,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
@@ -54,6 +57,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
@@ -63,6 +67,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptio
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutputHandler;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindableGraphInconsistencyReceiver;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -72,12 +77,15 @@ import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.DelegatingGraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.EmittedEventState;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -86,6 +94,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.time.Duration;
@@ -108,7 +117,7 @@ import javax.annotation.Nullable;
  * A SkyframeExecutor that implicitly assumes that builds can be done incrementally from the most
  * recent build. In other words, builds are "sequenced".
  */
-public final class SequencedSkyframeExecutor extends SkyframeExecutor {
+public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final int MODIFIED_OUTPUT_PATHS_SAMPLE_SIZE = 100;
@@ -122,6 +131,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private boolean trackIncrementalState = true;
 
   private boolean evaluatorNeedsReset = false;
+  private boolean lastCommandKeptState = false;
+  private boolean needGcAfterResettingEvaluator = false;
 
   private final AtomicInteger outputDirtyFiles = new AtomicInteger();
   private final ArrayBlockingQueue<String> outputDirtyFilesExecPathSample =
@@ -130,9 +141,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
 
-  private GraphInconsistencyReceiver inconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
+  // Use delegation so that the underlying inconsistency receiver can be changed per-command without
+  // recreating the evaluator.
+  protected final DelegatingGraphInconsistencyReceiver inconsistencyReceiver =
+      new DelegatingGraphInconsistencyReceiver(GraphInconsistencyReceiver.THROWING);
 
-  private SequencedSkyframeExecutor(
+  protected SequencedSkyframeExecutor(
       Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,
       PackageFactory pkgFactory,
       FileSystem fileSystem,
@@ -149,6 +163,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ExternalPackageHelper externalPackageHelper,
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter) {
     super(
@@ -166,6 +181,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildFilesByPriority,
         externalPackageHelper,
         actionOnIOExceptionReadingBuildFile,
+        shouldUseRepoDotBazel,
         /* shouldUnblockCpuWorkWhenFetchingDeps= */ false,
         new PackageProgressReceiver(),
         new ConfiguredTargetProgressReceiver(),
@@ -184,7 +200,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  protected InMemoryMemoizingEvaluator createEvaluator(
+  protected MemoizingEvaluator createEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       SkyframeProgressReceiver progressReceiver,
       EmittedEventState emittedEventState) {
@@ -211,15 +227,18 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
-    return new SkyframeProgressReceiver() {
-      @Override
-      public void invalidated(SkyKey skyKey, InvalidationState state) {
-        super.invalidated(skyKey, state);
-        if (state == InvalidationState.DIRTY && skyKey instanceof FileValue.Key) {
-          incrementalBuildMonitor.reportInvalidatedFileValue();
-        }
+    return new SequencedSkyframeProgressReceiver();
+  }
+
+  /** A {@link SkyframeProgressReceiver} tracks dirty {@link FileValue.Key}s. */
+  protected class SequencedSkyframeProgressReceiver extends SkyframeProgressReceiver {
+    @Override
+    public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
+      super.dirtied(skyKey, dirtyType);
+      if (skyKey instanceof FileValue.Key) {
+        incrementalBuildMonitor.reportInvalidatedFileValue();
       }
-    };
+    }
   }
 
   @Nullable
@@ -234,22 +253,21 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       QuiescingExecutors executors,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
+    inconsistencyReceiver.setDelegate(getGraphInconsistencyReceiverForCommand(options));
     if (evaluatorNeedsReset) {
-      if (rewindingPermitted(options)) {
-        var rewindableReceiver = new RewindableGraphInconsistencyReceiver();
-        rewindableReceiver.setHeuristicallyDropNodes(heuristicallyDropNodes);
-        this.inconsistencyReceiver = rewindableReceiver;
-      } else {
-        inconsistencyReceiver =
-            heuristicallyDropNodes
-                ? new NodeDroppingInconsistencyReceiver()
-                : GraphInconsistencyReceiver.THROWING;
-      }
-
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
       evaluatorNeedsReset = false;
+      if (needGcAfterResettingEvaluator) {
+        // Collect weakly reachable objects to avoid resurrection. See b/291641466.
+        try (var profiler =
+            GoogleAutoProfilerUtils.logged(
+                "manual GC to clean up from --keep_state_after_build command")) {
+          System.gc();
+        }
+        needGcAfterResettingEvaluator = false;
+      }
     }
     super.sync(
         eventHandler,
@@ -269,15 +287,31 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return workspaceInfo;
   }
 
-  private boolean rewindingPermitted(OptionsProvider options) {
-    // Rewinding is only supported with no incremental state and no action cache.
-    if (trackIncrementalState) {
-      return false;
+  private GraphInconsistencyReceiver getGraphInconsistencyReceiverForCommand(
+      OptionsProvider options) throws AbruptExitException {
+    if (rewindingEnabled(options)) {
+      // Currently incompatible with Skymeld i.e. this code path won't be run in Skymeld mode. We
+      // may need to combine these GraphInconsistencyReceiver implementations in the future.
+      var rewindableReceiver = new RewindableGraphInconsistencyReceiver();
+      rewindableReceiver.setHeuristicallyDropNodes(heuristicallyDropNodes);
+      return rewindableReceiver;
     }
-    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    return buildRequestOptions != null
-        && !buildRequestOptions.useActionCache
-        && buildRequestOptions.rewindLostInputs;
+    if (isMergedSkyframeAnalysisExecution()
+        && ((options.getOptions(AnalysisOptions.class) != null
+                && options.getOptions(AnalysisOptions.class).discardAnalysisCache)
+            || !trackIncrementalState
+            || heuristicallyDropNodes)) {
+      return new SkymeldInconsistencyReceiver(heuristicallyDropNodes);
+    }
+    if (heuristicallyDropNodes) {
+      return new NodeDroppingInconsistencyReceiver();
+    }
+    return GraphInconsistencyReceiver.THROWING;
+  }
+
+  private boolean rewindingEnabled(OptionsProvider options) throws AbruptExitException {
+    var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    return buildRequestOptions != null && buildRequestOptions.rewindLostInputs;
   }
 
   /**
@@ -299,8 +333,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
   }
 
-  @Override
-  protected void invalidate(Predicate<SkyKey> pred) {
+  void invalidate(Predicate<SkyKey> pred) {
     recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
   }
 
@@ -381,13 +414,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
 
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
-    // or current incrementalStateRetentionStrategy requires the build to have been isolated.
+    // or current command requires the build to have been isolated.
     if (oldValueOfTrackIncrementalState != trackIncrementalState) {
       logger.atInfo().log("Set incremental state to %b", trackIncrementalState);
       evaluatorNeedsReset = true;
     } else if (!trackIncrementalState) {
       evaluatorNeedsReset = true;
     }
+    if (evaluatorNeedsReset && lastCommandKeptState) {
+      needGcAfterResettingEvaluator = true;
+    }
+    lastCommandKeptState = keepStateAfterBuild;
   }
 
   @Override
@@ -503,7 +540,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         if (skyValue instanceof RuleConfiguredTargetValue) {
           tasks.add(
               () -> {
-                actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+                var configuredTarget = (RuleConfiguredTargetValue) skyValue;
+                // Only dumps the value for non-delegating keys.
+                if (configuredTarget.getConfiguredTarget().getLookupKey().equals(key)) {
+                  actionGraphDump.dumpConfiguredTarget(configuredTarget);
+                }
                 return null;
               });
         } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
@@ -511,8 +552,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           AspectKey aspectKey = (AspectKey) key;
           ConfiguredTargetValue configuredTargetValue =
               (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(
-                      aspectKey.getBaseConfiguredTargetKey().toKey());
+                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
           tasks.add(
               () -> {
                 actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
@@ -562,14 +602,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
       try {
         if (skyValue instanceof RuleConfiguredTargetValue) {
-          actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+          var configuredTarget = (RuleConfiguredTargetValue) skyValue;
+          // Only dumps the value for non-delegating keys.
+          if (configuredTarget.getConfiguredTarget().getLookupKey().equals(key)) {
+            actionGraphDump.dumpConfiguredTarget(configuredTarget);
+          }
         } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
           AspectValue aspectValue = (AspectValue) skyValue;
           AspectKey aspectKey = (AspectKey) key;
           ConfiguredTargetValue configuredTargetValue =
               (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(
-                      aspectKey.getBaseConfiguredTargetKey().toKey());
+                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
           actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
         }
       } catch (InterruptedException e) {
@@ -590,7 +633,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public void handleAnalysisInvalidatingChange() {
     super.handleAnalysisInvalidatingChange();
-    deleteAnalysisNodes();
+    memoizingEvaluator.delete(this::shouldDeleteOnAnalysisInvalidatingChange);
+  }
+
+  // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and deleting
+  // en masse is cheaper than deleting via graph traversal (b/192863968).
+  @ForOverride
+  protected boolean shouldDeleteOnAnalysisInvalidatingChange(SkyKey k) {
+    return k instanceof ArtifactNestedSetKey
+        || k instanceof ActionLookupKey
+        || k instanceof BuildConfigurationKey
+        || k instanceof ActionLookupData;
   }
 
   /**
@@ -648,7 +701,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void deleteOldNodes(long versionWindowForDirtyGc) {
     // TODO(bazel-team): perhaps we should come up with a separate GC class dedicated to maintaining
     // value garbage. If we ever do so, this logic should be moved there.
-    memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);
+    if (trackIncrementalState) {
+      memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);
+    }
   }
 
   @Override
@@ -690,6 +745,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private ImmutableList<BuildFileName> buildFilesByPriority;
     private ExternalPackageHelper externalPackageHelper;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
+    private boolean shouldUseRepoDotBazel = true;
 
     // Fields with default values.
     private ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions = ImmutableMap.of();
@@ -736,6 +792,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               externalPackageHelper,
               repositoryHelpersHolder,
               actionOnIOExceptionReadingBuildFile,
+              shouldUseRepoDotBazel,
               skyKeyStateReceiver,
               bugReporter);
       skyframeExecutor.init();
@@ -835,6 +892,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     public Builder setActionOnIOExceptionReadingBuildFile(
         ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
       this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setShouldUseRepoDotBazel(boolean shouldUseRepoDotBazel) {
+      this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
       return this;
     }
 

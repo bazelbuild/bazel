@@ -14,27 +14,26 @@
 package com.google.devtools.build.lib.causes;
 
 import com.google.common.base.MoreObjects;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Objects;
-import javax.annotation.Nullable;
 
 /**
  * Class describing a {@link Cause} that can uniquely be described by a {@link Label} and {@link
- * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}. Note that the
- * configuration may be null, in which case this generates an UnconfiguredLabel event.
+ * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}.
  */
 public class AnalysisFailedCause implements Cause {
   private final Label label;
-  @Nullable private final ConfigurationId configuration;
+  private final ConfigurationId configurationId;
   private final DetailedExitCode detailedExitCode;
 
   public AnalysisFailedCause(
-      Label label, @Nullable ConfigurationId configuration, DetailedExitCode detailedExitCode) {
+      Label label, ConfigurationId configurationId, DetailedExitCode detailedExitCode) {
     this.label = label;
-    this.configuration = configuration;
+    this.configurationId = configurationId;
     this.detailedExitCode = detailedExitCode;
   }
 
@@ -46,7 +45,7 @@ public class AnalysisFailedCause implements Cause {
     //  SkyframeBuildView#processAnalysisErrors.
     return MoreObjects.toStringHelper(this)
         .add("label", label)
-        .add("configuration", configuration)
+        .add("configurationId", configurationId)
         .add("detailedExitCode", detailedExitCode)
         .add("msg", detailedExitCode.getFailureDetail().getMessage())
         .toString();
@@ -59,22 +58,8 @@ public class AnalysisFailedCause implements Cause {
 
   @Override
   public BuildEventStreamProtos.BuildEventId getIdProto() {
-    // This needs to match AnalysisRootCauseEvent.
-    if (configuration == null) {
-      return BuildEventStreamProtos.BuildEventId.newBuilder()
-          .setUnconfiguredLabel(
-              BuildEventStreamProtos.BuildEventId.UnconfiguredLabelId.newBuilder()
-                  .setLabel(label.toString())
-                  .build())
-          .build();
-    }
-    return BuildEventStreamProtos.BuildEventId.newBuilder()
-        .setConfiguredLabel(
-            BuildEventStreamProtos.BuildEventId.ConfiguredLabelId.newBuilder()
-                .setLabel(label.toString())
-                .setConfiguration(configuration)
-                .build())
-        .build();
+    // This needs to match AnalysisRootCauseEvent.getEventId.
+    return BuildEventIdUtil.configuredLabelId(label, configurationId);
   }
 
   @Override
@@ -91,12 +76,12 @@ public class AnalysisFailedCause implements Cause {
     }
     AnalysisFailedCause a = (AnalysisFailedCause) o;
     return Objects.equals(label, a.label)
-        && Objects.equals(configuration, a.configuration)
+        && Objects.equals(configurationId, a.configurationId)
         && Objects.equals(detailedExitCode, a.detailedExitCode);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(label, configuration, detailedExitCode);
+    return Objects.hash(label, configurationId, detailedExitCode);
   }
 }

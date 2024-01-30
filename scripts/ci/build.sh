@@ -146,15 +146,15 @@ function release_to_github() {
 
   local release_name=$(get_release_name)
   local rc=$(get_release_candidate)
+  local full_release_name=$(get_full_release_name)
 
-  if [ -n "${release_name}" ] && [ -z "${rc}" ]; then
+  if [ -n "${release_name}" ]; then
     local github_token="$(gsutil cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
         gcloud kms decrypt --project bazel-public --location global --keyring buildkite --key github-trusted-token --ciphertext-file - --plaintext-file -)"
-
-    if [ "$(is_rolling_release)" -eq 1 ]; then
-      GITHUB_TOKEN="${github_token}" github-release -prerelease "bazelbuild/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
-    else
+    if [ -z "${rc}" ]; then
       GITHUB_TOKEN="${github_token}" github-release "bazelbuild/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
+    else
+      GITHUB_TOKEN="${github_token}" github-release -prerelease "bazelbuild/bazel" "${full_release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
     fi
   fi
 }
@@ -188,17 +188,40 @@ function release_to_gcs() {
 
   local release_name="$(get_release_name)"
   local rc="$(get_release_candidate)"
+  local track="$(get_lts_name)"
 
   if [ -n "${release_name}" ]; then
     local release_path="${release_name}/release"
     if [ "$(is_rolling_release)" -eq 1 ]; then
       # Store rolling releases and their RCs in the same directory (for simplicity)
-      release_path="$(get_lts_name)/rolling/$(get_full_release_name)"
+      release_path="${track}/rolling/$(get_full_release_name)"
     elif [ -n "${rc}" ]; then
       release_path="${release_name}/rc${rc}"
     fi
     create_index_html "${artifact_dir}" > "${artifact_dir}/index.html"
     gsutil -m cp "${artifact_dir}/**" "gs://bazel/${release_path}"
+    # Set the content type on index.html so it isn't autodetected incorrectly by the browser.
+    gsutil setmeta -h "Content-Type: text/html; charset=utf-8" "gs://bazel/${release_path}/index.html"
+
+    if [[ "$(is_rolling_release)" -eq 1 ]] && [[ -z "${rc}" ]]; then
+      gsutil cp "gs://bazel/rolling.html" "${artifact_dir}"
+
+      local file="${artifact_dir}/rolling.html"
+      local content="$(cat $file)"
+      local entry="<li><a href=\"https://releases.bazel.build/${track}/rolling/${release_name}/index.html\">${release_name}</a> ($(date +%F))</li>"
+
+      if grep -q "$track" "$file"; then
+          # Existing track -> remove everything before the previous release
+          content="${content#*<ul>}"
+          separator=""
+      else
+          # New track: keep the entire content of the file
+          separator="</ul>\n"
+      fi
+
+      printf "<h1>${track}</h1>\n<ul>\n${entry}\n${separator}${content}" > "${file}"
+      gsutil cp "${artifact_dir}/rolling.html" "gs://bazel/rolling.html"
+    fi
   fi
 }
 
@@ -420,18 +443,17 @@ function deploy_release() {
     cp "${artifact_dir}/bazel_${release_label}.dsc" "${apt_working_dir}/${release_name}"
     cp "${artifact_dir}/bazel_${release_label}.tar.gz" "${apt_working_dir}/${release_name}"
     release_to_apt "${apt_working_dir}"
-  fi
 
+    github_working_dir="$(mktemp -d --tmpdir)"
+    echo "github_working_dir = ${github_working_dir}"
+    cp "${artifact_dir}"/* "${github_working_dir}"
+    rm -f "${github_working_dir}/bazel_${release_label}"*.{dsc,tar.gz}{,.sha256,.sig}
+    release_to_github "${github_working_dir}"
+  fi
 
   gcs_working_dir="$(mktemp -d --tmpdir)"
   echo "gcs_working_dir = ${gcs_working_dir}"
   cp "${artifact_dir}"/* "${gcs_working_dir}"
   release_to_gcs "${gcs_working_dir}"
-
-  github_working_dir="$(mktemp -d --tmpdir)"
-  echo "github_working_dir = ${github_working_dir}"
-  cp "${artifact_dir}"/* "${github_working_dir}"
-  rm -f "${github_working_dir}/bazel_${release_label}"*.{dsc,tar.gz}{,.sha256,.sig}
-  release_to_github "${github_working_dir}"
 }
 

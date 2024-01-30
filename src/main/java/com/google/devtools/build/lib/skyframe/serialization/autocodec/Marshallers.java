@@ -11,18 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.isVariableOrWildcardType;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasure;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getTypeMirror;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.isVariableOrWildcardType;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.matchesType;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.CodecHelpers;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.SerializationProcessingFailedException;
 import com.squareup.javapoet.TypeName;
+import java.lang.reflect.Array;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -39,7 +42,7 @@ class Marshallers {
     this.env = env;
   }
 
-  void writeSerializationCode(Context context) throws SerializationProcessingFailedException {
+  void writeSerializationCode(Context context) throws SerializationProcessingException {
     SerializationCodeGenerator generator = getMatchingCodeGenerator(context.type);
     boolean needsNullHandling = context.canBeNull() && generator != contextMarshaller;
     if (needsNullHandling) {
@@ -54,7 +57,7 @@ class Marshallers {
     }
   }
 
-  void writeDeserializationCode(Context context) throws SerializationProcessingFailedException {
+  void writeDeserializationCode(Context context) throws SerializationProcessingException {
     SerializationCodeGenerator generator = getMatchingCodeGenerator(context.type);
     boolean needsNullHandling = context.canBeNull() && generator != contextMarshaller;
     // If we have a generic or a wildcard parameter we need to erase it when we write the code out.
@@ -62,12 +65,12 @@ class Marshallers {
     if (context.isDeclaredType() && !context.getDeclaredType().getTypeArguments().isEmpty()) {
       for (TypeMirror paramTypeMirror : context.getDeclaredType().getTypeArguments()) {
         if (isVariableOrWildcardType(paramTypeMirror)) {
-          contextTypeName = TypeName.get(env.getTypeUtils().erasure(context.getDeclaredType()));
+          contextTypeName = getErasure(context.getDeclaredType(), env);
         }
       }
       // If we're just a generic or wildcard, get the erasure and use that.
     } else if (isVariableOrWildcardType(context.getTypeMirror())) {
-      contextTypeName = TypeName.get(env.getTypeUtils().erasure(context.getTypeMirror()));
+      contextTypeName = getErasure(context.getTypeMirror(), env);
     }
     if (needsNullHandling) {
       context.builder.addStatement("$T $L = null", contextTypeName, context.name);
@@ -82,7 +85,7 @@ class Marshallers {
   }
 
   private SerializationCodeGenerator getMatchingCodeGenerator(TypeMirror type)
-      throws SerializationProcessingFailedException {
+      throws SerializationProcessingException {
     if (type.getKind() == TypeKind.ARRAY) {
       return arrayCodeGenerator;
     }
@@ -94,7 +97,7 @@ class Marshallers {
           .findFirst()
           .orElseThrow(
               () ->
-                  new SerializationProcessingFailedException(
+                  new SerializationProcessingException(
                       null, "No generator for: %s", primitiveType));
     }
 
@@ -124,8 +127,7 @@ class Marshallers {
   private final SerializationCodeGenerator arrayCodeGenerator =
       new SerializationCodeGenerator() {
         @Override
-        public void addSerializationCode(Context context)
-            throws SerializationProcessingFailedException {
+        public void addSerializationCode(Context context) throws SerializationProcessingException {
           String length = context.makeName("length");
           context.builder.addStatement("int $L = $L.length", length, context.name);
           context.builder.addStatement("codedOut.writeInt32NoTag($L)", length);
@@ -143,7 +145,7 @@ class Marshallers {
 
         @Override
         public void addDeserializationCode(Context context)
-            throws SerializationProcessingFailedException {
+            throws SerializationProcessingException {
           Context repeated =
               context.with(
                   ((ArrayType) context.type).getComponentType(), context.makeName("repeated"));
@@ -152,9 +154,11 @@ class Marshallers {
 
           String resultName = context.makeName("result");
           context.builder.addStatement(
-              "$T[] $L = new $T[$L]",
+              "$T[] $L = ($T[]) $T.newInstance($T.class, $L)",
               repeated.getTypeName(),
               resultName,
+              repeated.getTypeName(),
+              Array.class,
               repeated.getTypeName(),
               lengthName);
           String indexName = context.makeName("i");
@@ -164,6 +168,46 @@ class Marshallers {
           context.builder.addStatement("$L[$L] = $L", resultName, indexName, repeated.name);
           context.builder.endControlFlow();
           context.builder.addStatement("$L = $L", context.name, resultName);
+        }
+      };
+
+  private static final PrimitiveValueSerializationCodeGenerator SHORT_CODE_GENERATOR =
+      new PrimitiveValueSerializationCodeGenerator() {
+        @Override
+        public boolean matches(PrimitiveType type) {
+          return type.getKind() == TypeKind.SHORT;
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement(
+              "$T.writeShort(codedOut, $L)", CodecHelpers.class, context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement(
+              "$L = $T.readShort(codedIn)", context.name, CodecHelpers.class);
+        }
+      };
+
+  private static final PrimitiveValueSerializationCodeGenerator CHAR_CODE_GENERATOR =
+      new PrimitiveValueSerializationCodeGenerator() {
+        @Override
+        public boolean matches(PrimitiveType type) {
+          return type.getKind() == TypeKind.CHAR;
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement(
+              "$T.writeChar(codedOut, $L)", CodecHelpers.class, context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement(
+              "$L = $T.readChar(codedIn)", context.name, CodecHelpers.class);
         }
       };
 
@@ -257,11 +301,29 @@ class Marshallers {
         }
       };
 
+  private static final PrimitiveValueSerializationCodeGenerator FLOAT_CODE_GENERATOR =
+      new PrimitiveValueSerializationCodeGenerator() {
+        @Override
+        public boolean matches(PrimitiveType type) {
+          return type.getKind() == TypeKind.FLOAT;
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement("codedOut.writeFloatNoTag($L)", context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement("$L = codedIn.readFloat()", context.name);
+        }
+      };
+
   private final Marshaller charSequenceMarshaller =
       new Marshaller() {
         @Override
         public boolean matches(DeclaredType type) {
-          return matchesType(type, CharSequence.class);
+          return matchesType(type, CharSequence.class, env);
         }
 
         @Override
@@ -283,8 +345,7 @@ class Marshallers {
         }
 
         @Override
-        public void addSerializationCode(Context context)
-            throws SerializationProcessingFailedException {
+        public void addSerializationCode(Context context) throws SerializationProcessingException {
           DeclaredType suppliedType =
               (DeclaredType) context.getDeclaredType().getTypeArguments().get(0);
           writeSerializationCode(context.with(suppliedType, context.name + ".get()"));
@@ -292,7 +353,7 @@ class Marshallers {
 
         @Override
         public void addDeserializationCode(Context context)
-            throws SerializationProcessingFailedException {
+            throws SerializationProcessingException {
           DeclaredType suppliedType =
               (DeclaredType) context.getDeclaredType().getTypeArguments().get(0);
           String suppliedName = context.makeName("supplied");
@@ -329,7 +390,10 @@ class Marshallers {
           LONG_CODE_GENERATOR,
           BYTE_CODE_GENERATOR,
           BOOLEAN_CODE_GENERATOR,
-          DOUBLE_CODE_GENERATOR);
+          DOUBLE_CODE_GENERATOR,
+          FLOAT_CODE_GENERATOR,
+          CHAR_CODE_GENERATOR,
+          SHORT_CODE_GENERATOR);
 
   private final ImmutableList<Marshaller> marshallers =
       ImmutableList.of(
@@ -337,20 +401,11 @@ class Marshallers {
           supplierMarshaller,
           contextMarshaller);
 
-  /** True when {@code type} has the same type as {@code clazz}. */
-  private boolean matchesType(TypeMirror type, Class<?> clazz) {
-    return env.getTypeUtils().isSameType(type, getType(clazz));
-  }
-
   /** True when erasure of {@code type} matches erasure of {@code clazz}. */
   private boolean matchesErased(TypeMirror type, Class<?> clazz) {
     return env.getTypeUtils()
-        .isSameType(env.getTypeUtils().erasure(type), env.getTypeUtils().erasure(getType(clazz)));
+        .isSameType(
+            env.getTypeUtils().erasure(type),
+            env.getTypeUtils().erasure(getTypeMirror(clazz, env)));
   }
-
-  /** Returns the TypeMirror corresponding to {@code clazz}. */
-  private TypeMirror getType(Class<?> clazz) {
-    return AutoCodecUtil.getType(clazz, env);
-  }
-
 }

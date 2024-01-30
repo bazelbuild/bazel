@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
-import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
 
@@ -65,8 +64,7 @@ public final class BazelPyRuleClasses {
           These are generally
           <a href="${link py_library}"><code>py_library</code></a> rules.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .override(
-              builder.copy("deps").mandatoryProviders(PyInfo.PROVIDER.id()).allowedFileTypes())
+          .override(builder.copy("deps"))
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->
           List of import directories to be added to the <code>PYTHONPATH</code>.
           <p>
