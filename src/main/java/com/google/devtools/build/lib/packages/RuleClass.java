@@ -2398,6 +2398,8 @@ public class RuleClass implements RuleClassData {
         // previously done implicitly as part of visiting all labels to check for null-ness in
         // Rule.checkForNullLabels, but that was changed to skip non-label attributes to improve
         // performance.
+        // TODO: b/287492305 - This is technically an illegal call to getPossibleValues as the
+        // package has not yet finished loading. Do we even need this still?
         ((ComputedDefault) defaultValue).getPossibleValues(attr.getType(), rule);
         valueToSet = defaultValue;
       } else {

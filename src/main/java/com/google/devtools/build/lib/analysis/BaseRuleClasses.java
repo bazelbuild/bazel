@@ -71,11 +71,6 @@ public class BaseRuleClasses {
         public Object getDefault(AttributeMap rule) {
           return rule.getPackageArgs().defaultTestOnly();
         }
-
-        @Override
-        public boolean resolvableWithRawAttributes() {
-          return true;
-        }
       };
 
   @SerializationConstant @VisibleForSerialization
@@ -84,11 +79,6 @@ public class BaseRuleClasses {
         @Override
         public Object getDefault(AttributeMap rule) {
           return rule.getPackageArgs().defaultDeprecation();
-        }
-
-        @Override
-        public boolean resolvableWithRawAttributes() {
-          return true;
         }
       };
 
@@ -106,11 +96,6 @@ public class BaseRuleClasses {
           }
           return "illegal";
         }
-
-        @Override
-        public boolean resolvableWithRawAttributes() {
-          return true;
-        }
       };
 
   @SerializationConstant @VisibleForSerialization
@@ -119,11 +104,6 @@ public class BaseRuleClasses {
         @Override
         public Object getDefault(AttributeMap rule) {
           return rule.getPackageArgs().defaultPackageMetadata();
-        }
-
-        @Override
-        public boolean resolvableWithRawAttributes() {
-          return true;
         }
       };
 
