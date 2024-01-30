@@ -789,7 +789,7 @@ public class RuleClass implements RuleClassData {
     /** This field and the next are null iff the rule is native. */
     @Nullable private Label ruleDefinitionEnvironmentLabel;
     @Nullable private byte[] ruleDefinitionEnvironmentDigest = null;
-    /** This filed is non-null iff the rule is a Starlark repo rule. */
+    /** This field is non-null iff the rule is a Starlark repo rule. */
     @Nullable private ImmutableTable<RepositoryName, String, RepositoryName> ruleDefinitionEnvironmentRepoMappingEntries;
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
