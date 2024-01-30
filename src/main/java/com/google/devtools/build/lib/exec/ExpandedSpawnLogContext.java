@@ -177,7 +177,12 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
 
           Digest digest =
               computeDigest(
-                  input, contentPath, inputMetadataProvider, xattrProvider, digestHashFunction);
+                  input,
+                  contentPath,
+                  inputMetadataProvider,
+                  xattrProvider,
+                  digestHashFunction,
+                  /* includeHashFunctionName= */ true);
 
           builder
               .addInputsBuilder()
@@ -213,7 +218,12 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
                 .setPath(output.getExecPathString())
                 .setDigest(
                     computeDigest(
-                        output, path, inputMetadataProvider, xattrProvider, digestHashFunction));
+                        output,
+                        path,
+                        inputMetadataProvider,
+                        xattrProvider,
+                        digestHashFunction,
+                        /* includeHashFunctionName= */ true));
           }
         } catch (IOException ex) {
           logger.atWarning().withCause(ex).log("Error computing spawn output properties");
@@ -332,7 +342,8 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
                       childContentPath,
                       inputMetadataProvider,
                       xattrProvider,
-                      digestHashFunction))
+                      digestHashFunction,
+                      /* includeHashFunctionName= */ true))
               .setIsTool(isTool)
               .build());
     }
