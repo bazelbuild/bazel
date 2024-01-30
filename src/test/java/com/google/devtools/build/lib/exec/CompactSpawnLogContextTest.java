@@ -198,8 +198,14 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
             builder.addActualOutputs(reconstructFile(dir, dirFile, hashFunctionName));
           }
           break;
-        case MISSING_PATH:
-          builder.addListedOutputs(output.getMissingPath());
+        case UNRESOLVED_SYMLINK_ID:
+          ExecLogEntry.UnresolvedSymlink symlink =
+              checkNotNull(entryMap.get(output.getUnresolvedSymlinkId())).getUnresolvedSymlink();
+          builder.addListedOutputs(symlink.getPath());
+          builder.addActualOutputs(reconstructSymlink(symlink));
+          break;
+        case INVALID_OUTPUT_PATH:
+          builder.addListedOutputs(output.getInvalidOutputPath());
           break;
         case TYPE_NOT_SET:
           throw new AssertionError("malformed log entry");
@@ -251,5 +257,12 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     }
 
     return builder.build();
+  }
+
+  private File reconstructSymlink(ExecLogEntry.UnresolvedSymlink symlink) {
+    return File.newBuilder()
+        .setPath(symlink.getPath())
+        .setSymlinkTargetPath(symlink.getTargetPath())
+        .build();
   }
 }
