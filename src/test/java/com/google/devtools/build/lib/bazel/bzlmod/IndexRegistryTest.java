@@ -16,7 +16,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -24,6 +23,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
 import com.google.devtools.build.lib.authandtls.Netrc;
 import com.google.devtools.build.lib.authandtls.NetrcCredentials;
@@ -74,11 +74,11 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.start();
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl() + "/myreg");
-    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
+    Truth8.assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue(
             ModuleFile.create(
                 "lol".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
-    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
+    Truth8.assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
   }
 
   @Test
@@ -98,11 +98,11 @@ public class IndexRegistryTest extends FoundationTestCase {
     assertThat(e).hasMessageThat().contains("GET returned 401 Unauthorized");
 
     downloadManager.setNetrcCreds(new NetrcCredentials(netrc));
-    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
+    Truth8.assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue(
             ModuleFile.create(
                 "lol".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
-    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
+    Truth8.assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
   }
 
   @Test
@@ -116,9 +116,9 @@ public class IndexRegistryTest extends FoundationTestCase {
     Registry registry =
         registryFactory.getRegistryWithUrl(
             new File(tempFolder.getRoot(), "fakereg").toURI().toString());
-    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
+    Truth8.assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue(ModuleFile.create("lol".getBytes(UTF_8), file.toURI().toString()));
-    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
+    Truth8.assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
   }
 
   @Test
@@ -293,7 +293,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
     Optional<ImmutableMap<Version, String>> yankedVersion =
         registry.getYankedVersions("red-pill", reporter);
-    assertThat(yankedVersion)
+    Truth8.assertThat(yankedVersion)
         .hasValue(
             ImmutableMap.of(
                 Version.parse("1.0"),

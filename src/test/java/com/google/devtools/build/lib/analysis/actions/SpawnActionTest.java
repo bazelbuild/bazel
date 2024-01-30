@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertThrows;
@@ -23,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -277,7 +277,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
         spawn.getInputFiles().toList().stream()
             .filter(i -> i instanceof VirtualActionInput)
             .findFirst();
-    assertThat(input).isPresent();
+    Truth8.assertThat(input).isPresent();
     VirtualActionInput paramFile = (VirtualActionInput) input.get();
     assertThat(paramFile.getBytes().toString(ISO_8859_1).trim()).isEqualTo("-X");
   }

@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -1944,7 +1944,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget lib = getConfiguredTarget("//foo:lib");
-    assertThat(
+    Truth8.assertThat(
             lib
                 .get(CcInfo.PROVIDER)
                 .getCcDebugInfoContext()
@@ -1953,7 +1953,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .stream()
                 .map(Artifact::getFilename))
         .contains("public_dep.dwo");
-    assertThat(
+    Truth8.assertThat(
             lib
                 .get(CcInfo.PROVIDER)
                 .getCcDebugInfoContext()
@@ -2319,7 +2319,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testLinkerInputAlwaysAddedEvenIfEmpty() throws Exception {
     AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
     scratch.file("foo/BUILD", "cc_library(", "    name = 'lib',", ")");
-    assertThat(
+    Truth8.assertThat(
             getConfiguredTarget("//foo:lib")
                 .get(CcInfo.PROVIDER)
                 .getCcLinkingContext()

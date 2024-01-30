@@ -14,7 +14,6 @@
 package net.starlark.java.eval;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
@@ -22,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.truth.Truth8;
 import com.google.errorprone.annotations.DoNotCall;
 import java.util.ArrayList;
 import java.util.List;
@@ -1408,7 +1408,7 @@ public final class StarlarkEvaluationTest {
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("StackOverflowError thrown during Starlark evaluation");
-    assertThat(stream(e.getStackTrace()).map(StackTraceElement::getMethodName))
+    Truth8.assertThat(stream(e.getStackTrace()).map(StackTraceElement::getMethodName))
         .containsExactly("stackoverflow", "<expr>")
         .inOrder();
     // The underlying exception is preserved as cause.
@@ -1421,7 +1421,7 @@ public final class StarlarkEvaluationTest {
     Starlark.UncheckedEvalError e =
         assertThrows(Starlark.UncheckedEvalError.class, () -> ev.eval("throwoom()"));
     assertThat(e).hasMessageThat().isEqualTo("OutOfMemoryError thrown during Starlark evaluation");
-    assertThat(stream(e.getStackTrace()).map(StackTraceElement::getMethodName))
+    Truth8.assertThat(stream(e.getStackTrace()).map(StackTraceElement::getMethodName))
         .containsExactly("throwoom", "<expr>")
         .inOrder();
     // The underlying exception is preserved as cause.
@@ -1437,7 +1437,7 @@ public final class StarlarkEvaluationTest {
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("NullPointerException thrown during Starlark evaluation");
-    assertThat(stream(e.getStackTrace()).map(StackTraceElement::getMethodName))
+    Truth8.assertThat(stream(e.getStackTrace()).map(StackTraceElement::getMethodName))
         .containsExactly("thrownpe", "<expr>")
         .inOrder();
     // The underlying exception is preserved as cause.

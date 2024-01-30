@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule.Options;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
@@ -188,7 +188,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(
+    Truth8.assertThat(
             line.getSections(3).getOptionList().getOptionList().stream()
                 .map(o -> o.getCombinedForm()))
         .containsExactly("--//test:cmdflag=666", "--//test:bazelrcflag=777");
