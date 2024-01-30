@@ -1344,13 +1344,6 @@ sh_test(
 )
 
 sh_test(
-    name = "platform_mapping_test",
-    srcs = ["platform_mapping_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "resource_compiler_toolchain_test",
     srcs = ["resource_compiler_toolchain_test.sh"],
     data = [

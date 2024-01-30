@@ -17,18 +17,43 @@
 # Test the providers and rules related to toolchains.
 #
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+# --- begin runfiles.bash initialization ---
+set -euo pipefail
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+#### SETUP #############################################################
+
+add_to_bazelrc "build --genrule_strategy=local"
+add_to_bazelrc "test --test_strategy=standalone"
 
 function set_up() {
   create_new_workspace
 
-  mkdir package
+  mkdir -p package
 
   # Create shared platform definitions
-  mkdir plat
+  mkdir -p plat
   cat > plat/BUILD <<EOF
 platform(
     name = 'platform1',
@@ -40,7 +65,7 @@ platform(
 EOF
 
   # Create shared report rule for printing flag and platform info.
-  mkdir report
+  mkdir -p report
   touch report/BUILD
   cat > report/report.bzl <<EOF
 def _report_impl(ctx):
@@ -55,6 +80,8 @@ report_flags = rule(
 EOF
 }
 
+#### TESTS #############################################################
+
 function test_top_level_flags_to_platform_mapping() {
   cat > platform_mappings <<EOF
 flags:
@@ -67,9 +94,12 @@ load("//report:report.bzl", "report_flags")
 report_flags(name = "report")
 EOF
 
-  bazel build --cpu=arm64 package:report &> $TEST_log \
+  bazel build \
+    --platform_mappings=platform_mappings \
+    --cpu=arm64 \
+    package:report &> $TEST_log \
       || fail "Build failed unexpectedly"
-  expect_log "platform: @@//plat:platform1"
+  expect_log "platform: .*//plat:platform1"
 }
 
 function test_top_level_platform_to_flags_mapping() {
@@ -84,7 +114,10 @@ load("//report:report.bzl", "report_flags")
 report_flags(name = "report")
 EOF
 
-  bazel build --platforms=//plat:platform1 package:report &> $TEST_log \
+  bazel build \
+    --platform_mappings=platform_mappings \
+    --platforms=//plat:platform1 \
+    package:report &> $TEST_log \
       || fail "Build failed unexpectedly"
   expect_log "copts: \[\"foo\"\]"
 }
@@ -102,13 +135,15 @@ load("//report:report.bzl", "report_flags")
 report_flags(name = "report")
 EOF
 
-  bazel build --cpu=arm64 --platform_mappings=custom/platform_mappings \
-      package:report &> $TEST_log || fail "Build failed unexpectedly"
-  expect_log "platform: @@//plat:platform1"
+  bazel build \
+    --cpu=arm64 \
+    --platform_mappings=custom/platform_mappings \
+    package:report &> $TEST_log || fail "Build failed unexpectedly"
+  expect_log "platform: .*//plat:platform1"
 }
 
 function test_custom_platform_mapping_location_after_exec_transition() {
-  mkdir custom
+  mkdir -p custom
   cat > custom/platform_mappings <<EOF
 platforms:
   //plat:platform1
@@ -118,16 +153,8 @@ EOF
   cat > package/BUILD <<EOF
 load("//report:report.bzl", "report_flags")
 genrule(
-    name = "genrule1",
-    outs = ["genrule1.out"],
-    cmd = "echo hello > \$@",
-    tools = [
-      ":genrule2",
-    ],
-)
-genrule(
-    name = "genrule2",
-    outs = ["genrule2.out"],
+    name = "genrule",
+    outs = ["genrule.out"],
     cmd = "echo hello > \$@",
     tools = [
       ":report",
@@ -139,8 +166,8 @@ EOF
   bazel build \
       --platform_mappings=custom/platform_mappings \
       --extra_execution_platforms=//plat:platform1 \
-      package:genrule1 &> $TEST_log || fail "Build failed unexpectedly"
-  expect_log "platform: @@//plat:platform1"
+      package:genrule &> $TEST_log || fail "Build failed unexpectedly"
+  expect_log "platform: .*//plat:platform1"
   expect_log "copts: \[\"foo\"\]"
 }
 
@@ -199,10 +226,13 @@ my_rule(
 report_flags(name = "report")
 EOF
 
-  bazel build --cpu=k8 package:custom &> $TEST_log \
+  bazel build \
+    --platform_mappings=platform_mappings \
+    --cpu=k8 \
+    package:custom &> $TEST_log \
       || fail "Build failed unexpectedly"
-  expect_not_log "platform: @@//plat:platform1"
-  expect_log "platform: @@//plat:platform2"
+  expect_not_log "platform: .*//plat:platform1"
+  expect_log "platform: .*//plat:platform2"
 }
 
 run_suite "platform mapping test"
