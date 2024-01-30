@@ -361,7 +361,7 @@ public class TestConfiguration extends Fragment {
     return testTimeout;
   }
 
-  /** Returns test resource mapping as set by --test_resources options. */
+  /** Returns test resource mapping as set by --default_test_resources options. */
   public ImmutableMap<String, Double> getTestResources(TestSize size) {
     return testResources.getOrDefault(size, ImmutableMap.of());
   }

@@ -64,10 +64,10 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
         "  tags = ['resources:gpu:4'],",
         ")");
     useConfiguration(
-        "--test_resources=memory=10,20,30,40",
-        "--test_resources=cpu=1,2,3,4",
-        "--test_resources=gpu=1",
-        "--test_resources=cpu=5");
+        "--default_test_resources=memory=10,20,30,40",
+        "--default_test_resources=cpu=1,2,3,4",
+        "--default_test_resources=gpu=1",
+        "--default_test_resources=cpu=5");
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)
