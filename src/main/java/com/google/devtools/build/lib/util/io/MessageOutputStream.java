@@ -18,12 +18,9 @@ import java.io.IOException;
 
 /** A variation of OutputStream for protobuf messages. */
 public interface MessageOutputStream<T extends Message> {
-  /**
-   * Writes a delimited protocol buffer message in the same format as {@link
-   * MessageLite#writeDelimitedTo(java.io.OutputStream)}.
-   */
+  /** Writes a protobuf message to the underlying stream. */
   void write(T m) throws IOException;
 
-  /** Closes the underlying stream, following writes will fail. */
+  /** Closes the underlying stream. Any following writes will fail. */
   void close() throws IOException;
 }
