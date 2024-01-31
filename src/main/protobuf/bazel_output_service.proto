@@ -62,7 +62,6 @@ service BazelOutputService {
 
   // Stage build artifacts at the given paths with digests that are known to the
   // Content Addressable Storage. Contents of these files can be lazily staged.
-  // The files may be later modified via FUSE operations.
   //
   // If any of the digests or paths are invalid an error is returned without
   // modifying anything. If some digests are unavailable, the corresponding
@@ -303,11 +302,11 @@ message BatchStatResponse {
     message Directory {
     }
 
-    message Special {
-    }
-
     // If the path resolves to a location outside the output path where the
     // server is unable to obtain its status, none of the file_type will be set.
+    //
+    // If the path resolves to a special file, none of the file_type will be
+    // set.
     oneof file_type {
       // The path resolves to a regular file.
       File file = 1;
@@ -317,9 +316,6 @@ message BatchStatResponse {
 
       // The path resolves to a directory.
       Directory directory = 3;
-
-      // The path resolves to a special file.
-      Special special = 4;
     }
   }
 
