@@ -2598,7 +2598,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "aazFN6GuLhvfkNKMuclv+T1HxL1E8g176trDl638NAs=",
+        "bzlTransitiveDigest": "g6qGPWUm4UpvMDi2JEl6cZAF/EKNUF5lycSDGGnF68Y=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
