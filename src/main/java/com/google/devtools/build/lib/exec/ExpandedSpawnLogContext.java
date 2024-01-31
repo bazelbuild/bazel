@@ -180,7 +180,8 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
             builder
                 .addInputsBuilder()
                 .setPath(displayPath.getPathString())
-                .setSymlinkTargetPath(metadata.getSymlinkTarget());
+                .setSymlinkTargetPath(metadata.getSymlinkTarget())
+                .setIsTool(isTool);
             continue;
           }
 
