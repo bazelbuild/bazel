@@ -297,6 +297,7 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
           convertedOutputStream.write(ex);
         }
       }
+      convertedOutputStream.close();
     } finally {
       try {
         tempPath.delete();
