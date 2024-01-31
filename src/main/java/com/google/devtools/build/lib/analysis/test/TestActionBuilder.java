@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -251,7 +250,7 @@ public final class TestActionBuilder {
     int shardCount = getShardCount(ruleContext);
 
     NestedSetBuilder<Artifact> lcovMergerFilesToRun = NestedSetBuilder.compileOrder();
-    RunfilesSupplier lcovMergerRunfilesSupplier = null;
+    Artifact lcovMergerRunfilesMiddleman = null;
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
@@ -309,7 +308,10 @@ public final class TestActionBuilder {
           extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
           inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
           lcovMergerFilesToRun.addTransitive(lcovFilesToRun.getFilesToRun());
-          lcovMergerRunfilesSupplier = lcovFilesToRun.getRunfilesSupplier();
+          if (lcovFilesToRun.getRunfilesSupport() != null) {
+            lcovMergerRunfilesMiddleman =
+                lcovFilesToRun.getRunfilesSupport().getRunfilesMiddleman();
+          }
         } else {
           NestedSet<Artifact> filesToBuild =
               lcovMerger.getProvider(FileProvider.class).getFilesToBuild();
@@ -418,6 +420,7 @@ public final class TestActionBuilder {
             new TestRunnerAction(
                 actionOwner,
                 inputs,
+                runfilesSupport.getRunfilesMiddleman(),
                 runfilesSupport,
                 testActionExecutable,
                 testXmlGeneratorExecutable,
@@ -444,7 +447,7 @@ public final class TestActionBuilder {
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
                 lcovMergerFilesToRun,
-                lcovMergerRunfilesSupplier,
+                lcovMergerRunfilesMiddleman,
                 // Network allowlist only makes sense in workspaces which explicitly add it, use an
                 // empty one as a fallback.
                 MoreObjects.firstNonNull(

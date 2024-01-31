@@ -21,18 +21,37 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A fake implementation of the {@link InputMetadataProvider} interface. */
 public final class FakeActionInputFileCache implements InputMetadataProvider {
+  private static final byte[] EMPTY_DIGEST = new byte[0];
+
   private final Map<ActionInput, FileArtifactValue> inputs = new HashMap<>();
+  private final Map<ActionInput, RunfilesArtifactValue> runfilesInputs = new HashMap<>();
+  private final List<RunfilesTree> runfilesTrees = new ArrayList<>();
 
   public FakeActionInputFileCache() {}
 
   public void put(ActionInput artifact, FileArtifactValue metadata) {
     inputs.put(artifact, metadata);
+  }
+
+  public void putRunfilesTree(ActionInput middleman, RunfilesTree runfilesTree) {
+    RunfilesArtifactValue runfilesArtifactValue =
+        new RunfilesArtifactValue(
+            FileArtifactValue.createForNormalFile(EMPTY_DIGEST, null, 0),
+            runfilesTree,
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of());
+    runfilesInputs.put(middleman, runfilesArtifactValue);
+    runfilesTrees.add(runfilesTree);
   }
 
   @Override
@@ -43,12 +62,12 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   @Override
   @Nullable
   public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
-    throw new UnsupportedOperationException();
+    return Preconditions.checkNotNull(runfilesInputs.get(input));
   }
 
   @Override
   public ImmutableList<RunfilesTree> getRunfilesTrees() {
-    return ImmutableList.of();
+    return ImmutableList.copyOf(runfilesTrees);
   }
 
   @Override
