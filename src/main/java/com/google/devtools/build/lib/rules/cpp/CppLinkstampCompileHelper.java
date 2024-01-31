@@ -198,7 +198,8 @@ public final class CppLinkstampCompileHelper {
               ccToolchainProvider,
               fdoBuildStamp,
               codeCoverageEnabled),
-          /* localDefines= */ ImmutableList.of());
+          /* localDefines= */ ImmutableList.of(),
+          /* virtualToOriginalDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
     }

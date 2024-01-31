@@ -369,7 +369,8 @@ public abstract class CcModule
                     Depset.noneableCast(
                         frameworkIncludeDirs, String.class, "framework_include_directories"),
                     Depset.noneableCast(defines, String.class, "preprocessor_defines").toList(),
-                    ImmutableList.of()))
+                    ImmutableList.of(),
+                    /* virtualToOriginalDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
             .addStringSequenceVariable("stripopts", asClassImmutableList(stripOpts));
     String inputFileString = convertFromNoneable(inputFile, null);
     if (inputFileString != null) {
@@ -807,6 +808,7 @@ public abstract class CcModule
       Object labelForMiddlemanNameObject,
       Object externalIncludes,
       Object virtualToOriginalHeaders,
+      Object virtualToOriginalDirs,
       Sequence<?> dependentCcCompilationContexts,
       Sequence<?> nonCodeInputs,
       Sequence<?> looseHdrsDirsObject,
@@ -877,6 +879,9 @@ public abstract class CcModule
 
     ccCompilationContext.addVirtualToOriginalHeaders(
         Depset.cast(virtualToOriginalHeaders, Tuple.class, "virtual_to_original_headers"));
+
+    ccCompilationContext.addVirtualToOriginalDirs(
+        Depset.cast(virtualToOriginalDirs, Tuple.class, "virtual_to_original_dirs"));
 
     ccCompilationContext.addDependentCcCompilationContexts(
         Sequence.cast(

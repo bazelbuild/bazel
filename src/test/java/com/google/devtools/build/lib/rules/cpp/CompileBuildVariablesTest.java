@@ -369,6 +369,71 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         .containsExactlyElementsIn(entries.build());
   }
 
+  @Test
+  public void testVirtualToOriginalDirsVariable() throws Exception {
+    MockPlatformSupport.addMockK8Platform(
+        mockToolsConfig, analysisMock.ccSupport().getMockCrosstoolLabel());
+    useConfiguration(
+        "--experimental_platforms=//mock_platform:mock-k8-platform",
+        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-k8",
+        "--incompatible_enable_cc_toolchain_resolution",
+        "-c", "fastbuild");
+
+    // Declare add'l external repository and standalone targets.
+    scratch.appendFile("WORKSPACE", "local_repository(", "    name = 'pkg',", "    path = '/foo')");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
+            Root.fromPath(rootDirectory));
+    scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
+    scratch.file(
+        "/foo/BUILD",
+        // No virtual includes.
+        "cc_library(name = 'foo',",
+        "           hdrs = ['foo.hpp'])",
+        // include_prefix only.
+        "cc_library(name = 'foo2',",
+        "           hdrs = ['foo.hpp'],",
+        "           include_prefix = 'prf')",
+        // strip_include_prefix
+        "cc_library(name = 'foo3',",
+        "           hdrs = ['dummy/foo3.hpp'],",
+        "           strip_include_prefix = 'dummy')"
+        );
+
+    // Define binary in toplevel workspace that depends on library from external
+    // repository.
+    scratch.file(
+        "x/BUILD",
+        "cc_library(name = 'bar',",
+        "           hdrs = ['bar.hpp'])",
+        "cc_library(name = 'baz',",
+        "           hdrs = ['v1/b/c.h'],",
+        "           strip_include_prefix='v1',",
+        "           include_prefix='lib')",
+        "cc_binary(name = 'bin',",
+        "          srcs = ['bin.cc'],",
+        "          deps = [':bar', ':baz', '@pkg//:foo', '@pkg//:foo2', '@pkg//:foo3'])");
+    scratch.file("x/bin.cc", "");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin.o");
+
+    ImmutableList<String> expected = ImmutableList.of(
+        "/k8-fastbuild/bin/x/_virtual_includes/baz/lib=x/v1",
+        "/k8-fastbuild/bin/external/pkg/_virtual_includes/foo2/prf=external/pkg",
+        "/k8-fastbuild/bin/external/pkg/_virtual_includes/foo3=external/pkg/dummy"
+    );
+    assertThat(
+        CcToolchainVariables.toStringList(
+            variables,
+            CompileBuildVariables.VIRTUAL_TO_ORIGINAL_DIRS.getVariableName())
+            .stream()
+            .map(x -> removeOutDirectory(x))
+            .collect(ImmutableList.toImmutableList()))
+        .containsExactlyElementsIn(expected);
+  }
+
   private String removeOutDirectory(String s) {
     return s.replace("blaze-out", "").replace("bazel-out", "");
   }

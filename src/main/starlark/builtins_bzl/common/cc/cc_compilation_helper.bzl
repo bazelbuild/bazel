@@ -102,10 +102,12 @@ def _compute_public_headers(
             module_map_headers = public_headers_artifacts,
             virtual_include_path = None,
             virtual_to_original_headers = depset(),
+            virtual_to_original_dirs = depset(),
         )
 
     module_map_headers = []
     virtual_to_original_headers_list = []
+    original_sentinel = None
     for original_header in public_headers_artifacts:
         repo_relative_path = _repo_relative_path(original_header)
         if not repo_relative_path.startswith(strip_prefix):
@@ -127,15 +129,33 @@ def _compute_public_headers(
             if config.coverage_enabled:
                 virtual_to_original_headers_list.append((virtual_header.path, original_header.path))
 
+            if original_sentinel == None:
+                original_sentinel = original_header
+
         module_map_headers.append(original_header)
 
     virtual_headers = module_map_headers + non_module_map_headers
 
+    virtual_include_path = cc_internal.bin_or_genfiles_relative_to_unique_directory(actions = actions, unique_directory = _VIRTUAL_INCLUDES_DIR)
+
+    if original_sentinel == None:
+        virtual_to_original_dirs = depset()
+    else:
+        virtual_dir = virtual_include_path
+        if include_prefix:
+            virtual_dir = paths.join(virtual_dir, include_prefix)
+        # rstrip in case `label.package` is "" (`paths.join('foo', '')` -> `foo/`),
+        # such as when the label refers to the target in the root/toplevel package
+        # of an external repository.
+        original_dir = paths.join(label.workspace_root, strip_prefix or label.package).rstrip("/")
+        virtual_to_original_dirs = depset(((virtual_dir, original_dir),))  # singleton
+
     return struct(
         headers = virtual_headers,
         module_map_headers = module_map_headers,
-        virtual_include_path = cc_internal.bin_or_genfiles_relative_to_unique_directory(actions = actions, unique_directory = _VIRTUAL_INCLUDES_DIR),
+        virtual_include_path = virtual_include_path,
         virtual_to_original_headers = depset(virtual_to_original_headers_list),
+        virtual_to_original_dirs = virtual_to_original_dirs,
     )
 
 def _generates_header_module(feature_configuration, public_headers, private_headers, generate_action):
@@ -396,6 +416,7 @@ def _init_cc_compilation_context(
         system_includes = depset(system_include_dirs_for_context),
         includes = depset(include_dirs_for_context),
         virtual_to_original_headers = virtual_to_original_headers,
+        virtual_to_original_dirs = public_headers.virtual_to_original_dirs,
         dependent_cc_compilation_contexts = dependent_cc_compilation_contexts,
         non_code_inputs = additional_inputs,
         defines = depset(defines),
@@ -425,6 +446,7 @@ def _init_cc_compilation_context(
             system_includes = depset(system_include_dirs_for_context),
             includes = depset(include_dirs_for_context),
             virtual_to_original_headers = virtual_to_original_headers,
+            virtual_to_original_dirs = public_headers.virtual_to_original_dirs,
             dependent_cc_compilation_contexts = dependent_cc_compilation_contexts + implementation_deps,
             non_code_inputs = additional_inputs,
             defines = depset(defines),

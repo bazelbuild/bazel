@@ -791,6 +791,21 @@ def _impl(ctx):
         ],
     )
 
+    virtual_prefix_map_feature = feature(
+        name = "virtual_prefix_map",
+        flag_sets = [
+            flag_set(
+                actions = all_compile_actions,
+                flag_groups = [
+                    flag_group(
+                        flags = ["-ffile-prefix-map=%{virtual_to_original_dirs}"],
+                        iterate_over = "virtual_to_original_dirs",
+                    ),
+                ],
+            ),
+        ],
+    )
+
     strip_debug_symbols_feature = feature(
         name = "strip_debug_symbols",
         flag_sets = [
@@ -1390,6 +1405,7 @@ def _impl(ctx):
             archiver_flags_feature,
             force_pic_flags_feature,
             fission_support_feature,
+            virtual_prefix_map_feature,
             strip_debug_symbols_feature,
             coverage_feature,
             supports_pic_feature,

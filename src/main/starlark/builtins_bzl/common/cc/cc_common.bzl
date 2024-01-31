@@ -432,6 +432,7 @@ def _create_compilation_context(
         label = _UNBOUND,
         external_includes = _UNBOUND,
         virtual_to_original_headers = _UNBOUND,
+        virtual_to_original_dirs = _UNBOUND,
         dependent_cc_compilation_contexts = _UNBOUND,
         non_code_inputs = _UNBOUND,
         headers_checking_mode = _UNBOUND,
@@ -447,6 +448,7 @@ def _create_compilation_context(
        actions != _UNBOUND or \
        external_includes != _UNBOUND or \
        virtual_to_original_headers != _UNBOUND or \
+       virtual_to_original_dirs != _UNBOUND or \
        dependent_cc_compilation_contexts != _UNBOUND or \
        non_code_inputs != _UNBOUND or \
        headers_checking_mode != _UNBOUND or \
@@ -471,6 +473,8 @@ def _create_compilation_context(
         external_includes = depset()
     if virtual_to_original_headers == _UNBOUND:
         virtual_to_original_headers = depset()
+    if virtual_to_original_dirs == _UNBOUND:
+        virtual_to_original_dirs = depset()
     if dependent_cc_compilation_contexts == _UNBOUND:
         dependent_cc_compilation_contexts = []
     if non_code_inputs == _UNBOUND:
@@ -508,6 +512,7 @@ def _create_compilation_context(
         label = label,
         external_includes = external_includes,
         virtual_to_original_headers = virtual_to_original_headers,
+        virtual_to_original_dirs = virtual_to_original_dirs,
         dependent_cc_compilation_contexts = dependent_cc_compilation_contexts,
         non_code_inputs = non_code_inputs,
         loose_hdrs_dirs = [],

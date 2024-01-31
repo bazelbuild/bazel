@@ -170,6 +170,12 @@ public interface CcCompilationContextApi<
   Depset getStarlarkVirtualToOriginalHeaders(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "virtual_to_original_dirs",
+      documented = false,
+      useStarlarkThread = true)
+  Depset getStarlarkVirtualToOriginalDirs(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "module_map",
       documented = false,
       useStarlarkThread = true,

@@ -1280,6 +1280,12 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
         @Param(
+            name = "virtual_to_original_dirs",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
             name = "dependent_cc_compilation_contexts",
             documented = false,
             positional = false,
@@ -1363,6 +1369,7 @@ public interface CcModuleApi<
       Object labelForMiddlemanNameObject,
       Object externalIncludes,
       Object virtualToOriginalHeaders,
+      Object virtualToOriginalDirs,
       Sequence<?> dependentCcCompilationContexts,
       Sequence<?> nonCodeInputs,
       Sequence<?> looseHdrsDirs,

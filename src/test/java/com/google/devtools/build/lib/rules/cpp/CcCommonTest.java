@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.List;
+import net.starlark.java.eval.Tuple;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -886,6 +887,18 @@ public class CcCommonTest extends BuildViewTestCase {
             getTargetConfiguration()
                 .getBinFragment(RepositoryName.MAIN)
                 .getRelative("third_party/a/_virtual_includes/a"));
+
+    Tuple t = Tuple.of(
+        getTargetConfiguration()
+            .getBinFragment(RepositoryName.MAIN)
+            .getRelative("third_party/a/_virtual_includes/a/lib")
+            .getPathString(),
+        lib.getLabel()
+            .getPackageFragment()
+            .getRelative("v1")
+            .getPathString()
+    );
+    assertThat(ccCompilationContext.getVirtualToOriginalDirs().toList()).containsExactly(t);
   }
 
   @Test
@@ -917,12 +930,14 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='relative', hdrs=['v1/b.h'], strip_include_prefix='v1')",
         "cc_library(name='absolute', hdrs=['v1/b.h'], strip_include_prefix='/third_party')");
 
+    ConfiguredTarget relativeTarget = getConfiguredTarget("//third_party/a:relative");
+    ConfiguredTarget absoluteTarget = getConfiguredTarget("//third_party/a:absolute");
     CcCompilationContext relative =
-        getConfiguredTarget("//third_party/a:relative")
+        relativeTarget
             .get(CcInfo.PROVIDER)
             .getCcCompilationContext();
     CcCompilationContext absolute =
-        getConfiguredTarget("//third_party/a:absolute")
+        absoluteTarget
             .get(CcInfo.PROVIDER)
             .getCcCompilationContext();
 
@@ -931,6 +946,26 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.prettyArtifactNames(absolute.getDeclaredIncludeSrcs()))
         .containsExactly(
             "third_party/a/_virtual_includes/absolute/a/v1/b.h", "third_party/a/v1/b.h");
+
+    Tuple tRel = Tuple.of(
+        getTargetConfiguration()
+            .getBinFragment(RepositoryName.MAIN)
+            .getRelative("third_party/a/_virtual_includes/relative")
+            .getPathString(),
+        relativeTarget
+            .getLabel()
+            .getPackageFragment()
+            .getRelative("v1")
+            .getPathString());
+    assertThat(relative.getVirtualToOriginalDirs().toList()).containsExactly(tRel);
+
+    Tuple tAbs = Tuple.of(
+        getTargetConfiguration()
+            .getBinFragment(RepositoryName.MAIN)
+            .getRelative("third_party/a/_virtual_includes/absolute")
+            .getPathString(),
+        "third_party");
+    assertThat(absolute.getVirtualToOriginalDirs().toList()).containsExactly(tAbs);
   }
 
   @Test

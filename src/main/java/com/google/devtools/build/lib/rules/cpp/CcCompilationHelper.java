@@ -1332,7 +1332,8 @@ public final class CcCompilationHelper {
           ccCompilationContext.getSystemIncludeDirs(),
           ccCompilationContext.getFrameworkIncludeDirs(),
           ccCompilationContext.getDefines(),
-          ccCompilationContext.getNonTransitiveDefines());
+          ccCompilationContext.getNonTransitiveDefines(),
+          ccCompilationContext.getVirtualToOriginalDirs());
 
       if (usePrebuiltParent) {
         parent = buildVariables.build();

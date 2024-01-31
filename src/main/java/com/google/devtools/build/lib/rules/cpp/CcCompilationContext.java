@@ -94,6 +94,16 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   // This is needed only when code coverage collection is enabled, to report the actual source file
   // name in the coverage output file.
   private final NestedSet<Tuple> virtualToOriginalHeaders;
+
+  /**
+   * Preserves mappings of _virtual_include directories to original paths relative to
+   * the workspace directory.  Intended for use by compiler options like GCC's
+   * {@code -fdebug-prefix-map}.  See {@link virtualToOriginalHeaders} for additional
+   * context.  Unlike {@link virtualToOriginalHeaders}, this is populated even if
+   * coverage isn't enabled.
+   */
+  private final NestedSet<Tuple> virtualToOriginalDirs;
+
   /**
    * Caches the actual number of transitive headers reachable through transitiveHeaderInfos. We need
    * to create maps to store these and so caching this count can substantially help with memory
@@ -116,6 +126,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       CppModuleMap cppModuleMap,
       boolean propagateModuleMapAsActionInput,
       NestedSet<Tuple> virtualToOriginalHeaders,
+      NestedSet<Tuple> virtualToOriginalDirs,
       NestedSet<Artifact> headerTokens) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
@@ -130,6 +141,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     this.compilationPrerequisites = compilationPrerequisites;
     this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
     this.virtualToOriginalHeaders = virtualToOriginalHeaders;
+    this.virtualToOriginalDirs = virtualToOriginalDirs;
     this.transitiveHeaderCount = -1;
     this.headerTokens = headerTokens;
   }
@@ -251,6 +263,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   public Depset getStarlarkVirtualToOriginalHeaders(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return Depset.of(Tuple.class, getVirtualToOriginalHeaders());
+  }
+
+  @Override
+  public Depset getStarlarkVirtualToOriginalDirs(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Tuple.class, getVirtualToOriginalDirs());
   }
 
   @Override
@@ -648,6 +666,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ccCompilationContext.cppModuleMap,
         ccCompilationContext.propagateModuleMapAsActionInput,
         ccCompilationContext.virtualToOriginalHeaders,
+        ccCompilationContext.virtualToOriginalDirs,
         headerTokens.build());
   }
 
@@ -663,6 +682,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   public NestedSet<Tuple> getVirtualToOriginalHeaders() {
     return virtualToOriginalHeaders;
+  }
+
+  public NestedSet<Tuple> getVirtualToOriginalDirs() {
+    return virtualToOriginalDirs;
   }
 
   /**
@@ -725,6 +748,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private CppModuleMap cppModuleMap;
     private boolean propagateModuleMapAsActionInput = true;
     private final NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<Tuple> virtualToOriginalDirs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
 
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
@@ -799,6 +823,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       allDefines.addTransitive(otherCcCompilationContext.getDefines());
       virtualToOriginalHeaders.addTransitive(
           otherCcCompilationContext.getVirtualToOriginalHeaders());
+      virtualToOriginalDirs.addTransitive(
+          otherCcCompilationContext.getVirtualToOriginalDirs());
 
       headerTokens.addTransitive(otherCcCompilationContext.getHeaderTokens());
     }
@@ -1073,6 +1099,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder addVirtualToOriginalDirs(NestedSet<Tuple> virtualToOriginalDirs) {
+      this.virtualToOriginalDirs.addTransitive(virtualToOriginalDirs);
+      return this;
+    }
+
     /** Builds the {@link CcCompilationContext}. */
     public CcCompilationContext build() {
       TransitiveSetHelper<String> allDefines = new TransitiveSetHelper<>();
@@ -1114,6 +1146,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           cppModuleMap,
           propagateModuleMapAsActionInput,
           virtualToOriginalHeaders.build(),
+          virtualToOriginalDirs.build(),
           headerTokens.build());
     }
 

@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /** Enum covering all build variables we create for all various {@link CppCompileAction}. */
 public enum CompileBuildVariables {
@@ -130,7 +131,12 @@ public enum CompileBuildVariables {
   /** Path to the memprof profile artifact */
   MEMPROF_PROFILE_PATH("memprof_profile_path"),
   /** Variable for includes that compiler needs to include into sources. */
-  INCLUDES("includes");
+  INCLUDES("includes"),
+  /**
+   * A list of VIRTUAL=ORIGINAL include paths for "virtual" includes.
+   * Intended for use with gcc's -fdebug-prefix-map.
+   */
+  VIRTUAL_TO_ORIGINAL_DIRS("virtual_to_original_dirs");
 
   private final String variableName;
 
@@ -166,7 +172,8 @@ public enum CompileBuildVariables {
       NestedSet<PathFragment> systemIncludeDirs,
       NestedSet<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
-      Iterable<String> localDefines)
+      Iterable<String> localDefines,
+      NestedSet<Tuple> virtualToOriginalDirs)
       throws InterruptedException {
     try {
       if (usePic
@@ -201,7 +208,8 @@ public enum CompileBuildVariables {
           getSafePathStrings(systemIncludeDirs),
           getSafePathStrings(frameworkIncludeDirs),
           defines,
-          localDefines);
+          localDefines,
+          virtualToOriginalDirs);
     } catch (EvalException e) {
       ruleErrorConsumer.ruleError(e.getMessage());
       return CcToolchainVariables.EMPTY;
@@ -235,7 +243,8 @@ public enum CompileBuildVariables {
       NestedSet<String> systemIncludeDirs,
       NestedSet<String> frameworkIncludeDirs,
       Iterable<String> defines,
-      Iterable<String> localDefines)
+      Iterable<String> localDefines,
+      NestedSet<Tuple> virtualToOriginalDirs)
       throws EvalException, InterruptedException {
     if (usePic
         && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
@@ -269,7 +278,8 @@ public enum CompileBuildVariables {
         systemIncludeDirs,
         frameworkIncludeDirs,
         defines,
-        localDefines);
+        localDefines,
+        virtualToOriginalDirs);
   }
 
   private static CcToolchainVariables setupVariables(
@@ -299,7 +309,8 @@ public enum CompileBuildVariables {
       NestedSet<String> systemIncludeDirs,
       NestedSet<String> frameworkIncludeDirs,
       Iterable<String> defines,
-      Iterable<String> localDefines) {
+      Iterable<String> localDefines,
+      NestedSet<Tuple> virtualToOriginalDirs) {
     CcToolchainVariables.Builder buildVariables = CcToolchainVariables.builder(parent);
     setupCommonVariablesInternal(
         buildVariables,
@@ -315,7 +326,8 @@ public enum CompileBuildVariables {
         systemIncludeDirs,
         frameworkIncludeDirs,
         defines,
-        localDefines);
+        localDefines,
+        virtualToOriginalDirs);
     setupSpecificVariables(
         buildVariables,
         sourceFile,
@@ -430,7 +442,8 @@ public enum CompileBuildVariables {
       List<PathFragment> systemIncludeDirs,
       List<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
-      Iterable<String> localDefines) {
+      Iterable<String> localDefines,
+      NestedSet<Tuple> virtualToOriginalDirs) {
     setupCommonVariablesInternal(
         buildVariables,
         featureConfiguration,
@@ -445,7 +458,8 @@ public enum CompileBuildVariables {
         getSafePathStrings(systemIncludeDirs),
         getSafePathStrings(frameworkIncludeDirs),
         defines,
-        localDefines);
+        localDefines,
+        virtualToOriginalDirs);
   }
 
   private static void setupCommonVariablesInternal(
@@ -462,7 +476,8 @@ public enum CompileBuildVariables {
       NestedSet<String> systemIncludeDirs,
       NestedSet<String> frameworkIncludeDirs,
       Iterable<String> defines,
-      Iterable<String> localDefines) {
+      Iterable<String> localDefines,
+      NestedSet<Tuple> virtualToOriginalDirs) {
     Preconditions.checkNotNull(directModuleMaps);
     Preconditions.checkNotNull(includeDirs);
     Preconditions.checkNotNull(quoteIncludeDirs);
@@ -470,6 +485,7 @@ public enum CompileBuildVariables {
     Preconditions.checkNotNull(frameworkIncludeDirs);
     Preconditions.checkNotNull(defines);
     Preconditions.checkNotNull(localDefines);
+    Preconditions.checkNotNull(virtualToOriginalDirs);
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
       buildVariables.addStringVariable(MODULE_NAME.getVariableName(), cppModuleMap.getName());
@@ -509,6 +525,17 @@ public enum CompileBuildVariables {
     }
 
     buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);
+
+    if (!virtualToOriginalDirs.isEmpty()) {
+      buildVariables.addStringSequenceVariable(
+          VIRTUAL_TO_ORIGINAL_DIRS.getVariableName(),
+          Iterables.transform(
+              virtualToOriginalDirs.toList(),
+              vToA -> vToA.get(0) + "=" + vToA.get(1)));
+    } else {
+      buildVariables.addStringSequenceVariable(VIRTUAL_TO_ORIGINAL_DIRS.getVariableName(),
+          ImmutableList.of());
+    }
 
     buildVariables.addAllStringVariables(additionalBuildVariables);
     for (VariablesExtension extension : variablesExtensions) {
