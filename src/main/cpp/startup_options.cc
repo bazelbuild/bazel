@@ -277,10 +277,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              nullptr) {
     failure_detail_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
     option_sources["failure_detail_out"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_profile")) !=
-             nullptr) {
-    host_jvm_profile = value;
-    option_sources["host_jvm_profile"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--server_javabase")) !=
              nullptr) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case

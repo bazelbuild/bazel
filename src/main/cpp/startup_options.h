@@ -167,8 +167,6 @@ class StartupOptions {
 
   bool autodetect_server_javabase;
 
-  std::string host_jvm_profile;
-
   std::vector<std::string> host_jvm_args;
 
   bool batch;

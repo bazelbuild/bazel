@@ -49,15 +49,6 @@ public class HostJvmStartupOptions extends OptionsBase {
   public List<String> hostJvmArgs;
 
   @Option(
-      name = "host_jvm_profile",
-      defaultValue = "", // NOTE: purely decorative!  See BlazeServerStartupOptions.
-      valueHelp = "<profiler_name>",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "Deprecated no-op.")
-  public String hostJvmProfile;
-
-  @Option(
     name = "host_jvm_debug",
     defaultValue = "null", // NOTE: purely decorative!  See BlazeServerStartupOptions.
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
