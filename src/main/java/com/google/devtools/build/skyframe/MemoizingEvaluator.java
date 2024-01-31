@@ -148,11 +148,10 @@ public interface MemoizingEvaluator {
    * the graph.
    *
    * <p>May be called multiple times, in which case the effective graph is the result of
-   * sequentially applying all transformers in an undefined order.
+   * sequentially applying all transformers in the order in which they were passed to this method.
    *
    * <p>Must only be called in tests.
    */
-  // TODO: b/228318515 - Define an order for transforms to be applied.
   void injectGraphTransformerForTesting(GraphTransformerForTesting transformer);
 
   /** Transforms a graph, possibly injecting other functionality. */

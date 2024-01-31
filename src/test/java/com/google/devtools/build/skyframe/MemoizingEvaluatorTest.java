@@ -26,6 +26,7 @@ import static com.google.devtools.build.skyframe.GraphTester.nonHermeticKey;
 import static com.google.devtools.build.skyframe.GraphTester.skyKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -81,6 +82,7 @@ import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.InOrder;
 
 /** Tests for a {@link MemoizingEvaluator}. */
 public abstract class MemoizingEvaluatorTest {
@@ -195,20 +197,23 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void injectMultipleGraphTransformers() throws Exception {
-    Listener listener1 = mock(Listener.class);
-    Listener listener2 = mock(Listener.class);
+    Listener inner = mock(Listener.class);
+    Listener outer = mock(Listener.class);
     tester.evaluator.injectGraphTransformerForTesting(
-        NotifyingHelper.makeNotifyingTransformer(listener1));
+        NotifyingHelper.makeNotifyingTransformer(inner));
     tester.evaluator.injectGraphTransformerForTesting(
-        NotifyingHelper.makeNotifyingTransformer(listener2));
+        NotifyingHelper.makeNotifyingTransformer(outer));
     SkyKey key = skyKey("key");
     SkyValue val = new StringValue("val");
     tester.getOrCreate(key).setConstantValue(val);
 
     assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(val);
 
-    verify(listener1).accept(key, EventType.GET_BATCH, Order.BEFORE, Reason.PRE_OR_POST_EVALUATION);
-    verify(listener2).accept(key, EventType.GET_BATCH, Order.BEFORE, Reason.PRE_OR_POST_EVALUATION);
+    InOrder inOrder = inOrder(inner, outer);
+    inOrder.verify(outer).accept(key, EventType.SET_VALUE, Order.BEFORE, val);
+    inOrder.verify(inner).accept(key, EventType.SET_VALUE, Order.BEFORE, val);
+    inOrder.verify(inner).accept(key, EventType.SET_VALUE, Order.AFTER, val);
+    inOrder.verify(outer).accept(key, EventType.SET_VALUE, Order.AFTER, val);
   }
 
   @Test
