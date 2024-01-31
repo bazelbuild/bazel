@@ -48,6 +48,7 @@ def integrity(data):
 
 def scratchFile(path, lines=None):
   """Creates a file at the given path with the given content."""
+  os.makedirs(str(path.parent), exist_ok=True)
   with open(str(path), 'w') as f:
     if lines:
       for l in lines:
