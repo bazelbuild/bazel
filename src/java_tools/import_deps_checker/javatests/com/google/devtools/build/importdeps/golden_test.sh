@@ -54,7 +54,8 @@ if [[ "${checker_ret}" != ${expected_exit_code} ]]; then
   exit 1 # Exit with an error.
 fi
 
-diff "${gold_output_file}" <($PRINT_JDEPS_PROTO "${output_file}")
+# Correct for different paths between Blaze and Bazel.
+diff <(sed 's|third_party/bazel/||g' "${gold_output_file}") <($PRINT_JDEPS_PROTO "${output_file}" | sed 's|third_party/bazel/||g')
 gold_output_ret=$?
 
 if [[ "${gold_output_ret}" != 0 ]] ; then
@@ -71,7 +72,8 @@ if [[ "${gold_output_ret}" != 0 ]] ; then
   exit 1
 fi
 
-diff "${gold_stderr_file}" "${checker_stderr}"
+# Correct for different paths between Blaze and Bazel.
+diff <(sed 's|third_party/bazel/||g' "${gold_stderr_file}") <(sed 's|third_party/bazel/||g' "${checker_stderr}")
 gold_stderr_ret=$?
 
 if [[ "${gold_stderr_ret}" != 0 ]]; then

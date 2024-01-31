@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -213,7 +213,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     NestedSet<LibraryToLink> librariesForTopTarget =
         javaInfoProvider.getTransitiveNativeLibraries();
-    assertThat(librariesForTopTarget.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+    Truth8.assertThat(
+            librariesForTopTarget.toList().stream().map(LibraryToLink::getLibraryIdentifier))
         .contains("foo/libmy_cc_lib_direct");
   }
 

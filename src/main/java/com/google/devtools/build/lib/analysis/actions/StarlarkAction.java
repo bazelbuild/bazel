@@ -372,11 +372,13 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
-    Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
+    Spawn getSpawnForExtraActionSpawnInfo()
+        throws CommandLineExpansionException, InterruptedException {
       if (shadowedAction.isPresent()) {
-        return getSpawn(createInputs(shadowedAction.get().getInputs(), allStarlarkActionInputs));
+        return this.getSpawnForExtraActionSpawnInfo(
+            createInputs(shadowedAction.get().getInputs(), allStarlarkActionInputs));
       }
-      return getSpawn(allStarlarkActionInputs);
+      return this.getSpawnForExtraActionSpawnInfo(allStarlarkActionInputs);
     }
 
     @Nullable
@@ -418,10 +420,9 @@ public class StarlarkAction extends SpawnAction {
     public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
         throws CommandLineExpansionException, InterruptedException {
       return getSpawn(
-          actionExecutionContext.getArtifactExpander(),
+          actionExecutionContext,
           getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
           /* envResolved= */ true,
-          actionExecutionContext.getTopLevelFilesets(),
           /* reportOutputs= */ true);
     }
 

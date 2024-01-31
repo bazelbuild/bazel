@@ -82,6 +82,7 @@ java_library(
     srcs = [
         "BuildConfigurationKey.java",
         "BuildConfigurationKeyValue.java",
+        "NativeAndStarlarkFlags.java",
         "PlatformMappingValue.java",
     ],
     deps = [

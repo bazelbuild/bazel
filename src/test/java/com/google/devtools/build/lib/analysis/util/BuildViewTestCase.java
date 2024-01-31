@@ -57,9 +57,11 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
+import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
@@ -101,6 +103,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -117,6 +120,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
@@ -945,6 +949,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else {
       return null;
     }
+  }
+
+  protected RunfilesTree runfilesTreeFor(TestRunnerAction testRunnerAction) throws Exception {
+    Artifact middleman = testRunnerAction.getRunfilesMiddleman();
+    MiddlemanAction middlemanAction = (MiddlemanAction) getGeneratingAction(middleman);
+    return middlemanAction.getRunfilesTree();
+  }
+
+  protected FakeActionInputFileCache inputMetadataFor(TestRunnerAction testRunnerAction)
+      throws Exception {
+    FakeActionInputFileCache result = new FakeActionInputFileCache();
+    result.putRunfilesTree(
+        testRunnerAction.getRunfilesMiddleman(), runfilesTreeFor(testRunnerAction));
+    return result;
   }
 
   private static Artifact findArtifactNamed(

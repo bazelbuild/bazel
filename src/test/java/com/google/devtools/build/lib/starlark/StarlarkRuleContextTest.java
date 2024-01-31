@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
@@ -27,6 +26,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -676,7 +676,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(action.getUnusedInputsList()).isPresent();
+    Truth8.assertThat(action.getUnusedInputsList()).isPresent();
     assertThat(action.getUnusedInputsList().get().getFilename()).isEqualTo("a.txt");
     assertThat(action.discoversInputs()).isTrue();
     assertThat(action.isShareable()).isFalse();
@@ -922,7 +922,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(action.getUnusedInputsList()).isEmpty();
+    Truth8.assertThat(action.getUnusedInputsList()).isEmpty();
     assertThat(action.discoversInputs()).isFalse();
   }
 

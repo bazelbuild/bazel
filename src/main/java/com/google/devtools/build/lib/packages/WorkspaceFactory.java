@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
@@ -266,7 +266,7 @@ public class WorkspaceFactory {
                   thread.getCallStack());
           RepositoryName.validateUserProvidedRepoName(rule.getName());
         } catch (RuleFactory.InvalidRuleException
-            | Package.NameConflictException
+            | NameConflictException
             | LabelSyntaxException e) {
           throw new EvalException(e);
         }

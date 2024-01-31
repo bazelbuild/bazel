@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.truth.Truth8;
 import java.time.Duration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,9 +64,9 @@ public final class TerminationStatusTest {
   public void testBuilder_withNoExecutionTime() {
     TerminationStatus terminationStatus =
         TerminationStatus.builder().setWaitResponse(0).setTimedOut(false).build();
-    assertThat(terminationStatus.getWallExecutionTime()).isEmpty();
-    assertThat(terminationStatus.getUserExecutionTime()).isEmpty();
-    assertThat(terminationStatus.getSystemExecutionTime()).isEmpty();
+    Truth8.assertThat(terminationStatus.getWallExecutionTime()).isEmpty();
+    Truth8.assertThat(terminationStatus.getUserExecutionTime()).isEmpty();
+    Truth8.assertThat(terminationStatus.getSystemExecutionTime()).isEmpty();
   }
 
   @Test
@@ -79,11 +79,11 @@ public final class TerminationStatusTest {
             .setUserExecutionTime(Duration.ofMillis(1492))
             .setSystemExecutionTime(Duration.ofMillis(1787))
             .build();
-    assertThat(terminationStatus.getWallExecutionTime()).isPresent();
-    assertThat(terminationStatus.getWallExecutionTime()).hasValue(Duration.ofMillis(1929));
-    assertThat(terminationStatus.getUserExecutionTime()).isPresent();
-    assertThat(terminationStatus.getUserExecutionTime()).hasValue(Duration.ofMillis(1492));
-    assertThat(terminationStatus.getSystemExecutionTime()).isPresent();
-    assertThat(terminationStatus.getSystemExecutionTime()).hasValue(Duration.ofMillis(1787));
+    Truth8.assertThat(terminationStatus.getWallExecutionTime()).isPresent();
+    Truth8.assertThat(terminationStatus.getWallExecutionTime()).hasValue(Duration.ofMillis(1929));
+    Truth8.assertThat(terminationStatus.getUserExecutionTime()).isPresent();
+    Truth8.assertThat(terminationStatus.getUserExecutionTime()).hasValue(Duration.ofMillis(1492));
+    Truth8.assertThat(terminationStatus.getSystemExecutionTime()).isPresent();
+    Truth8.assertThat(terminationStatus.getSystemExecutionTime()).hasValue(Duration.ofMillis(1787));
   }
 }

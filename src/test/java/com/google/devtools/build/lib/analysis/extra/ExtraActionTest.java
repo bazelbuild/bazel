@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
@@ -160,7 +161,7 @@ public class ExtraActionTest extends FoundationTestCase {
         extraAction.execute(
             new ActionExecutionContext(
                 testExecutor,
-                /* inputMetadataProvider= */ null,
+                new FakeActionInputFileCache(),
                 ActionInputPrefetcher.NONE,
                 actionKeyContext,
                 /* outputMetadataStore= */ null,

@@ -190,7 +190,7 @@ Timestamps (`ts`) and durations (`dur`) in the trace events are given in
 microseconds. The category (`cat`) is one of enum values of `ProfilerTask`.
 Note that some events are merged together if they are very short and close to
 each other; pass
-[`--noslim_json_profile`](/reference/command-line-reference#flag--slim_profile)
+[`--noslim_profile`](/reference/command-line-reference#flag--slim_profile)
 if you would like to prevent event merging.
 
 See also the

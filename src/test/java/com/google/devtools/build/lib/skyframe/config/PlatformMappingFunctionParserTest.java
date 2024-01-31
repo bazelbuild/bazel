@@ -425,6 +425,7 @@ public class PlatformMappingFunctionParserTest {
     return PlatformMappingFunction.parse(
         /* env= */ null,
         ImmutableList.copyOf(lines),
+        /* optionsClasses= */ ImmutableSet.of(),
         RepoContext.of(RepositoryName.MAIN, mainRepoMapping));
   }
 }

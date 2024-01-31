@@ -1,3 +1,25 @@
+## Release 8.0.0-pre.20240108.6 (2024-01-29)
+
+```
+Baseline: 8e8ddaba0e90c280bfd85644d6ccd91df5b6d353
+
+Cherry picks:
+
+   + bbc51a06ba4db1c88bfce6dfa3c7b0622cb56d72:
+     Fix `cc_test` coverage broken by
+     https://github.com/bazelbuild/bazel/commit/92cba040904c2ccbd0b5a7
+     0263de739f72c592ae
+   + 162cacd30dc19352ec34fe1de6a056d6b1ee9374:
+     Automated rollback of commit
+     915fb3e861dd28e16f42072101adf498242d26d0.
+   + 7788abb73f09921197d27c45ac9eb23b5a4f89a0:
+     Release 8.0.0-pre.20240108.6 (2024-01-29)
+   + 581c8b5cbfc772d8b13d96e0bbf40cbb8c2a1cc9:
+     Release 8.0.0-pre.20240108.6 (2024-01-29)
+```
+
+Initial release.
+
 ## Release 7.0.2 (2024-01-25)
 
 ```

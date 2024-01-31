@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
@@ -128,14 +127,20 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     context.close();
 
     HashMap<Integer, ExecLogEntry> entryMap = new HashMap<>();
+    String hashFunctionName = "";
 
     ArrayList<SpawnExec> actual = new ArrayList<>();
     try (InputStream in = new ZstdInputStream(logPath.getInputStream())) {
-      while (in.available() > 0) {
-        ExecLogEntry e = ExecLogEntry.parseDelimitedFrom(in);
+      ExecLogEntry e;
+      while ((e = ExecLogEntry.parseDelimitedFrom(in)) != null) {
         entryMap.put(e.getId(), e);
+
+        if (e.hasInvocation()) {
+          hashFunctionName = e.getInvocation().getHashFunctionName();
+        }
+
         if (e.hasSpawn()) {
-          actual.add(reconstructSpawnExec(e.getSpawn(), entryMap));
+          actual.add(reconstructSpawnExec(e.getSpawn(), hashFunctionName, entryMap));
         }
       }
     }
@@ -144,7 +149,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
   }
 
   private SpawnExec reconstructSpawnExec(
-      ExecLogEntry.Spawn entry, Map<Integer, ExecLogEntry> entryMap) {
+      ExecLogEntry.Spawn entry, String hashFunctionName, Map<Integer, ExecLogEntry> entryMap) {
     SpawnExec.Builder builder =
         SpawnExec.newBuilder()
             .addAllCommandArgs(entry.getArgsList())
@@ -165,8 +170,10 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
       builder.setPlatform(entry.getPlatform());
     }
 
-    SortedMap<String, File> inputs = reconstructInputs(entry.getInputSetId(), entryMap);
-    SortedMap<String, File> toolInputs = reconstructInputs(entry.getToolSetId(), entryMap);
+    SortedMap<String, File> inputs =
+        reconstructInputs(entry.getInputSetId(), hashFunctionName, entryMap);
+    SortedMap<String, File> toolInputs =
+        reconstructInputs(entry.getToolSetId(), hashFunctionName, entryMap);
 
     for (Map.Entry<String, File> e : inputs.entrySet()) {
       File file = e.getValue();
@@ -181,33 +188,40 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         case FILE_ID:
           ExecLogEntry.File file = checkNotNull(entryMap.get(output.getFileId())).getFile();
           builder.addListedOutputs(file.getPath());
-          builder.addActualOutputs(reconstructFile(/* parentDir= */ null, file));
+          builder.addActualOutputs(reconstructFile(/* parentDir= */ null, file, hashFunctionName));
           break;
         case DIRECTORY_ID:
           ExecLogEntry.Directory dir =
               checkNotNull(entryMap.get(output.getDirectoryId())).getDirectory();
           builder.addListedOutputs(dir.getPath());
           for (ExecLogEntry.File dirFile : dir.getFilesList()) {
-            builder.addActualOutputs(reconstructFile(dir, dirFile));
+            builder.addActualOutputs(reconstructFile(dir, dirFile, hashFunctionName));
           }
           break;
-        case MISSING_PATH:
-          builder.addListedOutputs(output.getMissingPath());
+        case UNRESOLVED_SYMLINK_ID:
+          ExecLogEntry.UnresolvedSymlink symlink =
+              checkNotNull(entryMap.get(output.getUnresolvedSymlinkId())).getUnresolvedSymlink();
+          builder.addListedOutputs(symlink.getPath());
+          builder.addActualOutputs(reconstructSymlink(symlink));
+          break;
+        case INVALID_OUTPUT_PATH:
+          builder.addListedOutputs(output.getInvalidOutputPath());
           break;
         case TYPE_NOT_SET:
           throw new AssertionError("malformed log entry");
       }
     }
 
-    if (!entry.getDigest().isEmpty()) {
-      builder.setDigest(Digest.newBuilder().setHash(entry.getDigest()).build());
+    if (entry.hasDigest()) {
+      builder.setDigest(
+          entry.getDigest().toBuilder().setHashFunctionName(hashFunctionName).build());
     }
 
     return builder.build();
   }
 
   private SortedMap<String, File> reconstructInputs(
-      int setId, Map<Integer, ExecLogEntry> entryMap) {
+      int setId, String hashFunctionName, Map<Integer, ExecLogEntry> entryMap) {
     TreeMap<String, File> inputs = new TreeMap<>();
     ArrayDeque<Integer> setsToVisit = new ArrayDeque<>();
     if (setId != 0) {
@@ -218,29 +232,42 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
           checkNotNull(entryMap.get(setsToVisit.removeFirst())).getInputSet();
       for (int fileId : set.getFileIdsList()) {
         ExecLogEntry.File file = checkNotNull(entryMap.get(fileId)).getFile();
-        inputs.put(file.getPath(), reconstructFile(null, file));
+        inputs.put(file.getPath(), reconstructFile(null, file, hashFunctionName));
       }
       for (int dirId : set.getDirectoryIdsList()) {
         ExecLogEntry.Directory dir = checkNotNull(entryMap.get(dirId)).getDirectory();
         for (ExecLogEntry.File dirFile : dir.getFilesList()) {
-          inputs.put(dirFile.getPath(), reconstructFile(dir, dirFile));
+          inputs.put(dirFile.getPath(), reconstructFile(dir, dirFile, hashFunctionName));
         }
+      }
+      for (int symlinkId : set.getUnresolvedSymlinkIdsList()) {
+        ExecLogEntry.UnresolvedSymlink symlink =
+            checkNotNull(entryMap.get(symlinkId)).getUnresolvedSymlink();
+        inputs.put(symlink.getPath(), reconstructSymlink(symlink));
       }
       setsToVisit.addAll(set.getTransitiveSetIdsList());
     }
     return inputs;
   }
 
-  private File reconstructFile(@Nullable ExecLogEntry.Directory parentDir, ExecLogEntry.File file) {
-    String path = parentDir != null ? parentDir.getPath() + "/" + file.getPath() : file.getPath();
-    File.Builder builder = File.newBuilder().setPath(path);
-    if (file.getSizeBytes() > 0) {
-      builder.setDigest(
-          Digest.newBuilder()
-              .setSizeBytes(file.getSizeBytes())
-              .setHash(file.getDigest())
-              .setHashFunctionName(digestHashFunction.toString()));
+  private File reconstructFile(
+      @Nullable ExecLogEntry.Directory parentDir, ExecLogEntry.File file, String hashFunctionName) {
+    File.Builder builder = File.newBuilder();
+
+    builder.setPath(
+        parentDir != null ? parentDir.getPath() + "/" + file.getPath() : file.getPath());
+
+    if (file.hasDigest()) {
+      builder.setDigest(file.getDigest().toBuilder().setHashFunctionName(hashFunctionName).build());
     }
+
     return builder.build();
+  }
+
+  private File reconstructSymlink(ExecLogEntry.UnresolvedSymlink symlink) {
+    return File.newBuilder()
+        .setPath(symlink.getPath())
+        .setSymlinkTargetPath(symlink.getTargetPath())
+        .build();
   }
 }

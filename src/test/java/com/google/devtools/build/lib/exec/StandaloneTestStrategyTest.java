@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -60,6 +61,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy.StandaloneFailedAttemptResult;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -130,17 +132,25 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     private final ActionContext.ActionContextRegistry actionContextRegistry;
 
     FakeActionExecutionContext(
-        FileOutErr fileOutErr, SpawnStrategy spawnStrategy, BinTools binTools) {
-      this(fileOutErr, toContextRegistry(spawnStrategy, binTools, fileSystem, directories), null);
+        FileOutErr fileOutErr,
+        InputMetadataProvider inputMetadataProvider,
+        SpawnStrategy spawnStrategy,
+        BinTools binTools) {
+      this(
+          fileOutErr,
+          toContextRegistry(spawnStrategy, binTools, fileSystem, directories),
+          inputMetadataProvider,
+          null);
     }
 
     FakeActionExecutionContext(
         FileOutErr fileOutErr,
         ActionContext.ActionContextRegistry actionContextRegistry,
+        InputMetadataProvider inputMetadataProvider,
         OutputMetadataStore outputMetadataStore) {
       super(
           /* executor= */ null,
-          /* inputMetadataProvider= */ null,
+          inputMetadataProvider,
           ActionInputPrefetcher.NONE,
           new ActionKeyContext(),
           /* outputMetadataStore= */ outputMetadataStore,
@@ -188,7 +198,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     @Override
     public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
       return new FakeActionExecutionContext(
-          fileOutErr, actionContextRegistry, getOutputMetadataStore());
+          fileOutErr, actionContextRegistry, getInputMetadataProvider(), getOutputMetadataStore());
     }
   }
 
@@ -293,7 +303,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(spawnStrategy.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot),
+            inputMetadataFor(testRunnerAction),
+            spawnStrategy,
+            binTools);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -362,7 +376,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         .thenReturn(ImmutableList.of(passSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot),
+            inputMetadataFor(testRunnerAction),
+            spawnStrategy,
+            binTools);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -426,7 +444,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(spawnStrategy.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot),
+            inputMetadataFor(testRunnerAction),
+            spawnStrategy,
+            binTools);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -484,7 +506,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(spawnStrategy.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot),
+            inputMetadataFor(testRunnerAction),
+            spawnStrategy,
+            binTools);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -568,7 +594,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(outErr, spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            outErr, inputMetadataFor(testRunnerAction), spawnStrategy, binTools);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -656,7 +683,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(outErr, spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            outErr, inputMetadataFor(testRunnerAction), spawnStrategy, binTools);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -711,7 +739,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(outErr, spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            outErr, inputMetadataFor(testRunnerAction), spawnStrategy, binTools);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -763,7 +792,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(outErr, spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            outErr, inputMetadataFor(testRunnerAction), spawnStrategy, binTools);
 
     // actual StandaloneTestStrategy execution
     execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
@@ -814,8 +844,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
               return ImmutableList.of(expectedSpawnResult);
             });
 
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.putRunfilesTree(actionA.getRunfilesMiddleman(), runfilesTreeFor(actionA));
+    inputMetadataProvider.putRunfilesTree(actionB.getRunfilesMiddleman(), runfilesTreeFor(actionB));
+
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataProvider, spawnStrategy, binTools);
     ImmutableList<SpawnResult> resultA =
         execute(actionA, actionExecutionContext, standaloneTestStrategy);
     assertThat(attemptGroup.cancelled()).isTrue();
@@ -903,8 +938,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
               return ImmutableList.of(expectedSpawnResultB);
             });
 
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.putRunfilesTree(actionA.getRunfilesMiddleman(), runfilesTreeFor(actionA));
+    inputMetadataProvider.putRunfilesTree(actionB.getRunfilesMiddleman(), runfilesTreeFor(actionB));
+
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataProvider, spawnStrategy, binTools);
     ImmutableList<SpawnResult> resultA =
         execute(actionA, actionExecutionContext, standaloneTestStrategy);
     assertThat(attemptGroup.cancelled()).isFalse();
@@ -999,8 +1039,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
               throw new SpawnExecException("", expectedSpawnResult, false);
             });
 
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.putRunfilesTree(actionA.getRunfilesMiddleman(), runfilesTreeFor(actionA));
+    inputMetadataProvider.putRunfilesTree(actionB.getRunfilesMiddleman(), runfilesTreeFor(actionB));
+
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataProvider, spawnStrategy, binTools);
     ImmutableList<SpawnResult> resultA =
         execute(actionA, actionExecutionContext, standaloneTestStrategy);
     assertThat(attemptGroup.cancelled()).isFalse();
@@ -1034,8 +1079,6 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
-    ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
 
     // setup a test action
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
@@ -1047,6 +1090,12 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         "    srcs = [\"simple_test.sh\"],",
         ")");
     TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot),
+            inputMetadataFor(testRunnerAction),
+            spawnStrategy,
+            binTools);
     TestRunnerSpawn spawn =
         standaloneTestStrategy.createTestRunnerSpawn(testRunnerAction, actionExecutionContext);
 

@@ -488,9 +488,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   if (startup_options.host_jvm_debug) {
     result.push_back("--host_jvm_debug");
   }
-  if (!startup_options.host_jvm_profile.empty()) {
-    result.push_back("--host_jvm_profile=" + startup_options.host_jvm_profile);
-  }
   if (!startup_options.host_jvm_args.empty()) {
     for (const auto &arg : startup_options.host_jvm_args) {
       result.push_back("--host_jvm_args=" + arg);

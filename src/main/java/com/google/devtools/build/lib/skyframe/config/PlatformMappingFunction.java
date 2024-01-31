@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
-import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue.NativeAndStarlarkFlags;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -126,7 +125,7 @@ public final class PlatformMappingFunction implements SkyFunction {
 
       Mappings parsed;
       try {
-        parsed = parse(env, lines, mainRepoContext);
+        parsed = parse(env, lines, this.optionsClasses, mainRepoContext);
       if (parsed == null) {
         return null;
       }
@@ -163,7 +162,11 @@ public final class PlatformMappingFunction implements SkyFunction {
   /** Parses the given lines, returns null if not all Skyframe deps are ready. */
   @VisibleForTesting
   @Nullable
-  static Mappings parse(Environment env, List<String> lines, RepoContext mainRepoContext)
+  static Mappings parse(
+      Environment env,
+      List<String> lines,
+      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses,
+      RepoContext mainRepoContext)
       throws PlatformMappingParsingException {
     PeekingIterator<String> it =
         Iterators.peekingIterator(
@@ -187,7 +190,7 @@ public final class PlatformMappingFunction implements SkyFunction {
 
     if (it.peek().equalsIgnoreCase("platforms:")) {
       it.next();
-      platformsToFlags = readPlatformsToFlags(it, env, mainRepoContext);
+      platformsToFlags = readPlatformsToFlags(it, env, optionsClasses, mainRepoContext);
       if (platformsToFlags == null) {
         return null;
       }
@@ -250,7 +253,10 @@ public final class PlatformMappingFunction implements SkyFunction {
    */
   @Nullable
   private static NativeAndStarlarkFlags parseStarlarkFlags(
-      ImmutableSet<String> rawFlags, Environment env, RepoContext mainRepoContext)
+      ImmutableSet<String> rawFlags,
+      Environment env,
+      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses,
+      RepoContext mainRepoContext)
       throws PlatformMappingParsingException {
     ImmutableSet.Builder<String> nativeFlags = ImmutableSet.builder();
     ImmutableList.Builder<String> starlarkFlags = ImmutableList.builder();
@@ -274,8 +280,12 @@ public final class PlatformMappingFunction implements SkyFunction {
     } catch (OptionsParsingException e) {
       throw new PlatformMappingParsingException(e);
     }
-      return NativeAndStarlarkFlags.create(
-          nativeFlags.build(), fakeNativeParser.getStarlarkOptions());
+    return NativeAndStarlarkFlags.builder()
+        .nativeFlags(nativeFlags.build())
+        .starlarkFlags(fakeNativeParser.getStarlarkOptions())
+        .optionsClasses(optionsClasses)
+        .repoMapping(mainRepoContext.repoMapping())
+        .build();
   }
 
   /**
@@ -283,14 +293,18 @@ public final class PlatformMappingFunction implements SkyFunction {
    */
   @Nullable
   private static ImmutableMap<Label, NativeAndStarlarkFlags> readPlatformsToFlags(
-      PeekingIterator<String> it, Environment env, RepoContext mainRepoContext)
+      PeekingIterator<String> it,
+      Environment env,
+      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses,
+      RepoContext mainRepoContext)
       throws PlatformMappingParsingException {
     ImmutableMap.Builder<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.builder();
     boolean needSkyframeDeps = false;
     while (it.hasNext() && !it.peek().equalsIgnoreCase("flags:")) {
       Label platform = readPlatform(it, mainRepoContext);
       ImmutableSet<String> flags = readFlags(it);
-      NativeAndStarlarkFlags parsedFlags = parseStarlarkFlags(flags, env, mainRepoContext);
+      NativeAndStarlarkFlags parsedFlags =
+          parseStarlarkFlags(flags, env, optionsClasses, mainRepoContext);
       if (parsedFlags == null) {
         needSkyframeDeps = true;
       } else {

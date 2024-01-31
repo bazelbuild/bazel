@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -177,6 +178,26 @@ public final class RunfilesSupport implements RunfilesSupplier {
   private final CommandLine args;
   private final ActionEnvironment actionEnvironment;
 
+  private static boolean cacheRunfilesMappings(RuleContext ruleContext) {
+    // The algorithm: only cache runfiles if there is more than one test runner action.
+    // This is because soft references interact with GC in an unexpected way and it's sometimes even
+    // possible to OOM before soft references are collected. Therefore, let's not pay for their
+    // overhead if they are useless (which they are if there is only one test action)
+    if (!TargetUtils.isTestRule(ruleContext.getTarget())) {
+      return false;
+    }
+
+    if (TestActionBuilder.getRunsPerTest(ruleContext) > 1) {
+      return true;
+    }
+
+    if (TestActionBuilder.getShardCount(ruleContext) > 1) {
+      return true;
+    }
+
+    return false;
+  }
+
   /**
    * Creates the RunfilesSupport helper with the given executable and runfiles.
    *
@@ -195,7 +216,6 @@ public final class RunfilesSupport implements RunfilesSupplier {
         ruleContext.getConfiguration().getRunfileSymlinksMode();
     boolean buildRunfileManifests = ruleContext.getConfiguration().buildRunfileManifests();
     boolean buildRunfileLinks = ruleContext.getConfiguration().buildRunfileLinks();
-    boolean cacheRunfilesMapping = TargetUtils.isTestRule(ruleContext.getTarget());
 
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
@@ -239,7 +259,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
             runfiles,
             repoMappingManifest,
             buildRunfileLinks,
-            cacheRunfilesMapping,
+            cacheRunfilesMappings(ruleContext),
             runfileSymlinksMode);
 
     Artifact runfilesMiddleman =

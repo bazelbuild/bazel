@@ -74,9 +74,6 @@ public final class MiddlemanFactory {
     }
 
     NestedSet<Artifact> deps = depsBuilder.build();
-    if (deps.isSingleton()) { // Optimization: No middleman for just one input.
-      return deps.getSingleton();
-    }
     String middlemanPath = owningArtifact == null
        ? Label.print(owner.getLabel())
        : owningArtifact.getRootRelativePath().getPathString();

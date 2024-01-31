@@ -50,6 +50,7 @@ java_library(
 java_test(
     name = "ServerTests",
     size = "medium",
+    shard_count = 3,
     tags = ["requires-network"],  # https://github.com/bazelbuild/bazel/issues/20743
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [

@@ -139,7 +139,8 @@ public final class ActionsTestUtil {
         eventHandler,
         actionKeyContext,
         fileOutErr,
-        execRoot,
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         outputMetadataStore,
         /* clientEnv= */ ImmutableMap.of());
   }
@@ -149,13 +150,12 @@ public final class ActionsTestUtil {
       ExtendedEventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
-      Path execRoot,
+      InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       Map<String, String> clientEnv) {
     return new ActionExecutionContext(
         executor,
-        new SingleBuildFileCache(
-            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
+        inputMetadataProvider,
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         outputMetadataStore,

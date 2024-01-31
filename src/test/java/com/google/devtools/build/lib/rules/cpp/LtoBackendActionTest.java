@@ -127,7 +127,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(bitcode1Artifact, index1Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
-    assertThat(action.getSpawn().getLocalResources())
+    assertThat(action.getSpawnForTesting().getLocalResources())
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
     assertThat(action.getProgressMessage()).isEqualTo("Test");
@@ -156,7 +156,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(bitcode2Artifact, index2Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
-    assertThat(action.getSpawn().getLocalResources())
+    assertThat(action.getSpawnForTesting().getLocalResources())
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
     assertThat(action.getProgressMessage()).isEqualTo("Test");

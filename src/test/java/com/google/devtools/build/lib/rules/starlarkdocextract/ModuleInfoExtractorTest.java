@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.rules.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -127,7 +127,8 @@ public final class ModuleInfoExtractorTest {
             ")");
 
     ModuleInfo moduleInfo = getExtractor(name -> name.contains("_wanted")).extractFrom(module);
-    assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
+    Truth8.assertThat(
+            moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("loadable_wanted", "namespace.public_field_wanted");
   }
 
@@ -149,33 +150,34 @@ public final class ModuleInfoExtractorTest {
             "    ),",
             ")");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
-    assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
+    Truth8.assertThat(
+            moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("name.spaced.my_func");
-    assertThat(
+    Truth8.assertThat(
             moduleInfo.getFuncInfoList().stream()
                 .map(StarlarkFunctionInfo::getOriginKey)
                 .map(OriginKey::getName))
         .containsExactly("_my_func");
 
-    assertThat(moduleInfo.getRuleInfoList().stream().map(RuleInfo::getRuleName))
+    Truth8.assertThat(moduleInfo.getRuleInfoList().stream().map(RuleInfo::getRuleName))
         .containsExactly("name.spaced.my_binary");
-    assertThat(
+    Truth8.assertThat(
             moduleInfo.getRuleInfoList().stream()
                 .map(RuleInfo::getOriginKey)
                 .map(OriginKey::getName))
         .containsExactly("_my_binary");
 
-    assertThat(moduleInfo.getAspectInfoList().stream().map(AspectInfo::getAspectName))
+    Truth8.assertThat(moduleInfo.getAspectInfoList().stream().map(AspectInfo::getAspectName))
         .containsExactly("name.spaced.my_aspect");
-    assertThat(
+    Truth8.assertThat(
             moduleInfo.getAspectInfoList().stream()
                 .map(AspectInfo::getOriginKey)
                 .map(OriginKey::getName))
         .containsExactly("_my_aspect");
 
-    assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getProviderName))
+    Truth8.assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getProviderName))
         .containsExactly("name.spaced.MyInfo");
-    assertThat(
+    Truth8.assertThat(
             moduleInfo.getProviderInfoList().stream()
                 .map(ProviderInfo::getOriginKey)
                 .map(OriginKey::getName))
@@ -209,7 +211,8 @@ public final class ModuleInfoExtractorTest {
 
     ModuleInfo moduleInfo =
         getExtractor(name -> name.equals("foo.bar") || name.equals("baz")).extractFrom(module);
-    assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
+    Truth8.assertThat(
+            moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("foo.bar.f", "baz.qux.i", "baz.j");
   }
 
@@ -636,7 +639,7 @@ public final class ModuleInfoExtractorTest {
             "    }",
             ")");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
-    assertThat(
+    Truth8.assertThat(
             moduleInfo.getRuleInfoList().get(0).getAttributeList().stream()
                 .map(AttributeInfo::getName))
         .containsExactly("name", "foo", "bar", "baz")
@@ -764,7 +767,7 @@ public final class ModuleInfoExtractorTest {
                 .getProviderNameGroup(0)
                 .getProviderName(0))
         .isEqualTo("namespace2.MyInfoA");
-    assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getProviderName))
+    Truth8.assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getProviderName))
         .containsExactly("namespace2.MyInfoA", "namespace2.MyInfoB", "namespace3.MyInfo");
     // TODO(arostovtsev): instead of producing a separate ProviderInfo message per each alias, add a
     // repeated alias name field, and produce a single ProviderInfo message listing its aliases.
@@ -792,7 +795,7 @@ public final class ModuleInfoExtractorTest {
     RepositoryMapping repositoryMapping =
         RepositoryMapping.create(ImmutableMap.of("local", canonicalName), RepositoryName.MAIN);
     ModuleInfo moduleInfo = getExtractor(repositoryMapping, "my_repo").extractFrom(module);
-    assertThat(
+    Truth8.assertThat(
             moduleInfo.getRuleInfoList().get(0).getAttributeList().stream()
                 .filter(attr -> !attr.equals(ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO))
                 .map(AttributeInfo::getDefaultValue))

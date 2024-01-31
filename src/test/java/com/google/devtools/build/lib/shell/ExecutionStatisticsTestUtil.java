@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
@@ -56,7 +56,7 @@ public class ExecutionStatisticsTestUtil {
 
     Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
         ExecutionStatistics.getResourceUsage(statisticsFilePath);
-    assertThat(resourceUsage).isPresent();
+    Truth8.assertThat(resourceUsage).isPresent();
 
     Duration userTime = resourceUsage.get().getUserExecutionTime();
     assertThat(userTime).isAtLeast(userTimeLowerBound);

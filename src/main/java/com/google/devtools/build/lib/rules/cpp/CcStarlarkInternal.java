@@ -302,11 +302,6 @@ public class CcStarlarkInternal implements StarlarkValue {
           ? null
           : Label.parseCanonicalUnchecked("@//third_party/stl");
     }
-
-    @Override
-    public boolean resolvableWithRawAttributes() {
-      return true;
-    }
   }
 
   @StarlarkMethod(name = "stl_computed_default", documented = false)

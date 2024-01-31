@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -24,6 +23,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -258,13 +258,13 @@ public final class StarlarkProviderTest {
   public void documentedProvider_getDocumentation() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN).setDocumentation("My doc string").build();
-    assertThat(provider.getDocumentation()).hasValue("My doc string");
+    Truth8.assertThat(provider.getDocumentation()).hasValue("My doc string");
   }
 
   @Test
   public void undocumentedProvider_getDocumentation() throws Exception {
     StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).build();
-    assertThat(provider.getDocumentation()).isEmpty();
+    Truth8.assertThat(provider.getDocumentation()).isEmpty();
   }
 
   @Test

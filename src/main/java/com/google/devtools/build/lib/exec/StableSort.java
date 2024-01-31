@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -25,11 +27,13 @@ import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.Set;
 
 /**
- * A Utility to sort the SpawnExec log in a way that is reproducible across nondeterministic Bazel
+ * A Utility to sort the execution log in a way that is reproducible across nondeterministic Bazel
  * runs.
  *
  * <p>This is needed to allow textual diff comparisons of resultant logs.
@@ -37,23 +41,26 @@ import java.util.PriorityQueue;
 public final class StableSort {
   private static ImmutableList<SpawnExec> read(InputStream in) throws IOException {
     ImmutableList.Builder<SpawnExec> result = ImmutableList.builder();
-    while (in.available() > 0) {
-      SpawnExec ex = SpawnExec.parseDelimitedFrom(in);
+    SpawnExec ex;
+    while ((ex = SpawnExec.parseDelimitedFrom(in)) != null) {
       result.add(ex);
     }
     return result.build();
   }
 
   /**
-   * Reads binary SpawnLog protos from the InputStream, sorts them and outputs to the
-   * MessageOutputStream.
+   * Reads length-delimited wire format {@link SpawnExec} protos from an {@link InputStream}, sorts
+   * them, and writes them to a {@link MessageOutputStream}.
    *
-   * <p>The sorting is done according to the following rules: - If some output of action A appears
-   * as an input to action B, A will appear before B. - When not constrained by (transitive) 1., any
-   * action whose name of the first output is lexicographically smaller would appear earlier.
+   * <p>The sort order has the following properties:
    *
-   * <p>We assume that in the InputStream, at most one SpawnExec declares a given file as its
-   * output. We assume that there are no cyclic dependencies.
+   * <ol>
+   *   <li>If an output of spawn A is an input to spawn B, A sorts before B.
+   *   <li>When not constrained by the above, spawns sort in lexicographic order of their primary
+   *       output path.
+   * </ol>
+   *
+   * <p>Assumes that there are no cyclic dependencies.
    */
   public static void stableSort(InputStream in, MessageOutputStream<SpawnExec> out)
       throws IOException {
@@ -66,11 +73,12 @@ public final class StableSort {
     }
   }
 
-  private static void stableSort(List<SpawnExec> inputs, MessageOutputStream<SpawnExec> out)
+  public static void stableSort(List<SpawnExec> inputs, MessageOutputStream<SpawnExec> out)
       throws IOException {
-    // A map from each output to a SpawnExec that produced it
+    // A map from each output to every spawn that produces it.
+    // The same output may be produced by multiple spawns in the case of multiple test attempts.
     Multimap<String, SpawnExec> outputProducer =
-        MultimapBuilder.hashKeys(inputs.size()).arrayListValues().build();
+        MultimapBuilder.hashKeys(inputs.size()).arrayListValues(1).build();
 
     for (SpawnExec ex : inputs) {
       for (File output : ex.getActualOutputsList()) {
@@ -79,22 +87,12 @@ public final class StableSort {
       }
     }
 
-    // A spawnExec a blocks b if a produces an output consumed by b
-    Multimap<SpawnExec, SpawnExec> blockedBy = MultimapBuilder.hashKeys().arrayListValues().build();
-    Multimap<SpawnExec, SpawnExec> blocking = MultimapBuilder.hashKeys().arrayListValues().build();
+    // A blocks B if A produces an output consumed by B.
+    // Use reference equality to avoid expensive comparisons.
+    IdentitySetMultimap<SpawnExec, SpawnExec> blockedBy = new IdentitySetMultimap<>();
+    IdentitySetMultimap<SpawnExec, SpawnExec> blocking = new IdentitySetMultimap<>();
 
-    for (SpawnExec ex : inputs) {
-      for (File s : ex.getInputsList()) {
-        if (outputProducer.containsKey(s.getPath())) {
-          for (SpawnExec blocker : outputProducer.get(s.getPath())) {
-            blockedBy.put(ex, blocker);
-            blocking.put(blocker, ex);
-          }
-        }
-      }
-    }
-
-    // This is a queue of all spawnExecs that are not blocked by future spawnExecs
+    // The queue contains all spawns whose blockers have already been emitted.
     PriorityQueue<SpawnExec> queue =
         new PriorityQueue<>(
             Comparator.comparing(
@@ -116,8 +114,17 @@ public final class StableSort {
 
                   return "2_" + stripped.build();
                 }));
+
     for (SpawnExec ex : inputs) {
-      if (!blockedBy.containsKey(ex)) {
+      boolean blocked = false;
+      for (File s : ex.getInputsList()) {
+        for (SpawnExec blocker : outputProducer.get(s.getPath())) {
+          blockedBy.put(ex, blocker);
+          blocking.put(blocker, ex);
+          blocked = true;
+        }
+      }
+      if (!blocked) {
         queue.add(ex);
       }
     }
@@ -132,6 +139,36 @@ public final class StableSort {
           queue.add(blocked);
         }
       }
+    }
+  }
+
+  // A SetMultimap that uses reference equality for keys and values.
+  // Implements only the subset of the SetMultimap API needed by stableSort().
+  private static class IdentitySetMultimap<K, V> {
+    final IdentityHashMap<K, Set<V>> map = new IdentityHashMap<>();
+
+    boolean containsKey(K key) {
+      return map.containsKey(key);
+    }
+
+    Set<V> get(K key) {
+      return map.getOrDefault(key, ImmutableSet.of());
+    }
+
+    void put(K key, V value) {
+      map.computeIfAbsent(key, k -> Sets.newIdentityHashSet()).add(value);
+    }
+
+    void remove(K key, V value) {
+      map.compute(
+          key,
+          (unusedKey, valueSet) -> {
+            if (valueSet == null) {
+              return null;
+            }
+            valueSet.remove(value);
+            return valueSet.isEmpty() ? null : valueSet;
+          });
     }
   }
 }

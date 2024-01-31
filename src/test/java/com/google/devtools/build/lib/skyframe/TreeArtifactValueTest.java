@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.doReturn;
@@ -22,6 +21,7 @@ import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -105,7 +105,7 @@ public final class TreeArtifactValueTest {
         .containsExactly(child1.getParentRelativePath(), child2.getParentRelativePath());
     assertThat(tree.getDigest()).isNotNull();
     assertThat(tree.getMetadata().getDigest()).isEqualTo(tree.getDigest());
-    assertThat(tree.getArchivedRepresentation())
+    Truth8.assertThat(tree.getArchivedRepresentation())
         .hasValue(ArchivedRepresentation.create(archivedTreeArtifact, archivedArtifactMetadata));
   }
 
@@ -117,8 +117,8 @@ public final class TreeArtifactValueTest {
     TreeArtifactValue tree =
         TreeArtifactValue.newBuilder(parent).setMaterializationExecPath(targetPath).build();
 
-    assertThat(tree.getMaterializationExecPath()).hasValue(targetPath);
-    assertThat(tree.getMetadata().getMaterializationExecPath()).hasValue(targetPath);
+    Truth8.assertThat(tree.getMaterializationExecPath()).hasValue(targetPath);
+    Truth8.assertThat(tree.getMetadata().getMaterializationExecPath()).hasValue(targetPath);
   }
 
   @Test
@@ -157,7 +157,7 @@ public final class TreeArtifactValueTest {
     assertThat(tree.getChildPaths()).isEmpty();
     assertThat(tree.getDigest()).isNotNull();
     assertThat(tree.getMetadata().getDigest()).isEqualTo(tree.getDigest());
-    assertThat(tree.getArchivedRepresentation())
+    Truth8.assertThat(tree.getArchivedRepresentation())
         .hasValue(ArchivedRepresentation.create(archivedTreeArtifact, archivedArtifactMetadata));
   }
 

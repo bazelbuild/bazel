@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -142,7 +143,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
                   (String) actual,
                   RepoContext.of(currentRepo, builder.getRepositoryMappingFor(currentRepo))),
           thread.getCallStack());
-    } catch (InvalidRuleException | Package.NameConflictException | LabelSyntaxException e) {
+    } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
   }

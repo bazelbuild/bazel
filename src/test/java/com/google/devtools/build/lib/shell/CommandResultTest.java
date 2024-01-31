@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.truth.Truth8;
 import java.time.Duration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -74,9 +74,9 @@ public final class CommandResultTest {
             .setStderrStream(CommandResult.EMPTY_OUTPUT)
             .setTerminationStatus(new TerminationStatus(0, false))
             .build();
-    assertThat(commandResult.getWallExecutionTime()).isEmpty();
-    assertThat(commandResult.getUserExecutionTime()).isEmpty();
-    assertThat(commandResult.getSystemExecutionTime()).isEmpty();
+    Truth8.assertThat(commandResult.getWallExecutionTime()).isEmpty();
+    Truth8.assertThat(commandResult.getUserExecutionTime()).isEmpty();
+    Truth8.assertThat(commandResult.getSystemExecutionTime()).isEmpty();
   }
 
   @Test
@@ -90,8 +90,8 @@ public final class CommandResultTest {
             .setUserExecutionTime(Duration.ofMillis(1492))
             .setSystemExecutionTime(Duration.ofMillis(1787))
             .build();
-    assertThat(commandResult.getWallExecutionTime()).hasValue(Duration.ofMillis(1929));
-    assertThat(commandResult.getUserExecutionTime()).hasValue(Duration.ofMillis(1492));
-    assertThat(commandResult.getSystemExecutionTime()).hasValue(Duration.ofMillis(1787));
+    Truth8.assertThat(commandResult.getWallExecutionTime()).hasValue(Duration.ofMillis(1929));
+    Truth8.assertThat(commandResult.getUserExecutionTime()).hasValue(Duration.ofMillis(1492));
+    Truth8.assertThat(commandResult.getSystemExecutionTime()).hasValue(Duration.ofMillis(1787));
   }
 }

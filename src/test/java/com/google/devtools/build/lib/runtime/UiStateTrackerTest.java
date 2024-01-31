@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.runtime.SkymeldUiStateTracker.BuildStatus;
@@ -344,7 +345,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     ActionLookupData actionLookupData = ActionLookupData.create(mock(ActionLookupKey.class), 1);
     stateTracker.actionCompletion(
-        new ActionCompletionEvent(20, clock.nanoTime(), fastAction, actionLookupData));
+        new ActionCompletionEvent(
+            20, clock.nanoTime(), fastAction, new FakeActionInputFileCache(), actionLookupData));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
