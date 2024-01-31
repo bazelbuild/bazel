@@ -115,7 +115,7 @@ public interface SpawnLogContext extends ActionContext {
     if (input.isDirectory()) {
       return true;
     }
-    if (!(input instanceof SourceArtifact)) {
+    if (input.isSymlink() || !(input instanceof SourceArtifact)) {
       return false;
     }
     // A source artifact may be a directory in spite of claiming to be a file. Avoid unnecessary I/O

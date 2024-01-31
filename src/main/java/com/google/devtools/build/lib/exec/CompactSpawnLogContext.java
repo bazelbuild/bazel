@@ -298,6 +298,8 @@ public class CompactSpawnLogContext implements SpawnLogContext {
             Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
             if (isInputDirectory(input, inputMetadataProvider)) {
               builder.addDirectoryIds(logDirectory(input, path, inputMetadataProvider));
+            } else if (input.isSymlink()) {
+              builder.addUnresolvedSymlinkIds(logUnresolvedSymlink(input, path));
             } else {
               builder.addFileIds(logFile(input, path, inputMetadataProvider));
             }
@@ -311,7 +313,8 @@ public class CompactSpawnLogContext implements SpawnLogContext {
    * Logs a file.
    *
    * @param input the input representing the file.
-   * @param path the path to the file
+   * @param path the path to the file, which must have already been verified to be of the correct
+   *     type.
    * @return the entry ID of the {@link ExecLogEntry.File} describing the file.
    */
   private int logFile(ActionInput input, Path path, InputMetadataProvider inputMetadataProvider)

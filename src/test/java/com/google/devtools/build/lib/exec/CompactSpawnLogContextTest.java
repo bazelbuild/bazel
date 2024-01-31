@@ -240,6 +240,11 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
           inputs.put(dirFile.getPath(), reconstructFile(dir, dirFile, hashFunctionName));
         }
       }
+      for (int symlinkId : set.getUnresolvedSymlinkIdsList()) {
+        ExecLogEntry.UnresolvedSymlink symlink =
+            checkNotNull(entryMap.get(symlinkId)).getUnresolvedSymlink();
+        inputs.put(symlink.getPath(), reconstructSymlink(symlink));
+      }
       setsToVisit.addAll(set.getTransitiveSetIdsList());
     }
     return inputs;
