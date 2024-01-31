@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.SharedActionEvent;
@@ -308,7 +309,10 @@ public class ExecutionGraphModule extends BlazeModule {
   public void actionComplete(ActionCompletionEvent event) {
     // TODO(vanja): handle finish time in ActionCompletionEvent
     actionEvent(
-        event.getAction(), event.getRelativeActionStartTimeNanos(), event.getFinishTimeNanos());
+        event.getAction(),
+        event.getInputMetadataProvider(),
+        event.getRelativeActionStartTimeNanos(),
+        event.getFinishTimeNanos());
   }
 
   /**
@@ -319,7 +323,11 @@ public class ExecutionGraphModule extends BlazeModule {
   @Subscribe
   @AllowConcurrentEvents
   public void actionCached(CachedActionEvent event) {
-    actionEvent(event.getAction(), event.getNanoTimeStart(), event.getNanoTimeFinish());
+    actionEvent(
+        event.getAction(),
+        event.getInputMetadataProvider(),
+        event.getNanoTimeStart(),
+        event.getNanoTimeFinish());
   }
 
   /**
@@ -332,15 +340,24 @@ public class ExecutionGraphModule extends BlazeModule {
   @AllowConcurrentEvents
   public void middlemanAction(ActionMiddlemanEvent event) {
     if (options.logMiddlemanActions) {
-      actionEvent(event.getAction(), event.getNanoTimeStart(), event.getNanoTimeFinish());
+      actionEvent(
+          event.getAction(),
+          event.getInputMetadataProvider(),
+          event.getNanoTimeStart(),
+          event.getNanoTimeFinish());
     }
   }
 
-  private void actionEvent(Action action, long nanoTimeStart, long nanoTimeFinish) {
+  private void actionEvent(
+      Action action,
+      InputMetadataProvider inputMetadataProvider,
+      long nanoTimeStart,
+      long nanoTimeFinish) {
     ActionDumpWriter localWriter = writer;
     if (localWriter != null) {
       localWriter.enqueue(
           action,
+          inputMetadataProvider,
           nanosToMillis.toEpochMillis(nanoTimeStart),
           nanosToMillis.toEpochMillis(nanoTimeFinish));
     }
@@ -398,7 +415,11 @@ public class ExecutionGraphModule extends BlazeModule {
   @VisibleForTesting
   protected abstract static class ActionDumpWriter implements Runnable {
 
-    private ExecutionGraph.Node actionToNode(Action action, long startMillis, long finishMillis) {
+    private ExecutionGraph.Node actionToNode(
+        Action action,
+        InputMetadataProvider inputMetadataProvider,
+        long startMillis,
+        long finishMillis) {
       int index = nextIndex.getAndIncrement();
       ExecutionGraph.Node.Builder node =
           ExecutionGraph.Node.newBuilder()
@@ -420,6 +441,7 @@ public class ExecutionGraphModule extends BlazeModule {
           action.getInputs(),
           action,
           action.getRunfilesSupplier(),
+          inputMetadataProvider,
           startMillis,
           0, // totalMillis. These actions are assumed to be nearly instant.
           index);
@@ -506,6 +528,7 @@ public class ExecutionGraphModule extends BlazeModule {
           inputFiles,
           spawn.getResourceOwner(),
           spawn.getRunfilesSupplier(),
+          event.getInputMetadataProvider(),
           startMillis,
           totalMillis,
           index);
@@ -531,6 +554,7 @@ public class ExecutionGraphModule extends BlazeModule {
         NestedSet<? extends ActionInput> inputs,
         ActionExecutionMetadata metadata,
         RunfilesSupplier runfilesSupplier,
+        InputMetadataProvider inputMetadataProvider,
         long startMillis,
         long totalMillis,
         int index) {
@@ -705,7 +729,11 @@ public class ExecutionGraphModule extends BlazeModule {
       outputToDiscoverInputsTimeMs.put(firstOutput, sum);
     }
 
-    void enqueue(Action action, long startMillis, long finishMillis) {
+    void enqueue(
+        Action action,
+        InputMetadataProvider inputMetadataProvider,
+        long startMillis,
+        long finishMillis) {
       // This is here just to capture actions which don't have spawns. If we already know about
       // an output, don't also include it again.
       if (outputToNode.containsKey(getFirstOutput(action, action.getOutputs()))) {
@@ -717,7 +745,7 @@ public class ExecutionGraphModule extends BlazeModule {
         // spawns, we can just skip them here.
         return;
       }
-      enqueue(actionToNode(action, startMillis, finishMillis).toByteArray());
+      enqueue(actionToNode(action, inputMetadataProvider, startMillis, finishMillis).toByteArray());
     }
 
     void enqueue(SpawnExecutedEvent event) {
