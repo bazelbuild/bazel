@@ -202,7 +202,8 @@ message SpawnExec {
 // of the log when compared to the --execution_log_{binary,json}_file formats.
 //
 // To ensure that the log can be parsed in a single pass, every entry must be
-// serialized after all other entries it references by ID.
+// serialized after all other entries it references by ID. However, entries
+// aren't guaranteed to be serialized in increasing ID order.
 //
 // Entries other than spawns may not be assumed to be canonical. For performance
 // reasons, the same file, directory or input set may be serialized multiple
