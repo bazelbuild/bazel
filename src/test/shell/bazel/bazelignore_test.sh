@@ -215,7 +215,6 @@ test_invalid_path() {
       fail "Bazel build should have failed"
     fi
     expect_log "java.nio.file.InvalidPathException: Nul character not allowed"
-    bazel shutdown
 }
 
 run_suite "Integration tests for .bazelignore"

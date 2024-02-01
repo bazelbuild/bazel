@@ -3176,7 +3176,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // Ignored package prefixes are specified relative to the workspace root
         // by definition of .bazelignore. So, we only use ignored paths when the
         // package root is equal to the workspace path.
-        if (workspacePath != null && workspacePath.equals(pathEntry.asPath())) {
+        if (workspacePath != null && workspacePath.equals(pathEntry.asPath()) &&
+            ignoredPackagePrefixesValue != null) {
           ignoredPaths =
               ignoredPackagePrefixesValue.getPatterns().stream()
                   .map(pathEntry::getRelative)
