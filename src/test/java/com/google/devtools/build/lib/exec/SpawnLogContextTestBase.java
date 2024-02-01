@@ -630,7 +630,7 @@ public abstract class SpawnLogContextTestBase {
   public void testDigest() throws Exception {
     SpawnLogContext context = createSpawnLogContext();
 
-    Digest digest = Digest.newBuilder().setHash("deadbeef").build();
+    Digest digest = getDigest("something");
 
     SpawnResult result = defaultSpawnResultBuilder().setDigest(digest).build();
 

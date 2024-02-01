@@ -139,9 +139,14 @@ public interface SpawnLogContext extends ActionContext {
       Path path,
       InputMetadataProvider inputMetadataProvider,
       XattrProvider xattrProvider,
-      DigestHashFunction digestHashFunction)
+      DigestHashFunction digestHashFunction,
+      boolean includeHashFunctionName)
       throws IOException {
-    Digest.Builder builder = Digest.newBuilder().setHashFunctionName(digestHashFunction.toString());
+    Digest.Builder builder = Digest.newBuilder();
+
+    if (includeHashFunctionName) {
+      builder.setHashFunctionName(digestHashFunction.toString());
+    }
 
     if (input != null) {
       if (input instanceof VirtualActionInput) {
