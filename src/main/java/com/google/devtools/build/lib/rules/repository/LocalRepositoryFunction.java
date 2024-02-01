@@ -43,7 +43,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData,
+      Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
     String userDefinedPath = RepositoryFunction.getPathAttr(rule);

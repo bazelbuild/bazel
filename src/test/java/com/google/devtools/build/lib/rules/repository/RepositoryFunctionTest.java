@@ -59,7 +59,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         Path outputDirectory,
         BlazeDirectories directories,
         SkyFunction.Environment env,
-        Map<String, String> markerData,
+        Map<RepoRecordedInput, String> recordedInputValues,
         SkyKey key)
         throws InterruptedException {
       return null;
