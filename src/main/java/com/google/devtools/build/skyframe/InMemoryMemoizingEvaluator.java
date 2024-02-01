@@ -35,8 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion} for incremental
  * evaluations and {@link Version#constant} for non-incremental evaluations.
  */
-public final class InMemoryMemoizingEvaluator
-    extends AbstractIncrementalInMemoryMemoizingEvaluator {
+public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingEvaluator {
   // Not final only for testing.
   private InMemoryGraph graph;
 
