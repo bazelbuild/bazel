@@ -2611,4 +2611,93 @@ EOF
   assert_contains 'WORKSPACE' output
 }
 
+function test_repo_mapping_change_in_rule_impl() {
+  # regression test for #20722
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+bazel_dep(name="foo", repo_name="data")
+local_path_override(module_name="foo", path="foo")
+bazel_dep(name="bar")
+local_path_override(module_name="bar", path="bar")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  print("I see: " + str(Label("@data")))
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+  mkdir foo
+  cat > foo/MODULE.bazel <<EOF
+module(name="foo")
+EOF
+  mkdir bar
+  cat > bar/MODULE.bazel <<EOF
+module(name="bar")
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: @@foo~override//:data"
+
+  # So far, so good. Now we make `@data` point to bar instead!
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+bazel_dep(name="foo")
+local_path_override(module_name="foo", path="foo")
+bazel_dep(name="bar", repo_name="data")
+local_path_override(module_name="bar", path="bar")
+EOF
+  # for the repo `r`, nothing except the repo mapping has changed.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: @@bar~override//:data"
+}
+
+function test_repo_mapping_change_in_bzl_init() {
+  # same as above, but tests .bzl init time repo mapping usages
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+bazel_dep(name="foo", repo_name="data")
+local_path_override(module_name="foo", path="foo")
+bazel_dep(name="bar")
+local_path_override(module_name="bar", path="bar")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+CONSTANT = Label("@data")
+def _r(rctx):
+  print("I see: " + str(CONSTANT))
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+  mkdir foo
+  cat > foo/MODULE.bazel <<EOF
+module(name="foo")
+EOF
+  mkdir bar
+  cat > bar/MODULE.bazel <<EOF
+module(name="bar")
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: @@foo~override//:data"
+
+  # So far, so good. Now we make `@data` point to bar instead!
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+bazel_dep(name="foo")
+local_path_override(module_name="foo", path="foo")
+bazel_dep(name="bar", repo_name="data")
+local_path_override(module_name="bar", path="bar")
+EOF
+  # for the repo `r`, nothing except the repo mapping has changed.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: @@bar~override//:data"
+}
+
 run_suite "local repository tests"

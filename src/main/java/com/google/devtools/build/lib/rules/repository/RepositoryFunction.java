@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -50,6 +52,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -205,12 +208,46 @@ public abstract class RepositoryFunction {
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
       throws InterruptedException {
     return verifyEnvironMarkerData(markerData, env, getEnviron(rule))
-        && verifyMarkerDataForFiles(rule, markerData, env)
-        && verifySemanticsMarkerData(markerData, env);
+        && verifySemanticsMarkerData(markerData, env)
+        && verifyRepoMappingMarkerData(markerData, env)
+        && verifyMarkerDataForFiles(rule, markerData, env);
   }
 
   protected boolean verifySemanticsMarkerData(Map<String, String> markerData, Environment env)
       throws InterruptedException {
+    return true;
+  }
+
+  private static boolean verifyRepoMappingMarkerData(
+      Map<String, String> markerData, Environment env) throws InterruptedException {
+    ImmutableSet<SkyKey> skyKeys =
+        markerData.keySet().stream()
+            .filter(k -> k.startsWith("REPO_MAPPING:"))
+            // grab the part after the 'REPO_MAPPING:' and before the comma
+            .map(k -> k.substring("REPO_MAPPING:".length(), k.indexOf(',')))
+            .map(k -> RepositoryMappingValue.key(RepositoryName.createUnvalidated(k)))
+            .collect(toImmutableSet());
+    SkyframeLookupResult result = env.getValuesAndExceptions(skyKeys);
+    if (env.valuesMissing()) {
+      return false;
+    }
+    for (Map.Entry<String, String> entry : markerData.entrySet()) {
+      if (!entry.getKey().startsWith("REPO_MAPPING:")) {
+        continue;
+      }
+      int commaIndex = entry.getKey().indexOf(',');
+      RepositoryName fromRepo =
+          RepositoryName.createUnvalidated(
+              entry.getKey().substring("REPO_MAPPING:".length(), commaIndex));
+      String apparentRepoName = entry.getKey().substring(commaIndex + 1);
+      RepositoryMappingValue repoMappingValue =
+          (RepositoryMappingValue) result.get(RepositoryMappingValue.key(fromRepo));
+      if (repoMappingValue == RepositoryMappingValue.NOT_FOUND_VALUE
+          || !RepositoryName.createUnvalidated(entry.getValue())
+              .equals(repoMappingValue.getRepositoryMapping().get(apparentRepoName))) {
+        return false;
+      }
+    }
     return true;
   }
 
