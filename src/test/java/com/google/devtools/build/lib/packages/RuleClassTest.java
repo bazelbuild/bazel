@@ -1053,6 +1053,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         /* optionReferenceFunction= */ RuleClass.NO_OPTION_REFERENCE,
         /* ruleDefinitionEnvironmentLabel= */ null,
         /* ruleDefinitionEnvironmentDigest= */ null,
+        /* ruleDefinitionEnvironmentRepoMappingEntries= */ null,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
             .build(),
