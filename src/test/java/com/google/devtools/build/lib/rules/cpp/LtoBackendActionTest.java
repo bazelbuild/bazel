@@ -29,10 +29,7 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -209,14 +206,6 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             }
 
             builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");
-
-            builder.addRunfilesSupplier(
-                new SingleRunfilesSupplier(
-                    PathFragment.create("a"),
-                    Runfiles.EMPTY,
-                    /* repoMappingManifest= */ null,
-                    RunfileSymlinksMode.SKIP,
-                    /* buildRunfileLinks= */ false));
 
             if (attributesToFlip.contains(KeyAttributes.INPUT)) {
               builder.addInput(artifactA);

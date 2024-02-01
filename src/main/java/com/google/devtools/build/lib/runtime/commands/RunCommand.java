@@ -32,7 +32,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -997,9 +999,12 @@ public class RunCommand implements BlazeCommand {
           e);
     }
 
+    RunfilesSupplier runfilesSupplier =
+        CompositeRunfilesSupplier.fromRunfilesTrees(
+            ImmutableList.of(runfilesSupport.getRunfilesTree()));
     try {
       runfilesTreeUpdater.updateRunfiles(
-          runfilesSupport, /* env= */ ImmutableMap.of(), /* outErr= */ null);
+          runfilesSupplier, /* env= */ ImmutableMap.of(), /* outErr= */ null);
     } catch (ExecException | IOException e) {
       throw new RunfilesException(
           "Failed to create runfiles symlinks: " + e.getMessage(),

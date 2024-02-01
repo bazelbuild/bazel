@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -109,7 +108,6 @@ public class TestRunnerAction extends AbstractAction
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Artifact runfilesMiddleman;
-  private final RunfilesSupplier runfilesSupplier;
   private final Artifact testSetupScript;
   private final Artifact testXmlGeneratorScript;
   private final Artifact collectCoverageScript;
@@ -194,7 +192,6 @@ public class TestRunnerAction extends AbstractAction
       ActionOwner owner,
       NestedSet<Artifact> inputs,
       Artifact runfilesMiddleman,
-      RunfilesSupplier runfilesSupplier,
       Artifact testSetupScript, // Must be in inputs
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
@@ -224,7 +221,6 @@ public class TestRunnerAction extends AbstractAction
             testLog, cacheStatus, coverageArtifact, coverageDirectory, undeclaredOutputsDir));
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.runfilesMiddleman = runfilesMiddleman;
-    this.runfilesSupplier = runfilesSupplier;
     this.testSetupScript = testSetupScript;
     this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
@@ -318,11 +314,6 @@ public class TestRunnerAction extends AbstractAction
 
   public Artifact getRunfilesMiddleman() {
     return runfilesMiddleman;
-  }
-
-  @Override
-  public final RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
   }
 
   @Override

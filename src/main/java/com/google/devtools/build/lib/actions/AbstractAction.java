@@ -252,11 +252,6 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public RunfilesSupplier getRunfilesSupplier() {
-    return EmptyRunfilesSupplier.INSTANCE;
-  }
-
-  @Override
   public Collection<Artifact> getOutputs() {
     return outputs instanceof Artifact
         ? ImmutableSet.of((Artifact) outputs)

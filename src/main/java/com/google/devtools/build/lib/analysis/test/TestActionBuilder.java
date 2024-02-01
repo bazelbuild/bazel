@@ -421,7 +421,6 @@ public final class TestActionBuilder {
                 actionOwner,
                 inputs,
                 runfilesSupport.getRunfilesMiddleman(),
-                runfilesSupport,
                 testActionExecutable,
                 testXmlGeneratorExecutable,
                 collectCoverageScript,

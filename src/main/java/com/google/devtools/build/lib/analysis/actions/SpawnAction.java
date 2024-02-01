@@ -106,7 +106,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       BlazeInterners.newWeakInterner();
 
   private final NestedSet<Artifact> tools;
-  private final RunfilesSupplier runfilesSupplier;
   private final CommandLines commandLines;
   private final ActionEnvironment env;
 
@@ -134,7 +133,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
    * @param progressMessage the message printed during the progression of the build
-   * @param runfilesSupplier {@link RunfilesSupplier}s describing the runfiles for the action
    * @param mnemonic the mnemonic that is reported in the master log
    */
   public SpawnAction(
@@ -147,12 +145,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
-      RunfilesSupplier runfilesSupplier,
       String mnemonic,
       OutputPathsMode outputPathsMode) {
     super(owner, inputs, outputs);
     this.tools = tools;
-    this.runfilesSupplier = runfilesSupplier;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
     this.executionInfo =
         executionInfo.isEmpty()
@@ -168,11 +164,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @Override
   public final NestedSet<Artifact> getTools() {
     return tools;
-  }
-
-  @Override
-  public final RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
   }
 
   @Override
@@ -596,7 +587,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     private final List<Artifact> outputs = new ArrayList<>();
-    private final List<RunfilesSupplier> inputRunfilesSuppliers = new ArrayList<>();
     private ResourceSetOrBuilder resourceSetOrBuilder = AbstractAction.DEFAULT_RESOURCE_SET;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
@@ -618,7 +608,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.toolsBuilder.addTransitive(other.toolsBuilder.build());
       this.inputsBuilder.addTransitive(other.inputsBuilder.build());
       this.outputs.addAll(other.outputs);
-      this.inputRunfilesSuppliers.addAll(other.inputRunfilesSuppliers);
       this.resourceSetOrBuilder = other.resourceSetOrBuilder;
       this.environment = other.environment;
       this.executionInfo = other.executionInfo;
@@ -737,7 +726,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               ? executionInfo
               : configuration.modifiedExecutionInfo(executionInfo, mnemonic),
           progressMessage,
-          CompositeRunfilesSupplier.fromSuppliers(this.inputRunfilesSuppliers),
           mnemonic);
     }
 
@@ -753,7 +741,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
-        RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new SpawnAction(
           owner,
@@ -765,7 +752,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           env,
           executionInfo,
           progressMessage,
-          runfilesSupplier,
           mnemonic,
           PathMappers.getOutputPathsMode(configuration));
     }
@@ -790,7 +776,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder addTool(FilesToRunProvider tool) {
       addTransitiveTools(tool.getFilesToRun());
-      addRunfilesSupplier(tool.getRunfilesSupplier());
       return this;
     }
 
@@ -841,12 +826,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder addTransitiveInputs(NestedSet<Artifact> artifacts) {
       inputsBuilder.addTransitive(artifacts);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addRunfilesSupplier(RunfilesSupplier supplier) {
-      inputRunfilesSuppliers.add(supplier);
       return this;
     }
 

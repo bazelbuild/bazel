@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -71,7 +70,6 @@ public class StarlarkAction extends SpawnAction {
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
-      RunfilesSupplier runfilesSupplier,
       String mnemonic,
       OutputPathsMode outputPathsMode) {
     super(
@@ -84,7 +82,6 @@ public class StarlarkAction extends SpawnAction {
         env,
         executionInfo,
         progressMessage,
-        runfilesSupplier,
         mnemonic,
         outputPathsMode);
   }
@@ -148,7 +145,6 @@ public class StarlarkAction extends SpawnAction {
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
-        RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       if (unusedInputsList.isPresent()) {
         // Always download unused_inputs_list file from remote cache.
@@ -172,7 +168,6 @@ public class StarlarkAction extends SpawnAction {
               env,
               executionInfo,
               progressMessage,
-              runfilesSupplier,
               mnemonic,
               outputPathsMode,
               unusedInputsList,
@@ -187,7 +182,6 @@ public class StarlarkAction extends SpawnAction {
               env,
               executionInfo,
               progressMessage,
-              runfilesSupplier,
               mnemonic,
               outputPathsMode);
     }
@@ -214,7 +208,6 @@ public class StarlarkAction extends SpawnAction {
         ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
-        RunfilesSupplier runfilesSupplier,
         String mnemonic,
         OutputPathsMode outputPathsMode,
         Optional<Artifact> unusedInputsList,
@@ -231,7 +224,6 @@ public class StarlarkAction extends SpawnAction {
           env,
           executionInfo,
           progressMessage,
-          runfilesSupplier,
           mnemonic,
           outputPathsMode);
       this.allStarlarkActionInputs = inputs;

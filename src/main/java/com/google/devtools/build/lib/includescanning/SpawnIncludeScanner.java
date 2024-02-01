@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -202,11 +201,6 @@ public class SpawnIncludeScanner {
 
     @Override
     public NestedSet<Artifact> getSchedulingDependencies() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public RunfilesSupplier getRunfilesSupplier() {
       throw new UnsupportedOperationException();
     }
 

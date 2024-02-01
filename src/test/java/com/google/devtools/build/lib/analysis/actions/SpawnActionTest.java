@@ -41,9 +41,6 @@ import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -371,27 +368,6 @@ public final class SpawnActionTest extends BuildViewTestCase {
     for (EnvironmentVariable variable : spawnInfo.getVariableList()) {
       assertThat(env).containsEntry(variable.getName(), variable.getValue());
     }
-  }
-
-  @Test
-  public void testInputManifestsRemovedIfSupplied() throws Exception {
-    SpawnAction action =
-        builder()
-            .addRunfilesSupplier(
-                new SingleRunfilesSupplier(
-                    PathFragment.create("destination"),
-                    Runfiles.EMPTY,
-                    /* repoMappingManifest= */ null,
-                    RunfileSymlinksMode.SKIP,
-                    /* buildRunfileLinks= */ false))
-            .addOutput(getBinArtifactWithNoOwner("output"))
-            .setExecutable(scratch.file("/bin/xxx").asFragment())
-            .setProgressMessage("Test")
-            .build(nullOwnerWithTargetConfig(), targetConfig);
-    collectingAnalysisEnvironment.registerAction(action);
-    ImmutableList<String> inputFiles =
-        actionInputsToPaths(action.getSpawnForTesting().getInputFiles());
-    assertThat(inputFiles).isEmpty();
   }
 
   private enum KeyAttributes {

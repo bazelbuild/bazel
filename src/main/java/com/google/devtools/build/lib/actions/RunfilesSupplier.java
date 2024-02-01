@@ -20,12 +20,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkValue;
 
 /** Convenience wrapper around runfiles allowing lazy expansion. */
-// RunfilesSuppliers appear to be Starlark values;
-// they are exposed through ctx.resolve_tools[2], for example.
-public interface RunfilesSupplier extends StarlarkValue {
+public interface RunfilesSupplier {
   /** Lazy wrapper for a single runfiles tree. */
   // TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
   // structure makes this difficult. Consider moving things around to make this possible.

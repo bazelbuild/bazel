@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.extra;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
@@ -78,7 +77,6 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     ExtraActionSpec spec =
         new ExtraActionSpec(
             commandHelper.getResolvedTools(),
-            CompositeRunfilesSupplier.fromSuppliers(commandHelper.getToolsRunfilesSuppliers()),
             resolvedData,
             outputTemplates,
             command,
