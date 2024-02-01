@@ -108,6 +108,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     RepositoryName currentRepo();
 
     RepositoryMapping repoMapping();
+
+    default PackageContext rootPackage() {
+      return PackageContext.of(PackageIdentifier.createRootPackage(currentRepo()), repoMapping());
+    }
   }
 
   @AutoValue

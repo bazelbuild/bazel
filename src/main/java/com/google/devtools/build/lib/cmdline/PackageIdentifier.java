@@ -69,6 +69,10 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
     return create(RepositoryName.MAIN, name);
   }
 
+  public static PackageIdentifier createRootPackage(RepositoryName repository) {
+    return create(repository, PathFragment.EMPTY_FRAGMENT);
+  }
+
   /**
    * Tries to infer the package identifier from the given exec path. This method does not perform
    * any I/O, but looks solely at the structure of the exec path. The resulting identifier may

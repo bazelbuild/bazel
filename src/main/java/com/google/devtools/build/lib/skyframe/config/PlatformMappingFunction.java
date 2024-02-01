@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code.DEPENDENCY_NOT_FOUND;
-import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -29,18 +27,14 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -50,7 +44,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.List;
@@ -125,7 +118,7 @@ public final class PlatformMappingFunction implements SkyFunction {
 
       Mappings parsed;
       try {
-        parsed = parse(env, lines, this.optionsClasses, mainRepoContext);
+        parsed = parse(env, lines, mainRepoContext);
       if (parsed == null) {
         return null;
       }
@@ -162,12 +155,8 @@ public final class PlatformMappingFunction implements SkyFunction {
   /** Parses the given lines, returns null if not all Skyframe deps are ready. */
   @VisibleForTesting
   @Nullable
-  static Mappings parse(
-      Environment env,
-      List<String> lines,
-      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses,
-      RepoContext mainRepoContext)
-      throws PlatformMappingParsingException {
+  static Mappings parse(Environment env, List<String> lines, RepoContext mainRepoContext)
+      throws PlatformMappingParsingException, InterruptedException {
     PeekingIterator<String> it =
         Iterators.peekingIterator(
             lines.stream()
@@ -190,7 +179,7 @@ public final class PlatformMappingFunction implements SkyFunction {
 
     if (it.peek().equalsIgnoreCase("platforms:")) {
       it.next();
-      platformsToFlags = readPlatformsToFlags(it, env, optionsClasses, mainRepoContext);
+      platformsToFlags = readPlatformsToFlags(it, env, mainRepoContext);
       if (platformsToFlags == null) {
         return null;
       }
@@ -211,81 +200,25 @@ public final class PlatformMappingFunction implements SkyFunction {
   }
 
   /**
-   * Lets {@link StarlarkOptionsParser} convert flag names to {@link Target}s through a Skyframe
-   * {@link PackageValue} lookup.
-   */
-  private static class SkyframeTargetLoader implements StarlarkOptionsParser.BuildSettingLoader {
-    private final Environment env;
-    private final RepoContext mainRepoContext;
-
-    public SkyframeTargetLoader(Environment env, RepoContext mainRepoContext) {
-      this.env = env;
-      this.mainRepoContext = mainRepoContext;
-    }
-
-    @Nullable
-    @Override
-    public Target loadBuildSetting(String name)
-        throws InterruptedException, TargetParsingException {
-      Label asLabel;
-      try {
-        asLabel = Label.parseWithRepoContext(name, mainRepoContext);
-      } catch (LabelSyntaxException e) {
-        throw new IllegalArgumentException(e);
-      }
-      SkyKey pkgKey = asLabel.getPackageIdentifier();
-      PackageValue pkg = (PackageValue) env.getValue(pkgKey);
-      if (pkg == null) {
-        return null;
-      }
-      try {
-        return pkg.getPackage().getTarget(asLabel.getName());
-      } catch (NoSuchTargetException e) {
-        throw new TargetParsingException(
-            String.format("Failed to load %s", name), e, DEPENDENCY_NOT_FOUND);
-      }
-    }
-  }
-
-  /**
    * Converts a set of native and Starlark flag settings to a {@link NativeAndStarlarkFlags}, or
    * returns null if not all Skyframe deps are ready.
    */
   @Nullable
   private static NativeAndStarlarkFlags parseStarlarkFlags(
-      ImmutableSet<String> rawFlags,
-      Environment env,
-      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses,
-      RepoContext mainRepoContext)
-      throws PlatformMappingParsingException {
-    ImmutableSet.Builder<String> nativeFlags = ImmutableSet.builder();
-    ImmutableList.Builder<String> starlarkFlags = ImmutableList.builder();
-    for (String flagSetting : rawFlags) {
-      if (STARLARK_SKIPPED_PREFIXES.stream().noneMatch(flagSetting::startsWith)) {
-        nativeFlags.add(flagSetting);
-      } else {
-        starlarkFlags.add(flagSetting);
-      }
-    }
-    // The StarlarkOptionsParser needs a native options parser just to inject its Starlark flag
-    // values. It doesn't actually parse anything with the native parser.
-    OptionsParser fakeNativeParser = OptionsParser.builder().build();
-    StarlarkOptionsParser starlarkFlagParser =
-        StarlarkOptionsParser.newStarlarkOptionsParser(
-            new SkyframeTargetLoader(env, mainRepoContext), fakeNativeParser);
+      ImmutableSet<String> rawFlags, Environment env, RepoContext mainRepoContext)
+      throws PlatformMappingParsingException, InterruptedException {
+    PackageContext rootPackage = mainRepoContext.rootPackage();
+    ParsedFlagsValue.Key parsedFlagsKey = ParsedFlagsValue.Key.create(rawFlags, rootPackage);
     try {
-      if (!starlarkFlagParser.parseGivenArgs(starlarkFlags.build())) {
+      ParsedFlagsValue parsedFlags =
+          (ParsedFlagsValue) env.getValueOrThrow(parsedFlagsKey, OptionsParsingException.class);
+      if (parsedFlags == null) {
         return null;
       }
+      return parsedFlags.flags();
     } catch (OptionsParsingException e) {
       throw new PlatformMappingParsingException(e);
     }
-    return NativeAndStarlarkFlags.builder()
-        .nativeFlags(nativeFlags.build())
-        .starlarkFlags(fakeNativeParser.getStarlarkOptions())
-        .optionsClasses(optionsClasses)
-        .repoMapping(mainRepoContext.repoMapping())
-        .build();
   }
 
   /**
@@ -293,18 +226,14 @@ public final class PlatformMappingFunction implements SkyFunction {
    */
   @Nullable
   private static ImmutableMap<Label, NativeAndStarlarkFlags> readPlatformsToFlags(
-      PeekingIterator<String> it,
-      Environment env,
-      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses,
-      RepoContext mainRepoContext)
-      throws PlatformMappingParsingException {
+      PeekingIterator<String> it, Environment env, RepoContext mainRepoContext)
+      throws PlatformMappingParsingException, InterruptedException {
     ImmutableMap.Builder<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.builder();
     boolean needSkyframeDeps = false;
     while (it.hasNext() && !it.peek().equalsIgnoreCase("flags:")) {
       Label platform = readPlatform(it, mainRepoContext);
       ImmutableSet<String> flags = readFlags(it);
-      NativeAndStarlarkFlags parsedFlags =
-          parseStarlarkFlags(flags, env, optionsClasses, mainRepoContext);
+      NativeAndStarlarkFlags parsedFlags = parseStarlarkFlags(flags, env, mainRepoContext);
       if (parsedFlags == null) {
         needSkyframeDeps = true;
       } else {
