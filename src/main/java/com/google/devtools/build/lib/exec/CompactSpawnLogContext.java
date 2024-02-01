@@ -70,7 +70,7 @@ public class CompactSpawnLogContext implements SpawnLogContext {
   private final XattrProvider xattrProvider;
 
   // Maps a key identifying an entry into its ID.
-  // Each key is either a NestedSet.Node or the String path of a file or directory.
+  // Each key is either a NestedSet.Node or the String path of a file, directory or symlink.
   // Only entries that are likely to be referenced by future entries are stored.
   // Use a specialized map for minimal memory footprint.
   @GuardedBy("this")
@@ -143,17 +143,21 @@ public class CompactSpawnLogContext implements SpawnLogContext {
 
       for (ActionInput output : spawn.getOutputFiles()) {
         Path path = fileSystem.getPath(execRoot.getRelative(output.getExecPath()));
-        if (!path.exists()) {
-          builder.addOutputs(
-              ExecLogEntry.Output.newBuilder().setMissingPath(output.getExecPathString()));
-        } else if (path.isDirectory()) {
-          builder.addOutputs(
-              ExecLogEntry.Output.newBuilder()
-                  .setDirectoryId(logDirectory(output, path, inputMetadataProvider)));
-        } else {
+        if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
           builder.addOutputs(
               ExecLogEntry.Output.newBuilder()
                   .setFileId(logFile(output, path, inputMetadataProvider)));
+        } else if (output.isDirectory() && path.isDirectory()) {
+          builder.addOutputs(
+              ExecLogEntry.Output.newBuilder()
+                  .setDirectoryId(logDirectory(output, path, inputMetadataProvider)));
+        } else if (output.isSymlink() && path.isSymbolicLink()) {
+          builder.addOutputs(
+              ExecLogEntry.Output.newBuilder()
+                  .setUnresolvedSymlinkId(logUnresolvedSymlink(output, path)));
+        } else {
+          builder.addOutputs(
+              ExecLogEntry.Output.newBuilder().setInvalidOutputPath(output.getExecPathString()));
         }
       }
 
@@ -335,12 +339,12 @@ public class CompactSpawnLogContext implements SpawnLogContext {
   /**
    * Logs a directory.
    *
-   * <p>This may be either a source directory, a fileset or an output directory. An output directory
-   * is not guaranteed to be a tree artifact; we must support the case where a directory is produced
-   * when a file was expected. For runfiles, {@link #logRunfilesDirectory} must be used instead.
+   * <p>This may be either a source directory, a fileset or an output directory. For runfiles,
+   * {@link #logRunfilesDirectory} must be used instead.
    *
-   * @param input the input representing the directory
-   * @param root the path to the directory
+   * @param input the input representing the directory.
+   * @param root the path to the directory, which must have already been verified to be of the
+   *     correct type.
    * @return the entry ID of the {@link ExecLogEntry.Directory} describing the directory.
    */
   private int logDirectory(
@@ -453,6 +457,26 @@ public class CompactSpawnLogContext implements SpawnLogContext {
       }
     }
     return builder.build();
+  }
+
+  /**
+   * Logs an unresolved symlink.
+   *
+   * @param input the input representing the unresolved symlink.
+   * @param path the path to the unresolved symlink, which must have already been verified to be of
+   *     the correct type.
+   * @return the entry ID of the {@link ExecLogEntry.UnresolvedSymlink} describing the unresolved
+   *     symlink.
+   */
+  private int logUnresolvedSymlink(ActionInput input, Path path) throws IOException {
+    return logEntry(
+        input.getExecPathString(),
+        () ->
+            ExecLogEntry.newBuilder()
+                .setUnresolvedSymlink(
+                    ExecLogEntry.UnresolvedSymlink.newBuilder()
+                        .setPath(input.getExecPathString())
+                        .setTargetPath(path.readSymbolicLink().getPathString())));
   }
 
   /**
