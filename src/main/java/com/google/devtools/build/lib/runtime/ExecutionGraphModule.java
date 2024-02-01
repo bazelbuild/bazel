@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.SharedActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -440,7 +439,6 @@ public class ExecutionGraphModule extends BlazeModule {
           action.getOutputs(),
           action.getInputs(),
           action,
-          action.getRunfilesSupplier(),
           inputMetadataProvider,
           startMillis,
           0, // totalMillis. These actions are assumed to be nearly instant.
@@ -527,7 +525,6 @@ public class ExecutionGraphModule extends BlazeModule {
           spawn.getOutputEdgesForExecutionGraph(),
           inputFiles,
           spawn.getResourceOwner(),
-          spawn.getRunfilesSupplier(),
           event.getInputMetadataProvider(),
           startMillis,
           totalMillis,
@@ -553,7 +550,6 @@ public class ExecutionGraphModule extends BlazeModule {
         Iterable<? extends ActionInput> outputs,
         NestedSet<? extends ActionInput> inputs,
         ActionExecutionMetadata metadata,
-        RunfilesSupplier runfilesSupplier,
         InputMetadataProvider inputMetadataProvider,
         long startMillis,
         long totalMillis,
@@ -612,14 +608,32 @@ public class ExecutionGraphModule extends BlazeModule {
       }
 
       NestedSetBuilder<Artifact> runfilesArtifactsBuilder = NestedSetBuilder.stableOrder();
-      for (RunfilesTree runfilesTree : runfilesSupplier.getRunfilesTrees()) {
-        runfilesArtifactsBuilder.addTransitive(runfilesTree.getArtifacts());
-      }
 
       // Don't store duplicate deps. This saves some storage space, and uses less memory when the
       // action dump is parsed. Using a TreeSet is not slower than a HashSet, and it seems that
       // keeping the deps ordered compresses better. See cl/377153712.
       Set<Integer> deps = new TreeSet<>();
+
+      for (ActionInput input : inputs.toList()) {
+        // We don't use inputMetadataProvider.getRunfilesTrees() because this method is called both
+        // for Spawns and Actions and the runfiles on a Spawn can be a subset of the runfiles of the
+        // action during whose execution it was created.
+        if ((input instanceof Artifact) && ((Artifact) input).isMiddlemanArtifact()) {
+          // This is a runfiles middleman. Collect the artifacts in it into
+          // runfilesArtifactsBuilder.
+          RunfilesTree runfilesTree =
+              inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
+          runfilesArtifactsBuilder.addTransitive(runfilesTree.getArtifacts());
+        }
+
+        if (depType == DependencyInfo.ALL) {
+          NodeInfo dep = outputToNode.get(input);
+          if (dep != null) {
+            deps.add(dep.index);
+          }
+        }
+      }
+
       for (Artifact runfilesInput : runfilesArtifactsBuilder.build().toList()) {
         NodeInfo dep = outputToNode.get(runfilesInput);
         if (dep != null) {
@@ -627,14 +641,6 @@ public class ExecutionGraphModule extends BlazeModule {
         }
       }
 
-      if (depType == DependencyInfo.ALL) {
-        for (ActionInput input : inputs.toList()) {
-          NodeInfo dep = outputToNode.get(input);
-          if (dep != null) {
-            deps.add(dep.index);
-          }
-        }
-      }
       nodeBuilder.addAllDependentIndex(deps);
     }
 
