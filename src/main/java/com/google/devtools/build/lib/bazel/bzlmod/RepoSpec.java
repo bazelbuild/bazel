@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import javax.annotation.Nullable;
@@ -55,7 +56,22 @@ public abstract class RepoSpec implements SkyValue {
 
     public abstract Builder setAttributes(AttributeValues attributes);
 
-    public abstract RepoSpec build();
+    abstract AttributeValues attributes();
+
+    abstract RepoSpec autoBuild();
+
+    public final RepoSpec build() {
+      // Ensure backwards compatibility with old lockfiles that still specify the 'name' attribute.
+      // TODO: Remove this after both the lockfile version has been bumped and Bazel is built with
+      //  with Bazel 7.1.0.
+      AttributeValues attributes = attributes();
+      if (attributes.attributes().containsKey("name")) {
+        setAttributes(
+            AttributeValues.create(
+                Maps.filterKeys(attributes.attributes(), k -> !k.equals("name"))));
+      }
+      return autoBuild();
+    }
   }
 
   public boolean isNativeRepoRule() {

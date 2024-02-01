@@ -72,12 +72,6 @@ function test_determinism()  {
     # Update the hash of bazel_tools in lockfile to avoid rerunning module resolution.
     new_hash=$(shasum -a 256 "src/MODULE.tools" | awk '{print $1}')
     sed -i.bak "/\"bazel_tools\":/s/\"[a-f0-9]*\"/\"$new_hash\"/" MODULE.bazel.lock
-    # TODO: Temporary hack for lockfile version mismatch, remove these lines after updating to 7.1.0
-    sed -i.bak 's/"lockFileVersion": 3/"lockFileVersion": 4/' MODULE.bazel.lock
-    sed -i.bak -E 's/^[[:space:]]*"name": "[^"]*~[^"]*",{0,1}//' MODULE.bazel.lock
-    # Also remove the name attribute of the repo backing the platforms module, which is "well-known"
-    # and thus doesn't contain a tilde.
-    sed -i.bak 's/          "name": "platforms",//' MODULE.bazel.lock
     rm MODULE.bazel.lock.bak
 
     # Use @bazel_tools//tools/python:autodetecting_toolchain to avoid
