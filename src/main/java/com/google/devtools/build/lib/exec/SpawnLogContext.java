@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -20,6 +22,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -127,7 +130,7 @@ public class SpawnLogContext implements ActionContext {
           continue;
         }
         Path inputPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
-        if (inputPath.isDirectory()) {
+        if (isInputDirectory(input, inputMetadataProvider)) {
           listDirectoryContents(inputPath, builder::addInputs, inputMetadataProvider);
           continue;
         }
@@ -302,6 +305,29 @@ public class SpawnLogContext implements ActionContext {
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Error computing spawn event file properties");
     }
+  }
+
+  /**
+   * Determines whether an action input is a directory, avoiding I/O if possible.
+   *
+   * <p>Do not call for action outputs.
+   */
+  static boolean isInputDirectory(ActionInput input, InputMetadataProvider inputMetadataProvider)
+      throws IOException {
+    if (input.isDirectory()) {
+      return true;
+    }
+    if (!(input instanceof SourceArtifact)) {
+      return false;
+    }
+    // A source artifact may be a directory in spite of claiming to be a file. Avoid unnecessary I/O
+    // by inspecting its metadata, which should have already been collected and cached.
+    FileArtifactValue metadata =
+        checkNotNull(
+            inputMetadataProvider.getInputMetadata(input),
+            "missing metadata for %s",
+            input.getExecPath());
+    return metadata.getType().isDirectory();
   }
 
   /**
