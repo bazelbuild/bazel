@@ -250,6 +250,39 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
+  public void testUnresolvedSymlinkInput(@TestParameter InputsMode inputsMode) throws Exception {
+    Artifact symlinkInput = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputDir, "symlink");
+
+    symlinkInput.getPath().getParentDirectory().createDirectoryAndParents();
+    symlinkInput.getPath().createSymbolicLink(PathFragment.create("/some/path"));
+
+    SpawnBuilder spawn = defaultSpawnBuilder().withInputs(symlinkInput);
+    if (inputsMode.isTool()) {
+      spawn.withTools(symlinkInput);
+    }
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn.build(),
+        createInputMetadataProvider(symlinkInput),
+        createInputMap(symlinkInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath("out/symlink")
+                    .setSymlinkTargetPath("/some/path")
+                    .setIsTool(inputsMode.isTool()))
+            .build());
+  }
+
+  @Test
   public void testRunfilesFileInput() throws Exception {
     Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "data.txt");
 
@@ -862,6 +895,8 @@ public abstract class SpawnLogContextTestBase {
             treeMetadata.getChildValues().entrySet()) {
           builder.put(entry.getKey(), entry.getValue());
         }
+      } else if (artifact.isSymlink()) {
+        builder.put(artifact, FileArtifactValue.createForUnresolvedSymlink(artifact));
       } else {
         builder.put(artifact, FileArtifactValue.createForTesting(artifact));
       }

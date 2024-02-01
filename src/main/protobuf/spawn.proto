@@ -248,17 +248,19 @@ message ExecLogEntry {
   }
 
   // A set of spawn inputs.
-  // The contents of the set are the directly referenced files and directories
-  // in addition to the contents of all transitively referenced sets. Sets are
-  // not canonical: two sets with different structure may yield the same
-  // contents.
+  // The contents of the set are the directly referenced files, directories and
+  // symlinks in addition to the contents of all transitively referenced sets.
+  // Sets are not canonical: two sets with different structure may yield the
+  // same contents.
   message InputSet {
     // Entry IDs of files belonging to this set.
     repeated int32 file_ids = 1;
     // Entry IDs of directories belonging to this set.
     repeated int32 directory_ids = 2;
+    // Entry IDs of unresolved symlinks belonging to this set.
+    repeated int32 unresolved_symlink_ids = 3;
     // Entry IDs of other sets contained in this set.
-    repeated int32 transitive_set_ids = 3;
+    repeated int32 transitive_set_ids = 4;
   }
 
   // A spawn output.
