@@ -1325,32 +1325,35 @@ public class RemoteExecutionService {
       RemoteAction action, SpawnResult spawnResult) {
     return Single.fromCallable(
         () -> {
-          ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
-          // Check that all mandatory outputs are created.
-          for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
-            Symlinks followSymlinks = outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
-            Path localPath = execRoot.getRelative(outputFile.getExecPath());
-            if (action.getSpawn().isMandatoryOutput(outputFile)
-                && !localPath.exists(followSymlinks)) {
-              throw new IOException(
-                  "Expected output " + prettyPrint(outputFile) + " was not created locally.");
+          try (SilentCloseable c = Profiler.instance().profile("build upload manifest")) {
+            ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
+            // Check that all mandatory outputs are created.
+            for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
+              Symlinks followSymlinks =
+                  outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
+              Path localPath = execRoot.getRelative(outputFile.getExecPath());
+              if (action.getSpawn().isMandatoryOutput(outputFile)
+                  && !localPath.exists(followSymlinks)) {
+                throw new IOException(
+                    "Expected output " + prettyPrint(outputFile) + " was not created locally.");
+              }
+              outputFiles.add(localPath);
             }
-            outputFiles.add(localPath);
-          }
 
-          return UploadManifest.create(
-              remoteOptions,
-              remoteCache.getCacheCapabilities(),
-              digestUtil,
-              action.getRemotePathResolver(),
-              action.getActionKey(),
-              action.getAction(),
-              action.getCommand(),
-              outputFiles.build(),
-              action.getSpawnExecutionContext().getFileOutErr(),
-              spawnResult.exitCode(),
-              spawnResult.getStartTime(),
-              spawnResult.getWallTimeInMs());
+            return UploadManifest.create(
+                remoteOptions,
+                remoteCache.getCacheCapabilities(),
+                digestUtil,
+                action.getRemotePathResolver(),
+                action.getActionKey(),
+                action.getAction(),
+                action.getCommand(),
+                outputFiles.build(),
+                action.getSpawnExecutionContext().getFileOutErr(),
+                spawnResult.exitCode(),
+                spawnResult.getStartTime(),
+                spawnResult.getWallTimeInMs());
+          }
         });
   }
 
