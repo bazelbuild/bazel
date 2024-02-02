@@ -231,7 +231,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected BuildConfigurationValue execConfig;
   private List<String> configurationArgs;
 
-  protected OptionsParser optionsParser;
   private PackageOptions packageOptions;
   private BuildLanguageOptions buildLanguageOptions;
   protected PackageFactory pkgFactory;
@@ -426,7 +425,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final BuildConfigurationValue createConfiguration(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
-    optionsParser =
+    OptionsParser optionsParser =
         OptionsParser.builder()
             .optionsClasses(
                 Iterables.concat(
