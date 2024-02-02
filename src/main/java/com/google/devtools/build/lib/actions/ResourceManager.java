@@ -165,13 +165,13 @@ public class ResourceManager implements ResourceEstimator {
   /** Returns prediction of RAM in Mb used by registered actions. */
   @Override
   public double getUsedMemoryInMb() {
-    return usedResources.get(ResourceSet.MEMORY);
+    return usedResources.getOrDefault(ResourceSet.MEMORY, 0d);
   }
 
   /** Returns prediction of CPUs used by registered actions. */
   @Override
   public double getUsedCPU() {
-    return usedResources.get(ResourceSet.CPU);
+    return usedResources.getOrDefault(ResourceSet.CPU, 0d);
   }
 
   // Allocated resources are allowed to go "negative", but at least
@@ -207,7 +207,7 @@ public class ResourceManager implements ResourceEstimator {
 
   // Used amount of resources. Corresponds to the resource
   // definition in the ResourceSet class.
-  private Map<String, Double> usedResources;
+  private Map<String, Double> usedResources = new HashMap<>();
 
   // Used local test count. Corresponds to the local test count definition in the ResourceSet class.
   private int usedLocalTestCount;
