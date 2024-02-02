@@ -149,7 +149,7 @@ public final class SpawnLogModule extends BlazeModule {
           .exit(
               new AbruptExitException(
                   createDetailedExitCode(
-                      "Error initializing execution log",
+                      String.format("Error initializing execution log: %s", e.getMessage()),
                       Code.EXECUTION_LOG_INITIALIZATION_FAILURE)));
     }
   }
