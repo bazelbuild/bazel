@@ -666,8 +666,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return new Fingerprint()
           .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
           .addInt(MARKER_FILE_VERSION)
-          // TODO: Using the hashCode() method for StarlarkSemantics here is technically wrong.
-          //   hashCode() is not guaranteed to be stable across JVM restarts.
+          // TODO: Using the hashCode() method for StarlarkSemantics here is suboptimal as
+          //   it doesn't include any default values.
           .addInt(starlarkSemantics.hashCode())
           .hexDigestAndReset();
     }
