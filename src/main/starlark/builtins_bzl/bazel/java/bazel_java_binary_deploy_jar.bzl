@@ -38,7 +38,6 @@ def _bazel_deploy_jars_impl(ctx):
     if runfiles_manifest:
         runfiles = depset(
             [runfiles_manifest],
-            transitive = [ctx.attr.binary[OutputGroupInfo]._hidden_top_level_INTERNAL_],
         )
     else:
         runfiles = depset()
