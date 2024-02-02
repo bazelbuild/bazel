@@ -288,12 +288,18 @@ java_library(
 
 java_library(
     name = "spawn_log_context_utils",
-    srcs = ["StableSort.java"],
+    srcs = [
+        "SpawnLogReconstructor.java",
+        "StableSort.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
+        "@zstd-jni",
     ],
 )
 

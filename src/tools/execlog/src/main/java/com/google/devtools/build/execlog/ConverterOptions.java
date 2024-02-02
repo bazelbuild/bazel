@@ -62,7 +62,8 @@ public class ConverterOptions extends OptionsBase {
 
   enum Format {
     BINARY,
-    JSON
+    JSON,
+    COMPACT
   }
 
   private static final ImmutableMap<String, Format> FORMAT_BY_NAME =
