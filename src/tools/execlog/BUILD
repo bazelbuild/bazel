@@ -20,3 +20,10 @@ java_binary(
     visibility = ["//visibility:public"],
     runtime_deps = ["//src/tools/execlog/src/main/java/com/google/devtools/build/execlog:parser"],
 )
+
+java_binary(
+    name = "converter",
+    main_class = "com.google.devtools.build.execlog.ExecLogConverter",
+    visibility = ["//visibility:public"],
+    runtime_deps = ["//src/tools/execlog/src/main/java/com/google/devtools/build/execlog:converter"],
+)
