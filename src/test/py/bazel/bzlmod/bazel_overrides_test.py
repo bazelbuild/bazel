@@ -143,22 +143,73 @@ class BazelOverridesTest(test_base.TestBase):
     self.writeMainProjectFiles()
     archive_aaa_1_0 = self.main_registry.archives.joinpath('aaa.1.0.zip')
     self.ScratchFile(
+      'aaa2.patch',
+      [
+        '--- a/aaa.cc',
+        '+++ b/aaa.cc',
+        '@@ -1,6 +1,6 @@',
+        ' #include <stdio.h>',
+        ' #include "aaa.h"',
+        ' void hello_aaa(const std::string& caller) {',
+        '-    std::string lib_name = "aaa@1.0 (locally patched)";',
+        '+    std::string lib_name = "aaa@1.0 (locally patched again)";',
+        '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+        ' }',
+      ],
+    )
+    self.ScratchFile(
+      'aaa3.patch',
+      [
+        '--- a/aaa.cc',
+        '+++ b/aaa.cc',
+        '@@ -1,6 +1,6 @@',
+        ' #include <stdio.h>',
+        ' #include "aaa.h"',
+        ' void hello_aaa(const std::string& caller) {',
+        '-    std::string lib_name = "aaa@1.0 (locally patched again)";',
+        '+    std::string lib_name = "aaa@1.0 (locally patched again and again)";',
+        '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+        ' }',
+      ],
+    )
+    self.ScratchFile(
+      'aaa4.patch',
+      [
+        '--- a/aaa.cc',
+        '+++ b/aaa.cc',
+        '@@ -1,6 +1,6 @@',
+        ' #include <stdio.h>',
+        ' #include "aaa.h"',
+        ' void hello_aaa(const std::string& caller) {',
+        '-    std::string lib_name = "aaa@1.0 (locally patched again and again)";',
+        '+    std::string lib_name = "aaa@1.0 (locally patched all over again)";',
+        '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+        ' }',
+      ],
+    )
+    self.ScratchFile(
         'MODULE.bazel',
         [
+            'module(name = "main", repo_name = "my_main")',
             'bazel_dep(name = "aaa", version = "1.1")',
             'bazel_dep(name = "bbb", version = "1.1")',
             'archive_override(',
             '  module_name = "aaa",',
             '  urls = ["%s"],' % archive_aaa_1_0.as_uri(),
-            '  patches = ["//:aaa.patch"],',
+            '  patches = [',
+            '    "//:aaa.patch",',
+            '    "@//:aaa2.patch",',
+            '    "@my_main//:aaa3.patch",',
+            '    ":aaa4.patch",',
+            '  ],',
             '  patch_strip = 1,',
             ')',
         ],
     )
     _, stdout, _ = self.RunBazel(['run', '//:main'])
-    self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
+    self.assertIn('main function => aaa@1.0 (locally patched all over again)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
-    self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.0 (locally patched all over again)', stdout)
 
   def testGitOverride(self):
     self.writeMainProjectFiles()

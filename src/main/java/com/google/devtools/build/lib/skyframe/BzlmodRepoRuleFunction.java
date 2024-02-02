@@ -70,14 +70,11 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
   private final BlazeDirectories directories;
 
   /**
-   * An empty repo mapping anchored to the main repo.
-   *
-   * <p>None of the labels present in RepoSpecs can point to any repo other than the main repo
-   * or @bazel_tools, because at this point we don't know how any other repo is defined yet. The
-   * RepoSpecs processed by this class can only contain labels from the MODULE.bazel file (from
-   * overrides). In the future, they might contain labels from the lockfile, but those will need to
-   * be canonical label literals, which bypass repo mapping anyway.
+   * An empty repo mapping anchored to the main repo. Label strings in {@link RepoSpec}s are always
+   * in unambiguous canonical form and thus require no mapping, except instances read from old
+   * lockfiles.
    */
+  // TODO(fmeum): Make this mapping truly empty after bumping LOCK_FILE_VERSION.
   private static final RepositoryMapping EMPTY_MAIN_REPO_MAPPING =
       RepositoryMapping.create(
           ImmutableMap.of("", RepositoryName.MAIN, "bazel_tools", RepositoryName.BAZEL_TOOLS),

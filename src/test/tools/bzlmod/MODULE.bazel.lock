@@ -228,7 +228,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -330,7 +330,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -356,7 +356,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -385,7 +385,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -491,7 +491,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -557,7 +557,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -586,7 +586,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -665,7 +665,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -698,7 +698,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -750,7 +750,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -780,7 +780,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -809,7 +809,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -839,7 +839,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -872,7 +872,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -958,7 +958,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -987,7 +987,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -1017,7 +1017,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
