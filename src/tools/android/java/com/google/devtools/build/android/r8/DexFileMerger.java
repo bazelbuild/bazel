@@ -168,6 +168,14 @@ public class DexFileMerger {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Dex file output prefix.")
     public String dexPrefix;
+
+    @Option(
+        name = "min_sdk_version",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "minSdkVersion to use when merging")
+    public String minSdkVersion;
   }
 
   private static Options parseArguments(String[] args) throws IOException {
@@ -333,7 +341,9 @@ public class DexFileMerger {
 
     // If multidex is enabled but no main-dex list given then the build must be targeting
     // devices with native multidex support.
-    if (options.multidexMode.isMultidexAllowed() && options.mainDexListFile == null) {
+    if (!options.minSdkVersion.isEmpty()) {
+      builder.setMinApiLevel(Integer.parseInt(options.minSdkVersion));
+    } else if (options.multidexMode.isMultidexAllowed() && options.mainDexListFile == null) {
       builder.setMinApiLevel(NATIVE_MULTIDEX_API_LEVEL);
     }
 
