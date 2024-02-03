@@ -96,6 +96,81 @@ def layering_check_features(compiler):
         ),
     ]
 
+def interface_shared_libraries_features(cc_path, llvm_ifs_path):
+    if not llvm_ifs_path:
+        return []
+    dynamic_library_actions = [
+        ACTION_NAMES.cpp_link_dynamic_library,
+        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+        ACTION_NAMES.lto_index_for_dynamic_library,
+        ACTION_NAMES.lto_index_for_nodeps_dynamic_library,
+    ]
+    return [
+        feature(
+            name = "supports_interface_shared_libraries",
+            enabled = True,
+        ),
+        feature(
+            name = "build_interface_libraries",
+            flag_sets = [
+                flag_set(
+                    actions = dynamic_library_actions,
+                    flag_groups = [
+                        flag_group(
+                            flags = [
+                                "%{generate_interface_library}",
+                                "%{interface_library_builder_path}",
+                                "%{interface_library_input_path}",
+                                "%{interface_library_output_path}",
+                            ],
+                            expand_if_available = "generate_interface_library",
+                        ),
+                    ],
+                    with_features = [
+                        with_feature_set(
+                            features = ["supports_interface_shared_libraries"],
+                        ),
+                    ],
+                ),
+            ],
+            env_sets = [
+                env_set(
+                    actions = dynamic_library_actions,
+                    env_entries = [
+                        env_entry(
+                            key = "LLVM_IFS_PATH",
+                            value = llvm_ifs_path,
+                        ),
+                    ],
+                    with_features = [
+                        with_feature_set(
+                            features = ["supports_interface_shared_libraries"],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        feature(
+            name = "dynamic_library_linker_tool",
+            flag_sets = [
+                flag_set(
+                    actions = dynamic_library_actions,
+                    flag_groups = [
+                        flag_group(
+                            flags = [cc_path],
+                            expand_if_available = "generate_interface_library",
+                        ),
+                    ],
+                    with_features = [
+                        with_feature_set(
+                            features = ["supports_interface_shared_libraries"],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    ]
+
 all_compile_actions = [
     ACTION_NAMES.c_compile,
     ACTION_NAMES.cpp_compile,
@@ -809,36 +884,6 @@ def _impl(ctx):
         ],
     )
 
-    build_interface_libraries_feature = feature(
-        name = "build_interface_libraries",
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.cpp_link_dynamic_library,
-                    ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                    ACTION_NAMES.lto_index_for_dynamic_library,
-                    ACTION_NAMES.lto_index_for_nodeps_dynamic_library,
-                ],
-                flag_groups = [
-                    flag_group(
-                        flags = [
-                            "%{generate_interface_library}",
-                            "%{interface_library_builder_path}",
-                            "%{interface_library_input_path}",
-                            "%{interface_library_output_path}",
-                        ],
-                        expand_if_available = "generate_interface_library",
-                    ),
-                ],
-                with_features = [
-                    with_feature_set(
-                        features = ["supports_interface_shared_libraries"],
-                    ),
-                ],
-            ),
-        ],
-    )
-
     libraries_to_link_feature = feature(
         name = "libraries_to_link",
         flag_sets = [
@@ -1149,31 +1194,6 @@ def _impl(ctx):
         ],
     )
 
-    dynamic_library_linker_tool_feature = feature(
-        name = "dynamic_library_linker_tool",
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.cpp_link_dynamic_library,
-                    ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                    ACTION_NAMES.lto_index_for_dynamic_library,
-                    ACTION_NAMES.lto_index_for_nodeps_dynamic_library,
-                ],
-                flag_groups = [
-                    flag_group(
-                        flags = [" + cppLinkDynamicLibraryToolPath + "],
-                        expand_if_available = "generate_interface_library",
-                    ),
-                ],
-                with_features = [
-                    with_feature_set(
-                        features = ["supports_interface_shared_libraries"],
-                    ),
-                ],
-            ),
-        ],
-    )
-
     output_execpath_flags_feature = feature(
         name = "output_execpath_flags",
         flag_sets = [
@@ -1382,8 +1402,10 @@ def _impl(ctx):
             thinlto_feature,
             fdo_prefetch_hints_feature,
             autofdo_feature,
-            build_interface_libraries_feature,
-            dynamic_library_linker_tool_feature,
+        ] + interface_shared_libraries_features(
+            cc_path = ctx.attr.tool_paths["gcc"],
+            llvm_ifs_path = ctx.attr.tool_paths.get("llvm-ifs"),
+        ) + [
             shared_flag_feature,
             linkstamps_feature,
             output_execpath_flags_feature,

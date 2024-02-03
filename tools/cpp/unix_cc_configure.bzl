@@ -83,6 +83,7 @@ def _get_tool_paths(repository_ctx, overriden_tools):
             "ld",
             "llvm-cov",
             "llvm-profdata",
+            "llvm-ifs",
             "cpp",
             "gcc",
             "dwp",
@@ -369,6 +370,14 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         repository_ctx,
         "llvm-profdata",
         "BAZEL_LLVM_PROFDATA",
+        overriden_tools,
+        warn = True,
+        silent = True,
+    )
+    overriden_tools["llvm-ifs"] = _find_generic(
+        repository_ctx,
+        "llvm-ifs",
+        "BAZEL_LLVM_IFS",
         overriden_tools,
         warn = True,
         silent = True,

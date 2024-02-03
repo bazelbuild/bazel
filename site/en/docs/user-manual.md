@@ -576,6 +576,15 @@ Modes:
   [mostly static](/reference/be/c-cpp#cc_binary.linkstatic) mode.
   If `-static` is set in linkopts, targets will change to fully static.
 
+#### `--interface_shared_objects` {:#interface-shared-objects}
+
+If enabled, Bazel will link against interface libraries instead of dynamic libraries (if
+[dynamic linking](#dynamic-mode) is enabled). This avoids relinking when changes only affect the
+implementation of the library, but not its interface. Interface libraries are always available on
+Windows. The default Linux C++ toolchain automatically generates interface libraries if the
+[`llvm-ifs`](https://llvm.org/docs/CommandGuide/llvm-ifs.html) tool is provided via
+the `BAZEL_LLVM_IFS` environment variable or can be found in `PATH`.
+
 #### `--fission (yes|no|[dbg][,opt][,fastbuild])` {:#fission}
 
 Enables [Fission](https://gcc.gnu.org/wiki/DebugFission){: .external},

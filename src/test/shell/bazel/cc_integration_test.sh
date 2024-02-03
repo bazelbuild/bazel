@@ -1912,4 +1912,59 @@ EOF
   fi
 }
 
+function test_ifso_generation() {
+  type -P llvm-ifs || return 0
+
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+cc_library(
+  name = "lib",
+  srcs = ["lib.c"],
+  hdrs = ["lib.h"],
+)
+cc_test(
+  name = "test",
+  srcs = ["test.c"],
+  deps = [":lib"],
+)
+EOF
+  cat > pkg/lib.c <<'EOF'
+#include "lib.h"
+int lib() { return 42; }
+EOF
+  cat > pkg/lib.h <<'EOF'
+int lib();
+EOF
+  cat > pkg/test.c <<'EOF'
+#include "lib.h"
+#include "stdio.h"
+int main() {
+  printf("lib(): %d\n", lib());
+}
+EOF
+
+  bazel test //pkg:test -s --test_output=all \
+    &> "$TEST_log" || fail "Build failed"
+  expect_log "action 'Compiling pkg/lib.c'"
+  expect_log "action 'Linking pkg/liblib.so'"
+  expect_log "action 'Linking pkg/test'"
+  expect_log "lib(): 42"
+  [[ -f ${PRODUCT_NAME}-bin/pkg/liblib.ifso ]] || fail "liblib.ifso not found"
+
+  # Only modify the implementation of lib(). This should not trigger a relink
+  # as the .ifso file isn't modified.
+  cat > pkg/lib.c <<'EOF'
+#include "lib.h"
+int lib() { return 43; }
+EOF
+  bazel test //pkg:test -s --test_output=all \
+    &> "$TEST_log" || fail "Build failed"
+  expect_log "action 'Compiling pkg/lib.c'"
+  expect_log "action 'Linking pkg/liblib.so'"
+  expect_not_log "action 'Linking pkg/test'"
+  expect_log "lib(): 43"
+
+  fail "I ran"
+}
+
 run_suite "cc_integration_test"
