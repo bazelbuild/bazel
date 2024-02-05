@@ -77,6 +77,6 @@ public class ExportsFilesTest extends PackageLoadingTestCase {
         "exports_files(['foo'])",
         "genrule(name = 'foo', srcs = ['bar'], outs = [], cmd = '/bin/true')");
     assertThat(getTarget("//pkg2:foo")).isInstanceOf(InputFile.class);
-    assertContainsEvent("rule 'foo' in package 'pkg2' conflicts with existing source file");
+    assertContainsEvent("rule 'foo' conflicts with existing source file");
   }
 }

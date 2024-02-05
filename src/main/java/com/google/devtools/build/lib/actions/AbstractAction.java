@@ -252,11 +252,6 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public RunfilesSupplier getRunfilesSupplier() {
-    return EmptyRunfilesSupplier.INSTANCE;
-  }
-
-  @Override
   public Collection<Artifact> getOutputs() {
     return outputs instanceof Artifact
         ? ImmutableSet.of((Artifact) outputs)
@@ -383,10 +378,11 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     }
     if (progressMessage.contains("%{output}") && getPrimaryOutput() != null) {
       progressMessage =
-          progressMessage.replace("%{output}", getPrimaryOutput().getExecPathString());
+          progressMessage.replace("%{output}", getPrimaryOutput().getRootRelativePathString());
     }
     if (progressMessage.contains("%{input}") && getPrimaryInput() != null) {
-      progressMessage = progressMessage.replace("%{input}", getPrimaryInput().getExecPathString());
+      progressMessage =
+          progressMessage.replace("%{input}", getPrimaryInput().getRootRelativePathString());
     }
     return progressMessage;
   }

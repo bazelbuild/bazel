@@ -83,6 +83,7 @@ public class SymlinkedSandboxedSpawnTest {
             new SynchronousTreeDeleter(),
             /* sandboxDebugPath= */ null,
             /* statisticsPath= */ null,
+            /* interactiveDebugArguments= */ null,
             "SomeMnemonic");
 
     symlinkedExecRoot.createFileSystem();
@@ -114,6 +115,7 @@ public class SymlinkedSandboxedSpawnTest {
             new SynchronousTreeDeleter(),
             /* sandboxDebugPath= */ null,
             /* statisticsPath= */ null,
+            /* interactiveDebugArguments= */ null,
             "SomeMnemonic");
     symlinkedExecRoot.createFileSystem();
 

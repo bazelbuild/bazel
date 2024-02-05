@@ -24,15 +24,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.actions.ResourceEstimator;
-import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
 import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
-import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.gson.stream.JsonWriter;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
@@ -327,8 +324,8 @@ public final class Profiler {
   @VisibleForTesting
   final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
 
-  /** Thread that collects local cpu usage data (if enabled). */
-  private CollectLocalResourceUsage resourceUsageThread;
+  /** Collects local cpu usage data (if enabled). */
+  private LocalResourceCollector localResourceCollector;
 
   private TimeSeries actionCountTimeSeries;
   private TimeSeries actionCacheCountTimeSeries;
@@ -431,8 +428,6 @@ public final class Profiler {
    *     some tasks may get aggregated if they finished quick enough
    * @param clock a {@code BlazeClock.instance()}
    * @param execStartTimeNanos execution start time in nanos obtained from {@code clock.nanoTime()}
-   * @param collectLoadAverage If true, collects system load average (as seen in uptime(1))
-   * @param collectPressureStallIndicators Whether to collect PSI information for memory and I/O
    */
   public synchronized void start(
       ImmutableSet<ProfilerTask> profiledTasks,
@@ -447,14 +442,7 @@ public final class Profiler {
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean collectTaskHistograms,
-      boolean collectWorkerDataInProfiler,
-      boolean collectLoadAverage,
-      boolean collectSystemNetworkUsage,
-      boolean collectPressureStallIndicators,
-      boolean collectResourceEstimation,
-      ResourceEstimator resourceEstimator,
-      WorkerProcessMetricsCollector workerProcessMetricsCollector,
-      BugReporter bugReporter)
+      LocalResourceCollector localResourceCollector)
       throws IOException {
     checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -494,19 +482,9 @@ public final class Profiler {
     profileStartTime = execStartTimeNanos;
     profileCpuStartTime = getProcessCpuTime();
 
+    this.localResourceCollector = localResourceCollector;
     // Start collecting Bazel and system-wide CPU metric collection.
-    resourceUsageThread =
-        new CollectLocalResourceUsage(
-            bugReporter,
-            workerProcessMetricsCollector,
-            resourceEstimator,
-            collectWorkerDataInProfiler,
-            collectLoadAverage,
-            collectSystemNetworkUsage,
-            collectResourceEstimation,
-            collectPressureStallIndicators);
-    resourceUsageThread.setDaemon(true);
-    resourceUsageThread.start();
+    this.localResourceCollector.start();
   }
 
   /**
@@ -556,16 +534,7 @@ public final class Profiler {
 
     collectActionCounts();
 
-    if (resourceUsageThread != null) {
-      resourceUsageThread.stopCollecting();
-      try {
-        resourceUsageThread.join();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-      resourceUsageThread.logCollectedData();
-      resourceUsageThread = null;
-    }
+    localResourceCollector.stop();
 
     // Log a final event to update the duration of ProfilePhase.FINISH.
     logEvent(ProfilerTask.INFO, "Finishing");

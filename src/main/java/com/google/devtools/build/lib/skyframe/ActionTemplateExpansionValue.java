@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 
 /** Value that stores expanded actions from ActionTemplate. */
 public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
@@ -50,9 +52,14 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
     }
 
     @VisibleForTesting
-    @AutoCodec.Instantiator
     public static ActionTemplateExpansionKey of(ActionLookupKey actionLookupKey, int actionIndex) {
       return interner.intern(new ActionTemplateExpansionKey(actionLookupKey, actionIndex));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static ActionTemplateExpansionKey intern(ActionTemplateExpansionKey key) {
+      return interner.intern(key);
     }
 
     @Override

@@ -116,10 +116,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
     assertThat(action.getPrimaryInput()).isEqualTo(inputArtifact);
     assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
     assertThat(action.getProgressMessage())
-        .isEqualTo(
-            "Symlinking test: //null/action:owner: input.txt -> "
-                + getAnalysisMock().getProductName()
-                + "-out/k8-fastbuild/bin/destination.txt");
+        .isEqualTo("Symlinking test: //null/action:owner: input.txt -> destination.txt");
   }
 
   @Test

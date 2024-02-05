@@ -22,19 +22,25 @@
 
 ### Setup
 
-To use these rules, load them in your `WORKSPACE` file as follows:
+To use these rules in a module extension, load them in your .bzl file and then call them from your
+extension's implementation function. For example, to use `http_archive`:
 
 ```python
-load(
-    "@bazel_tools//tools/build_defs/repo:http.bzl",
-    "http_archive",
-    "http_file",
-    "http_jar",
-)
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def _my_extension_impl(mctx):
+  http_archive(name = "foo", urls = [...])
+
+my_extension = module_extension(implementation = _my_extension_impl)
 ```
 
-These rules are improved versions of the native http rules and will eventually
-replace the native rules.
+Alternatively, you can directly call these repo rules in your MODULE.bazel file with
+`use_repo_rule`:
+
+```python
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(name = "foo", urls = [...])
+```
 """
 
 load(
@@ -186,8 +192,6 @@ def _http_file_impl(ctx):
     return _update_integrity_attr(ctx, _http_file_attrs, download_info)
 
 _HTTP_JAR_BUILD = """\
-load("{rules_java_defs}", "java_import")
-
 package(default_visibility = ["//visibility:public"])
 
 java_import(
@@ -220,7 +224,6 @@ def _http_jar_impl(ctx):
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(
         file_name = downloaded_file_name,
-        rules_java_defs = str(Label("@rules_java//java:defs.bzl")),
     ))
 
     return _update_integrity_attr(ctx, _http_jar_attrs, download_info)

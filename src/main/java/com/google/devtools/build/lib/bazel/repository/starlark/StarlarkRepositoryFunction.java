@@ -20,6 +20,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -55,6 +55,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
@@ -223,7 +225,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
     markerData.put(SEMANTICS, describeSemantics(starlarkSemantics));
-    markerData.put("ARCH:", CPU.getCurrent().getCanonicalName());
 
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {
@@ -240,6 +241,10 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     try (Mutability mu = Mutability.create("Starlark repository")) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
+      var repoMappingRecorder = new Label.RepoMappingRecorder();
+      repoMappingRecorder.mergeEntries(
+          rule.getRuleClassObject().getRuleDefinitionEnvironmentRepoMappingEntries());
+      thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
@@ -323,6 +328,21 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         markerData.put("FILE:" + entry.getKey(), entry.getValue());
       }
 
+      // Ditto for environment variables accessed via `getenv`.
+      for (String envKey : starlarkRepositoryContext.getAccumulatedEnvKeys()) {
+        markerData.put("ENV:" + envKey, clientEnvironment.get(envKey));
+      }
+
+      for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
+          repoMappingRecorder.recordedEntries().cellSet()) {
+        markerData.put(
+            "REPO_MAPPING:"
+                + repoMappings.getRowKey().getName()
+                + ","
+                + repoMappings.getColumnKey(),
+            repoMappings.getValue().getName());
+      }
+
       env.getListener().post(resolved);
     } catch (NeedsSkyframeRestartException e) {
       // A dependency is missing, cleanup and returns null
@@ -371,6 +391,47 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
   @SuppressWarnings("unchecked")
   private static ImmutableSet<String> getEnviron(Rule rule) {
     return ImmutableSet.copyOf((Iterable<String>) rule.getAttr("$environ"));
+  }
+
+  /**
+   * Verify marker data previously saved by {@link #declareEnvironmentDependencies(Map, Environment,
+   * Set)} and/or {@link #fetchInternal(Rule, Path, BlazeDirectories, Environment, Map, SkyKey)} (on
+   * behalf of {@link StarlarkBaseExternalContext#getEnvironmentValue(String, Object)}).
+   */
+  @Override
+  protected boolean verifyEnvironMarkerData(
+      Map<String, String> markerData, Environment env, Set<String> keys)
+      throws InterruptedException {
+    /*
+     * We can ignore `keys` and instead only verify what's recorded in the marker file, because
+     * any change to `keys` between builds would be caused by a change to a .bzl file, and that's
+     * covered by RepositoryDelegatorFunction.DigestWriter#areRepositoryAndMarkerFileConsistent.
+     */
+
+    ImmutableSet<String> markerKeys =
+        markerData.keySet().stream()
+            .filter(s -> s.startsWith("ENV:"))
+            .collect(ImmutableSet.toImmutableSet());
+
+    ImmutableMap<String, String> environ =
+        getEnvVarValues(
+            env,
+            markerKeys.stream()
+                .map(s -> s.substring(4)) // ENV:FOO -> FOO
+                .collect(ImmutableSet.toImmutableSet()));
+    if (environ == null) {
+      return false;
+    }
+
+    for (String key : markerKeys) {
+      String markerValue = markerData.get(key);
+      String envKey = key.substring(4); // ENV:FOO -> FOO
+      if (!Objects.equals(markerValue, environ.get(envKey))) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   @Override

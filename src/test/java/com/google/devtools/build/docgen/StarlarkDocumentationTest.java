@@ -53,8 +53,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class StarlarkDocumentationTest {
 
-  private static final ImmutableList<String> DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS =
-      ImmutableList.of("Actions");
+  private static final ImmutableList<String>
+      DEPRECATED_OR_EXPERIMENTAL_UNDOCUMENTED_TOP_LEVEL_SYMBOLS =
+          ImmutableList.of("Actions", "macro");
 
   private static final StarlarkDocExpander expander =
       new StarlarkDocExpander(null) {
@@ -92,7 +93,7 @@ public class StarlarkDocumentationTest {
                 // If they need documentation, the easiest approach would be
                 // to hard-code it in StarlarkDocumentationCollector.
                 ImmutableSet.of("True", "False", "None")))
-        .containsExactlyElementsIn(DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS);
+        .containsExactlyElementsIn(DEPRECATED_OR_EXPERIMENTAL_UNDOCUMENTED_TOP_LEVEL_SYMBOLS);
   }
 
   // TODO(bazel-team): come up with better Starlark specific tests.

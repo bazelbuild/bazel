@@ -97,7 +97,7 @@ def _objc_library_impl(ctx):
         # TODO(cmita): Use ctx.coverage_instrumented() instead when rules_swift can access
         # cc_toolchain.coverage_files and the coverage_support_files parameter of
         # coverage_common.instrumented_files_info(...)
-        coverage_support_files = cc_toolchain.coverage_files() if ctx.configuration.coverage_enabled else depset([]),
+        coverage_support_files = cc_toolchain._coverage_files if ctx.configuration.coverage_enabled else depset([]),
         metadata_files = compilation_outputs.gcno_files() + compilation_outputs.pic_gcno_files(),
     )
 
@@ -119,10 +119,17 @@ def _objc_library_impl(ctx):
 
 objc_library = rule(
     implementation = _objc_library_impl,
+    doc = """
+<p>This rule produces a static library from the given Objective-C source files.</p>""",
     attrs = common_attrs.union(
         {
             "data": attr.label_list(allow_files = True),
-            "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False),
+            "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False, doc = """
+The list of other libraries that the library target depends on. Unlike with
+<code>deps</code>, the headers and include paths of these libraries (and all their
+transitive deps) are only used for compilation of this library, and not libraries that
+depend on it. Libraries specified with <code>implementation_deps</code> are still linked
+in binary targets that depend on this library."""),
         },
         common_attrs.ALWAYSLINK_RULE,
         common_attrs.CC_TOOLCHAIN_RULE,

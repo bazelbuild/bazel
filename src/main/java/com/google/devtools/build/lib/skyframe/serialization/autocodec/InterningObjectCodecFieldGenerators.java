@@ -95,6 +95,7 @@ abstract class InterningObjectCodecFieldGenerators {
 
   private static final class NestedArrayFieldGenerator extends FieldGenerator {
     private final String processorName;
+    private final boolean isPrimitiveArray;
 
     private NestedArrayFieldGenerator(
         VariableElement variable, int hierarchyLevel, TypeKind baseComponentKind) {
@@ -109,12 +110,14 @@ abstract class InterningObjectCodecFieldGenerators {
         case LONG:
         case SHORT:
           this.processorName = baseComponentKind.name() + "_ARRAY_PROCESSOR";
+          this.isPrimitiveArray = true;
           break;
         case DECLARED:
         case TYPEVAR:
           // See comments of `ArrayProcessor.OBJECT_ARRAY_PROCESSOR` to understand how it works for
           // any type of object array.
-          this.processorName = "OBJECT_ARRAY_PROCESSOR";
+          this.processorName = "FLAT_OBJECT_ARRAY_PROCESSOR";
+          this.isPrimitiveArray = false;
           break;
         default:
           throw new IllegalStateException(
@@ -162,12 +165,21 @@ abstract class InterningObjectCodecFieldGenerators {
 
     @Override
     void generateDeserializeCode(MethodSpec.Builder deserialize) {
-      deserialize.addStatement(
-          "$T.$L.deserialize(context, codedIn, $L, instance, $L)",
-          ArrayProcessor.class,
-          processorName,
-          getTypeName(),
-          getOffsetName());
+      if (isPrimitiveArray) {
+        deserialize.addStatement(
+            "$T.$L.deserialize(codedIn, $L, instance, $L)",
+            ArrayProcessor.class,
+            processorName,
+            getTypeName(),
+            getOffsetName());
+      } else {
+        deserialize.addStatement(
+            "$T.$L.deserialize(context, codedIn, $L, instance, $L)",
+            ArrayProcessor.class,
+            processorName,
+            getTypeName(),
+            getOffsetName());
+      }
     }
   }
 
@@ -266,7 +278,7 @@ abstract class InterningObjectCodecFieldGenerators {
               getOffsetName(),
               arrName)
           .addStatement(
-              "$T.deserializeObjectArray(context, codedIn, $L, $L)",
+              "$T.deserializeObjectArrayFully(context, codedIn, $L, $L)",
               ArrayProcessor.class,
               arrName,
               lengthName)
@@ -469,7 +481,7 @@ abstract class InterningObjectCodecFieldGenerators {
 
     @Override
     void generateDeserializeCode(MethodSpec.Builder deserialize) {
-      deserialize.addStatement("context.deserialize(codedIn, instance, $L)", getOffsetName());
+      deserialize.addStatement("context.deserializeFully(codedIn, instance, $L)", getOffsetName());
     }
   }
 }

@@ -27,10 +27,11 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -215,7 +216,7 @@ public final class PackageFactory {
   // TODO(#19922): The name is a holdover from when we had PackageContext. Migrate this to a static
   // fromOrFail method on Package.Builder or a new parent interface of it.
   public static Package.Builder getContext(StarlarkThread thread) throws EvalException {
-    Package.Builder value = thread.getThreadLocal(Package.Builder.class);
+    Package.Builder value = Package.Builder.fromOrNull(thread);
     if (value == null) {
       // if PackageBuilder is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
@@ -227,13 +228,13 @@ public final class PackageFactory {
   }
 
   public Package.Builder newExternalPackageBuilder(
-      RootedPath workspacePath,
+      WorkspaceFileKey workspaceFileKey,
       String workspaceName,
       RepositoryMapping mainRepoMapping,
       StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
         packageSettings,
-        workspacePath,
+        workspaceFileKey,
         workspaceName,
         mainRepoMapping,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
@@ -246,24 +247,30 @@ public final class PackageFactory {
   // TODO(adonovan): refactor Rule{Class,Factory}Test not to need this.
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId,
+      RootedPath filename,
       String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
-      RepositoryMapping mainRepositoryMapping,
-      @Nullable Semaphore cpuBoundSemaphore) {
-    return new Package.Builder(
+      @Nullable Semaphore cpuBoundSemaphore,
+      @Nullable ImmutableMap<Location, String> generatorMap,
+      @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+      @Nullable Globber globber) {
+    return Package.newPackageBuilder(
         packageSettings,
         packageId,
+        filename,
         workspaceName,
         associatedModuleName,
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         repositoryMapping,
-        mainRepositoryMapping,
         cpuBoundSemaphore,
-        packageOverheadEstimator);
+        packageOverheadEstimator,
+        generatorMap,
+        configSettingVisibilityPolicy,
+        globber);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */
@@ -401,23 +408,12 @@ public final class PackageFactory {
       throws InterruptedException {
     pkgBuilder.setLoads(loadedModules.values());
 
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    pkgBuilder.setLocalEventHandler(eventHandler);
-
     try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
       Module module = Module.withPredeclared(semantics, predeclared);
       StarlarkThread thread = new StarlarkThread(mu, semantics);
       thread.setLoader(loadedModules::get);
-      thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
-
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.LOADING,
-              new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()))
-          .storeInThread(thread);
-
-      // TODO(#19922): Have Package.Builder inherit from BazelStarlarkContext and only store one
-      // thread-local object.
-      thread.setThreadLocal(Package.Builder.class, pkgBuilder);
+      thread.setPrintHandler(Event.makeDebugPrintHandler(pkgBuilder.getLocalEventHandler()));
+      pkgBuilder.storeInThread(thread);
 
       // TODO(b/291752414): The rule definition environment shouldn't be needed at BUILD evaluation
       // time EXCEPT for analysis_test, which needs the tools repository for use in
@@ -428,8 +424,9 @@ public final class PackageFactory {
       try {
         Starlark.execFileProgram(buildFileProgram, module, thread);
       } catch (EvalException ex) {
-        eventHandler.handle(
-            Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+        pkgBuilder
+            .getLocalEventHandler()
+            .handle(Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         pkgBuilder.setContainsErrors();
       } catch (InterruptedException ex) {
         if (pkgBuilder.containsErrors()) {
@@ -444,9 +441,6 @@ public final class PackageFactory {
       }
       pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
-
-    pkgBuilder.addPosts(eventHandler.getPosts());
-    pkgBuilder.addEvents(eventHandler.getEvents());
   }
 
   /**

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
@@ -725,11 +724,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     @SuppressWarnings("unchecked")
     List<Artifact> inputs = (List<Artifact>) (List<?>) (StarlarkList) ev.lookup("inputs");
     assertArtifactFilenames(inputs, "mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
-    @SuppressWarnings("unchecked")
-    RunfilesSupplier runfilesSupplier =
-        CompositeRunfilesSupplier.fromSuppliers(
-            (List<RunfilesSupplier>) ev.lookup("input_manifests"));
-    assertThat(runfilesSupplier.getRunfilesTrees()).hasSize(1);
   }
 
   @Test
@@ -842,7 +836,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "ruleContext.actions.run(",
         "    outputs = [ruleContext.actions.declare_file('x.out')],",
         "    inputs = inputs,",
-        "    input_manifests = input_manifests,",
         "    executable = 'dummy',",
         ")");
     assertArtifactFilenames(
@@ -851,11 +844,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "mytool",
         "foo_Smytool-runfiles",
         "t.exe");
-    @SuppressWarnings("unchecked")
-    RunfilesSupplier runfilesSupplier =
-        CompositeRunfilesSupplier.fromSuppliers(
-            (List<RunfilesSupplier>) ev.lookup("input_manifests"));
-    assertThat(runfilesSupplier.getRunfilesTrees()).hasSize(1);
 
     SpawnAction action =
         (SpawnAction)
@@ -2779,10 +2767,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
         getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(
-            ActionsTestUtil.baseArtifactNames(
-                getAllRunfilesArtifacts(action.getRunfilesSupplier())))
-        .containsAtLeast("tool", "tool.sh", "data");
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("a_Stool-runfiles");
   }
 
   @Test
@@ -2810,10 +2795,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
         getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(
-            ActionsTestUtil.baseArtifactNames(
-                getAllRunfilesArtifacts(action.getRunfilesSupplier())))
-        .containsAtLeast("tool", "tool.sh", "data");
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("a_Stool-runfiles");
   }
 
   // Verifies that configuration_field can only be used on 'label' attributes.

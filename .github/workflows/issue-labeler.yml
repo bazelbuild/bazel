@@ -1,0 +1,37 @@
+---
+
+name: Issue labeler
+on:
+  issues:
+    types: [ opened ]
+
+jobs:
+  label-issues-policy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    strategy:
+      matrix:
+        template: [ bug_report.yml, feature_request.yml ]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Harden Runner
+        uses: step-security/harden-runner@eb238b55efaa70779f274895e782ed17c84f2895 # v2.6.1
+        with:
+          egress-policy: audit
+
+      - name: Parse issue form
+        uses: stefanbuck/github-issue-parser@c1a559d78bfb8dd05216dab9ffd2b91082ff5324  # v3.0.1
+        id: issue-parser
+        with:
+          template-path: .github/ISSUE_TEMPLATE/${{ matrix.template }}
+
+      - name: Set labels based on policy
+        uses: redhat-plumbers-in-action/advanced-issue-labeler@6ee6fddfd744ee26b977e6a0436916f256896971  # v2.0.3
+        with:
+          issue-form: ${{ steps.issue-parser.outputs.jsonString }}
+          template: ${{ matrix.template }}
+          token: ${{ secrets.GITHUB_TOKEN }}

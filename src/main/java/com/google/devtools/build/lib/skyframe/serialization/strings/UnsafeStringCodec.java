@@ -50,15 +50,6 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
   }
 
   @Override
-  public MemoizationStrategy getStrategy() {
-    // Don't memoize strings inside memoizing serialization, to preserve current behavior.
-    // TODO(janakr,brandjon,michajlo): Is it actually a problem to memoize strings? Doubt there
-    // would be much performance impact from increasing the size of the identity map, and we
-    // could potentially drop our string tables in the future.
-    return MemoizationStrategy.DO_NOT_MEMOIZE;
-  }
-
-  @Override
   public void serialize(
       SerializationDependencyProvider dependencies, String obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {

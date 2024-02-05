@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -40,7 +41,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1275,20 +1275,6 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testFileChannelEOF() throws Exception {
-    try (OutputStream outStream = xFile.getOutputStream()) {
-      outStream.write(new byte[] {1});
-    }
-
-    try (ReadableByteChannel channel = xFile.createReadableByteChannel()) {
-      ByteBuffer buffer = ByteBuffer.allocate(2);
-      int numRead = readFromChannel(channel, buffer, 1);
-      assertThat(numRead).isEqualTo(1);
-      assertThat(readFromChannel(channel, buffer, 1)).isEqualTo(-1);
-    }
-  }
-
-  @Test
   public void testInputAndOutputStream() throws Exception {
     try (OutputStream outStream = xFile.getOutputStream()) {
       for (int i = 33; i < 126; i++) {
@@ -1305,19 +1291,17 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testFileChannel() throws Exception {
-    byte[] bytes = "abcdefghijklmnoprstuvwxyz".getBytes(StandardCharsets.ISO_8859_1);
-    try (OutputStream outStream = xFile.getOutputStream()) {
-      outStream.write(bytes);
-    }
+  public void testInputStreamPermissionError() throws Exception {
+    assertThat(xFile.exists()).isTrue();
+    xFile.setReadable(false);
+    assertThrows(FileAccessException.class, () -> xFile.getInputStream());
+  }
 
-    try (ReadableByteChannel channel = xFile.createReadableByteChannel()) {
-      ByteBuffer buffer = ByteBuffer.allocate(bytes.length);
-      int numRead = readFromChannel(channel, buffer, bytes.length);
-      assertThat(numRead).isEqualTo(bytes.length);
-      assertThat(buffer.hasArray()).isTrue();
-      assertThat(buffer.array()).isEqualTo(bytes);
-    }
+  @Test
+  public void testOutputStreamPermissionError() throws Exception {
+    assertThat(xFile.exists()).isTrue();
+    xFile.setWritable(false);
+    assertThrows(FileAccessException.class, () -> xFile.getOutputStream());
   }
 
   @Test
@@ -1325,6 +1309,7 @@ public abstract class FileSystemTest {
       throws Exception {
     String text = "hello";
     Path file = overwrite ? xFile : xNothing;
+    FileSystemUtils.writeContent(xFile, UTF_8, "goodbye"); // longer than hello
     try (SeekableByteChannel channel = file.createReadWriteByteChannel()) {
       writeToChannelAsLatin1(channel, text);
       assertThat(channel.position()).isEqualTo(text.length());
@@ -1346,16 +1331,99 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateReadWriteByteChannelRead(@TestParameter({"0", "5", "12"}) int seekPosition)
+  public void testCreateReadWriteByteChannelSeek(@TestParameter({"0", "5", "12"}) int seekPosition)
       throws Exception {
     String text = "hello there!";
     try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
       writeToChannelAsLatin1(channel, text);
       channel.position(seekPosition);
-
+      assertThat(channel.position()).isEqualTo(seekPosition);
       String read = readAllAsString(channel, text.length() - seekPosition);
       assertThat(channel.position()).isEqualTo(text.length());
       assertThat(read).isEqualTo(text.substring(seekPosition));
+    }
+  }
+
+  @Test
+  public void testCreateReadWriteByteChannelSeekHole(@TestParameter boolean write)
+      throws Exception {
+    String text1 = "goodbye";
+    String text2 = "and thanks for all the fish";
+    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
+      writeToChannelAsLatin1(channel, text1);
+      channel.position(text1.length() + 1);
+      assertThat(channel.position()).isEqualTo(text1.length() + 1);
+      assertThat(channel.size()).isEqualTo(text1.length());
+      assertThat(channel.read(ByteBuffer.allocate(1))).isEqualTo(-1);
+      if (write) {
+        writeToChannelAsLatin1(channel, text2);
+        assertThat(channel.position()).isEqualTo(text1.length() + 1 + text2.length());
+      }
+    }
+
+    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1))
+        .isEqualTo(write ? text1 + "\0" + text2 : text1);
+  }
+
+  @Test
+  public void testCreateReadWriteByteChannelSeekNegative() throws Exception {
+    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
+      assertThrows(IllegalArgumentException.class, () -> channel.position(-1));
+    }
+  }
+
+  @Test
+  public void testCreateReadWriteByteChannelTruncate(
+      @TestParameter({"0", "5", "12", "100"}) int truncateSize) throws Exception {
+    String text = "hello there!";
+    int expectedSize = min(truncateSize, text.length());
+    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
+      writeToChannelAsLatin1(channel, text);
+      channel.truncate(truncateSize);
+      assertThat(channel.position()).isEqualTo(expectedSize);
+      assertThat(channel.size()).isEqualTo(expectedSize);
+      assertThat(channel.read(ByteBuffer.allocate(1))).isEqualTo(-1);
+    }
+
+    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1))
+        .isEqualTo(text.substring(0, expectedSize));
+  }
+
+  @Test
+  public void testCreateReadWriteByteChannelTruncateHole(@TestParameter boolean shrink)
+      throws Exception {
+    String text = "hello";
+    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
+      writeToChannelAsLatin1(channel, text);
+      channel.position(text.length() + 5);
+      assertThat(channel.position()).isEqualTo(text.length() + 5);
+      assertThat(channel.size()).isEqualTo(text.length());
+      int truncateSize = shrink ? text.length() - 1 : text.length() + 1;
+      channel.truncate(truncateSize);
+      assertThat(channel.position()).isEqualTo(truncateSize);
+      assertThat(channel.size()).isEqualTo(shrink ? text.length() - 1 : text.length());
+    }
+
+    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1))
+        .isEqualTo(shrink ? "hell" : "hello");
+  }
+
+  @Test
+  public void testCreateReadWriteByteChannelTruncateAndSeekToErase() throws Exception {
+    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
+      writeToChannelAsLatin1(channel, "hello");
+      channel.truncate("hello".length() - 1);
+      channel.position("hello".length());
+      writeToChannelAsLatin1(channel, "world");
+    }
+
+    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1)).isEqualTo("hell\0world");
+  }
+
+  @Test
+  public void testCreateReadWriteByteChannelTruncateNegative() throws Exception {
+    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
+      assertThrows(IllegalArgumentException.class, () -> channel.truncate(-1));
     }
   }
 
@@ -1386,22 +1454,6 @@ public abstract class FileSystemTest {
       totalRead += read;
       assertThat(buffer.position()).isEqualTo(totalRead);
     }
-  }
-
-  private static int readFromChannel(ReadableByteChannel channel, ByteBuffer buffer, int expected)
-      throws IOException {
-    int numRead = 0;
-    for (int i = 0; i < 100; i++) {
-      int stepRead = channel.read(buffer);
-      if (stepRead < 0) {
-        return stepRead;
-      }
-      numRead += stepRead;
-      if (numRead >= expected) {
-        return numRead;
-      }
-    }
-    throw new IOException("Can not read the specified number of bytes.");
   }
 
   @Test
@@ -1438,6 +1490,17 @@ public abstract class FileSystemTest {
     try (InputStream inStream = xFile.getInputStream()) {
       assertThat(inStream.read()).isEqualTo(-1);
     }
+  }
+
+  @Test
+  public void testOutputStreamConcurrentAppend() throws Exception {
+    try (OutputStream s1 = xFile.getOutputStream(true);
+        OutputStream s2 = xFile.getOutputStream(true)) {
+      s1.write("hello".getBytes(UTF_8));
+      s2.write("world".getBytes(UTF_8));
+    }
+
+    assertThat(FileSystemUtils.readContent(xFile, UTF_8)).isEqualTo("helloworld");
   }
 
   @Test

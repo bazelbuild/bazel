@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 import static org.junit.Assert.assertThrows;
@@ -23,6 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -204,9 +204,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     assertThat(staticRuntimeLib.getSet(Artifact.class))
-        .isEqualTo(toolchain.getStaticRuntimeLibForTesting());
+        .isEqualTo(toolchain.getStaticRuntimeLinkInputs());
     assertThat(dynamicRuntimeLib.getSet(Artifact.class))
-        .isEqualTo(toolchain.getDynamicRuntimeLibForTesting());
+        .isEqualTo(toolchain.getDynamicRuntimeLinkInputs());
   }
 
   @Test
@@ -246,7 +246,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
 
-    assertThat(dynamicRuntimeSolibDir).isEqualTo(toolchain.getDynamicRuntimeSolibDirForStarlark());
+    assertThat(dynamicRuntimeSolibDir)
+        .isEqualTo(toolchain.getDynamicRuntimeSolibDir().getPathString());
     assertThat(toolchainId).isEqualTo(toolchain.getToolchainIdentifier());
   }
 
@@ -1466,7 +1467,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .containsExactly("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so");
   }
 
-  private static String getSolibRelativePath(Artifact library, CcToolchainProvider toolchain) {
+  private static String getSolibRelativePath(Artifact library, CcToolchainProvider toolchain)
+      throws EvalException {
     return library.getRootRelativePath().relativeTo(toolchain.getSolibDirectory()).toString();
   }
 
@@ -1488,17 +1490,21 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
-    assertThat(
-            librariesToLink.toList(LibraryToLink.class).stream()
-                .filter(x -> x.getDynamicLibrary() != null)
-                .map(x -> getSolibRelativePath(x.getDynamicLibrary(), toolchain))
-                .collect(ImmutableList.toImmutableList()))
+    ImmutableList.Builder<String> dynamicLibSolibRelativePathsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<String> interfaceLibSolibRelativePathsBuilder = ImmutableList.builder();
+    for (LibraryToLink libraryToLink : librariesToLink.toList(LibraryToLink.class)) {
+      if (libraryToLink.getDynamicLibrary() != null) {
+        dynamicLibSolibRelativePathsBuilder.add(
+            getSolibRelativePath(libraryToLink.getDynamicLibrary(), toolchain));
+      }
+      if (libraryToLink.getInterfaceLibrary() != null) {
+        interfaceLibSolibRelativePathsBuilder.add(
+            getSolibRelativePath(libraryToLink.getInterfaceLibrary(), toolchain));
+      }
+    }
+    assertThat(dynamicLibSolibRelativePathsBuilder.build())
         .containsExactly("_U_S_Sfoo_Ca___Ufoo/a.so");
-    assertThat(
-            librariesToLink.toList(LibraryToLink.class).stream()
-                .filter(x -> x.getInterfaceLibrary() != null)
-                .map(x -> getSolibRelativePath(x.getInterfaceLibrary(), toolchain))
-                .collect(ImmutableList.toImmutableList()))
+    assertThat(interfaceLibSolibRelativePathsBuilder.build())
         .containsExactly("_U_S_Sfoo_Ca___Ufoo/a.ifso");
   }
 
@@ -1522,27 +1528,26 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
-    assertThat(
+    String solibDir = toolchain.getSolibDirectory();
+    Truth8.assertThat(
             librariesToLink.toList(LibraryToLink.class).stream()
                 .filter(x -> x.getDynamicLibrary() != null)
                 .map(
                     x ->
                         x.getDynamicLibrary()
                             .getRootRelativePath()
-                            .relativeTo(toolchain.getSolibDirectory())
-                            .toString())
-                .collect(ImmutableList.toImmutableList()))
+                            .relativeTo(solibDir)
+                            .toString()))
         .containsExactly("custom/libcustom.so");
-    assertThat(
+    Truth8.assertThat(
             librariesToLink.toList(LibraryToLink.class).stream()
                 .filter(x -> x.getInterfaceLibrary() != null)
                 .map(
                     x ->
                         x.getInterfaceLibrary()
                             .getRootRelativePath()
-                            .relativeTo(toolchain.getSolibDirectory())
-                            .toString())
-                .collect(ImmutableList.toImmutableList()))
+                            .relativeTo(solibDir)
+                            .toString()))
         .containsExactly("libcustom.ifso");
   }
 
@@ -1592,7 +1597,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(userLinkFlags.getImmutableList())
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
     Depset additionalInputs = info.getValue("additional_inputs", Depset.class);
-    assertThat(additionalInputs.toList(Artifact.class).stream().map(Artifact::getFilename))
+    Truth8.assertThat(additionalInputs.toList(Artifact.class).stream().map(Artifact::getFilename))
         .containsExactly("b.lds", "d.lds");
     Depset linkstamps = info.getValue("linkstamps", Depset.class);
     assertThat(
@@ -6934,7 +6939,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  fragments = ['cpp'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//b:b_lib");
-    assertThat(
+    Truth8.assertThat(
             target
                 .get(CcInfo.PROVIDER)
                 .getCcDebugInfoContext()
@@ -6946,45 +6951,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(
             target.get(CcInfo.PROVIDER).getCcDebugInfoContext().getTransitivePicDwoFiles().toList())
         .isEmpty();
-  }
-
-  @Test
-  public void testExpandedToolchainApiBlocked() throws Exception {
-    List<String> toolchainCalls =
-        ImmutableList.of(
-            "toolchain.as_files()",
-            "toolchain.ar_files()",
-            "toolchain.objcopy_files()",
-            "toolchain.tool_paths()",
-            "toolchain.solib_dir()",
-            "toolchain.linker_files()",
-            "toolchain.coverage_files()",
-            "toolchain.strip_files()");
-    scratch.file(
-        "a/BUILD",
-        "load(':rule.bzl', 'crule')",
-        "cc_toolchain_alias(name='alias')",
-        "crule(name='r')");
-
-    for (String call : toolchainCalls) {
-      scratch.overwriteFile(
-          "a/rule.bzl",
-          "CruleInfo = provider()",
-          "def _impl(ctx):",
-          "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-          "  " + call,
-          "  return [CruleInfo()]",
-          "crule = rule(",
-          "  _impl,",
-          "  attrs = { ",
-          "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
-          "  },",
-          "  fragments = ['cpp'],",
-          ");");
-      invalidatePackages();
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
-      assertThat(e).hasMessageThat().contains("cannot use private API");
-    }
   }
 
   @Test
@@ -7235,7 +7201,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    ctx = ctx,",
         "    cc_toolchain = toolchain,",
         "  )",
-        "  fdo_context = toolchain.fdo_context()",
+        "  fdo_context = toolchain._fdo_context",
         "  branch_fdo_profile = fdo_context.branch_fdo_profile()",
         "  lto_backend_artifacts = cc_common.create_lto_backend_artifacts(ctx=ctx,",
         "        lto_output_root_prefix=ctx.label.package, lto_obj_root_prefix=ctx.label.package,",
@@ -7256,7 +7222,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     ImmutableList<String> calls =
         ImmutableList.of(
-            "toolchain.fdo_context()",
             "library_to_link.shared_non_lto_backends()",
             "library_to_link.pic_shared_non_lto_backends()",
             "lto_backend_artifacts_info.lto_backend_artifacts.object_file()",
@@ -7993,58 +7958,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "custom_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foo:alias'))},",
-        "  fragments = ['cpp'],",
-        ")");
-    invalidatePackages();
-
-    AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
-
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
-  public void testCcToolchainRuntimeSysrootNotAccessibleFromOutsideBuiltins() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        "load(':custom_rule.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
-        "custom_rule(name = 'custom')");
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  cc_toolchain.runtime_sysroot()",
-        "  return [DefaultInfo()]",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain': attr.label(default=Label('//foo:alias'))},",
-        "  fragments = ['cpp'],",
-        ")");
-    invalidatePackages();
-
-    AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
-
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
-  public void testCcToolchainCompileFilesNotAccessibleFromOutsideBuiltins() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        "load(':custom_rule.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
-        "custom_rule(name = 'custom')");
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  cc_toolchain.compiler_files()",
-        "  return [DefaultInfo()]",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain': attr.label(default=Label('//foo:alias'))},",
         "  fragments = ['cpp'],",
         ")");
     invalidatePackages();

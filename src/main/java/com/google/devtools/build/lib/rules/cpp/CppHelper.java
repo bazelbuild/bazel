@@ -31,15 +31,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
@@ -145,7 +142,7 @@ public class CppHelper {
               + " --platforms?");
     }
     try {
-      return (CcToolchainProvider) toolchainInfo.getValue("cc");
+      return CcToolchainProvider.PROVIDER.wrap((Info) toolchainInfo.getValue("cc"));
     } catch (EvalException e) {
       // There is not actually any reason for toolchainInfo.getValue to throw an exception.
       throw ruleContext.throwWithRuleError(
@@ -291,11 +288,7 @@ public class CppHelper {
       FeatureConfiguration featureConfiguration) {
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     if (branchFdoProfile != null) {
-      // If the profile has a .afdo extension and was supplied to the build via the xbinary_fdo
-      // flag, then this is a safdo profile.
-      if (branchFdoProfile.isAutoFdo() && cppConfiguration.getXFdoProfileLabel() != null) {
-        return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "SAFDO" : null;
-      }
+
       if (branchFdoProfile.isAutoFdo()) {
         return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
       }
@@ -310,76 +303,6 @@ public class CppHelper {
       return "FDO";
     }
     return null;
-  }
-
-  /** Creates an action to strip an executable. */
-  public static void createStripAction(
-      RuleContext ruleContext,
-      CcToolchainProvider toolchain,
-      CppConfiguration cppConfiguration,
-      Artifact input,
-      Artifact output,
-      FeatureConfiguration featureConfiguration)
-      throws RuleErrorException, InterruptedException {
-    if (featureConfiguration.isEnabled(CppRuleClasses.NO_STRIPPING)) {
-      ruleContext.registerAction(
-          SymlinkAction.toArtifact(
-              ruleContext.getActionOwner(),
-              input,
-              output,
-              "Symlinking original binary as stripped binary"));
-      return;
-    }
-
-    if (!featureConfiguration.actionIsConfigured(CppActionNames.STRIP)) {
-      ruleContext.ruleError("Expected action_config for 'strip' to be configured.");
-      return;
-    }
-
-    CcToolchainVariables baseVars;
-    try {
-      baseVars =
-          CcToolchainProvider.getBuildVars(
-              toolchain,
-              ruleContext.getStarlarkThread(),
-              cppConfiguration,
-              ruleContext.getConfiguration().getOptions(),
-              ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu,
-              toolchain.getBuildVarsFunc());
-    } catch (EvalException e) {
-      throw new RuleErrorException(e.getMessage());
-    }
-
-    CcToolchainVariables variables =
-        CcToolchainVariables.builder(baseVars)
-            .addStringVariable(
-                StripBuildVariables.OUTPUT_FILE.getVariableName(), output.getExecPathString())
-            .addStringSequenceVariable(
-                StripBuildVariables.STRIPOPTS.getVariableName(), cppConfiguration.getStripOpts())
-            .addStringVariable(CcCommon.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
-            .build();
-    ImmutableList<String> commandLine =
-        getCommandLine(ruleContext, featureConfiguration, variables, CppActionNames.STRIP);
-    ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
-    for (String executionRequirement :
-        featureConfiguration.getToolRequirementsForAction(CppActionNames.STRIP)) {
-      executionInfoBuilder.put(executionRequirement, "");
-    }
-    SpawnAction stripAction =
-        new SpawnAction.Builder()
-            .addInput(input)
-            .addTransitiveInputs(toolchain.getStripFiles())
-            .addOutput(output)
-            .useDefaultShellEnvironment()
-            .setExecutable(
-                PathFragment.create(
-                    featureConfiguration.getToolPathForAction(CppActionNames.STRIP)))
-            .setExecutionInfo(executionInfoBuilder.buildOrThrow())
-            .setProgressMessage("Stripping %s for %s", output.prettyPrint(), ruleContext.getLabel())
-            .setMnemonic("CcStrip")
-            .addCommandLine(CustomCommandLine.builder().addAll(commandLine).build())
-            .build(ruleContext);
-    ruleContext.registerAction(stripAction);
   }
 
   public static ImmutableList<String> getCommandLine(
@@ -474,7 +397,11 @@ public class CppHelper {
       ArtifactCategory category,
       String outputName)
       throws RuleErrorException {
-    return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
+    try {
+      return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
   }
 
   static String getDotdFileName(
@@ -509,20 +436,17 @@ public class CppHelper {
    * ld options.
    */
   public static boolean useStartEndLib(
-      CppConfiguration config,
-      CcToolchainProvider toolchain,
-      FeatureConfiguration featureConfiguration) {
-    return config.startEndLibIsRequested() && toolchain.supportsStartEndLib(featureConfiguration);
+      CppConfiguration config, FeatureConfiguration featureConfiguration) {
+    return config.startEndLibIsRequested()
+        && featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB);
   }
 
   /**
    * Returns the type of archives being used by the build implied by the given config and toolchain.
    */
   public static Link.ArchiveType getArchiveType(
-      CppConfiguration config,
-      CcToolchainProvider toolchain,
-      FeatureConfiguration featureConfiguration) {
-    return useStartEndLib(config, toolchain, featureConfiguration)
+      CppConfiguration config, FeatureConfiguration featureConfiguration) {
+    return useStartEndLib(config, featureConfiguration)
         ? Link.ArchiveType.START_END_LIB
         : Link.ArchiveType.REGULAR;
   }
@@ -535,7 +459,7 @@ public class CppHelper {
       CppConfiguration cppConfiguration,
       CcToolchainProvider toolchain,
       FeatureConfiguration featureConfiguration) {
-    return toolchain.supportsInterfaceSharedLibraries(featureConfiguration)
+    return CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)
         && cppConfiguration.getUseInterfaceSharedLibraries();
   }
 }

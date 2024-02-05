@@ -860,7 +860,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return false;
   }
 
-  /** Returns a new list containing all direct dependencies (all types). */
+  /**
+   * Returns a new list containing all direct dependencies (all types except outputs and nodeps).
+   */
   public List<Label> getLabels() {
     List<Label> labels = new ArrayList<>();
     AggregatingAttributeMapper.of(this).visitAllLabels((attribute, label) -> labels.add(label));
@@ -915,11 +917,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Collects the output files (both implicit and explicit). Must be called before the output
    * accessors methods can be used, and must be called only once.
    */
-  void populateOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
+  void populateOutputFiles(EventHandler eventHandler, PackageIdentifier pkgId)
       throws LabelSyntaxException, InterruptedException {
     populateOutputFilesInternal(
         eventHandler,
-        pkgBuilder.getPackageIdentifier(),
+        pkgId,
         ruleClass.getDefaultImplicitOutputsFunction(),
         /* checkLabels= */ true);
   }

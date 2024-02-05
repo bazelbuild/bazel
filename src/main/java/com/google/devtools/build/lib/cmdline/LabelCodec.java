@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
-import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.FlatDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.InterningObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -53,7 +53,7 @@ final class LabelCodec extends InterningObjectCodec<Label> {
   }
 
   @Override
-  public Label deserializeInterned(AsyncDeserializationContext context, CodedInputStream codedIn)
+  public Label deserializeInterned(FlatDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     Label label;
     try {
@@ -61,8 +61,8 @@ final class LabelCodec extends InterningObjectCodec<Label> {
     } catch (ReflectiveOperationException e) {
       throw new SerializationException("Could not instantiate Label", e);
     }
-    context.deserialize(codedIn, label, PACKAGE_IDENTIFIER_OFFSET);
-    context.deserialize(codedIn, label, LabelCodec::setName);
+    context.deserializeFully(codedIn, label, PACKAGE_IDENTIFIER_OFFSET);
+    context.deserializeFully(codedIn, label, LabelCodec::setName);
     return label;
   }
 
@@ -71,7 +71,7 @@ final class LabelCodec extends InterningObjectCodec<Label> {
     return Label.getLabelInterner().intern(label);
   }
 
-  private static void setName(Object label, Object name) {
+  private static void setName(Label label, Object name) {
     unsafe().putObject(label, NAME_OFFSET, Label.internIfConstantName((String) name));
   }
 }

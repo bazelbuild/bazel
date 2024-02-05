@@ -14,6 +14,8 @@
 
 package net.starlark.java.eval;
 
+import static java.util.Arrays.stream;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -46,6 +48,7 @@ final class MethodDescriptor {
   private final boolean allowReturnNones;
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
+  private final boolean positionalsReusableAsJavaArgsVectorIfArgumentCountValid;
 
   private enum HowToHandleReturn {
     NULL_TO_NONE, // any Starlark value; null -> None
@@ -100,6 +103,19 @@ final class MethodDescriptor {
     } else {
       howToHandleReturn = HowToHandleReturn.FROM_JAVA;
     }
+
+    this.positionalsReusableAsJavaArgsVectorIfArgumentCountValid =
+        !extraKeywords
+            && !extraPositionals
+            && !useStarlarkSemantics
+            && !useStarlarkThread
+            && stream(parameters).allMatch(MethodDescriptor::paramUsableAsPositionalWithoutChecks);
+  }
+
+  private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {
+    return param.isPositional()
+        && param.disabledByFlag() == null
+        && param.getAllowedClasses() == null;
   }
 
   /** Returns the StarlarkMethod annotation corresponding to this method. */
@@ -286,5 +302,19 @@ final class MethodDescriptor {
   /** @see StarlarkMethod#selfCall() */
   boolean isSelfCall() {
     return selfCall;
+  }
+
+  /**
+   * Returns true if we may directly reuse the Starlark positionals vector as the Java {@code args}
+   * vector passed to {@link #call} as long as the Starlark call was made with a valid number of
+   * arguments.
+   *
+   * <p>More precisely, this means that we do not need to insert extra values into the args vector
+   * (such as ones corresponding to {@code *args}, {@code **kwargs}, or {@code self} in Starlark),
+   * and all Starlark parameters are simple positional parameters which cannot be disabled by a flag
+   * and do not require type checking.
+   */
+  boolean isPositionalsReusableAsJavaArgsVectorIfArgumentCountValid() {
+    return positionalsReusableAsJavaArgsVectorIfArgumentCountValid;
   }
 }

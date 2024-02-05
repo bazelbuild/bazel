@@ -30,6 +30,20 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
   private final ImmutableList<RunfilesTree> runfilesTrees;
 
   /**
+   * Create a runfiles supplier with an explicit list of runfiles trees.
+   *
+   * <p>No clever de-duplication is done aside from returning a singleton instance if there are no
+   * runfiles trees. The expectation is that the return value of this method is ephemeral.
+   */
+  public static RunfilesSupplier fromRunfilesTrees(Collection<RunfilesTree> runfilesTrees) {
+    if (runfilesTrees.isEmpty()) {
+      return EmptyRunfilesSupplier.INSTANCE;
+    }
+
+    return new CompositeRunfilesSupplier(ImmutableList.copyOf(runfilesTrees));
+  }
+
+  /**
    * Create a composite {@link RunfilesSupplier} from a collection of suppliers. Suppliers earlier
    * in the collection take precedence over later suppliers.
    */
@@ -52,7 +66,7 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
 
     for (RunfilesSupplier supplier : nonEmptySuppliers) {
       for (RunfilesTree tree : supplier.getRunfilesTrees()) {
-        if (execPaths.add(tree.getExecPath())) {
+        if (execPaths.add(tree.getPossiblyIncorrectExecPath())) {
           trees.add(tree);
         }
       }

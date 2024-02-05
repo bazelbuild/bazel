@@ -10,10 +10,9 @@ which publishes metadata about other modules that it depends on. This is
 analogous to familiar concepts in other dependency management systems, such as a
 Maven *artifact*, an npm *package*, a Go *module*, or a Cargo *crate*.
 
-A module must have a `MODULE.bazel` file at its repo root (next to the
-`WORKSPACE` file). This file is the module's manifest, declaring its name,
-version, list of direct dependencies, and other information. For a basic
-example:
+A module must have a `MODULE.bazel` file at its repo root. This file is the
+module's manifest, declaring its name, version, list of direct dependencies, and
+other information. For a basic example:
 
 ```python
 module(name = "my-module", version = "1.0")
@@ -22,7 +21,8 @@ bazel_dep(name = "rules_cc", version = "0.0.1")
 bazel_dep(name = "protobuf", version = "3.19.0")
 ```
 
-See the [full list](/rules/lib/globals/module) of directives available in `MODULE.bazel` files.
+See the [full list](/rules/lib/globals/module) of directives available in
+`MODULE.bazel` files.
 
 To perform module resolution, Bazel starts by reading the root module's
 `MODULE.bazel` file, and then repeatedly requests any dependency's

@@ -48,10 +48,14 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
       this.configurationKey = configurationKey;
     }
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    static Key of(BuildConfigurationKey configurationKey) {
+    private static Key of(BuildConfigurationKey configurationKey) {
       return interner.intern(new Key(configurationKey));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override

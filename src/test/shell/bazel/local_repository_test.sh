@@ -850,7 +850,9 @@ EOF
 
   bazel build @r//:public >& $TEST_log || fail "failed to build public target"
   bazel build @r//:private >& $TEST_log && fail "could build private target"
-  expect_log "target '//:private' is not visible from target '//external:private'"
+  # Note: Visibility error extends across multiple lines
+  expect_log "^target '//:private' is not visible from\$"
+  expect_log "^target '//external:private'\$"
 }
 
 function test_load_in_remote_repository() {

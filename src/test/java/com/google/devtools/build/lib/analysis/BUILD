@@ -14,6 +14,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/analysis/extra:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/producers:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/testing:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util:srcs",

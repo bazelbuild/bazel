@@ -24,7 +24,6 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -698,12 +697,16 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     besOptions.besBackend = "bes-backend";
     besOptions.besProxy = "bes-proxy";
     besOptions.besHeaders =
-        ImmutableMap.of("key1", "val1", "key2", "val2", "key3", "val3").entrySet().asList();
+        ImmutableList.of(
+            Map.entry("key1", "val1"),
+            Map.entry("key2", "val2"),
+            Map.entry("key3", "val3"),
+            Map.entry("key1", "val4"));
     BackendConfig newConfig = BackendConfig.create(besOptions, authAndTLSOptions);
 
     Metadata metadata = BazelBuildEventServiceModule.makeGrpcMetadata(newConfig);
     assertThat(metadata.get(Metadata.Key.of("key1", Metadata.ASCII_STRING_MARSHALLER)))
-        .isEqualTo("val1");
+        .isEqualTo("val4");
     assertThat(metadata.get(Metadata.Key.of("key2", Metadata.ASCII_STRING_MARSHALLER)))
         .isEqualTo("val2");
     assertThat(metadata.get(Metadata.Key.of("key3", Metadata.ASCII_STRING_MARSHALLER)))
@@ -732,8 +735,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
     List<BuildEvent> buildEvents = new ArrayList<>();
     try (InputStream in = new FileInputStream(buildEventBinaryFile)) {
-      while (in.available() > 0) {
-        buildEvents.add(BuildEvent.parseDelimitedFrom(in));
+      BuildEvent ev;
+      while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
+        buildEvents.add(ev);
       }
     }
 
@@ -844,8 +848,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
     List<BuildEvent> buildEvents = new ArrayList<>();
     try (InputStream in = new FileInputStream(buildEventBinaryFile)) {
-      while (in.available() > 0) {
-        buildEvents.add(BuildEvent.parseDelimitedFrom(in));
+      BuildEvent ev;
+      while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
+        buildEvents.add(ev);
       }
     }
     Aborted expectedAbort =

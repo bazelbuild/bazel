@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.TriState;
+import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -510,6 +511,12 @@ public class BuildConfigurationValue
   @Override
   public String toString() {
     return checksum();
+  }
+
+  @Override
+  public void debugPrint(PrintStream out) {
+    out.printf("BuildConfigurationValue: %s\n", this.checksum());
+    out.printf("  %s\n", this.options);
   }
 
   public ActionEnvironment getActionEnvironment() {

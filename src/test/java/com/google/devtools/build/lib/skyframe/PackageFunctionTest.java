@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -33,6 +32,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -258,8 +258,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     verify(mockPackageValidator, times(2))
         .validate(packageCaptor.capture(), any(ExtendedEventHandler.class));
     List<Package> packages = packageCaptor.getAllValues();
-    assertThat(packages.get(0).getPackageOverhead()).isEmpty(); // Workspace pkg
-    assertThat(packages.get(1).getPackageOverhead()).isEqualTo(OptionalLong.of(42));
+    Truth8.assertThat(packages.get(0).getPackageOverhead()).isEmpty(); // Workspace pkg
+    Truth8.assertThat(packages.get(1).getPackageOverhead()).isEqualTo(OptionalLong.of(42));
   }
 
   @Test

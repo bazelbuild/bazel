@@ -19,7 +19,6 @@ import static java.util.Arrays.stream;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.common.options.OptionsParser;
-import java.util.Arrays;
 import java.util.List;
 
 /** A base class for testing cacheKey related functionality of Option classes. */
@@ -33,11 +32,6 @@ public abstract class OptionsTestCase<T extends FragmentOptions> {
     OptionsParser parser = OptionsParser.builder().optionsClasses(ImmutableList.of(cls)).build();
     parser.parse(args);
     return parser.getOptions(cls);
-  }
-
-  /** Construct options parsing the given arguments. */
-  protected T create(String... args) throws Exception {
-    return create(Arrays.asList(args));
   }
 
   /**

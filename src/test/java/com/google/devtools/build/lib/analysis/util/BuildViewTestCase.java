@@ -57,9 +57,11 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
+import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
@@ -92,12 +94,8 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
@@ -105,9 +103,9 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -120,16 +118,14 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
@@ -190,7 +186,6 @@ import com.google.errorprone.annotations.ForOverride;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -233,7 +228,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected BuildConfigurationValue execConfig;
   private List<String> configurationArgs;
 
-  protected OptionsParser optionsParser;
   private PackageOptions packageOptions;
   private BuildLanguageOptions buildLanguageOptions;
   protected PackageFactory pkgFactory;
@@ -414,10 +408,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ruleClassProvider;
   }
 
-  protected final PackageFactory getPackageFactory() {
-    return pkgFactory;
-  }
-
   protected StarlarkSemantics getStarlarkSemantics() {
     return buildLanguageOptions.toStarlarkSemantics();
   }
@@ -432,12 +422,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final BuildConfigurationValue createConfiguration(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
-    optionsParser =
+    OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(
-                Iterables.concat(
-                    Arrays.asList(ExecutionOptions.class, BuildRequestOptions.class),
-                    ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
+            .optionsClasses(ruleClassProvider.getFragmentRegistry().getOptionsClasses())
             .build();
     List<String> allArgs = new ArrayList<>();
     // TODO(dmarting): Add --stamp option only to test that requires it.
@@ -777,11 +764,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return view.getRuleContextForTesting(reporter, target, new StubAnalysisEnvironment());
   }
 
-  protected RuleContext getRuleContext(
-      ConfiguredTarget target, AnalysisEnvironment analysisEnvironment) throws Exception {
-    return view.getRuleContextForTesting(reporter, target, analysisEnvironment);
-  }
-
   /**
    * Creates and returns a rule context to use for Starlark tests that is equivalent to the one that
    * was used to create the given configured target.
@@ -960,6 +942,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else {
       return null;
     }
+  }
+
+  protected RunfilesTree runfilesTreeFor(TestRunnerAction testRunnerAction) throws Exception {
+    Artifact middleman = testRunnerAction.getRunfilesMiddleman();
+    MiddlemanAction middlemanAction = (MiddlemanAction) getGeneratingAction(middleman);
+    return middlemanAction.getRunfilesTree();
+  }
+
+  protected FakeActionInputFileCache inputMetadataFor(TestRunnerAction testRunnerAction)
+      throws Exception {
+    FakeActionInputFileCache result = new FakeActionInputFileCache();
+    result.putRunfilesTree(
+        testRunnerAction.getRunfilesMiddleman(), runfilesTreeFor(testRunnerAction));
+    return result;
   }
 
   private static Artifact findArtifactNamed(
@@ -1380,42 +1376,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return pathFragments.stream().map(PathFragment::toString).collect(toImmutableList());
   }
 
-  /**
-   * Asserts that targetName's outputs are exactly expectedOuts.
-   *
-   * @param targetName The label of a rule.
-   * @param expectedOuts The labels of the expected outputs of the rule.
-   */
-  protected void assertOuts(String targetName, String... expectedOuts) throws Exception {
-    Rule ruleTarget = (Rule) getTarget(targetName);
-    for (String expectedOut : expectedOuts) {
-      Target outTarget = getTarget(expectedOut);
-      if (!(outTarget instanceof OutputFile)) {
-        fail("Target " + outTarget + " is not an output");
-        assertThat(((OutputFile) outTarget).getGeneratingRule()).isSameInstanceAs(ruleTarget);
-        // This ensures that the output artifact is wired up in the action graph
-        getConfiguredTarget(expectedOut);
-      }
-    }
-
-    Collection<OutputFile> outs = ruleTarget.getOutputFiles();
-    assertWithMessage("Mismatched outputs: " + outs)
-        .that(outs.size())
-        .isEqualTo(expectedOuts.length);
-  }
-
-  /** Asserts that there exists a configured target file for the given label. */
-  protected void assertConfiguredTargetExists(String label) throws Exception {
-    assertThat(getFileConfiguredTarget(label)).isNotNull();
-  }
-
-  /** Assert that the first label and the second label are both generated by the same command. */
-  protected void assertSameGeneratingAction(String labelA, String labelB) throws Exception {
-    assertWithMessage("Action for " + labelA + " did not match " + labelB)
-        .that(getGeneratingActionForLabel(labelB))
-        .isSameInstanceAs(getGeneratingActionForLabel(labelA));
-  }
-
   protected Artifact getSourceArtifact(PathFragment rootRelativePath, Root root) {
     return view.getArtifactFactory().getSourceArtifact(rootRelativePath, root);
   }
@@ -1688,18 +1648,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getGeneratingAction(getArtifact(label));
   }
 
-  protected static String fileName(Artifact artifact) {
-    return artifact.getExecPathString();
-  }
-
-  protected static String fileName(FileConfiguredTarget target) {
-    return fileName(target.getArtifact());
-  }
-
-  protected String fileName(String name) throws Exception {
-    return fileName(getFileConfiguredTarget(name));
-  }
-
   protected Path getOutputPath() {
     return directories.getOutputPath(ruleClassProvider.getRunfilesPrefix());
   }
@@ -1850,33 +1798,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.copyOf(result);
   }
 
-  /** Returns all extra actions for that target (including transitive actions). */
-  protected ImmutableList<ExtraAction> getTransitiveExtraActionActions(ConfiguredTarget target) {
-    ImmutableList.Builder<ExtraAction> result = new ImmutableList.Builder<>();
-    for (Artifact artifact :
-        target
-            .getProvider(ExtraActionArtifactsProvider.class)
-            .getTransitiveExtraActionArtifacts()
-            .toList()) {
-      Action action = getGeneratingAction(artifact);
-      if (action instanceof ExtraAction) {
-        result.add((ExtraAction) action);
-      }
-    }
-    return result.build();
-  }
-
-  protected ImmutableList<Action> getFilesToBuildActions(ConfiguredTarget target) {
-    List<Action> result = new ArrayList<>();
-    for (Artifact artifact : getFilesToBuild(target).toList()) {
-      Action action = getGeneratingAction(artifact);
-      if (action != null) {
-        result.add(action);
-      }
-    }
-    return ImmutableList.copyOf(result);
-  }
-
   protected ImmutableList<Action> getActions(String label, Class<?> actionClass) throws Exception {
     return ((RuleConfiguredTarget) getConfiguredTarget(label))
         .getActions().stream()
@@ -1915,12 +1836,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return target.getProvider(FilesToRunProvider.class).getFilesToRun();
   }
 
-  protected NestedSet<Artifact> getFilesToRun(Label label) {
-    return getConfiguredTarget(label, targetConfig)
-        .getProvider(FilesToRunProvider.class)
-        .getFilesToRun();
-  }
-
   protected NestedSet<Artifact> getFilesToRun(String label) throws Exception {
     return getConfiguredTarget(label).getProvider(FilesToRunProvider.class).getFilesToRun();
   }
@@ -1949,30 +1864,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return execConfig;
   }
 
-  /**
-   * Returns the configuration created by applying the given transition to the source configuration.
-   *
-   * @throws AssertionError if the transition couldn't be evaluated
-   */
-  protected BuildConfigurationValue getConfiguration(
-      BuildConfigurationValue fromConfig, PatchTransition transition) throws InterruptedException {
-    if (transition == NoTransition.INSTANCE) {
-      return fromConfig;
-    } else if (transition == NullTransition.INSTANCE) {
-      return null;
-    } else {
-      try {
-        return skyframeExecutor.getConfigurationForTesting(
-            reporter,
-            transition.patch(
-                new BuildOptionsView(fromConfig.getOptions(), transition.requiresOptionFragments()),
-                eventCollector));
-      } catch (InvalidConfigurationException e) {
-        throw new AssertionError(e);
-      }
-    }
-  }
-
   private BuildConfigurationValue getConfiguration(String label) {
     try {
       return getConfiguration(getConfiguredTarget(label));
@@ -1981,30 +1872,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 
-  protected final BuildConfigurationValue getConfiguration(BuildConfigurationKey configurationKey) {
-    return skyframeExecutor.getConfiguration(reporter, configurationKey);
-  }
-
   protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
     return skyframeExecutor.getConfiguration(reporter, ct.getConfigurationKey());
-  }
-
-  /** Returns an attribute value retriever for the given rule for the target configuration. */
-  protected AttributeMap attributes(RuleConfiguredTarget ct) {
-    ConfiguredTargetAndData ctad;
-    try {
-      ctad = getConfiguredTargetAndData(ct.getLabel().toString());
-    } catch (LabelSyntaxException
-        | StarlarkTransition.TransitionException
-        | InvalidConfigurationException
-        | InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-    return getMapperFromConfiguredTargetAndTarget(ctad);
-  }
-
-  protected AttributeMap attributes(ConfiguredTarget rule) {
-    return attributes((RuleConfiguredTarget) rule);
   }
 
   protected void useLoadingOptions(String... options) throws OptionsParsingException {
@@ -2143,11 +2012,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       String attrName, String ruleType, String ruleName) {
     return String.format(
         "in %s attribute of %s rule %s: attribute must be non empty", attrName, ruleType, ruleName);
-  }
-
-  protected static String getErrorMsgMandatoryMissing(String attrName, String ruleType) {
-    return String.format(
-        "missing value for mandatory attribute '%s' in '%s' rule", attrName, ruleType);
   }
 
   protected static String getErrorMsgWrongAttributeValue(String value, String... expected) {

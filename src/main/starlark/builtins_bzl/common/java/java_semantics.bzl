@@ -40,6 +40,31 @@ def _compatible_javac_options(*_args):
 def _check_java_info_opens_exports():
     pass
 
+_DOCS = struct(
+    ATTRS = {
+        "resources": """
+<p>
+If resources are specified, they will be bundled in the jar along with the usual
+<code>.class</code> files produced by compilation. The location of the resources inside
+of the jar file is determined by the project structure. Bazel first looks for Maven's
+<a href="https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html">standard directory layout</a>,
+(a "src" directory followed by a "resources" directory grandchild). If that is not
+found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for
+example, if a resource is at <code>&lt;workspace root&gt;/x/java/y/java/z</code>, the
+path of the resource will be <code>y/java/z</code>. This heuristic cannot be overridden,
+however, the <code>resource_strip_prefix</code> attribute can be used to specify a
+specific alternative directory for resource files.
+    """,
+        "use_testrunner": """
+Use the test runner (by default
+<code>com.google.testing.junit.runner.BazelTestRunner</code>) class as the
+main entry point for a Java program, and provide the test class
+to the test runner as a value of <code>bazel.test_suite</code>
+system property.
+    """,
+    },
+)
+
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type",
@@ -76,4 +101,7 @@ semantics = struct(
     JAVA_LITE_PROTO_TOOLCHAIN = "@rules_java//java/proto:lite_toolchain_type",
     PROGUARD_ALLOWLISTER_LABEL = "@bazel_tools//tools/jdk:proguard_whitelister",
     check_java_info_opens_exports = _check_java_info_opens_exports,
+    DOCS = struct(
+        for_attribute = lambda name: _DOCS.ATTRS.get(name, ""),
+    ),
 )

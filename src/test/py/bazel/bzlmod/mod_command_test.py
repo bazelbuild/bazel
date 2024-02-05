@@ -14,6 +14,7 @@
 # limitations under the License.
 """Tests the mod command."""
 
+import json
 import os
 import tempfile
 from absl.testing import absltest
@@ -451,6 +452,72 @@ class ModCommandTest(test_base.TestBase):
         'ERROR: In repo argument bar@1.0: Module version bar@1.0 does not'
         ' exist, available versions: [bar@2.0]. (Note that unused modules'
         " cannot be used here). Type 'bazel help mod' for syntax and help.",
+        stderr,
+    )
+
+  def testDumpRepoMapping(self):
+    _, stdout, _ = self.RunBazel(
+        [
+            'mod',
+            'dump_repo_mapping',
+            '',
+            'foo~2.0',
+        ],
+    )
+    root_mapping, foo_mapping = [json.loads(l) for l in stdout]
+
+    self.assertContainsSubset(
+        {
+            'my_project': '',
+            'foo1': 'foo~1.0',
+            'foo2': 'foo~2.0',
+            'myrepo2': 'ext2~1.0~ext~repo1',
+            'bazel_tools': 'bazel_tools',
+        }.items(),
+        root_mapping.items(),
+    )
+
+    self.assertContainsSubset(
+        {
+            'foo': 'foo~2.0',
+            'ext_mod': 'ext~1.0',
+            'my_repo3': 'ext~1.0~ext~repo3',
+            'bazel_tools': 'bazel_tools',
+        }.items(),
+        foo_mapping.items(),
+    )
+
+  def testDumpRepoMappingThrowsNoRepos(self):
+    _, _, stderr = self.RunBazel(
+        ['mod', 'dump_repo_mapping'],
+        allow_failure=True,
+    )
+    self.assertIn(
+        "ERROR: No repository name(s) specified. Type 'bazel help mod' for"
+        ' syntax and help.',
+        stderr,
+    )
+
+  def testDumpRepoMappingThrowsInvalidRepoName(self):
+    _, _, stderr = self.RunBazel(
+        ['mod', 'dump_repo_mapping', '{}'],
+        allow_failure=True,
+    )
+    self.assertIn(
+        "ERROR: invalid repository name '{}': repo names may contain only A-Z,"
+        " a-z, 0-9, '-', '_', '.' and '~' and must not start with '~'. Type"
+        " 'bazel help mod' for syntax and help.",
+        stderr,
+    )
+
+  def testDumpRepoMappingThrowsUnknownRepoName(self):
+    _, _, stderr = self.RunBazel(
+        ['mod', 'dump_repo_mapping', 'does_not_exist'],
+        allow_failure=True,
+    )
+    self.assertIn(
+        "ERROR: Repositories not found: does_not_exist. Type 'bazel help mod'"
+        ' for syntax and help.',
         stderr,
     )
 

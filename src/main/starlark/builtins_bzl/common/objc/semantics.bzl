@@ -29,7 +29,6 @@ _CPU_TO_PLATFORM = {
     "tvos_x86_64": "@build_bazel_apple_support//platforms:tvos_x86_64",
     "visionos_arm64": "@build_bazel_apple_support//platforms:visionos_arm64",
     "visionos_sim_arm64": "@build_bazel_apple_support//platforms:visionos_sim_arm64",
-    "visionos_x86_64": "@build_bazel_apple_support//platforms:visionos_x86_64",
     "watchos_armv7k": "@build_bazel_apple_support//platforms:watchos_armv7k",
     "watchos_arm64": "@build_bazel_apple_support//platforms:watchos_arm64",
     "watchos_device_arm64": "@build_bazel_apple_support//platforms:watchos_arm64",

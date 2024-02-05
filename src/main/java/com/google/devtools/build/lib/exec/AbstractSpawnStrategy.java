@@ -86,7 +86,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
   protected AbstractSpawnStrategy(
       Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
-    this.spawnInputExpander = new SpawnInputExpander(execRoot, false);
+    this.spawnInputExpander = new SpawnInputExpander(execRoot);
     this.spawnRunner = spawnRunner;
     this.executionOptions = executionOptions;
   }
@@ -160,7 +160,12 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnResult = spawnRunner.exec(spawn, context);
         actionExecutionContext
             .getEventHandler()
-            .post(new SpawnExecutedEvent(spawn, spawnResult, startTime));
+            .post(
+                new SpawnExecutedEvent(
+                    spawn,
+                    actionExecutionContext.getInputMetadataProvider(),
+                    spawnResult,
+                    startTime));
         if (cacheHandle.willStore()) {
           cacheHandle.store(spawnResult);
         }
@@ -272,8 +277,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public ListenableFuture<Void> prefetchInputs()
-        throws IOException, ForbiddenActionInputException {
+    public ListenableFuture<Void> prefetchInputs() throws ForbiddenActionInputException {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         return Futures.catchingAsync(
             actionExecutionContext
@@ -358,7 +362,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
         PathFragment baseDirectory, boolean willAccessRepeatedly)
-        throws IOException, ForbiddenActionInputException {
+        throws ForbiddenActionInputException {
       // Return previously computed copy if present.
       if (lazyInputMapping != null && inputMappingBaseDirectory.equals(baseDirectory)) {
         return lazyInputMapping;
@@ -369,10 +373,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
         inputMapping =
             spawnInputExpander.getInputMapping(
-                spawn,
-                actionExecutionContext.getArtifactExpander(),
-                baseDirectory,
-                actionExecutionContext.getInputMetadataProvider());
+                spawn, actionExecutionContext.getArtifactExpander(), baseDirectory);
       }
 
       // Don't cache the input mapping if it is unlikely that it is used again.

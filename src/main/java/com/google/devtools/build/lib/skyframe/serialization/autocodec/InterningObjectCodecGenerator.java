@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.autocodec.Typ
 import static javax.lang.model.util.ElementFilter.fieldsIn;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.FlatDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.InterningObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
@@ -92,9 +92,24 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
   }
 
   @Override
-  MethodSpec.Builder initializeConstructor(boolean hasFields) {
+  MethodSpec.Builder initializeConstructor(TypeElement encodedType, int fieldCount) {
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder();
-    if (hasFields) {
+
+    TypeName typeName = getErasure(encodedType, env);
+    constructor.addStatement(
+        "int runtimeFieldCount = $T.getSerializableFieldCount($T.class)",
+        RuntimeHelpers.class,
+        typeName);
+    constructor
+        .beginControlFlow("if (runtimeFieldCount != $L)", fieldCount)
+        .addStatement(
+            "throw new IllegalStateException(\"$T's AutoCodec expected $L fields, but there were"
+                + " \" + runtimeFieldCount + \" serializable fields at runtime. See"
+                + " b/319301818 for explanation and workaround.\")",
+            typeName,
+            fieldCount)
+        .endControlFlow();
+    if (fieldCount > 0) {
       constructor.beginControlFlow("try");
     }
     return constructor;
@@ -110,7 +125,7 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
         .addAnnotation(Override.class)
         .addException(SerializationException.class)
         .addException(IOException.class)
-        .addParameter(AsyncDeserializationContext.class, "context")
+        .addParameter(FlatDeserializationContext.class, "context")
         .addParameter(CodedInputStream.class, "codedIn")
         .addStatement("$T instance", typeName)
         .beginControlFlow("try")

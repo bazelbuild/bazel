@@ -1634,7 +1634,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    }))");
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
-    assertContainsEvent("'//c:foo' is not visible from target '//a:binary'");
+    assertContainsEvent("'//c:foo' is not visible from\ntarget '//a:binary'");
   }
 
   @Test
@@ -1757,7 +1757,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    }))");
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
-    assertContainsEvent("'//c:foo' is not visible from target '//a:binary'");
+    assertContainsEvent("'//c:foo' is not visible from\ntarget '//a:binary'");
   }
 
   @Test
@@ -1828,7 +1828,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    }))");
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
-    assertContainsEvent("'//c:foo' is not visible from target '//a:binary'");
+    assertContainsEvent("'//c:foo' is not visible from\ntarget '//a:binary'");
   }
 
   @Test
@@ -1854,7 +1854,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    }))");
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
-    assertContainsEvent("'//c:foo' is not visible from target '//a:binary'");
+    assertContainsEvent("'//c:foo' is not visible from\ntarget '//a:binary'");
   }
 
   @Test

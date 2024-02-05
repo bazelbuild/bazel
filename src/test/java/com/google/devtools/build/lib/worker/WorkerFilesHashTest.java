@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -30,6 +31,8 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -165,6 +168,17 @@ public final class WorkerFilesHashTest {
           return (FileArtifactValue) metadataOrException;
         }
         throw new AssertionError("Unexpected value: " + metadataOrException);
+      }
+
+      @Override
+      @Nullable
+      public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public ImmutableList<RunfilesTree> getRunfilesTrees() {
+        throw new UnsupportedOperationException();
       }
 
       @Nullable

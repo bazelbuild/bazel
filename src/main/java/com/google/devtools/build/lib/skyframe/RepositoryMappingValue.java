@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -26,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 /**
  * A value that represents the 'mappings' of an external Bazel workspace, as defined in the main
@@ -57,6 +59,9 @@ public abstract class RepositoryMappingValue implements SkyValue {
   public static final RepositoryMappingValue VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS =
       RepositoryMappingValue.createForWorkspaceRepo(RepositoryMapping.ALWAYS_FALLBACK);
 
+  public static final RepositoryMappingValue NOT_FOUND_VALUE =
+      RepositoryMappingValue.createForWorkspaceRepo(null);
+
   /**
    * Returns a {@link RepositoryMappingValue} for a repo defined in MODULE.bazel, which has an
    * associated module.
@@ -80,6 +85,8 @@ public abstract class RepositoryMappingValue implements SkyValue {
         repositoryMapping, Optional.empty(), Optional.empty());
   }
 
+  /** The actual repo mapping. Will be null if the requested repo doesn't exist. */
+  @Nullable
   public abstract RepositoryMapping getRepositoryMapping();
 
   /**
@@ -139,10 +146,15 @@ public abstract class RepositoryMappingValue implements SkyValue {
      */
     abstract boolean rootModuleShouldSeeWorkspaceRepos();
 
-    @AutoCodec.Instantiator
     static Key create(RepositoryName repoName, boolean rootModuleShouldSeeWorkspaceRepos) {
       return interner.intern(
           new AutoValue_RepositoryMappingValue_Key(repoName, rootModuleShouldSeeWorkspaceRepos));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override

@@ -22,7 +22,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.CodedInputStream;
@@ -61,19 +60,26 @@ public class DeserializationContext implements AsyncDeserializationContext {
   }
 
   @Nullable
-  @SuppressWarnings({"TypeParameterUnusedInFormals"})
+  @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
   public <T> T deserialize(CodedInputStream codedIn) throws IOException, SerializationException {
-    return deserializeInternal(codedIn, /*customMemoizationStrategy=*/ null);
-  }
-
-  @Override
-  public void deserialize(CodedInputStream codedIn, Object obj, long offset)
-      throws IOException, SerializationException {
-    Object value = deserializeInternal(codedIn, /* customMemoizationStrategy= */ null);
-    if (value == null) {
-      return;
+    int tag = codedIn.readSInt32();
+    if (tag == 0) {
+      return null;
     }
-    unsafe().putObject(obj, offset, value);
+    if (tag < 0) {
+      // Subtracts 1 to undo transformation from SerializationContext to avoid null.
+      return (T) deserializer.getMemoized(-tag - 1); // unchecked cast
+    }
+    T constant = (T) registry.maybeGetConstantByTag(tag);
+    if (constant != null) {
+      return constant;
+    }
+    CodecDescriptor codecDescriptor = registry.getCodecDescriptorByTag(tag);
+    ObjectCodec<T> castCodec = (ObjectCodec<T>) codecDescriptor.getCodec(); // unchecked cast
+    if (deserializer == null) {
+      return castCodec.deserialize(this, codedIn);
+    }
+    return deserializer.deserialize(this, castCodec, codedIn);
   }
 
   /**
@@ -82,50 +88,51 @@ public class DeserializationContext implements AsyncDeserializationContext {
    * <p>This allows custom processing of the deserialized object.
    */
   @Override
-  public void deserialize(CodedInputStream codedIn, Object obj, FieldSetter setter)
+  public <T> void deserialize(CodedInputStream codedIn, T obj, FieldSetter<? super T> setter)
       throws IOException, SerializationException {
-    Object value = deserializeInternal(codedIn, /* customMemoizationStrategy= */ null);
+    Object value = deserialize(codedIn);
     if (value == null) {
       return;
     }
     setter.set(obj, value);
   }
 
-  @Nullable
-  @SuppressWarnings({"TypeParameterUnusedInFormals"})
-  public <T> T deserializeWithAdHocMemoizationStrategy(
-      CodedInputStream codedIn, MemoizationStrategy memoizationStrategy)
+  @Override
+  public void deserialize(CodedInputStream codedIn, Object obj, long offset)
       throws IOException, SerializationException {
-    return deserializeInternal(codedIn, memoizationStrategy);
+    Object value = deserialize(codedIn);
+    if (value == null) {
+      return;
+    }
+    unsafe().putObject(obj, offset, value);
   }
 
-  @Nullable
-  @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
-  private <T> T deserializeInternal(
-      CodedInputStream codedIn, @Nullable MemoizationStrategy customMemoizationStrategy)
+  @Override
+  public void deserialize(CodedInputStream codedIn, Object obj, long offset, Runnable done)
       throws IOException, SerializationException {
-    int tag = codedIn.readSInt32();
-    if (tag == 0) {
-      return null;
-    }
-    if (tag < 0) {
-      // Subtract 1 to undo transformation from SerializationContext to avoid null.
-      return (T) deserializer.getMemoized(-tag - 1); // unchecked cast
-    }
-    T constant = (T) registry.maybeGetConstantByTag(tag);
-    if (constant != null) {
-      return constant;
-    }
-    CodecDescriptor codecDescriptor = registry.getCodecDescriptorByTag(tag);
-    if (deserializer == null) {
-      return (T) codecDescriptor.deserialize(this, codedIn); // unchecked cast
-    } else {
-      @SuppressWarnings("unchecked")
-      ObjectCodec<T> castCodec = (ObjectCodec<T>) codecDescriptor.getCodec();
-      MemoizationStrategy memoizationStrategy =
-          customMemoizationStrategy != null ? customMemoizationStrategy : castCodec.getStrategy();
-      return deserializer.deserialize(this, castCodec, memoizationStrategy, codedIn);
-    }
+    deserialize(codedIn, obj, offset);
+    done.run();
+  }
+
+  @Override
+  public void deserializeFully(CodedInputStream codedIn, Object obj, long offset)
+      throws IOException, SerializationException {
+    // This method is identical to the call below in the synchronous implementation.
+    deserialize(codedIn, obj, offset);
+  }
+
+  @Override
+  public <T> void deserializeFully(CodedInputStream codedIn, T obj, FieldSetter<? super T> setter)
+      throws IOException, SerializationException {
+    // This method is identical to the call below in the synchronous implementation.
+    deserialize(codedIn, obj, setter);
+  }
+
+  @Override
+  public void deserializeFully(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException {
+    // This method is identical to the call below in the synchronous implementation.
+    deserialize(codedIn, obj, offset, done);
   }
 
   @Override

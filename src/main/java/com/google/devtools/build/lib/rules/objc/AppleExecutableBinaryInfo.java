@@ -29,9 +29,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleExecutableBinary
  *   <li>'binary': The executable binary artifact output by apple_binary
  *   <li>'cc_info': A {@link CcInfo} which contains information about the transitive dependencies
  *       linked into the binary.
- *   <li>'objc': An {@link ObjcProvider} which contains information about the transitive
- *       dependencies linked into the binary, (intended so that bundle loaders depending on this
- *       executable may avoid relinking symbols included in the loadable binary
  * </ul>
  */
 @Immutable
@@ -48,17 +45,14 @@ public final class AppleExecutableBinaryInfo extends NativeInfo
 
   private final Artifact appleExecutableBinary;
   private final CcInfo depsCcInfo;
-  private final ObjcProvider depsObjcProvider;
 
   /**
    * Creates a new AppleExecutableBinaryInfo provider that propagates the given apple_binary
    * configured as an executable.
    */
-  public AppleExecutableBinaryInfo(
-      Artifact appleExecutableBinary, CcInfo depsCcInfo, ObjcProvider depsObjcProvider) {
+  public AppleExecutableBinaryInfo(Artifact appleExecutableBinary, CcInfo depsCcInfo) {
     this.appleExecutableBinary = appleExecutableBinary;
     this.depsCcInfo = depsCcInfo;
-    this.depsObjcProvider = depsObjcProvider;
   }
 
   @Override
@@ -81,14 +75,5 @@ public final class AppleExecutableBinaryInfo extends NativeInfo
   @Override
   public CcInfo getDepsCcInfo() {
     return depsCcInfo;
-  }
-
-  /**
-   * Returns the {@link ObjcProvider} which contains information about the transitive dependencies
-   * linked into the dylib.
-   */
-  @Override
-  public ObjcProvider getDepsObjcProvider() {
-    return depsObjcProvider;
   }
 }

@@ -22,7 +22,9 @@ import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
@@ -58,6 +60,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -65,6 +68,8 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -86,6 +91,8 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import io.grpc.BindableService;
 import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
@@ -124,14 +131,13 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 /** Tests for {@link GrpcCacheClient}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class GrpcCacheClientTest {
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
@@ -257,7 +263,9 @@ public class GrpcCacheClientTest {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(
             "none", "none", Digest.getDefaultInstance().getHash(), null);
-    context = RemoteActionExecutionContext.create(metadata);
+    context =
+        RemoteActionExecutionContext.create(
+            mock(Spawn.class), mock(SpawnExecutionContext.class), metadata);
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }
 
@@ -270,6 +278,30 @@ public class GrpcCacheClientTest {
 
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
+  }
+
+  @Test
+  public void testSpawnCheckingCacheEvent() throws Exception {
+    GrpcCacheClient client = newClient();
+
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+        });
+
+    var unused =
+        getFromFuture(
+            client.downloadActionResult(
+                context,
+                DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
+                /* inlineOutErr= */ false));
+
+    verify(context.getSpawnExecutionContext())
+        .report(SpawnCheckingCacheEvent.create("remote-cache"));
   }
 
   @Test
@@ -1240,36 +1272,42 @@ public class GrpcCacheClientTest {
   }
 
   @Test
-  public void testCompressedDownload() throws IOException, InterruptedException {
+  public void testCompressedDownload(@TestParameter boolean overThreshold)
+      throws IOException, InterruptedException {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.cacheCompression = true;
+    options.cacheCompressionThreshold = 100;
     final GrpcCacheClient client = newClient(options);
-    final byte[] data = "abcdefg".getBytes(UTF_8);
+    final byte[] data =
+        overThreshold ? "0123456789".repeat(10).getBytes(UTF_8) : "0123456789".getBytes(UTF_8);
     final Digest digest = DIGEST_UTIL.compute(data);
-    final byte[] compressed = Zstd.compress(data);
+    final byte[] bytes = overThreshold ? Zstd.compress(data) : data;
 
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
             assertThat(request.getResourceName()).contains(digest.getHash());
+            if (overThreshold) {
+              assertThat(request.getResourceName()).contains("compressed-blobs/zstd");
+            } else {
+              assertThat(request.getResourceName()).doesNotContain("compressed-blobs/zstd");
+            }
             responseObserver.onNext(
                 ReadResponse.newBuilder()
-                    .setData(ByteString.copyFrom(Arrays.copyOf(compressed, compressed.length / 3)))
+                    .setData(ByteString.copyFrom(Arrays.copyOf(bytes, bytes.length / 3)))
                     .build());
             responseObserver.onNext(
                 ReadResponse.newBuilder()
                     .setData(
                         ByteString.copyFrom(
-                            Arrays.copyOfRange(
-                                compressed, compressed.length / 3, compressed.length / 3 * 2)))
+                            Arrays.copyOfRange(bytes, bytes.length / 3, bytes.length / 3 * 2)))
                     .build());
             responseObserver.onNext(
                 ReadResponse.newBuilder()
                     .setData(
                         ByteString.copyFrom(
-                            Arrays.copyOfRange(
-                                compressed, compressed.length / 3 * 2, compressed.length)))
+                            Arrays.copyOfRange(bytes, bytes.length / 3 * 2, bytes.length)))
                     .build());
             responseObserver.onCompleted();
           }

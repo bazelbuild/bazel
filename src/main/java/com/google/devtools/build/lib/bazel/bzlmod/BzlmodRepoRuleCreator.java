@@ -22,12 +22,12 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -77,17 +77,20 @@ public final class BzlmodRepoRuleCreator {
     Rule rule;
     try {
       rule =
-          RuleFactory.createAndAddRule(
-              packageBuilder, ruleClass, attributeValues, true, eventHandler, callStack);
+          RuleFactory.createAndAddRule(packageBuilder, ruleClass, attributeValues, true, callStack);
+      if (rule.containsErrors()) {
+        throw Starlark.errorf(
+            "failed to instantiate '%s' from this module extension", ruleClass.getName());
+      }
+      packageBuilder.build();
     } catch (NameConflictException e) {
       // This literally cannot happen -- we just created the package!
       throw new IllegalStateException(e);
+    } finally {
+      // Make sure we propagate any errors reported by the rule,
+      // from the builder to the event handler.
+      packageBuilder.getLocalEventHandler().replayOn(eventHandler);
     }
-    if (rule.containsErrors()) {
-      throw Starlark.errorf(
-          "failed to instantiate '%s' from this module extension", ruleClass.getName());
-    }
-    packageBuilder.build();
     return rule;
   }
 }

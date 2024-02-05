@@ -124,6 +124,14 @@ static void CloseFds() {
   }
 }
 
+static void MaybeAddChildProcessToCgroup(const pid_t pid) {
+  if (!opt.cgroups_dir.empty()) {
+    PRINT_DEBUG("Adding process %d to cgroups dir %s", pid,
+                opt.cgroups_dir.c_str());
+    WriteFile(opt.cgroups_dir + "/cgroup.procs", "%d", pid);
+  }
+}
+
 static void OnTimeoutOrTerm(int) {
   // Find the PID of the child, which main set up before installing us as a
   // signal handler.
@@ -155,10 +163,13 @@ static pid_t SpawnPid1() {
 
   PRINT_DEBUG("calling pipe(2)...");
 
-  int sync_pipe[2];
-  if (pipe(sync_pipe) < 0) {
+  int pipe_from_child[2], pipe_to_child[2];
+  if (pipe(pipe_from_child) < 0) {
     DIE("pipe");
   }
+  if (pipe(pipe_to_child) < 0) {
+      DIE("pipe");
+    }
 
   int clone_flags =
       CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWIPC | CLONE_NEWPID | SIGCHLD;
@@ -175,29 +186,27 @@ static pid_t SpawnPid1() {
   // https://lkml.org/lkml/2015/7/28/833).
   PRINT_DEBUG("calling clone(2)...");
 
-  const pid_t child_pid =
-      clone(Pid1Main, child_stack.data() + kStackSize, clone_flags, sync_pipe);
+  Pid1Args pid1Args;
+  pid1Args.pipe_to_parent = pipe_from_child;
+  pid1Args.pipe_from_parent = pipe_to_child;
+  const pid_t child_pid = clone(Pid1Main, child_stack.data() + kStackSize,
+                                clone_flags, &pid1Args);
 
   if (child_pid < 0) {
     DIE("clone");
   }
 
+  MaybeAddChildProcessToCgroup(child_pid);
+  // Signal the child that it can now proceed to spawn pid2.
+  SignalPipe(pipe_to_child);
+
   PRINT_DEBUG("linux-sandbox-pid1 has PID %d", child_pid);
 
-  // We close the write end of the sync pipe, read a byte and then close the
-  // pipe. This proves to the linux-sandbox-pid1 process that we still existed
-  // after it ran prctl(PR_SET_PDEATHSIG, SIGKILL), thus preventing a race
-  // condition where the parent is killed before that call was made.
-  char buf;
-  if (close(sync_pipe[1]) < 0) {
-    DIE("close");
-  }
-  if (read(sync_pipe[0], &buf, 1) < 0) {
-    DIE("read");
-  }
-  if (close(sync_pipe[0]) < 0) {
-    DIE("close");
-  }
+  // Wait for a signal from the child linux-sandbox-pid1 process; this proves to
+  // the child process that we still existed after it ran
+  // prctl(PR_SET_PDEATHSIG, SIGKILL), thus preventing a race condition where
+  // the parent is killed before that call was made.
+  WaitPipe(pipe_from_child);
 
   PRINT_DEBUG("done manipulating pipes");
 

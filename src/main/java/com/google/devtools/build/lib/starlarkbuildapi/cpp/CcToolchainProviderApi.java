@@ -14,37 +14,21 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.starlarkbuildapi.OutputGroupInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
-/** Information about the C++ toolchain. */
+/**
+ * This is a dummy interface which is not deleted because stardoc does not yet work for providers.
+ * Delete this and point to Starlark implementation once it does.
+ */
 @StarlarkBuiltin(
     name = "CcToolchainInfo",
     category = DocCategory.PROVIDER,
     doc = "Information about the C++ compiler being used.")
-public interface CcToolchainProviderApi<
-        FeatureConfigurationT extends FeatureConfigurationApi,
-        BranchFdoProfileT extends BranchFdoProfileApi,
-        FdoContextT extends FdoContextApi<BranchFdoProfileT>,
-        ConstraintValueT extends ConstraintValueInfoApi,
-        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        InvalidConfigurationExceptionT extends Exception,
-        CppConfigurationT extends CppConfigurationApi<InvalidConfigurationExceptionT>,
-        CcToolchainVariablesT extends CcToolchainVariablesApi,
-        OutputGroupInfoT extends OutputGroupInfoApi>
-    extends StructApi {
+public interface CcToolchainProviderApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "needs_pic_for_dynamic_libraries",
@@ -59,13 +43,19 @@ public interface CcToolchainProviderApi<
             positional = false,
             named = true)
       })
-  boolean usePicForDynamicLibrariesFromStarlark(FeatureConfigurationT featureConfigurationApi);
+  default void usePicForDynamicLibrariesFromStarlark(Object featureConfigurationApi) {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "built_in_include_directories",
       doc = "Returns the list of built-in directories of the compiler.",
       structField = true)
-  public ImmutableList<String> getBuiltInIncludeDirectoriesAsStrings();
+  default void getBuiltInIncludeDirectoriesAsStrings() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "all_files",
@@ -73,7 +63,10 @@ public interface CcToolchainProviderApi<
           "Returns all toolchain files (so they can be passed to actions using this "
               + "toolchain as inputs).",
       structField = true)
-  public Depset getAllFilesForStarlark();
+  default void getAllFilesForStarlark() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "static_runtime_lib",
@@ -90,8 +83,10 @@ public interface CcToolchainProviderApi<
             positional = false,
             named = true)
       })
-  public Depset getStaticRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
-      throws EvalException;
+  default void getStaticRuntimeLibForStarlark(Object featureConfiguration) {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "dynamic_runtime_lib",
@@ -108,190 +103,116 @@ public interface CcToolchainProviderApi<
             positional = false,
             named = true)
       })
-  public Depset getDynamicRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
-      throws EvalException;
+  default void getDynamicRuntimeLibForStarlark(Object featureConfiguration) {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "sysroot",
       structField = true,
-      allowReturnNones = true,
       doc =
           "Returns the sysroot to be used. If the toolchain compiler does not support "
               + "different sysroots, or the sysroot is the same as the default sysroot, then "
               + "this method returns <code>None</code>.")
-  @Nullable
-  public String getSysroot();
+  default void getSysroot() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
-  @StarlarkMethod(
-      name = "runtime_sysroot",
-      useStarlarkThread = true,
-      allowReturnNones = true,
-      documented = false,
-      doc =
-          "Returns the runtime sysroot, where the dynamic linker and system libraries are found at"
-              + "runtime. This is usually an absolute path. If the toolchain compiler does not"
-              + "support sysroots then this method returns <code>None></code>.")
-  @Nullable
-  public String getRuntimeSysrootForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "compiler", structField = true, doc = "C++ compiler.")
+  default void getCompiler() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
-  @StarlarkMethod(
-      name = "compiler",
-      structField = true,
-      doc = "C++ compiler.",
-      allowReturnNones = true)
-  @Nullable
-  public String getCompiler();
+  @StarlarkMethod(name = "libc", structField = true, doc = "libc version string.")
+  default void getTargetLibc() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
-  @StarlarkMethod(
-      name = "libc",
-      structField = true,
-      doc = "libc version string.",
-      allowReturnNones = true)
-  @Nullable
-  public String getTargetLibc();
+  @StarlarkMethod(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.")
+  default void getTargetCpu() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
-  @StarlarkMethod(
-      name = "cpu",
-      structField = true,
-      doc = "Target CPU of the C++ toolchain.",
-      allowReturnNones = true)
-  @Nullable
-  public String getTargetCpu();
-
-  @StarlarkMethod(
-      name = "target_gnu_system_name",
-      structField = true,
-      doc = "The GNU System Name.",
-      allowReturnNones = true)
-  @Nullable
-  public String getTargetGnuSystemName();
-
-  @StarlarkMethod(name = "as_files", documented = false, useStarlarkThread = true)
-  Depset getAsFilesForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "ar_files", documented = false, useStarlarkThread = true)
-  Depset getArFilesForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "toolchain_id", documented = false, structField = true)
-  String getToolchainIdentifier();
-
-  @StarlarkMethod(name = "strip_files", documented = false, useStarlarkThread = true)
-  Depset getStripFilesForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "objcopy_files", documented = false, useStarlarkThread = true)
-  Depset getObjcopyFilesForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "tool_paths", documented = false, useStarlarkThread = true)
-  Dict<String, String> getToolPathsForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "solib_dir", documented = false, useStarlarkThread = true)
-  String getSolibDirectoryForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "dynamic_runtime_solib_dir", documented = false, structField = true)
-  String getDynamicRuntimeSolibDirForStarlark() throws EvalException;
-
-  @StarlarkMethod(name = "linker_files", documented = false, useStarlarkThread = true)
-  Depset getLinkerFilesForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "coverage_files", documented = false, useStarlarkThread = true)
-  Depset getCoverageFilesForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "fdo_context", documented = false, useStarlarkThread = true)
-  FdoContextT getFdoContextForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "compiler_files", documented = false, useStarlarkThread = true)
-  Depset getCompilerFilesForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "target_gnu_system_name", structField = true, doc = "The GNU System Name.")
+  default void getTargetGnuSystemName() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "objcopy_executable",
       structField = true,
       doc = "The path to the objcopy binary.")
-  String objcopyExecutable();
+  default void objcopyExecutable() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "compiler_executable",
       structField = true,
       doc = "The path to the compiler binary.")
-  String compilerExecutable();
+  default void compilerExecutable() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "preprocessor_executable",
       structField = true,
       doc = "The path to the preprocessor binary.")
-  String preprocessorExecutable();
+  default void preprocessorExecutable() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(name = "nm_executable", structField = true, doc = "The path to the nm binary.")
-  String nmExecutable();
+  default void nmExecutable() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "objdump_executable",
       structField = true,
       doc = "The path to the objdump binary.")
-  String objdumpExecutable();
+  default void objdumpExecutable() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(name = "ar_executable", structField = true, doc = "The path to the ar binary.")
-  String arExecutable();
+  default void arExecutable() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "strip_executable",
       structField = true,
       doc = "The path to the strip binary.")
-  String stripExecutable();
+  default void stripExecutable() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(name = "ld_executable", structField = true, doc = "The path to the ld binary.")
-  String ldExecutable();
+  default void ldExecutable() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 
   @StarlarkMethod(
       name = "gcov_executable",
       structField = true,
       doc = "The path to the gcov binary.")
-  String gcovExecutable();
-
-  @StarlarkMethod(name = "dwp_files", documented = false, useStarlarkThread = true)
-  Depset getDwpFilesForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "get_artifact_name_for_category",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(name = "category", positional = false, named = true),
-        @Param(name = "output_name", positional = false, named = true)
-      })
-  String getArtifactNameForCategory(String category, String outputName, StarlarkThread thread)
-      throws EvalException;
-
-  @StarlarkMethod(
-      name = "legacy_cc_flags_make_variable",
-      documented = false,
-      useStarlarkThread = true)
-  String getLegacyCcFlagsMakeVariableForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "get_additional_make_variables",
-      documented = false,
-      useStarlarkThread = true)
-  Dict<String, String> getAdditionalMakeVariablesForStarlark(StarlarkThread thread)
-      throws EvalException;
-
-  @StarlarkMethod(
-      name = "get_all_files_including_libc",
-      documented = false,
-      useStarlarkThread = true)
-  Depset getAllFilesIncludingLibcForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "get_abi", documented = false, useStarlarkThread = true)
-  String getAbiForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "get_abi_glibc_version", documented = false, useStarlarkThread = true)
-  String getAbiGlibcVersionForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "get_crosstool_top_path", documented = false, useStarlarkThread = true)
-  String getCrosstoolTopPathForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "build_variables", documented = false, useStarlarkThread = true)
-  CcToolchainVariablesT getBuildVariablesForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "build_info_files", documented = false, useStarlarkThread = true)
-  OutputGroupInfoT getCcBuildInfoTranslatorForStarlark(StarlarkThread thread) throws EvalException;
+  default void gcovExecutable() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
 }

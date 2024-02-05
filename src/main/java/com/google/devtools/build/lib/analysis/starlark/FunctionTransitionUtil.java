@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.util.HashSet;
@@ -76,7 +77,15 @@ public final class FunctionTransitionUtil {
    * incoming {@link BuildOptions}. For native options, this involves a preprocess step of
    * converting options to their "command line form".
    *
-   * <p>Also validate that transitions output the declared results.
+   * <p>Also perform validation on the inputs and outputs:
+   *
+   * <ol>
+   *   <li>Ensure that all native input options exist
+   *   <li>Ensure that all native output options exist
+   *   <li>Ensure that there are no attempts to update the {@code --define} option.
+   *   <li>Ensure that no {@link OptionMetadataTag#IMMUTABLE immutable} native options are updated.
+   *   <li>Ensure that transitions output all of the declared options.
+   * </ol>
    *
    * @param fromOptions the pre-transition build options
    * @param starlarkTransition the transition to apply
@@ -87,15 +96,19 @@ public final class FunctionTransitionUtil {
   static ImmutableMap<String, BuildOptions> applyAndValidate(
       BuildOptions fromOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
+      boolean allowImmutableFlagChanges,
       StructImpl attrObject,
       EventHandler handler)
       throws InterruptedException {
     try {
-      checkForDenylistedOptions(starlarkTransition);
-
       // TODO(waltl): Consider building this once and using it across different split transitions,
       // or reusing BuildOptionDetails.
       ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(fromOptions);
+
+      validateInputOptions(starlarkTransition.getInputs(), optionInfoMap);
+      validateOutputOptions(
+          starlarkTransition.getOutputs(), allowImmutableFlagChanges, optionInfoMap);
+
       ImmutableMap<String, Object> settings =
           buildSettings(fromOptions, optionInfoMap, starlarkTransition);
 
@@ -236,12 +249,82 @@ public final class FunctionTransitionUtil {
         .buildOrThrow();
   }
 
-  private static void checkForDenylistedOptions(StarlarkDefinedConfigTransition transition)
+  private static boolean isNativeOptionValid(
+      ImmutableMap<String, OptionInfo> optionInfoMap, String flag) {
+    String optionName = flag.substring(COMMAND_LINE_OPTION_PREFIX.length());
+
+    // Make sure the option exists.
+    return optionInfoMap.containsKey(optionName);
+  }
+
+  /**
+   * Check if a native option is immutable.
+   *
+   * @return whether or not the option is immutable
+   * @throws VerifyException if the option does not exist
+   */
+  private static boolean isNativeOptionImmutable(
+      ImmutableMap<String, OptionInfo> optionInfoMap, String flag) {
+    String optionName = flag.substring(COMMAND_LINE_OPTION_PREFIX.length());
+    OptionInfo optionInfo = optionInfoMap.get(optionName);
+    if (optionInfo == null) {
+      throw new VerifyException(
+          "Cannot check if option " + flag + " is immutable: it does not exist");
+    }
+    return optionInfo.hasOptionMetadataTag(OptionMetadataTag.IMMUTABLE);
+  }
+
+  private static void validateInputOptions(
+      ImmutableList<String> options, ImmutableMap<String, OptionInfo> optionInfoMap)
       throws ValidationException {
-    if (transition.getOutputs().contains("//command_line_option:define")) {
+    ImmutableList<String> invalidNativeOptions =
+        options.stream()
+            .filter(IS_NATIVE_OPTION)
+            .filter(optionName -> !isNativeOptionValid(optionInfoMap, optionName))
+            .collect(toImmutableList());
+    if (!invalidNativeOptions.isEmpty()) {
+      throw ValidationException.format(
+          "transition inputs [%s] do not correspond to valid settings",
+          Joiner.on(", ").join(invalidNativeOptions));
+    }
+  }
+
+  private static void validateOutputOptions(
+      ImmutableList<String> options,
+      boolean allowImmutableFlagChanges,
+      ImmutableMap<String, OptionInfo> optionInfoMap)
+      throws ValidationException {
+    if (options.contains("//command_line_option:define")) {
       throw new ValidationException(
           "Starlark transition on --define not supported - try using build settings"
               + " (https://bazel.build/rules/config#user-defined-build-settings).");
+    }
+
+    // TODO: blaze-configurability - Move the checks for incompatible and experimental flags to here
+    // (currently in ConfigGlobalLibrary.validateBuildSettingKeys).
+
+    ImmutableList<String> invalidNativeOptions =
+        options.stream()
+            .filter(IS_NATIVE_OPTION)
+            .filter(optionName -> !isNativeOptionValid(optionInfoMap, optionName))
+            .collect(toImmutableList());
+    if (!invalidNativeOptions.isEmpty()) {
+      throw ValidationException.format(
+          "transition outputs [%s] do not correspond to valid settings",
+          Joiner.on(", ").join(invalidNativeOptions));
+    }
+
+    if (!allowImmutableFlagChanges) {
+      ImmutableList<String> immutableNativeOptions =
+          options.stream()
+              .filter(IS_NATIVE_OPTION)
+              .filter(optionName -> isNativeOptionImmutable(optionInfoMap, optionName))
+              .collect(toImmutableList());
+      if (!immutableNativeOptions.isEmpty()) {
+        throw ValidationException.format(
+            "transition outputs [%s] cannot be changed: they are immutable",
+            Joiner.on(", ").join(immutableNativeOptions));
+      }
     }
   }
 
@@ -389,6 +472,7 @@ public final class FunctionTransitionUtil {
       } else {
         // The transition changes a native option.
         String optionName = optionKey.substring(COMMAND_LINE_OPTION_PREFIX.length());
+        OptionInfo optionInfo = optionInfoMap.get(optionName);
 
         // Convert NoneType to null.
         if (optionValue instanceof NoneType) {
@@ -409,12 +493,6 @@ public final class FunctionTransitionUtil {
           optionValue = ImmutableMap.copyOf(((Map<?, ?>) optionValue));
         }
         try {
-          if (!optionInfoMap.containsKey(optionName)) {
-            throw ValidationException.format(
-                "transition output '%s' does not correspond to a valid setting", entry.getKey());
-          }
-
-          OptionInfo optionInfo = optionInfoMap.get(optionName);
           OptionDefinition def = optionInfo.getDefinition();
           Field field = def.getField();
           // TODO(b/153867317): check for crashing options types in this logic.

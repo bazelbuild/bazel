@@ -261,27 +261,21 @@ def _other_artifacts_impl(ctx):
 
     # Produce artifacts of other types
 
-    regular_file_artifact = ctx.actions.declare_file(ctx.attr.name + ".regular_file_artifact")
-    directory_artifact = ctx.actions.declare_file(ctx.attr.name + ".directory_artifact")
-    tree_artifact = ctx.actions.declare_directory(ctx.attr.name + ".tree_artifact")
-    unresolved_symlink_artifact = ctx.actions.declare_symlink(ctx.attr.name + ".unresolved_symlink_artifact")
+    file_artifact = ctx.actions.declare_file(ctx.attr.name + ".file_artifact")
+    directory_artifact = ctx.actions.declare_directory(ctx.attr.name + ".directory_artifact")
+    symlink_artifact = ctx.actions.declare_symlink(ctx.attr.name + ".symlink_artifact")
 
     ctx.actions.run_shell(
-        command = "touch %s && mkdir %s" % (regular_file_artifact.path, directory_artifact.path),
-        outputs = [regular_file_artifact, tree_artifact, directory_artifact],
-    )
-
-    ctx.actions.symlink(
-        output = unresolved_symlink_artifact,
-        target_path="dangling"
+        command = "touch %s && mkdir -p %s && ln -s dangling %s" % (
+            file_artifact.path, directory_artifact.path, symlink_artifact.path),
+        outputs = [file_artifact, directory_artifact, symlink_artifact],
     )
 
     # Test other artifact types as input to hermetic sandbox.
 
-    all_artifacts = [regular_file_artifact,
+    all_artifacts = [file_artifact,
                      directory_artifact,
-                     tree_artifact,
-                     unresolved_symlink_artifact]
+                     symlink_artifact]
     input_paths_string = " ".join([a.path for a in all_artifacts])
     result_file = ctx.actions.declare_file(ctx.attr.name + ".result")
     ctx.actions.run_shell(
@@ -369,12 +363,10 @@ function test_subdirectories_in_declared_directory() {
 # Test that the sandbox is able to handle various types of artifacts.
 # Regression test for Issue #15340
 function test_other_artifacts() {
-  bazel build --noincompatible_disallow_unsound_directory_outputs \
-    examples/hermetic:other_artifacts &> $TEST_log
-  assert_contains ".regular_file_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
-  assert_contains ".unresolved_symlink_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  bazel build examples/hermetic:other_artifacts &> $TEST_log
+  assert_contains ".file_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  assert_contains ".symlink_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
   assert_contains ".directory_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
-  assert_contains ".tree_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

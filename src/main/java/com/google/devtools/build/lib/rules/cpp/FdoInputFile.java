@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.util.FileType.HasFileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
-import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Value object reused by fdo configurations that may be either an artifact or a path. */
 @Immutable
@@ -76,38 +76,12 @@ public final class FdoInputFile implements HasFileType {
     return new FdoInputFile(artifact, null);
   }
 
-  @Nullable
-  public static FdoInputFile fromProfileRule(RuleContext ruleContext) throws InterruptedException {
-
-    boolean isLabel = ruleContext.attributes().isAttributeValueExplicitlySpecified("profile");
-    boolean isAbsolutePath =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified("absolute_path_profile");
-
-    if (isLabel == isAbsolutePath) {
-      ruleContext.ruleError("exactly one of profile and absolute_path_profile should be specified");
-      return null;
-    }
-
-    if (isLabel) {
-      Artifact artifact = ruleContext.getPrerequisiteArtifact("profile");
-      return new FdoInputFile(artifact, null);
-    } else {
-      if (!ruleContext.getFragment(CppConfiguration.class).isFdoAbsolutePathEnabled()) {
-        ruleContext.attributeError(
-            "absolute_path_profile",
-            "this attribute cannot be used when --enable_fdo_profile_absolute_path is false");
-        return null;
-      }
-      String pathString = ruleContext.getExpander().expand("absolute_path_profile");
-      PathFragment absolutePath = PathFragment.create(pathString);
-      if (!absolutePath.isAbsolute()) {
-        ruleContext.attributeError(
-            "absolute_path_profile",
-            String.format("%s is not an absolute path", absolutePath.getPathString()));
-        return null;
-      }
-      return new FdoInputFile(null, absolutePath);
-    }
+  public static FdoInputFile fromStarlarkProvider(StructImpl starlarkProvider)
+      throws EvalException {
+    String absolutePathStr = starlarkProvider.getValue("absolute_path", String.class);
+    PathFragment absolutePath =
+        absolutePathStr != null ? PathFragment.create(absolutePathStr) : null;
+    return new FdoInputFile(starlarkProvider.getValue("artifact", Artifact.class), absolutePath);
   }
 
   @Override

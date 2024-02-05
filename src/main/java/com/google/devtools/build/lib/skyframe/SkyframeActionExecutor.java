@@ -343,10 +343,6 @@ public final class SkyframeActionExecutor {
         .test(action.getMnemonic());
   }
 
-  boolean requiresTreeMetadataWhenTreeFileIsInput() {
-    return actionInputPrefetcher.requiresTreeMetadataWhenTreeFileIsInput();
-  }
-
   boolean publishTargetSummaries() {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
@@ -678,7 +674,8 @@ public final class SkyframeActionExecutor {
         // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
         if (action.getActionType().isMiddleman()) {
           eventHandler.post(
-              new ActionMiddlemanEvent(action, actionStartTime, BlazeClock.nanoTime()));
+              new ActionMiddlemanEvent(
+                  action, inputMetadataProvider, actionStartTime, BlazeClock.nanoTime()));
           eventPosted = true;
         }
 
@@ -728,7 +725,9 @@ public final class SkyframeActionExecutor {
                 /* filesetOutputSymlinksForMetrics= */ null,
                 /* isActionCacheHitForMetrics= */ true);
         if (!eventPosted) {
-          eventHandler.post(new CachedActionEvent(action, actionStartTime, BlazeClock.nanoTime()));
+          eventHandler.post(
+              new CachedActionEvent(
+                  action, inputMetadataProvider, actionStartTime, BlazeClock.nanoTime()));
         }
       }
     } catch (UserExecException e) {
@@ -1085,7 +1084,11 @@ public final class SkyframeActionExecutor {
       if (postActionCompletionEvent) {
         eventHandler.post(
             new ActionCompletionEvent(
-                actionStartTimeNanos, BlazeClock.nanoTime(), action, actionLookupData));
+                actionStartTimeNanos,
+                BlazeClock.nanoTime(),
+                action,
+                inputMetadataProvider,
+                actionLookupData));
       }
       String message = action.getProgressMessage();
       if (message != null) {
@@ -1659,24 +1662,19 @@ public final class SkyframeActionExecutor {
 
   private boolean checkForUnsoundDirectoryOutput(
       Action action, Artifact output, FileArtifactValue metadata) {
-    boolean success = true;
-    if (!output.isDirectory() && !output.isSymlink() && metadata.getType().isDirectory()) {
-      boolean asError = options.getOptions(CoreOptions.class).disallowUnsoundDirectoryOutputs;
-      String ownerString = action.getOwner().getLabel().toString();
-      reporter.handle(
-          Event.of(
-                  asError ? EventKind.ERROR : EventKind.WARNING,
-                  action.getOwner().getLocation(),
-                  String.format(
-                      "output '%s' of %s is a directory; "
-                          + "dependency checking of directories is unsound",
-                      output.prettyPrint(), ownerString))
-              .withTag(ownerString));
-      if (asError) {
-        success = false;
-      }
+    if (output.isDirectory() || output.isSymlink() || !metadata.getType().isDirectory()) {
+      return true;
     }
-    return success;
+    String ownerString = action.getOwner().getLabel().toString();
+    reporter.handle(
+        Event.of(
+                EventKind.ERROR,
+                action.getOwner().getLocation(),
+                String.format(
+                    "output '%s' of %s is a directory but was not declared as such",
+                    output.prettyPrint(), ownerString))
+            .withTag(ownerString));
+    return false;
   }
 
   /**

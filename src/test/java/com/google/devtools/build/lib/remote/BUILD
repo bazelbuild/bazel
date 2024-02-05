@@ -11,6 +11,7 @@ filegroup(
     testonly = 0,
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/remote/circuitbreaker:srcs",
+        "//src/test/java/com/google/devtools/build/lib/remote/disk:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/downloader:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/grpc:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/http:srcs",
@@ -73,6 +74,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",

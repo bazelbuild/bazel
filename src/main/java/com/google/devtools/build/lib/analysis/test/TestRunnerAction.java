@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -108,7 +107,7 @@ public class TestRunnerAction extends AbstractAction
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final RunfilesSupplier runfilesSupplier;
+  private final Artifact runfilesMiddleman;
   private final Artifact testSetupScript;
   private final Artifact testXmlGeneratorScript;
   private final Artifact collectCoverageScript;
@@ -166,7 +165,7 @@ public class TestRunnerAction extends AbstractAction
 
   private final boolean splitCoveragePostProcessing;
   private final NestedSetBuilder<Artifact> lcovMergerFilesToRun;
-  private final RunfilesSupplier lcovMergerRunfilesSupplier;
+  @Nullable private final Artifact lcovMergerRunfilesMiddleman;
 
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
   private final PackageSpecificationProvider networkAllowlist;
@@ -192,7 +191,7 @@ public class TestRunnerAction extends AbstractAction
   TestRunnerAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
-      RunfilesSupplier runfilesSupplier,
+      Artifact runfilesMiddleman,
       Artifact testSetupScript, // Must be in inputs
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
@@ -212,7 +211,7 @@ public class TestRunnerAction extends AbstractAction
       boolean cancelConcurrentTestsOnSuccess,
       boolean splitCoveragePostProcessing,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
-      RunfilesSupplier lcovMergerRunfilesSupplier,
+      @Nullable Artifact lcovMergerRunfilesMiddleman,
       PackageSpecificationProvider networkAllowlist,
       boolean isExecutedOnWindows) {
     super(
@@ -221,7 +220,7 @@ public class TestRunnerAction extends AbstractAction
         nonNullAsSet(
             testLog, cacheStatus, coverageArtifact, coverageDirectory, undeclaredOutputsDir));
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
-    this.runfilesSupplier = runfilesSupplier;
+    this.runfilesMiddleman = runfilesMiddleman;
     this.testSetupScript = testSetupScript;
     this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
@@ -271,7 +270,7 @@ public class TestRunnerAction extends AbstractAction
     this.cancelConcurrentTestsOnSuccess = cancelConcurrentTestsOnSuccess;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
-    this.lcovMergerRunfilesSupplier = lcovMergerRunfilesSupplier;
+    this.lcovMergerRunfilesMiddleman = lcovMergerRunfilesMiddleman;
     this.networkAllowlist = networkAllowlist;
 
     // Mark all possible test outputs for deletion before test execution.
@@ -313,9 +312,8 @@ public class TestRunnerAction extends AbstractAction
     return isExecutedOnWindows;
   }
 
-  @Override
-  public final RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
+  public Artifact getRunfilesMiddleman() {
+    return runfilesMiddleman;
   }
 
   @Override
@@ -323,8 +321,9 @@ public class TestRunnerAction extends AbstractAction
     return configuration.getActionEnvironment();
   }
 
-  public RunfilesSupplier getLcovMergerRunfilesSupplier() {
-    return lcovMergerRunfilesSupplier;
+  @Nullable
+  public Artifact getLcovMergerRunfilesMiddleman() {
+    return lcovMergerRunfilesMiddleman;
   }
 
   public BuildConfigurationValue getConfiguration() {

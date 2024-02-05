@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.common.base.Preconditions;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -66,15 +66,22 @@ public class CredentialHelperProviderTest {
   public void noHelpersConfigured() {
     CredentialHelperProvider provider = CredentialHelperProvider.builder().build();
 
-    assertThat(provider.findCredentialHelper(URI.create("http://example.com/foo"))).isEmpty();
-    assertThat(provider.findCredentialHelper(URI.create("https://example.com/foo"))).isEmpty();
-    assertThat(provider.findCredentialHelper(URI.create("grpc://example.com/foo"))).isEmpty();
-    assertThat(provider.findCredentialHelper(URI.create("grpcs://example.com/foo"))).isEmpty();
-    assertThat(provider.findCredentialHelper(URI.create("custom://example.com/foo"))).isEmpty();
-
-    assertThat(provider.findCredentialHelper(URI.create("https://subdomain.example.com/bar")))
+    Truth8.assertThat(provider.findCredentialHelper(URI.create("http://example.com/foo")))
         .isEmpty();
-    assertThat(provider.findCredentialHelper(URI.create("https://other-domain.com"))).isEmpty();
+    Truth8.assertThat(provider.findCredentialHelper(URI.create("https://example.com/foo")))
+        .isEmpty();
+    Truth8.assertThat(provider.findCredentialHelper(URI.create("grpc://example.com/foo")))
+        .isEmpty();
+    Truth8.assertThat(provider.findCredentialHelper(URI.create("grpcs://example.com/foo")))
+        .isEmpty();
+    Truth8.assertThat(provider.findCredentialHelper(URI.create("custom://example.com/foo")))
+        .isEmpty();
+
+    Truth8.assertThat(
+            provider.findCredentialHelper(URI.create("https://subdomain.example.com/bar")))
+        .isEmpty();
+    Truth8.assertThat(provider.findCredentialHelper(URI.create("https://other-domain.com")))
+        .isEmpty();
   }
 
   @Test
@@ -83,7 +90,8 @@ public class CredentialHelperProviderTest {
     CredentialHelperProvider provider =
         CredentialHelperProvider.builder().add("example.com", helper).build();
 
-    assertThat(provider.findCredentialHelper(URI.create("unix:///path/to/socket"))).isEmpty();
+    Truth8.assertThat(provider.findCredentialHelper(URI.create("unix:///path/to/socket")))
+        .isEmpty();
   }
 
   @Test
@@ -294,16 +302,17 @@ public class CredentialHelperProviderTest {
 
   @Test
   public void parentDomain() {
-    assertThat(CredentialHelperProvider.parentDomain("com")).isEmpty();
+    Truth8.assertThat(CredentialHelperProvider.parentDomain("com")).isEmpty();
 
-    assertThat(CredentialHelperProvider.parentDomain("foo.example.com")).hasValue("example.com");
-    assertThat(CredentialHelperProvider.parentDomain("example.com")).hasValue("com");
+    Truth8.assertThat(CredentialHelperProvider.parentDomain("foo.example.com"))
+        .hasValue("example.com");
+    Truth8.assertThat(CredentialHelperProvider.parentDomain("example.com")).hasValue("com");
 
     // Punycode URIs (münchen.de).
-    assertThat(CredentialHelperProvider.parentDomain("foo.xn--mnchen-3ya.de"))
+    Truth8.assertThat(CredentialHelperProvider.parentDomain("foo.xn--mnchen-3ya.de"))
         .hasValue("xn--mnchen-3ya.de");
-    assertThat(CredentialHelperProvider.parentDomain("bar.foo.xn--mnchen-3ya.de"))
+    Truth8.assertThat(CredentialHelperProvider.parentDomain("bar.foo.xn--mnchen-3ya.de"))
         .hasValue("foo.xn--mnchen-3ya.de");
-    assertThat(CredentialHelperProvider.parentDomain("xn--mnchen-3ya.de")).hasValue("de");
+    Truth8.assertThat(CredentialHelperProvider.parentDomain("xn--mnchen-3ya.de")).hasValue("de");
   }
 }

@@ -18,10 +18,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.util.FileType.HasFileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** Value object reused by propeller configurations that has two artifacts. */
 @Immutable
@@ -83,67 +86,16 @@ public final class PropellerOptimizeInputFile implements HasFileType {
   }
 
   @Nullable
-  public static Artifact getAbsolutePathArtifact(RuleContext ruleContext, String attributeName)
-      throws InterruptedException {
-    String pathString = ruleContext.getExpander().expand(attributeName);
-    PathFragment absolutePath = PathFragment.create(pathString);
-    if (!ruleContext.getFragment(CppConfiguration.class).isFdoAbsolutePathEnabled()) {
-      ruleContext.ruleError(
-          "absolute paths cannot be used when --enable_fdo_profile_absolute_path is false");
-      return null;
-    }
-    if (!absolutePath.isAbsolute()) {
-      ruleContext.attributeError(
-          attributeName, String.format("%s is not an absolute path", absolutePath.getPathString()));
-      return null;
-    }
-    return createAbsoluteArtifact(ruleContext, absolutePath);
-  }
-
-  @Nullable
-  public static PropellerOptimizeInputFile fromProfileRule(RuleContext ruleContext)
-      throws InterruptedException {
-
-    boolean isCcProfile =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified("cc_profile");
-    boolean isAbsCcProfile =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified("absolute_cc_profile");
-    boolean isLdProfile =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified("ld_profile");
-    boolean isAbsLdProfile =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified("absolute_ld_profile");
-
-    if (!isCcProfile && !isLdProfile && !isAbsCcProfile && !isAbsLdProfile) {
-      return null;
-    }
-
-    if (isCcProfile && isAbsCcProfile) {
-      ruleContext.attributeError("cc_profile", "Both relative and absolute profiles are provided.");
-    }
-
-    if (isLdProfile && isAbsLdProfile) {
-      ruleContext.attributeError("ld_profile", "Both relative and absolute profiles are provided.");
-    }
-
-    Artifact ccArtifact = null;
-    if (isCcProfile) {
-      ccArtifact = ruleContext.getPrerequisiteArtifact("cc_profile");
-      if (!ccArtifact.isSourceArtifact()) {
-        ruleContext.attributeError("cc_profile", "the target is not an input file");
-      }
-    } else if (isAbsCcProfile) {
-      ccArtifact = getAbsolutePathArtifact(ruleContext, "absolute_cc_profile");
-    }
-
-    Artifact ldArtifact = null;
-    if (isLdProfile) {
-      ldArtifact = ruleContext.getPrerequisiteArtifact("ld_profile");
-      if (!ldArtifact.isSourceArtifact()) {
-        ruleContext.attributeError("ld_profile", "the target is not an input file");
-      }
-    } else if (isAbsLdProfile) {
-      ldArtifact = getAbsolutePathArtifact(ruleContext, "absolute_ld_profile");
-    }
+  public static PropellerOptimizeInputFile fromStarlarkProvider(StructImpl starlarkProvider)
+      throws EvalException {
+    Artifact ccArtifact =
+        starlarkProvider.getValue("cc_profile") == Starlark.NONE
+            ? null
+            : starlarkProvider.getValue("cc_profile", Artifact.class);
+    Artifact ldArtifact =
+        starlarkProvider.getValue("ld_profile") == Starlark.NONE
+            ? null
+            : starlarkProvider.getValue("ld_profile", Artifact.class);
     if (ccArtifact != null || ldArtifact != null) {
       return new PropellerOptimizeInputFile(ccArtifact, ldArtifact);
     } else {

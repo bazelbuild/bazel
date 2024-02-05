@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -27,21 +25,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -55,7 +50,7 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LocalResourcesEstimator;
+import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkResourceSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -69,6 +64,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -425,72 +421,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
                 ImmutableList.of(),
                 featureConfiguration)
             .build();
-    assertThat(linkAction.getIncompleteEnvironmentForTesting()).containsEntry("foo", "bar");
-  }
-
-  private enum NonStaticAttributes {
-    OUTPUT_FILE,
-    NATIVE_DEPS,
-    USE_TEST_ONLY_FLAGS,
-    RUNTIME_SOLIB_DIR,
-    ENVIRONMENT,
-  }
-
-  /**
-   * This mainly checks that non-static links don't have identical keys. Many options are only
-   * allowed on non-static links, and we test several of them here.
-   */
-  @Test
-  public void testComputeKeyNonStatic() throws Exception {
-    final RuleContext ruleContext = createDummyRuleContext();
-    final PathFragment exeOutputPath = PathFragment.create("dummyRuleContext/output/path");
-    final PathFragment dynamicOutputPath = PathFragment.create("dummyRuleContext/output/path.so");
-    final Artifact staticOutputFile = getBinArtifactWithNoOwner(exeOutputPath.getPathString());
-    final Artifact dynamicOutputFile = getBinArtifactWithNoOwner(dynamicOutputPath.getPathString());
-
-    ActionTester.runTest(
-        NonStaticAttributes.class,
-        new ActionCombinationFactory<NonStaticAttributes>() {
-
-          @Override
-          public Action generate(ImmutableSet<NonStaticAttributes> attributesToFlip)
-              throws InterruptedException, RuleErrorException {
-            CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
-            CppLinkActionBuilder builder =
-                new CppLinkActionBuilder(
-                    ruleContext,
-                    ruleContext,
-                    ruleContext.getLabel(),
-                    attributesToFlip.contains(NonStaticAttributes.OUTPUT_FILE)
-                        ? dynamicOutputFile
-                        : staticOutputFile,
-                    ruleContext.getConfiguration(),
-                    toolchain,
-                    toolchain.getFdoContext(),
-                    getMockFeatureConfiguration(
-                        attributesToFlip.contains(NonStaticAttributes.ENVIRONMENT)
-                            ? ImmutableMap.of("var", "value")
-                            : ImmutableMap.of()),
-                    MockCppSemantics.INSTANCE);
-            if (attributesToFlip.contains(NonStaticAttributes.OUTPUT_FILE)) {
-              builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
-              builder.setLibraryIdentifier("foo");
-            } else {
-              builder.setLinkType(LinkTargetType.EXECUTABLE);
-            }
-            builder.setLinkingMode(Link.LinkingMode.DYNAMIC);
-            builder.setNativeDeps(attributesToFlip.contains(NonStaticAttributes.NATIVE_DEPS));
-            builder.setUseTestOnlyFlags(
-                attributesToFlip.contains(NonStaticAttributes.USE_TEST_ONLY_FLAGS));
-            builder.setToolchainLibrariesSolibDir(
-                attributesToFlip.contains(NonStaticAttributes.RUNTIME_SOLIB_DIR)
-                    ? null
-                    : PathFragment.create("so1"));
-
-            return builder.build();
-          }
-        },
-        actionKeyContext);
+    assertThat(linkAction.getEffectiveEnvironment(ImmutableMap.of())).containsEntry("foo", "bar");
   }
 
   private enum StaticKeyAttributes {
@@ -517,29 +448,33 @@ public final class CppLinkActionTest extends BuildViewTestCase {
           @Override
           public Action generate(ImmutableSet<StaticKeyAttributes> attributes)
               throws InterruptedException, RuleErrorException {
-            CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
-            CppLinkActionBuilder builder =
-                new CppLinkActionBuilder(
-                    ruleContext,
-                    ruleContext,
-                    ruleContext.getLabel(),
-                    attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
-                        ? staticOutputFile
-                        : dynamicOutputFile,
-                    ruleContext.getConfiguration(),
-                    toolchain,
-                    toolchain.getFdoContext(),
-                    getMockFeatureConfiguration(
-                        attributes.contains(StaticKeyAttributes.ENVIRONMENT)
-                            ? ImmutableMap.of("var", "value")
-                            : ImmutableMap.of()),
-                    MockCppSemantics.INSTANCE);
-            builder.setLinkType(
-                attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
-                    ? LinkTargetType.STATIC_LIBRARY
-                    : LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
-            builder.setLibraryIdentifier("foo");
-            return builder.build();
+            try {
+              CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
+              CppLinkActionBuilder builder =
+                  new CppLinkActionBuilder(
+                      ruleContext,
+                      ruleContext,
+                      ruleContext.getLabel(),
+                      attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
+                          ? staticOutputFile
+                          : dynamicOutputFile,
+                      ruleContext.getConfiguration(),
+                      toolchain,
+                      toolchain.getFdoContext(),
+                      getMockFeatureConfiguration(
+                          attributes.contains(StaticKeyAttributes.ENVIRONMENT)
+                              ? ImmutableMap.of("var", "value")
+                              : ImmutableMap.of()),
+                      MockCppSemantics.INSTANCE);
+              builder.setLinkType(
+                  attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
+                      ? LinkTargetType.STATIC_LIBRARY
+                      : LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+              builder.setLibraryIdentifier("foo");
+              return builder.build();
+            } catch (EvalException e) {
+              throw new RuleErrorException(e.getMessage());
+            }
           }
         },
         actionKeyContext);
@@ -782,16 +717,10 @@ public final class CppLinkActionTest extends BuildViewTestCase {
 
   private ResourceSet estimateResourceConsumptionLocal(
       RuleContext ruleContext, OS os, int inputsCount) throws Exception {
-    InputMetadataProvider inputMetadataProvider = mock(InputMetadataProvider.class);
-
-    ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
-    when(actionExecutionContext.getInputMetadataProvider()).thenReturn(inputMetadataProvider);
-
     NestedSet<Artifact> inputs = createInputs(ruleContext, inputsCount);
     try {
-      LocalResourcesEstimator estimator =
-          new LocalResourcesEstimator(actionExecutionContext, os, inputs);
-      return estimator.get();
+      LinkResourceSetBuilder estimator = new LinkResourceSetBuilder();
+      return estimator.buildResourceSet(os, inputsCount);
     } finally {
       for (Artifact input : inputs.toList()) {
         input.getPath().delete();
@@ -829,7 +758,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
       Iterable<Artifact> nonLibraryInputs,
       ImmutableList<LibraryToLink> libraryInputs,
       FeatureConfiguration featureConfiguration)
-      throws RuleErrorException {
+      throws RuleErrorException, EvalException {
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     return new CppLinkActionBuilder(
             ruleContext,
@@ -975,7 +904,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .setLibraryIdentifier("foo")
             .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput.ifso"));
 
-    List<String> commandLine = builder.build().getCommandLine(null);
+    List<String> commandLine = builder.build().getArguments();
     assertThat(commandLine).hasSize(6);
     assertThat(commandLine.get(0)).endsWith("custom/crosstool/scripts/link_dynamic_library.sh");
     assertThat(commandLine.get(1)).isEqualTo("yes");
@@ -1070,13 +999,13 @@ public final class CppLinkActionTest extends BuildViewTestCase {
 
     // Should only reference the tree artifact.
     verifyArguments(
-        linkAction.getLinkCommandLineForTesting().getRawLinkArgv(),
+        linkAction.getLinkCommandLineForTesting().arguments(),
         treeArtifactsPaths,
         treeFileArtifactsPaths);
 
     // Should only reference tree file artifacts.
     verifyArguments(
-        linkAction.getLinkCommandLineForTesting().getRawLinkArgv(expander),
+        linkAction.getLinkCommandLineForTesting().arguments(expander, null),
         treeFileArtifactsPaths,
         treeArtifactsPaths);
   }
@@ -1127,10 +1056,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
       CppLinkAction linkAction = builder.build();
       assertThat(
               ImmutableList.copyOf(
-                  linkAction
-                      .getLinkCommandLineForTesting()
-                      .paramCmdLine()
-                      .arguments(expander, PathMapper.NOOP)))
+                  linkAction.getLinkCommandLineForTesting().getParamCommandLine(expander)))
           .containsAtLeast(
               library0.getExecPathString(),
               library1.getExecPathString(),
@@ -1157,7 +1083,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .setLibraryIdentifier("foo")
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(argv).doesNotContain("-pie");
     assertThat(argv).contains("-other");
   }
@@ -1179,7 +1105,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(argv).contains("-pie");
     assertThat(argv).contains("-other");
   }
@@ -1209,7 +1135,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .addLinkopts(ImmutableList.of("FakeLinkopt1", "FakeLinkopt2"))
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
     int lastLinkerInputIndex =
         Ints.max(
             argv.indexOf("FakeLinkerInput1"), argv.indexOf("FakeLinkerInput2"),
@@ -1232,24 +1158,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExposesLinkstampSources() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "cc_binary(",
-        "  name = 'bin',",
-        "  deps = [':lib'],",
-        ")",
-        "cc_library(",
-        "  name = 'lib',",
-        "  linkstamp = 'linkstamp.cc',",
-        ")");
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
-    assertThat(artifactsToStrings(linkAction.getLinkstampObjects()))
-        .containsExactly("src x/linkstamp.cc");
-  }
-
-  @Test
   public void testExposesLinkstampObjects() throws Exception {
     scratch.file(
         "x/BUILD",
@@ -1263,8 +1171,8 @@ public final class CppLinkActionTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
-    assertThat(artifactsToStrings(linkAction.getLinkstampObjectFileInputs()))
-        .containsExactly("bin x/_objs/bin/x/linkstamp.o");
+    assertThat(artifactsToStrings(linkAction.getInputs()))
+        .contains("bin x/_objs/bin/x/linkstamp.o");
   }
 
   @Test
@@ -1280,10 +1188,8 @@ public final class CppLinkActionTest extends BuildViewTestCase {
         "foo/BUILD", "cc_binary(", "  name = 'foo',", "  srcs = ['space .cc', 'quote\".cc'],", ")");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:foo");
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "foo/foo");
-    ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(linkAction);
-    assertThat(parameterFileWriteAction).isNotNull();
 
-    assertThat(parameterFileWriteAction.getStringContents()).contains("space\\ .o");
-    assertThat(parameterFileWriteAction.getStringContents()).contains("quote\\\".o");
+    assertThat(linkAction.getCommandLines().unpack().get(1).paramFileInfo.getFileType())
+        .isEqualTo(ParameterFileType.GCC_QUOTED);
   }
 }

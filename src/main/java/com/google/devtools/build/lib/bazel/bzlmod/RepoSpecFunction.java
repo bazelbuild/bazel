@@ -48,8 +48,7 @@ public class RepoSpecFunction implements SkyFunction {
             .profile(ProfilerTask.BZLMOD, () -> "compute repo spec: " + key.getModuleKey())) {
       return registryFactory
           .getRegistryWithUrl(key.getRegistryUrl())
-          .getRepoSpec(
-              key.getModuleKey(), key.getModuleKey().getCanonicalRepoName(), env.getListener());
+          .getRepoSpec(key.getModuleKey(), env.getListener());
     } catch (IOException e) {
       throw new RepoSpecException(
           ExternalDepsException.withCauseAndMessage(

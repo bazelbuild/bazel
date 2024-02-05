@@ -38,9 +38,13 @@ directory.
 
 The repository in which the current Bazel command is being run.
 
+The root of the main repository is also known as the
+<span id="#workspace-root">**workspace root**</span>.
+
 ### Workspace {:#workspace}
 
-The environment shared by all Bazel commands run in the same main repository.
+The environment shared by all Bazel commands run in the same main repository. It
+encompasses the main repo and the set of all defined external repos.
 
 Note that historically the concepts of "repository" and "workspace" have been
 conflated; the term "workspace" has often been used to refer to the main
@@ -93,6 +97,18 @@ before they are fetched.
 Normally, Bazel only fetches a repo when it needs something from the repo,
 and the repo hasn't already been fetched. If the repo has already been fetched
 before, Bazel only re-fetches it if its definition has changed.
+
+The `fetch` command can be used to initiate a pre-fetch for a repository,
+target, or all necessary repositories to perform any build. This capability
+enables offline builds using the `--nofetch` option.
+
+The `--fetch` option serves to manage network access. Its default value is true.
+However, when set to false (`--nofetch`), the command will utilize any cached
+version of the dependency, and if none exists, the command will result in
+failure.
+
+See [fetch options](/reference/command-line-reference#fetch-options) for more
+information about controlling fetch.
 
 ### Directory layout {:#directory-layout}
 

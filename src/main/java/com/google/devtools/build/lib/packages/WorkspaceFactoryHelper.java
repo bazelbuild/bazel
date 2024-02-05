@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,26 +45,22 @@ public final class WorkspaceFactoryHelper {
 
   @CanIgnoreReturnValue
   public static Rule createAndAddRepositoryRule(
-      Package.Builder pkg,
+      Package.Builder pkgBuilder,
       RuleClass ruleClass,
       RuleClass bindRuleClass,
       Map<String, Object> kwargs,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws RuleFactory.InvalidRuleException,
-          Package.NameConflictException,
+          NameConflictException,
           LabelSyntaxException,
           InterruptedException {
-    StoredEventHandler eventHandler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
-    Rule rule =
-        RuleFactory.createRule(pkg, ruleClass, attributeValues, true, eventHandler, callstack);
-    pkg.addEvents(eventHandler.getEvents());
-    pkg.addPosts(eventHandler.getPosts());
-    overwriteRule(pkg, rule);
+    Rule rule = RuleFactory.createRule(pkgBuilder, ruleClass, attributeValues, true, callstack);
+    overwriteRule(pkgBuilder, rule);
     for (Map.Entry<String, Label> entry :
         ruleClass.getExternalBindingsFunction().apply(rule).entrySet()) {
       Label nameLabel = Label.parseCanonical("//external:" + entry.getKey());
-      addBindRule(pkg, bindRuleClass, nameLabel, entry.getValue(), callstack);
+      addBindRule(pkgBuilder, bindRuleClass, nameLabel, entry.getValue(), callstack);
     }
     // NOTE(wyv): What is this madness?? This is the only instance where a repository rule can
     // register toolchains upon being instantiated. We should look into converting
@@ -77,7 +73,7 @@ public final class WorkspaceFactoryHelper {
         throw new LabelSyntaxException(e.getMessage());
       }
     }
-    pkg.addRegisteredToolchains(toolchains.build(), originatesInWorkspaceSuffix(callstack));
+    pkgBuilder.addRegisteredToolchains(toolchains.build(), originatesInWorkspaceSuffix(callstack));
     return rule;
   }
 
@@ -160,7 +156,7 @@ public final class WorkspaceFactoryHelper {
       Label virtual,
       Label actual,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
-      throws RuleFactory.InvalidRuleException, Package.NameConflictException, InterruptedException {
+      throws RuleFactory.InvalidRuleException, NameConflictException, InterruptedException {
 
     Map<String, Object> attributes = Maps.newHashMap();
     // Bound rules don't have a name field, but this works because we don't want more than one
@@ -169,16 +165,13 @@ public final class WorkspaceFactoryHelper {
     if (actual != null) {
       attributes.put("actual", actual);
     }
-    StoredEventHandler handler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attributes);
-    Rule rule =
-        RuleFactory.createRule(pkg, bindRuleClass, attributeValues, true, handler, callstack);
+    Rule rule = RuleFactory.createRule(pkg, bindRuleClass, attributeValues, true, callstack);
     overwriteRule(pkg, rule);
   }
 
-  private static void overwriteRule(Package.Builder pkg, Rule rule)
-      throws Package.NameConflictException {
+  private static void overwriteRule(Package.Builder pkg, Rule rule) throws NameConflictException {
     Preconditions.checkArgument(rule.getOutputFiles().isEmpty());
     Target old = pkg.getTarget(rule.getName());
     if (old != null) {

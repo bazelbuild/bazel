@@ -570,6 +570,27 @@ away from this by:
     *   Replace all usages of `//external:openssl` with
         `//third_party:openssl-lib`.
 
+### Fetch versus Sync {:#fetch-sync}
+
+Fetch and sync commands are used to download external repos locally and keep
+them updated. Sometimes also to allow building offline using the `--nofetch`
+flag after fetching all repos needed for a build.
+
+*   **WORKSPACE**
+
+    Sync performs a force fetch for all repositories, or for a specific
+    configured set of repos, while fetch is _only_ used to fetch for a specific
+    target.
+
+*   **Bzlmod**
+
+    The sync command is no longer applicable, but fetch offers
+    [various options](/reference/command-line-reference#fetch-options).
+    You can fetch a target, a repository, a set of configured repos or all
+    repositories involved in your dependency resolution and module extensions.
+    The fetch result is cached and to force a fetch you must include the
+    `--force` option during the fetch process.
+
 ## Migration {:#migration}
 
 This section provides useful information and guidance for your Bzlmod migration

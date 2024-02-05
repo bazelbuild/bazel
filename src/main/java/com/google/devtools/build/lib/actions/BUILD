@@ -157,6 +157,7 @@ java_library(
         ":localhost_capacity",
         ":middleman_type",
         ":package_roots",
+        ":runfiles_metadata",
         ":runfiles_supplier",
         ":thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
@@ -301,6 +302,7 @@ java_library(
     srcs = [
         "ActionInput.java",
         "Artifact.java",
+        "ArtifactCodecs.java",
         "ArtifactFactory.java",
         "ArtifactPathResolver.java",
         "ArtifactPrefixConflictException.java",
@@ -387,6 +389,20 @@ java_library(
 )
 
 java_library(
+    name = "runfiles_metadata",
+    srcs = ["RunfilesArtifactValue.java"],
+    deps = [
+        ":artifacts",
+        ":file_metadata",
+        ":runfiles_supplier",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "file_metadata",
     srcs = [
         "FileArtifactValue.java",
@@ -421,6 +437,16 @@ java_library(
     name = "has_digest",
     srcs = ["HasDigest.java"],
     deps = ["//third_party/protobuf:protobuf_java"],
+)
+
+java_library(
+    name = "important_output_handler",
+    srcs = ["ImportantOutputHandler.java"],
+    deps = [
+        ":actions",
+        ":artifacts",
+        "//third_party:guava",
+    ],
 )
 
 java_library(

@@ -59,8 +59,8 @@ public final class ExpandedSpawnLogContextTest extends SpawnLogContextTestBase {
 
     ArrayList<SpawnExec> actual = new ArrayList<>();
     try (InputStream in = logPath.getInputStream()) {
-      while (in.available() > 0) {
-        SpawnExec ex = SpawnExec.parseDelimitedFrom(in);
+      SpawnExec ex;
+      while ((ex = SpawnExec.parseDelimitedFrom(in)) != null) {
         actual.add(ex);
       }
     }

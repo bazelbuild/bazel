@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.objc;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
@@ -82,17 +81,4 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
           "A provider which contains information about the transitive dependencies linked into "
               + "the dynamic framework.")
   CcInfoApi<FileApiT> getDepsCcInfo();
-
-  /**
-   * Returns the {@link ObjcProviderApi} which contains information about the transitive
-   * dependencies linked into the dylib.
-   */
-  @StarlarkMethod(
-      name = "objc",
-      structField = true,
-      doc =
-          "A provider which contains information about the transitive dependencies linked into "
-              + "the dynamic framework.",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
-  ObjcProviderApi<FileApiT> getDepsObjcProvider();
 }

@@ -286,7 +286,9 @@ public class BuildView {
             (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
         // We wait until now to setup for execution, in case the artifact factory was reset
         // due to a config change.
-        Preconditions.checkNotNull(executionSetupCallback).prepareForExecution();
+        try (SilentCloseable c = Profiler.instance().profile("prepareForExecution")) {
+          Preconditions.checkNotNull(executionSetupCallback).prepareForExecution();
+        }
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,

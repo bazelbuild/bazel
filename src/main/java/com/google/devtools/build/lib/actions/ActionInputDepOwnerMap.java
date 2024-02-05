@@ -34,8 +34,14 @@ public class ActionInputDepOwnerMap implements ActionInputMapSink, ActionInputDe
   }
 
   @Override
-  public boolean put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner) {
-    return addOwner(input, depOwner);
+  public void put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner) {
+    addOwner(input, depOwner);
+  }
+
+  @Override
+  public void putRunfilesMetadata(
+      Artifact input, RunfilesArtifactValue metadata, @Nullable Artifact depOwner) {
+    addOwner(input, depOwner);
   }
 
   @Override
@@ -45,11 +51,11 @@ public class ActionInputDepOwnerMap implements ActionInputMapSink, ActionInputDe
     addOwner(tree, depOwner);
   }
 
-  public boolean addOwner(ActionInput input, @Nullable Artifact depOwner) {
+  public void addOwner(ActionInput input, @Nullable Artifact depOwner) {
     if (depOwner == null || !inputsOfInterest.contains(input)) {
-      return false;
+      return;
     }
-    return depOwnersByInputs.put(input, depOwner);
+    depOwnersByInputs.put(input, depOwner);
   }
 
   @Override

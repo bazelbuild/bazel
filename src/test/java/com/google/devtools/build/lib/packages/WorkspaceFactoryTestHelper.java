@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import java.util.List;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.ParserInput;
@@ -68,7 +67,7 @@ final class WorkspaceFactoryTestHelper {
     builder =
         Package.newExternalPackageBuilder(
                 PackageSettings.DEFAULTS,
-                RootedPath.toRootedPath(root, workspaceFilePath),
+                WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFilePath)),
                 "",
                 RepositoryMapping.ALWAYS_FALLBACK,
                 starlarkSemantics.getBool(
@@ -87,10 +86,7 @@ final class WorkspaceFactoryTestHelper {
             /* defaultSystemJavabaseDir= */ null,
             starlarkSemantics);
     try {
-      factory.execute(
-          file,
-          /* additionalLoadedModules= */ ImmutableMap.of(),
-          WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFilePath)));
+      factory.execute(file, /* additionalLoadedModules= */ ImmutableMap.of());
     } catch (InterruptedException e) {
       fail("Shouldn't happen: " + e.getMessage());
     }
@@ -101,7 +97,7 @@ final class WorkspaceFactoryTestHelper {
   }
 
   String getParserError() {
-    List<Event> events = builder.getEvents();
+    ImmutableList<Event> events = builder.getLocalEventHandler().getEvents();
     assertThat(events.size()).isGreaterThan(0);
     return events.get(0).getMessage();
   }

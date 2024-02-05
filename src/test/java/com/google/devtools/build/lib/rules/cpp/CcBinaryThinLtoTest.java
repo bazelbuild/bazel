@@ -166,9 +166,9 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.getFirstArtifactEndingWith(linkAction.getInputs(), "linkstamp.o"))
         .isNotNull();
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
-    String prefix = getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN)
-        .getExecPathString();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
+    String prefix =
+        getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
     assertThat(commandLine)
         .containsAtLeast(
             prefix + "/bin/pkg/bin.lto.merged.o",
@@ -186,7 +186,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         .containsAtLeast(
             "bin pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o",
             "bin pkg/bin.lto/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o",
-            "bin pkg/bin-2.params",
             "bin pkg/bin-lto-final.params");
 
     LtoBackendAction backendAction =
@@ -303,9 +302,9 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     CppLinkAction linkAction = getLinkAction();
     String rootExecPath = getRootExecPath();
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
-    String prefix = getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN)
-        .getExecPathString();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
+    String prefix =
+        getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
 
     assertThat(commandLine).contains("-Wl,@" + prefix + "/bin/pkg/bin-lto-final.params");
 
@@ -320,7 +319,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         .containsAtLeast(
             "bin pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o",
             "bin _solib_k8/libpkg_Sliblib.ifso",
-            "bin pkg/bin-2.params",
             "bin pkg/bin-lto-final.params");
 
     SolibSymlinkAction solibSymlinkAction =
@@ -1741,7 +1739,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.baseArtifactNames(linkAction.getInputs()))
         .contains("ld_profile.txt");
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(commandLine.toString())
         .containsMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
@@ -1926,7 +1924,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         (CppLinkAction) getPredecessorByInputName(genruleAction, "pkg/gen_lib");
     assertThat(ActionsTestUtil.baseArtifactNames(hostLinkAction.getInputs()))
         .doesNotContain("ld_profile.txt");
-    assertThat(hostLinkAction.getLinkCommandLineForTesting().getRawLinkArgv().toString())
+    assertThat(hostLinkAction.getLinkCommandLineForTesting().arguments().toString())
         .doesNotContainMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
     // The hostLinkAction inputs has a different root from the backendAction.
@@ -1946,7 +1944,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(hostIndexAction).isNotNull();
     assertThat(ActionsTestUtil.baseArtifactNames(hostIndexAction.getInputs()))
         .doesNotContain("ld_profile.txt");
-    assertThat(hostIndexAction.getLinkCommandLineForTesting().getRawLinkArgv().toString())
+    assertThat(hostIndexAction.getLinkCommandLineForTesting().arguments().toString())
         .doesNotContainMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
     CppCompileAction hostBitcodeAction =
@@ -1984,7 +1982,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(commandLine.toString())
         .containsMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 

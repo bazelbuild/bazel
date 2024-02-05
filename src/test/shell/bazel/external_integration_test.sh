@@ -624,7 +624,7 @@ genrule(
   name = "test_sh",
   outs = ["test.sh"],
   srcs = ["@toto//file"],
-  cmd = "echo '#!/bin/sh' > $@ && echo $(location @toto//file) >> $@",
+  cmd = "echo '#!/bin/sh' > $@ && echo $(rootpath @toto//file) >> $@",
 )
 EOF
 
@@ -682,7 +682,7 @@ genrule(
   name = "test_sh",
   outs = ["test.sh"],
   srcs = ["@toto//file"],
-  cmd = "echo '#!/bin/sh' > $@ && echo cat $(location @toto//file) >> $@",
+  cmd = "echo '#!/bin/sh' > $@ && echo cat $(rootpath @toto//file) >> $@",
 )
 EOF
 
@@ -1943,7 +1943,7 @@ EOF
 
 function test_cache_hit_reported() {
   # Verify that information about a cache hit is reported
-  # if an error happend in that repository. This information
+  # if an error happened in that repository. This information
   # is useful as users sometimes change the URL but do not
   # update the hash.
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
@@ -2998,6 +2998,73 @@ EOF
     || fail 'Expected build to succeed with Skymeld'
 
   test -h "$execroot/external/ext" || fail "Expected symlink to external repo."
+}
+
+function test_environ_incrementally() {
+  # Set up workspace with a repository rule to examine env vars.  Assert that undeclared
+  # env vars don't trigger reevaluations.
+  cat > repo.bzl <<EOF
+def _impl(rctx):
+  rctx.symlink(rctx.attr.build_file, 'BUILD')
+  print('UNDECLARED_KEY=%s' % rctx.os.environ.get('UNDECLARED_KEY'))
+  print('PREDECLARED_KEY=%s' % rctx.os.environ.get('PREDECLARED_KEY'))
+  print('LAZYEVAL_KEY=%s' % rctx.getenv('LAZYEVAL_KEY'))
+
+dummy_repository = repository_rule(
+  implementation = _impl,
+  attrs = {'build_file': attr.label()},
+  environ = ['PREDECLARED_KEY'],  # sic
+)
+EOF
+  cat > BUILD.dummy <<EOF
+filegroup(name='dummy', srcs=['BUILD'])
+EOF
+  touch BUILD
+  cat > WORKSPACE <<EOF
+load('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
+EOF
+
+  # Baseline: DEBUG: UNDECLARED_KEY is logged to stderr.
+  UNDECLARED_KEY=val1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "UNDECLARED_KEY=val1"
+
+  # UNDECLARED_KEY is, well, undeclared.  This will be a no-op.
+  UNDECLARED_KEY=val2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_not_log "UNDECLARED_KEY"
+
+  #---
+
+  # Predeclared key.
+  PREDECLARED_KEY=wal1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "PREDECLARED_KEY=wal1"
+
+  # Predeclared key, no-op build.
+  PREDECLARED_KEY=wal1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_not_log "PREDECLARED_KEY"
+
+  # Predeclared key, new value -> refetch.
+  PREDECLARED_KEY=wal2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "PREDECLARED_KEY=wal2"
+
+  #---
+
+  # Side-effect key.
+  LAZYEVAL_KEY=xal1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "PREDECLARED_KEY=None"
+  expect_log "LAZYEVAL_KEY=xal1"
+
+  # Side-effect key, no-op build.
+  LAZYEVAL_KEY=xal1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_not_log "LAZYEVAL_KEY"
+
+  # Side-effect key, new value -> refetch.
+  LAZYEVAL_KEY=xal2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "LAZYEVAL_KEY=xal2"
+
+  # Ditto, but with --repo_env overriding environment.
+  LAZYEVAL_KEY=xal2 bazel query --repo_env=LAZYEVAL_KEY=xal3 @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "LAZYEVAL_KEY=xal3"
 }
 
 run_suite "external tests"

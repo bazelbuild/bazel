@@ -48,6 +48,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
@@ -80,6 +81,9 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
+      SpawnCheckingCacheEvent.create("remote-cache");
 
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
@@ -274,6 +278,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+    if (context.getSpawnExecutionContext() != null) {
+      context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
+    }
+
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
@@ -386,16 +394,14 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       CountingOutputStream rawOut,
       @Nullable Supplier<Digest> digestSupplier,
       Channel channel) {
+    boolean compressed = shouldCompress(digest);
     String resourceName =
         getResourceName(
-            options.remoteInstanceName,
-            digest,
-            options.cacheCompression,
-            digestUtil.getDigestFunction());
+            options.remoteInstanceName, digest, compressed, digestUtil.getDigestFunction());
     SettableFuture<Long> future = SettableFuture.create();
     OutputStream out;
     try {
-      out = options.cacheCompression ? new ZstdDecompressingOutputStream(rawOut) : rawOut;
+      out = compressed ? new ZstdDecompressingOutputStream(rawOut) : rawOut;
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -491,7 +497,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         digest,
         Chunker.builder()
             .setInput(digest.getSizeBytes(), path)
-            .setCompressed(options.cacheCompression)
+            .setCompressed(shouldCompress(digest))
             .build());
   }
 
@@ -503,7 +509,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         digest,
         Chunker.builder()
             .setInput(data.toByteArray())
-            .setCompressed(options.cacheCompression)
+            .setCompressed(shouldCompress(digest))
             .build());
   }
 
@@ -525,6 +531,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   Retrier getRetrier() {
     return this.retrier;
+  }
+
+  private boolean shouldCompress(Digest digest) {
+    return options.cacheCompression && digest.getSizeBytes() >= options.cacheCompressionThreshold;
   }
 
   public ReferenceCountedChannel getChannel() {

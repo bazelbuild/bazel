@@ -240,18 +240,9 @@ public interface AppleCommonApi<
             name = "cc_info",
             named = true,
             positional = false,
-            defaultValue = "None",
             doc =
                 "A CcInfo which contains information about the transitive dependencies "
                     + "linked into the binary."),
-        @Param(
-            name = "objc",
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            doc =
-                "An ObjcProvider which contains information about the transitive "
-                    + "dependencies linked into the binary."),
         @Param(
             name = "framework_dirs",
             allowedTypes = {
@@ -280,8 +271,7 @@ public interface AppleCommonApi<
       useStarlarkThread = true)
   AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
       Object dylibBinary,
-      Object depsCcInfo,
-      Object depsObjcProvider,
+      CcInfoApiT depsCcInfo,
       Object dynamicFrameworkDirs,
       Object dynamicFrameworkFiles,
       StarlarkThread thread)
@@ -305,23 +295,13 @@ public interface AppleCommonApi<
             name = "cc_info",
             named = true,
             positional = false,
-            defaultValue = "None",
             doc =
                 "A CcInfo which contains information about the transitive dependencies "
                     + "linked into the binary."),
-        @Param(
-            name = "objc",
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            doc =
-                "An ObjcProvider which contains information about the transitive "
-                    + "dependencies linked into the binary.")
       },
       useStarlarkThread = true)
   AppleExecutableBinaryApi newExecutableBinaryProvider(
-      Object executableBinary, Object depsCcInfo, Object depsObjcProvider, StarlarkThread thread)
-      throws EvalException;
+      Object executableBinary, CcInfoApiT depsCcInfo, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "link_multi_arch_binary",

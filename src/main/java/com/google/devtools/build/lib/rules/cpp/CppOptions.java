@@ -992,7 +992,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_objc_include_scanning",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,

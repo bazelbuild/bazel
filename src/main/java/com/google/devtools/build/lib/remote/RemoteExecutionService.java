@@ -535,13 +535,29 @@ public class RemoteExecutionService {
         : null;
   }
 
+  private void maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask task)
+      throws InterruptedException {
+    if (!remoteOptions.throttleRemoteActionBuilding) {
+      return;
+    }
+
+    try (var c = Profiler.instance().profile(task, "acquiring semaphore")) {
+      remoteActionBuildingSemaphore.acquire();
+    }
+  }
+
+  private void maybeReleaseRemoteActionBuildingSemaphore() {
+    if (!remoteOptions.throttleRemoteActionBuilding) {
+      return;
+    }
+
+    remoteActionBuildingSemaphore.release();
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.REMOTE_SETUP, "acquiring semaphore")) {
-      remoteActionBuildingSemaphore.acquire();
-    }
+    maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
     try {
       // Create a remote path resolver that is aware of the spawn's path mapper, which rewrites
       // the paths of the inputs and outputs as well as paths appearing in the command line for
@@ -589,7 +605,7 @@ public class RemoteExecutionService {
               buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
-              spawn, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
+              spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
 
       return new RemoteAction(
           spawn,
@@ -603,7 +619,7 @@ public class RemoteExecutionService {
           actionKey,
           remoteOptions.remoteDiscardMerkleTrees);
     } finally {
-      remoteActionBuildingSemaphore.release();
+      maybeReleaseRemoteActionBuildingSemaphore();
     }
   }
 
@@ -1309,32 +1325,35 @@ public class RemoteExecutionService {
       RemoteAction action, SpawnResult spawnResult) {
     return Single.fromCallable(
         () -> {
-          ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
-          // Check that all mandatory outputs are created.
-          for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
-            Symlinks followSymlinks = outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
-            Path localPath = execRoot.getRelative(outputFile.getExecPath());
-            if (action.getSpawn().isMandatoryOutput(outputFile)
-                && !localPath.exists(followSymlinks)) {
-              throw new IOException(
-                  "Expected output " + prettyPrint(outputFile) + " was not created locally.");
+          try (SilentCloseable c = Profiler.instance().profile("build upload manifest")) {
+            ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
+            // Check that all mandatory outputs are created.
+            for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
+              Symlinks followSymlinks =
+                  outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
+              Path localPath = execRoot.getRelative(outputFile.getExecPath());
+              if (action.getSpawn().isMandatoryOutput(outputFile)
+                  && !localPath.exists(followSymlinks)) {
+                throw new IOException(
+                    "Expected output " + prettyPrint(outputFile) + " was not created locally.");
+              }
+              outputFiles.add(localPath);
             }
-            outputFiles.add(localPath);
-          }
 
-          return UploadManifest.create(
-              remoteOptions,
-              remoteCache.getCacheCapabilities(),
-              digestUtil,
-              action.getRemotePathResolver(),
-              action.getActionKey(),
-              action.getAction(),
-              action.getCommand(),
-              outputFiles.build(),
-              action.getSpawnExecutionContext().getFileOutErr(),
-              spawnResult.exitCode(),
-              spawnResult.getStartTime(),
-              spawnResult.getWallTimeInMs());
+            return UploadManifest.create(
+                remoteOptions,
+                remoteCache.getCacheCapabilities(),
+                digestUtil,
+                action.getRemotePathResolver(),
+                action.getActionKey(),
+                action.getAction(),
+                action.getCommand(),
+                outputFiles.build(),
+                action.getSpawnExecutionContext().getFileOutErr(),
+                spawnResult.exitCode(),
+                spawnResult.getStartTime(),
+                spawnResult.getWallTimeInMs());
+          }
         });
   }
 
@@ -1436,10 +1455,7 @@ public class RemoteExecutionService {
     // concurrency. This prevents memory exhaustion. We assume that
     // ensureInputsPresent() provides enough parallelism to saturate the
     // network connection.
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "acquiring semaphore")) {
-      remoteActionBuildingSemaphore.acquire();
-    }
+    maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.UPLOAD_TIME);
     try {
       MerkleTree merkleTree = action.getMerkleTree();
       if (merkleTree == null) {
@@ -1462,7 +1478,7 @@ public class RemoteExecutionService {
           additionalInputs,
           force);
     } finally {
-      remoteActionBuildingSemaphore.release();
+      maybeReleaseRemoteActionBuildingSemaphore();
     }
   }
 

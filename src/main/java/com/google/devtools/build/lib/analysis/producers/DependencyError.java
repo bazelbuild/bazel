@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyExcepti
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
+import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.common.options.OptionsParsingException;
 
 /** Tagged union of exceptions thrown by {@link DependencyProducer}. */
@@ -37,6 +38,8 @@ public abstract class DependencyError {
     ASPECT_EVALUATION,
     /** An error occurred during evaluation of the aspect using Skyframe. */
     ASPECT_CREATION,
+    /** An error occurred during evaluation of platform mappings. */
+    PLATFORM_MAPPING,
   }
 
   public abstract Kind kind();
@@ -50,6 +53,8 @@ public abstract class DependencyError {
   public abstract DependencyEvaluationException aspectEvaluation();
 
   public abstract AspectCreationException aspectCreation();
+
+  public abstract PlatformMappingException platformMapping();
 
   public static boolean isSecondErrorMoreImportant(DependencyError first, DependencyError second) {
     // There isn't a good way to prioritize when the type matches, so we just keep the first.
@@ -68,6 +73,8 @@ public abstract class DependencyError {
         return aspectEvaluation();
       case ASPECT_CREATION:
         return aspectCreation();
+      case PLATFORM_MAPPING:
+        return platformMapping();
     }
     throw new IllegalStateException("unreachable");
   }
@@ -90,5 +97,9 @@ public abstract class DependencyError {
 
   static DependencyError of(AspectCreationException e) {
     return AutoOneOf_DependencyError.aspectCreation(e);
+  }
+
+  static DependencyError of(PlatformMappingException e) {
+    return AutoOneOf_DependencyError.platformMapping(e);
   }
 }

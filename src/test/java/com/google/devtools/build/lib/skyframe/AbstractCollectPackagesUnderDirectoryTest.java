@@ -307,7 +307,9 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.FORCE_FETCH,
-                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED)));
+                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
     skyframeExecutor.sync(
         reporter,
         pathPackageLocator,

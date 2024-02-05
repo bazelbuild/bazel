@@ -523,7 +523,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     endDepGroup(sizeBeforeRequest);
 
     return unwrapOrThrow(
-        skyKey, depValue, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
+        depKey, depValue, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
   }
 
   @CanIgnoreReturnValue
@@ -632,14 +632,14 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   @Nullable
   @Override // SkyframeLookupResult implementation.
   public <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getOrThrow(
-      SkyKey skyKey,
+      SkyKey depKey,
       @Nullable Class<E1> exceptionClass1,
       @Nullable Class<E2> exceptionClass2,
       @Nullable Class<E3> exceptionClass3)
       throws E1, E2, E3 {
     return unwrapOrThrow(
-        skyKey,
-        maybeGetValueFromErrorOrDeps(skyKey),
+        depKey,
+        maybeGetValueFromErrorOrDeps(depKey),
         exceptionClass1,
         exceptionClass2,
         exceptionClass3,
@@ -647,12 +647,12 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   @Override // SkyframeLookupResult implementation.
-  public boolean queryDep(SkyKey key, QueryDepCallback resultCallback) {
-    SkyValue maybeWrappedValue = maybeGetValueFromErrorOrDeps(key);
+  public boolean queryDep(SkyKey depKey, QueryDepCallback resultCallback) {
+    SkyValue maybeWrappedValue = maybeGetValueFromErrorOrDeps(depKey);
     if (maybeWrappedValue == null) {
       BugReport.sendNonFatalBugReport(
           new IllegalStateException(
-              String.format("Value for %s was missing, this should never happen", key)));
+              String.format("Value for %s was missing, this should never happen", depKey)));
       return false;
     }
     if (maybeWrappedValue == NULL_MARKER) {
@@ -660,22 +660,23 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       return false;
     }
     if (!(maybeWrappedValue instanceof ValueWithMetadata)) {
-      resultCallback.acceptValue(key, maybeWrappedValue);
+      resultCallback.acceptValue(depKey, maybeWrappedValue);
       return true;
     }
     ValueWithMetadata wrappedValue = (ValueWithMetadata) maybeWrappedValue;
     if (!wrappedValue.hasError()) {
-      resultCallback.acceptValue(key, wrappedValue.getValue());
+      resultCallback.acceptValue(depKey, wrappedValue.getValue());
       return true;
     }
 
     // Otherwise, there's an error.
-    @Nullable Object result = handleError(key, wrappedValue);
+    @Nullable Object result = handleError(depKey, wrappedValue);
     if (result instanceof SkyValue) {
-      resultCallback.acceptValue(key, (SkyValue) result);
+      resultCallback.acceptValue(depKey, (SkyValue) result);
       return true;
     }
-    if (result instanceof Exception && resultCallback.tryHandleException(key, (Exception) result)) {
+    if (result instanceof Exception
+        && resultCallback.tryHandleException(depKey, (Exception) result)) {
       return true;
     }
     valuesMissing = true;
@@ -685,7 +686,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   @Nullable
   private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
       SkyValue unwrapOrThrow(
-          SkyKey skyKey,
+          SkyKey depKey,
           SkyValue maybeWrappedValue,
           @Nullable Class<E1> exceptionClass1,
           @Nullable Class<E2> exceptionClass2,
@@ -695,7 +696,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     if (maybeWrappedValue == null) {
       BugReport.sendNonFatalBugReport(
           new IllegalStateException(
-              String.format("Value for %s was missing, this should never happen", skyKey)));
+              String.format("Value for %s was missing, this should never happen", depKey)));
       return null;
     }
     if (maybeWrappedValue == NULL_MARKER) {
@@ -711,7 +712,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     }
 
     // Otherwise, there's an error.
-    @Nullable Object result = handleError(skyKey, wrappedValue);
+    @Nullable Object result = handleError(depKey, wrappedValue);
     if (result instanceof SkyValue) {
       return (SkyValue) result;
     }

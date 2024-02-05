@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -42,10 +41,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
@@ -67,6 +65,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -78,7 +77,9 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
@@ -117,15 +118,22 @@ public class Package {
   /** Sentinel value for package overhead being empty. */
   private static final long PACKAGE_OVERHEAD_UNSET = -1;
 
-  /** Common superclass for all name-conflict exceptions. */
-  public static class NameConflictException extends Exception {
-    private NameConflictException(String message) {
-      super(message);
-    }
-  }
-
-  /** The collection of all targets defined in this package, indexed by name. */
+  /**
+   * The collection of all targets defined in this package, indexed by name.
+   *
+   * <p>Invariant: This is disjoint with the set of keys in {@link #macros}.
+   */
   private ImmutableSortedMap<String, Target> targets;
+
+  /**
+   * The collection of all symbolic macro instances defined in this package, indexed by name.
+   *
+   * <p>Invariant: This is disjoint with the set of keys in {@link #targets}.
+   */
+  // TODO(#19922): We'll have to strengthen this invariant. It's not just that nothing should share
+  // the same name as a macro, but also that nothing should be inside a macro's namespace (meaning,
+  // in the current design, having the macro as a prefix) unless it was defined by that macro.
+  private ImmutableSortedMap<String, MacroInstance> macros;
 
   public PackageArgs getPackageArgs() {
     return metadata.packageArgs;
@@ -334,6 +342,7 @@ public class Package {
 
     this.metadata.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
     this.targets = ImmutableSortedMap.copyOf(builder.targets);
+    this.macros = ImmutableSortedMap.copyOf(builder.macros);
     this.failureDetail = builder.getFailureDetail();
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
@@ -653,6 +662,14 @@ public class Package {
     }
   }
 
+  /** Returns all symbolic macros defined in the package. */
+  // TODO(#19922): Clarify this comment to indicate whether the macros have already been expanded
+  // by the point the Package has been built. The answer's probably "yes". In that case, this
+  // accessor is still useful for introspecting e.g. by `bazel query`.
+  public ImmutableMap<String, MacroInstance> getMacros() {
+    return macros;
+  }
+
   /**
    * How to enforce visibility on <code>config_setting</code> See {@link
    * ConfigSettingVisibilityPolicy} for details.
@@ -725,25 +742,68 @@ public class Package {
     }
   }
 
+  /**
+   * Returns a new {@link Builder} suitable for constructing an ordinary package (i.e. not one for
+   * WORKSPACE or bzlmod).
+   */
+  public static Builder newPackageBuilder(
+      PackageSettings packageSettings,
+      PackageIdentifier id,
+      RootedPath filename,
+      String workspaceName,
+      Optional<String> associatedModuleName,
+      Optional<String> associatedModuleVersion,
+      boolean noImplicitFileExport,
+      RepositoryMapping repositoryMapping,
+      @Nullable Semaphore cpuBoundSemaphore,
+      PackageOverheadEstimator packageOverheadEstimator,
+      @Nullable ImmutableMap<Location, String> generatorMap,
+      // TODO(bazel-team): See Builder() constructor comment about use of null for this param.
+      @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+      @Nullable Globber globber) {
+    return new Builder(
+        BazelStarlarkContext.Phase.LOADING,
+        new SymbolGenerator<>(id),
+        packageSettings,
+        id,
+        filename,
+        workspaceName,
+        associatedModuleName,
+        associatedModuleVersion,
+        noImplicitFileExport,
+        repositoryMapping,
+        cpuBoundSemaphore,
+        packageOverheadEstimator,
+        generatorMap,
+        configSettingVisibilityPolicy,
+        globber);
+  }
+
   public static Builder newExternalPackageBuilder(
-      PackageSettings helper,
-      RootedPath workspacePath,
+      PackageSettings packageSettings,
+      WorkspaceFileKey workspaceFileKey,
       String workspaceName,
       RepositoryMapping mainRepoMapping,
       boolean noImplicitFileExport,
       PackageOverheadEstimator packageOverheadEstimator) {
     return new Builder(
-            helper,
-            LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-            workspaceName,
-            /* associatedModuleName= */ Optional.empty(),
-            /* associatedModuleVersion= */ Optional.empty(),
-            noImplicitFileExport,
-            mainRepoMapping,
-            mainRepoMapping,
-            /* cpuBoundSemaphore= */ null,
-            packageOverheadEstimator)
-        .setFilename(workspacePath);
+        BazelStarlarkContext.Phase.WORKSPACE,
+        // The SymbolGenerator is based on workspaceFileKey rather than a package id or path,
+        // in order to distinguish different chunks of the same WORKSPACE file.
+        new SymbolGenerator<>(workspaceFileKey),
+        packageSettings,
+        LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+        /* filename= */ workspaceFileKey.getPath(),
+        workspaceName,
+        /* associatedModuleName= */ Optional.empty(),
+        /* associatedModuleVersion= */ Optional.empty(),
+        noImplicitFileExport,
+        /* repositoryMapping= */ mainRepoMapping,
+        /* cpuBoundSemaphore= */ null,
+        packageOverheadEstimator,
+        /* generatorMap= */ null,
+        /* configSettingVisibilityPolicy= */ null,
+        /* globber= */ null);
   }
 
   public static Builder newExternalPackageBuilderForBzlmod(
@@ -752,20 +812,21 @@ public class Package {
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping) {
     return new Builder(
+            BazelStarlarkContext.Phase.LOADING,
+            new SymbolGenerator<>(basePackageId),
             PackageSettings.DEFAULTS,
             basePackageId,
+            /* filename= */ moduleFilePath,
             DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES,
             /* associatedModuleName= */ Optional.empty(),
             /* associatedModuleVersion= */ Optional.empty(),
             noImplicitFileExport,
             repoMapping,
-            // This mapping is *not* the main repository's mapping, but since it is only used to
-            // construct a query command in an error message and the package built here can't be
-            // seen by query, the particular value does not matter.
-            RepositoryMapping.ALWAYS_FALLBACK,
             /* cpuBoundSemaphore= */ null,
-            PackageOverheadEstimator.NOOP_ESTIMATOR)
-        .setFilename(moduleFilePath)
+            PackageOverheadEstimator.NOOP_ESTIMATOR,
+            /* generatorMap= */ null,
+            /* configSettingVisibilityPolicy= */ null,
+            /* globber= */ null)
         .setLoads(ImmutableList.of());
   }
 
@@ -789,7 +850,7 @@ public class Package {
    * A builder for {@link Package} objects. Only intended to be used by {@link PackageFactory} and
    * {@link com.google.devtools.build.lib.skyframe.PackageFunction}.
    */
-  public static class Builder {
+  public static class Builder extends TargetDefinitionContext {
 
     /**
      * A bundle of options affecting package construction, that is not specific to any particular
@@ -858,21 +919,19 @@ public class Package {
     // (which may change due to serialization). This is useful so that the serialized representation
     // is deterministic.
     private final TreeMap<String, String> makeEnv = new TreeMap<>();
-    private final List<Event> events = Lists.newArrayList();
-    private final List<Postable> posts = Lists.newArrayList();
-    // Assigned by setLocalEventHandler, but not necessarily in all contexts.
-    // TODO(#19922): Make non-nullable, init in constructor.
-    @Nullable private StoredEventHandler localEventHandler = null;
+
+    private final StoredEventHandler localEventHandler = new StoredEventHandler();
+
     @Nullable private String ioExceptionMessage = null;
     @Nullable private IOException ioException = null;
     @Nullable private DetailedExitCode ioExceptionDetailedExitCode = null;
     // TODO(#19922): Consider having separate containsErrors fields on Metadata and Package. In that
     // case, this field is replaced by the one on Metadata.
     private boolean containsErrors = false;
-    // A package's FailureDetail field derives from its Builder's events. During package
-    // deserialization, those events are unavailable, because those events aren't serialized [*].
-    // Its FailureDetail value is serialized, however. During deserialization, that value is
-    // assigned here, so that it can be assigned to the deserialized package.
+    // A package's FailureDetail field derives from the events on its Builder's event handler.
+    // During package deserialization, those events are unavailable, because those events aren't
+    // serialized [*]. Its FailureDetail value is serialized, however. During deserialization, that
+    // value is assigned here, so that it can be assigned to the deserialized package.
     //
     // Likewise, during workspace part assembly, errors from parent parts should propagate to their
     // children.
@@ -883,22 +942,54 @@ public class Package {
 
     // Used by glob(). Null for contexts where glob() is disallowed, including WORKSPACE files and
     // some tests.
-    @Nullable private Globber globber = null;
+    @Nullable private final Globber globber;
+
+    private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
     // All targets added to the package. We use SnapshottableBiMap to help track insertion order of
     // Rule targets, for use by native.existing_rules().
     private BiMap<String, Target> targets =
         new SnapshottableBiMap<>(target -> target instanceof Rule);
-    private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
+
+    // All instances of symbolic macros created during package construction.
+    private final Map<String, MacroInstance> macros = new LinkedHashMap<>();
+
+    private enum NameConflictCheckingPolicy {
+      UNKNOWN,
+      NOT_GUARANTEED,
+      ENABLED;
+    }
+
+    /**
+     * Whether to do all validation checks for name clashes among targets, macros, and output file
+     * prefixes.
+     *
+     * <p>The {@code NOT_GUARANTEED} value should only be used when the package data has already
+     * been validated, e.g. in package deserialization.
+     *
+     * <p>Setting it to {@code NOT_GUARANTEED} does not necessarily turn off *all* checking, just
+     * some of the more expensive ones. Do not rely on being able to violate these checks.
+     */
+    private NameConflictCheckingPolicy nameConflictCheckingPolicy =
+        NameConflictCheckingPolicy.UNKNOWN;
 
     /**
      * Stores labels for each rule so that we don't have to call the costly {@link Rule#getLabels}
      * twice (once for {@link #checkForInputOutputConflicts} and once for {@link #beforeBuild}).
      *
-     * <p>Remains {@code null} when rules are added via {@link #addRuleUnchecked}, which occurs with
-     * package deserialization. Set back to {@code null} after building.
+     * <p>This field is null if name conflict checking is disabled. It is also null after the
+     * package is built.
      */
-    @Nullable private Map<Rule, List<Label>> ruleLabels = null;
+    @Nullable private Map<Rule, List<Label>> ruleLabels = new HashMap<>();
+
+    /**
+     * The collection of the prefixes of every output file. Maps each prefix to an arbitrary output
+     * file having that prefix. Used for error reporting.
+     *
+     * <p>This field is null if name conflict checking is disabled. It is also null after the
+     * package is built. The content of the map is manipulated only in {@link #checkRuleAndOutputs}.
+     */
+    @Nullable private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
     private final List<TargetPattern> registeredExecutionPlatforms = new ArrayList<>();
     private final List<TargetPattern> registeredToolchains = new ArrayList<>();
@@ -916,19 +1007,9 @@ public class Package {
     /** True iff the "package" function has already been called in this package. */
     private boolean packageFunctionUsed;
 
-    /**
-     * The collection of the prefixes of every output file. Maps every prefix to an output file
-     * whose prefix it is.
-     *
-     * <p>This is needed to make the output file prefix conflict check be reasonably fast. However,
-     * since it can potentially take a lot of memory and is useless after the package has been
-     * loaded, it isn't passed to the package itself.
-     */
-    private final Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
-
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
-    private ImmutableMap<Location, String> generatorMap = ImmutableMap.of();
+    private final ImmutableMap<Location, String> generatorMap;
 
     private final TestSuiteImplicitTestsAccumulator testSuiteImplicitTestsAccumulator =
         new TestSuiteImplicitTestsAccumulator();
@@ -937,14 +1018,6 @@ public class Package {
     @Nullable
     String getGeneratorNameByLocation(Location loc) {
       return generatorMap.get(loc);
-    }
-
-    /** Sets the package's map of "generator_name" values keyed by the location of the call site. */
-    // TODO(#19922): Require this to be set before BUILD evaluation.
-    @CanIgnoreReturnValue
-    public Builder setGeneratorMap(ImmutableMap<Location, String> map) {
-      this.generatorMap = map;
-      return this;
     }
 
     /**
@@ -975,27 +1048,47 @@ public class Package {
 
     private boolean alreadyBuilt = false;
 
-    Builder(
+    private Builder(
+        BazelStarlarkContext.Phase phase,
+        SymbolGenerator<?> symbolGenerator,
         PackageSettings packageSettings,
         PackageIdentifier id,
+        RootedPath filename,
         String workspaceName,
         Optional<String> associatedModuleName,
         Optional<String> associatedModuleVersion,
         boolean noImplicitFileExport,
         RepositoryMapping repositoryMapping,
-        // TODO(#19922): Spurious parameter, delete.
-        RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
-        PackageOverheadEstimator packageOverheadEstimator) {
+        PackageOverheadEstimator packageOverheadEstimator,
+        @Nullable ImmutableMap<Location, String> generatorMap,
+        // TODO(bazel-team): Config policy is an enum, what is null supposed to mean?
+        // Maybe convert null -> LEGACY_OFF, assuming that's the correct default.
+        @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+        @Nullable Globber globber) {
+      super(phase, symbolGenerator);
+
       Metadata metadata = new Metadata();
       metadata.packageIdentifier = Preconditions.checkNotNull(id);
+
+      metadata.filename = filename;
+      metadata.packageDirectory = filename.asPath().getParentDirectory();
+      try {
+        metadata.buildFileLabel = Label.create(id, filename.getRootRelativePath().getBaseName());
+      } catch (LabelSyntaxException e) {
+        // This can't actually happen.
+        throw new AssertionError("Package BUILD file has an illegal name: " + filename, e);
+      }
+
       metadata.workspaceName = Preconditions.checkNotNull(workspaceName);
       metadata.repositoryMapping = Preconditions.checkNotNull(repositoryMapping);
       metadata.associatedModuleName = Preconditions.checkNotNull(associatedModuleName);
       metadata.associatedModuleVersion = Preconditions.checkNotNull(associatedModuleVersion);
       metadata.succinctTargetNotFoundErrors = packageSettings.succinctTargetNotFoundErrors();
+      metadata.configSettingVisibilityPolicy = configSettingVisibilityPolicy;
 
       this.pkg = new Package(metadata);
+
       this.precomputeTransitiveLoads = packageSettings.precomputeTransitiveLoads();
       this.noImplicitFileExport = noImplicitFileExport;
       this.labelConverter = new LabelConverter(id, repositoryMapping);
@@ -1004,6 +1097,37 @@ public class Package {
       }
       this.cpuBoundSemaphore = cpuBoundSemaphore;
       this.packageOverheadEstimator = packageOverheadEstimator;
+      this.generatorMap = (generatorMap == null) ? ImmutableMap.of() : generatorMap;
+      this.globber = globber;
+
+      // Add target for the BUILD file itself.
+      // (This may be overridden by an exports_file declaration.)
+      addInputFile(
+          new InputFile(
+              pkg, metadata.buildFileLabel, Location.fromFile(filename.asPath().toString())));
+    }
+
+    /** Retrieves this object from a Starlark thread. Returns null if not present. */
+    @Nullable
+    public static Builder fromOrNull(StarlarkThread thread) {
+      BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+      return (ctx instanceof Builder) ? (Builder) ctx : null;
+    }
+
+    /**
+     * Retrieves this object from a Starlark thread. If not present, throws {@code EvalException}
+     * with an error message indicating that {@code what} can't be used in this Starlark
+     * environment.
+     */
+    @CanIgnoreReturnValue
+    public static Builder fromOrFail(StarlarkThread thread, String what) throws EvalException {
+      @Nullable BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+      if (!(ctx instanceof Builder)) {
+        // TODO: #19922 - Clarify in the message that we can't be in a symbolic ("first-class")
+        // macro.
+        throw Starlark.errorf("%s can only be used while evaluating a BUILD file", what);
+      }
+      return (Builder) ctx;
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -1085,22 +1209,6 @@ public class Package {
       return listInterner;
     }
 
-    /** Sets the name of this package's BUILD file. */
-    // TODO(#19922): Require this to be set before BUILD evaluation.
-    @CanIgnoreReturnValue
-    public Builder setFilename(RootedPath filename) {
-      pkg.metadata.filename = filename;
-      pkg.metadata.packageDirectory = filename.asPath().getParentDirectory();
-      try {
-        pkg.metadata.buildFileLabel = createLabel(filename.getRootRelativePath().getBaseName());
-        addInputFile(pkg.metadata.buildFileLabel, Location.fromFile(filename.asPath().toString()));
-      } catch (LabelSyntaxException e) {
-        // This can't actually happen.
-        throw new AssertionError("Package BUILD file has an illegal name: " + filename, e);
-      }
-      return this;
-    }
-
     public Label getBuildFileLabel() {
       return pkg.metadata.buildFileLabel;
     }
@@ -1124,46 +1232,8 @@ public class Package {
       return pkg.metadata.filename;
     }
 
-    /**
-     * Returns {@link Postable}s accumulated while building the package.
-     *
-     * <p>Should retrieved and reported as close to after {@link #build()} or {@link #finishBuild()}
-     * as possible - any earlier and the data may be incomplete.
-     */
-    public List<Postable> getPosts() {
-      return posts;
-    }
-
-    /**
-     * Returns {@link Event}s accumulated while building the package.
-     *
-     * <p>Should retrieved and reported as close to after {@link #build()} or {@link #finishBuild()}
-     * as possible - any earlier and the data may be incomplete.
-     */
-    public List<Event> getEvents() {
-      return events;
-    }
-
-    /** Associates a {@link StoredEventHandler} with this builder. */
-    // TODO(#19922): This is a temporary method resulting from migrating PackageContext.eventHandler
-    // to Package.Builder. The next step is to create the StoredEventHandler in Package.Builder's
-    // constructor, and use that to eliminate the separate `events` and `posts` fields.
-    @CanIgnoreReturnValue
-    Builder setLocalEventHandler(StoredEventHandler eventHandler) {
-      this.localEventHandler = eventHandler;
-      return this;
-    }
-
-    /**
-     * Returns the {@link ExtendedEventHandler} associated with this builder. Using this handler
-     * <i>should</i> be equivalent to calling {@link #addEvent} / {@link #addPosts}.
-     *
-     * <p>This field may be null in tests.
-     */
-    // TODO(#19922): The "should" in the above javadoc will be guaranteed by eliminating the
-    // separate `events` and `posts` fields. We'll also make this non-nullable.
-    @Nullable
-    public ExtendedEventHandler getLocalEventHandler() {
+    /** Returns the {@link StoredEventHandler} associated with this builder. */
+    public StoredEventHandler getLocalEventHandler() {
       return localEventHandler;
     }
 
@@ -1187,14 +1257,6 @@ public class Package {
     /** Called partial b/c in builder and thus subject to mutation and updates */
     public PackageArgs getPartialPackageArgs() {
       return pkg.metadata.packageArgs;
-    }
-
-    /** Sets visibility enforcement policy for <code>config_setting</code>. */
-    // TODO(#19922): Require this to be set before BUILD evaluation.
-    @CanIgnoreReturnValue
-    public Builder setConfigSettingVisibilityPolicy(ConfigSettingVisibilityPolicy policy) {
-      this.pkg.metadata.configSettingVisibilityPolicy = policy;
-      return this;
     }
 
     /** Uses the workspace name from {@code //external} to set this package's workspace name. */
@@ -1236,36 +1298,20 @@ public class Package {
      * #addEvent} or {@link #addEvents} should already have been called with an {@link Event} of
      * type {@link EventKind#ERROR} that includes a {@link FailureDetail}.
      */
+    // TODO(bazel-team): For simplicity it would be nice to replace this with
+    // getLocalEventHandler().hasErrors(), since that would prevent the kind of inconsistency where
+    // we have reported an ERROR event but not called setContainsErrors(), or vice versa.
     @CanIgnoreReturnValue
     public Builder setContainsErrors() {
+      // TODO(bazel-team): Maybe do Preconditions.checkState(localEventHandler.hasErrors()).
+      // Maybe even assert that it has a FailureDetail, though that's a linear scan unless we
+      // customize the event handler.
       containsErrors = true;
       return this;
     }
 
     public boolean containsErrors() {
       return containsErrors;
-    }
-
-    @CanIgnoreReturnValue
-    Builder addPosts(Iterable<Postable> posts) {
-      for (Postable post : posts) {
-        this.posts.add(post);
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    Builder addEvents(Iterable<Event> events) {
-      for (Event event : events) {
-        addEvent(event);
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addEvent(Event event) {
-      this.events.add(event);
-      return this;
     }
 
     void setFailureDetailOverride(FailureDetail failureDetail) {
@@ -1279,7 +1325,7 @@ public class Package {
       }
 
       List<Event> undetailedEvents = null;
-      for (Event event : this.events) {
+      for (Event event : localEventHandler.getEvents()) {
         if (event.getKind() != EventKind.ERROR) {
           continue;
         }
@@ -1331,15 +1377,6 @@ public class Package {
           pkg.metadata.transitiveLoads);
     }
 
-    /** Sets the {@link Globber}. */
-    // TODO(#19922): Move this to Builder() constructor.
-    @CanIgnoreReturnValue
-    public Builder setGlobber(Globber globber) {
-      Preconditions.checkState(this.globber == null);
-      this.globber = globber;
-      return this;
-    }
-
     /**
      * Returns the {@link Globber} used to implement {@code glob()} functionality during BUILD
      * evaluation. Null for contexts where globbing is not possible, including WORKSPACE files and
@@ -1383,9 +1420,13 @@ public class Package {
      * Replaces a target in the {@link Package} under construction with a new target with the same
      * name and belonging to the same package.
      *
+     * <p>Requires that {@link #disableNameConflictChecking} was not called.
+     *
      * <p>A hack needed for {@link WorkspaceFactoryHelper}.
      */
     void replaceTarget(Target newTarget) {
+      ensureNameConflictChecking();
+
       Preconditions.checkArgument(
           targets.containsKey(newTarget.getName()),
           "No existing target with name '%s' in the targets map",
@@ -1396,7 +1437,7 @@ public class Package {
           newTarget.getPackage(),
           pkg);
       Target oldTarget = targets.put(newTarget.getName(), newTarget);
-      if (newTarget instanceof Rule && ruleLabels != null) {
+      if (newTarget instanceof Rule) {
         List<Label> ruleLabelsForOldTarget = ruleLabels.remove(oldTarget);
         if (ruleLabelsForOldTarget != null) {
           ruleLabels.put((Rule) newTarget, ruleLabelsForOldTarget);
@@ -1436,43 +1477,37 @@ public class Package {
       return Package.getTargets(targets, Rule.class);
     }
 
-    /** An input file name conflicts with an existing package member. */
-    static class GeneratedLabelConflict extends NameConflictException {
-      private GeneratedLabelConflict(String message) {
-        super(message);
-      }
-    }
-
     /**
-     * Creates an input file target in this package with the specified name.
+     * Creates an input file target in this package with the specified name, if it does not yet
+     * exist.
+     *
+     * <p>This operation is idempotent.
      *
      * @param targetName name of the input file. This must be a valid target name as defined by
      *     {@link com.google.devtools.build.lib.cmdline.LabelValidator#validateTargetName}.
-     * @return the newly-created InputFile, or the old one if it already existed.
-     * @throws GeneratedLabelConflict if the name was already taken by a Rule or an OutputFile
-     *     target.
+     * @return the newly-created {@code InputFile}, or the old one if it already existed.
+     * @throws NameConflictException if the name was already taken by another target/macro that is
+     *     not an input file
      * @throws IllegalArgumentException if the name is not a valid label
      */
-    InputFile createInputFile(String targetName, Location location) throws GeneratedLabelConflict {
+    InputFile createInputFile(String targetName, Location location) throws NameConflictException {
       Target existing = targets.get(targetName);
-      if (existing == null) {
-        try {
-          return addInputFile(createLabel(targetName), location);
-        } catch (LabelSyntaxException e) {
+
+      if (existing instanceof InputFile) {
+        return (InputFile) existing; // idempotent
+      }
+
+      InputFile inputFile;
+      try {
+        inputFile = new InputFile(pkg, createLabel(targetName), location);
+      } catch (LabelSyntaxException e) {
           throw new IllegalArgumentException(
               "FileTarget in package " + pkg.getName() + " has illegal name: " + targetName, e);
-        }
-      } else if (existing instanceof InputFile) {
-        return (InputFile) existing; // idempotent
-      } else {
-        throw new GeneratedLabelConflict(
-            "generated label '//"
-                + pkg.getName()
-                + ":"
-                + targetName
-                + "' conflicts with existing "
-                + existing.getTargetKind());
       }
+
+      checkForExistingName(inputFile);
+      addInputFile(inputFile);
+      return inputFile;
     }
 
     /**
@@ -1532,11 +1567,7 @@ public class Package {
               repoRootMeansCurrentRepo,
               eventHandler,
               location);
-      Target existing = targets.get(group.getName());
-      if (existing != null) {
-        throw nameConflict(group, existing);
-      }
-
+      checkForExistingName(group);
       targets.put(group.getName(), group);
 
       if (group.containsErrors()) {
@@ -1586,12 +1617,9 @@ public class Package {
 
       EnvironmentGroup group =
           new EnvironmentGroup(createLabel(name), pkg, environments, defaults, location);
-      Target existing = targets.get(group.getName());
-      if (existing != null) {
-        throw nameConflict(group, existing);
-      }
-
+      checkForExistingName(group);
       targets.put(group.getName(), group);
+
       // Invariant: once group is inserted into targets, it must also:
       // (a) be inserted into environmentGroups, or
       // (b) have its group.processMemberEnvironments called.
@@ -1624,21 +1652,39 @@ public class Package {
     }
 
     /**
-     * Same as {@link #addRule}, except with no name conflict checks.
+     * Turns off (some) conflict checking for name clashes between targets, macros, and output file
+     * prefixes. (It is not guaranteed to disable all checks, since it is intended as an
+     * optimization and not for semantic effect.)
      *
-     * <p>Don't call this function unless you know what you're doing.
+     * <p>This should only be done for data that has already been validated, e.g. during package
+     * deserialization. Do not call this unless you know what you're doing.
+     *
+     * <p>This method must be called prior to {@link #addRuleUnchecked}. It may not be called,
+     * neither before nor after, a call to {@link #addRule} or {@link #replaceTarget}.
      */
-    void addRuleUnchecked(Rule rule) {
+    @CanIgnoreReturnValue
+    Builder disableNameConflictChecking() {
+      Preconditions.checkState(nameConflictCheckingPolicy == NameConflictCheckingPolicy.UNKNOWN);
+      this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.NOT_GUARANTEED;
+      this.ruleLabels = null;
+      this.outputFilePrefixes = null;
+      return this;
+    }
+
+    private void ensureNameConflictChecking() {
+      Preconditions.checkState(
+          nameConflictCheckingPolicy != NameConflictCheckingPolicy.NOT_GUARANTEED);
+      this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.ENABLED;
+    }
+
+    /**
+     * Adds a rule and its outputs to the targets map, and propagates the error bit from the rule to
+     * the package.
+     */
+    private void addRuleInternal(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
-      // Now, modify the package:
       for (OutputFile outputFile : rule.getOutputFiles()) {
         targets.put(outputFile.getName(), outputFile);
-        PathFragment outputFileFragment = PathFragment.create(outputFile.getName());
-        int segmentCount = outputFileFragment.segmentCount();
-        for (int i = 1; i < segmentCount; i++) {
-          String prefix = outputFileFragment.subFragment(0, i).toString();
-          outputFilePrefixes.putIfAbsent(prefix, outputFile);
-        }
       }
       targets.put(rule.getName(), rule);
       if (rule.containsErrors()) {
@@ -1646,14 +1692,33 @@ public class Package {
       }
     }
 
+    /**
+     * Adds a rule without certain validation checks. Requires that {@link
+     * #disableNameConflictChecking} was already called.
+     */
+    void addRuleUnchecked(Rule rule) {
+      Preconditions.checkState(
+          nameConflictCheckingPolicy == NameConflictCheckingPolicy.NOT_GUARANTEED);
+      addRuleInternal(rule);
+    }
+
+    /**
+     * Adds a rule, subject to the usual validation checks. Requires that {@link
+     * #disableNameConflictChecking} was not called.
+     */
     void addRule(Rule rule) throws NameConflictException {
+      ensureNameConflictChecking();
+
       List<Label> labels = rule.getLabels();
-      checkForConflicts(rule, labels);
-      addRuleUnchecked(rule);
-      if (ruleLabels == null) {
-        ruleLabels = new HashMap<>();
-      }
+      checkRuleAndOutputs(rule, labels);
+      addRuleInternal(rule);
       ruleLabels.put(rule, labels);
+    }
+
+    /** Adds a symbolic macro instance to the package. */
+    public void addMacro(MacroInstance macro) throws NameConflictException {
+      checkForExistingName(macro);
+      macros.put(macro.getName(), macro);
     }
 
     void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {
@@ -1674,10 +1739,6 @@ public class Package {
 
     @CanIgnoreReturnValue
     private Builder beforeBuild(boolean discoverAssumedInputFiles) throws NoSuchPackageException {
-      // TODO(#19922): Won't have to check filename/buildFileLabel if we merge setFilename into the
-      // Builder constructor.
-      Preconditions.checkNotNull(pkg.metadata.filename);
-      Preconditions.checkNotNull(pkg.metadata.buildFileLabel);
       if (ioException != null) {
         throw new NoSuchPackageException(
             getPackageIdentifier(), ioExceptionMessage, ioException, ioExceptionDetailedExitCode);
@@ -1694,7 +1755,7 @@ public class Package {
         targets = ((SnapshottableBiMap<String, Target>) targets).getUnderlyingBiMap();
       }
 
-      // We create an InputFile corresponding to the BUILD file when setFilename is called. However,
+      // We create an InputFile corresponding to the BUILD file in Builder's constructor. However,
       // the visibility of this target may be overridden with an exports_files directive, so we wait
       // until now to obtain the current instance from the targets map.
       pkg.metadata.buildFile =
@@ -1717,18 +1778,11 @@ public class Package {
           // All labels mentioned by a rule that refer to an unknown target in the current package
           // are assumed to be InputFiles, so let's create them. We add them to a temporary map
           // to avoid concurrent modification to this.targets while iterating (via getRules()).
-          List<Label> labels = null;
-          if (ruleLabels != null) {
-            // Can theoretically be absent from the map if the caller used both addRule() and
-            // addRuleUnchecked() on the same Builder.
-            labels = ruleLabels.get(rule);
-          }
-          if (labels == null) {
-            labels = rule.getLabels();
-          }
+          List<Label> labels = (ruleLabels != null) ? ruleLabels.get(rule) : rule.getLabels();
           for (Label label : labels) {
             if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
                 && !targets.containsKey(label.getName())
+                && !macros.containsKey(label.getName())
                 && !newInputFiles.containsKey(label.getName())) {
               Location loc = rule.getLocation();
               newInputFiles.put(
@@ -1776,13 +1830,16 @@ public class Package {
         rule.freeze();
       }
       ruleLabels = null;
+      outputFilePrefixes = null;
       targets = Maps.unmodifiableBiMap(targets);
 
       // Now all targets have been loaded, so we validate the group's member environments.
       for (EnvironmentGroup envGroup : ImmutableSet.copyOf(environmentGroups.values())) {
         List<Event> errors = envGroup.processMemberEnvironments(targets);
         if (!errors.isEmpty()) {
-          addEvents(errors);
+          Event.replayEventsOn(localEventHandler, errors);
+          // TODO(bazel-team): Can't we automatically infer containsError from the presence of
+          // ERRORs on our handler?
           setContainsErrors();
         }
       }
@@ -1809,49 +1866,64 @@ public class Package {
       return finishBuild();
     }
 
-    private InputFile addInputFile(Label label, Location location) {
-      return addInputFile(new InputFile(pkg, label, location));
-    }
-
-    private InputFile addInputFile(InputFile inputFile) {
+    /**
+     * Adds an input file to this package.
+     *
+     * <p>There must not already be a target with the same name (i.e., this is not idempotent).
+     */
+    private void addInputFile(InputFile inputFile) {
       Target prev = targets.put(inputFile.getLabel().getName(), inputFile);
       Preconditions.checkState(prev == null);
-      return inputFile;
     }
 
     /**
-     * Precondition check for addRule. We must maintain these invariants of the package:
+     * Precondition check for {@link #addRule} (to be called before the rule and its outputs are in
+     * the targets map). Verifies that:
      *
      * <ul>
-     *   <li>Each name refers to at most one target.
-     *   <li>No rule with errors is inserted into the package.
-     *   <li>The generating rule of every output file in the package must itself be in the package.
+     *   <li>The added rule's name, and the names of its output files, are not the same as the name
+     *       of any target/macro already declared in the package.
+     *   <li>The added rule's output files list does not contain the same name twice.
+     *   <li>The added rule does not have an input file and an output file that share the same name.
+     *   <li>For each of the added rule's output files, no directory prefix of that file matches the
+     *       name of another output file in the package; and conversely, the file is not itself a
+     *       prefix for another output file. (This check statefully mutates the {@code
+     *       outputFilePrefixes} field.)
      * </ul>
      */
-    private void checkForConflicts(Rule rule, List<Label> labels) throws NameConflictException {
-      String name = rule.getName();
-      Target existing = targets.get(name);
-      if (existing != null) {
-        throw nameConflict(rule, existing);
-      }
+    // TODO(bazel-team): We verify that all prefixes of output files are distinct from other output
+    // file names, but not that they're distinct from other target names in the package. What
+    // happens if you define an input file "abc" and output file "abc/xyz"?
+    private void checkRuleAndOutputs(Rule rule, List<Label> labels) throws NameConflictException {
+      Preconditions.checkNotNull(outputFilePrefixes); // ensured by addRule's precondition
+
+      // Check the name of the new rule itself.
+      String ruleName = rule.getName();
+      checkForExistingName(rule);
 
       ImmutableList<OutputFile> outputFiles = rule.getOutputFiles();
       Map<String, OutputFile> outputFilesByName =
           Maps.newHashMapWithExpectedSize(outputFiles.size());
 
+      // Check the new rule's output files, both for direct conflicts and prefix conflicts.
       for (OutputFile outputFile : outputFiles) {
         String outputFileName = outputFile.getName();
+        // Check for duplicate within a single rule. (Can't use checkForExistingName since this
+        // rule's outputs aren't in the target map yet.)
         if (outputFilesByName.put(outputFileName, outputFile) != null) {
-          throw duplicateOutputFile(outputFile, outputFile); // Duplicate within a single rule.
+          throw new NameConflictException(
+              String.format(
+                  "rule '%s' has more than one generated file named '%s'",
+                  ruleName, outputFileName));
         }
-        existing = targets.get(outputFileName);
-        if (existing != null) {
-          throw duplicateOutputFile(outputFile, existing);
-        }
+        // Check for conflict with any other already added target/macro.
+        checkForExistingName(outputFile);
+        // TODO(bazel-team): We also need to check for a conflict between an output file and its own
+        // rule, which is not yet in the targets map.
 
         // Check if this output file is the prefix of an already existing one.
         if (outputFilePrefixes.containsKey(outputFileName)) {
-          throw conflictingOutputFile(outputFile, outputFilePrefixes.get(outputFileName));
+          throw overlappingOutputFilePrefixes(outputFile, outputFilePrefixes.get(outputFileName));
         }
 
         // Check if a prefix of this output file matches an already existing one.
@@ -1860,76 +1932,96 @@ public class Package {
         for (int i = 1; i < segmentCount; i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
           if (outputFilesByName.containsKey(prefix)) {
-            throw conflictingOutputFile(outputFile, outputFilesByName.get(prefix));
+            throw overlappingOutputFilePrefixes(outputFile, outputFilesByName.get(prefix));
           }
           if (targets.get(prefix) instanceof OutputFile) {
-            throw conflictingOutputFile(outputFile, (OutputFile) targets.get(prefix));
+            throw overlappingOutputFilePrefixes(outputFile, (OutputFile) targets.get(prefix));
           }
 
+          // Store in persistent map, for checking when adding future rules.
           outputFilePrefixes.putIfAbsent(prefix, outputFile);
         }
       }
 
-      checkForInputOutputConflicts(rule, labels, outputFilesByName.keySet());
-    }
-
-    /**
-     * A utility method that checks for conflicts between input file names and output file names for
-     * a rule from a build file.
-     *
-     * @param rule the rule whose inputs and outputs are to be checked for conflicts.
-     * @param labels the rules {@linkplain Rule#getLabels labels}.
-     * @param outputFiles a set containing the names of output files to be generated by the rule.
-     * @throws NameConflictException if a conflict is found.
-     */
-    private static void checkForInputOutputConflicts(
-        Rule rule, List<Label> labels, Set<String> outputFiles) throws NameConflictException {
+      // Check for the same file appearing as both an input and output of the new rule.
       PackageIdentifier packageIdentifier = rule.getLabel().getPackageIdentifier();
       for (Label inputLabel : labels) {
         if (packageIdentifier.equals(inputLabel.getPackageIdentifier())
-            && outputFiles.contains(inputLabel.getName())) {
-          throw inputOutputNameConflict(rule, inputLabel.getName());
+            && outputFilesByName.containsKey(inputLabel.getName())) {
+          throw new NameConflictException(
+              String.format(
+                  "rule '%s' has file '%s' as both an input and an output",
+                  ruleName, inputLabel.getName()));
         }
       }
     }
 
-    /** An output file conflicts with another output file or the BUILD file. */
-    private static NameConflictException duplicateOutputFile(
-        OutputFile duplicate, Target existing) {
-      return new NameConflictException(
-          duplicate.getTargetKind()
-              + " '"
-              + duplicate.getName()
-              + "' in rule '"
-              + duplicate.getGeneratingRule().getName()
-              + "' "
-              + conflictsWith(existing));
+    /**
+     * Throws {@link NameConflictException} if the given target's name matches an existing target or
+     * macro in the package.
+     */
+    private void checkForExistingName(Target added) throws NameConflictException {
+      checkForExistingName(added.getName(), added);
     }
 
-    /** The package contains two targets with the same name. */
-    private static NameConflictException nameConflict(Target duplicate, Target existing) {
-      return new NameConflictException(
-          duplicate.getTargetKind()
-              + " '"
-              + duplicate.getName()
-              + "' in package '"
-              + duplicate.getLabel().getPackageName()
-              + "' "
-              + conflictsWith(existing));
+    /**
+     * Throws {@link NameConflictException} if the given macro's name matches an existing target or
+     * macro in the package.
+     */
+    private void checkForExistingName(MacroInstance added) throws NameConflictException {
+      checkForExistingName(added.getName(), added);
     }
 
-    /** A a rule has a input/output name conflict. */
-    private static NameConflictException inputOutputNameConflict(
-        Rule rule, String conflictingName) {
-      return new NameConflictException(
-          "rule '"
-              + rule.getName()
-              + "' has file '"
-              + conflictingName
-              + "' as both an input and an output");
+    private void checkForExistingName(String name, Object added) throws NameConflictException {
+      Object existing = targets.get(name);
+      if (existing == null) {
+        existing = macros.get(name);
+      }
+      if (existing == null) {
+        return;
+      }
+
+      // Format error message subject and object, which are either Targets or MacroInstances.
+
+      String subject;
+      if (added instanceof Target) {
+        subject =
+            String.format("%s '%s'", ((Target) added).getTargetKind(), ((Target) added).getName());
+        if (added instanceof OutputFile) {
+          subject += " in rule '" + ((OutputFile) added).getGeneratingRule().getName() + "'";
+        }
+      } else if (added instanceof MacroInstance) {
+        subject = String.format("macro '%s'", ((MacroInstance) added).getName());
+      } else {
+        throw new IllegalArgumentException("Unexpected object type: " + added.getClass());
+      }
+
+      String object;
+      if (existing instanceof Target) {
+        object =
+            existing instanceof OutputFile
+                ? String.format(
+                    "generated file from rule '%s'",
+                    ((OutputFile) existing).getGeneratingRule().getName())
+                : ((Target) existing).getTargetKind();
+        object += ", defined at " + ((Target) existing).getLocation();
+      } else if (existing instanceof MacroInstance) {
+        // TODO(#19922): Add definition location info for the existing object, like we have in the
+        // case for rules.
+        object = "macro";
+      } else {
+        throw new AssertionError();
+      }
+
+      throw new NameConflictException(
+          String.format("%s conflicts with existing %s", subject, object));
     }
 
-    private static NameConflictException conflictingOutputFile(
+    /**
+     * Returns a {@link NameConflictException} about two output files clashing (i.e., due to one
+     * being a prefix of the other)
+     */
+    private static NameConflictException overlappingOutputFilePrefixes(
         OutputFile added, OutputFile existing) {
       if (added.getGeneratingRule() == existing.getGeneratingRule()) {
         return new NameConflictException(
@@ -1945,20 +2037,6 @@ public class Package {
                 existing.getName(),
                 existing.getGeneratingRule().getName()));
       }
-    }
-
-    /** Utility function for generating exception messages. */
-    private static String conflictsWith(Target target) {
-      String message = "conflicts with existing ";
-      if (target instanceof OutputFile) {
-        message +=
-            "generated file from rule '"
-                + ((OutputFile) target).getGeneratingRule().getName()
-                + "'";
-      } else {
-        message += target.getTargetKind();
-      }
-      return message + ", defined at " + target.getLocation();
     }
 
     @Nullable
@@ -2066,7 +2144,7 @@ public class Package {
 
     private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
 
-    /** Returns the visibility policy. */
+    /** Returns the visibility enforcement policy for {@code config_setting}. */
     public ConfigSettingVisibilityPolicy getConfigSettingVisibilityPolicy() {
       return configSettingVisibilityPolicy;
     }

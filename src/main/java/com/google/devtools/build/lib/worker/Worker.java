@@ -126,7 +126,6 @@ public abstract class Worker {
    */
   public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {
     status.maybeUpdateStatus(WorkerProcessStatus.Status.ALIVE);
-    WorkerProcessMetricsCollector.instance().onWorkerFinishExecution(getProcessId());
   }
 
   /**

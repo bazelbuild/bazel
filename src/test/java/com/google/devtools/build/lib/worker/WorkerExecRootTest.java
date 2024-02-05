@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.sandbox.SynchronousTreeDeleter;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -64,7 +65,8 @@ public class WorkerExecRootTest {
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
-        sandboxHelper.getSandboxOutputs());
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
 
     // Pretend to do some work inside the execRoot.
     workDir.getRelative("tempdir").createDirectory();
@@ -77,7 +79,8 @@ public class WorkerExecRootTest {
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
-        sandboxHelper.getSandboxOutputs());
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
 
     assertThat(workDir.getRelative("worker.sh").exists()).isTrue();
     assertThat(
@@ -107,7 +110,8 @@ public class WorkerExecRootTest {
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
-        sandboxHelper.getSandboxOutputs());
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
 
     assertThat(workDir.getRelative("dir/input_symlink_1").readSymbolicLink())
         .isEqualTo(PathFragment.create("new_content"));
@@ -131,7 +135,8 @@ public class WorkerExecRootTest {
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
-        sandboxHelper.getSandboxOutputs());
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
 
     assertThat(workDir.getRelative("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_sourcegenfiles").exists())
         .isTrue();
@@ -161,7 +166,8 @@ public class WorkerExecRootTest {
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
-        sandboxHelper.getSandboxOutputs());
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
 
     assertThat(workDir.getRelative("needed_file").readSymbolicLink())
         .isEqualTo(neededWorkspaceFile.asFragment());
@@ -189,7 +195,8 @@ public class WorkerExecRootTest {
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
-        sandboxHelper.getSandboxOutputs());
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
 
     assertThat(
             FileSystemUtils.readContent(workDir.getRelative("some_file"), Charset.defaultCharset()))
@@ -222,7 +229,8 @@ public class WorkerExecRootTest {
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
-        sandboxHelper.getSandboxOutputs());
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
 
     assertThat(workDir.getRelative("../foo/bar/input1").readSymbolicLink())
         .isEqualTo(input1.asFragment());

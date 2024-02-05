@@ -14,16 +14,18 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule.RuleData;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.function.Supplier;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -35,11 +37,12 @@ import net.starlark.java.syntax.Location;
  * <p>For Starlark rules, {@link RuleClassData} is reduced to {@link
  * RuleDataCodec.StarlarkRuleClassData}.
  */
-final class RuleDataCodec implements ObjectCodec<RuleData> {
-  private static final byte RULE_TAGS_MASK = 0b0000_0001;
-  private static final byte DEPRECATION_WARNING_MASK = 0b0000_0010;
-  private static final byte IS_TEST_ONLY_MASK = 0b0000_0100;
-  private static final byte TEST_TIMEOUT_MASK = 0b0000_1000;
+final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
+  private static final byte RULE_CLASS_IS_STARLARK = 0b0000_0001;
+  private static final byte RULE_TAGS_MASK = 0b0000_0010;
+  private static final byte DEPRECATION_WARNING_MASK = 0b0000_0100;
+  private static final byte IS_TEST_ONLY_MASK = 0b0000_1000;
+  private static final byte TEST_TIMEOUT_MASK = 0b0001_0000;
 
   @Override
   public Class<RuleData> getEncodedClass() {
@@ -49,13 +52,13 @@ final class RuleDataCodec implements ObjectCodec<RuleData> {
   @Override
   public void serialize(SerializationContext context, RuleData obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    serializeRuleClassData(context, obj.getRuleClassData(), codedOut);
-    context.serialize(obj.getLocation(), codedOut);
-    context.serialize(obj.getLabel(), codedOut);
-
     // There are quite a few fields here that are often null or empty. Writing the mask makes it so
     // that nulls and empty sets take 0 additional storage.
     byte presenceMask = 0;
+    RuleClassData ruleClassData = obj.getRuleClassData();
+    if (ruleClassData.isStarlark()) {
+      presenceMask |= RULE_CLASS_IS_STARLARK;
+    }
     ImmutableSet<String> ruleTags = obj.getRuleTags();
     if (!ruleTags.isEmpty()) {
       presenceMask |= RULE_TAGS_MASK;
@@ -73,6 +76,11 @@ final class RuleDataCodec implements ObjectCodec<RuleData> {
     }
     codedOut.writeRawByte(presenceMask);
 
+    serializeRuleClassData(context, ruleClassData, codedOut);
+
+    context.serialize(obj.getLocation(), codedOut);
+    context.serialize(obj.getLabel(), codedOut);
+
     if (!ruleTags.isEmpty()) {
       context.serialize(ruleTags, codedOut);
     }
@@ -85,52 +93,140 @@ final class RuleDataCodec implements ObjectCodec<RuleData> {
   }
 
   @Override
-  public RuleData deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public Supplier<RuleData> deserializeDeferred(
+      AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    RuleClassData ruleClassData;
-    Object deserializedRuleClassData = context.deserialize(codedIn);
-    if (deserializedRuleClassData instanceof String) {
-      ruleClassData =
-          context
-              .getDependency(RuleClassProvider.class)
-              .getRuleClassMap()
-              .get(deserializedRuleClassData);
-    } else {
-      ruleClassData = (RuleClassData) deserializedRuleClassData;
-    }
-    Location location = context.deserialize(codedIn);
-    Label label = context.deserialize(codedIn);
-
     byte presenceMask = codedIn.readRawByte();
-    ImmutableSet<String> ruleTags;
+
+    Builder builder;
+    if ((presenceMask & RULE_CLASS_IS_STARLARK) != 0) {
+      StarlarkRuleClassBuilder starlarkBuilder = new StarlarkRuleClassBuilder(presenceMask);
+      context.deserialize(codedIn, starlarkBuilder, StarlarkRuleClassBuilder::setRuleClassData);
+      builder = starlarkBuilder;
+    } else {
+      NativeRuleClassBuilder nativeBuilder =
+          new NativeRuleClassBuilder(
+              presenceMask, context.getDependency(RuleClassProvider.class).getRuleClassMap());
+      context.deserializeFully(codedIn, nativeBuilder, NativeRuleClassBuilder::setRuleClassName);
+      builder = nativeBuilder;
+    }
+
+    context.deserialize(codedIn, builder, Builder::setLocation);
+    context.deserialize(codedIn, builder, Builder::setLabel);
+
     if ((presenceMask & RULE_TAGS_MASK) != 0) {
-      ruleTags = context.deserialize(codedIn);
+      context.deserialize(codedIn, builder, Builder::setRuleTags);
     } else {
-      ruleTags = ImmutableSet.of();
+      builder.ruleTags = ImmutableSet.of();
     }
 
-    String deprecationWarning;
     if ((presenceMask & DEPRECATION_WARNING_MASK) != 0) {
-      deprecationWarning = context.deserialize(codedIn);
-    } else {
-      deprecationWarning = null;
+      context.deserialize(codedIn, builder, Builder::setDeprecationWarning);
     }
 
-    TestTimeout testTimeout;
     if ((presenceMask & TEST_TIMEOUT_MASK) != 0) {
-      testTimeout = context.deserialize(codedIn);
-    } else {
-      testTimeout = null;
+      context.deserialize(codedIn, builder, Builder::setTestTimeout);
     }
 
-    return new RuleData(
-        ruleClassData,
-        location,
-        ruleTags,
-        label,
-        deprecationWarning,
-        (presenceMask & IS_TEST_ONLY_MASK) != 0,
-        testTimeout);
+    return builder;
+  }
+
+  /**
+   * Builder for deserialized {@link RuleData}.
+   *
+   * <p>This is abstract due to the differences in deserialization of {@link RuleClassData} for
+   * Starlark and native.
+   *
+   * <ul>
+   *   <li>The {@link NativeRuleClassBuilder} uses the {@link RuleClassProvider} serialization
+   *       dependency to deserialize a rule class from its name alone.
+   *   <li>The {@link StarlarkRuleClassBuilder} directly deserializes the {@link
+   *       StarlarkRuleClassData} object.
+   * </ul>
+   */
+  private abstract static class Builder implements Supplier<RuleData> {
+    private final byte presenceMask;
+    private Location location;
+    private Label label;
+    private ImmutableSet<String> ruleTags;
+    private String deprecationWarning;
+    private TestTimeout testTimeout;
+
+    Builder(byte presenceMask) {
+      this.presenceMask = presenceMask;
+    }
+
+    @Override
+    public RuleData get() {
+      return new RuleData(
+          getRuleClassData(),
+          location,
+          ruleTags,
+          label,
+          deprecationWarning,
+          (presenceMask & IS_TEST_ONLY_MASK) != 0,
+          testTimeout);
+    }
+
+    abstract RuleClassData getRuleClassData();
+
+    private static void setLocation(Builder builder, Object value) {
+      builder.location = (Location) value;
+    }
+
+    private static void setLabel(Builder builder, Object value) {
+      builder.label = (Label) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void setRuleTags(Builder builder, Object value) {
+      builder.ruleTags = (ImmutableSet<String>) value;
+    }
+
+    private static void setDeprecationWarning(Builder builder, Object value) {
+      builder.deprecationWarning = (String) value;
+    }
+
+    private static void setTestTimeout(Builder builder, Object value) {
+      builder.testTimeout = (TestTimeout) value;
+    }
+  }
+
+  private static class NativeRuleClassBuilder extends Builder {
+    private final ImmutableMap<String, RuleClass> ruleClassMap;
+    private String ruleClassName;
+
+    private NativeRuleClassBuilder(
+        byte presenceMask, ImmutableMap<String, RuleClass> ruleClassMap) {
+      super(presenceMask);
+      this.ruleClassMap = ruleClassMap;
+    }
+
+    @Override
+    RuleClassData getRuleClassData() {
+      return ruleClassMap.get(ruleClassName);
+    }
+
+    private static void setRuleClassName(NativeRuleClassBuilder builder, Object value) {
+      builder.ruleClassName = (String) value;
+    }
+  }
+
+  private static class StarlarkRuleClassBuilder extends Builder {
+    private StarlarkRuleClassData ruleClassData;
+
+    private StarlarkRuleClassBuilder(byte presenceMask) {
+      super(presenceMask);
+    }
+
+    @Override
+    StarlarkRuleClassData getRuleClassData() {
+      return ruleClassData;
+    }
+
+    private static void setRuleClassData(StarlarkRuleClassBuilder builder, Object value) {
+      builder.ruleClassData = (StarlarkRuleClassData) value;
+    }
   }
 
   private static void serializeRuleClassData(
@@ -141,11 +237,13 @@ final class RuleDataCodec implements ObjectCodec<RuleData> {
       return;
     }
 
+    // Handles the case of previously serialized Starlark rule data.
     if (obj instanceof StarlarkRuleClassData) {
       context.serialize(obj, codedOut);
       return;
     }
 
+    // Serializes rule data for Starlark.
     context.serialize(
         new AutoValue_RuleDataCodec_StarlarkRuleClassData(
             obj.getName(), obj.getTargetKind(), obj.getAdvertisedProviders()),

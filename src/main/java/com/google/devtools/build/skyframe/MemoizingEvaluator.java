@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -142,8 +144,13 @@ public interface MemoizingEvaluator {
   ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException;
 
   /**
-   * Tests that want finer control over the graph being used may provide a {@code transformer} here.
-   * This {@code transformer} will be applied to the graph for each invalidation/evaluation.
+   * Injects a {@link GraphTransformerForTesting} to allow tests to have finer-grained control over
+   * the graph.
+   *
+   * <p>May be called multiple times, in which case the effective graph is the result of
+   * sequentially applying all transformers in the order in which they were passed to this method.
+   *
+   * <p>Must only be called in tests.
    */
   void injectGraphTransformerForTesting(GraphTransformerForTesting transformer);
 
@@ -165,6 +172,33 @@ public interface MemoizingEvaluator {
             return graph;
           }
         };
+
+    /**
+     * Returns a composite transformer that applies both of the given transformers in the given
+     * order.
+     */
+    static GraphTransformerForTesting compose(
+        GraphTransformerForTesting before, GraphTransformerForTesting after) {
+      checkNotNull(before);
+      checkNotNull(after);
+      if (before == NO_OP) {
+        return after;
+      }
+      if (after == NO_OP) {
+        return before;
+      }
+      return new GraphTransformerForTesting() {
+        @Override
+        public InMemoryGraph transform(InMemoryGraph graph) {
+          return after.transform(before.transform(graph));
+        }
+
+        @Override
+        public ProcessableGraph transform(ProcessableGraph graph) {
+          return after.transform(before.transform(graph));
+        }
+      };
+    }
   }
 
   /**
@@ -185,8 +219,17 @@ public interface MemoizingEvaluator {
 
   /**
    * Writes a detailed summary of the graph to the given output stream. For each key matching the
-   * given filter, prints the key name and deps are printed. The deps are printed in groups
-   * according to the dependency order registered in Skyframe.
+   * given filter, prints the key name and value.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpValues(PrintStream out, Predicate<String> filter) throws InterruptedException;
+
+  /**
+   * Writes a detailed summary of the graph to the given output stream. For each key matching the
+   * given filter, prints the key name and deps. The deps are printed in groups according to the
+   * dependency order registered in Skyframe.
    *
    * <p>Not necessarily thread-safe. Use only for debugging purposes.
    */
@@ -210,4 +253,12 @@ public interface MemoizingEvaluator {
    * is about to be thrown away.
    */
   void cleanupInterningPools();
+
+  /**
+   * Implementations of MemoizingEvaluator can choose to remember the top level SkyKeys evaluated
+   * from a previous build for further optimizations, like the focus command.
+   *
+   * <p>This can be called to purge an existing set of SkyKeys, and replace it with a new set.
+   */
+  void updateTopLevelEvaluations();
 }

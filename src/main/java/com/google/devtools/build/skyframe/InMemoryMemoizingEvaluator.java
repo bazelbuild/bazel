@@ -13,14 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.skyframe.Differencer.Diff;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -32,12 +37,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion} for incremental
  * evaluations and {@link Version#constant} for non-incremental evaluations.
  */
-public final class InMemoryMemoizingEvaluator
-    extends AbstractIncrementalInMemoryMemoizingEvaluator {
+public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingEvaluator {
   // Not final only for testing.
   private InMemoryGraph graph;
 
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
+
+  private Set<SkyKey> latestTopLevelEvaluations;
+  private Set<SkyKey> topLevelEvaluations = new HashSet<>();
+
+  @Override
+  public void updateTopLevelEvaluations() {
+    latestTopLevelEvaluations = topLevelEvaluations;
+    topLevelEvaluations = new HashSet<>();
+  }
+
+  public Set<SkyKey> getLatestTopLevelEvaluations() {
+    return latestTopLevelEvaluations;
+  }
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions, Differencer differencer) {
@@ -90,6 +107,12 @@ public final class InMemoryMemoizingEvaluator
     Version graphVersion = getNextGraphVersion();
     setAndCheckEvaluateState(true, roots);
 
+    // Only remember roots for focusing if we're tracking incremental states by keeping edges.
+    if (keepEdges) {
+      // Remember the top level evaluation of the last build-like invocation.
+      Iterables.addAll(topLevelEvaluations, roots);
+    }
+
     // Mark for removal any nodes from the previous evaluation that were still inflight or were
     // rewound but did not complete successfully. When the invalidator runs, it will delete the
     // reverse transitive closure.
@@ -136,7 +159,6 @@ public final class InMemoryMemoizingEvaluator
                                 evaluationContext.getParallelism(),
                                 ParallelEvaluatorErrorClassifier.instance())),
                 new SimpleCycleDetector(),
-                evaluationContext.mergingSkyframeAnalysisExecutionPhases(),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
         result = evaluator.eval(roots);
       }
@@ -153,8 +175,10 @@ public final class InMemoryMemoizingEvaluator
   }
 
   private void setAndCheckEvaluateState(boolean newValue, Object requestInfo) {
-    Preconditions.checkState(evaluating.getAndSet(newValue) != newValue,
-        "Re-entrant evaluation for request: %s", requestInfo);
+    checkState(
+        evaluating.getAndSet(newValue) != newValue,
+        "Re-entrant evaluation for request: %s",
+        requestInfo);
   }
 
   @Override
@@ -164,6 +188,7 @@ public final class InMemoryMemoizingEvaluator
 
   @Override
   public void injectGraphTransformerForTesting(GraphTransformerForTesting transformer) {
+    checkState(TestType.isInTest());
     this.graph = transformer.transform(this.graph);
   }
 

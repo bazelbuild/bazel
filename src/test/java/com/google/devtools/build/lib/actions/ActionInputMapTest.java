@@ -61,7 +61,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void basicPutAndLookup() {
-    assertThat(put("/abc/def", 5)).isTrue();
+    put("/abc/def", 5);
     assertThat(map.sizeForDebugging()).isEqualTo(1);
     assertContains("/abc/def", 5);
     assertThat(map.getMetadata(PathFragment.create("blah"))).isNull();
@@ -70,13 +70,13 @@ public final class ActionInputMapTest {
 
   @Test
   public void put_ignoresSubsequentPuts() {
-    assertThat(put("/abc/def", 5)).isTrue();
+    put("/abc/def", 5);
     assertThat(map.sizeForDebugging()).isEqualTo(1);
-    assertThat(put("/abc/def", 6)).isFalse();
+    put("/abc/def", 6);
     assertThat(map.sizeForDebugging()).isEqualTo(1);
-    assertThat(put("/ghi/jkl", 7)).isTrue();
+    put("/ghi/jkl", 7);
     assertThat(map.sizeForDebugging()).isEqualTo(2);
-    assertThat(put("/ghi/jkl", 8)).isFalse();
+    put("/ghi/jkl", 8);
     assertThat(map.sizeForDebugging()).isEqualTo(2);
     assertContains("/abc/def", 5);
     assertContains("/ghi/jkl", 7);
@@ -497,7 +497,7 @@ public final class ActionInputMapTest {
       Collections.shuffle(data);
       for (int i = 0; i < data.size(); ++i) {
         TestEntry entry = data.get(i);
-        assertThat(map.putWithNoDepOwner(entry.input, entry.metadata)).isTrue();
+        map.putWithNoDepOwner(entry.input, entry.metadata);
       }
       assertThat(map.sizeForDebugging()).isEqualTo(data.size());
       for (int i = 0; i < data.size(); ++i) {
@@ -507,8 +507,8 @@ public final class ActionInputMapTest {
     }
   }
 
-  private boolean put(String execPath, int value) {
-    return map.putWithNoDepOwner(new TestInput(execPath), TestMetadata.create(value));
+  private void put(String execPath, int value) {
+    map.putWithNoDepOwner(new TestInput(execPath), TestMetadata.create(value));
   }
 
   private void assertContains(String execPath, int value) {

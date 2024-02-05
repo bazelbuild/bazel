@@ -20,11 +20,12 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.util.io.MessageInputStream;
+import com.google.devtools.build.lib.util.io.MessageInputStreamWrapper.BinaryInputStreamWrapper;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -51,16 +52,20 @@ public final class StableSortTest {
     public void close() throws IOException {}
   }
 
-  ArrayList<SpawnExec> testStableSort(List<SpawnExec> list) throws Exception {
-    ListOutput o = new ListOutput();
+  private List<SpawnExec> testStableSort(List<SpawnExec> list) throws Exception {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     for (SpawnExec spawn : list) {
       spawn.writeDelimitedTo(baos);
     }
-    InputStream inputStream = new ByteArrayInputStream(baos.toByteArray());
 
-    StableSort.stableSort(inputStream, o);
-    return o.list;
+    MessageInputStream<SpawnExec> in =
+        new BinaryInputStreamWrapper<>(
+            new ByteArrayInputStream(baos.toByteArray()), SpawnExec.getDefaultInstance());
+
+    ListOutput out = new ListOutput();
+
+    StableSort.stableSort(in, out);
+    return out.list;
   }
 
   private static SpawnExec.Builder createSpawnExecBuilder(

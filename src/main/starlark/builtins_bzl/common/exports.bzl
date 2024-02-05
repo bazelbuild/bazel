@@ -22,10 +22,9 @@ load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 load("@_builtins//:common/cc/cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
 load("@_builtins//:common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
-load("@_builtins//:common/cc/cc_test_wrapper.bzl", "cc_test")
+load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
+load("@_builtins//:common/cc/cc_toolchain.bzl", "apple_cc_toolchain", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
-load("@_builtins//:common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
-load("@_builtins//:common/cc/cc_toolchain_wrapper.bzl", "apple_cc_toolchain", "cc_toolchain")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
@@ -37,6 +36,10 @@ load("@_builtins//:common/proto/proto_info.bzl", "ProtoInfo")
 load("@_builtins//:common/proto/proto_lang_toolchain.bzl", "proto_lang_toolchain")
 load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
 load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
+load(":common/cc/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
+load(":common/cc/fdo_profile.bzl", "fdo_profile")
+load(":common/cc/memprof_profile.bzl", "memprof_profile")
+load(":common/cc/propeller_optimize.bzl", "propeller_optimize")
 load(":common/java/java_binary_deploy_jar.bzl", get_java_build_info = "get_build_info")
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
@@ -87,6 +90,10 @@ exported_rules = {
     "java_package_configuration": java_package_configuration,
     "java_toolchain": java_toolchain,
     "java_runtime": java_runtime,
+    "fdo_prefetch_hints": fdo_prefetch_hints,
+    "fdo_profile": fdo_profile,
+    "memprof_profile": memprof_profile,
+    "propeller_optimize": propeller_optimize,
 }
 
 # A list of Starlark functions callable from native rules implementation.
@@ -97,8 +104,6 @@ exported_to_java = {
     "proto_common_experimental_should_generate_code": proto_common_do_not_use.experimental_should_generate_code,
     "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
     "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
-    "get_cc_toolchain_provider": get_cc_toolchain_provider,
-    "build_variables": cc_helper.build_variables,
     "j2objc_mapping_file_info_union": objc_common.j2objc_mapping_file_info_union,
     "j2objc_entry_class_info_union": objc_common.j2objc_entry_class_info_union,
     "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,

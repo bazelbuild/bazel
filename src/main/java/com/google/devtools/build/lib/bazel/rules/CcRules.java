@@ -14,22 +14,17 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcImportRule;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcModule;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcTestRule;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
-import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
@@ -38,14 +33,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
 import com.google.devtools.build.lib.rules.cpp.DebugPackageProvider;
-import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsProvider;
-import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsRule;
-import com.google.devtools.build.lib.rules.cpp.FdoProfileProvider;
-import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
-import com.google.devtools.build.lib.rules.cpp.MemProfProfileProvider;
-import com.google.devtools.build.lib.rules.cpp.MemProfProfileRule;
-import com.google.devtools.build.lib.rules.cpp.PropellerOptimizeProvider;
-import com.google.devtools.build.lib.rules.cpp.PropellerOptimizeRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -69,37 +56,27 @@ public class CcRules implements RuleSet {
     builder.addBzlToplevel("CcSharedLibraryInfo", Starlark.NONE);
     builder.addBzlToplevel("CcSharedLibraryHintInfo", Starlark.NONE);
     builder.addBzlToplevel("cc_proto_aspect", Starlark.NONE);
+    builder.addRuleDefinition(new EmptyRule("cc_proto_library") {});
 
     builder.addRuleDefinition(new CcToolchainRule());
     builder.addRuleDefinition(new CcToolchainSuiteRule());
     builder.addRuleDefinition(new CcToolchainAliasRule());
     builder.addRuleDefinition(new CcLibcTopAlias());
-    builder.addRuleDefinition(new CcImportRule());
     builder.addRuleDefinition(new CcToolchainRequiringRule());
-    builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());
-    builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());
-    builder.addRuleDefinition(new BazelCppRuleClasses.CcRule());
-    builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule());
-    builder.addRuleDefinition(new BazelCcBinaryRule());
-    builder.addRuleDefinition(new CcSharedLibraryRule());
-    builder.addRuleDefinition(new BazelCcTestRule());
-    builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
-    builder.addRuleDefinition(new BazelCcLibraryRule());
-    builder.addRuleDefinition(new BazelCcImportRule());
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_binary") {});
+    builder.addRuleDefinition(new EmptyRule("cc_shared_library") {});
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_test") {});
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_library") {});
+    builder.addRuleDefinition(new EmptyRule("cc_import") {});
     builder.addRuleDefinition(new CcIncludeScanningRule(/* addGrepIncludes= */ false));
-    builder.addRuleDefinition(new FdoProfileRule());
-    builder.addRuleDefinition(new FdoPrefetchHintsRule());
+    builder.addRuleDefinition(new EmptyRule("fdo_profile") {});
+    builder.addRuleDefinition(new EmptyRule("fdo_prefetch_hints") {});
     builder.addRuleDefinition(new CcLinkingRule());
-    builder.addRuleDefinition(new MemProfProfileRule());
-    builder.addRuleDefinition(new PropellerOptimizeRule());
+    builder.addRuleDefinition(new EmptyRule("memprof_profile") {});
+    builder.addRuleDefinition(new EmptyRule("propeller_optimize") {});
     builder.addStarlarkBuiltinsInternal(
         "StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal("CcNativeLibraryInfo", CcNativeLibraryInfo.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("FdoProfileInfo", FdoProfileProvider.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("FdoPrefetchHintsInfo", FdoPrefetchHintsProvider.PROVIDER);
-    builder.addStarlarkBuiltinsInternal(
-        "PropellerOptimizeInfo", PropellerOptimizeProvider.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("MemProfProfileInfo", MemProfProfileProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal("cc_common", bazelCcModule);
     builder.addStarlarkBootstrap(
         new CcBootstrap(

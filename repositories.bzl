@@ -15,8 +15,8 @@
 
 """
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
-load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 ##################################################################################
 #
@@ -37,6 +37,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "rules_go",
     "rules_java",
     "rules_jvm_external",
+    "rules_kotlin",
     "rules_graalvm",
     "rules_license",
     "rules_pkg",
@@ -54,7 +55,10 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "~grpc_repo_deps_ext~com_google_googleapis",
     "~grpc_repo_deps_ext~envoy_api",
     "~grpc_repo_deps_ext~rules_cc",  # TODO: Should be removed
-]]
+]] + [
+    # TODO(pcloudy): Remove after https://github.com/bazelbuild/rules_kotlin/issues/1106 is fixed
+    get_canonical_repo_name("rules_kotlin") + "~rules_kotlin_extensions~com_github_jetbrains_kotlin",
+]
 
 ##################################################################################
 #
@@ -77,20 +81,19 @@ def embedded_jdk_repositories():
         url = "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-linux_aarch64.tar.gz",
     )
 
-    # JDK21 unavailable so use JDK19 instead for linux s390x.
     http_file(
         name = "openjdk_linux_s390x_vanilla",
-        sha256 = "f2512f9a8e9847dd5d3557c39b485a8e7a1ef37b601dcbcb748d22e49f44815c",
+        sha256 = "0d5676c50821e0d0b951bf3ffd717e7a13be2a89d8848a5c13b4aedc6f982c78",
         downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%2B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
+        url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.2%2B13/OpenJDK21U-jdk_s390x_linux_hotspot_21.0.2_13.tar.gz",
     )
 
     # JDK21 unavailable so use JDK19 instead for linux ppc64le.
     http_file(
         name = "openjdk_linux_ppc64le_vanilla",
-        sha256 = "45dde71faf8cbb78fab3c976894259655c8d3de827347f23e0ebe5710921dded",
+        sha256 = "d08de863499d8851811c893e8915828f2cd8eb67ed9e29432a6b4e222d80a12f",
         downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin20-binaries/releases/download/jdk-20%2B36/OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
+        url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.2%2B13/OpenJDK21U-jdk_ppc64le_linux_hotspot_21.0.2_13.tar.gz",
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",

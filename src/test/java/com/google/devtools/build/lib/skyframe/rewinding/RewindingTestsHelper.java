@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
@@ -211,45 +212,31 @@ public class RewindingTestsHelper {
     return owners;
   }
 
-  public final List<SkyKey> collectOrderedRewoundKeys() {
-    return collectOrderedRewoundKeys(/* exactNestedSets= */ false);
-  }
-
-  final List<SkyKey> collectOrderedRewoundKeys(boolean exactNestedSets) {
-    List<SkyKey> rewoundKeys = new ArrayList<>();
-    testCase.injectListenerAtStartOfNextBuild(
-        collectOrderedRewoundKeysListener(rewoundKeys, exactNestedSets));
-    return rewoundKeys;
-  }
-
   /**
-   * Creates a {@link NotifyingHelper.Listener} that collects keys rewound by rewinding.
+   * Injects a {@link NotifyingHelper.Listener} that collects keys rewound by rewinding into the
+   * returned list, starting with the next build.
    *
-   * <p>This can be called instead of {@link #collectOrderedRewoundKeys} if it needs to be combined
-   * with other listeners, but then it must be {@linkplain
-   * com.google.devtools.build.skyframe.MemoizingEvaluator#injectGraphTransformerForTesting
-   * injected} manually.
-   *
-   * <p>To avoid brittle assertions on the number of keys rewound, {@link ArtifactNestedSetKey} may
-   * not be collected (depending on {@code exactNestedSets}), though it may be rewound. Its {@link
+   * <p>To avoid brittle assertions on the number of keys rewound, {@link ArtifactNestedSetKey} is
+   * not collected, though it may be rewound. Its {@link
    * com.google.devtools.build.lib.collect.nestedset.NestedSet} may contain multiple paths (of
    * varying length) to a lost artifact, any of which would be a correct chain for rewinding.
    */
-  public static NotifyingHelper.Listener collectOrderedRewoundKeysListener(
-      List<SkyKey> rewoundKeys, boolean exactNestedSets) {
-    return (key, type, order, context) -> {
-      if (type.equals(NotifyingHelper.EventType.MARK_DIRTY) && order.equals(Order.AFTER)) {
-        NotifyingHelper.MarkDirtyAfterContext markDirtyAfterContext =
-            (NotifyingHelper.MarkDirtyAfterContext) context;
-        if (markDirtyAfterContext.dirtyType() == DirtyType.REWIND
-            && markDirtyAfterContext.actuallyDirtied()
-            && (exactNestedSets || !(key instanceof ArtifactNestedSetKey))) {
-          synchronized (rewoundKeys) {
-            rewoundKeys.add(key);
+  public final List<SkyKey> collectOrderedRewoundKeys() {
+    List<SkyKey> rewoundKeys = Collections.synchronizedList(new ArrayList<>());
+    testCase.injectListenerAtStartOfNextBuild(
+        (key, type, order, context) -> {
+          if (type.equals(NotifyingHelper.EventType.MARK_DIRTY) && order.equals(Order.AFTER)) {
+            NotifyingHelper.MarkDirtyAfterContext markDirtyAfterContext =
+                (NotifyingHelper.MarkDirtyAfterContext) context;
+            if (markDirtyAfterContext.dirtyType() == DirtyType.REWIND
+                && markDirtyAfterContext.actuallyDirtied()
+                // Ignore ArtifactNestedSetKey. See method javadoc.
+                && !(key instanceof ArtifactNestedSetKey)) {
+              rewoundKeys.add(key);
+            }
           }
-        }
-      }
-    };
+        });
+    return rewoundKeys;
   }
 
   static void assertOnlyActionsRewound(List<SkyKey> rewoundKeys) {
@@ -2414,8 +2401,7 @@ public class RewindingTestsHelper {
     testCase.assertContainsError("Executing genrule //foo:fail failed");
   }
 
-  private void runFlakyActionFailsAfterRewind_raceWithIndirectConsumer(
-      NotifyingHelper.Listener synchronizingListener) throws Exception {
+  private void runFlakyActionFailsAfterRewind_raceWithIndirectConsumer() throws Exception {
     testCase.write(
         "foo/defs.bzl",
         "def _action_with_indirect_input(ctx):",
@@ -2449,14 +2435,7 @@ public class RewindingTestsHelper {
     Label flakyLost = Label.parseCanonical("//foo:flaky_lost");
 
     Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
-    List<SkyKey> rewoundKeys = new ArrayList<>();
-    NotifyingHelper.Listener rewoundKeysListener =
-        collectOrderedRewoundKeysListener(rewoundKeys, /* exactNestedSets= */ false);
-    testCase.injectListenerAtStartOfNextBuild(
-        (key, type, order, context) -> {
-          rewoundKeysListener.accept(key, type, order, context);
-          synchronizingListener.accept(key, type, order, context);
-        });
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
 
     assertThrows(
         BuildFailedException.class, () -> testCase.buildTarget("//foo:top1", "//foo:top2"));
@@ -2538,7 +2517,7 @@ public class RewindingTestsHelper {
               context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
         });
 
-    NotifyingHelper.Listener synchronizingListener =
+    testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (key instanceof ArtifactNestedSetKey
               && type == EventType.GET_BATCH
@@ -2552,9 +2531,9 @@ public class RewindingTestsHelper {
               && ValueWithMetadata.getMaybeErrorInfo((SkyValue) context) != null) {
             errorSet.countDown();
           }
-        };
+        });
 
-    runFlakyActionFailsAfterRewind_raceWithIndirectConsumer(synchronizingListener);
+    runFlakyActionFailsAfterRewind_raceWithIndirectConsumer();
   }
 
   /**
@@ -2620,7 +2599,7 @@ public class RewindingTestsHelper {
               context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
         });
 
-    NotifyingHelper.Listener synchronizingListener =
+    testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (isActionExecutionKey(key, Label.parseCanonicalUnchecked("//foo:flaky_lost"))
               && type == EventType.SET_VALUE
@@ -2628,9 +2607,39 @@ public class RewindingTestsHelper {
               && ValueWithMetadata.getMaybeErrorInfo((SkyValue) context) != null) {
             errorSet.countDown();
           }
-        };
+        });
 
-    runFlakyActionFailsAfterRewind_raceWithIndirectConsumer(synchronizingListener);
+    runFlakyActionFailsAfterRewind_raceWithIndirectConsumer();
+  }
+
+  public void runDiscoveredCppModuleLost() throws Exception {
+    testCase.write(
+        "foo/BUILD",
+        "package(features = ['header_modules', 'use_header_modules'])",
+        "cc_library(name = 'top', srcs = ['top.cc'], deps = [':dep'])",
+        "cc_library(name = 'dep', hdrs = ['dep.h'])");
+    testCase.write("foo/top.cc", "#include \"foo/dep.h\"");
+    testCase.write("foo/dep.h");
+
+    AtomicReference<Artifact> depPcm = new AtomicReference<>();
+    addSpawnShim(
+        "Compiling foo/top.cc",
+        (spawn, context) -> {
+          ActionInput lostInput = SpawnInputUtils.getInputWithName(spawn, "dep.pic.pcm");
+          depPcm.set((Artifact) lostInput);
+          return createLostInputsExecException(
+              context,
+              ImmutableList.of(lostInput),
+              new ActionInputDepOwnerMap(ImmutableList.of(lostInput)));
+        });
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
+
+    testCase.buildTarget("//foo:top");
+
+    verifyAllSpawnShimsConsumed();
+    assertThat(rewoundKeys).containsExactly(Artifact.key(depPcm.get()));
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Compiling foo/dep.cppmap", 2);
   }
 
   static boolean isActionExecutionKey(Object key, Label label) {

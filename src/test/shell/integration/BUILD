@@ -887,6 +887,27 @@ sh_library(
     srcs = ["config_stripped_outputs_lib.sh"],
 )
 
+sh_test(
+    name = "focus_test",
+    srcs = ["focus_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "platform_mapping_test",
+    srcs = ["platform_mapping_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 5,
+    tags = ["no_windows"],
+)
+
 ########################################################################
 # Test suites.
 

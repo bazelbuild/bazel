@@ -72,12 +72,18 @@ if [[ "$platform" == "windows" ]]; then
     prebuilt_zip_path="$(cygpath -m "${prebuilt_zip_path}")"
 fi
 
+# Temporary workaround for https://github.com/bazelbuild/bazel/issues/20753
+TEST_FLAGS=""
+if [[ "$platform" == "linux" ]]; then
+  TEST_FLAGS="--sandbox_tmpfs_path=/tmp"
+fi
+
 # Skip for now, as the test is broken on Windows.
 # See https://github.com/bazelbuild/bazel/issues/12244 for details
 if [[ "$platform" != "windows" ]]; then
     JAVA_VERSIONS=`cat src/test/shell/bazel/BUILD | grep '^JAVA_VERSIONS = ' | sed -e 's/JAVA_VERSIONS = //' | sed -e 's/["(),]//g'`
     for java_version in $JAVA_VERSIONS; do
-        bazel test --verbose_failures --test_output=all --nocache_test_results \
+        bazel test $TEST_FLAGS --verbose_failures --test_output=all --nocache_test_results \
             //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version} \
             --define=LOCAL_JAVA_TOOLS_ZIP_PATH="${zip_path}" \
             --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_PATH="${prebuilt_zip_path}"

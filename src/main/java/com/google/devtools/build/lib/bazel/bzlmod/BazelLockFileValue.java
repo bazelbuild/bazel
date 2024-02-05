@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
-import java.util.Arrays;
 import java.util.Map;
 
 /**
@@ -117,37 +116,5 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
       }
     }
     return moduleDiff.build();
-  }
-
-  /** Returns the differences between an extension and its locked data */
-  public ImmutableList<String> getModuleExtensionDiff(
-      ModuleExtensionId extensionId,
-      LockFileModuleExtension lockedExtension,
-      byte[] transitiveDigest,
-      boolean filesChanged,
-      ImmutableMap<String, String> envVariables,
-      ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> extensionUsages,
-      ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> lockedExtensionUsages) {
-
-    ImmutableList.Builder<String> extDiff = new ImmutableList.Builder<>();
-    if (!Arrays.equals(transitiveDigest, lockedExtension.getBzlTransitiveDigest())) {
-        extDiff.add(
-            "The implementation of the extension '"
-                + extensionId
-                + "' or one of its transitive .bzl files has changed");
-    }
-    if (filesChanged) {
-      extDiff.add("One or more files the extension '" + extensionId + "' is using have changed");
-    }
-    if (!extensionUsages.equals(lockedExtensionUsages)) {
-      extDiff.add("The usages of the extension '" + extensionId + "' have changed");
-    }
-    if (!envVariables.equals(lockedExtension.getEnvVariables())) {
-      extDiff.add(
-          "The environment variables the extension '"
-              + extensionId
-              + "' depends on (or their values) have changed");
-    }
-    return extDiff.build();
   }
 }

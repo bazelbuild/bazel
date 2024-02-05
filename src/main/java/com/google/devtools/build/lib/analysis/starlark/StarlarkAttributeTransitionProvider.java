@@ -80,6 +80,10 @@ public class StarlarkAttributeTransitionProvider
         starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap);
   }
 
+  public boolean allowImmutableFlagChanges() {
+    return false;
+  }
+
   @Override
   public TransitionType transitionType() {
     return TransitionType.ATTRIBUTE;
@@ -137,7 +141,12 @@ public class StarlarkAttributeTransitionProvider
       // we just use the original BuildOptions and trust the transition's enforcement logic.
       BuildOptions buildOptions = buildOptionsView.underlying();
       ImmutableMap<String, BuildOptions> res =
-          applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
+          applyAndValidate(
+              buildOptions,
+              starlarkDefinedConfigTransition,
+              allowImmutableFlagChanges(),
+              attrObject,
+              eventHandler);
       if (res == null) {
         return ImmutableMap.of("error", buildOptions.clone());
       }

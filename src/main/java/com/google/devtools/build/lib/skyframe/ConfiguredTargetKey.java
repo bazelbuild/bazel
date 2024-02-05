@@ -15,16 +15,17 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
 
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -35,6 +36,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -66,7 +68,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
 
   private final Label label;
   @Nullable private final BuildConfigurationKey configurationKey;
-  private final transient int hashCode;
+  private final int hashCode;
 
   private ConfiguredTargetKey(
       Label label, @Nullable BuildConfigurationKey configurationKey, int hashCode) {
@@ -234,7 +236,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
   }
 
   /** Returns the {@link ConfiguredTargetKey} that owns {@code configuredTarget}. */
-  public static ConfiguredTargetKey fromConfiguredTarget(ConfiguredTarget configuredTarget) {
+  public static ConfiguredTargetKey fromConfiguredTarget(CqueryNode configuredTarget) {
     // If configuredTarget is a MergedConfiguredTarget unwraps it first. MergedConfiguredTarget is
     // ephemeral and does not have a directly corresponding entry in Skyframe.
     //
@@ -244,7 +246,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
   }
 
   /** A helper class to create instances of {@link ConfiguredTargetKey}. */
-  public static final class Builder {
+  public static final class Builder implements Supplier<ConfiguredTargetKey> {
     private Label label = null;
     private BuildConfigurationKey configurationKey = null;
     private Label executionPlatformLabel = null;
@@ -309,6 +311,12 @@ public class ConfiguredTargetKey implements ActionLookupKey {
       }
       return interner.intern(newKey);
     }
+
+    /** Implements the {@link Supplier} used for deserialization. */
+    @Override
+    public ConfiguredTargetKey get() {
+      return build();
+    }
   }
 
   private static int computeHashCode(
@@ -332,7 +340,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
 
   /** Codec for all {@link ConfiguredTargetKey} subtypes. */
   @Keep
-  private static class ConfiguredTargetKeyCodec implements ObjectCodec<ConfiguredTargetKey> {
+  private static class ConfiguredTargetKeyCodec extends DeferredObjectCodec<ConfiguredTargetKey> {
     @Override
     public Class<ConfiguredTargetKey> getEncodedClass() {
       return ConfiguredTargetKey.class;
@@ -345,18 +353,34 @@ public class ConfiguredTargetKey implements ActionLookupKey {
       context.serialize(key.getLabel(), codedOut);
       context.serialize(key.getConfigurationKey(), codedOut);
       context.serialize(key.getExecutionPlatformLabel(), codedOut);
-      context.serialize(key.shouldApplyRuleTransition(), codedOut);
+      codedOut.writeBoolNoTag(key.shouldApplyRuleTransition());
     }
 
     @Override
-    public ConfiguredTargetKey deserialize(DeserializationContext context, CodedInputStream codedIn)
+    public Supplier<ConfiguredTargetKey> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      return builder()
-          .setLabel(context.deserialize(codedIn))
-          .setConfigurationKey(context.deserialize(codedIn))
-          .setExecutionPlatformLabel(context.deserialize(codedIn))
-          .setShouldApplyRuleTransition(context.deserialize(codedIn))
-          .build();
+      Builder builder = builder();
+      context.deserializeFully(codedIn, builder, LABEL_OFFSET);
+      context.deserializeFully(codedIn, builder, CONFIGURATION_KEY_OFFSET);
+      context.deserializeFully(codedIn, builder, EXECUTION_PLATFORM_LABEL_OFFSET);
+      return builder.setShouldApplyRuleTransition(codedIn.readBool());
+    }
+  }
+
+  // Below are Builder offsets, used for deserialization.
+
+  private static final long LABEL_OFFSET;
+  private static final long CONFIGURATION_KEY_OFFSET;
+  private static final long EXECUTION_PLATFORM_LABEL_OFFSET;
+
+  static {
+    try {
+      LABEL_OFFSET = getFieldOffset(Builder.class, "label");
+      CONFIGURATION_KEY_OFFSET = getFieldOffset(Builder.class, "configurationKey");
+      EXECUTION_PLATFORM_LABEL_OFFSET = getFieldOffset(Builder.class, "executionPlatformLabel");
+    } catch (NoSuchFieldException e) {
+      throw new ExceptionInInitializerError(e);
     }
   }
 }

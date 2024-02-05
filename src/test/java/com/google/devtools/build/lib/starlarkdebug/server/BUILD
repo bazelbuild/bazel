@@ -27,7 +27,7 @@ java_test(
     name = "StarlarkDebugServerTest",
     size = "medium",
     srcs = ["StarlarkDebugServerTest.java"],
-    jvm_flags = ["-Djava.net.preferIPv6Addresses=true"],  # https://github.com/bazelbuild/bazel/issues/5206
+    tags = ["requires-network"],  # https://github.com/bazelbuild/bazel/issues/20743
     deps = [
         ":utils",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -46,6 +46,7 @@ java_test(
 java_test(
     name = "DebugServerTransportTest",
     srcs = ["DebugServerTransportTest.java"],
+    tags = ["requires-network"],  # https://github.com/bazelbuild/bazel/issues/20743
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
@@ -76,6 +77,7 @@ java_test(
     size = "medium",
     srcs = ["StarlarkDebugIntegrationTest.java"],
     jvm_flags = ["-Djava.net.preferIPv6Addresses=true"],  # https://github.com/bazelbuild/bazel/issues/5206
+    shard_count = 4,
     deps = [
         ":utils",
         "//src/main/java/com/google/devtools/build/lib:runtime",

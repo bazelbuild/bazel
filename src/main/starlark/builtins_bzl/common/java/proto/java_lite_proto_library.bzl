@@ -138,8 +138,43 @@ def _rule_impl(ctx):
 
 java_lite_proto_library = rule(
     implementation = _rule_impl,
+    doc = """
+<p>
+<code>java_lite_proto_library</code> generates Java code from <code>.proto</code> files.
+</p>
+
+<p>
+<code>deps</code> must point to <a href="protocol-buffer.html#proto_library"><code>proto_library
+</code></a> rules.
+</p>
+
+<p>
+Example:
+</p>
+
+<pre class="code">
+<code class="lang-starlark">
+java_library(
+    name = "lib",
+    deps = [":foo"],
+)
+
+java_lite_proto_library(
+    name = "foo",
+    deps = [":bar"],
+)
+
+proto_library(
+    name = "bar",
+)
+</code>
+</pre>
+""",
     attrs = {
-        "deps": attr.label_list(providers = [ProtoInfo], aspects = [java_lite_proto_aspect]),
+        "deps": attr.label_list(providers = [ProtoInfo], aspects = [java_lite_proto_aspect], doc = """
+The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
+rules to generate Java code for.
+"""),
     } | toolchains.if_legacy_toolchain({
         PROTO_TOOLCHAIN_ATTR: attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -220,7 +219,7 @@ public final class CcCommon implements StarlarkValue {
 
       try {
         return CcCommon.computeCcFlags(ruleContext, toolchain);
-      } catch (RuleErrorException e) {
+      } catch (RuleErrorException | EvalException e) {
         throw new ExpansionException(e.getMessage());
       }
     }
@@ -404,9 +403,9 @@ public final class CcCommon implements StarlarkValue {
       Language language,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
-    cppSemantics.validateLayeringCheckFeatures(
-        ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
     try {
+      cppSemantics.validateLayeringCheckFeatures(
+          ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
       return configureFeaturesOrThrowEvalException(
           requestedFeatures,
           unsupportedFeatures,
@@ -594,7 +593,7 @@ public final class CcCommon implements StarlarkValue {
    * toolchain.
    */
   public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, InterruptedException, EvalException {
     CcToolchainProvider toolchainProvider = toolchain.get(CcToolchainProvider.PROVIDER);
 
     // Determine the original value of CC_FLAGS.
@@ -646,14 +645,7 @@ public final class CcCommon implements StarlarkValue {
     }
     if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
       try {
-        CcToolchainVariables buildVariables =
-            CcToolchainProvider.getBuildVars(
-                toolchainProvider,
-                ruleContext.getStarlarkThread(),
-                cppConfiguration,
-                ruleContext.getConfiguration().getOptions(),
-                ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu,
-                toolchainProvider.getBuildVarsFunc());
+        CcToolchainVariables buildVariables = toolchainProvider.getBuildVars();
       return CppHelper.getCommandLine(
           ruleContext, featureConfiguration, buildVariables, CppActionNames.CC_FLAGS_MAKE_VARIABLE);
 

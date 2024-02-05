@@ -186,6 +186,14 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalEnableAndroidMigrationApis;
 
   @Option(
+      name = "experimental_enable_first_class_macros",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      help = "If set to true, enables the `macro()` construct for defining first-class macros.")
+  public boolean experimentalEnableFirstClassMacros;
+
+  @Option(
       name = "experimental_enable_scl_dialect",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -459,17 +467,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleFixPackageGroupReporootSyntax;
 
   @Option(
-      name = "incompatible_visibility_private_attributes_at_definition",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, the visibility of private rule attributes is checked with respect "
-              + "to the rule definition, falling back to rule usage if not visible.")
-  public boolean incompatibleVisibilityPrivateAttributesAtDefinition;
-
-  @Option(
       name = "incompatible_no_attr_license",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -654,15 +651,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleMergeFixedAndDefaultShellEnv;
 
   @Option(
-      name = "incompatible_objc_provider_remove_linking_info",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, the ObjcProvider's APIs for linking info will be removed.")
-  public boolean incompatibleObjcProviderRemoveLinkingInfo;
-
-  @Option(
       name = "incompatible_disable_objc_library_transition",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -716,7 +704,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "separate_aspect_deps",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -763,6 +751,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
+            .setBool(EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, experimentalEnableFirstClassMacros)
             .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
             .setBool(ENABLE_WORKSPACE, enableWorkspace)
@@ -801,9 +790,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, incompatibleNoRuleOutputsParam)
             .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, incompatibleRunShellCommandString)
             .setBool(INCOMPATIBLE_STRUCT_HAS_NO_METHODS, incompatibleStructHasNoMethods)
-            .setBool(
-                INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION,
-                incompatibleVisibilityPrivateAttributesAtDefinition)
             .setBool(StarlarkSemantics.PRINT_TEST_MARKER, internalStarlarkFlagTestCanary)
             .setBool(
                 INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, incompatibleDoNotSplitLinkingCmdline)
@@ -827,9 +813,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV,
                 incompatibleMergeFixedAndDefaultShellEnv)
-            .setBool(
-                INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO,
-                incompatibleObjcProviderRemoveLinkingInfo)
             .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 incompatibleDisableObjcLibraryTransition)
@@ -872,6 +855,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
+  public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
+      "-experimental_enable_first_class_macros";
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "-experimental_enable_scl_dialect";
   public static final String ENABLE_BZLMOD = "+enable_bzlmod";
   public static final String ENABLE_WORKSPACE = "+enable_workspace";
@@ -920,16 +905,12 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
       "+incompatible_unambiguous_label_stringification";
-  public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
-      "+incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
       "-incompatible_top_level_aspects_require_providers";
   public static final String INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS =
       "-incompatible_disable_starlark_host_transitions";
   public static final String INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV =
       "+experimental_merge_fixed_and_default_shell_env";
-  public static final String INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO =
-      "-incompatible_objc_provider_remove_linking_info";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "+incompatible_disable_objc_library_transition";
   public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
@@ -941,7 +922,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS =
       "-incompatible_disable_target_default_provider_fields";
   public static final String EXPERIMENTAL_RULE_EXTENSION_API = "-experimental_rule_extension_api";
-  public static final String SEPARATE_ASPECT_DEPS = "-separate_aspect_deps";
+  public static final String SEPARATE_ASPECT_DEPS = "+separate_aspect_deps";
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
 

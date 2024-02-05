@@ -193,6 +193,7 @@ public final class SandboxModule extends BlazeModule {
       throws IOException, InterruptedException {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
     sandboxBase = computeSandboxBase(options, env);
+    Path trashBase = sandboxBase.getRelative("_moved_trash_dir");
 
     SandboxHelpers helpers = new SandboxHelpers();
 
@@ -210,7 +211,7 @@ public final class SandboxModule extends BlazeModule {
       }
     } else {
       if (!(treeDeleter instanceof AsynchronousTreeDeleter)) {
-        treeDeleter = new AsynchronousTreeDeleter();
+        treeDeleter = new AsynchronousTreeDeleter(trashBase);
       }
     }
     SandboxStash.initialize(env.getWorkspaceName(), env.getOutputBase(), options);
@@ -225,6 +226,7 @@ public final class SandboxModule extends BlazeModule {
     }
     firstBuild = false;
     sandboxBase.createDirectoryAndParents();
+    trashBase.createDirectory();
 
     PathFragment windowsSandboxPath = PathFragment.create(options.windowsSandboxPath);
     boolean windowsSandboxSupported;

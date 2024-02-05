@@ -19,6 +19,7 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
       - "//src/main/java/..."
+      - "//src/tools/execlog/..."
     test_flags:
       - "--config=ci-linux"
       # Override REMOTE_NETWORK_ADDRESS since bazel_sandboxing_networking_test doesn't work on this platform
@@ -37,9 +38,6 @@ tasks:
       - "//tools/compliance/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
       # These tests are not compatible with the gcov version of CentOS 7.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
@@ -99,8 +97,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/import_deps_checker/..."
     include_json_profile:
       - build
       - test
@@ -160,8 +156,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/import_deps_checker/..."
     include_json_profile:
       - build
       - test
@@ -197,9 +191,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       # MacOS does not have cgroups so it can't support hardened sandbox
@@ -225,17 +216,12 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      # Disable recently regressed tests: https://github.com/bazelbuild/bazel/issues/20437
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CppSysrootTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcImportConfiguredTargetTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcToolchainTest"
     include_json_profile:
       - build
       - test
   macos_arm64:
     shards: 2
+    xcode_version: "15.1"
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
@@ -264,9 +250,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       # MacOS does not have cgroups so it can't support hardened sandbox
@@ -344,13 +327,6 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      # Disable recently regressed tests: https://github.com/bazelbuild/bazel/issues/20437
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CppSysrootTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcImportConfiguredTargetTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcToolchainTest"
-      - "-//src/test/shell/integration:minimal_jdk_test"
       # https://github.com/bazelbuild/bazel/issues/17411
       - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
       # https://github.com/bazelbuild/bazel/issues/17447
@@ -474,9 +450,6 @@ tasks:
       - "-//src/test/shell/bazel:bazel_repository_cache_test"
       - "-//src/test/shell/integration:java_integration_test"
       - "-//src/test/java/com/google/devtools/build/lib/sandbox/..."
-      # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
       # We hit connection timeout error when downloading multiple URLs on RBE, see b/217865760
       - "-//src/test/py/bazel:bazel_module_test"
       - "-//src/test/py/bazel:bazel_lockfile_test"

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -57,6 +56,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -64,7 +64,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
 /**
@@ -82,7 +81,8 @@ public final class CcCompilationHelper {
    * according to the FDO configuration. This method does nothing If FDO is disabled.
    */
   private void configureFdoBuildVariables(
-      Map<String, String> variablesBuilder, String fdoInstrument, String csFdoInstrument) {
+      Map<String, String> variablesBuilder, String fdoInstrument, String csFdoInstrument)
+      throws EvalException {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       variablesBuilder.put(
           CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
@@ -146,7 +146,7 @@ public final class CcCompilationHelper {
   }
 
   /** Returns whether Propeller profiles should be passed to a compile action. */
-  private boolean shouldPassPropellerProfiles() {
+  private boolean shouldPassPropellerProfiles() throws EvalException {
     if (ccToolchain.isToolConfiguration()) {
       // Propeller doesn't make much sense for host builds.
       return false;
@@ -163,7 +163,7 @@ public final class CcCompilationHelper {
   }
 
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private NestedSet<Artifact> getAuxiliaryFdoInputs() {
+  private NestedSet<Artifact> getAuxiliaryFdoInputs() throws EvalException {
     NestedSetBuilder<Artifact> auxiliaryInputs = NestedSetBuilder.stableOrder();
 
     if (fdoContext.getPrefetchHintsArtifact() != null) {
@@ -434,6 +434,7 @@ public final class CcCompilationHelper {
    * Add the corresponding files as public textual header files. These files will not be compiled
    * into a target's header module, but will be made visible as textual includes to dependent rules.
    */
+  @CanIgnoreReturnValue
   public CcCompilationHelper addPublicTextualHeaders(NestedSet<Artifact> textualHeaders) {
     return addPublicTextualHeaders(textualHeaders.toList());
   }
@@ -516,6 +517,7 @@ public final class CcCompilationHelper {
    * Add the corresponding files as source files. These may also be header files, in which case they
    * will not be compiled, but also not made visible as includes to dependent rules.
    */
+  @CanIgnoreReturnValue
   public CcCompilationHelper addSources(Artifact... sources) {
     return addSources(Arrays.asList(sources));
   }
@@ -764,59 +766,59 @@ public final class CcCompilationHelper {
     StarlarkFunction initCcCompilationContext =
         (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("init_cc_compilation_context");
     ruleContext.initStarlarkRuleContext();
-    return (Tuple)
-        ruleContext.callStarlarkOrThrowRuleError(
-            initCcCompilationContext,
-            ImmutableList.of(
-                /* ctx */ ruleContext.getStarlarkRuleContext(),
-                /* binfiles_dir */ ruleContext.getBinFragment().getPathString(),
-                /* genfiles_dir */ ruleContext.getGenfilesFragment().getPathString(),
-                /* label */ label,
-                /* config */ configuration,
-                /* quote_include_dirs */ convertPathFragmentsToStarlarkList(quoteIncludeDirs),
-                /* framework_include_dirs */ convertPathFragmentsToStarlarkList(
-                    frameworkIncludeDirs),
-                /* system_include_dirs */ convertPathFragmentsToStarlarkList(systemIncludeDirs),
-                /* include_dirs */ convertPathFragmentsToStarlarkList(includeDirs),
-                /* feature_configuration */ FeatureConfigurationForStarlark.from(
-                    featureConfiguration,
-                    cppConfiguration,
-                    ruleContext.getConfiguration().getOptions()),
-                /* public_headers_artifacts */ StarlarkList.immutableCopyOf(publicHeaders),
-                /* include_prefix */ includePrefix == null ? Starlark.NONE : includePrefix,
-                /* strip_include_prefix */ stripIncludePrefix == null
-                    ? Starlark.NONE
-                    : stripIncludePrefix,
-                /* non_module_map_headers */ StarlarkList.immutableCopyOf(nonModuleMapHeaders),
-                /* cc_toolchain_compilation_context */ ccToolchain == null
-                    ? Starlark.NONE
-                    : ccToolchain.getCcCompilationContext(),
-                /* defines */ StarlarkList.immutableCopyOf(defines),
-                /* local_defines */ StarlarkList.immutableCopyOf(localDefines),
-                /* public_textual_headers */ StarlarkList.immutableCopyOf(publicTextualHeaders),
-                /* private_headers_artifacts */ StarlarkList.immutableCopyOf(privateHeaders),
-                /* additional_inputs */ StarlarkList.immutableCopyOf(additionalInputs),
-                /* separate_module_headers */ StarlarkList.immutableCopyOf(separateModuleHeaders),
-                /* generate_module_map */ generateModuleMap,
-                /* generate_pic_action */ generatePicAction,
-                /* generate_no_pic_action */ generateNoPicAction,
-                /* module_map */ cppModuleMap == null ? Starlark.NONE : cppModuleMap,
-                /* propagate_module_map_to_compile_action */ propagateModuleMapToCompileAction,
-                /* additional_exported_headers */ convertPathFragmentsToStarlarkList(
-                    additionalExportedHeaders),
-                /* deps */ StarlarkList.immutableCopyOf(deps),
-                /* purpose */ purpose,
-                /* implementation_deps */ StarlarkList.immutableCopyOf(implementationDeps),
-                /* additional_cpp_module_maps */ StarlarkList.immutableCopyOf(
-                    additionalCppModuleMaps)),
-            ImmutableMap.of());
+    try {
+      return (Tuple)
+          ruleContext.callStarlarkOrThrowRuleError(
+              initCcCompilationContext,
+              ImmutableList.of(
+                  /* ctx */ ruleContext.getStarlarkRuleContext(),
+                  /* binfiles_dir */ ruleContext.getBinFragment().getPathString(),
+                  /* genfiles_dir */ ruleContext.getGenfilesFragment().getPathString(),
+                  /* label */ label,
+                  /* config */ configuration,
+                  /* quote_include_dirs */ convertPathFragmentsToStarlarkList(quoteIncludeDirs),
+                  /* framework_include_dirs */ convertPathFragmentsToStarlarkList(
+                      frameworkIncludeDirs),
+                  /* system_include_dirs */ convertPathFragmentsToStarlarkList(systemIncludeDirs),
+                  /* include_dirs */ convertPathFragmentsToStarlarkList(includeDirs),
+                  /* feature_configuration */ FeatureConfigurationForStarlark.from(
+                      featureConfiguration,
+                      cppConfiguration,
+                      ruleContext.getConfiguration().getOptions()),
+                  /* public_headers_artifacts */ StarlarkList.immutableCopyOf(publicHeaders),
+                  /* include_prefix */ includePrefix == null ? Starlark.NONE : includePrefix,
+                  /* strip_include_prefix */ stripIncludePrefix == null
+                      ? Starlark.NONE
+                      : stripIncludePrefix,
+                  /* non_module_map_headers */ StarlarkList.immutableCopyOf(nonModuleMapHeaders),
+                  /* cc_toolchain_compilation_context */ ccToolchain == null
+                      ? Starlark.NONE
+                      : ccToolchain.getCcInfo().getCcCompilationContext(),
+                  /* defines */ StarlarkList.immutableCopyOf(defines),
+                  /* local_defines */ StarlarkList.immutableCopyOf(localDefines),
+                  /* public_textual_headers */ StarlarkList.immutableCopyOf(publicTextualHeaders),
+                  /* private_headers_artifacts */ StarlarkList.immutableCopyOf(privateHeaders),
+                  /* additional_inputs */ StarlarkList.immutableCopyOf(additionalInputs),
+                  /* separate_module_headers */ StarlarkList.immutableCopyOf(separateModuleHeaders),
+                  /* generate_module_map */ generateModuleMap,
+                  /* generate_pic_action */ generatePicAction,
+                  /* generate_no_pic_action */ generateNoPicAction,
+                  /* module_map */ cppModuleMap == null ? Starlark.NONE : cppModuleMap,
+                  /* propagate_module_map_to_compile_action */ propagateModuleMapToCompileAction,
+                  /* additional_exported_headers */ convertPathFragmentsToStarlarkList(
+                      additionalExportedHeaders),
+                  /* deps */ StarlarkList.immutableCopyOf(deps),
+                  /* purpose */ purpose,
+                  /* implementation_deps */ StarlarkList.immutableCopyOf(implementationDeps),
+                  /* additional_cpp_module_maps */ StarlarkList.immutableCopyOf(
+                      additionalCppModuleMaps)),
+              ImmutableMap.of());
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
   }
 
-  /**
-   * Create the C++ compile actions, and the corresponding compilation related providers.
-   *
-   * @throws RuleErrorException
-   */
+  /** Create the C++ compile actions, and the corresponding compilation related providers. */
   public CompilationInfo compile(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
 
@@ -844,15 +846,19 @@ public final class CcCompilationHelper {
         "All cc rules must support module maps.");
 
     // Create compile actions (both PIC and no-PIC).
-    CcCompilationOutputs ccOutputs = createCcCompileActions(ruleContext.getStarlarkThread());
+    try {
+      CcCompilationOutputs ccOutputs = createCcCompileActions();
 
-    if (cppConfiguration.processHeadersInDependencies()) {
-      return new CompilationInfo(
-          CcCompilationContext.createWithExtraHeaderTokens(
-              publicCompilationContext, ccOutputs.getHeaderTokenFiles()),
-          ccOutputs);
-    } else {
-      return new CompilationInfo(publicCompilationContext, ccOutputs);
+      if (cppConfiguration.processHeadersInDependencies()) {
+        return new CompilationInfo(
+            CcCompilationContext.createWithExtraHeaderTokens(
+                publicCompilationContext, ccOutputs.getHeaderTokenFiles()),
+            ccOutputs);
+      } else {
+        return new CompilationInfo(publicCompilationContext, ccOutputs);
+      }
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
     }
   }
 
@@ -914,15 +920,17 @@ public final class CcCompilationHelper {
     for (Artifact source : sourceArtifacts) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
-      count.put(outputName.toLowerCase(), count.getOrDefault(outputName.toLowerCase(), 0) + 1);
+      count.put(
+          outputName.toLowerCase(Locale.ROOT),
+          count.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0) + 1);
     }
 
     for (Artifact source : sourceArtifacts) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
-      if (count.getOrDefault(outputName.toLowerCase(), 0) > 1) {
-        int num = number.getOrDefault(outputName.toLowerCase(), 0);
-        number.put(outputName.toLowerCase(), num + 1);
+      if (count.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0) > 1) {
+        int num = number.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0);
+        number.put(outputName.toLowerCase(Locale.ROOT), num + 1);
         outputName = num + "/" + outputName;
       }
       // If prefixDir is set, prepend it to the outputName
@@ -971,33 +979,32 @@ public final class CcCompilationHelper {
    * file. It takes into account coverage, and PIC, in addition to using the settings specified on
    * the current object. This method should only be called once.
    */
-  private CcCompilationOutputs createCcCompileActions(StarlarkThread thread)
-      throws RuleErrorException, InterruptedException {
+  private CcCompilationOutputs createCcCompileActions()
+      throws RuleErrorException, EvalException, InterruptedException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
 
     if (shouldProvideHeaderModules()) {
       CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
       Label moduleMapLabel = Label.parseCanonicalUnchecked(cppModuleMap.getName());
-      ImmutableList<Artifact> modules = createModuleAction(thread, result, cppModuleMap);
-      Collection<Artifact> separateModules = ImmutableList.of();
+      ImmutableList<Artifact> modules = createModuleAction(result, cppModuleMap);
+      ImmutableList<Artifact> separateModules = ImmutableList.of();
       if (!separateModuleHeaders.isEmpty()) {
         CppModuleMap separateMap =
             new CppModuleMap(
                 cppModuleMap.getArtifact(),
                 cppModuleMap.getName() + CppModuleMap.SEPARATE_MODULE_SUFFIX);
-        separateModules = createModuleAction(thread, result, separateMap);
+        separateModules = createModuleAction(result, separateMap);
       }
       if (featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULE_CODEGEN)) {
         for (Artifact module : Iterables.concat(modules, separateModules)) {
           // TODO(djasper): Investigate whether we need to use a label separate from that of the
           // module map. It is used for per-file-copts.
-          createModuleCodegenAction(thread, result, moduleMapLabel, module);
+          createModuleCodegenAction(result, moduleMapLabel, module);
         }
       }
     }
 
-    ImmutableMap<Artifact, String> outputNameMap;
     String outputNamePrefixDir = null;
     // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
     // Here we use it to distinguish arc and non-arc compilation.
@@ -1005,7 +1012,8 @@ public final class CcCompilationHelper {
     if (purpose.endsWith("_objc_arc")) {
       outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
     }
-    outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
+    ImmutableMap<Artifact, String> outputNameMap =
+        calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
 
     Set<String> compiledBasenames = new HashSet<>();
     for (CppSource source : compilationUnitSources.values()) {
@@ -1032,7 +1040,6 @@ public final class CcCompilationHelper {
       if (!sourceArtifact.isTreeArtifact()) {
         compiledBasenames.add(Files.getNameWithoutExtension(sourceArtifact.getExecPathString()));
         createSourceAction(
-            thread,
             sourceLabel,
             outputName,
             result,
@@ -1058,7 +1065,6 @@ public final class CcCompilationHelper {
           case HEADER:
             Artifact headerTokenFile =
                 createCompileActionTemplate(
-                    thread,
                     source,
                     outputName,
                     builder,
@@ -1074,7 +1080,6 @@ public final class CcCompilationHelper {
             if (generateNoPicAction) {
               Artifact objectFile =
                   createCompileActionTemplate(
-                      thread,
                       source,
                       outputName,
                       builder,
@@ -1088,7 +1093,6 @@ public final class CcCompilationHelper {
             if (generatePicAction) {
               Artifact picObjectFile =
                   createCompileActionTemplate(
-                      thread,
                       source,
                       outputName,
                       builder,
@@ -1122,14 +1126,13 @@ public final class CcCompilationHelper {
           .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
 
       String outputName = outputNameMap.get(artifact);
-      createHeaderAction(thread, source.getLabel(), outputName, result, builder);
+      createHeaderAction(source.getLabel(), outputName, result, builder);
     }
 
     return result.build();
   }
 
   private Artifact createCompileActionTemplate(
-      StarlarkThread thread,
       CppSource source,
       String outputName,
       CppCompileActionBuilder builder,
@@ -1137,7 +1140,7 @@ public final class CcCompilationHelper {
       ImmutableList<ArtifactCategory> outputCategories,
       boolean usePic,
       boolean bitcodeOutput)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, EvalException, InterruptedException {
     if (usePic) {
       builder = new CppCompileActionBuilder(builder).setPicMode(true);
     }
@@ -1149,7 +1152,6 @@ public final class CcCompilationHelper {
     builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null);
     builder.setVariables(
         setupCompileBuildVariables(
-            thread,
             builder,
             /* sourceLabel= */ null,
             usePic,
@@ -1199,18 +1201,22 @@ public final class CcCompilationHelper {
         && ((RuleContext) actionConstructionContext).useAutoExecGroups()) {
       actionOwner = actionConstructionContext.getActionOwner(semantics.getCppToolchainType());
     }
-    CppCompileActionTemplate actionTemplate =
-        new CppCompileActionTemplate(
-            sourceArtifact,
-            outputFiles,
-            dotdTreeArtifact,
-            diagnosticsTreeArtifact,
-            ltoIndexTreeArtifact,
-            builder,
-            ccToolchain,
-            outputCategories,
-            actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner);
-    actionRegistry.registerAction(actionTemplate);
+    try {
+      CppCompileActionTemplate actionTemplate =
+          new CppCompileActionTemplate(
+              sourceArtifact,
+              outputFiles,
+              dotdTreeArtifact,
+              diagnosticsTreeArtifact,
+              ltoIndexTreeArtifact,
+              builder,
+              ccToolchain,
+              outputCategories,
+              actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner);
+      actionRegistry.registerAction(actionTemplate);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
 
     return outputFiles;
   }
@@ -1258,7 +1264,6 @@ public final class CcCompilationHelper {
   }
 
   private CcToolchainVariables setupCompileBuildVariables(
-      StarlarkThread thread,
       CppCompileActionBuilder builder,
       Label sourceLabel,
       boolean usePic,
@@ -1269,7 +1274,7 @@ public final class CcCompilationHelper {
       Artifact dwoFile,
       Artifact ltoIndexingFile,
       ImmutableMap<String, String> additionalBuildVariables)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, EvalException, InterruptedException {
     Artifact sourceFile = builder.getSourceFile();
     String dotdFileExecPath = null;
     if (builder.getDotdFile() != null) {
@@ -1308,14 +1313,7 @@ public final class CcCompilationHelper {
       }
       CcToolchainVariables cctoolchainVariables;
       try {
-        cctoolchainVariables =
-            CcToolchainProvider.getBuildVars(
-                ccToolchain,
-                thread,
-                cppConfiguration,
-                configuration.getOptions(),
-                configuration.getOptions().get(CoreOptions.class).cpu,
-                ccToolchain.getBuildVarsFunc());
+        cctoolchainVariables = ccToolchain.getBuildVars();
       } catch (EvalException e) {
         throw new RuleErrorException(e.getMessage());
       }
@@ -1392,11 +1390,8 @@ public final class CcCompilationHelper {
   }
 
   private void createModuleCodegenAction(
-      StarlarkThread thread,
-      CcCompilationOutputs.Builder result,
-      Label sourceLabel,
-      Artifact module)
-      throws RuleErrorException, InterruptedException {
+      CcCompilationOutputs.Builder result, Label sourceLabel, Artifact module)
+      throws RuleErrorException, EvalException, InterruptedException {
     String outputName = module.getRootRelativePath().getBaseName();
 
     // TODO(djasper): Make this less hacky after refactoring how the PIC/noPIC actions are created.
@@ -1433,7 +1428,6 @@ public final class CcCompilationHelper {
 
     builder.setVariables(
         setupCompileBuildVariables(
-            thread,
             builder,
             sourceLabel,
             /* usePic= */ pic,
@@ -1461,12 +1455,11 @@ public final class CcCompilationHelper {
   }
 
   private void createHeaderAction(
-      StarlarkThread thread,
       Label sourceLabel,
       String outputName,
       CcCompilationOutputs.Builder result,
       CppCompileActionBuilder builder)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, EvalException, InterruptedException {
     String outputNameBase =
         CppHelper.getArtifactNameForCategory(
             ccToolchain, ArtifactCategory.GENERATED_HEADER, outputName);
@@ -1482,7 +1475,6 @@ public final class CcCompilationHelper {
         .setPicMode(generatePicAction);
     builder.setVariables(
         setupCompileBuildVariables(
-            thread,
             builder,
             sourceLabel,
             generatePicAction,
@@ -1502,8 +1494,8 @@ public final class CcCompilationHelper {
   }
 
   private ImmutableList<Artifact> createModuleAction(
-      StarlarkThread thread, CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap)
-      throws RuleErrorException, InterruptedException {
+      CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap)
+      throws RuleErrorException, EvalException, InterruptedException {
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
     CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact);
 
@@ -1513,7 +1505,6 @@ public final class CcCompilationHelper {
     // - the compiled source file is the module map
     // - it creates a header module (.pcm file).
     return createSourceAction(
-        thread,
         label,
         Paths.get(label.getName()).getFileName().toString(),
         result,
@@ -1529,7 +1520,6 @@ public final class CcCompilationHelper {
 
   @CanIgnoreReturnValue
   private ImmutableList<Artifact> createSourceAction(
-      StarlarkThread thread,
       Label sourceLabel,
       String outputName,
       CcCompilationOutputs.Builder result,
@@ -1541,7 +1531,7 @@ public final class CcCompilationHelper {
       boolean enableCoverage,
       boolean generateDwo,
       boolean bitcodeOutput)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, EvalException, InterruptedException {
     ImmutableList.Builder<Artifact> directOutputs = new ImmutableList.Builder<>();
     PathFragment ccRelativeName = sourceArtifact.getRootRelativePath();
 
@@ -1566,7 +1556,6 @@ public final class CcCompilationHelper {
 
       picBuilder.setVariables(
           setupCompileBuildVariables(
-              thread,
               picBuilder,
               sourceLabel,
               /* usePic= */ true,
@@ -1580,7 +1569,6 @@ public final class CcCompilationHelper {
 
       result.addTemps(
           createTempsActions(
-              thread,
               sourceArtifact,
               sourceLabel,
               outputName,
@@ -1642,7 +1630,6 @@ public final class CcCompilationHelper {
 
       builder.setVariables(
           setupCompileBuildVariables(
-              thread,
               builder,
               sourceLabel,
               /* usePic= */ false,
@@ -1656,7 +1643,6 @@ public final class CcCompilationHelper {
 
       result.addTemps(
           createTempsActions(
-              thread,
               sourceArtifact,
               sourceLabel,
               outputName,
@@ -1780,14 +1766,13 @@ public final class CcCompilationHelper {
 
   /** Create the actions for "--save_temps". */
   private ImmutableList<Artifact> createTempsActions(
-      StarlarkThread thread,
       Artifact source,
       Label sourceLabel,
       String outputName,
       CppCompileActionBuilder builder,
       boolean usePic,
       PathFragment ccRelativeName)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, EvalException, InterruptedException {
     if (!cppConfiguration.getSaveTemps()) {
       return ImmutableList.of();
     }
@@ -1812,7 +1797,6 @@ public final class CcCompilationHelper {
         actionConstructionContext, ruleErrorConsumer, label, category, outputArtifactNameBase);
     dBuilder.setVariables(
         setupCompileBuildVariables(
-            thread,
             dBuilder,
             sourceLabel,
             usePic,
@@ -1839,7 +1823,6 @@ public final class CcCompilationHelper {
         outputArtifactNameBase);
     sdBuilder.setVariables(
         setupCompileBuildVariables(
-            thread,
             sdBuilder,
             sourceLabel,
             usePic,

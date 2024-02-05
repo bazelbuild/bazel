@@ -123,12 +123,15 @@ public class OutputFileTest extends PackageLoadingTestCase {
   @Test
   public void testDuplicateOutputFilesInSameRule() throws Exception {
     scratch.file(
-        "two_outs/BUILD", "genrule(name='a', cmd='ls >$(location out)',outs=['out', 'out'])");
+        "two_outs/BUILD",
+        "genrule(",
+        "    name='a',",
+        "    cmd='ls >$(location out)',",
+        "    outs=['out', 'out'],",
+        ")");
     reporter.removeHandler(failFastHandler);
     getTarget("//two_outs:BUILD");
-    assertContainsEvent(
-        "generated file 'out' in rule 'a' conflicts with "
-            + "existing generated file from rule 'a'");
+    assertContainsEvent("rule 'a' has more than one generated file named 'out'");
   }
 
   @Test

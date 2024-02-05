@@ -35,9 +35,6 @@ import javax.annotation.Nullable;
  *   <li>'binary': The dylib binary artifact of the dynamic framework
  *   <li>'cc_info': A {@link CcInfo} which contains information about the transitive dependencies
  *       linked into the binary.
- *   <li>'objc': An {@link ObjcProvider} which contains information about the transitive
- *       dependencies linked into the binary, (intended so that bundle loaders depending on this
- *       executable may avoid relinking symbols included in the loadable binary
  * </ul>
  */
 @Immutable
@@ -56,17 +53,14 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
   private final NestedSet<Artifact> dynamicFrameworkFiles;
   @Nullable private final Artifact dylibBinary;
   private final CcInfo depsCcInfo;
-  private final ObjcProvider depsObjcProvider;
 
   public AppleDynamicFrameworkInfo(
       @Nullable Artifact dylibBinary,
       CcInfo depsCcInfo,
-      ObjcProvider depsObjcProvider,
       NestedSet<String> dynamicFrameworkDirs,
       NestedSet<Artifact> dynamicFrameworkFiles) {
     this.dylibBinary = dylibBinary;
     this.depsCcInfo = depsCcInfo;
-    this.depsObjcProvider = depsObjcProvider;
     this.dynamicFrameworkDirs = dynamicFrameworkDirs;
     this.dynamicFrameworkFiles = dynamicFrameworkFiles;
   }
@@ -94,10 +88,5 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
   @Override
   public CcInfo getDepsCcInfo() {
     return depsCcInfo;
-  }
-
-  @Override
-  public ObjcProvider getDepsObjcProvider() {
-    return depsObjcProvider;
   }
 }

@@ -147,6 +147,9 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.CHANGES_INPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
+      metadataTags = {
+        OptionMetadataTag.IMMUTABLE,
+      },
       help =
           "The location of a mapping file that describes which platform to use if none is set or "
               + "which flags to set when a platform already exists. Must be relative to the main "

@@ -21,10 +21,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.util.CommandDescriptionForm;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.LinkedHashSet;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -37,6 +40,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   /** Mnemonic of the action running in this spawn. */
   private final String mnemonic;
 
+  @Nullable private final ImmutableList<String> interactiveDebugArguments;
+
   public SymlinkedSandboxedSpawn(
       Path sandboxPath,
       Path sandboxExecRoot,
@@ -48,6 +53,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       TreeDeleter treeDeleter,
       @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath,
+      @Nullable ImmutableList<String> interactiveDebugArguments,
       String mnemonic) {
     super(
         sandboxPath,
@@ -62,6 +68,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         statisticsPath,
         mnemonic);
     this.mnemonic = isNullOrEmpty(mnemonic) ? "_NoMnemonic_" : mnemonic;
+    this.interactiveDebugArguments = interactiveDebugArguments;
   }
 
   @Override
@@ -82,7 +89,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
           inputs,
           inputsToCreate,
           dirsToCreate,
-          sandboxExecRoot);
+          sandboxExecRoot,
+          treeDeleter);
     }
   }
 
@@ -95,5 +103,24 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   public void delete() {
     SandboxStash.stashSandbox(sandboxPath, mnemonic);
     super.delete();
+  }
+
+  @Nullable
+  @Override
+  public Optional<String> getInteractiveDebugInstructions() {
+    if (interactiveDebugArguments == null) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        "Run this command to start an interactive shell in an identical sandboxed environment:\n"
+            + CommandFailureUtils.describeCommand(
+                CommandDescriptionForm.COMPLETE,
+                /* prettyPrintArgs= */ false,
+                interactiveDebugArguments,
+                getEnvironment(),
+                /* environmentVariablesToClear= */ null,
+                /* cwd= */ null,
+                /* configurationChecksum= */ null,
+                /* executionPlatformLabel= */ null));
   }
 }

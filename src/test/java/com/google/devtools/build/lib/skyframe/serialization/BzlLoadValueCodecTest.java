@@ -17,6 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableTable;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -29,6 +31,10 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link BzlLoadValue} serialization. */
 @RunWith(JUnit4.class)
 public class BzlLoadValueCodecTest {
+  private static final ImmutableTable<RepositoryName, String, RepositoryName> SOME_TABLE =
+      ImmutableTable.of(
+          RepositoryName.createUnvalidated("foo"), "bar", RepositoryName.createUnvalidated("quux"));
+
   @Test
   public void objectCodecTests() throws Exception {
     Module module = Module.create();
@@ -37,13 +43,14 @@ public class BzlLoadValueCodecTest {
     module.setGlobal("c", 3);
     byte[] digest = "dummy".getBytes(ISO_8859_1);
 
-    new SerializationTester(new BzlLoadValue(module, digest, BzlVisibility.PUBLIC))
+    new SerializationTester(new BzlLoadValue(module, digest, BzlVisibility.PUBLIC, SOME_TABLE))
         .setVerificationFunction(
             (SerializationTester.VerificationFunction<BzlLoadValue>)
                 (x, y) -> {
                   if (!java.util.Arrays.equals(x.getTransitiveDigest(), y.getTransitiveDigest())) {
                     throw new AssertionError("unequal digests after serialization");
                   }
+                  assertThat(x.getRecordedRepoMappings()).isEqualTo(y.getRecordedRepoMappings());
                 })
         .runTestsWithoutStableSerializationCheck();
   }
@@ -64,6 +71,6 @@ public class BzlLoadValueCodecTest {
     module.setGlobal(name, value);
 
     byte[] digest = "dummy".getBytes(ISO_8859_1);
-    return new BzlLoadValue(module, digest, BzlVisibility.PUBLIC);
+    return new BzlLoadValue(module, digest, BzlVisibility.PUBLIC, SOME_TABLE);
   }
 }

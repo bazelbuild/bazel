@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
 /**
@@ -110,14 +109,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       }
     }
 
-    // Determine if we should use the new visibility rules for tools.
-    boolean toolCheckAtDefinition =
-        context
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION);
-
-    if (!toolCheckAtDefinition
-        || !attribute.isImplicit()
+    if (!attribute.isImplicit()
         || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
         || !context.isStarlarkRuleOrAspect()) {
       // Default check: The attribute must be visible from the target.
@@ -201,11 +193,17 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
               rule, AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND));
       context.ruleWarning(errorMessage);
     } else {
+      // Visibility error:
+      //   target '//land:land' is not visible from
+      //   target '//red_delicious:apple'
+      // Recommendation: ...
       String errorMessage =
           String.format(
-              "%s is not visible from target '%s'. Check "
-                  + "the visibility declaration of the former target if you think "
-                  + "the dependency is legitimate",
+              "Visibility error:\n"
+                  + "%s is not visible from\n"
+                  + "target '%s'\n"
+                  + "Recommendation: modify the visibility declaration if you think the dependency"
+                  + " is legitimate. For more info see https://bazel.build/concepts/visibility",
               AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND), rule);
 
       if (prerequisite.getTargetKind().equals(InputFile.targetKind())) {

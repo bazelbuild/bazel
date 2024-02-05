@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -57,12 +58,12 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -333,12 +334,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     return localFs.getPath(path).getOutputStream(append, internal);
-  }
-
-  @Override
-  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
-    downloadFileIfRemote(path);
-    return localFs.getPath(path).createReadableByteChannel();
   }
 
   @Override
@@ -622,14 +617,16 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
       }
     }
 
-    try {
-      return remoteOutputTree.stat(path, /* followSymlinks= */ false);
-    } catch (FileNotFoundException e) {
-      if (statSources == StatSources.ALL) {
-        return localFs.getPath(path).stat(Symlinks.NOFOLLOW);
-      }
-      throw e;
+    FileStatus stat = remoteOutputTree.statIfFound(path, /* followSymlinks= */ false);
+    if (stat != null) {
+      return stat;
     }
+
+    if (statSources == StatSources.ALL) {
+      return localFs.getPath(path).stat(Symlinks.NOFOLLOW);
+    }
+
+    throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
   }
 
   private static FileStatusWithMetadata statFromMetadata(FileArtifactValue m) {
@@ -781,55 +778,23 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected ImmutableList<String> getDirectoryEntries(PathFragment path) throws IOException {
-    HashSet<String> entries = new HashSet<>();
-
-    boolean found = false;
-
-    if (path.startsWith(execRoot)) {
-      var execPath = path.relativeTo(execRoot);
-      Collection<Dirent> treeEntries = inputTreeArtifactDirectoryCache.get(execPath);
-      if (treeEntries != null) {
-        for (var entry : treeEntries) {
-          entries.add(entry.getName());
-        }
-        found = true;
-      }
-    }
-
-    if (isOutput(path)) {
-      try {
-        remoteOutputTree.getPath(path).getDirectoryEntries().stream()
-            .map(Path::getBaseName)
-            .forEach(entries::add);
-        found = true;
-      } catch (FileNotFoundException ignored) {
-        // Will be rethrown below if directory exists on neither side.
-      }
-    }
-
-    try {
-      localFs.getPath(path).getDirectoryEntries().stream()
-          .map(Path::getBaseName)
-          .forEach(entries::add);
-    } catch (FileNotFoundException e) {
-      if (!found) {
-        throw e;
-      }
-    }
-
-    // sort entries to get a deterministic order.
-    return ImmutableList.sortedCopyOf(entries);
+  protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
+    return getDirectoryContents(path, /* followSymlinks= */ false, Dirent::getName);
   }
 
   @Override
   protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
       throws IOException {
-    HashMap<String, Dirent> entries = new HashMap<>();
+    return getDirectoryContents(path, followSymlinks, Function.identity());
+  }
 
-    boolean found = false;
-
+  private <T extends Comparable<T>> ImmutableSortedSet<T> getDirectoryContents(
+      PathFragment path, boolean followSymlinks, Function<Dirent, T> transformer)
+      throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
+
+    HashMap<String, Dirent> entries = new HashMap<>();
+    boolean found = false;
 
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
@@ -865,8 +830,12 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
       }
     }
 
-    // sort entries to get a deterministic order.
-    return ImmutableList.sortedCopyOf(entries.values());
+    // Sort entries to get a deterministic order.
+    ImmutableSortedSet.Builder<T> builder = ImmutableSortedSet.naturalOrder();
+    for (var entry : entries.values()) {
+      builder.add(transformer.apply(entry));
+    }
+    return builder.build();
   }
 
   private Dirent maybeFollowSymlinkForDirent(
@@ -952,6 +921,11 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
     @Override
     public InputStream getInputStream() throws IOException {
+      throw new IllegalStateException("Shouldn't be called directly");
+    }
+
+    @Override
+    public SeekableByteChannel createReadWriteByteChannel() throws IOException {
       throw new IllegalStateException("Shouldn't be called directly");
     }
 

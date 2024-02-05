@@ -373,11 +373,6 @@ public class OptionsParser implements OptionsParsingResult {
       return optionDefinition.isExpansionOption();
     }
 
-    /** Return a list of flags that this option expands to. */
-    public ImmutableList<String> getExpansion() throws OptionsParsingException {
-      return evaluatedExpansion;
-    }
-
     @Override
     public boolean equals(Object obj) {
       if (obj instanceof OptionDescription) {
@@ -523,55 +518,6 @@ public class OptionsParser implements OptionsParsingResult {
       }
     }
     return desc.toString().trim();
-  }
-
-  /**
-   * Returns a description of all the options this parser can digest. In addition to {@link Option}
-   * annotations, this method also interprets {@link OptionsUsage} annotations which give an
-   * intuitive short description for the options.
-   *
-   * @param categoryDescriptions a mapping from category names to category descriptions. Options of
-   *     the same category (see {@link Option#category}) will be grouped together, preceded by the
-   *     description of the category.
-   */
-  @Deprecated
-  public String describeOptionsHtmlWithDeprecatedCategories(
-      Map<String, String> categoryDescriptions, Escaper escaper) {
-    OptionsData data = impl.getOptionsData();
-    StringBuilder desc = new StringBuilder();
-    if (!data.getOptionsClasses().isEmpty()) {
-      List<OptionDefinition> allFields = new ArrayList<>();
-      for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
-        allFields.addAll(OptionsData.getAllOptionDefinitionsForClass(optionsClass));
-      }
-      Collections.sort(allFields, OptionDefinition.BY_CATEGORY);
-      String prevCategory = null;
-
-      for (OptionDefinition optionDefinition : allFields) {
-        String category = optionDefinition.getOptionCategory();
-        if (!category.equals(prevCategory)
-            && optionDefinition.getDocumentationCategory()
-                != OptionDocumentationCategory.UNDOCUMENTED) {
-          String description = categoryDescriptions.get(category);
-          if (description == null) {
-            description = "Options category '" + category + "'";
-          }
-          if (prevCategory != null) {
-            desc.append("</dl>\n\n");
-          }
-          desc.append(escaper.escape(description)).append(":\n");
-          desc.append("<dl>");
-          prevCategory = category;
-        }
-
-        if (optionDefinition.getDocumentationCategory()
-            != OptionDocumentationCategory.UNDOCUMENTED) {
-          OptionsUsage.getUsageHtml(optionDefinition, desc, escaper, impl.getOptionsData(), false);
-        }
-      }
-      desc.append("</dl>\n");
-    }
-    return desc.toString();
   }
 
   /**
@@ -847,10 +793,6 @@ public class OptionsParser implements OptionsParsingResult {
         : residue.stream()
             .filter(residue -> !postDoubleDashResidue.contains(residue))
             .collect(toImmutableList());
-  }
-
-  public List<String> getPostDoubleDashResidue() {
-    return ImmutableList.copyOf(postDoubleDashResidue);
   }
 
   /* Sets the residue (all elements parsed as non-options) to {@code residue}, as well as the part

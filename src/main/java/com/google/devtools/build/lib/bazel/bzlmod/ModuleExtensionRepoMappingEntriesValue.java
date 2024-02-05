@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -58,9 +59,14 @@ public abstract class ModuleExtensionRepoMappingEntriesValue implements SkyValue
       super(arg);
     }
 
-    @AutoCodec.Instantiator
-    static ModuleExtensionRepoMappingEntriesValue.Key create(ModuleExtensionId arg) {
+    private static ModuleExtensionRepoMappingEntriesValue.Key create(ModuleExtensionId arg) {
       return interner.intern(new ModuleExtensionRepoMappingEntriesValue.Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override

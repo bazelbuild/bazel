@@ -115,6 +115,7 @@ class TestBase(absltest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
+      f.write('common --nolegacy_external_runfiles\n')
       shared_repo_home = os.environ.get('TEST_REPOSITORY_HOME')
       if shared_repo_home and os.path.exists(shared_repo_home):
         for repo in self._SHARED_REPOS:
@@ -278,6 +279,20 @@ class TestBase(absltest.TestCase):
   def IsLinux():
     """Returns true if the current platform is Linux."""
     return sys.platform.startswith('linux')
+
+  def IsJunction(self, path):
+    """Returns whether a folder is a junction or not. Used with Windows folders.
+
+    Args:
+      path: string; an absolute path to a folder e.g. "C://foo/bar/aaa"
+    """
+    result = subprocess.run(
+        ['fsutil', 'reparsepoint', 'query', path],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0 and 'Reparse Tag Value' in result.stdout
 
   def Path(self, path):
     """Returns the absolute path of `path` relative to self._test_cwd.
@@ -562,7 +577,7 @@ class TestBase(absltest.TestCase):
         ]
 
         if not allow_failure:
-          self.AssertExitCode(exit_code, 0, stderr_lines)
+          self.AssertExitCode(exit_code, 0, stderr_lines, stdout_lines)
 
         return exit_code, stdout_lines, stderr_lines
 

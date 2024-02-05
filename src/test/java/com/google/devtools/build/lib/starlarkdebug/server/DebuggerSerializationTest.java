@@ -224,9 +224,6 @@ public final class DebuggerSerializationTest {
       return true;
     }
 
-    public boolean anotherMethod() {
-      return false;
-    }
   }
 
   @Test
@@ -254,9 +251,6 @@ public final class DebuggerSerializationTest {
       throw new IllegalArgumentException();
     }
 
-    public boolean anotherMethod() {
-      return false;
-    }
   }
 
   private static void assertTypeAndDescription(Object object, Value value) {

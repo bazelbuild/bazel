@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,6 +22,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -103,6 +106,29 @@ public interface SpawnLogContext extends ActionContext {
   }
 
   /**
+   * Determines whether an action input is a directory, avoiding I/O if possible.
+   *
+   * <p>Do not call for action outputs.
+   */
+  static boolean isInputDirectory(ActionInput input, InputMetadataProvider inputMetadataProvider)
+      throws IOException {
+    if (input.isDirectory()) {
+      return true;
+    }
+    if (input.isSymlink() || !(input instanceof SourceArtifact)) {
+      return false;
+    }
+    // A source artifact may be a directory in spite of claiming to be a file. Avoid unnecessary I/O
+    // by inspecting its metadata, which should have already been collected and cached.
+    FileArtifactValue metadata =
+        checkNotNull(
+            inputMetadataProvider.getInputMetadata(input),
+            "missing metadata for %s",
+            input.getExecPath());
+    return metadata.getType().isDirectory();
+  }
+
+  /**
    * Computes the digest of an ActionInput or its path.
    *
    * <p>Will try to obtain the digest from cached metadata first, falling back to digesting the
@@ -113,9 +139,14 @@ public interface SpawnLogContext extends ActionContext {
       Path path,
       InputMetadataProvider inputMetadataProvider,
       XattrProvider xattrProvider,
-      DigestHashFunction digestHashFunction)
+      DigestHashFunction digestHashFunction,
+      boolean includeHashFunctionName)
       throws IOException {
-    Digest.Builder builder = Digest.newBuilder().setHashFunctionName(digestHashFunction.toString());
+    Digest.Builder builder = Digest.newBuilder();
+
+    if (includeHashFunctionName) {
+      builder.setHashFunctionName(digestHashFunction.toString());
+    }
 
     if (input != null) {
       if (input instanceof VirtualActionInput) {

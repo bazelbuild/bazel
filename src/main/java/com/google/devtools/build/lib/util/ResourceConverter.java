@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.function.DoubleBinaryOperator;
 import java.util.function.Supplier;
@@ -39,7 +42,97 @@ import javax.annotation.Nullable;
  * <p>The supplier of the auto value, and, optionally, a max or min allowed value (inclusive), are
  * passed to the constructor.
  */
-public class ResourceConverter extends Converters.IntegerConverter {
+public abstract class ResourceConverter<T extends Number & Comparable<T>>
+    extends Converter.Contextless<T> {
+  public static final String AUTO_KEYWORD = "auto";
+  public static final String HOST_CPUS_KEYWORD = "HOST_CPUS";
+  public static final String HOST_RAM_KEYWORD = "HOST_RAM";
+
+  public static final Supplier<Integer> HOST_CPUS_SUPPLIER =
+      () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
+  public static final Supplier<Integer> HOST_RAM_SUPPLIER =
+      () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb());
+
+  /** Resource converter for assignments. */
+  public static class AssignmentConverter extends Converter.Contextless<Map.Entry<String, Double>> {
+    private static final Converters.AssignmentConverter assignment =
+        new Converters.AssignmentConverter();
+    private static final ResourceConverter.DoubleConverter resource =
+        new ResourceConverter.DoubleConverter(
+            ImmutableMap.of(
+                HOST_CPUS_KEYWORD, () -> (double) HOST_CPUS_SUPPLIER.get(),
+                HOST_RAM_KEYWORD, () -> (double) HOST_RAM_SUPPLIER.get()),
+            0.0,
+            Double.MAX_VALUE);
+
+    @Override
+    public Map.Entry<String, Double> convert(String input) throws OptionsParsingException {
+      Map.Entry<String, String> s = assignment.convert(input);
+      return Map.entry(s.getKey(), resource.convert(s.getValue()));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a named double, 'name=value', where value is " + resource.getTypeDescription();
+    }
+  }
+
+  /** Resource converter for integers. */
+  public static class IntegerConverter extends ResourceConverter<Integer> {
+    private static final Converters.IntegerConverter converter = new Converters.IntegerConverter();
+
+    public IntegerConverter(Supplier<Integer> auto, int minValue, int maxValue) {
+      this(
+          ImmutableMap.of(
+              AUTO_KEYWORD,
+              auto,
+              HOST_CPUS_KEYWORD,
+              HOST_CPUS_SUPPLIER,
+              HOST_RAM_KEYWORD,
+              HOST_RAM_SUPPLIER),
+          minValue,
+          maxValue);
+    }
+
+    public IntegerConverter(
+        ImmutableMap<String, Supplier<Integer>> keywords, int minValue, int maxValue) {
+      super(keywords, minValue, maxValue);
+    }
+
+    @Override
+    public Integer convert(String input) throws OptionsParsingException {
+      return Ints.tryParse(input) != null
+          ? checkAndLimit(converter.convert(input))
+          : checkAndLimit((int) Math.round(convertKeyword(input)));
+    }
+  }
+
+  /** Resource converter for doubles. */
+  public static class DoubleConverter extends ResourceConverter<Double> {
+    private static final Converters.DoubleConverter converter = new Converters.DoubleConverter();
+
+    public DoubleConverter(Supplier<Double> auto, double minValue, double maxValue) {
+      this(
+          ImmutableMap.of(
+              AUTO_KEYWORD, auto,
+              HOST_CPUS_KEYWORD, () -> (double) HOST_CPUS_SUPPLIER.get(),
+              HOST_RAM_KEYWORD, () -> (double) HOST_RAM_SUPPLIER.get()),
+          minValue,
+          maxValue);
+    }
+
+    public DoubleConverter(
+        ImmutableMap<String, Supplier<Double>> keywords, double minValue, double maxValue) {
+      super(keywords, minValue, maxValue);
+    }
+
+    @Override
+    public Double convert(String input) throws OptionsParsingException {
+      return Doubles.tryParse(input) != null
+          ? checkAndLimit(converter.convert(input))
+          : convertKeyword(input);
+    }
+  }
 
   private static final ImmutableMap<String, DoubleBinaryOperator> OPERATORS =
       ImmutableMap.<String, DoubleBinaryOperator>builder()
@@ -49,56 +142,32 @@ public class ResourceConverter extends Converters.IntegerConverter {
 
   /** Description of the accepted inputs to the converter. */
   public static final String FLAG_SYNTAX =
-      "an integer, or a keyword (\"auto\", \"HOST_CPUS\", \"HOST_RAM\"), optionally followed by "
-          + "an operation ([-|*]<float>) eg. \"auto\", \"HOST_CPUS*.5\"";
+      "an integer, or a keyword (\""
+          + AUTO_KEYWORD
+          + "\", \""
+          + HOST_CPUS_KEYWORD
+          + "\", \""
+          + HOST_RAM_KEYWORD
+          + "\"), optionally followed by an operation ([-|*]<float>) eg. \""
+          + AUTO_KEYWORD
+          + "\", \""
+          + HOST_CPUS_KEYWORD
+          + "*.5\"";
 
-  private final ImmutableMap<String, Supplier<Integer>> keywords;
+  private final ImmutableMap<String, Supplier<T>> keywords;
 
   private final Pattern validInputPattern;
 
-  protected final int minValue;
+  protected final T minValue;
 
-  protected final int maxValue;
-
-  /**
-   * Constructs a ResourceConverter for options that take {@value FLAG_SYNTAX}
-   *
-   * @param autoSupplier a supplier for the value of the auto keyword
-   * @param minValue the minimum allowed value
-   * @param maxValue the maximum allowed value
-   */
-  public ResourceConverter(Supplier<Integer> autoSupplier, int minValue, int maxValue) {
-    this(
-        ImmutableMap.<String, Supplier<Integer>>builder()
-            .put("auto", autoSupplier)
-            .put(
-                "HOST_CPUS",
-                () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()))
-            .put(
-                "HOST_RAM",
-                () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb()))
-            .build(),
-        minValue,
-        maxValue);
-  }
-
-  /**
-   * Constructs a ResourceConverter for options that take {@value FLAG_SYNTAX} and accept any value
-   * greater than 1.
-   *
-   * @param autoSupplier a supplier for the value of the auto keyword
-   */
-  public ResourceConverter(Supplier<Integer> autoSupplier) {
-    this(autoSupplier, 1, Integer.MAX_VALUE);
-  }
+  protected final T maxValue;
 
   /**
    * Constructs a ResourceConverter for options that take keywords other than the default set.
    *
    * @param keywords a map of keyword to the suppliers of their values
    */
-  public ResourceConverter(
-      ImmutableMap<String, Supplier<Integer>> keywords, int minValue, int maxValue) {
+  public ResourceConverter(ImmutableMap<String, Supplier<T>> keywords, T minValue, T maxValue) {
     this.keywords = keywords;
     this.validInputPattern =
         Pattern.compile(
@@ -109,19 +178,12 @@ public class ResourceConverter extends Converters.IntegerConverter {
     this.maxValue = maxValue;
   }
 
-  @Override
-  public final Integer convert(String input) throws OptionsParsingException {
-    int value;
-    if (Ints.tryParse(input) != null) {
-      value = super.convert(input);
-      return checkAndLimit(value);
-    }
+  public final Double convertKeyword(String input) throws OptionsParsingException {
     Matcher matcher = validInputPattern.matcher(input);
     if (matcher.matches()) {
-      Supplier<Integer> resourceSupplier = keywords.get(matcher.group("keyword"));
+      Supplier<T> resourceSupplier = keywords.get(matcher.group("keyword"));
       if (resourceSupplier != null) {
-        value = applyOperator(matcher.group("expression"), resourceSupplier);
-        return checkAndLimit(value);
+        return applyOperator(matcher.group("expression"), resourceSupplier);
       }
     }
     throw new OptionsParsingException(
@@ -131,10 +193,10 @@ public class ResourceConverter extends Converters.IntegerConverter {
   }
 
   /** Applies function designated in {@code expression} ([-|*]<float>) to value. */
-  private Integer applyOperator(@Nullable String expression, Supplier<Integer> firstOperandSupplier)
+  private Double applyOperator(@Nullable String expression, Supplier<T> firstOperandSupplier)
       throws OptionsParsingException {
     if (expression == null) {
-      return firstOperandSupplier.get();
+      return firstOperandSupplier.get().doubleValue();
     }
     for (Map.Entry<String, DoubleBinaryOperator> operator : OPERATORS.entrySet()) {
       if (expression.startsWith(operator.getKey())) {
@@ -146,11 +208,9 @@ public class ResourceConverter extends Converters.IntegerConverter {
               String.format("'%s is not a float", expression.substring(operator.getKey().length())),
               e);
         }
-        return (int)
-            Math.round(
-                operator
-                    .getValue()
-                    .applyAsDouble((float) firstOperandSupplier.get(), secondOperand));
+        return operator
+            .getValue()
+            .applyAsDouble(firstOperandSupplier.get().doubleValue(), secondOperand);
       }
     }
     // This should never happen because we've checked for a valid operator already.
@@ -162,14 +222,18 @@ public class ResourceConverter extends Converters.IntegerConverter {
    * Checks validity of a resource value against min/max constraints. Implementations may choose to
    * either raise an exception on out-of-bounds values, or adjust them to within the constraints.
    */
-  public int checkAndLimit(int value) throws OptionsParsingException {
-    if (value < minValue) {
+  @CanIgnoreReturnValue
+  public T checkAndLimit(T value) throws OptionsParsingException {
+    if (value.compareTo(minValue) < 0) {
       throw new OptionsParsingException(
-          String.format("Value '(%d)' must be at least %d.", value, minValue));
+          String.format(
+              "Value '(%f)' must be at least %f.", value.doubleValue(), minValue.doubleValue()));
     }
-    if (value > maxValue) {
+    if (value.compareTo(maxValue) > 0) {
       throw new OptionsParsingException(
-          String.format("Value '(%d)' cannot be greater than %d.", value, maxValue));
+          String.format(
+              "Value '(%f)' cannot be greater than %f.",
+              value.doubleValue(), maxValue.doubleValue()));
     }
     return value;
   }

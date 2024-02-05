@@ -140,6 +140,7 @@ cc_shared_library(
             "-Wl,-rpath,kittens",
             "-Wl,--version-script=$(location :foo.lds)",
             "-Wl,--script=$(location :additional_script.txt)",
+            "-Wl,--no-gc-sections",
         ],
         "//conditions:default": [],
     }),

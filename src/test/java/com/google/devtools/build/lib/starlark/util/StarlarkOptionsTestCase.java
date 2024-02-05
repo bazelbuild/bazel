@@ -40,7 +40,7 @@ import org.junit.Before;
 /** Helper base class for testing the use of Starlark-style flags. */
 public class StarlarkOptionsTestCase extends BuildViewTestCase {
 
-  private static final List<Class<? extends OptionsBase>> requiredOptionsClasses =
+  private static final ImmutableList<Class<? extends OptionsBase>> REQUIRED_OPTIONS_CLASSES =
       ImmutableList.of(
           PackageOptions.class,
           BuildLanguageOptions.class,
@@ -49,6 +49,8 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
           ClientOptions.class,
           UiOptions.class,
           CommonCommandOptions.class);
+
+  protected OptionsParser optionsParser;
   private StarlarkOptionsParser starlarkOptionsParser;
 
   @Before
@@ -57,7 +59,7 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
         OptionsParser.builder()
             .optionsClasses(
                 Iterables.concat(
-                    requiredOptionsClasses,
+                    REQUIRED_OPTIONS_CLASSES,
                     ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
             .skipStarlarkOptionPrefixes()
             .build();

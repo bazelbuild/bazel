@@ -1,5 +1,6 @@
 # Packaging
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("//src:release_archive.bzl", "release_archive")
 load(":embedded_tools.bzl", "srcsfile")
@@ -566,6 +567,12 @@ release_archive(
     ],
 )
 
+JDK_VERSIONS = [
+    "11",
+    "17",
+    "21",
+]
+
 filegroup(
     name = "test_repos",
     srcs = [
@@ -579,11 +586,6 @@ filegroup(
         "@remote_java_tools_darwin_x86_64//:java_tools/src/tools/singlejar/singlejar_local",
         "@remote_java_tools_linux//:java_tools/src/tools/singlejar/singlejar_local",
         "@remote_java_tools_windows//:java_tools/src/tools/singlejar/singlejar_local.exe",
-        "@remotejdk11_linux//:WORKSPACE",
-        "@remotejdk11_linux_aarch64//:WORKSPACE",
-        "@remotejdk11_macos//:WORKSPACE",
-        "@remotejdk11_macos_aarch64//:WORKSPACE",
-        "@remotejdk11_win//:WORKSPACE",
         "@rules_cc//:LICENSE",
         "@rules_java//:WORKSPACE",
         "@rules_license//:WORKSPACE",
@@ -591,12 +593,19 @@ filegroup(
         "@rules_proto//proto:defs",
         "@rules_python//:WORKSPACE",
         "@rules_testing//:LICENSE",
-    ] + [
-        "@remotejdk%s_%s//:WORKSPACE" % (version, os)
-        for version in ("17", "21")
-        for os in ("macos", "macos_aarch64", "linux", "win")
-    ] + [
+    ] + select({
+        "//src/conditions:linux_x86_64": ["@remotejdk%s_linux//:WORKSPACE" % v for v in JDK_VERSIONS],
+        "//src/conditions:darwin_x86_64": ["@remotejdk%s_macos//:WORKSPACE" % v for v in JDK_VERSIONS],
+        "//src/conditions:darwin_arm64": ["@remotejdk%s_macos_aarch64//:WORKSPACE" % v for v in JDK_VERSIONS],
+        "//src/conditions:windows_x86_64": ["@remotejdk%s_win//:WORKSPACE" % v for v in JDK_VERSIONS],
+        "//conditions:default": [],
+    }) + [
         "@bazel_tools_repo_cache//:files",
         "@workspace_repo_cache//:files",
     ],
+)
+
+bzl_library(
+    name = "build_defs_bzl",
+    srcs = ["build_defs.bzl"],
 )

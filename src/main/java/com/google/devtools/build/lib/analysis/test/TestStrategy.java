@@ -116,14 +116,10 @@ public abstract class TestStrategy implements TestActionContext {
    * Ensures that all directories used to run test are in the correct state and their content will
    * not result in stale files.
    */
-  protected void prepareFileSystem(
-      TestRunnerAction testAction, Path execRoot, Path tmpDir, Path workingDirectory)
+  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot, Path tmpDir)
       throws IOException {
     if (tmpDir != null) {
       recreateDirectory(tmpDir);
-    }
-    if (workingDirectory != null) {
-      workingDirectory.createDirectoryAndParents();
     }
 
     ResolvedPaths resolvedPaths = testAction.resolve(execRoot);
@@ -142,7 +138,7 @@ public abstract class TestStrategy implements TestActionContext {
    * not result in stale files. Only use this if no local tmp and working directory are required.
    */
   protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot) throws IOException {
-    prepareFileSystem(testAction, execRoot, null, null);
+    prepareFileSystem(testAction, execRoot, null);
   }
 
   /** Removes directory if it exists and recreates it. */

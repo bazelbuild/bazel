@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
@@ -703,6 +704,9 @@ public final class DependencyResolver {
             throw error.aspectEvaluation();
           case ASPECT_CREATION:
             throw error.aspectCreation();
+          case PLATFORM_MAPPING:
+            PlatformMappingException e = error.platformMapping();
+            throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
         }
       }
       if (!state.transitiveState.hasRootCause() && state.dependencyMap == null) {

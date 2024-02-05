@@ -24,6 +24,12 @@ import java.io.IOException;
 
 /** Codec for {@link Class}. */
 class ClassCodec extends LeafObjectCodec<Class<?>> {
+  private static final ClassCodec INSTANCE = new ClassCodec();
+
+  static ClassCodec classCodec() {
+    return INSTANCE;
+  }
+
   @SuppressWarnings("unchecked")
   @Override
   public Class<Class<?>> getEncodedClass() {

@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.CollectLocalResourceUsage;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -381,6 +382,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         WorkerProcessMetricsCollector workerProcessMetricsCollector =
             WorkerProcessMetricsCollector.instance();
         workerProcessMetricsCollector.setClock(clock);
+
         profiler.start(
             profiledTasks,
             out,
@@ -394,14 +396,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.includePrimaryOutput,
             options.profileIncludeTargetLabel,
             options.alwaysProfileSlowOperations,
-            options.collectWorkerDataInProfiler,
-            options.collectLoadAverageInProfiler,
-            options.collectSystemNetworkUsage,
-            options.collectPressureStallIndicators,
-            options.collectResourceEstimation,
-            env.getLocalResourceManager(),
-            WorkerProcessMetricsCollector.instance(),
-            bugReporter);
+            new CollectLocalResourceUsage(
+                bugReporter,
+                workerProcessMetricsCollector,
+                env.getLocalResourceManager(),
+                options.collectWorkerDataInProfiler,
+                options.collectLoadAverageInProfiler,
+                options.collectSystemNetworkUsage,
+                options.collectResourceEstimation,
+                options.collectPressureStallIndicators));
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.

@@ -15,12 +15,12 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.truth.Truth8;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
@@ -2419,7 +2419,7 @@ public final class OptionsParserTest {
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
     assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("hello");
-    assertThat(
+    Truth8.assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
         .containsExactly("--foo=hello");
@@ -2443,7 +2443,7 @@ public final class OptionsParserTest {
 
     assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("hi=bar");
     assertThat(parser.getOptions(ExampleFoo.class).bar).isEqualTo(123);
-    assertThat(
+    Truth8.assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
         .containsExactly("--bar=123", "--foo=hi=bar")
@@ -2465,7 +2465,7 @@ public final class OptionsParserTest {
     assertThat(options.first).isEqualTo("hello");
     assertThat(options.second).isNull();
     assertThat(options.third).isNull();
-    assertThat(
+    Truth8.assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
         .containsExactly("--first=hello");
@@ -2494,7 +2494,7 @@ public final class OptionsParserTest {
     ImplicitDependencyOptions options = parser.getOptions(ImplicitDependencyOptions.class);
     assertThat(options.second).isEqualTo("hello");
     assertThat(options.third).isNull();
-    assertThat(
+    Truth8.assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
         .isEmpty();
@@ -2523,7 +2523,7 @@ public final class OptionsParserTest {
     ImplicitDependencyOptions options = parser.getOptions(ImplicitDependencyOptions.class);
     assertThat(options.second).isEqualTo("hello");
     assertThat(options.third).isNull();
-    assertThat(
+    Truth8.assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
         .containsExactly("--second=hello");
@@ -2587,6 +2587,40 @@ public final class OptionsParserTest {
                 OptionsParser.getFallbackOptionsData(
                     ImmutableList.of(ExampleFoo.class, ExampleIncompatibleWithFoo.class)));
     assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+  }
+
+  public static class ExpandingOptions extends OptionsBase {
+    @Option(
+        name = "foo",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        expansion = {"--nobar"},
+        defaultValue = "null")
+    public Void foo;
+  }
+
+  public static class ExpandingOptionsFallback extends OptionsBase {
+    @Option(
+        name = "bar",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public boolean bar;
+  }
+
+  @Test
+  public void fallbackOptions_expansionToNegativeBooleanFlag() throws OptionsParsingException {
+    OpaqueOptionsData fallbackData =
+        OptionsParser.getFallbackOptionsData(
+            ImmutableList.of(ExpandingOptions.class, ExpandingOptionsFallback.class));
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExpandingOptions.class).build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), fallbackData);
+
+    assertThat(parser.getOptions(ExpandingOptions.class)).isNotNull();
+    assertThat(parser.getOptions(ExpandingOptionsFallback.class)).isNull();
   }
 
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {

@@ -2477,7 +2477,7 @@ public class RemoteExecutionServiceTest {
     RunfilesTree tree =
         new RunfilesTree() {
           @Override
-          public PathFragment getExecPath() {
+          public PathFragment getPossiblyIncorrectExecPath() {
             return PathFragment.create(root);
           }
 
@@ -2499,6 +2499,11 @@ public class RemoteExecutionServiceTest {
           @Override
           public boolean isBuildRunfileLinks() {
             return false;
+          }
+
+          @Override
+          public String getWorkspaceName() {
+            return "__main__";
           }
         };
     return new RunfilesSupplier() {

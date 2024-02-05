@@ -1227,12 +1227,11 @@ public final class Attribute implements Comparable<Attribute> {
 
   /**
    * A computed default is a default value for a Rule attribute that is a function of other
-   * attributes of the rule.
+   * attributes of the rule or package.
    *
-   * <p>Attributes whose defaults are computed are first initialized to the default for their type,
-   * and then the computed defaults are evaluated after all non-computed defaults have been
-   * initialized. There is no defined order among computed defaults, so they must not depend on each
-   * other.
+   * <p>Attributes with computed defaults defer their evaluation until after the package is loaded
+   * (and thus all other attributes without computed defaults are determined). There is no defined
+   * order among computed defaults, so they must not depend on each other.
    *
    * <p>If a computed default reads the value of another attribute, at least one of the following
    * must be true:
@@ -1242,12 +1241,15 @@ public final class Attribute implements Comparable<Attribute> {
    *   <li>The other attribute must be non-configurable ({@link Builder#nonconfigurable}
    * </ol>
    *
+   * <p>Note that merely checking if an attribute is explicitly specified does not count as
+   * 'reading' it as, currently, this determination cannot be configuration-dependent.
+   *
    * <p>The reason for enforced declarations is that, since attribute values might be configurable,
-   * a computed default that depends on them may itself take multiple values. Since we have no
-   * access to a target's configuration at the time these values are computed, we need the ability
-   * to probe the default's *complete* dependency space. Declared dependencies allow us to do so
-   * sanely. Non-configurable attributes don't have this problem because their value is fixed and
-   * known even without configuration information.
+   * a computed default that depends on them may itself take multiple values. As we have no access
+   * to a target's configuration at the time these values are computed, we need the ability to probe
+   * the default's *complete* dependency space. Declared dependencies allow us to do so sanely.
+   * Non-configurable attributes don't have this problem because their value is fixed and known even
+   * without configuration information.
    *
    * <p>Implementations of this interface must be immutable.
    */
@@ -1326,7 +1328,7 @@ public final class Attribute implements Comparable<Attribute> {
      * you are doing.
      */
     public boolean resolvableWithRawAttributes() {
-      return false;
+      return dependencies.isEmpty();
     }
 
     /**

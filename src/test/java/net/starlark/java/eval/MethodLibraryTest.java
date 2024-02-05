@@ -22,7 +22,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -770,6 +772,29 @@ public final class MethodLibraryTest {
         .testIfErrorContains(
             "join() got named argument for positional-only parameter 'elements'",
             "','.join(elements=['foo', 'bar'])");
+  }
+
+  @StarlarkBuiltin(name = "named_only", doc = "")
+  static final class NamedOnly implements StarlarkValue {
+    @StarlarkMethod(
+        name = "foo",
+        documented = false,
+        parameters = {
+          @Param(name = "a"),
+          @Param(name = "b", named = true, defaultValue = "None", positional = false),
+        })
+    public Object foo(Object a, Object b) {
+      return a;
+    }
+  }
+
+  @Test
+  public void testNamedOnlyArgument() throws Exception {
+    ev.new Scenario()
+        .update("named_only", new NamedOnly())
+        .testIfErrorContains(
+            "foo() accepts no more than 1 positional argument but got 2",
+            "named_only.foo([1, 2, 3], int)");
   }
 
   @Test

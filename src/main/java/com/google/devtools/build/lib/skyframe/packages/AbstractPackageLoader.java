@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -107,8 +106,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -337,8 +334,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     }
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(injectable, pkgLocator);
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, RuleVisibility.PRIVATE);
-    PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY
-        .set(injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);
+    PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.set(
+        injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
@@ -508,22 +505,18 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction(ruleClassProvider))
         .put(
             SkyFunctions.PACKAGE,
-            new PackageFunction(
-                pkgFactory,
-                cachingPackageLocator,
-                /* showLoadingProgress= */ new AtomicBoolean(false),
-                /* numPackagesSuccessfullyLoaded= */ new AtomicInteger(0),
-                /* bzlLoadFunctionForInlining= */ null,
-                /* packageProgress= */ null,
-                getActionOnIOExceptionReadingBuildFile(),
-                shouldUseRepoDotBazel(),
-                // Tell PackageFunction to optimize for our use-case of no incrementality.
-                GlobbingStrategy.NON_SKYFRAME,
-                k -> ThreadStateReceiver.NULL_INSTANCE,
-                /* cpuBoundSemaphore= */ new AtomicReference<>(
-                    cpuBoundSemaphoreTokenCount > 0
-                        ? new Semaphore(cpuBoundSemaphoreTokenCount)
-                        : null)))
+            PackageFunction.newBuilder()
+                .setPackageFactory(pkgFactory)
+                .setPackageLocator(cachingPackageLocator)
+                .setActionOnIOExceptionReadingBuildFile(getActionOnIOExceptionReadingBuildFile())
+                .setShouldUseRepoDotBazel(shouldUseRepoDotBazel())
+                .setGlobbingStrategy(GlobbingStrategy.NON_SKYFRAME)
+                .setCpuBoundSemaphore(
+                    new AtomicReference<>(
+                        cpuBoundSemaphoreTokenCount > 0
+                            ? new Semaphore(cpuBoundSemaphoreTokenCount)
+                            : null))
+                .build())
         .putAll(extraSkyFunctions);
     return builder.buildOrThrow();
   }

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
+import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -429,8 +430,20 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If enabled, compress/decompress cache blobs with zstd.")
+      help =
+          "If enabled, compress/decompress cache blobs with zstd when their size is at least"
+              + " --experimental_remote_cache_compression_threshold.")
   public boolean cacheCompression;
+
+  @Option(
+      name = "experimental_remote_cache_compression_threshold",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The minimum blob size required to compress/decompress with zstd. Ineffectual unless"
+              + " --remote_cache_compression is set.")
+  public int cacheCompressionThreshold;
 
   @Option(
       name = "build_event_upload_max_threads",
@@ -709,7 +722,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Enables remote cache key scrubbing with the supplied configuration file, which must be a"
-              + " ScrubbingConfig protocol buffer in text format.\n\n"
+              + " protocol buffer in text format (see"
+              + " src/main/protobuf/remote_scrubbing.proto).\n\n"
               + "This feature is intended to facilitate sharing a remote/disk cache between actions"
               + " executing on different platforms but targeting the same platform. It should be"
               + " used with extreme care, as improper settings may cause accidental sharing of"
@@ -724,6 +738,19 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " output prefixes) and --incompatible_strict_action_env (to normalize environment"
               + " variables).")
   public Scrubber scrubber;
+
+  @Option(
+      name = "experimental_throttle_remote_action_building",
+      defaultValue = "true",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Whether to throttle the building of remote action to avoid OOM. Defaults to true.\n\n"
+              + "This is a temporary flag to allow users switch off the behaviour. Once Bazel is"
+              + " smart enough about the RAM/CPU usages, this flag will be removed.")
+  public boolean throttleRemoteActionBuilding;
 
   private static final class ScrubberConverter extends Converter.Contextless<Scrubber> {
 

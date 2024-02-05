@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.actions.MiddlemanType.RUNFILES_MIDDLEMAN;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -33,6 +32,8 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
+import com.google.devtools.build.lib.actions.MiddlemanAction;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -147,11 +148,9 @@ public final class ArtifactFunction implements SkyFunction {
             artifactDependencies.actionLookupValue.getAction(generatingActionKey.getActionIndex()),
             "Null middleman action? %s",
             artifactDependencies);
+
     FileArtifactValue individualMetadata = actionValue.getExistingFileArtifactValue(artifact);
-    if (isAggregatingValue(action)) {
-      return createRunfilesArtifactValue(artifact, action, individualMetadata, env);
-    }
-    return individualMetadata;
+    return createRunfilesArtifactValue(artifact, (MiddlemanAction) action, individualMetadata, env);
   }
 
   private static void mkdirForTreeArtifact(
@@ -347,7 +346,7 @@ public final class ArtifactFunction implements SkyFunction {
   @Nullable
   private static RunfilesArtifactValue createRunfilesArtifactValue(
       Artifact artifact,
-      ActionAnalysisMetadata action,
+      MiddlemanAction action,
       FileArtifactValue value,
       SkyFunction.Environment env)
       throws InterruptedException {
@@ -391,16 +390,12 @@ public final class ArtifactFunction implements SkyFunction {
     }
 
     return new RunfilesArtifactValue(
-        value, files.build(), fileValues.build(), trees.build(), treeValues.build());
-  }
-
-  /**
-   * Returns whether this value needs to contain the data of all its inputs. Currently, only tests
-   * to see if the action is a runfiles middleman action. However, may include Fileset artifacts in
-   * the future.
-   */
-  private static boolean isAggregatingValue(ActionAnalysisMetadata action) {
-    return action.getActionType() == RUNFILES_MIDDLEMAN;
+        value,
+        action.getRunfilesTree(),
+        files.build(),
+        fileValues.build(),
+        trees.build(),
+        treeValues.build());
   }
 
   @Override

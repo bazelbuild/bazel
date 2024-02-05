@@ -47,7 +47,6 @@ class ParallelEvaluatorContext {
   private final EventFilter storedEventFilter;
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
-  private final boolean mergingSkyframeAnalysisExecutionPhases;
   private final Cache<SkyKey, SkyKeyComputeState> stateCache;
 
   /**
@@ -76,7 +75,6 @@ class ParallelEvaluatorContext {
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<NodeEntryVisitor> visitorSupplier,
-      boolean mergingSkyframeAnalysisExecutionPhases,
       Cache<SkyKey, SkyKeyComputeState> stateCache) {
     this.graph = graph;
     this.graphVersion = graphVersion;
@@ -92,7 +90,6 @@ class ParallelEvaluatorContext {
     this.storedEventFilter = storedEventFilter;
     this.errorInfoManager = errorInfoManager;
     this.visitorSupplier = Suppliers.memoize(visitorSupplier);
-    this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
     this.stateCache = stateCache;
   }
 
@@ -176,10 +173,6 @@ class ParallelEvaluatorContext {
 
   ErrorInfoManager getErrorInfoManager() {
     return errorInfoManager;
-  }
-
-  boolean mergingSkyframeAnalysisExecutionPhases() {
-    return mergingSkyframeAnalysisExecutionPhases;
   }
 
   Cache<SkyKey, SkyKeyComputeState> stateCache() {

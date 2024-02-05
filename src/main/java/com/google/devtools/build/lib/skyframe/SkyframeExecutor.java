@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -190,8 +189,10 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecution
 import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyFunction;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
+import com.google.devtools.build.lib.skyframe.config.ParsedFlagsFunction;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction;
-import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
@@ -244,7 +245,6 @@ import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -616,18 +616,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction(directories));
     map.put(
         SkyFunctions.PACKAGE,
-        new PackageFunction(
-            pkgFactory,
-            packageManager,
-            showLoadingProgress,
-            numPackagesSuccessfullyLoaded,
-            bzlLoadFunctionForInliningPackageAndWorkspaceNodes,
-            packageProgress,
-            actionOnIOExceptionReadingBuildFile,
-            shouldUseRepoDotBazel,
-            getGlobbingStrategy(),
-            skyKeyStateReceiver::makeThreadStateReceiver,
-            cpuBoundSemaphore));
+        PackageFunction.newBuilder()
+            .setPackageFactory(pkgFactory)
+            .setPackageLocator(packageManager)
+            .setShowLoadingProgress(showLoadingProgress)
+            .setNumPackagesSuccessfullyLoaded(numPackagesSuccessfullyLoaded)
+            .setBzlLoadFunctionForInlining(bzlLoadFunctionForInliningPackageAndWorkspaceNodes)
+            .setPackageProgress(packageProgress)
+            .setActionOnIOExceptionReadingBuildFile(actionOnIOExceptionReadingBuildFile)
+            .setShouldUseRepoDotBazel(shouldUseRepoDotBazel)
+            .setGlobbingStrategy(getGlobbingStrategy())
+            .setThreadStateReceiverFactoryForMetrics(skyKeyStateReceiver::makeThreadStateReceiver)
+            .setCpuBoundSemaphore(cpuBoundSemaphore)
+            .build());
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
@@ -663,6 +664,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider));
+    map.put(SkyFunctions.BUILD_CONFIGURATION_KEY, new BuildConfigurationKeyFunction());
+    map.put(
+        SkyFunctions.PARSED_FLAGS,
+        new ParsedFlagsFunction(ruleClassProvider.getFragmentRegistry().getOptionsClasses()));
     map.put(SkyFunctions.BASELINE_OPTIONS, new BaselineOptionsFunction());
     map.put(
         SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS, new StarlarkBuildSettingsDetailsFunction());
@@ -1839,32 +1844,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private BuildConfigurationKey createBuildConfigurationKey(
       ExtendedEventHandler eventHandler, BuildOptions buildOptions)
       throws InvalidConfigurationException {
-    // Logic here must be kept in sync with BuildConfigurationKeyProducer.
 
-    // Determine the platform mapping to use.
-    PathFragment platformMappingPath =
-        buildOptions.hasNoConfig()
-            ? null
-            : buildOptions.get(PlatformOptions.class).platformMappings;
-
-    PlatformMappingValue.Key platformMappingKey =
-        PlatformMappingValue.Key.create(platformMappingPath);
+    BuildConfigurationKeyValue.Key key = BuildConfigurationKeyValue.Key.create(buildOptions);
     EvaluationResult<SkyValue> evaluationResult =
-        evaluateSkyKeys(eventHandler, ImmutableSet.of(platformMappingKey));
+        evaluateSkyKeys(eventHandler, ImmutableSet.of(key));
+    // Handle all possible errors by reporting them to the user.
     if (evaluationResult.hasError()) {
       throw new InvalidConfigurationException(
           Code.PLATFORM_MAPPING_EVALUATION_FAILURE, evaluationResult.getError().getException());
     }
-    PlatformMappingValue platformMappingValue =
-        (PlatformMappingValue) evaluationResult.get(platformMappingKey);
-
-    // Create the build configuration key.
-    try {
-      BuildOptions mappedOptions = platformMappingValue.map(buildOptions);
-      return BuildConfigurationKey.create(mappedOptions);
-    } catch (OptionsParsingException e) {
-      throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
-    }
+    BuildConfigurationKeyValue buildConfigurationKeyValue =
+        (BuildConfigurationKeyValue) evaluationResult.get(key);
+    return buildConfigurationKeyValue.buildConfigurationKey();
   }
 
   /**
@@ -2081,7 +2072,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
       eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
       // For the workspace status actions.
-      eventHandler.post(SomeExecutionStartedEvent.create());
+      eventHandler.post(SomeExecutionStartedEvent.notCountedInExecutionTime());
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(keepGoing)
@@ -3740,22 +3731,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     recordingDiffer.inject(diff.changedKeysWithNewValues());
     // Blaze invalidates transient errors on every build.
     invalidateTransientErrors();
-  }
-
-  /** Returns a dynamic configuration constructed from the given build options. */
-  @VisibleForTesting
-  public BuildConfigurationValue getConfigurationForTesting(
-      ExtendedEventHandler eventHandler, BuildOptions options)
-      throws InterruptedException, InvalidConfigurationException {
-    BuildConfigurationKey buildConfigurationKey =
-        createBuildConfigurationKey(eventHandler, options);
-    return (BuildConfigurationValue)
-        evaluate(
-                ImmutableList.of(buildConfigurationKey),
-                /* keepGoing= */ false,
-                /* numThreads= */ DEFAULT_THREAD_COUNT,
-                eventHandler)
-            .get(buildConfigurationKey);
   }
 
   /** Returns a particular configured target. */

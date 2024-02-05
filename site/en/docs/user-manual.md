@@ -325,7 +325,7 @@ This option specifies the version of Java sources. For example:
 
 compiles and allows only constructs compatible with Java 8 specification.
 Default value is 11. -->
-Possible values are: 8,  9, 10, 11, 14, and 15  and may be extended by
+Possible values are: 8, 9, 10, 11, 14, 15, and 21 and may be extended by
 registering custom Java toolchains using `default_java_toolchain`.
 
 #### `--tool_java_language_version={{ "<var>" }}version{{ "</var>" }}` {:#tool-java-language-version}
@@ -727,7 +727,7 @@ Genrule) on a per-mnemonic basis. See
 [--spawn_strategy](#spawn-strategy) for the supported
 strategies and their effects.
 
-#### `--strategy_regexp={{ "<var>" }}&lt;filter,filter,...&gt;=&lt;strategy&gt;{{ "</var>" }}` {:#strategy-regexp}
+#### `--strategy_regexp={{ "<var>" }}<filter,filter,...>=<strategy>{{ "</var>" }}` {:#strategy-regexp}
 
 This option specifies which strategy should be used to execute commands that have descriptions
 matching a certain `regex_filter`. See
@@ -1372,7 +1372,7 @@ Some common values of this option:
 *   **Suppress symlink creation:**
       `--symlink_prefix=/` will cause Bazel to not
       create or update any symlinks, including the `bazel-out` and
-      `bazel-&lt;workspace&gt;`
+      `bazel-<workspace>`
       symlinks. Use this option to suppress symlink creation entirely.
 
 *   **Reduce clutter:**
@@ -1656,6 +1656,18 @@ timeout.
 Passes command-line options/flags/arguments to each test process. This
 option can be used multiple times to pass several arguments. For example,
 `--test_arg=--logtostderr --test_arg=--v=3`.
+
+Note that, unlike the `bazel run` command, you can't pass test arguments
+directly as in `bazel test -- target --logtostderr --v=3`. That's because
+extraneous arguments passed to `bazel test` are interpreted as additional test
+targets. That is, `--logtostderr` and `--v=3` would each be interpreted as a
+test target. This ambiguity doesn't exist for a `bazel run` command, which only
+accepts one target.
+
+`--test_arg` can be passed to a `bazel run` command, but it's ignored unless the
+target being run is a test target. (As with any other flag, if it's passed in a
+`bazel run` command after a `--` token, it's not processed by Bazel but
+forwarded verbatim to the executed target.)
 
 #### `--test_env={{ "<var>" }}variable{{ "</var>" }}=_value_` OR `--test_env={{ "<var>" }}variable{{ "</var>" }}` {:#test-env}
 
@@ -1968,7 +1980,7 @@ through `sed -ne /key:/s/key://p`:
     root directory under output_base. This directory is the root for all files
     accessible to commands executed during the build, and is the working
     directory for those commands. If the workspace directory is writable, a
-    symlink named `bazel-&lt;workspace&gt;`
+    symlink named `bazel-<workspace>`
     is placed there pointing to this directory.
 *   `output_path`: the absolute path to the output
     directory beneath the execution root used for all files actually

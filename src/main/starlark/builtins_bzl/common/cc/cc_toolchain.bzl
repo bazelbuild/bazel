@@ -16,26 +16,18 @@
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
+load(":common/cc/fdo_prefetch_hints.bzl", "FdoPrefetchHintsInfo")
+load(":common/cc/fdo_profile.bzl", "FdoProfileInfo")
+load(":common/cc/memprof_profile.bzl", "MemProfProfileInfo")
+load(":common/cc/propeller_optimize.bzl", "PropellerOptimizeInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 apple_common = _builtins.toplevel.apple_common
-FdoProfileInfo = _builtins.internal.FdoProfileInfo
-FdoPrefetchHintsInfo = _builtins.internal.FdoPrefetchHintsInfo
-PropellerOptimizeInfo = _builtins.internal.PropellerOptimizeInfo
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
-MemProfProfileInfo = _builtins.internal.MemProfProfileInfo
-
-def _validate_toolchain(ctx, is_apple):
-    if not is_apple:
-        return
-    if ctx.attr._xcode_config[apple_common.XcodeVersionConfig].xcode_version() == None:
-        fail("Xcode version must be specified to use an Apple CROSSTOOL. If your Xcode version has " +
-             "changed recently, verify that \"xcode-select -p\" is correct and then try: " +
-             "\"bazel shutdown\" to re-run Xcode configuration")
 
 def _files(ctx, attr_name):
     attr = getattr(ctx.attr, attr_name, None)
@@ -91,6 +83,7 @@ def _attributes(ctx, is_apple):
     latebound_libc = _latebound_libc(ctx, "libc_top", "_libc_top")
     latebound_target_libc = _latebound_libc(ctx, "libc_top", "_target_libc_top")
 
+    all_files = _files(ctx, "all_files")
     return struct(
         supports_param_files = ctx.attr.supports_param_files,
         runtime_solib_dir_base = "_solib__" + cc_internal.escape_label(label = ctx.label),
@@ -103,7 +96,7 @@ def _attributes(ctx, is_apple):
         static_runtime_lib = ctx.attr.static_runtime_lib,
         dynamic_runtime_lib = ctx.attr.dynamic_runtime_lib,
         supports_header_parsing = ctx.attr.supports_header_parsing,
-        all_files = _files(ctx, "all_files"),
+        all_files = all_files,
         compiler_files = _files(ctx, "compiler_files"),
         strip_files = _files(ctx, "strip_files"),
         objcopy_files = _files(ctx, "objcopy_files"),
@@ -128,7 +121,7 @@ def _attributes(ctx, is_apple):
             is_apple,
         ),
         cc_toolchain_label = ctx.label,
-        coverage_files = _files(ctx, "coverage_files"),
+        coverage_files = _files(ctx, "coverage_files") or all_files,
         compiler_files_without_includes = _files(ctx, "compiler_files_without_includes"),
         libc = _files(ctx, latebound_libc),
         target_libc = _files(ctx, latebound_target_libc),
@@ -140,11 +133,10 @@ def _attributes(ctx, is_apple):
     )
 
 def _cc_toolchain_impl(ctx):
-    _validate_toolchain(ctx, ctx.attr._is_apple)
     xcode_config_info = None
-    if ctx.attr._is_apple:
+    if hasattr(ctx.attr, "_xcode_config"):
         xcode_config_info = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
-    attributes = _attributes(ctx, ctx.attr._is_apple)
+    attributes = _attributes(ctx, hasattr(ctx.attr, "_xcode_config"))
     providers = []
     if attributes.licenses_provider != None:
         providers.append(attributes.licenses_provider)
@@ -153,7 +145,7 @@ def _cc_toolchain_impl(ctx):
     if cc_toolchain == None:
         fail("This should never happen")
     template_variable_info = TemplateVariableInfo(
-        cc_toolchain.get_additional_make_variables() | cc_helper.get_toolchain_global_make_variables(cc_toolchain),
+        cc_toolchain._additional_make_variables | cc_helper.get_toolchain_global_make_variables(cc_toolchain),
     )
     toolchain = ToolchainInfo(
         cc = cc_toolchain,
@@ -164,13 +156,164 @@ def _cc_toolchain_impl(ctx):
     providers.append(cc_toolchain)
     providers.append(toolchain)
     providers.append(template_variable_info)
-    providers.append(DefaultInfo(files = cc_toolchain.get_all_files_including_libc()))
+    providers.append(DefaultInfo(files = cc_toolchain._all_files_including_libc))
     return providers
 
-def make_cc_toolchain(cc_toolchain_attrs, **kwargs):
-    return rule(
-        implementation = _cc_toolchain_impl,
-        fragments = ["cpp", "platform", "apple"],
-        attrs = cc_toolchain_attrs,
-        **kwargs
-    )
+cc_toolchain = rule(
+    implementation = _cc_toolchain_impl,
+    fragments = ["cpp"],
+    attrs = {
+        # buildifier: disable=attr-license
+        "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+        # buildifier: disable=attr-license
+        "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+        "toolchain_identifier": attr.string(default = ""),
+        "all_files": attr.label(
+            allow_files = True,
+            mandatory = True,
+        ),
+        "compiler_files": attr.label(
+            allow_files = True,
+            mandatory = True,
+        ),
+        "compiler_files_without_includes": attr.label(
+            allow_files = True,
+        ),
+        "strip_files": attr.label(
+            allow_files = True,
+            mandatory = True,
+        ),
+        "objcopy_files": attr.label(
+            allow_files = True,
+            mandatory = True,
+        ),
+        "as_files": attr.label(
+            allow_files = True,
+        ),
+        "ar_files": attr.label(
+            allow_files = True,
+        ),
+        "linker_files": attr.label(
+            allow_files = True,
+            mandatory = True,
+        ),
+        "dwp_files": attr.label(
+            allow_files = True,
+            mandatory = True,
+        ),
+        "coverage_files": attr.label(
+            allow_files = True,
+        ),
+        "libc_top": attr.label(
+            allow_files = False,
+        ),
+        "static_runtime_lib": attr.label(
+            allow_files = True,
+        ),
+        "dynamic_runtime_lib": attr.label(
+            allow_files = True,
+        ),
+        "module_map": attr.label(
+            allow_files = True,
+        ),
+        "supports_param_files": attr.bool(
+            default = True,
+        ),
+        "supports_header_parsing": attr.bool(
+            default = False,
+        ),
+        "exec_transition_for_inputs": attr.bool(
+            default = False,  # No-op.
+        ),
+        "toolchain_config": attr.label(
+            allow_files = False,
+            mandatory = True,
+            providers = [CcToolchainConfigInfo],
+        ),
+        "_libc_top": attr.label(
+            default = configuration_field(fragment = "cpp", name = "libc_top"),
+        ),
+        "_grep_includes": semantics.get_grep_includes(),
+        "_interface_library_builder": attr.label(
+            default = "@" + semantics.get_repo() + "//tools/cpp:interface_library_builder",
+            allow_single_file = True,
+            cfg = "exec",
+        ),
+        "_link_dynamic_library_tool": attr.label(
+            default = "@" + semantics.get_repo() + "//tools/cpp:link_dynamic_library",
+            allow_single_file = True,
+            cfg = "exec",
+        ),
+        "_cc_toolchain_type": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"),
+        "_zipper": attr.label(
+            default = configuration_field(fragment = "cpp", name = "zipper"),
+            allow_single_file = True,
+            cfg = "exec",
+        ),
+        "_target_libc_top": attr.label(
+            default = configuration_field(fragment = "cpp", name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN"),
+        ),
+        "_fdo_optimize": attr.label(
+            default = configuration_field(fragment = "cpp", name = "fdo_optimize"),
+            allow_files = True,
+        ),
+        "_xfdo_profile": attr.label(
+            default = configuration_field(fragment = "cpp", name = "xbinary_fdo"),
+            allow_rules = ["fdo_profile"],
+            providers = [FdoProfileInfo],
+        ),
+        "_fdo_profile": attr.label(
+            default = configuration_field(fragment = "cpp", name = "fdo_profile"),
+            allow_rules = ["fdo_profile"],
+            providers = [FdoProfileInfo],
+        ),
+        "_csfdo_profile": attr.label(
+            default = configuration_field(fragment = "cpp", name = "cs_fdo_profile"),
+            allow_rules = ["fdo_profile"],
+            providers = [FdoProfileInfo],
+        ),
+        "_fdo_prefetch_hints": attr.label(
+            default = configuration_field(fragment = "cpp", name = "fdo_prefetch_hints"),
+            allow_rules = ["fdo_prefetch_hints"],
+            providers = [FdoPrefetchHintsInfo],
+        ),
+        "_propeller_optimize": attr.label(
+            default = configuration_field(fragment = "cpp", name = "propeller_optimize"),
+            allow_rules = ["propeller_optimize"],
+            providers = [PropellerOptimizeInfo],
+        ),
+        "_memprof_profile": attr.label(
+            default = configuration_field(fragment = "cpp", name = "memprof_profile"),
+            allow_rules = ["memprof_profile"],
+            providers = [MemProfProfileInfo],
+        ),
+        "_whitelist_disabling_parse_headers_and_layering_check_allowed": attr.label(
+            default = "@" + semantics.get_repo() + "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:disabling_parse_headers_and_layering_check_allowed",
+            providers = [PackageSpecificationInfo],
+        ),
+        "_build_info_translator": attr.label(
+            default = semantics.BUILD_INFO_TRANLATOR_LABEL,
+            providers = [OutputGroupInfo],
+        ),
+    },
+)
+
+def _apple_cc_toolchain_impl(ctx):
+    if ctx.attr._xcode_config[apple_common.XcodeVersionConfig].xcode_version() == None:
+        fail("Xcode version must be specified to use an Apple CROSSTOOL. If your Xcode version has " +
+             "changed recently, verify that \"xcode-select -p\" is correct and then try: " +
+             "\"bazel shutdown\" to re-run Xcode configuration")
+    return ctx.super()
+
+apple_cc_toolchain = rule(
+    implementation = _apple_cc_toolchain_impl,
+    parent = cc_toolchain,
+    fragments = ["apple"],
+    attrs = {
+        "_xcode_config": attr.label(
+            default = configuration_field(fragment = "apple", name = "xcode_config_label"),
+            allow_rules = ["xcode_config"],
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
+        ),
+    },
+)

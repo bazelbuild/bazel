@@ -432,6 +432,18 @@ java_test(
 )
 
 java_test(
+    name = "PathPrettyPrinterTest",
+    srcs = ["PathPrettyPrinterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ProgressReportingTest",
     srcs = ["ProgressReportingTest.java"],
     tags = [
@@ -477,7 +489,6 @@ java_test(
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:guava",

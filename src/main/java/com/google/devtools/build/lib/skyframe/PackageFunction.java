@@ -20,11 +20,8 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -33,16 +30,13 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.Globber;
-import com.google.devtools.build.lib.packages.GlobberUtils;
 import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
@@ -60,6 +54,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.skyframe.PackageFunctionWithMultipleGlobDeps.SkyframeGlobbingIOException;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -69,7 +64,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -78,11 +72,11 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -104,11 +98,10 @@ import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.SyntaxError;
 
 /** A SkyFunction for {@link PackageValue}s. */
-public class PackageFunction implements SkyFunction {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+public abstract class PackageFunction implements SkyFunction {
 
-  private final PackageFactory packageFactory;
-  private final CachingPackageLocator packageLocator;
+  protected final PackageFactory packageFactory;
+  protected final CachingPackageLocator packageLocator;
   private final AtomicBoolean showLoadingProgress;
   private final AtomicInteger numPackagesSuccessfullyLoaded;
   @Nullable private final PackageProgressReceiver packageProgress;
@@ -119,9 +112,9 @@ public class PackageFunction implements SkyFunction {
   private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
 
   private final boolean shouldUseRepoDotBazel;
-  private final GlobbingStrategy globbingStrategy;
+  protected final GlobbingStrategy globbingStrategy;
 
-  private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics;
+  protected final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics;
 
   private final AtomicReference<Semaphore> cpuBoundSemaphore;
 
@@ -176,7 +169,7 @@ public class PackageFunction implements SkyFunction {
     }
   }
 
-  public PackageFunction(
+  protected PackageFunction(
       PackageFactory packageFactory,
       CachingPackageLocator pkgLocator,
       AtomicBoolean showLoadingProgress,
@@ -248,8 +241,8 @@ public class PackageFunction implements SkyFunction {
   /** Ways that {@link PackageFunction} can perform globbing. */
   public enum GlobbingStrategy {
     /**
-     * Globs are resolved using {@link SkyframeHybridGlobber}, which declares proper Skyframe
-     * dependencies.
+     * Globs are resolved using {@code PackageFunctionWithMultipleGlobDeps#SkyframeHybridGlobber},
+     * which declares proper Skyframe dependencies.
      *
      * <p>Use when {@link PackageFunction} will be used to load packages incrementally (e.g. on both
      * clean builds and incremental builds, perhaps with cached globs). This is Bazel's normal
@@ -268,7 +261,7 @@ public class PackageFunction implements SkyFunction {
     NON_SKYFRAME
   }
 
-  private static void maybeThrowFilesystemInconsistency(
+  protected static void maybeThrowFilesystemInconsistency(
       PackageIdentifier pkgId, Exception skyframeException, boolean packageWasInError)
       throws InternalInconsistentFilesystemException {
     if (!packageWasInError) {
@@ -280,42 +273,14 @@ public class PackageFunction implements SkyFunction {
     }
   }
 
-  /**
-   * These deps have already been marked (see {@link SkyframeHybridGlobber}) but we need to properly
-   * handle symlink issues that {@link NonSkyframeGlobber} can't handle gracefully.
-   */
-  private static void handleGlobDepsAndPropagateFilesystemExceptions(
+  /** Handles package's glob deps symlink issues discovered by Skyframe globbing. */
+  @ForOverride
+  protected abstract void handleGlobDepsAndPropagateFilesystemExceptions(
       PackageIdentifier packageIdentifier,
-      Iterable<SkyKey> depKeys,
+      LoadedPackage loadedPackage,
       Environment env,
       boolean packageWasInError)
-      throws InternalInconsistentFilesystemException, FileSymlinkException, InterruptedException {
-    checkState(Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.GLOB)), depKeys);
-    FileSymlinkException arbitraryFse = null;
-    SkyframeLookupResult result = env.getValuesAndExceptions(depKeys);
-    for (SkyKey key : depKeys) {
-      try {
-        result.getOrThrow(key, IOException.class, BuildFileNotFoundException.class);
-      } catch (InconsistentFilesystemException e) {
-        throw new InternalInconsistentFilesystemException(packageIdentifier, e);
-      } catch (FileSymlinkException e) {
-        // Non-Skyframe globbing doesn't explicitly detect symlink issues, but certain filesystems
-        // might detect some symlink issues. For example, many filesystems have a hardcoded bound on
-        // the number of symlink hops they will follow when resolving paths (e.g. Unix's ELOOP).
-        // Since Skyframe globbing does explicitly detect symlink issues, we are able to:
-        //   (1) Provide a more informative error message.
-        //   (2) Confidently act as though the symlink issue is non-transient.
-        arbitraryFse = e;
-      } catch (IOException | BuildFileNotFoundException e) {
-        maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
-      }
-    }
-    if (arbitraryFse != null) {
-      // If there was at least one symlink issue and no inconsistent filesystem issues, arbitrarily
-      // rethrow one of the symlink issues.
-      throw arbitraryFse;
-    }
-  }
+      throws InternalInconsistentFilesystemException, FileSymlinkException, InterruptedException;
 
   /**
    * Adds a dependency on the WORKSPACE file, representing it as a special type of package.
@@ -373,7 +338,7 @@ public class PackageFunction implements SkyFunction {
             pkg,
             starlarkSemantics,
             // This is a lie.
-            /*loadTimeNanos=*/ 0L,
+            /* loadTimeNanos= */ 0L,
             env.getListener());
       } catch (InvalidPackageException e) {
         throw new PackageFunctionException(e, Transience.PERSISTENT);
@@ -385,14 +350,16 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
-  private static class LoadedPackage {
-    private final Package.Builder builder;
-    private final Set<SkyKey> globDepKeys;
-    private final long loadTimeNanos;
+  /**
+   * Stores information needed to load the package. Subclasses are expected to provide different
+   * types of containers which store glob deps information.
+   */
+  protected abstract static class LoadedPackage {
+    final Package.Builder builder;
+    final long loadTimeNanos;
 
-    private LoadedPackage(Package.Builder builder, Set<SkyKey> globDepKeys, long loadTimeNanos) {
+    LoadedPackage(Package.Builder builder, long loadTimeNanos) {
       this.builder = builder;
-      this.globDepKeys = globDepKeys;
       this.loadTimeNanos = loadTimeNanos;
     }
   }
@@ -545,10 +512,10 @@ public class PackageFunction implements SkyFunction {
     } catch (InternalInconsistentFilesystemException e) {
       throw e.throwPackageFunctionException();
     }
-    Set<SkyKey> globKeys = state.loadedPackage.globDepKeys;
+
     try {
       handleGlobDepsAndPropagateFilesystemExceptions(
-          packageId, globKeys, env, pkgBuilder.containsErrors());
+          packageId, state.loadedPackage, env, pkgBuilder.containsErrors());
     } catch (InternalInconsistentFilesystemException e) {
       throw e.throwPackageFunctionException();
     } catch (FileSymlinkException e) {
@@ -574,10 +541,7 @@ public class PackageFunction implements SkyFunction {
 
     Package pkg = pkgBuilder.finishBuild();
 
-    Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
-    for (Postable post : pkgBuilder.getPosts()) {
-      env.getListener().post(post);
-    }
+    pkgBuilder.getLocalEventHandler().replayOn(env.getListener());
 
     try {
       packageFactory.afterDoneLoadingPackage(
@@ -903,327 +867,19 @@ public class PackageFunction implements SkyFunction {
     if (errMsg != null) {
       Event error =
           Package.error(target.getLocation(), errMsg, Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
-      pkgBuilder.addEvent(error);
+      pkgBuilder.getLocalEventHandler().handle(error);
       return true;
     } else {
       return false;
     }
   }
 
-  private interface GlobberWithSkyframeGlobDeps extends Globber {
-    Set<SkyKey> getGlobDepsRequested();
-  }
-
-  private static class NonSkyframeGlobberWithNoGlobDeps implements GlobberWithSkyframeGlobDeps {
-    private final NonSkyframeGlobber delegate;
-
-    private NonSkyframeGlobberWithNoGlobDeps(NonSkyframeGlobber delegate) {
-      this.delegate = delegate;
-    }
-
-    @Override
-    public Set<SkyKey> getGlobDepsRequested() {
-      return ImmutableSet.of();
-    }
-
-    @Override
-    public Token runAsync(
-        List<String> includes,
-        List<String> excludes,
-        Globber.Operation globberOperation,
-        boolean allowEmpty)
-        throws BadGlobException, InterruptedException {
-      return delegate.runAsync(includes, excludes, globberOperation, allowEmpty);
-    }
-
-    @Override
-    public List<String> fetchUnsorted(Token token)
-        throws BadGlobException, IOException, InterruptedException {
-      return delegate.fetchUnsorted(token);
-    }
-
-    @Override
-    public void onInterrupt() {
-      delegate.onInterrupt();
-    }
-
-    @Override
-    public void onCompletion() {
-      delegate.onCompletion();
-    }
-  }
-
-  /**
-   * A {@link Globber} implemented on top of Skyframe that falls back to a {@link
-   * NonSkyframeGlobber} on a Skyframe cache-miss. This way we don't require a Skyframe restart
-   * after a call to {@link Globber#runAsync} and before/during a call to {@link
-   * Globber#fetchUnsorted}.
-   *
-   * <p>There are three advantages to this hybrid approach over the more obvious approach of solely
-   * using a {@link NonSkyframeGlobber}:
-   *
-   * <ul>
-   *   <li>We trivially have the proper Skyframe {@link GlobValue} deps, whereas we would need to
-   *       request them after-the-fact if we solely used a {@link NonSkyframeGlobber}.
-   *   <li>We don't need to re-evaluate globs whose expression hasn't changed (e.g. in the common
-   *       case of a BUILD file edit that doesn't change a glob expression), whereas invoking the
-   *       package loading machinery in {@link PackageFactory} with a {@link NonSkyframeGlobber}
-   *       would naively re-evaluate globs when re-evaluating the BUILD file.
-   *   <li>We don't need to re-evaluate invalidated globs *twice* (the single re-evaluation via our
-   *       GlobValue deps is sufficient and optimal). See above for why the second evaluation would
-   *       happen.
-   * </ul>
-   *
-   * <p>One general disadvantage of the hybrid approach is that we do the logical globbing work
-   * twice on clean builds. A part of this is that we do double the number of 'stat' filesystem
-   * operations: non-Skyframe globbing does `stat` operations following symlinks, and Skyframe's
-   * {@link FileStateFunction} does those operations not following symlinks (since {@link
-   * FileFunction} handles symlink chains manually). We used to have a similar concern for `readdir`
-   * operations, but we mitigated it by restructuring the non-Skyframe globbing code so that it
-   * doesn't follow symlinks for these operations, allowing the results to be cached and used by
-   * {@link DirectoryListingStateFunction}.
-   *
-   * <p>This theoretical inefficiency isn't a big deal in practice, and historical attempts to
-   * completely remove it by solely using Skyframe's {@link GlobFunction} have been unsuccessful due
-   * to the consequences of Skyframe restarts on package loading performance. If we knew the full
-   * set of `glob` calls that would be performed during BUILD file evaluation, then we could
-   * precompute those {@link GlobValue} nodes and not have any Skyframe restarts during. But that's
-   * a big "if"; consider glob calls with non-static arguments:
-   *
-   * <pre>
-   * P = f(42)
-   * g(glob(P))
-   * </pre>
-   *
-   * Also consider dependent glob calls:
-   *
-   * <pre>
-   * L = glob(["foo.*"])
-   * g(glob([f(x) for x in L])
-   * </pre>
-   *
-   * One historical attempt at addressing this issue was to do a first pass of BUILD file evaluation
-   * where we tried to encounter as many concrete glob calls as possible but without doing full
-   * Starlark evaluation, and then do the real pass of BUILD file evaluation. This approach was a
-   * net performance regression, due to the first pass both having non-trivial Starlark evaluation
-   * cost (consider a very expensive function 'f' in the first example above) and also not
-   * encountering all glob calls (meaning the real pass can still have the core problem with
-   * Skyframe restarts).
-   */
-  private static class SkyframeHybridGlobber implements GlobberWithSkyframeGlobDeps {
-    private final PackageIdentifier packageId;
-    private final Root packageRoot;
-    private final Environment env;
-    private final NonSkyframeGlobber nonSkyframeGlobber;
-    private final Set<SkyKey> globDepsRequested = Sets.newConcurrentHashSet();
-
-    private SkyframeHybridGlobber(
-        PackageIdentifier packageId,
-        Root packageRoot,
-        Environment env,
-        NonSkyframeGlobber nonSkyframeGlobber) {
-      this.packageId = packageId;
-      this.packageRoot = packageRoot;
-      this.env = env;
-      this.nonSkyframeGlobber = nonSkyframeGlobber;
-    }
-
-    @Override
-    public Set<SkyKey> getGlobDepsRequested() {
-      return ImmutableSet.copyOf(globDepsRequested);
-    }
-
-    private SkyKey getGlobKey(String pattern, Globber.Operation globberOperation)
-        throws BadGlobException {
-      try {
-        return GlobValue.key(
-            packageId, packageRoot, pattern, globberOperation, PathFragment.EMPTY_FRAGMENT);
-      } catch (InvalidGlobPatternException e) {
-        throw new BadGlobException(e.getMessage());
-      }
-    }
-
-    @Override
-    public Token runAsync(
-        List<String> includes,
-        List<String> excludes,
-        Globber.Operation globberOperation,
-        boolean allowEmpty)
-        throws BadGlobException, InterruptedException {
-      LinkedHashSet<SkyKey> globKeys = Sets.newLinkedHashSetWithExpectedSize(includes.size());
-      Map<SkyKey, String> globKeyToPatternMap = Maps.newHashMapWithExpectedSize(includes.size());
-
-      for (String pattern : includes) {
-        SkyKey globKey = getGlobKey(pattern, globberOperation);
-        globKeys.add(globKey);
-        globKeyToPatternMap.put(globKey, pattern);
-      }
-
-      globDepsRequested.addAll(globKeys);
-
-      SkyframeLookupResult globValueMap = env.getValuesAndExceptions(globKeys);
-
-      // For each missing glob, evaluate it asynchronously via the delegate.
-      List<SkyKey> missingKeys = new ArrayList<>(globKeys.size());
-      for (SkyKey globKey : globKeys) {
-        try {
-          SkyValue value =
-              globValueMap.getOrThrow(globKey, IOException.class, BuildFileNotFoundException.class);
-          if (value == null) {
-            missingKeys.add(globKey);
-          }
-        } catch (IOException | BuildFileNotFoundException e) {
-          logger.atWarning().withCause(e).log("Exception processing %s", globKey);
-        }
-      }
-      List<String> globsToDelegate = new ArrayList<>(missingKeys.size());
-      for (SkyKey missingKey : missingKeys) {
-        String missingPattern = globKeyToPatternMap.get(missingKey);
-        if (missingPattern != null) {
-          globsToDelegate.add(missingPattern);
-          globKeys.remove(missingKey);
-        }
-      }
-      NonSkyframeGlobber.Token nonSkyframeIncludesToken =
-          globsToDelegate.isEmpty()
-              ? null
-              : nonSkyframeGlobber.runAsync(
-                  globsToDelegate, ImmutableList.of(), globberOperation, allowEmpty);
-      return new HybridToken(
-          globValueMap, globKeys, nonSkyframeIncludesToken, excludes, globberOperation, allowEmpty);
-    }
-
-    @Override
-    public List<String> fetchUnsorted(Token token)
-        throws BadGlobException, IOException, InterruptedException {
-      HybridToken hybridToken = (HybridToken) token;
-      return hybridToken.resolve(nonSkyframeGlobber);
-    }
-
-    @Override
-    public void onInterrupt() {
-      nonSkyframeGlobber.onInterrupt();
-    }
-
-    @Override
-    public void onCompletion() {
-      nonSkyframeGlobber.onCompletion();
-    }
-
-    /**
-     * A {@link Globber.Token} that encapsulates the result of a single {@link Globber#runAsync}
-     * call via the fetching of some globs from skyframe, and some other globs via a {@link
-     * NonSkyframeGlobber}. 'exclude' patterns are evaluated using {@link UnixGlob#removeExcludes}
-     * after merging the glob results in {@link #resolve}.
-     */
-    private static class HybridToken extends Globber.Token {
-      // The result of the Skyframe lookup for all the needed glob patterns.
-      private final SkyframeLookupResult globValueMap;
-      // The skyframe keys corresponding to the 'includes' patterns fetched from Skyframe
-      // (this is includes_sky above).
-      private final Iterable<SkyKey> includesGlobKeys;
-      @Nullable private final NonSkyframeGlobber.Token nonSkyframeGlobberIncludesToken;
-
-      private final List<String> excludes;
-
-      private final Globber.Operation globberOperation;
-
-      private final boolean allowEmpty;
-
-      private HybridToken(
-          SkyframeLookupResult globValueMap,
-          Iterable<SkyKey> includesGlobKeys,
-          @Nullable NonSkyframeGlobber.Token nonSkyframeGlobberIncludesToken,
-          List<String> excludes,
-          Globber.Operation globberOperation,
-          boolean allowEmpty) {
-        this.globValueMap = globValueMap;
-        this.includesGlobKeys = includesGlobKeys;
-        this.nonSkyframeGlobberIncludesToken = nonSkyframeGlobberIncludesToken;
-        this.excludes = excludes;
-        this.globberOperation = globberOperation;
-        this.allowEmpty = allowEmpty;
-      }
-
-      private List<String> resolve(NonSkyframeGlobber nonSkyframeGlobber)
-          throws BadGlobException, IOException, InterruptedException {
-        HashSet<String> matches = new HashSet<>();
-        for (SkyKey includeGlobKey : includesGlobKeys) {
-          // TODO(bazel-team): NestedSet expansion here is suboptimal.
-          boolean foundMatch = false;
-          for (PathFragment match : getGlobMatches(includeGlobKey, globValueMap)) {
-            matches.add(match.getPathString());
-            foundMatch = true;
-          }
-          if (!allowEmpty && !foundMatch) {
-            GlobberUtils.throwBadGlobExceptionEmptyResult(
-                ((GlobDescriptor) includeGlobKey.argument()).getPattern(), globberOperation);
-          }
-        }
-        if (nonSkyframeGlobberIncludesToken != null) {
-          matches.addAll(nonSkyframeGlobber.fetchUnsorted(nonSkyframeGlobberIncludesToken));
-        }
-        try {
-          UnixGlob.removeExcludes(matches, excludes);
-        } catch (UnixGlob.BadPattern ex) {
-          throw new BadGlobException(ex.getMessage());
-        }
-        List<String> result = new ArrayList<>(matches);
-
-        if (!allowEmpty && result.isEmpty()) {
-          GlobberUtils.throwBadGlobExceptionAllExcluded(globberOperation);
-        }
-        return result;
-      }
-
-      private static ImmutableSet<PathFragment> getGlobMatches(
-          SkyKey globKey, SkyframeLookupResult globValueMap) throws IOException {
-        try {
-          return checkNotNull(
-                  (GlobValue)
-                      globValueMap.getOrThrow(
-                          globKey, BuildFileNotFoundException.class, IOException.class),
-                  "%s should not be missing",
-                  globKey)
-              .getMatches();
-        } catch (BuildFileNotFoundException e) {
-          throw new SkyframeGlobbingIOException(e);
-        }
-      }
-    }
-  }
-
-  private static class SkyframeGlobbingIOException extends IOException {
-    private SkyframeGlobbingIOException(BuildFileNotFoundException cause) {
-      super(cause.getMessage(), cause);
-    }
-  }
-
-  private GlobberWithSkyframeGlobDeps makeGlobber(
-      Path buildFilePath,
+  @ForOverride
+  protected abstract Globber makeGlobber(
+      NonSkyframeGlobber nonSkyframeGlobber,
       PackageIdentifier packageId,
-      ImmutableSet<PathFragment> repositoryIgnoredPatterns,
       Root packageRoot,
-      Environment env,
-      SkyKey keyForMetrics) {
-    NonSkyframeGlobber nonSkyframeGlobber =
-        packageFactory.createNonSkyframeGlobber(
-            buildFilePath.getParentDirectory(),
-            packageId,
-            repositoryIgnoredPatterns,
-            packageLocator,
-            threadStateReceiverFactoryForMetrics.apply(keyForMetrics));
-    switch (globbingStrategy) {
-      case SKYFRAME_HYBRID:
-        return new SkyframeHybridGlobber(packageId, packageRoot, env, nonSkyframeGlobber);
-      case NON_SKYFRAME:
-        // Skyframe globbing is only useful for incremental correctness and performance. The
-        // first time Bazel loads a package ever, Skyframe globbing is actually pure overhead
-        // (SkyframeHybridGlobber will make full use of NonSkyframeGlobber).
-        return new NonSkyframeGlobberWithNoGlobDeps(nonSkyframeGlobber);
-    }
-    throw new AssertionError(globbingStrategy);
-  }
+      Environment env);
 
   /**
    * Constructs a {@link Package} object for the given package. Note that the returned package may
@@ -1246,8 +902,6 @@ public class PackageFunction implements SkyFunction {
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue)
             env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
-    RepositoryMappingValue mainRepositoryMappingValue =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
     FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
@@ -1398,42 +1052,39 @@ public class PackageFunction implements SkyFunction {
 
       long startTimeNanos = BlazeClock.nanoTime();
 
-      GlobberWithSkyframeGlobDeps globber =
+      Globber globber =
           makeGlobber(
-              buildFileRootedPath.asPath(),
+              packageFactory.createNonSkyframeGlobber(
+                  buildFileRootedPath.asPath().getParentDirectory(),
+                  packageId,
+                  repositoryIgnoredPatterns,
+                  packageLocator,
+                  threadStateReceiverFactoryForMetrics.apply(keyForMetrics)),
               packageId,
-              repositoryIgnoredPatterns,
               packageRoot,
-              env,
-              keyForMetrics);
+              env);
 
       // Create the package,
       // even if it will be empty because we cannot attempt execution.
       Package.Builder pkgBuilder =
-          packageFactory
-              .newPackageBuilder(
-                  packageId,
-                  workspaceName,
-                  repositoryMappingValue.getAssociatedModuleName(),
-                  repositoryMappingValue.getAssociatedModuleVersion(),
-                  starlarkBuiltinsValue.starlarkSemantics,
-                  repositoryMapping,
-                  mainRepositoryMappingValue.getRepositoryMapping(),
-                  cpuBoundSemaphore.get())
-              .setFilename(buildFileRootedPath)
-              .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy)
-              .setGlobber(globber);
+          packageFactory.newPackageBuilder(
+              packageId,
+              buildFileRootedPath,
+              workspaceName,
+              repositoryMappingValue.getAssociatedModuleName(),
+              repositoryMappingValue.getAssociatedModuleVersion(),
+              starlarkBuiltinsValue.starlarkSemantics,
+              repositoryMapping,
+              cpuBoundSemaphore.get(),
+              /* (Nullable) */ compiled.generatorMap,
+              configSettingVisibilityPolicy,
+              globber);
 
       pkgBuilder
           .mergePackageArgsFrom(PackageArgs.builder().setDefaultVisibility(defaultVisibility))
           .mergePackageArgsFrom(repoFileValue.packageArgs());
 
-      Set<SkyKey> globDepKeys = ImmutableSet.of();
-
-      // OK to execute BUILD program?
       if (compiled.ok()) {
-        pkgBuilder.setGeneratorMap(compiled.generatorMap);
-
         packageFactory.executeBuildFile(
             pkgBuilder,
             compiled.prog,
@@ -1443,21 +1094,19 @@ public class PackageFunction implements SkyFunction {
             compiled.predeclared,
             loadedModules,
             starlarkBuiltinsValue.starlarkSemantics);
-
-        globDepKeys = globber.getGlobDepsRequested();
-
       } else {
         // Execution not attempted due to static errors.
         for (SyntaxError err : compiled.errors) {
-          pkgBuilder.addEvent(
-              Package.error(err.location(), err.message(), PackageLoading.Code.SYNTAX_ERROR));
+          pkgBuilder
+              .getLocalEventHandler()
+              .handle(
+                  Package.error(err.location(), err.message(), PackageLoading.Code.SYNTAX_ERROR));
         }
         pkgBuilder.setContainsErrors();
       }
 
       long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
-      return new LoadedPackage(pkgBuilder, globDepKeys, loadTimeNanos);
-
+      return newLoadedPackage(pkgBuilder, globber, loadTimeNanos);
     } finally {
       if (committed) {
         // We're done executing the BUILD file. Therefore, we can discard the compiled BUILD file...
@@ -1469,6 +1118,10 @@ public class PackageFunction implements SkyFunction {
       }
     }
   }
+
+  @ForOverride
+  protected abstract LoadedPackage newLoadedPackage(
+      Package.Builder packageBuilder, @Nullable Globber globber, long loadTimeNanos);
 
   // Reads, parses, resolves, and compiles a BUILD file.
   // A read error is reported as PackageFunctionException.
@@ -1601,7 +1254,115 @@ public class PackageFunction implements SkyFunction {
         ImmutableMap.copyOf(predeclared));
   }
 
-  private static class InternalInconsistentFilesystemException extends Exception {
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  /** Builder class for {@link PackageFunction}. */
+  public static final class Builder {
+    @Nullable private PackageFactory packageFactory;
+    @Nullable private CachingPackageLocator pkgLocator;
+    private AtomicBoolean showLoadingProgress = new AtomicBoolean(false);
+    private AtomicInteger numPackagesSuccessfullyLoaded = new AtomicInteger(0);
+    @Nullable private BzlLoadFunction bzlLoadFunctionForInlining;
+    @Nullable private PackageProgressReceiver packageProgress;
+    private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile =
+        PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE;
+    private boolean shouldUseRepoDotBazel = true;
+    @Nullable private GlobbingStrategy globbingStrategy = GlobbingStrategy.SKYFRAME_HYBRID;
+    private Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics =
+        k -> ThreadStateReceiver.NULL_INSTANCE;
+    private AtomicReference<Semaphore> cpuBoundSemaphore = new AtomicReference<>();
+
+    @CanIgnoreReturnValue
+    public Builder setPackageFactory(PackageFactory packageFactory) {
+      this.packageFactory = packageFactory;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setPackageLocator(CachingPackageLocator pkgLocator) {
+      this.pkgLocator = pkgLocator;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setShowLoadingProgress(AtomicBoolean showLoadingProgress) {
+      this.showLoadingProgress = showLoadingProgress;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setNumPackagesSuccessfullyLoaded(AtomicInteger numPackagesSuccessfullyLoaded) {
+      this.numPackagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setBzlLoadFunctionForInlining(BzlLoadFunction bzlLoadFunctionForInlining) {
+      this.bzlLoadFunctionForInlining = bzlLoadFunctionForInlining;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setPackageProgress(PackageProgressReceiver packageProgress) {
+      this.packageProgress = packageProgress;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setActionOnIOExceptionReadingBuildFile(
+        ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
+      this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setShouldUseRepoDotBazel(boolean shouldUseRepoDotBazel) {
+      this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setGlobbingStrategy(GlobbingStrategy globbingStrategy) {
+      this.globbingStrategy = globbingStrategy;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setThreadStateReceiverFactoryForMetrics(
+        Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics) {
+      this.threadStateReceiverFactoryForMetrics = threadStateReceiverFactoryForMetrics;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setCpuBoundSemaphore(AtomicReference<Semaphore> cpuBoundSemaphore) {
+      this.cpuBoundSemaphore = cpuBoundSemaphore;
+      return this;
+    }
+
+    public PackageFunction build() {
+      return new PackageFunctionWithMultipleGlobDeps(
+          packageFactory,
+          pkgLocator,
+          showLoadingProgress,
+          numPackagesSuccessfullyLoaded,
+          bzlLoadFunctionForInlining,
+          packageProgress,
+          actionOnIOExceptionReadingBuildFile,
+          shouldUseRepoDotBazel,
+          globbingStrategy,
+          threadStateReceiverFactoryForMetrics,
+          cpuBoundSemaphore);
+    }
+  }
+
+  /**
+   * Wraps {@link InconsistentFilesystemException}. This is only internally used by {@link
+   * PackageFunction}.
+   */
+  protected static class InternalInconsistentFilesystemException extends Exception {
     private boolean isTransient;
     private final PackageIdentifier packageIdentifier;
 

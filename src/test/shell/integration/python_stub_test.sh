@@ -142,8 +142,9 @@ EOF
 
   touch python_through_bash/inner.py
 
-  bazel run --nobuild_runfile_links //python_through_bash:outer \
-    &> $TEST_log || fail "bazel run failed"
+  # The inner Python script requires runfiles, so force them on Windows.
+  bazel run --nobuild_runfile_links --enable_runfiles \
+    //python_through_bash:outer &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python"
 }
 

@@ -28,8 +28,9 @@ class PyTest(test_base.TestBase):
         'a/BUILD',
         [
             'py_binary(name="a", srcs=["a.py"], deps=[":b"])',
-            'py_library(name="b", srcs=["b.py"])',
-        ])
+            'py_library(name="b", srcs=["b.py"], imports=["."])',
+        ],
+    )
 
     self.ScratchFile(
         'a/a.py',
@@ -46,9 +47,6 @@ class PyTest(test_base.TestBase):
         ])
 
   def testSmoke(self):
-    if test_base.TestBase.IsDarwin():
-      # Re-enable after fixing https://github.com/bazelbuild/bazel/issues/20660
-      return
     self.createSimpleFiles()
     _, stdout, _ = self.RunBazel(['run', '//a:a'])
     self.assertIn('Hello, World', stdout)

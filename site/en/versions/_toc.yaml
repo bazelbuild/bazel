@@ -1,6 +1,8 @@
 toc:
 - label: "7.0"
   path: /versions/7.0.0
+- label: "6.5"
+  path: /versions/6.5.0
 - label: "6.4"
   path: /versions/6.4.0
 - label: "6.3"

@@ -25,9 +25,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.Run
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.lang.ref.SoftReference;
 import java.util.Map;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** {@link RunfilesSupplier} implementation wrapping a single {@link Runfiles} directory mapping. */
@@ -36,33 +34,9 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesT
 
   private final PathFragment runfilesDir;
   private final Runfiles runfiles;
-  private final Supplier<Map<PathFragment, Artifact>> runfilesInputs;
   @Nullable private final Artifact repoMappingManifest;
   private final RunfileSymlinksMode runfileSymlinksMode;
   private final boolean buildRunfileLinks;
-
-  /**
-   * Same as {@link SingleRunfilesSupplier#SingleRunfilesSupplier(PathFragment, Runfiles, boolean,
-   * Artifact, RunfileSymlinksMode, boolean)}, except adds caching for {@linkplain
-   * Runfiles#getRunfilesInputs runfiles inputs}.
-   *
-   * <p>The runfiles inputs are computed lazily and softly cached. Caching is shared across
-   * instances created via {@link #withOverriddenRunfilesDir}.
-   */
-  public static SingleRunfilesSupplier createCaching(
-      PathFragment runfilesDir,
-      Runfiles runfiles,
-      @Nullable Artifact repoMappingManifest,
-      RunfileSymlinksMode runfileSymlinksMode,
-      boolean buildRunfileLinks) {
-    return new SingleRunfilesSupplier(
-        runfilesDir,
-        runfiles,
-        /* runfilesCachingEnabled= */ true,
-        repoMappingManifest,
-        runfileSymlinksMode,
-        buildRunfileLinks);
-  }
 
   /**
    * Create an instance mapping {@code runfiles} to {@code runfilesDir}.
@@ -79,46 +53,9 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesT
       @Nullable Artifact repoMappingManifest,
       RunfileSymlinksMode runfileSymlinksMode,
       boolean buildRunfileLinks) {
-    this(
-        runfilesDir,
-        runfiles,
-        /* runfilesCachingEnabled= */ false,
-        repoMappingManifest,
-        runfileSymlinksMode,
-        buildRunfileLinks);
-  }
-
-  private SingleRunfilesSupplier(
-      PathFragment runfilesDir,
-      Runfiles runfiles,
-      boolean runfilesCachingEnabled,
-      @Nullable Artifact repoMappingManifest,
-      RunfileSymlinksMode runfileSymlinksMode,
-      boolean buildRunfileLinks) {
-    this(
-        runfilesDir,
-        runfiles,
-        runfilesCachingEnabled
-            ? new RunfilesCacher(runfiles, repoMappingManifest)
-            : () ->
-                runfiles.getRunfilesInputs(
-                    /* eventHandler= */ null, /* location= */ null, repoMappingManifest),
-        repoMappingManifest,
-        runfileSymlinksMode,
-        buildRunfileLinks);
-  }
-
-  private SingleRunfilesSupplier(
-      PathFragment runfilesDir,
-      Runfiles runfiles,
-      Supplier<Map<PathFragment, Artifact>> runfilesInputs,
-      @Nullable Artifact repoMappingManifest,
-      RunfileSymlinksMode runfileSymlinksMode,
-      boolean buildRunfileLinks) {
     checkArgument(!runfilesDir.isAbsolute());
     this.runfilesDir = checkNotNull(runfilesDir);
     this.runfiles = checkNotNull(runfiles);
-    this.runfilesInputs = checkNotNull(runfilesInputs);
     this.repoMappingManifest = repoMappingManifest;
     this.runfileSymlinksMode = runfileSymlinksMode;
     this.buildRunfileLinks = buildRunfileLinks;
@@ -129,31 +66,20 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesT
     return ImmutableList.of(this);
   }
 
-  public SingleRunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
-    return newRunfilesDir.equals(runfilesDir)
-        ? this
-        : new SingleRunfilesSupplier(
-            newRunfilesDir,
-            runfiles,
-            runfilesInputs,
-            repoMappingManifest,
-            runfileSymlinksMode,
-            buildRunfileLinks);
-  }
-
   @Override
   public NestedSet<Artifact> getArtifacts() {
     return runfiles.getAllArtifacts();
   }
 
   @Override
-  public PathFragment getExecPath() {
+  public PathFragment getPossiblyIncorrectExecPath() {
     return runfilesDir;
   }
 
   @Override
   public Map<PathFragment, Artifact> getMapping() {
-    return runfilesInputs.get();
+    return runfiles.getRunfilesInputs(
+        /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
   }
 
   @Override
@@ -166,34 +92,8 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesT
     return buildRunfileLinks;
   }
 
-  /** Softly caches the result of {@link Runfiles#getRunfilesInputs}. */
-  private static final class RunfilesCacher implements Supplier<Map<PathFragment, Artifact>> {
-
-    private final Runfiles runfiles;
-    @Nullable private final Artifact repoMappingManifest;
-    private volatile SoftReference<Map<PathFragment, Artifact>> ref = new SoftReference<>(null);
-
-    RunfilesCacher(Runfiles runfiles, @Nullable Artifact repoMappingManifest) {
-      this.runfiles = runfiles;
-      this.repoMappingManifest = repoMappingManifest;
-    }
-
-    @Override
-    public Map<PathFragment, Artifact> get() {
-      Map<PathFragment, Artifact> result = ref.get();
-      if (result != null) {
-        return result;
-      }
-      synchronized (this) {
-        result = ref.get();
-        if (result == null) {
-          result =
-              runfiles.getRunfilesInputs(
-                  /*eventHandler=*/ null, /*location=*/ null, repoMappingManifest);
-          ref = new SoftReference<>(result);
-        }
-      }
-      return result;
-    }
+  @Override
+  public String getWorkspaceName() {
+    return runfiles.getSuffix().getPathString();
   }
 }
