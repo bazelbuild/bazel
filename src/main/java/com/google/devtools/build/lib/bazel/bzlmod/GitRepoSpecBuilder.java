@@ -34,11 +34,6 @@ public class GitRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setRepoName(String repoName) {
-    return setAttr("name", repoName);
-  }
-
-  @CanIgnoreReturnValue
   public GitRepoSpecBuilder setRemote(String remoteRepoUrl) {
     return setAttr("remote", remoteRepoUrl);
   }
@@ -78,11 +73,6 @@ public class GitRepoSpecBuilder {
   @CanIgnoreReturnValue
   public GitRepoSpecBuilder setPatches(List<String> patches) {
     return setAttr("patches", patches);
-  }
-
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatchTool(String patchTool) {
-    return setAttr("patch_tool", patchTool);
   }
 
   @CanIgnoreReturnValue

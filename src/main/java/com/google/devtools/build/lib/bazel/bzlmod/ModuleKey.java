@@ -37,6 +37,7 @@ public abstract class ModuleKey {
    * normal format seen in {@link #getCanonicalRepoName()}) due to backwards compatibility reasons.
    * For example, bazel_tools must be known as "@bazel_tools" for WORKSPACE repos to work correctly.
    */
+  // Keep in sync with src/tools/bzlmod/utils.bzl.
   private static final ImmutableMap<String, RepositoryName> WELL_KNOWN_MODULES =
       ImmutableMap.of(
           "bazel_tools",
