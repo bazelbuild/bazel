@@ -1913,7 +1913,7 @@ EOF
 }
 
 function test_ifso_generation() {
-  type -P llvm-ifs || return 0
+  type -P llvm-ifs-14 || return 0
 
   mkdir pkg
   cat > pkg/BUILD <<'EOF'
@@ -1930,41 +1930,41 @@ cc_test(
 EOF
   cat > pkg/lib.c <<'EOF'
 #include "lib.h"
-int lib() { return 42; }
+int func() { return 42; }
 EOF
   cat > pkg/lib.h <<'EOF'
-int lib();
+int func();
 EOF
   cat > pkg/test.c <<'EOF'
 #include "lib.h"
 #include "stdio.h"
 int main() {
-  printf("lib(): %d\n", lib());
+  printf("func(): %d\n", func());
 }
 EOF
 
   bazel test //pkg:test -s --test_output=all \
+    --repo_env=BAZEL_LLVM_IFS=llvm-ifs-14 \
     &> "$TEST_log" || fail "Build failed"
   expect_log "action 'Compiling pkg/lib.c'"
   expect_log "action 'Linking pkg/liblib.so'"
   expect_log "action 'Linking pkg/test'"
-  expect_log "lib(): 42"
+  expect_log "func(): 42"
   [[ -f ${PRODUCT_NAME}-bin/pkg/liblib.ifso ]] || fail "liblib.ifso not found"
 
-  # Only modify the implementation of lib(). This should not trigger a relink
+  # Only modify the implementation of func(). This should not trigger a relink
   # as the .ifso file isn't modified.
   cat > pkg/lib.c <<'EOF'
 #include "lib.h"
-int lib() { return 43; }
+int func() { return 43; }
 EOF
   bazel test //pkg:test -s --test_output=all \
+    --repo_env=BAZEL_LLVM_IFS=llvm-ifs-14 \
     &> "$TEST_log" || fail "Build failed"
   expect_log "action 'Compiling pkg/lib.c'"
   expect_log "action 'Linking pkg/liblib.so'"
   expect_not_log "action 'Linking pkg/test'"
-  expect_log "lib(): 43"
-
-  fail "I ran"
+  expect_log "func(): 43"
 }
 
 run_suite "cc_integration_test"
