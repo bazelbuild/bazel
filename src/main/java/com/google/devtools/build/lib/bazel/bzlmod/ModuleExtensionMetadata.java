@@ -62,13 +62,13 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
   abstract UseAllRepos getUseAllRepos();
 
-  abstract boolean excludeFromLockfile();
+  abstract boolean getReproducible();
 
   private static ModuleExtensionMetadata create(
       @Nullable Set<String> explicitRootModuleDirectDeps,
       @Nullable Set<String> explicitRootModuleDirectDevDeps,
       UseAllRepos useAllRepos,
-      boolean excludeFromLockfile) {
+      boolean reproducible) {
     return new AutoValue_ModuleExtensionMetadata(
         explicitRootModuleDirectDeps != null
             ? ImmutableSet.copyOf(explicitRootModuleDirectDeps)
@@ -77,29 +77,29 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
             ? ImmutableSet.copyOf(explicitRootModuleDirectDevDeps)
             : null,
         useAllRepos,
-        excludeFromLockfile);
+        reproducible);
   }
 
   static ModuleExtensionMetadata create(
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
-      boolean excludeFromLockfile)
+      boolean reproducible)
       throws EvalException {
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
         && rootModuleDirectDevDepsUnchecked == Starlark.NONE) {
-      return create(null, null, UseAllRepos.NO, excludeFromLockfile);
+      return create(null, null, UseAllRepos.NO, reproducible);
     }
 
     // When root_module_direct_deps = "all", accept both root_module_direct_dev_deps = None and
     // root_module_direct_dev_deps = [], but not root_module_direct_dev_deps = ["some_repo"].
     if (rootModuleDirectDepsUnchecked.equals("all")
         && rootModuleDirectDevDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.REGULAR, excludeFromLockfile);
+      return create(null, null, UseAllRepos.REGULAR, reproducible);
     }
 
     if (rootModuleDirectDevDepsUnchecked.equals("all")
         && rootModuleDirectDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.DEV, excludeFromLockfile);
+      return create(null, null, UseAllRepos.DEV, reproducible);
     }
 
     if (rootModuleDirectDepsUnchecked.equals("all")
@@ -157,7 +157,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       }
     }
 
-    return create(explicitRootModuleDirectDeps, explicitRootModuleDirectDevDeps, UseAllRepos.NO, excludeFromLockfile);
+    return create(explicitRootModuleDirectDeps, explicitRootModuleDirectDevDeps, UseAllRepos.NO, reproducible);
   }
 
   public void evaluate(

@@ -115,13 +115,7 @@ class BazelLockfileTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
-    self.RunBazel(
-        [
-            'build',
-            '--nobuild',
-            '//:all',
-        ],
-    )
+    self.RunBazel(['build', '--nobuild', '//:all'])
 
     # Change registry -> update 'sss' module file (corrupt it)
     module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
@@ -144,9 +138,7 @@ class BazelLockfileTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
-    self.RunBazel(
-        ['build', '--nobuild', '//:all'],
-    )
+    self.RunBazel(['build', '--nobuild', '//:all'])
 
     # Change registry -> update 'sss' module file (corrupt it)
     module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
@@ -1897,7 +1889,7 @@ class BazelLockfileTest(test_base.TestBase):
     # Build again. This should _NOT_ trigger a failure!
     _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':lol'])
     self.assertNotIn('ran the extension!', '\n'.join(stderr))
-  def testExtensionIgnoredInLockfile(self):
+  def testReproducibleExtensionsIgnoredInLockfile(self):
     self.ScratchFile(
       'MODULE.bazel',
       [
@@ -1921,7 +1913,7 @@ class BazelLockfileTest(test_base.TestBase):
         '    return ctx.extension_metadata(',
         '        root_module_direct_deps=[],',
         '        root_module_direct_dev_deps=[],',
-        '        exclude_from_lockfile=True',
+        '        reproducible=True',
         '    )',
         'ext1 = module_extension(implementation=_should_lock_impl)',
         'ext2 = module_extension(implementation=_no_lock_impl)',
@@ -1948,7 +1940,7 @@ class BazelLockfileTest(test_base.TestBase):
         '    return ctx.extension_metadata(',
         '        root_module_direct_deps=[],',
         '        root_module_direct_dev_deps=[],',
-        '        exclude_from_lockfile=True',
+        '        reproducible=True',
         '    )',
         'ext1 = module_extension(implementation=_no_lock_impl)',
         'ext2 = module_extension(implementation=_should_lock_impl)',
@@ -1961,6 +1953,62 @@ class BazelLockfileTest(test_base.TestBase):
       lockfile = json.loads(f.read().strip())
       self.assertNotIn('//:extension.bzl%ext1', lockfile['moduleExtensions'])
       self.assertIn('//:extension.bzl%ext2', lockfile['moduleExtensions'])
+
+  def testReproducibleExtensionInLockfileErrorMode(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'ext = use_extension("extension.bzl", "ext")',
+        'use_repo(ext, "repo")',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+        'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+        '',
+        'def _ext_impl(ctx):',
+        '    repo_rule(name="repo")',
+        '    return ctx.extension_metadata(',
+        '        root_module_direct_deps=[],',
+        '        root_module_direct_dev_deps=[],',
+        '        reproducible=True',
+        '    )',
+        'ext = module_extension(implementation=_ext_impl)',
+      ],
+    )
+
+    self.RunBazel(['build', '@repo//:all'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertNotIn('//:extension.bzl%ext', lockfile['moduleExtensions'])
+
+    # Assert ext does NOT fail in error mode
+    self.RunBazel(['build', '@repo//:all', '--lockfile_mode=error'])
+
+    # Update extension to not be reproducible
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+        'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+        '',
+        'def _ext_impl(ctx): repo_rule(name="repo")',
+        'ext = module_extension(implementation=_ext_impl)',
+      ],
+    )
+
+    # Assert ext does FAIL in error mode
+    _, _, stderr = self.RunBazel(
+      ['build', '@repo//:all', '--lockfile_mode=error'], allow_failure=True)
+    self.assertIn("ERROR: The module extension "
+                  "'ModuleExtensionId{bzlFileLabel=//:extension.bzl, "
+                  "extensionName=ext, isolationKey=Optional.empty}' does "
+                  "not exist in the lockfile", stderr)
 
 
 if __name__ == '__main__':

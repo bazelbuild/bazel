@@ -124,7 +124,7 @@ public class BazelLockFileModule extends BlazeModule {
       // If this extension does NOT want to be locked, continue
       LockFileModuleExtension extension = event.getModuleExtension();
       if(extension.getModuleExtensionMetadata().isPresent() &&
-          extension.getModuleExtensionMetadata().get().excludeFromLockfile()) {
+          extension.getModuleExtensionMetadata().get().getReproducible()) {
         continue;
       }
 
@@ -173,7 +173,7 @@ public class BazelLockFileModule extends BlazeModule {
     if (extEvent != null) {
       boolean doNotLockExtension =
           extEvent.getModuleExtension().getModuleExtensionMetadata().isPresent() &&
-          extEvent.getModuleExtension().getModuleExtensionMetadata().get().excludeFromLockfile();
+          extEvent.getModuleExtension().getModuleExtensionMetadata().get().getReproducible();
       boolean dependencyOnOsChanged =
           lockedExtensionKey.getOs().isEmpty() != extEvent.getExtensionFactors().getOs().isEmpty();
       boolean dependencyOnArchChanged =

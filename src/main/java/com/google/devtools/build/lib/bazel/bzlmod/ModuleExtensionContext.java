@@ -203,8 +203,9 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
               @ParamType(type = NoneType.class)
             }),
         @Param(
-            name = "exclude_from_lockfile",
-            doc = "Whether this extension should be stored in the lockfile or not",
+            name = "reproducible",
+            doc = "States that this module extension ensures complete reproducibility, thereby it "
+                + "should not be stored in the lockfile.",
             positional = false,
             named = true,
             defaultValue = "False",
@@ -214,8 +215,8 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       })
   public ModuleExtensionMetadata extensionMetadata(
       Object rootModuleDirectDepsUnchecked, Object rootModuleDirectDevDepsUnchecked,
-      boolean excludeFromLockfile) throws EvalException {
+      boolean reproducible) throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, excludeFromLockfile);
+        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible);
   }
 }
