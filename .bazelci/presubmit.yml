@@ -19,6 +19,7 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
       - "//src/main/java/..."
+      - "//src/tools/execlog/..."
     test_flags:
       - "--config=ci-linux"
       # Override REMOTE_NETWORK_ADDRESS since bazel_sandboxing_networking_test doesn't work on this platform
