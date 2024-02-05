@@ -42,6 +42,8 @@ common --check_direct_dependencies=error
 # Add mirrors for certain download URLs
 common --experimental_downloader_config=bazel_downloader.cfg
 
+common --noincompatible_sandbox_hermetic_tmp
+
 # Enable modern C++ features
 build:linux --cxxopt=-std=c++17
 build:linux --host_cxxopt=-std=c++17
