@@ -13,13 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import java.util.HashSet;
 import java.util.Map;
@@ -173,8 +175,10 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
   }
 
   private void setAndCheckEvaluateState(boolean newValue, Object requestInfo) {
-    Preconditions.checkState(evaluating.getAndSet(newValue) != newValue,
-        "Re-entrant evaluation for request: %s", requestInfo);
+    checkState(
+        evaluating.getAndSet(newValue) != newValue,
+        "Re-entrant evaluation for request: %s",
+        requestInfo);
   }
 
   @Override
@@ -184,6 +188,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
 
   @Override
   public void injectGraphTransformerForTesting(GraphTransformerForTesting transformer) {
+    checkState(TestType.isInTest());
     this.graph = transformer.transform(this.graph);
   }
 

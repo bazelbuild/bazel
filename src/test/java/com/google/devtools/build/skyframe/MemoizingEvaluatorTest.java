@@ -54,6 +54,7 @@ import com.google.devtools.build.skyframe.GraphTester.NotComparableStringValue;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
+import com.google.devtools.build.skyframe.MemoizingEvaluator.GraphTransformerForTesting;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
@@ -182,7 +183,30 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   @Test
-  public void injectGraphTransformer() throws Exception {
+  public void injectGraphTransformer_transformedGraphUsedForInMemoryGraph() {
+    assume().that(tester.evaluator).isInstanceOf(AbstractInMemoryMemoizingEvaluator.class);
+    InMemoryGraph realGraph = tester.evaluator.getInMemoryGraph();
+    InMemoryGraph mockGraph = mock(InMemoryGraph.class);
+
+    tester.evaluator.injectGraphTransformerForTesting(
+        new GraphTransformerForTesting() {
+          @Override
+          public InMemoryGraph transform(InMemoryGraph graph) {
+            assertThat(graph).isSameInstanceAs(realGraph);
+            return mockGraph;
+          }
+
+          @Override
+          public ProcessableGraph transform(ProcessableGraph graph) {
+            throw new AssertionError(graph);
+          }
+        });
+
+    assertThat(tester.evaluator.getInMemoryGraph()).isSameInstanceAs(mockGraph);
+  }
+
+  @Test
+  public void injectGraphTransformer_transformedGraphUsedForEvaluation() throws Exception {
     Listener listener = mock(Listener.class);
     tester.evaluator.injectGraphTransformerForTesting(
         NotifyingHelper.makeNotifyingTransformer(listener));
@@ -196,7 +220,7 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   @Test
-  public void injectMultipleGraphTransformers() throws Exception {
+  public void injectGraphTransformer_multipleTransformersAppliedInOrder() throws Exception {
     Listener inner = mock(Listener.class);
     Listener outer = mock(Listener.class);
     tester.evaluator.injectGraphTransformerForTesting(
