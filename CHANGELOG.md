@@ -1,3 +1,129 @@
+## Release 8.0.0-pre.20240108.7 (2024-02-05)
+
+```
+Baseline: 8e8ddaba0e90c280bfd85644d6ccd91df5b6d353
+
+Cherry picks:
+
+   + bbc51a06ba4db1c88bfce6dfa3c7b0622cb56d72:
+     Fix `cc_test` coverage broken by
+     https://github.com/bazelbuild/bazel/commit/92cba040904c2ccbd0b5a7
+     0263de739f72c592ae
+   + 162cacd30dc19352ec34fe1de6a056d6b1ee9374:
+     Automated rollback of commit
+     915fb3e861dd28e16f42072101adf498242d26d0.
+   + bf6ebe9f7c428e15b7c4d7e86a762b7470f97d5b:
+     Make tree artifacts that are symlinks to absolute paths work
+     correctly.
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 8.0.0-pre.20240108.6 (2024-01-29)
+
+```
+Baseline: 8e8ddaba0e90c280bfd85644d6ccd91df5b6d353
+
+Cherry picks:
+
+   + bbc51a06ba4db1c88bfce6dfa3c7b0622cb56d72:
+     Fix `cc_test` coverage broken by
+     https://github.com/bazelbuild/bazel/commit/92cba040904c2ccbd0b5a7
+     0263de739f72c592ae
+   + 162cacd30dc19352ec34fe1de6a056d6b1ee9374:
+     Automated rollback of commit
+     915fb3e861dd28e16f42072101adf498242d26d0.
+   + 7788abb73f09921197d27c45ac9eb23b5a4f89a0:
+     Release 8.0.0-pre.20240108.6 (2024-01-29)
+   + 581c8b5cbfc772d8b13d96e0bbf40cbb8c2a1cc9:
+     Release 8.0.0-pre.20240108.6 (2024-01-29)
+```
+
+Initial release.
+
+## Release 7.0.2 (2024-01-25)
+
+```
+Baseline:  2634a6ec8bef0d8eef9870b23befdddb3dbe0005
+
+Release Notes:
+
++ Disregard WORKSPACE while verifying lockfile repo mapping entries in extension eval (#21003)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Xdng Yng.
+```
+
+## Release 6.5.0 (2024-01-23)
+
+```
+Baseline:  50b61e38fb6eaa08a6c811a313824a59f1c2abbf
+
+Release Notes:
+
++ Fix tree file materialized as symlink to another file when building without the bytes. (#20409)
++ Don't pass --add-opens= to javac (#20472)
++ Flip --incompatible_visibility_private_attributes_at_definition (#20520)
++ Fix extraction of tar archives containing sparse files. (#20531)
++ RemoteSpawnRunner: record inbetween phases in timing profile (#20550)
++ Add profiling to `remoteActionBuildingSemaphore.acquire()` (#20549)
++ The label API shakeup & docs cleanup (#20590)
++ Disable rewriter test (#20758)
++ Disable PyTest.testSmoke on macOS (#20729)
++ Upgrade abseil-cpp to fix build on macos_arm64 (#20785)
++ Ignore read-only errors when updating the `mtime` of the `install_base` (#20568)
++ Restart at most once when prepopulating repository rule environment (#20667)
++ Fix bootstrapped Bazel binary (#20804)
++ Add flag `experimental_throttle_remote_action_building` (#20861)
++ Fix versioned shared libraries for macOS toolchain (#20847)
++ Proto toolchainisation cherrypicks (#20925)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Brentley Jones, Fabian Meumertzheim, Jordan Mele, Mai Hussien, oquenchil, Rahul Butani, Son Luong Ngoc, Xùdōng Yáng.
+```
+
+## Release 7.0.1 (2024-01-18)
+
+```
+Baseline:  d798ebde6c6394203a87b5f1a6b62ecfc3880991
+
+Release Notes:
+
++ Consider MODULE.bazel for workspace detection in bazel.sh (#20594)
++ Auto-create deploy jars for Bazel `java_test` targets if requested (#20602)
++ `java_binary` wrapper should forward `restricted_to` (#20611)
++ Mount user-specified bind mounts before Bazel's own magic. (#20609)
++ Fix bootstrapped Bazel binary (#20612)
++ Attempt to make main repo mapping inverse more efficient (#20625)
++ Cherry-pick all presubmit.yml changes (#20733)
++ Print interactive sandboxed shell command with `--sandbox_debug` (#20734)
++ Fix two issues with --incompatible_sandbox_hermetic_tmp that manifested themselves when the output base was under /tmp (#20718)
++ Let module extensions track calls to `Label()` (#20750)
++ Add support for bind mounts under `/tmp` with hermetic tmp (#20749)
++ Fixes for Bazel's own integration tests fail locally on Linux  (#20821)
++ Fix NPE in BzlmodRepoRuleFunction (#20828)
++ Avoid emitting canonical labels into generated repos (#20840)
++ Let .bzl files record their usages of repo mapping (#20848)
++ Force output checking for incremental run commands without the bytes. (#20881)
++ Retry binding to ipv6 localhost (#20903)
++ Fix linker feature detection being performed on wrong linker (#20901)
++ Fix singlejar resource mapping for external repositories (#20904)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, David Ostrovsky, Fabian Meumertzheim, hvd, Siddhartha Bagaria, Tianyu Geng, Xdng Yng, Xùdōng Yáng.
+```
+
+## Release 8.0.0-pre.20240101.1 (2024-01-17)
+
+```
+Baseline: 40271d7642fb6b76d68289d73b73a1eb4acb80bd
+```
+
+Initial release.
+
 ## Release 7.0.0 (2023-12-11)
 
 ```
