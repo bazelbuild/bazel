@@ -36,12 +36,6 @@ public class ArchiveRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  public ArchiveRepoSpecBuilder setRepoName(String repoName) {
-    attrBuilder.put("name", repoName);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setUrls(ImmutableList<String> urls) {
     attrBuilder.put("urls", urls);
     return this;

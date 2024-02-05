@@ -111,7 +111,9 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
               ruleClass,
               Maps.transformEntries(kwargs, (k, v) -> k.equals("name") ? prefixedName : v));
 
-      Map<String, Object> attributes = Maps.transformEntries(kwargs, (k, v) -> rule.getAttr(k));
+      Map<String, Object> attributes =
+          Maps.filterKeys(
+              Maps.transformEntries(kwargs, (k, v) -> rule.getAttr(k)), k -> !k.equals("name"));
       String bzlFile = ruleClass.getRuleDefinitionEnvironmentLabel().getUnambiguousCanonicalForm();
       RepoSpec repoSpec =
           RepoSpec.builder()
