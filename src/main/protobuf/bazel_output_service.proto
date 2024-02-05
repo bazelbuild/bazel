@@ -193,17 +193,6 @@ message InitialOutputPathContents {
   repeated string modified_files = 2;
 }
 
-// A content digest. A digest for a given blob consists of the size of the blob
-// and its hash. The hash algorithm to use is --digest_function.
-message Digest {
-  // The hash, represented as a lowercase hex string including any leading
-  // zeroes.
-  string hash = 1;
-
-  // The size of the blob, in bytes.
-  int64 size_bytes = 2;
-}
-
 message StageArtifactsRequest {
   message Artifact {
     // path is relative to StartBuildResponse.output_path.
@@ -240,7 +229,11 @@ message FinalizeArtifactsRequest {
     // corresponding FinalizeArtifactsRequest is processed. This field is
     // optional for regular files, and should be omitted for directories and
     // symlinks.
-    Digest digest = 2;
+    //
+    // The concrete type of the digest depending on the CAS Bazel connects to.
+    // In case of a REv2 CAS, the type is
+    // [Digest][build.bazel.remote.execution.v2.Digest].
+    google.protobuf.Any digest = 2;
   }
 
   // The identifier of the build. Server uses this to determine which output
@@ -290,8 +283,12 @@ message BatchStatResponse {
 
   message FileStat {
     message File {
-      // The hash and size of the file.
-      Digest digest = 1;
+      // The digest of the file.
+      //
+      // The concrete type of the digest depending on the CAS Bazel connects to.
+      // In case of a REv2 CAS, the type is
+      // [Digest][build.bazel.remote.execution.v2.Digest].
+      google.protobuf.Any digest = 1;
     }
 
     message Symlink {
