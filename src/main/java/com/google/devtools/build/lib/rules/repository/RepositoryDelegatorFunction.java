@@ -153,7 +153,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-
       if (rule == null) {
         return new NoRepositoryDirectoryValue(
             String.format("Repository '%s' is not defined", repositoryName.getCanonicalForm()));
@@ -168,41 +167,23 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
       DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule);
       if (shouldUseVendorRepos(env, handler, rule)) {
-        Path vendorPath = VENDOR_DIRECTORY.get(env).get();
-        Path vendorMarker = vendorPath.getChild("@" + repositoryName.getName() + ".marker");
-        boolean isVendorRepoUpToDate =
-            digestWriter.areRepositoryAndMarkerFileConsistent(handler, env, vendorMarker) != null;
+        RepositoryDirectoryValue repositoryDirectoryValue =
+            tryGettingValueUsingVendoredRepo(
+                env, rule, repoRoot, repositoryName, handler, digestWriter);
         if (env.valuesMissing()) {
           return null;
         }
-        if (isVendorRepoUpToDate) {
-          PathFragment vendorRepoPath =
-              vendorPath.getRelative(repositoryName.getName()).asFragment();
-          return setupOverride(vendorRepoPath, env, repoRoot, repositoryName.getName());
-        } else if (!IS_VENDOR_COMMAND.get(env).booleanValue()) {
-          // If this is vendor command, proceed with fetching to update the vendor directory.
-          // Otherwise, for example, the build command, we need to display a warning indicating
-          // that the vendored repository is out-of-date.
-          env.getListener()
-              .handle(
-                  Event.warn(
-                      rule.getLocation(),
-                      String.format(
-                          "Vendored repository '%s' is out-of-date. The up-to-date version will"
-                              + " be fetched into the external cache and used. To update the repo"
-                              + " in the  vendor directory, run 'bazel vendor' with the directory"
-                              + " flag",
-                          rule.getName())));
+        if (repositoryDirectoryValue != null) {
+          return repositoryDirectoryValue;
         }
       }
-
       if (shouldUseCachedRepos(env, handler, repoRoot, rule)) {
         // Make sure marker file is up-to-date; correctly describes the current repository state
         byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
         if (env.valuesMissing()) {
           return null;
         }
-        if (markerHash != null) {
+        if (markerHash != null) { // repo exist & up-to-date
           return RepositoryDirectoryValue.builder()
               .setPath(repoRoot)
               .setDigest(markerHash)
@@ -266,6 +247,63 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           .setExcludeFromVendoring(shouldExcludeRepoFromVendoring(handler, rule))
           .build();
     }
+  }
+
+  @Nullable
+  private RepositoryDirectoryValue tryGettingValueUsingVendoredRepo(
+      Environment env,
+      Rule rule,
+      Path repoRoot,
+      RepositoryName repositoryName,
+      RepositoryFunction handler,
+      DigestWriter digestWriter)
+      throws RepositoryFunctionException, InterruptedException {
+    Path vendorPath = VENDOR_DIRECTORY.get(env).get();
+    Path vendorRepoPath = vendorPath.getRelative(repositoryName.getName());
+    if (vendorRepoPath.exists()) {
+      Path vendorMarker = vendorPath.getChild("@" + repositoryName.getName() + ".marker");
+      boolean isVendorRepoUpToDate =
+          digestWriter.areRepositoryAndMarkerFileConsistent(handler, env, vendorMarker) != null;
+      if (env.valuesMissing()) {
+        return null;
+      }
+      // If our repo is up-to-date, or this is an offline build (--nofetch), then the vendored repo
+      // is used.
+      if (isVendorRepoUpToDate || (!IS_VENDOR_COMMAND.get(env).booleanValue() && !isFetch.get())) {
+        if (!isVendorRepoUpToDate) { // If the repo is out-of-date, show a warning
+          env.getListener()
+              .handle(
+                  Event.warn(
+                      rule.getLocation(),
+                      String.format(
+                          "Vendored repository '%s' is out-of-date and fetching is disabled."
+                              + " Run build without the '--nofetch' option or run"
+                              + " `bazel vendor` to update it",
+                          rule.getName())));
+        }
+        return setupOverride(vendorRepoPath.asFragment(), env, repoRoot, repositoryName.getName());
+      } else if (!IS_VENDOR_COMMAND.get(env).booleanValue()) { // build command & fetch enabled
+        // We will continue fetching but warn the user that we are not using the vendored repo
+        env.getListener()
+            .handle(
+                Event.warn(
+                    rule.getLocation(),
+                    String.format(
+                        "Vendored repository '%s' is out-of-date. The up-to-date version will"
+                            + " be fetched into the external cache and used. To update the repo"
+                            + " in the  vendor directory, run 'bazel vendor'",
+                        rule.getName())));
+      }
+    } else if (!isFetch.get()) { // repo not vendored & fetching is disabled (--nofetch)
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Vendored repository "
+                  + repositoryName.getName()
+                  + " not found under the vendor directory and fetching is disabled."
+                  + " To fix run 'bazel vendor' or build without the '--nofetch'"),
+          Transience.TRANSIENT);
+    }
+    return null;
   }
 
   @Nullable
