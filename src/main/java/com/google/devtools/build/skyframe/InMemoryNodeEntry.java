@@ -55,6 +55,9 @@ public interface InMemoryNodeEntry extends NodeEntry {
   Iterable<SkyKey> getDirectDeps();
 
   @Override // Remove InterruptedException.
+  boolean hasAtLeastOneDep();
+
+  @Override // Remove InterruptedException.
   Collection<SkyKey> getReverseDepsForDoneEntry();
 
   @Override // Remove InterruptedException.
