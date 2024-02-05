@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -50,7 +51,7 @@ public final class WorkspaceFactoryHelper {
       Map<String, Object> kwargs,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws RuleFactory.InvalidRuleException,
-          Package.NameConflictException,
+          NameConflictException,
           LabelSyntaxException,
           InterruptedException {
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
@@ -155,7 +156,7 @@ public final class WorkspaceFactoryHelper {
       Label virtual,
       Label actual,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
-      throws RuleFactory.InvalidRuleException, Package.NameConflictException, InterruptedException {
+      throws RuleFactory.InvalidRuleException, NameConflictException, InterruptedException {
 
     Map<String, Object> attributes = Maps.newHashMap();
     // Bound rules don't have a name field, but this works because we don't want more than one
@@ -170,8 +171,7 @@ public final class WorkspaceFactoryHelper {
     overwriteRule(pkg, rule);
   }
 
-  private static void overwriteRule(Package.Builder pkg, Rule rule)
-      throws Package.NameConflictException {
+  private static void overwriteRule(Package.Builder pkg, Rule rule) throws NameConflictException {
     Preconditions.checkArgument(rule.getOutputFiles().isEmpty());
     Target old = pkg.getTarget(rule.getName());
     if (old != null) {

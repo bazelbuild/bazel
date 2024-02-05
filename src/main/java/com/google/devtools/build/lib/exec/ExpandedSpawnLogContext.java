@@ -24,6 +24,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -37,6 +38,8 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
+import com.google.devtools.build.lib.util.io.MessageInputStream;
+import com.google.devtools.build.lib.util.io.MessageInputStreamWrapper.BinaryInputStreamWrapper;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.BinaryOutputStreamWrapper;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.JsonOutputStreamWrapper;
@@ -48,7 +51,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
-import java.io.InputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,7 +58,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -73,8 +74,11 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final Path tempPath;
+  private final Encoding encoding;
   private final boolean sorted;
+
+  private final Path tempPath;
+  private final Path outputPath;
 
   private final PathFragment execRoot;
   @Nullable private final RemoteOptions remoteOptions;
@@ -83,9 +87,6 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
 
   /** Output stream to write directly into during execution. */
   private final MessageOutputStream<SpawnExec> rawOutputStream;
-
-  /** Output stream to convert the raw output stream into after execution, if required. */
-  @Nullable private final MessageOutputStream<SpawnExec> convertedOutputStream;
 
   public ExpandedSpawnLogContext(
       Path outputPath,
@@ -97,23 +98,29 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider)
       throws IOException {
-    this.tempPath = tempPath;
+    this.encoding = encoding;
     this.sorted = sorted;
+    this.tempPath = tempPath;
+    this.outputPath = outputPath;
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
 
-    if (encoding == Encoding.BINARY && !sorted) {
+    if (needsConversion()) {
+      // Write the unsorted binary format into a temporary path first, then convert into the output
+      // format after execution. Delete a preexisting output file so that an incomplete invocation
+      // doesn't appear to produce a nonsensical log.
+      outputPath.delete();
+      rawOutputStream = getRawOutputStream(tempPath);
+    } else {
       // The unsorted binary format can be written directly into the output path during execution.
       rawOutputStream = getRawOutputStream(outputPath);
-      convertedOutputStream = null;
-    } else {
-      // Otherwise, write the unsorted binary format into a temporary path first, then convert into
-      // the output format after execution.
-      rawOutputStream = getRawOutputStream(tempPath);
-      convertedOutputStream = getConvertedOutputStream(encoding, outputPath);
     }
+  }
+
+  private boolean needsConversion() {
+    return encoding != Encoding.BINARY || sorted;
   }
 
   private static MessageOutputStream<SpawnExec> getRawOutputStream(Path path) throws IOException {
@@ -122,8 +129,7 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
     return new AsynchronousMessageOutputStream<>(path);
   }
 
-  private static MessageOutputStream<SpawnExec> getConvertedOutputStream(
-      Encoding encoding, Path path) throws IOException {
+  private MessageOutputStream<SpawnExec> getConvertedOutputStream(Path path) throws IOException {
     switch (encoding) {
       case BINARY:
         return new BinaryOutputStreamWrapper<>(path.getOutputStream());
@@ -144,7 +150,6 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       SpawnResult result)
       throws IOException, ExecException {
     try (SilentCloseable c = Profiler.instance().profile("logSpawn")) {
-      SortedMap<Path, ActionInput> existingOutputs = listExistingOutputs(spawn, fileSystem);
       SpawnExec.Builder builder = SpawnExec.newBuilder();
       builder.addAllCommandArgs(spawn.getArguments());
       builder.addAllEnvironmentVariables(getEnvironmentVariables(spawn));
@@ -175,9 +180,25 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
             continue;
           }
 
+          if (input.isSymlink()) {
+            UnresolvedSymlinkArtifactValue metadata =
+                (UnresolvedSymlinkArtifactValue) inputMetadataProvider.getInputMetadata(input);
+            builder
+                .addInputsBuilder()
+                .setPath(displayPath.getPathString())
+                .setSymlinkTargetPath(metadata.getSymlinkTarget())
+                .setIsTool(isTool);
+            continue;
+          }
+
           Digest digest =
               computeDigest(
-                  input, contentPath, inputMetadataProvider, xattrProvider, digestHashFunction);
+                  input,
+                  contentPath,
+                  inputMetadataProvider,
+                  xattrProvider,
+                  digestHashFunction,
+                  /* includeHashFunctionName= */ true);
 
           builder
               .addInputsBuilder()
@@ -196,24 +217,33 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
         Collections.sort(outputPaths);
         builder.addAllListedOutputs(outputPaths);
         try {
-          for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
-            Path path = e.getKey();
-            ActionInput output = e.getValue();
-            if (path.isDirectory()) {
+          for (ActionInput output : spawn.getOutputFiles()) {
+            Path path = fileSystem.getPath(execRoot.getRelative(output.getExecPathString()));
+            if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
+              builder
+                  .addActualOutputsBuilder()
+                  .setPath(output.getExecPathString())
+                  .setDigest(
+                      computeDigest(
+                          output,
+                          path,
+                          inputMetadataProvider,
+                          xattrProvider,
+                          digestHashFunction,
+                          /* includeHashFunctionName= */ true));
+            } else if (output.isDirectory() && path.isDirectory()) {
               listDirectoryContents(
                   output.getExecPath(),
                   path,
                   builder::addActualOutputs,
                   inputMetadataProvider,
                   /* isTool= */ false);
-              continue;
+            } else if (output.isSymlink() && path.isSymbolicLink()) {
+              builder
+                  .addActualOutputsBuilder()
+                  .setPath(output.getExecPathString())
+                  .setSymlinkTargetPath(path.readSymbolicLink().getPathString());
             }
-            builder
-                .addActualOutputsBuilder()
-                .setPath(output.getExecPathString())
-                .setDigest(
-                    computeDigest(
-                        output, path, inputMetadataProvider, xattrProvider, digestHashFunction));
           }
         } catch (IOException ex) {
           logger.atWarning().withCause(ex).log("Error computing spawn output properties");
@@ -259,17 +289,20 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
   public void close() throws IOException {
     rawOutputStream.close();
 
-    if (convertedOutputStream == null) {
-      // No conversion required.
+    if (!needsConversion()) {
       return;
     }
 
-    try (InputStream in = tempPath.getInputStream()) {
+    try (MessageInputStream<SpawnExec> rawInputStream =
+            new BinaryInputStreamWrapper<>(
+                tempPath.getInputStream(), SpawnExec.getDefaultInstance());
+        MessageOutputStream<SpawnExec> convertedOutputStream =
+            getConvertedOutputStream(outputPath)) {
       if (sorted) {
-        StableSort.stableSort(in, convertedOutputStream);
+        StableSort.stableSort(rawInputStream, convertedOutputStream);
       } else {
-        while (in.available() > 0) {
-          SpawnExec ex = SpawnExec.parseDelimitedFrom(in);
+        SpawnExec ex;
+        while ((ex = rawInputStream.read()) != null) {
           convertedOutputStream.write(ex);
         }
       }
@@ -280,18 +313,6 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
         // Intentionally ignored.
       }
     }
-  }
-
-  private SortedMap<Path, ActionInput> listExistingOutputs(Spawn spawn, FileSystem fileSystem) {
-    TreeMap<Path, ActionInput> result = new TreeMap<>();
-    for (ActionInput output : spawn.getOutputFiles()) {
-      Path outputPath = fileSystem.getPath(execRoot.getRelative(output.getExecPathString()));
-      // TODO(olaola): once symlink API proposal is implemented, report symlinks here.
-      if (outputPath.exists()) {
-        result.put(outputPath, output);
-      }
-    }
-    return result;
   }
 
   /**
@@ -308,7 +329,6 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       InputMetadataProvider inputMetadataProvider,
       boolean isTool)
       throws IOException {
-    // TODO(olaola): once symlink API proposal is implemented, report symlinks here.
     List<Dirent> sortedDirent = new ArrayList<>(contentPath.readdir(Symlinks.NOFOLLOW));
     sortedDirent.sort(Comparator.comparing(Dirent::getName));
 
@@ -332,7 +352,8 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
                       childContentPath,
                       inputMetadataProvider,
                       xattrProvider,
-                      digestHashFunction))
+                      digestHashFunction,
+                      /* includeHashFunctionName= */ true))
               .setIsTool(isTool)
               .build());
     }

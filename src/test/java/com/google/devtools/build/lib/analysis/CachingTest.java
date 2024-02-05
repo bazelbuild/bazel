@@ -49,7 +49,8 @@ public class CachingTest extends BuildViewTestCase {
     boolean foundRunfilesMiddlemanSoRunfilesAreCorrectlyStaged = false;
     for (Action action : actions) {
       if (action instanceof SpawnAction) {
-        for (ActionInput string : ((SpawnAction) action).getSpawn().getInputFiles().toList()) {
+        for (ActionInput string :
+            ((SpawnAction) action).getSpawnForTesting().getInputFiles().toList()) {
           lookedAtAnyAction = true;
           if (string.getExecPathString().endsWith("x_Stool-runfiles")
               || string.getExecPathString().endsWith("x_Stool.exe-runfiles")) {

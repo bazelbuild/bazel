@@ -617,14 +617,16 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
       }
     }
 
-    try {
-      return remoteOutputTree.stat(path, /* followSymlinks= */ false);
-    } catch (FileNotFoundException e) {
-      if (statSources == StatSources.ALL) {
-        return localFs.getPath(path).stat(Symlinks.NOFOLLOW);
-      }
-      throw e;
+    FileStatus stat = remoteOutputTree.statIfFound(path, /* followSymlinks= */ false);
+    if (stat != null) {
+      return stat;
     }
+
+    if (statSources == StatSources.ALL) {
+      return localFs.getPath(path).stat(Symlinks.NOFOLLOW);
+    }
+
+    throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
   }
 
   private static FileStatusWithMetadata statFromMetadata(FileArtifactValue m) {

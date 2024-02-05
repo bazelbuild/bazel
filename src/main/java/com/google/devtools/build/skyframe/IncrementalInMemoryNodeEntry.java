@@ -89,12 +89,12 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   @Override
-  public Iterable<SkyKey> getDirectDeps() {
+  public final Iterable<SkyKey> getDirectDeps() {
     return GroupedDeps.compressedToIterable(getCompressedDirectDepsForDoneEntry());
   }
 
   @Override
-  public boolean hasAtLeastOneDep() {
+  public final boolean hasAtLeastOneDep() {
     return !GroupedDeps.isEmpty(getCompressedDirectDepsForDoneEntry());
   }
 

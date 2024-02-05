@@ -125,6 +125,16 @@ public abstract class SpawnLogContextTestBase {
     }
   }
 
+  /** Test parameter determining whether an output is indirected through a symlink. */
+  enum OutputIndirection {
+    DIRECT,
+    INDIRECT;
+
+    boolean viaSymlink() {
+      return this == INDIRECT;
+    }
+  }
+
   @Test
   public void testFileInput(@TestParameter InputsMode inputsMode) throws Exception {
     Artifact fileInput = ActionsTestUtil.createArtifact(rootDir, "file");
@@ -237,6 +247,39 @@ public abstract class SpawnLogContextTestBase {
                             .setDigest(getDigest("abc"))
                             .setIsTool(inputsMode.isTool())
                             .build()))
+            .build());
+  }
+
+  @Test
+  public void testUnresolvedSymlinkInput(@TestParameter InputsMode inputsMode) throws Exception {
+    Artifact symlinkInput = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputDir, "symlink");
+
+    symlinkInput.getPath().getParentDirectory().createDirectoryAndParents();
+    symlinkInput.getPath().createSymbolicLink(PathFragment.create("/some/path"));
+
+    SpawnBuilder spawn = defaultSpawnBuilder().withInputs(symlinkInput);
+    if (inputsMode.isTool()) {
+      spawn.withTools(symlinkInput);
+    }
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn.build(),
+        createInputMetadataProvider(symlinkInput),
+        createInputMap(symlinkInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath("out/symlink")
+                    .setSymlinkTargetPath("/some/path")
+                    .setIsTool(inputsMode.isTool()))
             .build());
   }
 
@@ -385,10 +428,22 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testFileOutput(@TestParameter OutputsMode outputsMode) throws Exception {
+  public void testFileOutput(
+      @TestParameter OutputsMode outputsMode, @TestParameter OutputIndirection indirection)
+      throws Exception {
     Artifact fileOutput = ActionsTestUtil.createArtifact(outputDir, "file");
 
-    writeFile(fileOutput, "abc");
+    Path actualPath =
+        indirection.viaSymlink()
+            ? outputDir.getRoot().asPath().getChild("actual")
+            : fileOutput.getPath();
+
+    if (indirection.viaSymlink()) {
+      fileOutput.getPath().getParentDirectory().createDirectoryAndParents();
+      fileOutput.getPath().createSymbolicLink(actualPath);
+    }
+
+    writeFile(actualPath, "abc");
 
     Spawn spawn = defaultSpawnBuilder().withOutputs(fileOutput).build();
 
@@ -411,17 +466,13 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testDirectoryOutput(
-      @TestParameter OutputsMode outputsMode, @TestParameter DirContents dirContents)
+  public void testFileOutputWithInvalidType(@TestParameter OutputsMode outputsMode)
       throws Exception {
-    Artifact dirOutput = ActionsTestUtil.createArtifact(outputDir, "dir");
+    Artifact fileOutput = ActionsTestUtil.createArtifact(outputDir, "file");
 
-    dirOutput.getPath().createDirectoryAndParents();
-    if (!dirContents.isEmpty()) {
-      writeFile(dirOutput.getPath().getChild("file"), "abc");
-    }
+    fileOutput.getPath().createDirectoryAndParents();
 
-    SpawnBuilder spawn = defaultSpawnBuilder().withOutputs(dirOutput);
+    SpawnBuilder spawn = defaultSpawnBuilder().withOutputs(fileOutput);
 
     SpawnLogContext context = createSpawnLogContext();
 
@@ -433,31 +484,31 @@ public abstract class SpawnLogContextTestBase {
         defaultTimeout(),
         defaultSpawnResult());
 
-    closeAndAssertLog(
-        context,
-        defaultSpawnExecBuilder()
-            .addListedOutputs("out/dir")
-            .addAllActualOutputs(
-                dirContents.isEmpty()
-                    ? ImmutableList.of()
-                    : ImmutableList.of(
-                        File.newBuilder()
-                            .setPath("out/dir/file")
-                            .setDigest(getDigest("abc"))
-                            .build()))
-            .build());
+    closeAndAssertLog(context, defaultSpawnExecBuilder().addListedOutputs("out/file").build());
   }
 
   @Test
   public void testTreeOutput(
-      @TestParameter OutputsMode outputsMode, @TestParameter DirContents dirContents)
+      @TestParameter OutputsMode outputsMode,
+      @TestParameter DirContents dirContents,
+      @TestParameter OutputIndirection indirection)
       throws Exception {
     SpecialArtifact treeOutput =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "tree");
 
-    treeOutput.getPath().createDirectoryAndParents();
+    Path actualPath =
+        indirection.viaSymlink()
+            ? outputDir.getRoot().asPath().getChild("actual")
+            : treeOutput.getPath();
+
+    if (indirection.viaSymlink()) {
+      treeOutput.getPath().getParentDirectory().createDirectoryAndParents();
+      treeOutput.getPath().createSymbolicLink(actualPath);
+    }
+
+    actualPath.createDirectoryAndParents();
     if (!dirContents.isEmpty()) {
-      writeFile(treeOutput.getPath().getChild("child"), "abc");
+      writeFile(actualPath.getChild("child"), "abc");
     }
 
     Spawn spawn = defaultSpawnBuilder().withOutputs(treeOutput).build();
@@ -485,6 +536,78 @@ public abstract class SpawnLogContextTestBase {
                             .setDigest(getDigest("abc"))
                             .build()))
             .build());
+  }
+
+  @Test
+  public void testTreeOutputWithInvalidType(@TestParameter OutputsMode outputsMode)
+      throws Exception {
+    Artifact treeOutput = ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "tree");
+
+    writeFile(treeOutput, "abc");
+
+    SpawnBuilder spawn = defaultSpawnBuilder().withOutputs(treeOutput);
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        outputsMode.getActionFileSystem(fs),
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(context, defaultSpawnExecBuilder().addListedOutputs("out/tree").build());
+  }
+
+  @Test
+  public void testUnresolvedSymlinkOutput(@TestParameter OutputsMode outputsMode) throws Exception {
+    Artifact symlinkOutput = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputDir, "symlink");
+
+    symlinkOutput.getPath().getParentDirectory().createDirectoryAndParents();
+    symlinkOutput.getPath().createSymbolicLink(PathFragment.create("/some/path"));
+
+    SpawnBuilder spawn = defaultSpawnBuilder().withOutputs(symlinkOutput);
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        outputsMode.getActionFileSystem(fs),
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addListedOutputs("out/symlink")
+            .addActualOutputs(
+                File.newBuilder().setPath("out/symlink").setSymlinkTargetPath("/some/path"))
+            .build());
+  }
+
+  @Test
+  public void testUnresolvedSymlinkOutputWithInvalidType(@TestParameter OutputsMode outputsMode)
+      throws Exception {
+    Artifact symlinkOutput = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputDir, "symlink");
+
+    writeFile(symlinkOutput, "abc");
+
+    SpawnBuilder spawn = defaultSpawnBuilder().withOutputs(symlinkOutput);
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        outputsMode.getActionFileSystem(fs),
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(context, defaultSpawnExecBuilder().addListedOutputs("out/symlink").build());
   }
 
   @Test
@@ -631,7 +754,7 @@ public abstract class SpawnLogContextTestBase {
   public void testDigest() throws Exception {
     SpawnLogContext context = createSpawnLogContext();
 
-    Digest digest = Digest.newBuilder().setHash("deadbeef").build();
+    Digest digest = getDigest("something");
 
     SpawnResult result = defaultSpawnResultBuilder().setDigest(digest).build();
 
@@ -777,6 +900,8 @@ public abstract class SpawnLogContextTestBase {
             treeMetadata.getChildValues().entrySet()) {
           builder.put(entry.getKey(), entry.getValue());
         }
+      } else if (artifact.isSymlink()) {
+        builder.put(artifact, FileArtifactValue.createForUnresolvedSymlink(artifact));
       } else {
         builder.put(artifact, FileArtifactValue.createForTesting(artifact));
       }

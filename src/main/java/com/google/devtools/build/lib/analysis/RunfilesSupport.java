@@ -22,13 +22,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -36,7 +37,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.lang.ref.SoftReference;
+import java.lang.ref.WeakReference;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -75,13 +76,17 @@ import javax.annotation.Nullable;
  * which will run an executable should depend on this Middleman Artifact.
  */
 @Immutable
-public final class RunfilesSupport implements RunfilesSupplier {
+public final class RunfilesSupport {
   private static final String RUNFILES_DIR_EXT = ".runfiles";
   private static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
   private static final String OUTPUT_MANIFEST_BASENAME = "MANIFEST";
   private static final String REPO_MAPPING_MANIFEST_EXT = ".repo_mapping";
 
   private static class RunfilesTreeImpl implements RunfilesTree {
+
+    private static final WeakReference<Map<PathFragment, Artifact>> NOT_YET_COMPUTED =
+        new WeakReference<>(null);
+
     private final PathFragment execPath;
     private final Runfiles runfiles;
     private final Artifact repoMappingManifest;
@@ -91,12 +96,16 @@ public final class RunfilesSupport implements RunfilesSupplier {
      *
      * <ul>
      *   <li>null if caching is not desired
-     *   <li>A soft reference pointing to null if the cached value is not available (not yet
-     *       computed yet or flushed from RAM)
-     *   <li>A soft reference to the cached value
+     *   <li>A weak reference pointing to null if the cached value is not available (either {@link
+     *       #NOT_YET_COMPUTED} or flushed from RAM)
+     *   <li>A weak reference to the cached value
      * </ul>
+     *
+     * <p>Using weak references is preferable to soft references because {@link
+     * com.google.devtools.build.lib.runtime.GcThrashingDetector} may throw a manual OOM before all
+     * soft references are collected. See b/322474776.
      */
-    @Nullable private volatile SoftReference<Map<PathFragment, Artifact>> cachedMapping;
+    @Nullable private volatile WeakReference<Map<PathFragment, Artifact>> cachedMapping;
 
     private final boolean buildRunfileLinks;
     private final RunfileSymlinksMode runfileSymlinksMode;
@@ -113,7 +122,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
       this.repoMappingManifest = repoMappingManifest;
       this.buildRunfileLinks = buildRunfileLinks;
       this.runfileSymlinksMode = runfileSymlinksMode;
-      this.cachedMapping = cacheMapping ? new SoftReference<>(null) : null;
+      this.cachedMapping = cacheMapping ? NOT_YET_COMPUTED : null;
     }
 
     @Override
@@ -142,7 +151,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
         result =
             runfiles.getRunfilesInputs(
                 /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
-        cachedMapping = new SoftReference<>(result);
+        cachedMapping = new WeakReference<>(result);
         return result;
       }
     }
@@ -177,6 +186,24 @@ public final class RunfilesSupport implements RunfilesSupplier {
   private final CommandLine args;
   private final ActionEnvironment actionEnvironment;
 
+  // Only cache runfiles if there is more than one test runner action. Otherwise, there is no chance
+  // for reusing the runfiles within a single build, so don't pay the overhead of a weak reference.
+  private static boolean cacheRunfilesMappings(RuleContext ruleContext) {
+    if (!TargetUtils.isTestRule(ruleContext.getTarget())) {
+      return false;
+    }
+
+    if (TestActionBuilder.getRunsPerTest(ruleContext) > 1) {
+      return true;
+    }
+
+    if (TestActionBuilder.getShardCount(ruleContext) > 1) {
+      return true;
+    }
+
+    return false;
+  }
+
   /**
    * Creates the RunfilesSupport helper with the given executable and runfiles.
    *
@@ -195,7 +222,6 @@ public final class RunfilesSupport implements RunfilesSupplier {
         ruleContext.getConfiguration().getRunfileSymlinksMode();
     boolean buildRunfileManifests = ruleContext.getConfiguration().buildRunfileManifests();
     boolean buildRunfileLinks = ruleContext.getConfiguration().buildRunfileLinks();
-    boolean cacheRunfilesMapping = TargetUtils.isTestRule(ruleContext.getTarget());
 
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
@@ -239,7 +265,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
             runfiles,
             repoMappingManifest,
             buildRunfileLinks,
-            cacheRunfilesMapping,
+            cacheRunfilesMappings(ruleContext),
             runfileSymlinksMode);
 
     Artifact runfilesMiddleman =
@@ -580,10 +606,4 @@ public final class RunfilesSupport implements RunfilesSupplier {
   public RunfilesTree getRunfilesTree() {
     return runfilesTree;
   }
-
-  @Override
-  public ImmutableList<RunfilesTree> getRunfilesTrees() {
-    return ImmutableList.of(runfilesTree);
-  }
-
 }

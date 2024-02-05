@@ -14,28 +14,5 @@
 
 package com.google.devtools.build.singlejar;
 
-import com.google.devtools.build.zip.ExtraData;
 
-import java.io.IOException;
-import java.util.Date;
 
-/**
- * Provides utilities for using ZipCombiner to pack up Jar files.
- */
-public final class JarUtils {
-  private static final String MANIFEST_DIRECTORY = "META-INF/";
-  private static final short MAGIC_JAR_ID = (short) 0xCAFE;
-  private static final ExtraData[] MAGIC_JAR_ID_EXTRA_ENTRIES =
-      new ExtraData[] { new ExtraData(MAGIC_JAR_ID, new byte[0]) };
-
-  /**
-   * Adds META-INF directory through ZipCombiner with the given date and the
-   * magic jar ID.
-   *
-   * @throws IOException if {@link ZipCombiner#addDirectory(String, Date, ExtraData[])}
-   *                     throws an IOException.
-   */
-  public static void addMetaInf(ZipCombiner combiner, Date date) throws IOException {
-    combiner.addDirectory(MANIFEST_DIRECTORY, date, MAGIC_JAR_ID_EXTRA_ENTRIES);
-  }
-}

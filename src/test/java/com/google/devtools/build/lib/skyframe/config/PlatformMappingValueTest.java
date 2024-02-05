@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue.NativeAndStarlarkFlags;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
@@ -70,11 +69,15 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapPlatformToFlags() throws Exception {
+    ImmutableSet<String> nativeFlags = ImmutableSet.of("--cpu=one", "--compilation_mode=dbg");
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags =
         ImmutableMap.of(
             PLATFORM1,
-            NativeAndStarlarkFlags.create(
-                ImmutableSet.of("--cpu=one", "--compilation_mode=dbg"), ImmutableMap.of()));
+            NativeAndStarlarkFlags.builder()
+                .nativeFlags(nativeFlags)
+                .optionsClasses(BUILD_CONFIG_PLATFORM_OPTIONS)
+                .repoMapping(REPO_MAPPING)
+                .build());
 
     ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms = ImmutableMap.of();
     PlatformMappingValue mappingValue =
@@ -164,11 +167,15 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapNoMappingIfPlatformIsSetButNotMatching() throws Exception {
+    ImmutableSet<String> nativeFlags = ImmutableSet.of("--cpu=one", "--compilation_mode=dbg");
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags =
         ImmutableMap.of(
             PLATFORM1,
-            NativeAndStarlarkFlags.create(
-                ImmutableSet.of("--cpu=one", "--compilation_mode=dbg"), ImmutableMap.of()));
+            NativeAndStarlarkFlags.builder()
+                .nativeFlags(nativeFlags)
+                .optionsClasses(BUILD_CONFIG_PLATFORM_OPTIONS)
+                .repoMapping(REPO_MAPPING)
+                .build());
     ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms =
         ImmutableMap.of(ImmutableSet.of("--cpu=one"), PLATFORM1);
 

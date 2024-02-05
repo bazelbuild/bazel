@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
@@ -98,8 +98,7 @@ public class WorkspaceFactory {
    */
   public void execute(
       StarlarkFile file, // becomes resolved as a side effect
-      Map<String, Module> additionalLoadedModules,
-      WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
+      Map<String, Module> additionalLoadedModules)
       throws InterruptedException {
     loadedModules.putAll(additionalLoadedModules);
 
@@ -118,15 +117,7 @@ public class WorkspaceFactory {
       StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
-      thread.setThreadLocal(Package.Builder.class, builder);
-
-      // The workspace environment doesn't need the tools repository or the fragment map
-      // because executing workspace rules happens before analysis and it doesn't need a
-      // repository mapping because calls to the Label constructor in the WORKSPACE file
-      // are, by definition, not in an external repository and so they don't need the mapping
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.WORKSPACE, new SymbolGenerator<>(workspaceFileKey))
-          .storeInThread(thread);
+      builder.storeInThread(thread);
 
       try {
         Starlark.execFileProgram(prog, module, thread);
@@ -275,7 +266,7 @@ public class WorkspaceFactory {
                   thread.getCallStack());
           RepositoryName.validateUserProvidedRepoName(rule.getName());
         } catch (RuleFactory.InvalidRuleException
-            | Package.NameConflictException
+            | NameConflictException
             | LabelSyntaxException e) {
           throw new EvalException(e);
         }

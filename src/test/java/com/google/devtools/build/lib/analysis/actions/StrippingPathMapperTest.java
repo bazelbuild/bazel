@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import java.io.IOException;
@@ -75,7 +76,11 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
             .toList()
             .get(0);
     SpawnAction action = (SpawnAction) getGeneratingAction(compiledArtifact);
-    Spawn spawn = action.getSpawn(new ActionExecutionContextBuilder().build());
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
 
     assertThat(spawn.getPathMapper().isNoop()).isFalse();
     String outDir = analysisMock.getProductName() + "-out";
@@ -164,7 +169,11 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
     Artifact outputArtifact =
         configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
     SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
-    Spawn spawn = action.getSpawn(new ActionExecutionContextBuilder().build());
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
 
     assertThat(spawn.getPathMapper().isNoop()).isFalse();
     String outDir = analysisMock.getProductName() + "-out";
@@ -190,7 +199,11 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
     Artifact outputArtifact =
         configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
     SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
-    Spawn spawn = action.getSpawn(new ActionExecutionContextBuilder().build());
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
 
     assertThat(spawn.getPathMapper().isNoop()).isFalse();
     String outDir = analysisMock.getProductName() + "-out";

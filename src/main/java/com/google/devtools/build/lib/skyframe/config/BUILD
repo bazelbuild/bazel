@@ -17,6 +17,7 @@ java_library(
         "BaselineOptionsFunction.java",
         "BuildConfigurationFunction.java",
         "BuildConfigurationKeyFunction.java",
+        "ParsedFlagsFunction.java",
         "PlatformMappingFunction.java",
     ],
     deps = [
@@ -82,6 +83,8 @@ java_library(
     srcs = [
         "BuildConfigurationKey.java",
         "BuildConfigurationKeyValue.java",
+        "NativeAndStarlarkFlags.java",
+        "ParsedFlagsValue.java",
         "PlatformMappingValue.java",
     ],
     deps = [

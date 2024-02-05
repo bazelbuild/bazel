@@ -14,12 +14,12 @@
 package com.google.devtools.build.android.r8;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.truth.Truth8;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.FileSystem;
@@ -66,7 +66,7 @@ public class CompatDxTest {
 
   @Test
   public void singleJarInputFile() throws IOException {
-    assertThat(
+    Truth8.assertThat(
             runDexer(NO_POSITIONS, NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1).stream()
                 .map(Path::getFileName)
                 .map(Path::toString))
@@ -75,7 +75,7 @@ public class CompatDxTest {
 
   @Test
   public void multipleJarInputFiles() throws IOException {
-    assertThat(
+    Truth8.assertThat(
             runDexer(NO_POSITIONS, NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1, EXAMPLE_JAR_FILE_2)
                 .stream()
                 .map(Path::getFileName)
@@ -87,14 +87,14 @@ public class CompatDxTest {
   public void outputZipFile() throws IOException {
     List<Path> out =
         runDexerWithOutput("foo.dex.zip", NO_POSITIONS, NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1);
-    assertThat(out.stream().map(Path::getFileName).map(Path::toString))
+    Truth8.assertThat(out.stream().map(Path::getFileName).map(Path::toString))
         .containsExactly("foo.dex.zip");
     assertThat(archiveFiles(out.get(0))).containsExactly("classes.dex");
   }
 
   @Test
   public void useMultipleThreads() throws IOException {
-    assertThat(
+    Truth8.assertThat(
             runDexer(NUM_THREADS_5, NO_POSITIONS, NO_LOCALS, EXAMPLE_JAR_FILE_1).stream()
                 .map(Path::getFileName)
                 .map(Path::toString))
@@ -103,7 +103,7 @@ public class CompatDxTest {
 
   @Test
   public void withPositions() throws IOException {
-    assertThat(
+    Truth8.assertThat(
             runDexer(NO_LOCALS, MULTIDEX, EXAMPLE_JAR_FILE_1).stream()
                 .map(Path::getFileName)
                 .map(Path::toString))
@@ -112,7 +112,7 @@ public class CompatDxTest {
 
   @Test
   public void withLocals() throws IOException {
-    assertThat(
+    Truth8.assertThat(
             runDexer(NO_POSITIONS, MULTIDEX, EXAMPLE_JAR_FILE_1).stream()
                 .map(Path::getFileName)
                 .map(Path::toString))
@@ -121,7 +121,7 @@ public class CompatDxTest {
 
   @Test
   public void withoutMultidex() throws IOException {
-    assertThat(
+    Truth8.assertThat(
             runDexer(NO_POSITIONS, NO_LOCALS, EXAMPLE_JAR_FILE_1).stream()
                 .map(Path::getFileName)
                 .map(Path::toString))
@@ -130,7 +130,7 @@ public class CompatDxTest {
 
   @Test
   public void writeToNamedDexFile() throws IOException {
-    assertThat(
+    Truth8.assertThat(
             runDexerWithOutput("named-output.dex", EXAMPLE_JAR_FILE_1).stream()
                 .map(Path::getFileName)
                 .map(Path::toString))
@@ -140,7 +140,8 @@ public class CompatDxTest {
   @Test
   public void keepClassesSingleDexTest() throws IOException {
     List<Path> out = runDexerWithOutput("out.zip", "--keep-classes", EXAMPLE_JAR_FILE_1);
-    assertThat(out.stream().map(Path::getFileName).map(Path::toString)).containsExactly("out.zip");
+    Truth8.assertThat(out.stream().map(Path::getFileName).map(Path::toString))
+        .containsExactly("out.zip");
     assertThat(archiveFiles(out.get(0)))
         .containsExactly(
             "classes.dex",
@@ -151,7 +152,8 @@ public class CompatDxTest {
   public void keepClassesMultiDexTest() throws IOException {
     List<Path> out =
         runDexerWithOutput("out.zip", "--keep-classes", "--multi-dex", EXAMPLE_JAR_FILE_1);
-    assertThat(out.stream().map(Path::getFileName).map(Path::toString)).containsExactly("out.zip");
+    Truth8.assertThat(out.stream().map(Path::getFileName).map(Path::toString))
+        .containsExactly("out.zip");
     assertThat(archiveFiles(out.get(0)))
         .containsExactly(
             "classes.dex",

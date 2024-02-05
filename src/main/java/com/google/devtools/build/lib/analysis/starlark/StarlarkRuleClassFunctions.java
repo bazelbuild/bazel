@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -93,6 +92,7 @@ import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -1026,9 +1026,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       BazelStarlarkContext.checkLoadingPhase(thread, getName());
-      Package.Builder pkgBuilder = thread.getThreadLocal(Package.Builder.class);
+      Package.Builder pkgBuilder = Package.Builder.fromOrNull(thread);
       if (pkgBuilder == null) {
-        throw new EvalException(
+        throw Starlark.errorf(
+            // TODO: #19922 - Clarify error. Maybe we weren't called during .bzl loading but at some
+            // other bad time. Also, it's ambiguous to the user whether, strictly speaking,
+            // evaluating a symbolic macro happens while evaluating a BUILD file.
             "Cannot instantiate a macro when loading a .bzl file. "
                 + "Macros may only be instantiated while evaluating a BUILD file.");
       }
@@ -1180,9 +1183,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
-      Package.Builder pkgBuilder = thread.getThreadLocal(Package.Builder.class);
+      Package.Builder pkgBuilder = Package.Builder.fromOrNull(thread);
       if (pkgBuilder == null) {
         throw new EvalException(
+            // TODO: #19922 - Clarify message. See analogous TODO for macros, above.
             "Cannot instantiate a rule when loading a .bzl file. "
                 + "Rules may be instantiated only in a BUILD thread.");
       }

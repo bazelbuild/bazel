@@ -16,7 +16,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.IOException;
 import java.util.Optional;
@@ -36,9 +35,9 @@ public interface Registry {
 
   /**
    * Retrieves the {@link RepoSpec} object that indicates how the contents of the module identified
-   * by {@code key} should be materialized as a repo (with name {@code repoName}).
+   * by {@code key} should be materialized as a repo.
    */
-  RepoSpec getRepoSpec(ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler)
+  RepoSpec getRepoSpec(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException;
 
   /**

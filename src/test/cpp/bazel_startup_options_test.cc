@@ -112,7 +112,6 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "connect_timeout_secs");
   ExpectIsUnaryOption(options, "digest_function");
   ExpectIsUnaryOption(options, "host_jvm_args");
-  ExpectIsUnaryOption(options, "host_jvm_profile");
   ExpectIsUnaryOption(options, "install_base");
   ExpectIsUnaryOption(options, "invocation_policy");
   ExpectIsUnaryOption(options, "io_nice_level");

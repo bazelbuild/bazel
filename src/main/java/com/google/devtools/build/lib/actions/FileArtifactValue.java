@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -280,6 +281,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   public static FileArtifactValue createForVirtualActionInput(byte[] digest, long size) {
     return new RegularFileArtifactValue(digest, /* proxy= */ null, size);
+  }
+
+  public static FileArtifactValue createForUnresolvedSymlink(Artifact artifact) throws IOException {
+    checkArgument(artifact.isSymlink());
+    return createForUnresolvedSymlink(artifact.getPath());
   }
 
   public static FileArtifactValue createForUnresolvedSymlink(Path symlink) throws IOException {

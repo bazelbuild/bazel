@@ -160,7 +160,12 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnResult = spawnRunner.exec(spawn, context);
         actionExecutionContext
             .getEventHandler()
-            .post(new SpawnExecutedEvent(spawn, spawnResult, startTime));
+            .post(
+                new SpawnExecutedEvent(
+                    spawn,
+                    actionExecutionContext.getInputMetadataProvider(),
+                    spawnResult,
+                    startTime));
         if (cacheHandle.willStore()) {
           cacheHandle.store(spawnResult);
         }

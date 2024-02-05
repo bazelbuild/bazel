@@ -57,9 +57,11 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
+import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
@@ -101,9 +103,9 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -116,7 +118,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
@@ -184,7 +186,6 @@ import com.google.errorprone.annotations.ForOverride;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -227,7 +228,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected BuildConfigurationValue execConfig;
   private List<String> configurationArgs;
 
-  protected OptionsParser optionsParser;
   private PackageOptions packageOptions;
   private BuildLanguageOptions buildLanguageOptions;
   protected PackageFactory pkgFactory;
@@ -422,12 +422,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final BuildConfigurationValue createConfiguration(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
-    optionsParser =
+    OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(
-                Iterables.concat(
-                    Arrays.asList(ExecutionOptions.class, BuildRequestOptions.class),
-                    ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
+            .optionsClasses(ruleClassProvider.getFragmentRegistry().getOptionsClasses())
             .build();
     List<String> allArgs = new ArrayList<>();
     // TODO(dmarting): Add --stamp option only to test that requires it.
@@ -945,6 +942,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else {
       return null;
     }
+  }
+
+  protected RunfilesTree runfilesTreeFor(TestRunnerAction testRunnerAction) throws Exception {
+    Artifact middleman = testRunnerAction.getRunfilesMiddleman();
+    MiddlemanAction middlemanAction = (MiddlemanAction) getGeneratingAction(middleman);
+    return middlemanAction.getRunfilesTree();
+  }
+
+  protected FakeActionInputFileCache inputMetadataFor(TestRunnerAction testRunnerAction)
+      throws Exception {
+    FakeActionInputFileCache result = new FakeActionInputFileCache();
+    result.putRunfilesTree(
+        testRunnerAction.getRunfilesMiddleman(), runfilesTreeFor(testRunnerAction));
+    return result;
   }
 
   private static Artifact findArtifactNamed(

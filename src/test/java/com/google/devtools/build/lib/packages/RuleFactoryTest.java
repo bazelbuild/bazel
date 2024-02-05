@@ -137,7 +137,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder =
         packageFactory.newExternalPackageBuilder(
-            RootedPath.toRootedPath(root, myPkgPath),
+            WorkspaceFileValue.key(RootedPath.toRootedPath(root, myPkgPath)),
             "TESTING",
             RepositoryMapping.ALWAYS_FALLBACK,
             StarlarkSemantics.DEFAULT);

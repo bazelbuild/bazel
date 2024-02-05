@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
@@ -76,7 +77,9 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
@@ -114,20 +117,6 @@ public class Package {
 
   /** Sentinel value for package overhead being empty. */
   private static final long PACKAGE_OVERHEAD_UNSET = -1;
-
-  /**
-   * An exception used when the name of a target or symbolic macro clashes with another entity
-   * defined in the package.
-   *
-   * <p>Common examples of conflicts include two targets or symbolic macros sharing the same name,
-   * and one output file being a prefix of another. See {@link #checkForExistingName} and {@link
-   * #checkRuleAndOutputs} for more details.
-   */
-  public static final class NameConflictException extends Exception {
-    private NameConflictException(String message) {
-      super(message);
-    }
-  }
 
   /**
    * The collection of all targets defined in this package, indexed by name.
@@ -753,17 +742,58 @@ public class Package {
     }
   }
 
+  /**
+   * Returns a new {@link Builder} suitable for constructing an ordinary package (i.e. not one for
+   * WORKSPACE or bzlmod).
+   */
+  public static Builder newPackageBuilder(
+      PackageSettings packageSettings,
+      PackageIdentifier id,
+      RootedPath filename,
+      String workspaceName,
+      Optional<String> associatedModuleName,
+      Optional<String> associatedModuleVersion,
+      boolean noImplicitFileExport,
+      RepositoryMapping repositoryMapping,
+      @Nullable Semaphore cpuBoundSemaphore,
+      PackageOverheadEstimator packageOverheadEstimator,
+      @Nullable ImmutableMap<Location, String> generatorMap,
+      // TODO(bazel-team): See Builder() constructor comment about use of null for this param.
+      @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+      @Nullable Globber globber) {
+    return new Builder(
+        BazelStarlarkContext.Phase.LOADING,
+        new SymbolGenerator<>(id),
+        packageSettings,
+        id,
+        filename,
+        workspaceName,
+        associatedModuleName,
+        associatedModuleVersion,
+        noImplicitFileExport,
+        repositoryMapping,
+        cpuBoundSemaphore,
+        packageOverheadEstimator,
+        generatorMap,
+        configSettingVisibilityPolicy,
+        globber);
+  }
+
   public static Builder newExternalPackageBuilder(
-      PackageSettings helper,
-      RootedPath workspacePath,
+      PackageSettings packageSettings,
+      WorkspaceFileKey workspaceFileKey,
       String workspaceName,
       RepositoryMapping mainRepoMapping,
       boolean noImplicitFileExport,
       PackageOverheadEstimator packageOverheadEstimator) {
     return new Builder(
-        helper,
+        BazelStarlarkContext.Phase.WORKSPACE,
+        // The SymbolGenerator is based on workspaceFileKey rather than a package id or path,
+        // in order to distinguish different chunks of the same WORKSPACE file.
+        new SymbolGenerator<>(workspaceFileKey),
+        packageSettings,
         LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-        /* filename= */ workspacePath,
+        /* filename= */ workspaceFileKey.getPath(),
         workspaceName,
         /* associatedModuleName= */ Optional.empty(),
         /* associatedModuleVersion= */ Optional.empty(),
@@ -782,6 +812,8 @@ public class Package {
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping) {
     return new Builder(
+            BazelStarlarkContext.Phase.LOADING,
+            new SymbolGenerator<>(basePackageId),
             PackageSettings.DEFAULTS,
             basePackageId,
             /* filename= */ moduleFilePath,
@@ -818,7 +850,7 @@ public class Package {
    * A builder for {@link Package} objects. Only intended to be used by {@link PackageFactory} and
    * {@link com.google.devtools.build.lib.skyframe.PackageFunction}.
    */
-  public static class Builder {
+  public static class Builder extends TargetDefinitionContext {
 
     /**
      * A bundle of options affecting package construction, that is not specific to any particular
@@ -1016,7 +1048,9 @@ public class Package {
 
     private boolean alreadyBuilt = false;
 
-    Builder(
+    private Builder(
+        BazelStarlarkContext.Phase phase,
+        SymbolGenerator<?> symbolGenerator,
         PackageSettings packageSettings,
         PackageIdentifier id,
         RootedPath filename,
@@ -1032,6 +1066,8 @@ public class Package {
         // Maybe convert null -> LEGACY_OFF, assuming that's the correct default.
         @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
         @Nullable Globber globber) {
+      super(phase, symbolGenerator);
+
       Metadata metadata = new Metadata();
       metadata.packageIdentifier = Preconditions.checkNotNull(id);
 
@@ -1069,6 +1105,29 @@ public class Package {
       addInputFile(
           new InputFile(
               pkg, metadata.buildFileLabel, Location.fromFile(filename.asPath().toString())));
+    }
+
+    /** Retrieves this object from a Starlark thread. Returns null if not present. */
+    @Nullable
+    public static Builder fromOrNull(StarlarkThread thread) {
+      BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+      return (ctx instanceof Builder) ? (Builder) ctx : null;
+    }
+
+    /**
+     * Retrieves this object from a Starlark thread. If not present, throws {@code EvalException}
+     * with an error message indicating that {@code what} can't be used in this Starlark
+     * environment.
+     */
+    @CanIgnoreReturnValue
+    public static Builder fromOrFail(StarlarkThread thread, String what) throws EvalException {
+      @Nullable BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+      if (!(ctx instanceof Builder)) {
+        // TODO: #19922 - Clarify in the message that we can't be in a symbolic ("first-class")
+        // macro.
+        throw Starlark.errorf("%s can only be used while evaluating a BUILD file", what);
+      }
+      return (Builder) ctx;
     }
 
     PackageIdentifier getPackageIdentifier() {

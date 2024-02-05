@@ -552,6 +552,12 @@ public final class ActionExecutionFunction implements SkyFunction {
       throw undoneInputsException;
     } finally {
       if (e.isActionStartedEventAlreadyEmitted()) {
+        ActionInputMetadataProvider inputMetadataProvider =
+            new ActionInputMetadataProvider(
+                skyframeActionExecutor.getExecRoot().asFragment(),
+                state.inputArtifactData,
+                state.getExpandedFilesets());
+
         Postable event =
             rewindPlan != null
                 ? new ActionRewoundEvent(actionStartTimeNanos, BlazeClock.nanoTime(), action)
@@ -559,7 +565,11 @@ public final class ActionExecutionFunction implements SkyFunction {
                 // ActionCompletionEvent because it hoped rewinding would fix things. Because it
                 // won't, this must emit one to compensate.
                 : new ActionCompletionEvent(
-                    actionStartTimeNanos, BlazeClock.nanoTime(), action, actionLookupData);
+                    actionStartTimeNanos,
+                    BlazeClock.nanoTime(),
+                    action,
+                    inputMetadataProvider,
+                    actionLookupData);
         env.getListener().post(event);
       }
     }

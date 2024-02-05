@@ -83,11 +83,6 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
               public Label getDefault(AttributeMap rule) {
                 return rule.isAttributeValueExplicitlySpecified(attributeToInspect) ? label : null;
               }
-
-              @Override
-              public boolean resolvableWithRawAttributes() {
-                return true;
-              }
             });
   }
 

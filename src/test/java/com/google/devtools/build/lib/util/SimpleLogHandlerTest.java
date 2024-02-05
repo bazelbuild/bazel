@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Strings;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.util.SimpleLogHandler.HandlerQuerier;
 import java.io.BufferedReader;
 import java.io.File;
@@ -194,9 +194,9 @@ public final class SimpleLogHandlerTest {
 
     if (OS.getCurrent() == OS.WINDOWS) {
       // On Windows, by default, only administrator accounts can create symbolic links.
-      assertThat(handler.getSymbolicLinkPath()).isEmpty();
+      Truth8.assertThat(handler.getSymbolicLinkPath()).isEmpty();
     } else {
-      assertThat(handler.getSymbolicLinkPath()).isPresent();
+      Truth8.assertThat(handler.getSymbolicLinkPath()).isPresent();
       assertThat(handler.getSymbolicLinkPath().get().toString()).isEqualTo(symlinkPath.toString());
       assertThat(Files.isSymbolicLink(handler.getSymbolicLinkPath().get())).isTrue();
       assertThat(Files.readSymbolicLink(handler.getSymbolicLinkPath().get()).toString())
@@ -215,9 +215,9 @@ public final class SimpleLogHandlerTest {
 
     if (OS.getCurrent() == OS.WINDOWS) {
       // On Windows, by default, only administrator accounts can create symbolic links.
-      assertThat(handler.getSymbolicLinkPath()).isEmpty();
+      Truth8.assertThat(handler.getSymbolicLinkPath()).isEmpty();
     } else {
-      assertThat(handler.getSymbolicLinkPath()).isPresent();
+      Truth8.assertThat(handler.getSymbolicLinkPath()).isPresent();
       assertThat(handler.getSymbolicLinkPath().get().toString())
           .isEqualTo(tmp.getRoot() + File.separator + "bye");
       assertThat(Files.isSymbolicLink(handler.getSymbolicLinkPath().get())).isTrue();
@@ -234,7 +234,7 @@ public final class SimpleLogHandlerTest {
             .setSymlinkName("bye")
             .setCreateSymlink(true)
             .build();
-    assertThat(handler.getSymbolicLinkPath()).isPresent();
+    Truth8.assertThat(handler.getSymbolicLinkPath()).isPresent();
   }
 
   @Test
@@ -245,7 +245,7 @@ public final class SimpleLogHandlerTest {
             .setSymlinkName("bye")
             .setCreateSymlink(false)
             .build();
-    assertThat(handler.getSymbolicLinkPath()).isEmpty();
+    Truth8.assertThat(handler.getSymbolicLinkPath()).isEmpty();
   }
 
   @Test
@@ -461,7 +461,7 @@ public final class SimpleLogHandlerTest {
 
     Optional<Path> retrievedLogPath = handlerQuerier.getLoggerFilePath(logger);
 
-    assertThat(retrievedLogPath).isPresent();
+    Truth8.assertThat(retrievedLogPath).isPresent();
     assertThat(retrievedLogPath.get().toString())
         .startsWith(tmp.getRoot() + File.separator + "hello");
 
@@ -476,7 +476,7 @@ public final class SimpleLogHandlerTest {
     Logger logger = Logger.getAnonymousLogger();
     logger.addHandler(handler);
 
-    assertThat(handlerQuerier.getLoggerFilePath(logger)).isEmpty();
+    Truth8.assertThat(handlerQuerier.getLoggerFilePath(logger)).isEmpty();
   }
 
   @Test

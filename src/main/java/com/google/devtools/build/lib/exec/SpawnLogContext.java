@@ -115,7 +115,7 @@ public interface SpawnLogContext extends ActionContext {
     if (input.isDirectory()) {
       return true;
     }
-    if (!(input instanceof SourceArtifact)) {
+    if (input.isSymlink() || !(input instanceof SourceArtifact)) {
       return false;
     }
     // A source artifact may be a directory in spite of claiming to be a file. Avoid unnecessary I/O
@@ -139,9 +139,14 @@ public interface SpawnLogContext extends ActionContext {
       Path path,
       InputMetadataProvider inputMetadataProvider,
       XattrProvider xattrProvider,
-      DigestHashFunction digestHashFunction)
+      DigestHashFunction digestHashFunction,
+      boolean includeHashFunctionName)
       throws IOException {
-    Digest.Builder builder = Digest.newBuilder().setHashFunctionName(digestHashFunction.toString());
+    Digest.Builder builder = Digest.newBuilder();
+
+    if (includeHashFunctionName) {
+      builder.setHashFunctionName(digestHashFunction.toString());
+    }
 
     if (input != null) {
       if (input instanceof VirtualActionInput) {

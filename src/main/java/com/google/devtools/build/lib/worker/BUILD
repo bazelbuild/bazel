@@ -234,7 +234,6 @@ java_library(
     srcs = ["Worker.java"],
     deps = [
         ":worker_key",
-        ":worker_process_metrics",
         ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",

@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -53,6 +52,7 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.profiler.CollectLocalResourceUsage;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -178,7 +178,7 @@ public class BlazeRuntimeWrapper {
   /** Creates a new command environment; executeBuild does this automatically if you do not. */
   public final CommandEnvironment newCommand(Class<? extends BlazeCommand> command)
       throws Exception {
-    return newCommandWithExtensions(command, /*extensions=*/ ImmutableList.of());
+    return newCommandWithExtensions(command, /* extensions= */ ImmutableList.of());
   }
 
   /**
@@ -285,7 +285,7 @@ public class BlazeRuntimeWrapper {
     // Enforce the test invocation policy once the options have been added
     InvocationPolicyEnforcer optionsPolicyEnforcer =
         new InvocationPolicyEnforcer(
-            runtime.getModuleInvocationPolicy(), Level.FINE, /*conversionContext=*/ null);
+            runtime.getModuleInvocationPolicy(), Level.FINE, /* conversionContext= */ null);
     try {
       optionsPolicyEnforcer.enforce(optionsParser, commandAnnotation.name());
     } catch (OptionsParsingException e) {
@@ -344,14 +344,15 @@ public class BlazeRuntimeWrapper {
               /* includePrimaryOutput= */ false,
               /* includeTargetLabel= */ false,
               /* collectTaskHistograms= */ true,
-              /* collectWorkerDataInProfiler= */ false,
-              /* collectLoadAverage= */ false,
-              /* collectSystemNetworkUsage= */ false,
-              /* collectPressureStallIndicators= */ false,
-              /* collectResourceEstimation= */ false,
-              ResourceManager.instance(),
-              WorkerProcessMetricsCollector.instance(),
-              runtime.getBugReporter());
+              new CollectLocalResourceUsage(
+                  runtime.getBugReporter(),
+                  WorkerProcessMetricsCollector.instance(),
+                  env.getLocalResourceManager(),
+                  /* collectWorkerDataInProfiler= */ false,
+                  /* collectLoadAverage= */ false,
+                  /* collectSystemNetworkUsage= */ false,
+                  /* collectResourceManagerEstimation= */ false,
+                  /* collectPressureStallIndicators= */ false));
 
       StoredEventHandler storedEventHandler = new StoredEventHandler();
       reporter.addHandler(storedEventHandler);
@@ -480,10 +481,6 @@ public class BlazeRuntimeWrapper {
       this.execConfiguration = this.configuration == null ? null : createExecConfig(configuration);
     }
     return execConfiguration;
-  }
-
-  public ImmutableSet<ConfiguredTarget> getTopLevelTargets() {
-    return topLevelTargets;
   }
 
   public List<String> getCrashMessages() {

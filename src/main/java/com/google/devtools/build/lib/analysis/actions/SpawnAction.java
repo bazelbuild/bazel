@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
@@ -105,7 +106,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       BlazeInterners.newWeakInterner();
 
   private final NestedSet<Artifact> tools;
-  private final RunfilesSupplier runfilesSupplier;
   private final CommandLines commandLines;
   private final ActionEnvironment env;
 
@@ -133,7 +133,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
    * @param progressMessage the message printed during the progression of the build
-   * @param runfilesSupplier {@link RunfilesSupplier}s describing the runfiles for the action
    * @param mnemonic the mnemonic that is reported in the master log
    */
   public SpawnAction(
@@ -146,12 +145,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
-      RunfilesSupplier runfilesSupplier,
       String mnemonic,
       OutputPathsMode outputPathsMode) {
     super(owner, inputs, outputs);
     this.tools = tools;
-    this.runfilesSupplier = runfilesSupplier;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
     this.executionInfo =
         executionInfo.isEmpty()
@@ -167,11 +164,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @Override
   public final NestedSet<Artifact> getTools() {
     return tools;
-  }
-
-  @Override
-  public final RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
   }
 
   @Override
@@ -294,14 +286,20 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    *
    * <p>This method is final, as it is merely a shorthand use of the generic way to obtain a spawn,
    * which also depends on the client environment. Subclasses that wish to override the way to get a
-   * spawn should override the other getSpawn() methods instead.
+   * spawn should override getSpawn() instead.
    */
   @VisibleForTesting
-  public final Spawn getSpawn() throws CommandLineExpansionException, InterruptedException {
-    return getSpawn(getInputs());
+  public final Spawn getSpawnForTesting()
+      throws CommandLineExpansionException, InterruptedException {
+    return getSpawnForExtraActionSpawnInfo(getInputs());
   }
 
-  final Spawn getSpawn(NestedSet<Artifact> inputs)
+  Spawn getSpawnForExtraActionSpawnInfo()
+      throws CommandLineExpansionException, InterruptedException {
+    return getSpawnForExtraActionSpawnInfo(getInputs());
+  }
+
+  final Spawn getSpawnForExtraActionSpawnInfo(NestedSet<Artifact> inputs)
       throws CommandLineExpansionException, InterruptedException {
     return new ActionSpawn(
         commandLines.allArguments(),
@@ -309,6 +307,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         /* env= */ ImmutableMap.of(),
         /* envResolved= */ false,
         inputs,
+        // SpawnInfo doesn't report the runfiles trees of the Spawn, so it's fine to just pass in
+        // an empty list here.
+        /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
         /* additionalInputs= */ ImmutableList.of(),
         /* filesetMappings= */ ImmutableMap.of(),
         /* reportOutputs= */ true,
@@ -322,11 +323,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
       throws CommandLineExpansionException, InterruptedException {
     return getSpawn(
-        actionExecutionContext.getArtifactExpander(),
+        actionExecutionContext,
         actionExecutionContext.getClientEnv(),
-        /*envResolved=*/ false,
-        actionExecutionContext.getTopLevelFilesets(),
-        /*reportOutputs=*/ true);
+        /* envResolved= */ false,
+        /* reportOutputs= */ true);
   }
 
   /**
@@ -338,24 +338,28 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    *     action env.
    */
   protected Spawn getSpawn(
-      ArtifactExpander artifactExpander,
+      ActionExecutionContext actionExecutionContext,
       Map<String, String> env,
       boolean envResolved,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
     PathMapper pathMapper = PathMappers.create(this, outputPathsMode);
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
-            artifactExpander, getPrimaryOutput().getExecPath(), pathMapper, getCommandLineLimits());
+            actionExecutionContext.getArtifactExpander(),
+            getPrimaryOutput().getExecPath(),
+            pathMapper,
+            getCommandLineLimits());
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
         this,
         env,
         envResolved,
         getInputs(),
+        CompositeRunfilesSupplier.fromRunfilesTrees(
+            actionExecutionContext.getInputMetadataProvider().getRunfilesTrees()),
         expandedCommandLines.getParamFiles(),
-        filesetMappings,
+        actionExecutionContext.getTopLevelFilesets(),
         reportOutputs,
         pathMapper);
   }
@@ -363,10 +367,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @ForOverride
   protected CommandLineLimits getCommandLineLimits() {
     return getOwner().getBuildConfigurationInfo().getCommandLineLimits();
-  }
-
-  Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
-    return getSpawn(getInputs());
   }
 
   @Override
@@ -449,7 +449,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private SpawnInfo getExtraActionSpawnInfo()
       throws CommandLineExpansionException, InterruptedException {
     SpawnInfo.Builder info = SpawnInfo.newBuilder();
-    Spawn spawn = getSpawnForExtraAction();
+    Spawn spawn = getSpawnForExtraActionSpawnInfo();
     info.addAllArgument(spawn.getArguments());
     for (Map.Entry<String, String> variable : spawn.getEnvironment().entrySet()) {
       info.addVariable(
@@ -504,6 +504,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Map<String, String> env,
         boolean envResolved,
         NestedSet<Artifact> inputs,
+        RunfilesSupplier runfilesSupplier,
         Iterable<? extends ActionInput> additionalInputs,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
         boolean reportOutputs,
@@ -513,7 +514,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           arguments,
           ImmutableMap.of(),
           parent.getExecutionInfo(),
-          parent.getRunfilesSupplier(),
+          runfilesSupplier,
           parent,
           parent.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
@@ -586,7 +587,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     private final List<Artifact> outputs = new ArrayList<>();
-    private final List<RunfilesSupplier> inputRunfilesSuppliers = new ArrayList<>();
     private ResourceSetOrBuilder resourceSetOrBuilder = AbstractAction.DEFAULT_RESOURCE_SET;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
@@ -608,7 +608,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.toolsBuilder.addTransitive(other.toolsBuilder.build());
       this.inputsBuilder.addTransitive(other.inputsBuilder.build());
       this.outputs.addAll(other.outputs);
-      this.inputRunfilesSuppliers.addAll(other.inputRunfilesSuppliers);
       this.resourceSetOrBuilder = other.resourceSetOrBuilder;
       this.environment = other.environment;
       this.executionInfo = other.executionInfo;
@@ -727,7 +726,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               ? executionInfo
               : configuration.modifiedExecutionInfo(executionInfo, mnemonic),
           progressMessage,
-          CompositeRunfilesSupplier.fromSuppliers(this.inputRunfilesSuppliers),
           mnemonic);
     }
 
@@ -743,7 +741,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
-        RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new SpawnAction(
           owner,
@@ -755,7 +752,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           env,
           executionInfo,
           progressMessage,
-          runfilesSupplier,
           mnemonic,
           PathMappers.getOutputPathsMode(configuration));
     }
@@ -780,7 +776,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder addTool(FilesToRunProvider tool) {
       addTransitiveTools(tool.getFilesToRun());
-      addRunfilesSupplier(tool.getRunfilesSupplier());
       return this;
     }
 
@@ -831,12 +826,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder addTransitiveInputs(NestedSet<Artifact> artifacts) {
       inputsBuilder.addTransitive(artifacts);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addRunfilesSupplier(RunfilesSupplier supplier) {
-      inputRunfilesSuppliers.add(supplier);
       return this;
     }
 

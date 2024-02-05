@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -75,7 +75,6 @@ public final class TestActionBuilder {
   private Artifact executable;
   private ExecutionInfo executionRequirements;
   private InstrumentedFilesInfo instrumentedFiles;
-  private int explicitShardCount;
   private final Map<String, String> extraEnv;
   private final Set<String> extraInheritedEnv;
 
@@ -111,11 +110,7 @@ public final class TestActionBuilder {
    */
   public TestParams build() throws InterruptedException { // due to TestTargetExecutionSettings
     Preconditions.checkNotNull(runfilesSupport);
-    TestShardingStrategy strategy =
-        ruleContext.getConfiguration().getFragment(TestConfiguration.class).testShardingStrategy();
-    int shards = strategy.getNumberOfShards(explicitShardCount);
-    Preconditions.checkState(shards >= 0, "%s returned negative shard count %s", strategy, shards);
-    return createTestAction(shards);
+    return createTestAction();
   }
 
   /** Set the runfiles and executable to be run as a test. */
@@ -158,13 +153,6 @@ public final class TestActionBuilder {
     return this;
   }
 
-  /** Set the explicit shard count. Note that this may be overridden by the sharding strategy. */
-  @CanIgnoreReturnValue
-  public TestActionBuilder setShardCount(int explicitShardCount) {
-    this.explicitShardCount = explicitShardCount;
-    return this;
-  }
-
   private ActionOwner getTestActionOwner() {
     if (this.executionRequirements != null) {
       ActionOwner owner = ruleContext.getActionOwner(this.executionRequirements.getExecGroup());
@@ -184,6 +172,31 @@ public final class TestActionBuilder {
     return owner == null ? ruleContext.getActionOwner() : owner;
   }
 
+  public static int getShardCount(RuleContext ruleContext) {
+    int explicitShardCount =
+        ruleContext.attributes().get("shard_count", Type.INTEGER).toIntUnchecked();
+    TestConfiguration testConfiguration =
+        ruleContext.getConfiguration().getFragment(TestConfiguration.class);
+    if (testConfiguration == null) {
+      return explicitShardCount;
+    }
+
+    TestShardingStrategy strategy = testConfiguration.testShardingStrategy();
+    int result = strategy.getNumberOfShards(explicitShardCount);
+    Preconditions.checkState(result >= 0, "%s returned negative shard count %s", strategy, result);
+    return result;
+  }
+
+  public static int getRunsPerTest(RuleContext ruleContext) {
+    TestConfiguration testConfiguration =
+        ruleContext.getConfiguration().getFragment(TestConfiguration.class);
+    if (testConfiguration == null) {
+      return 1;
+    }
+
+    return testConfiguration.getRunsPerTestForLabel(ruleContext.getLabel());
+  }
+
   /**
    * Creates a test action and artifacts for the given rule. The test action will use the specified
    * executable and runfiles.
@@ -192,7 +205,7 @@ public final class TestActionBuilder {
    *     Skyframe, and by AggregatingTestListener and TestResultAnalyzer to keep track of completed
    *     and pending test runs.
    */
-  private TestParams createTestAction(int shards)
+  private TestParams createTestAction()
       throws InterruptedException { // due to TestTargetExecutionSettings
     PathFragment targetName = PathFragment.create(ruleContext.getLabel().getName());
     BuildConfigurationValue config = ruleContext.getConfiguration();
@@ -233,10 +246,11 @@ public final class TestActionBuilder {
     Artifact collectCoverageScript = null;
     TreeMap<String, String> extraTestEnv = new TreeMap<>();
 
-    int runsPerTest = testConfiguration.getRunsPerTestForLabel(ruleContext.getLabel());
+    int runsPerTest = getRunsPerTest(ruleContext);
+    int shardCount = getShardCount(ruleContext);
 
     NestedSetBuilder<Artifact> lcovMergerFilesToRun = NestedSetBuilder.compileOrder();
-    RunfilesSupplier lcovMergerRunfilesSupplier = null;
+    Artifact lcovMergerRunfilesMiddleman = null;
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
@@ -294,7 +308,10 @@ public final class TestActionBuilder {
           extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
           inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
           lcovMergerFilesToRun.addTransitive(lcovFilesToRun.getFilesToRun());
-          lcovMergerRunfilesSupplier = lcovFilesToRun.getRunfilesSupplier();
+          if (lcovFilesToRun.getRunfilesSupport() != null) {
+            lcovMergerRunfilesMiddleman =
+                lcovFilesToRun.getRunfilesSupport().getRunfilesMiddleman();
+          }
         } else {
           NestedSet<Artifact> filesToBuild =
               lcovMerger.getProvider(FileProvider.class).getFilesToBuild();
@@ -321,7 +338,7 @@ public final class TestActionBuilder {
               runfilesSupport,
               executable,
               instrumentedFileManifest,
-              shards,
+              shardCount,
               runsPerTest);
       inputsBuilder.add(instrumentedFileManifest);
       // TODO(ulfjack): Is this even ever set? If yes, does this cost us a lot of memory?
@@ -332,7 +349,7 @@ public final class TestActionBuilder {
     } else {
       executionSettings =
           new TestTargetExecutionSettings(
-              ruleContext, runfilesSupport, executable, null, shards, runsPerTest);
+              ruleContext, runfilesSupport, executable, null, shardCount, runsPerTest);
     }
 
     extraTestEnv.putAll(extraEnv);
@@ -345,7 +362,7 @@ public final class TestActionBuilder {
     }
 
     NestedSet<Artifact> inputs = inputsBuilder.build();
-    int shardRuns = (shards > 0 ? shards : 1);
+    int shardRuns = (shardCount > 0 ? shardCount : 1);
     List<Artifact.DerivedArtifact> results =
         Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
@@ -356,7 +373,8 @@ public final class TestActionBuilder {
 
     // Use 1-based indices for user friendliness.
     for (int shard = 0; shard < shardRuns; shard++) {
-      String shardDir = shardRuns > 1 ? String.format("shard_%d_of_%d", shard + 1, shards) : null;
+      String shardDir =
+          shardRuns > 1 ? String.format("shard_%d_of_%d", shard + 1, shardCount) : null;
       for (int run = 0; run < runsPerTest; run++) {
         PathFragment dir;
         if (runsPerTest > 1) {
@@ -402,7 +420,7 @@ public final class TestActionBuilder {
             new TestRunnerAction(
                 actionOwner,
                 inputs,
-                runfilesSupport,
+                runfilesSupport.getRunfilesMiddleman(),
                 testActionExecutable,
                 testXmlGeneratorExecutable,
                 collectCoverageScript,
@@ -428,7 +446,7 @@ public final class TestActionBuilder {
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
                 lcovMergerFilesToRun,
-                lcovMergerRunfilesSupplier,
+                lcovMergerRunfilesMiddleman,
                 // Network allowlist only makes sense in workspaces which explicitly add it, use an
                 // empty one as a fallback.
                 MoreObjects.firstNonNull(
@@ -461,7 +479,7 @@ public final class TestActionBuilder {
 
     return new TestParams(
         runsPerTest,
-        shards,
+        shardCount,
         testConfiguration.runsPerTestDetectsFlakes(),
         TestTimeout.getTestTimeout(ruleContext.getRule()),
         ruleContext.getRule().getRuleClass(),

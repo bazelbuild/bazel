@@ -25,25 +25,23 @@ body:
         Which category does this issue belong to? Please select the corresponding label(s).
       multiple: true
       options:
-        - team-CLI
-        - team-OSS
-        - team-Core
-        - team-Bazel
         - team-Android
-        - z-team-Apple
-        - team-Rules-API
         - team-Rules-CPP
-        - team-Local-Exec
-        - team-Rules-Java
         - team-Rules-ObjC
-        - team-Loading-API
-        - team-Performance
-        - team-Remote-Exec
-        - team-ExternalDeps
-        - team-Rules-Python
-        - team-Rules-Server
-        - team-Documentation
+        - team-CLI
         - team-Configurability
+        - team-Core
+        - team-Documentation
+        - team-ExternalDeps
+        - team-Rules-Java
+        - team-Loading-API
+        - team-Local-Exec
+        - team-OSS
+        - team-Performance
+        - team-Rules-Python
+        - team-Remote-Exec
+        - team-Rules-API
+        - team-Rules-Server
         - team-Starlark-Integration
         - team-Starlark-Interpreter
   - type: textarea

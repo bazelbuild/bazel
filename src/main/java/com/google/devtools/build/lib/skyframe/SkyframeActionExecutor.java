@@ -674,7 +674,8 @@ public final class SkyframeActionExecutor {
         // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
         if (action.getActionType().isMiddleman()) {
           eventHandler.post(
-              new ActionMiddlemanEvent(action, actionStartTime, BlazeClock.nanoTime()));
+              new ActionMiddlemanEvent(
+                  action, inputMetadataProvider, actionStartTime, BlazeClock.nanoTime()));
           eventPosted = true;
         }
 
@@ -724,7 +725,9 @@ public final class SkyframeActionExecutor {
                 /* filesetOutputSymlinksForMetrics= */ null,
                 /* isActionCacheHitForMetrics= */ true);
         if (!eventPosted) {
-          eventHandler.post(new CachedActionEvent(action, actionStartTime, BlazeClock.nanoTime()));
+          eventHandler.post(
+              new CachedActionEvent(
+                  action, inputMetadataProvider, actionStartTime, BlazeClock.nanoTime()));
         }
       }
     } catch (UserExecException e) {
@@ -1081,7 +1084,11 @@ public final class SkyframeActionExecutor {
       if (postActionCompletionEvent) {
         eventHandler.post(
             new ActionCompletionEvent(
-                actionStartTimeNanos, BlazeClock.nanoTime(), action, actionLookupData));
+                actionStartTimeNanos,
+                BlazeClock.nanoTime(),
+                action,
+                inputMetadataProvider,
+                actionLookupData));
       }
       String message = action.getProgressMessage();
       if (message != null) {

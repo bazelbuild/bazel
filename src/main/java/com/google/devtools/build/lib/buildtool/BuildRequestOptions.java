@@ -198,6 +198,18 @@ public class BuildRequestOptions extends OptionsBase {
   public int maxResultTargets;
 
   @Option(
+      name = "hide_aspect_results",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Comma-separated list of aspect names to not display in results (see --show_result). "
+              + "Useful for keeping aspects added by wrappers which are typically not interesting "
+              + "to end users out of console output.")
+  public List<String> hideAspectResults;
+
+  @Option(
       name = "symlink_prefix",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,

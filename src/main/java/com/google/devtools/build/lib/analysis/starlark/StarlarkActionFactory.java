@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -450,7 +449,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         useDefaultShellEnv,
         envUnchecked,
         executionRequirementsUnchecked,
-        inputManifestsUnchecked,
         execGroupUnchecked,
         shadowedActionUnchecked,
         resourceSetUnchecked,
@@ -663,7 +661,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         useDefaultShellEnv,
         envUnchecked,
         executionRequirementsUnchecked,
-        inputManifestsUnchecked,
         execGroupUnchecked,
         shadowedActionUnchecked,
         resourceSetUnchecked,
@@ -711,7 +708,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object executionRequirementsUnchecked,
-      Object inputManifestsUnchecked,
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
@@ -822,13 +818,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             ruleContext.getRule(),
             getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
     builder.setExecutionInfo(executionInfo);
-
-    if (inputManifestsUnchecked != Starlark.NONE) {
-      for (RunfilesSupplier supplier :
-          Sequence.cast(inputManifestsUnchecked, RunfilesSupplier.class, "runfiles suppliers")) {
-        builder.addRunfilesSupplier(supplier);
-      }
-    }
 
     Label toolchainLabel = null;
     if (toolchainUnchecked instanceof Label) {

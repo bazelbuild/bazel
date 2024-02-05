@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.rules.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -242,11 +242,12 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         ")");
 
     ModuleInfo dumpSome = protoFromConfiguredTarget("//:extract_some");
-    assertThat(dumpSome.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
+    Truth8.assertThat(
+            dumpSome.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("func1");
 
     ModuleInfo dumpAll = protoFromConfiguredTarget("//:extract_all");
-    assertThat(dumpAll.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
+    Truth8.assertThat(dumpAll.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("func1", "func2");
   }
 
@@ -292,20 +293,21 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
     ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract_renamed");
 
-    assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
+    Truth8.assertThat(
+            moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("namespace.renamed_macro");
-    assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getOriginKey))
+    Truth8.assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getOriginKey))
         .containsExactly(
             OriginKey.newBuilder().setName("my_macro").setFile("//:origin.bzl").build());
 
-    assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getProviderName))
+    Truth8.assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getProviderName))
         .containsExactly("namespace.RenamedInfo");
-    assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getOriginKey))
+    Truth8.assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getOriginKey))
         .containsExactly(OriginKey.newBuilder().setName("MyInfo").setFile("//:origin.bzl").build());
 
-    assertThat(moduleInfo.getRuleInfoList().stream().map(RuleInfo::getRuleName))
+    Truth8.assertThat(moduleInfo.getRuleInfoList().stream().map(RuleInfo::getRuleName))
         .containsExactly("namespace.renamed_rule");
-    assertThat(moduleInfo.getRuleInfoList().stream().map(RuleInfo::getOriginKey))
+    Truth8.assertThat(moduleInfo.getRuleInfoList().stream().map(RuleInfo::getOriginKey))
         .containsExactly(
             OriginKey.newBuilder().setName("my_rule").setFile("//:origin.bzl").build());
 
@@ -335,9 +337,9 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
                     OriginKey.newBuilder().setName("MyOtherInfo").setFile("//:origin.bzl"))
                 .build());
 
-    assertThat(moduleInfo.getAspectInfoList().stream().map(AspectInfo::getAspectName))
+    Truth8.assertThat(moduleInfo.getAspectInfoList().stream().map(AspectInfo::getAspectName))
         .containsExactly("namespace.renamed_aspect");
-    assertThat(moduleInfo.getAspectInfoList().stream().map(AspectInfo::getOriginKey))
+    Truth8.assertThat(moduleInfo.getAspectInfoList().stream().map(AspectInfo::getOriginKey))
         .containsExactly(
             OriginKey.newBuilder().setName("my_aspect").setFile("//:origin.bzl").build());
   }

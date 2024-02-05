@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -128,7 +128,8 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
     assertThat(deps).hasSize(1);
-    assertThat(deps.stream().filter(d -> getConfiguration(d).isExecConfiguration()).findFirst())
+    Truth8.assertThat(
+            deps.stream().filter(d -> getConfiguration(d).isExecConfiguration()).findFirst())
         .isPresent();
   }
 }

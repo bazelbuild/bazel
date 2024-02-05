@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -249,7 +250,6 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
     private final ImmutableMap<String, String> topLevelAspectsParameters;
     private final int hashCode;
 
-    @AutoCodec.Instantiator
     static BuildTopLevelAspectsDetailsKey create(
         ImmutableList<AspectClass> topLevelAspectsClasses,
         ImmutableMap<String, String> topLevelAspectsParameters) {
@@ -258,6 +258,12 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
               topLevelAspectsClasses,
               topLevelAspectsParameters,
               Objects.hashCode(topLevelAspectsClasses, topLevelAspectsParameters)));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static BuildTopLevelAspectsDetailsKey intern(BuildTopLevelAspectsDetailsKey key) {
+      return interner.intern(key);
     }
 
     private BuildTopLevelAspectsDetailsKey(

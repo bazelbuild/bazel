@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
@@ -85,7 +84,6 @@ public final class LtoBackendAction extends SpawnAction {
       ActionEnvironment env,
       Map<String, String> executionInfo,
       CharSequence progressMessage,
-      RunfilesSupplier runfilesSupplier,
       String mnemonic) {
     super(
         owner,
@@ -97,7 +95,6 @@ public final class LtoBackendAction extends SpawnAction {
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        runfilesSupplier,
         mnemonic,
         OutputPathsMode.OFF);
     mandatoryInputs = inputs;
@@ -305,7 +302,6 @@ public final class LtoBackendAction extends SpawnAction {
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
-        RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new LtoBackendAction(
           inputsAndTools,
@@ -317,7 +313,6 @@ public final class LtoBackendAction extends SpawnAction {
           env,
           executionInfo,
           progressMessage,
-          runfilesSupplier,
           mnemonic);
     }
   }

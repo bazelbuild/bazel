@@ -98,9 +98,8 @@ _bazel__get_workspace_path() {
   echo $workspace
 }
 
-
 # Find the current piece of the line to complete, but only do word breaks at
-# certain characters. In particular, ignore these: "':=
+# certain characters. In particular, ignore these: "':=@
 # This method also takes into account the current cursor position.
 #
 # Works with both bash 3 and 4! Bash 3 and 4 perform different word breaks when
@@ -109,13 +108,14 @@ _bazel__get_workspace_path() {
 _bazel__get_cword() {
   local cur=${COMP_LINE:0:$COMP_POINT}
   # This expression finds the last word break character, as defined in the
-  # COMP_WORDBREAKS variable, but without '=' or ':', which is not preceeded by
-  # a slash. Quote characters are also excluded.
+  # COMP_WORDBREAKS variable, but without '@', '=' or ':', which is not
+  # preceded by a slash. Quote characters are also excluded.
   local wordbreaks="$COMP_WORDBREAKS"
   wordbreaks="${wordbreaks//\'/}"
   wordbreaks="${wordbreaks//\"/}"
   wordbreaks="${wordbreaks//:/}"
   wordbreaks="${wordbreaks//=/}"
+  wordbreaks="${wordbreaks//@/}"
   local word_start=$(expr "$cur" : '.*[^\]['"${wordbreaks}"']')
   echo "${cur:$word_start}"
 }
@@ -281,6 +281,111 @@ _bazel__expand_package_name() {
   done
 }
 
+# Usage: _bazel__filter_repo_mapping <filter> <field>
+#
+# Returns all entries of the main repo's repository mapping whose apparent repo
+# name, followed by a double quote, matches the given filter. To return the
+# matching apparent names, set field to 2. To return the matching canonical
+# names, set field to 4.
+# Note: Instead of returning an empty canonical name for the main repository,
+# this function returns the string "_main" so that this case can be
+# distinguished from that of no match.
+_bazel__filter_repo_mapping() {
+  local filter=$1 field=$2
+  # 1. dump_repo_mapping '' returns a single line consisting of a minified JSON
+  #    object.
+  # 2. Transform JSON to have lines of the form "apparent_name":"canonical_name".
+  # 3. Filter by apparent repo name.
+  # 4. Replace an empty canonical name with "_main".
+  # 5. Cut out either the apparent or canonical name.
+  ${BAZEL} mod dump_repo_mapping '' --noshow_progress 2>/dev/null |
+    tr '{},' '\n' |
+    "grep" "^\"${filter}" |
+    sed 's|:""$|:"_main"|' |
+    cut -d'"' -f${field}
+}
+
+# Usage: _bazel__expand_repo_name <current>
+#
+# Returns completions for apparent repository names. Each line is of the form
+# @apparent_name or @apparent_name//, where apparent_name starts with current.
+_bazel__expand_repo_name() {
+  local current=$1
+  # If current exactly matches a repo name, also provide the @current//
+  # completion so that users can tab through to package completion, but also
+  # complete just the shorthand for "@repo_name//:repo_name".
+  _bazel__filter_repo_mapping "${current#@}" 2 |
+    sed 's|^|@|' |
+    sed "s|^${current}\$|${current} ${current}//|"
+}
+
+# Usage: _bazel__repo_root <workspace> <repo>
+#
+# Returns the absolute path to the root of the repository identified by the
+# repository part <repo> of a label. <repo> can be either of the form
+# "@apparent_name" or "@@canonical_name" and may also refer to the main
+# repository.
+_bazel__repo_root() {
+  local workspace=$1 repo=$2
+  local canonical_repo
+  if [[ "$repo" == @@ ]]; then
+    # Match the sentinel value for the main repository used by
+    # _bazel__filter_repo_mapping.
+    canonical_repo=_main
+  elif [[ "$repo" =~ ^@@ ]]; then
+    # Canonical repo names should not go through repo mapping.
+    canonical_repo=${repo#@@}
+  else
+    canonical_repo=$(_bazel__filter_repo_mapping "${repo#@}\"" 4)
+  fi
+  if [ -z "$canonical_repo" ]; then
+    return
+  fi
+  if [ "$canonical_repo" == "_main" ]; then
+    echo "$workspace"
+    return
+  fi
+  local output_base="$(${BAZEL} info output_base --noshow_progress 2>/dev/null)"
+  if [ -z "$output_base" ]; then
+    return
+  fi
+  local repo_root="$output_base/external/$canonical_repo"
+  echo "$repo_root"
+}
+
+# Usage: _bazel__expand_package_name <workspace> <current> <label-type>
+#
+# Expands packages under the potentially external repository pointed to by
+# <current>, which is expected to start with "@repo//".
+_bazel__expand_external_package_name() {
+  local workspace=$1 current=$2 label_syntax=$3
+  local repo=$(echo "$current" | cut -f1 -d/)
+  local package=$(echo "$current" | cut -f3- -d/)
+  local repo_root=$(_bazel__repo_root "$workspace" "$repo")
+  if [ -z "$repo_root" ]; then
+    return
+  fi
+  _bazel__expand_package_name "$repo_root" "" "$package" "$label_syntax" |
+    sed "s|^|${repo}//|"
+}
+
+# Usage: _bazel__expand_rules_in_external_package <workspace> <current>
+#                                                 <label-type>
+#
+# Expands rule names in the potentially external package pointed to by
+# <current>, which is expected to start with "@repo//some/pkg:".
+_bazel__expand_rules_in_external_package() {
+  local workspace=$1 current=$2 label_syntax=$3
+  local repo=$(echo "$current" | cut -f1 -d/)
+  local package=$(echo "$current" | cut -f3- -d/ | cut -f1 -d:)
+  local name=$(echo "$current" | cut -f2 -d:)
+  local repo_root=$(_bazel__repo_root "$workspace" "$repo")
+  if [ -z "$repo_root" ]; then
+    return
+  fi
+  _bazel__expand_rules_in_package "$repo_root" "" "//$package:$name" "$label_syntax"
+}
+
 # Usage: _bazel__expand_target_pattern <workspace> <displacement>
 #                                      <word> <label-syntax>
 #
@@ -290,6 +395,26 @@ _bazel__expand_package_name() {
 _bazel__expand_target_pattern() {
   local workspace=$1 displacement=$2 current=$3 label_syntax=$4
   case "$current" in
+    @*//*:*) # Expand rule names within external repository.
+      _bazel__expand_rules_in_external_package "$workspace" "$current" "$label_syntax"
+      ;;
+    @*/*) # Expand package names within external repository.
+      # Append a second slash after the repo name before performing completion
+      # if there is no second slash already.
+      if [[ "$current" =~ ^@[^/]*/$ ]]; then
+        current="$current/"
+      fi
+      _bazel__expand_external_package_name "$workspace" "$current" "$label_syntax"
+      ;;
+    @*) # Expand external repository names.
+      # Do not expand canonical repository names: Users are not expected to
+      # compose them manually and completing them based on the contents of the
+      # external directory has a high risk of returning stale results.
+      if [[ "$current" =~ ^@@ ]]; then
+        return
+      fi
+      _bazel__expand_repo_name "$current"
+      ;;
     //*:*) # Expand rule names within package, no displacement.
       if [ "${label_syntax}" = "label-package" ]; then
         compgen -S " " -W "BUILD" "$(echo current | cut -f ':' -d2)"

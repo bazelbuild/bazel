@@ -447,6 +447,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
           context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
           hasOutputFileLock = true;
           workerOwner.getWorker().finishExecution(execRoot, outputs);
+          WorkerProcessMetricsCollector.instance()
+              .onWorkerFinishExecution(workerOwner.getWorker().getProcessId());
           spawnMetrics.setProcessOutputsTimeInMs(
               (int) processOutputsStopwatch.elapsed().toMillis());
         } else {

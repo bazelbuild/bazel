@@ -88,17 +88,10 @@ public final class MacroClass {
       StarlarkThread thread = new StarlarkThread(mu, semantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
 
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.LOADING,
-              // TODO: #19922 - Technically we should use a different key than the one in the main
-              // BUILD thread, but that'll be fixed when we change the builder type to
-              // PackagePiece.Builder.
-              new SymbolGenerator<>(builder.getPackageIdentifier()))
-          .storeInThread(thread);
-
-      // TODO: #19922 - Have Package.Builder inherit from BazelStarlarkContext and only store one
-      // thread-local object.
-      thread.setThreadLocal(Package.Builder.class, builder);
+      // TODO: #19922 - Technically the embedded SymbolGenerator field should use a different key
+      // than the one in the main BUILD thread, but that'll be fixed when we change the type to
+      // PackagePiece.Builder.
+      builder.storeInThread(thread);
 
       // TODO: #19922 - If we want to support creating analysis_test rules inside symbolic macros,
       // we'd need to call `thread.setThreadLocal(RuleDefinitionEnvironment.class,

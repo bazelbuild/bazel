@@ -67,7 +67,7 @@ final class WorkspaceFactoryTestHelper {
     builder =
         Package.newExternalPackageBuilder(
                 PackageSettings.DEFAULTS,
-                RootedPath.toRootedPath(root, workspaceFilePath),
+                WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFilePath)),
                 "",
                 RepositoryMapping.ALWAYS_FALLBACK,
                 starlarkSemantics.getBool(
@@ -86,10 +86,7 @@ final class WorkspaceFactoryTestHelper {
             /* defaultSystemJavabaseDir= */ null,
             starlarkSemantics);
     try {
-      factory.execute(
-          file,
-          /* additionalLoadedModules= */ ImmutableMap.of(),
-          WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFilePath)));
+      factory.execute(file, /* additionalLoadedModules= */ ImmutableMap.of());
     } catch (InterruptedException e) {
       fail("Shouldn't happen: " + e.getMessage());
     }

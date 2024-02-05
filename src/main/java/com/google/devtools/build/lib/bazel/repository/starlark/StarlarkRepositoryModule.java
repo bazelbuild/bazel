@@ -36,13 +36,13 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
@@ -112,6 +112,11 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     builder.setRuleDefinitionEnvironmentLabelAndDigest(
         moduleContext.label(), moduleContext.bzlTransitiveDigest());
+    Label.RepoMappingRecorder repoMappingRecorder =
+        thread.getThreadLocal(Label.RepoMappingRecorder.class);
+    if (repoMappingRecorder != null) {
+      builder.setRuleDefinitionEnvironmentRepoMappingEntries(repoMappingRecorder.recordedEntries());
+    }
     builder.setWorkspaceOnly();
     return new RepositoryRuleFunction(
         builder,

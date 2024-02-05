@@ -27,9 +27,13 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -121,18 +125,24 @@ public class StandaloneTestStrategy extends TestStrategy {
                 .getLocalResourceUsage(
                     action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
 
+    RunfilesTree testRunfilesTree =
+        actionExecutionContext
+            .getInputMetadataProvider()
+            .getRunfilesMetadata(action.getRunfilesMiddleman())
+            .getRunfilesTree();
+
     Spawn spawn =
         new SimpleSpawn(
             action,
             getArgs(action),
             ImmutableMap.copyOf(testEnvironment),
             ImmutableMap.copyOf(executionInfo),
-            action.getRunfilesSupplier(),
+            CompositeRunfilesSupplier.fromRunfilesTrees(ImmutableList.of(testRunfilesTree)),
             ImmutableMap.of(),
-            /*inputs=*/ action.getInputs(),
+            /* inputs= */ action.getInputs(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
-            /*mandatoryOutputs=*/ ImmutableSet.of(),
+            /* mandatoryOutputs= */ ImmutableSet.of(),
             localResourcesSupplier);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
@@ -490,24 +500,38 @@ public class StandaloneTestStrategy extends TestStrategy {
         "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
     testEnvironment.put("TEST_NAME", action.getTestName());
     testEnvironment.put("IS_COVERAGE_SPAWN", "1");
+
+    RunfilesSupplier lcovMergerRunfilesSupplier;
+    if (action.getLcovMergerRunfilesMiddleman() != null) {
+      RunfilesTree lcovMergerRunfilesTree =
+          actionExecutionContext
+              .getInputMetadataProvider()
+              .getRunfilesMetadata(action.getLcovMergerRunfilesMiddleman())
+              .getRunfilesTree();
+      lcovMergerRunfilesSupplier =
+          CompositeRunfilesSupplier.fromRunfilesTrees(ImmutableList.of(lcovMergerRunfilesTree));
+    } else {
+      lcovMergerRunfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
+    }
+
     return new SimpleSpawn(
         action,
         args,
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),
-        action.getLcovMergerRunfilesSupplier(),
-        /*filesetMappings=*/ ImmutableMap.of(),
-        /*inputs=*/ NestedSetBuilder.<ActionInput>compileOrder()
+        lcovMergerRunfilesSupplier,
+        /* filesetMappings= */ ImmutableMap.of(),
+        /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
             .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
             .add(action.getCollectCoverageScript())
             .add(action.getCoverageManifest())
             .addTransitive(action.getLcovMergerFilesToRun().build())
             .build(),
-        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /*outputs=*/ ImmutableSet.of(
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* outputs= */ ImmutableSet.of(
             ActionInputHelper.fromPath(action.getCoverageData().getExecPath())),
-        /*mandatoryOutputs=*/ null,
+        /* mandatoryOutputs= */ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
 

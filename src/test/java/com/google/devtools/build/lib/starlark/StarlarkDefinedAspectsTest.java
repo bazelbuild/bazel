@@ -17,7 +17,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 import static java.util.stream.Collectors.toList;
 import static org.junit.Assert.assertThrows;
@@ -25,6 +24,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -8571,7 +8571,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(keysForAspectAOnT3).hasSize(1);
 
     ImmutableList<AspectKey> baseKeys = keysForAspectAOnT3.get(0).getBaseKeys();
-    assertThat(baseKeys.stream().map(k -> k.getAspectClass().getName()))
+    Truth8.assertThat(baseKeys.stream().map(k -> k.getAspectClass().getName()))
         .containsExactly("//test:defs.bzl%b", "//test:defs.bzl%c")
         .inOrder();
   }

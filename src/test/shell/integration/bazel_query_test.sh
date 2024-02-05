@@ -1104,4 +1104,150 @@ EOF
   assert_contains "echo unused" bar_ndjson_file
 }
 
+function test_query_factored_graph_output() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+sh_binary(
+    name = "a1",
+    srcs = [
+        "a.sh",
+    ],
+    deps = [
+        ":b",
+        ":c1",
+        ":c2",
+    ],
+)
+
+sh_binary(
+    name = "a2",
+    srcs = [
+        "a.sh",
+    ],
+    deps = [
+        ":b",
+        ":c1",
+        ":c2",
+    ],
+)
+
+sh_binary(
+    name = "b",
+    srcs = ["b.sh"],
+)
+
+sh_binary(
+    name = "c1",
+    srcs = ["c.sh"],
+)
+
+sh_binary(
+    name = "c2",
+    srcs = ["c.sh"],
+)
+EOF
+  bazel query --output=graph \
+      --graph:factored \
+      --notool_deps \
+      "deps(//foo:a1 + //foo:a2)" > "$TEST_log" \
+      || fail "Expected success"
+  # Expected factored graph.
+  #      (a1,a2)
+  #     /   \   \
+  #   a.sh   b   (c1,c2)
+  #         /     \
+  #       b.sh    c.sh
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\"$"
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\" -> \"//foo:a.sh\"$"
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\" -> \"//foo:b\"$"
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\" -> \"//foo:c[12]\\\n//foo:c[12]\"$"
+  expect_log "\"//foo:a.sh\"$"
+  expect_log "\"//foo:b\"$"
+  expect_log "\"//foo:b\" -> \"//foo:b.sh\"$"
+  expect_log "\"//foo:b.sh\"$"
+  expect_log "\"//foo:c[12]\\\\n//foo:c[12]\" -> \"//foo:c.sh\"$"
+  expect_log "\"//foo:c.sh\"$"
+}
+
+function test_query_non_factored_graph_output() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+sh_binary(
+    name = "a1",
+    srcs = [
+        "a.sh",
+    ],
+    deps = [
+        ":b",
+        ":c1",
+        ":c2",
+    ],
+)
+
+sh_binary(
+    name = "a2",
+    srcs = [
+        "a.sh",
+    ],
+    deps = [
+        ":b",
+        ":c1",
+        ":c2",
+    ],
+)
+
+sh_binary(
+    name = "b",
+    srcs = ["b.sh"],
+)
+
+sh_binary(
+    name = "c1",
+    srcs = ["c.sh"],
+)
+
+sh_binary(
+    name = "c2",
+    srcs = ["c.sh"],
+)
+EOF
+  bazel query --output=graph \
+      --nograph:factored \
+      --notool_deps \
+      "deps(//foo:a1 + //foo:a2)" >& "$TEST_log" \
+      || fail "Expected success"
+
+
+  # Expected non-factored graph (combination of all the edges below):
+  #   a1   a2    a1   a2
+  #    \  /        \  /
+  #    a.sh          b
+  #                 /
+  #     a1         b.sh
+  #   / a2 \
+  #  / /  \ \
+  #  c1    c2
+  #   \    /
+  #    c.sh
+  expect_log "\"//foo:a1\"$"
+  expect_log "\"//foo:a2\"$"
+  expect_log "\"//foo:a1\" -> \"//foo:a.sh\"$"
+  expect_log "\"//foo:a2\" -> \"//foo:a.sh\"$"
+  expect_log "\"//foo:a.sh\"$"
+  expect_log "\"//foo:a1\" -> \"//foo:b\"$"
+  expect_log "\"//foo:a2\" -> \"//foo:b\"$"
+  expect_log "\"//foo:b\"$"
+  expect_log "\"//foo:b\" -> \"//foo:b.sh\"$"
+
+  expect_log "\"//foo:a1\" -> \"//foo:c1\"$"
+  expect_log "\"//foo:a1\" -> \"//foo:c2\"$"
+  expect_log "\"//foo:a2\" -> \"//foo:c1\"$"
+  expect_log "\"//foo:a2\" -> \"//foo:c2\"$"
+  expect_log "\"//foo:c1\"$"
+  expect_log "\"//foo:c2\"$"
+  expect_log "\"//foo:c1\" -> \"//foo:c.sh\"$"
+  expect_log "\"//foo:c2\" -> \"//foo:c.sh\"$"
+  expect_log "\"//foo:c.sh\"$"
+}
+
 run_suite "${PRODUCT_NAME} query tests"

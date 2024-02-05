@@ -848,7 +848,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 6,
+    shard_count = 10,
     tags = [
         "requires-network",
     ],
@@ -1341,13 +1341,6 @@ sh_test(
     srcs = ["platforms_test.sh"],
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
-sh_test(
-    name = "platform_mapping_test",
-    srcs = ["platform_mapping_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
 )
 
 sh_test(
