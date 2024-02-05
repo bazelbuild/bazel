@@ -16,34 +16,35 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.lang.ref.SoftReference;
+import java.lang.ref.WeakReference;
 
 /**
- * A codec for soft references.
+ * A codec for weak references.
  *
- * <p>We must always be prepared for a soft reference to suddenly vanish, so simply not serializing
+ * <p>We must always be prepared for a weak reference to suddenly vanish, so simply not serializing
  * the referenced object works.
  */
 @SuppressWarnings({"rawtypes"})
-public class SoftReferenceCodec extends AsyncObjectCodec<SoftReference> {
+public final class WeakReferenceCodec extends AsyncObjectCodec<WeakReference> {
+
   @Override
-  public SoftReference deserializeAsync(
+  public WeakReference deserializeAsync(
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    SoftReference result = new SoftReference<>(null);
+    WeakReference result = new WeakReference<>(null);
     context.registerInitialValue(result);
     return result;
   }
 
   @Override
-  public Class<? extends SoftReference> getEncodedClass() {
-    return SoftReference.class;
+  public Class<WeakReference> getEncodedClass() {
+    return WeakReference.class;
   }
 
   @Override
-  public void serialize(SerializationContext context, SoftReference obj, CodedOutputStream codedOut)
+  public void serialize(SerializationContext context, WeakReference obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    // We don't need to serialize anything; the referenced object is simply discarded since soft
+    // We don't need to serialize anything; the referenced object is simply discarded since weak
     // references are only used for caching.
   }
 }
