@@ -1093,7 +1093,7 @@ public class ExecutionTool {
     private final CommandEnvironment env;
 
     private final Stopwatch executionUnstartedTimer;
-    private final AtomicBoolean activated = new AtomicBoolean(false);
+    private final AtomicBoolean progressReceiverStarted = new AtomicBoolean(false);
 
     private final int progressReportInterval;
 
@@ -1109,11 +1109,8 @@ public class ExecutionTool {
     }
 
     @Subscribe
-    public void setupExecutionProgressReceiver(SomeExecutionStartedEvent unused) {
-      if (activated.compareAndSet(false, true)) {
-        // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in
-        // a synchronized collection), so unsynchronized access to this variable is unsafe while it
-        // runs.
+    public void setupExecutionProgressReceiver(SomeExecutionStartedEvent event) {
+      if (progressReceiverStarted.compareAndSet(false, true)) {
         // TODO(leba): count test actions
         ExecutionProgressReceiver executionProgressReceiver =
             new ExecutionProgressReceiver(
@@ -1127,7 +1124,6 @@ public class ExecutionTool {
         skyframeExecutor.setActionExecutionProgressReportingObjects(
             executionProgressReceiver, executionProgressReceiver, statusReporter);
         skyframeExecutor.setExecutionProgressReceiver(executionProgressReceiver);
-        executionUnstartedTimer.start();
 
         skyframeExecutor.setAndStartWatchdog(
             new ActionExecutionInactivityWatchdog(
@@ -1135,7 +1131,10 @@ public class ExecutionTool {
                 executionProgressReceiver.createInactivityReporter(
                     statusReporter, skyframeExecutor.getIsBuildingExclusiveArtifacts()),
                 progressReportInterval));
-
+      }
+      // no lock necessary since this method is thread-safe.
+      if (event.countedInExecutionTime() && !executionUnstartedTimer.isRunning()) {
+        executionUnstartedTimer.start();
         env.getEventBus().unregister(this);
       }
     }
