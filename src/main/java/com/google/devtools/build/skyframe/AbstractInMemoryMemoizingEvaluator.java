@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
@@ -25,7 +28,6 @@ import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
-import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.Collection;
@@ -36,7 +38,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -93,7 +94,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public void delete(Predicate<SkyKey> deletePredicate) {
+  public final void delete(Predicate<SkyKey> deletePredicate) {
     try (AutoProfiler ignored =
         GoogleAutoProfilerUtils.logged("deletion marking", MIN_TIME_TO_LOG_DELETION)) {
       Set<SkyKey> toDelete = Sets.newConcurrentHashSet();
@@ -109,16 +110,15 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public void deleteDirty(long versionAgeLimit) {
-    Preconditions.checkArgument(versionAgeLimit >= 0, versionAgeLimit);
+  public final void deleteDirty(long versionAgeLimit) {
+    checkArgument(versionAgeLimit >= 0, versionAgeLimit);
     Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
     valuesToDelete.addAll(
         Sets.filter(
             progressReceiver.getUnenqueuedDirtyKeys(),
             skyKey -> {
-              NodeEntry entry = getInMemoryGraph().get(null, Reason.OTHER, skyKey);
-              Preconditions.checkNotNull(entry, skyKey);
-              Preconditions.checkState(entry.isDirty(), skyKey);
+              NodeEntry entry = checkNotNull(getInMemoryGraph().getIfPresent(skyKey), skyKey);
+              checkState(entry.isDirty(), skyKey);
               return entry.getVersion().atMost(threshold);
             }));
   }
@@ -173,27 +173,23 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
 
   @Override
   public final void dumpCount(PrintStream out) {
-    Map<String, AtomicInteger> counter = new HashMap<>();
+    Multiset<SkyFunctionName> counter = HashMultiset.create();
     for (InMemoryNodeEntry entry : getInMemoryGraph().getAllNodeEntries()) {
-      String mapKey = entry.getKey().functionName().getName();
-      counter.putIfAbsent(mapKey, new AtomicInteger());
-      counter.get(mapKey).incrementAndGet();
+      counter.add(entry.getKey().functionName());
     }
-    for (Entry<String, AtomicInteger> entry : counter.entrySet()) {
-      out.println(entry.getKey() + "\t" + entry.getValue()); // \t is spreadsheet-friendly.
+    for (Multiset.Entry<SkyFunctionName> entry : counter.entrySet()) {
+      out.println(entry.getElement() + "\t" + entry.getCount()); // \t is spreadsheet-friendly.
     }
   }
 
-  /**
-   * @return true if finished successfully, false if thread was aborted
-   */
-  private boolean processValues(
-      Predicate<String> filter, BiConsumer<String, InMemoryNodeEntry> consumer)
+  private void processGraphForDumpCommand(
+      Predicate<String> filter, PrintStream out, BiConsumer<String, InMemoryNodeEntry> consumer)
       throws InterruptedException {
     for (InMemoryNodeEntry entry : getInMemoryGraph().getAllNodeEntries()) {
       // This can be very long running on large graphs so check for user abort requests.
       if (Thread.interrupted()) {
-        return false;
+        out.println("aborting");
+        throw new InterruptedException();
       }
 
       String canonicalizedKey = entry.getKey().getCanonicalName();
@@ -203,87 +199,72 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
 
       consumer.accept(canonicalizedKey, entry);
     }
-
-    return true;
   }
 
   @Override
   public final void dumpValues(PrintStream out, Predicate<String> filter)
       throws InterruptedException {
-    boolean interrupted =
-        !processValues(
-            filter,
-            (canonicalizedKey, entry) -> {
-              out.println(canonicalizedKey);
-              entry.getValue().debugPrint(out);
-              out.println();
-            });
-    if (interrupted) {
-      out.println("aborting");
-      throw new InterruptedException();
-    }
+    processGraphForDumpCommand(
+        filter,
+        out,
+        (canonicalizedKey, entry) -> {
+          out.println(canonicalizedKey);
+          entry.getValue().debugPrint(out);
+          out.println();
+        });
   }
 
   @Override
   public final void dumpDeps(PrintStream out, Predicate<String> filter)
       throws InterruptedException {
-    boolean interrupted =
-        !processValues(
-            filter,
-            (canonicalizedKey, entry) -> {
-              out.println(canonicalizedKey);
-              if (entry.keepsEdges()) {
-                GroupedDeps deps =
-                    GroupedDeps.decompress(entry.getCompressedDirectDepsForDoneEntry());
-                for (int i = 0; i < deps.numGroups(); i++) {
-                  out.format("  Group %d:\n", i + 1);
-                  for (SkyKey dep : deps.getDepGroup(i)) {
-                    out.print("    ");
-                    out.println(dep.getCanonicalName());
-                  }
-                }
-              } else {
-                out.println("  (direct deps not stored)");
+    processGraphForDumpCommand(
+        filter,
+        out,
+        (canonicalizedKey, entry) -> {
+          out.println(canonicalizedKey);
+          if (entry.keepsEdges()) {
+            GroupedDeps deps = GroupedDeps.decompress(entry.getCompressedDirectDepsForDoneEntry());
+            for (int i = 0; i < deps.numGroups(); i++) {
+              out.format("  Group %d:\n", i + 1);
+              for (SkyKey dep : deps.getDepGroup(i)) {
+                out.print("    ");
+                out.println(dep.getCanonicalName());
               }
-              out.println();
-            });
-    if (interrupted) {
-      out.println("aborting");
-      throw new InterruptedException();
-    }
+            }
+          } else {
+            out.println("  (direct deps not stored)");
+          }
+          out.println();
+        });
   }
 
   @Override
   public final void dumpRdeps(PrintStream out, Predicate<String> filter)
       throws InterruptedException {
-    boolean interrupted =
-        !processValues(
-            filter,
-            (canonicalizedKey, entry) -> {
-              out.println(canonicalizedKey);
-              if (entry.keepsEdges()) {
-                Collection<SkyKey> rdeps = entry.getReverseDepsForDoneEntry();
-                for (SkyKey rdep : rdeps) {
-                  out.print("    ");
-                  out.println(rdep.getCanonicalName());
-                }
-              } else {
-                out.println("  (rdeps not stored)");
-              }
-              out.println();
-            });
-    if (interrupted) {
-      out.println("aborting");
-      throw new InterruptedException();
-    }
+    processGraphForDumpCommand(
+        filter,
+        out,
+        (canonicalizedKey, entry) -> {
+          out.println(canonicalizedKey);
+          if (entry.keepsEdges()) {
+            Collection<SkyKey> rdeps = entry.getReverseDepsForDoneEntry();
+            for (SkyKey rdep : rdeps) {
+              out.print("    ");
+              out.println(rdep.getCanonicalName());
+            }
+          } else {
+            out.println("  (rdeps not stored)");
+          }
+          out.println();
+        });
   }
 
   @Override
-  public void cleanupInterningPools() {
+  public final void cleanupInterningPools() {
     getInMemoryGraph().cleanupInterningPools();
   }
 
-  protected void invalidate(Iterable<SkyKey> diff) {
+  protected final void invalidate(Iterable<SkyKey> diff) {
     Iterables.addAll(valuesToDirty, diff);
   }
 
@@ -291,36 +272,31 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
    * Removes entries in {@code valuesToInject} whose values are equal to the present values in the
    * graph.
    */
-  protected void pruneInjectedValues(Map<SkyKey, Delta> valuesToInject) {
+  protected final void pruneInjectedValues(Map<SkyKey, Delta> valuesToInject) {
     for (Iterator<Entry<SkyKey, Delta>> it = valuesToInject.entrySet().iterator(); it.hasNext(); ) {
       Map.Entry<SkyKey, Delta> entry = it.next();
       SkyKey key = entry.getKey();
       SkyValue newValue = entry.getValue().newValue();
-      NodeEntry prevEntry = getInMemoryGraph().get(null, Reason.OTHER, key);
+      InMemoryNodeEntry prevEntry = getInMemoryGraph().getIfPresent(key);
       @Nullable Version newMtsv = entry.getValue().newMaxTransitiveSourceVersion();
-      if (prevEntry != null && prevEntry.isDone()) {
+      if (isDone(prevEntry)) {
         @Nullable Version oldMtsv = prevEntry.getMaxTransitiveSourceVersion();
         if (keepEdges) {
-          try {
-            if (!prevEntry.hasAtLeastOneDep()) {
-              if (newValue.equals(prevEntry.getValue())
-                  && !valuesToDirty.contains(key)
-                  && !valuesToDelete.contains(key)
-                  && Objects.equals(newMtsv, oldMtsv)) {
-                it.remove();
-              }
-            } else {
-              // Rare situation of an injected dep that depends on another node. Usually the dep is
-              // the error transience node. When working with external repositories, it can also be
-              // an external workspace file. Don't bother injecting it, just invalidate it.
-              // We'll wastefully evaluate the node freshly during evaluation, but this happens very
-              // rarely.
-              valuesToDirty.add(key);
+          if (!prevEntry.hasAtLeastOneDep()) {
+            if (newValue.equals(prevEntry.getValue())
+                && !valuesToDirty.contains(key)
+                && !valuesToDelete.contains(key)
+                && Objects.equals(newMtsv, oldMtsv)) {
               it.remove();
             }
-          } catch (InterruptedException e) {
-            throw new IllegalStateException(
-                "InMemoryGraph does not throw: " + entry + ", " + prevEntry, e);
+          } else {
+            // Rare situation of an injected dep that depends on another node. Usually the dep is
+            // the error transience node. When working with external repositories, it can also be
+            // an external workspace file. Don't bother injecting it, just invalidate it.
+            // We'll wastefully evaluate the node freshly during evaluation, but this happens very
+            // rarely.
+            valuesToDirty.add(key);
+            it.remove();
           }
         } else {
           // No incrementality. Just delete the old value from the graph. The new value is about to
@@ -332,7 +308,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   /** Injects values in {@code valuesToInject} into the graph. */
-  protected void injectValues(Version version) {
+  protected final void injectValues(Version version) {
     if (valuesToInject.isEmpty()) {
       return;
     }
@@ -345,7 +321,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     valuesToInject = new HashMap<>();
   }
 
-  protected void performInvalidation() throws InterruptedException {
+  protected final void performInvalidation() throws InterruptedException {
     EagerInvalidator.delete(
         getInMemoryGraph(), valuesToDelete, progressReceiver, deleterState, keepEdges);
     // Note that clearing the valuesToDelete would not do an internal resizing. Therefore, if any

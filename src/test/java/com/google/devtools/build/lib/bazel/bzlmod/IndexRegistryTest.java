@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
@@ -152,12 +151,9 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.start();
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
-    assertThat(
-            registry.getRepoSpec(
-                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
-                .setRepoName("foorepo")
                 .setUrls(
                     ImmutableList.of(
                         "https://mirror.bazel.build/mysite.com/thing.zip",
@@ -168,12 +164,9 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
-    assertThat(
-            registry.getRepoSpec(
-                createModuleKey("bar", "2.0"), RepositoryName.create("barrepo"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("bar", "2.0"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
-                .setRepoName("barrepo")
                 .setUrls(
                     ImmutableList.of(
                         "https://mirror.bazel.build/example.com/archive.jar?with=query",
@@ -202,15 +195,12 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.start();
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
-    assertThat(
-            registry.getRepoSpec(
-                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
         .isEqualTo(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
                 .setAttributes(
-                    AttributeValues.create(
-                        ImmutableMap.of("name", "foorepo", "path", "/hello/bar/project_x")))
+                    AttributeValues.create(ImmutableMap.of("path", "/hello/bar/project_x")))
                 .build());
   }
 
@@ -227,12 +217,9 @@ public class IndexRegistryTest extends FoundationTestCase {
         "}");
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
-    assertThat(
-            registry.getRepoSpec(
-                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
-                .setRepoName("foorepo")
                 .setUrls(ImmutableList.of("http://mysite.com/thing.zip"))
                 .setIntegrity("sha256-blah")
                 .setStripPrefix("pref")
@@ -262,10 +249,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
     assertThrows(
-        IOException.class,
-        () ->
-            registry.getRepoSpec(
-                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter));
+        IOException.class, () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter));
   }
 
   @Test
@@ -312,14 +296,9 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.start();
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
-    assertThat(
-            registry.getRepoSpec(
-                createModuleKey("archive_type", "1.0"),
-                RepositoryName.create("archive_type_repo"),
-                reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("archive_type", "1.0"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
-                .setRepoName("archive_type_repo")
                 .setUrls(ImmutableList.of("https://mysite.com/thing?format=zip"))
                 .setIntegrity("sha256-blah")
                 .setStripPrefix("")

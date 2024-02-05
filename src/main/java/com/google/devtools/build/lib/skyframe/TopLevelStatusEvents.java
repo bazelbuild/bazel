@@ -144,18 +144,31 @@ public final class TopLevelStatusEvents {
     }
   }
 
-  /** An event that denotes that some execution has started in this build. */
+  /**
+   * An event that denotes that some execution has started in this build.
+   *
+   * <p>Some special actions e.g. the WorkspaceStatusAction should be excluded from the execution
+   * time.
+   */
   @AutoValue
   public abstract static class SomeExecutionStartedEvent implements TopLevelStatusEventWithType {
 
     public static SomeExecutionStartedEvent create() {
-      return new AutoValue_TopLevelStatusEvents_SomeExecutionStartedEvent();
+      return new AutoValue_TopLevelStatusEvents_SomeExecutionStartedEvent(
+          /* countedInExecutionTime= */ true);
+    }
+
+    public static SomeExecutionStartedEvent notCountedInExecutionTime() {
+      return new AutoValue_TopLevelStatusEvents_SomeExecutionStartedEvent(
+          /* countedInExecutionTime= */ false);
     }
 
     @Override
     public Type getType() {
       return Type.SOME_EXECUTION_STARTED;
     }
+
+    public abstract boolean countedInExecutionTime();
   }
   /** An event that marks the successful build of a top-level target, including tests. */
   @AutoValue

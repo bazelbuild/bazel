@@ -1,3 +1,24 @@
+## Release 8.0.0-pre.20240108.7 (2024-02-05)
+
+```
+Baseline: 8e8ddaba0e90c280bfd85644d6ccd91df5b6d353
+
+Cherry picks:
+
+   + bbc51a06ba4db1c88bfce6dfa3c7b0622cb56d72:
+     Fix `cc_test` coverage broken by
+     https://github.com/bazelbuild/bazel/commit/92cba040904c2ccbd0b5a7
+     0263de739f72c592ae
+   + 162cacd30dc19352ec34fe1de6a056d6b1ee9374:
+     Automated rollback of commit
+     915fb3e861dd28e16f42072101adf498242d26d0.
+   + bf6ebe9f7c428e15b7c4d7e86a762b7470f97d5b:
+     Make tree artifacts that are symlinks to absolute paths work
+     correctly.
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 8.0.0-pre.20240108.6 (2024-01-29)
 
 ```

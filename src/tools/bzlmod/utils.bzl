@@ -56,7 +56,7 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
         if "repoSpec" in module and module["repoSpec"]["ruleClassName"] == "http_archive":
             repo_spec = module["repoSpec"]
             attributes = repo_spec["attributes"]
-            repo_name = attributes["name"]
+            repo_name = _module_repo_name(module)
 
             if repo_name not in required_repos:
                 continue
@@ -73,18 +73,26 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
                         "url": patch,
                     })
 
-    for _, extension_entry in lockfile["moduleExtensions"].items():
+    for extension_id, extension_entry in lockfile["moduleExtensions"].items():
+        if extension_id.startswith("@@"):
+            # @@rules_foo~1.2.3//:extensions.bzl%foo --> rules_foo~1.2.3
+            module_repo_name = extension_id.removeprefix("@@").partition("//")[0]
+        else:
+            # //:extensions.bzl%foo --> _main
+            module_repo_name = "_main"
+        extension_name = extension_id.partition("%")[2]
+        repo_name_prefix = "{}~{}~".format(module_repo_name, extension_name)
         extensions = []
         for _, extension_per_platform in extension_entry.items():
             extensions.append(extension_per_platform)
         for extension in extensions:
-            for _, repo_spec in extension["generatedRepoSpecs"].items():
+            for local_name, repo_spec in extension["generatedRepoSpecs"].items():
                 rule_class = repo_spec["ruleClassName"]
 
                 # TODO(pcloudy): Remove "kotlin_compiler_repository" after https://github.com/bazelbuild/rules_kotlin/issues/1106 is fixed
                 if rule_class == "http_archive" or rule_class == "http_file" or rule_class == "http_jar" or rule_class == "kotlin_compiler_repository":
                     attributes = repo_spec["attributes"]
-                    repo_name = attributes["name"]
+                    repo_name = repo_name_prefix + local_name
 
                     if repo_name not in required_repos:
                         continue
@@ -118,6 +126,15 @@ def parse_bazel_module_repos(ctx, lockfile_path):
         if "repoSpec" in module and module["repoSpec"]["ruleClassName"] == "http_archive":
             repo_spec = module["repoSpec"]
             attributes = repo_spec["attributes"]
-            repo_name = attributes["name"]
+            repo_name = _module_repo_name(module)
             repos.append(repo_name)
     return repos
+
+# Keep in sync with ModuleKey.
+_WELL_KNOWN_MODULES = ["bazel_tools", "local_config_platform", "platforms"]
+
+def _module_repo_name(module):
+    module_name = module["name"]
+    if module_name in _WELL_KNOWN_MODULES:
+        return module_name
+    return "{}~{}".format(module_name, module["version"])

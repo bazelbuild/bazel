@@ -265,11 +265,10 @@ public class BazelRepositoryModule extends BlazeModule {
               "local_config_platform",
               new NonRegistryOverride() {
                 @Override
-                public RepoSpec getRepoSpec(RepositoryName repoName) {
+                public RepoSpec getRepoSpec() {
                   return RepoSpec.builder()
                       .setRuleClassName("local_config_platform")
-                      .setAttributes(
-                          AttributeValues.create(ImmutableMap.of("name", repoName.getName())))
+                      .setAttributes(AttributeValues.create(ImmutableMap.of()))
                       .build();
                 }
 

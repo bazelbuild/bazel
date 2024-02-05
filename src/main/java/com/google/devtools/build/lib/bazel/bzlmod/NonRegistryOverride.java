@@ -16,7 +16,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /**
  * An override specifying that the module should not be retrieved from a registry or participate in
@@ -27,7 +26,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 public interface NonRegistryOverride extends ModuleOverride {
 
   /** Returns the {@link RepoSpec} that defines this repository. */
-  RepoSpec getRepoSpec(RepositoryName repoName);
+  RepoSpec getRepoSpec();
 
   /**
    * Return the exact {@link

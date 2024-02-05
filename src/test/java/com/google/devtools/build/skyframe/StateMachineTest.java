@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -27,6 +28,7 @@ import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporary
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
+import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
@@ -35,6 +37,11 @@ import com.google.devtools.build.skyframe.state.ValueOrException3Producer;
 import com.google.devtools.build.skyframe.state.ValueOrExceptionProducer;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1400,5 +1407,88 @@ public final class StateMachineTest {
     abstract Exception getException();
 
     abstract int exceptionOrdinal();
+  }
+
+  private static class StateMachineWithMultipleConcurrentDriverWrapper
+      implements SkyKeyComputeState {
+    private final List<Driver> drivers = new ArrayList<>();
+
+    private StateMachineWithMultipleConcurrentDriverWrapper(List<StateMachine> stateMachines) {
+      for (StateMachine stateMachine : stateMachines) {
+        drivers.add(new Driver(stateMachine));
+      }
+    }
+
+    private boolean drive(LookupEnvironment env) throws InterruptedException {
+      ExecutorService executor = Executors.newFixedThreadPool(4);
+      AtomicBoolean allCompletes = new AtomicBoolean(true);
+      ConcurrentLookupEnvironment concurrentEnvironment = new ConcurrentLookupEnvironment(env);
+      for (Driver driver : drivers) {
+        var unused =
+            executor.submit(
+                () -> {
+                  try {
+                    if (!driver.drive(concurrentEnvironment)) {
+                      allCompletes.set(false);
+                    }
+                  } catch (InterruptedException e) {
+                    throw new AssertionError("No exception is expected to be thrown", e);
+                  }
+                });
+      }
+
+      executor.shutdown();
+      executor.awaitTermination(Long.MAX_VALUE, NANOSECONDS);
+      return allCompletes.get();
+    }
+  }
+
+  private AtomicInteger defineRootMachineWithMultipleDriver(
+      Supplier<List<StateMachine>> rootMachineSupplier) {
+    AtomicInteger restartCount = new AtomicInteger();
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              if (!env.getState(
+                      () ->
+                          new StateMachineWithMultipleConcurrentDriverWrapper(
+                              rootMachineSupplier.get()))
+                  .drive(env)) {
+                restartCount.getAndIncrement();
+                return null;
+              }
+              return DONE_VALUE;
+            });
+    return restartCount;
+  }
+
+  private int evalMachineWithMultipleDrivers(Supplier<List<StateMachine>> rootMachineSupplier)
+      throws InterruptedException {
+    AtomicInteger restartCount = defineRootMachineWithMultipleDriver(rootMachineSupplier);
+    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    return restartCount.get();
+  }
+
+  @Test
+  public void test_multipleStateMachinesInParallelDriver() throws InterruptedException {
+    for (int i = 0; i < 100; ++i) {
+      graph.remove(ROOT_KEY);
+      graph.remove(KEY_A1);
+      graph.remove(KEY_A2);
+      var v1Sink = new SkyValueSink();
+      var v2Sink = new SkyValueSink();
+      var v3Sink = new SkyValueSink();
+      var v4Sink = new SkyValueSink();
+      var v5Sink = new SkyValueSink();
+      var v6Sink = new SkyValueSink();
+      Supplier<List<StateMachine>> factory =
+          () ->
+              Arrays.asList(
+                  new TwoStepMachine(v1Sink, v2Sink),
+                  new TwoStepMachine(v3Sink, v4Sink),
+                  new TwoStepMachine(v5Sink, v6Sink));
+      assertThat(evalMachineWithMultipleDrivers(factory)).isEqualTo(2);
+    }
   }
 }
