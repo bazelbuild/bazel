@@ -2159,7 +2159,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "OaXuahb8Ga1zYeFJL4rrJjYmP9XovLouv9Tp+aqzEX0=",
+        "bzlTransitiveDigest": "wiyY30lgHvAgghminN0h4lxMWexDIg/6r/+eOIA5bPU=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2178,10 +2178,10 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "OaXuahb8Ga1zYeFJL4rrJjYmP9XovLouv9Tp+aqzEX0=",
+        "bzlTransitiveDigest": "wiyY30lgHvAgghminN0h4lxMWexDIg/6r/+eOIA5bPU=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "a76d8c53ac208e3b6335eefa542a24b2e1a70fcfccb5d79fd80cea2cc2947ab4",
-          "@@//:MODULE.bazel": "f0f6c040c50ad1d3555157b29dea32260bdaf5cc7205dfc346d4b1b6b008baca"
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "8aaa38735a99ea2c74e3e0d0eb02dbacd1ebb0fc4bf1a96f9b584496371b16c3",
+          "@@//:MODULE.bazel": "4d4b578dd607ef6ca79369c6c5d896c09e9aaa0fa4787f7865333fb2303d5b70"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2435,7 +2435,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "OaXuahb8Ga1zYeFJL4rrJjYmP9XovLouv9Tp+aqzEX0=",
+        "bzlTransitiveDigest": "wiyY30lgHvAgghminN0h4lxMWexDIg/6r/+eOIA5bPU=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {

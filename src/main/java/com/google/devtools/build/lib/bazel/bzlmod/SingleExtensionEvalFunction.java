@@ -776,7 +776,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 .setRuleClassName(repoRule.getRuleClass().getName())
                 .setAttributes(
                     AttributeValues.create(
-                        Maps.transformEntries(kwargs, (k, v) -> ruleInstance.getAttr(k))))
+                        Maps.filterKeys(
+                            Maps.transformEntries(kwargs, (k, v) -> ruleInstance.getAttr(k)),
+                            k -> !k.equals("name"))))
                 .build();
         generatedRepoSpecs.put(name, repoSpec);
       }

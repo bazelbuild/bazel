@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -187,8 +186,7 @@ public class IndexRegistry implements Registry {
   }
 
   @Override
-  public RepoSpec getRepoSpec(
-      ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler)
+  public RepoSpec getRepoSpec(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     String jsonUrl =
         constructUrl(
@@ -208,22 +206,19 @@ public class IndexRegistry implements Registry {
         {
           ArchiveSourceJson typedSourceJson =
               parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
-          return createArchiveRepoSpec(
-              typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
+          return createArchiveRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
         }
       case "local_path":
         {
           LocalPathSourceJson typedSourceJson =
               parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
-          return createLocalPathRepoSpec(
-              typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
+          return createLocalPathRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
         }
       case "git_repository":
         {
           GitRepoSourceJson typedSourceJson =
               parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
-          return createGitRepoSpec(
-              typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
+          return createGitRepoSpec(typedSourceJson);
         }
       default:
         throw new IOException(
@@ -249,10 +244,7 @@ public class IndexRegistry implements Registry {
   }
 
   private RepoSpec createLocalPathRepoSpec(
-      LocalPathSourceJson sourceJson,
-      Optional<BazelRegistryJson> bazelRegistryJson,
-      ModuleKey key,
-      RepositoryName repoName)
+      LocalPathSourceJson sourceJson, Optional<BazelRegistryJson> bazelRegistryJson, ModuleKey key)
       throws IOException {
     String path = sourceJson.path;
     if (!PathFragment.isAbsolute(path)) {
@@ -278,17 +270,12 @@ public class IndexRegistry implements Registry {
     return RepoSpec.builder()
         .setRuleClassName("local_repository")
         .setAttributes(
-            AttributeValues.create(
-                ImmutableMap.of(
-                    "name", repoName.getName(), "path", PathFragment.create(path).toString())))
+            AttributeValues.create(ImmutableMap.of("path", PathFragment.create(path).toString())))
         .build();
   }
 
   private RepoSpec createArchiveRepoSpec(
-      ArchiveSourceJson sourceJson,
-      Optional<BazelRegistryJson> bazelRegistryJson,
-      ModuleKey key,
-      RepositoryName repoName)
+      ArchiveSourceJson sourceJson, Optional<BazelRegistryJson> bazelRegistryJson, ModuleKey key)
       throws IOException {
     URL sourceUrl = sourceJson.url;
     if (sourceUrl == null) {
@@ -332,7 +319,6 @@ public class IndexRegistry implements Registry {
     }
 
     return new ArchiveRepoSpecBuilder()
-        .setRepoName(repoName.getName())
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
@@ -342,14 +328,8 @@ public class IndexRegistry implements Registry {
         .build();
   }
 
-  private RepoSpec createGitRepoSpec(
-      GitRepoSourceJson sourceJson,
-      Optional<BazelRegistryJson> bazelRegistryJson,
-      ModuleKey key,
-      RepositoryName repoName)
-      throws IOException {
+  private RepoSpec createGitRepoSpec(GitRepoSourceJson sourceJson) {
     return new GitRepoSpecBuilder()
-        .setRepoName(repoName.getName())
         .setRemote(sourceJson.remote)
         .setCommit(sourceJson.commit)
         .setShallowSince(sourceJson.shallowSince)
