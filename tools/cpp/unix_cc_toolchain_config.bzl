@@ -96,20 +96,45 @@ def layering_check_features(compiler):
         ),
     ]
 
-def interface_shared_libraries_features(cc_path, llvm_ifs_path):
+def interface_shared_libraries_support(cc_path, llvm_ifs_path, link_dynamic_library_tool):
     if not llvm_ifs_path:
-        return []
+        return [], []
     dynamic_library_actions = [
         ACTION_NAMES.cpp_link_dynamic_library,
         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
         ACTION_NAMES.lto_index_for_dynamic_library,
         ACTION_NAMES.lto_index_for_nodeps_dynamic_library,
     ]
-    return [
-        feature(
-            name = "supports_interface_shared_libraries",
+    action_configs = [
+        action_config(
+            action_name = action,
+            tools = [tool(tool = link_dynamic_library_tool)],
+            implies = [
+                # Copied from the legacy feature definition in CppActionConfigs.java and added
+                # has_configured_linker_path.
+                "build_interface_libraries",
+                "dynamic_library_linker_tool",
+                "has_configured_linker_path",
+                "strip_debug_symbols",
+                "shared_flag",
+                "linkstamps",
+                "output_execpath_flags",
+                "runtime_library_search_directories",
+                "library_search_directories",
+                "libraries_to_link",
+                "user_link_flags",
+                "legacy_link_flags",
+                "linker_param_file",
+                "fission_support",
+                "sysroot",
+            ],
             enabled = True,
-        ),
+        )
+        for action in dynamic_library_actions
+    ]
+    features = [
+        feature(name = "supports_interface_shared_libraries", enabled = True),
+        feature(name = "has_configured_linker_path"),
         feature(
             name = "build_interface_libraries",
             flag_sets = [
@@ -126,11 +151,6 @@ def interface_shared_libraries_features(cc_path, llvm_ifs_path):
                             expand_if_available = "generate_interface_library",
                         ),
                     ],
-                    with_features = [
-                        with_feature_set(
-                            features = ["supports_interface_shared_libraries"],
-                        ),
-                    ],
                 ),
             ],
             env_sets = [
@@ -140,11 +160,6 @@ def interface_shared_libraries_features(cc_path, llvm_ifs_path):
                         env_entry(
                             key = "LLVM_IFS_PATH",
                             value = llvm_ifs_path,
-                        ),
-                    ],
-                    with_features = [
-                        with_feature_set(
-                            features = ["supports_interface_shared_libraries"],
                         ),
                     ],
                 ),
@@ -161,15 +176,11 @@ def interface_shared_libraries_features(cc_path, llvm_ifs_path):
                             expand_if_available = "generate_interface_library",
                         ),
                     ],
-                    with_features = [
-                        with_feature_set(
-                            features = ["supports_interface_shared_libraries"],
-                        ),
-                    ],
                 ),
             ],
         ),
     ]
+    return action_configs, features
 
 all_compile_actions = [
     ACTION_NAMES.c_compile,
@@ -1386,6 +1397,12 @@ def _impl(ctx):
     if is_linux:
         # Linux artifact name patterns are the default.
         artifact_name_patterns = []
+        ifso_action_configs, ifso_features = interface_shared_libraries_support(
+            cc_path = ctx.attr.tool_paths["gcc"],
+            llvm_ifs_path = ctx.attr.tool_paths.get("llvm-ifs"),
+            link_dynamic_library_tool = ctx.file._link_dynamic_library,
+        )
+        action_configs.extend(ifso_action_configs)
         features = [
             dependency_file_feature,
             serialized_diagnostics_file_feature,
@@ -1402,10 +1419,7 @@ def _impl(ctx):
             thinlto_feature,
             fdo_prefetch_hints_feature,
             autofdo_feature,
-        ] + interface_shared_libraries_features(
-            cc_path = ctx.attr.tool_paths["gcc"],
-            llvm_ifs_path = ctx.attr.tool_paths.get("llvm-ifs"),
-        ) + [
+        ] + ifso_features + [
             shared_flag_feature,
             linkstamps_feature,
             output_execpath_flags_feature,
@@ -1527,6 +1541,10 @@ cc_toolchain_config = rule(
         "coverage_link_flags": attr.string_list(),
         "supports_start_end_lib": attr.bool(),
         "builtin_sysroot": attr.string(),
+        "_link_dynamic_library": attr.label(
+            default = "@bazel_tools//tools/cpp:link_dynamic_library.sh",
+            allow_single_file = True,
+        ),
         "_xcode_config": attr.label(default = configuration_field(
             fragment = "apple",
             name = "xcode_config_label",
