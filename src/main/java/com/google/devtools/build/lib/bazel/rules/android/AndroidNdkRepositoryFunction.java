@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
@@ -60,6 +61,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -75,7 +77,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
 
   private static final ImmutableSet<String> PATH_ENV_VAR_AS_SET = ImmutableSet.of(PATH_ENV_VAR);
 
-  private static String getDefaultCrosstool(Integer majorRevision) {
+  private static String getDefaultCrosstool(int majorRevision) {
     // From NDK 17, libc++ replaces gnu-libstdc++ as the default STL.
     return majorRevision <= 16 ? GnuLibStdCppStlImpl.NAME : LibCppStlImpl.NAME;
   }
@@ -181,7 +183,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     // but the gcc tool will actually be clang.
     ToolPath gcc = null;
     for (ToolPath toolPath : toolchain.getToolPathList()) {
-      if ("gcc".equals(toolPath.getName())) {
+      if (toolPath.getName().equals("gcc")) {
         gcc = toolPath;
       }
     }
@@ -258,13 +260,14 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
   }
 
   @Override
-  public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
+  public boolean verifyRecordedInputs(
+      Rule rule, Map<RepoRecordedInput, String> recordedInputValues, Environment env)
       throws InterruptedException {
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       return true;
     }
-    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_SET);
+    return super.verifyRecordedInputs(rule, recordedInputValues, env);
   }
 
   @Override
@@ -274,11 +277,11 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData,
+      Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
     Map<String, String> environ =
-        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_SET);
+        declareEnvironmentDependencies(recordedInputValues, env, PATH_ENV_VAR_AS_SET);
     if (environ == null) {
       return null;
     }
@@ -521,7 +524,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
                 tp ->
                     String.format(
                         "  %s_path = '%s'",
-                        tp.getName().toLowerCase().replaceAll("-", "_"), tp.getPath()))
+                        tp.getName().toLowerCase(Locale.ROOT).replaceAll("-", "_"), tp.getPath()))
             .collect(ImmutableList.toImmutableList()));
     return bigConditional.add("").build();
   }

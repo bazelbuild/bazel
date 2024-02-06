@@ -59,7 +59,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData,
+      Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
 
@@ -161,7 +161,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    fileHandler.finishFile(rule, outputDirectory, markerData);
+    fileHandler.finishFile(rule, outputDirectory, recordedInputValues);
     env.getListener().post(resolve(rule));
 
     return RepositoryDirectoryValue.builder()

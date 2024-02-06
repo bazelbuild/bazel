@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
@@ -71,12 +72,12 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
   @Nullable volatile Future<RepositoryDirectoryValue.Builder> workerFuture = null;
 
   /**
-   * This is where the {@code markerData} for the whole invocation is collected.
+   * This is where the recorded inputs & values for the whole invocation is collected.
    *
    * <p>{@link com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction} creates a
    * new map on each restart, so we can't simply plumb that in.
    */
-  final Map<String, String> markerData = new TreeMap<>();
+  final Map<RepoRecordedInput, String> recordedInputValues = new TreeMap<>();
 
   SkyFunction.Environment signalForFreshEnv() throws InterruptedException {
     signalQueue.put(Signal.RESTART);
