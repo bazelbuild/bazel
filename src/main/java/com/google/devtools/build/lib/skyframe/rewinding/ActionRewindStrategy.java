@@ -145,8 +145,7 @@ public final class ActionRewindStrategy {
                 .addAll(failedActionDeps)
                 .addAll(Artifact.keys(nestedSetKeys.keySet()))
                 .build(),
-            failedAction,
-            lostInputsException);
+            failedAction);
 
     for (DerivedArtifact lostArtifact : lostArtifacts) {
       SkyKey artifactKey = Artifact.key(lostArtifact);
@@ -289,17 +288,14 @@ public final class ActionRewindStrategy {
       ImmutableList<ActionInput> lostInputs,
       ActionInputDepOwners inputDepOwners,
       Set<SkyKey> failedActionDeps,
-      Action failedAction,
-      LostInputsActionExecutionException lostInputsException)
-      throws ActionExecutionException {
-
+      Action failedAction) {
     Set<DerivedArtifact> lostInputOwningDirectDeps = new HashSet<>();
     for (ActionInput lostInput : lostInputs) {
       boolean foundLostInputDepOwner = false;
 
       Collection<Artifact> owners = inputDepOwners.getDepOwners(lostInput);
       for (Artifact owner : owners) {
-        checkDerived(/*lostInputQualifier=*/ " owner", owner, failedAction, lostInputsException);
+        checkDerived(owner);
 
         // Rewinding must invalidate all Skyframe paths from the failed action to the action which
         // generates the lost input. Intermediate nodes not on the shortest path to that action may
@@ -309,11 +305,7 @@ public final class ActionRewindStrategy {
 
         Collection<Artifact> transitiveOwners = inputDepOwners.getDepOwners(owner);
         for (Artifact transitiveOwner : transitiveOwners) {
-          checkDerived(
-              /*lostInputQualifier=*/ " transitive owner",
-              transitiveOwner,
-              failedAction,
-              lostInputsException);
+          checkDerived(transitiveOwner);
 
           if (failedActionDeps.contains(Artifact.key(transitiveOwner))) {
             // The lost input is included in an aggregation artifact (e.g. a tree artifact or
@@ -334,8 +326,7 @@ public final class ActionRewindStrategy {
 
       if (lostInput instanceof Artifact
           && failedActionDeps.contains(Artifact.key((Artifact) lostInput))) {
-        checkDerived(
-            /* lostInputQualifier= */ "", (Artifact) lostInput, failedAction, lostInputsException);
+        checkDerived((Artifact) lostInput);
 
         lostInputOwningDirectDeps.add((DerivedArtifact) lostInput);
         foundLostInputDepOwner = true;
@@ -357,23 +348,8 @@ public final class ActionRewindStrategy {
     return lostInputOwningDirectDeps;
   }
 
-  private void checkDerived(
-      String lostInputQualifier,
-      Artifact expectedDerived,
-      Action failedAction,
-      LostInputsActionExecutionException lostInputsException)
-      throws ActionExecutionException {
-    if (!expectedDerived.isSourceArtifact()) {
-      return;
-    }
-    // TODO(b/19539699): tighten signatures for ActionInputDepOwnerMap to make this impossible.
-    String message =
-        String.format(
-            "Unexpected source artifact as lost input%s: %s %s",
-            lostInputQualifier, expectedDerived, failedAction);
-    bugReporter.sendBugReport(new IllegalStateException(message));
-    throw createActionExecutionException(
-        lostInputsException, failedAction, message, Code.LOST_INPUT_IS_SOURCE);
+  private static void checkDerived(Artifact artifact) {
+    checkState(!artifact.isSourceArtifact(), "Unexpected source artifact: %s", artifact);
   }
 
   /**
