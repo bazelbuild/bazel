@@ -272,7 +272,8 @@ def _is_clang(repository_ctx, cc):
 def _is_gcc(repository_ctx, cc):
     # GCC's version output uses the basename of argv[0] as the program name:
     # https://gcc.gnu.org/git/?p=gcc.git;a=blob;f=gcc/gcc.cc;h=158461167951c1b9540322fb19be6a89d6da07fc;hb=HEAD#l8728
-    return repository_ctx.execute([cc, "--version"]).stdout.startswith("gcc ")
+    cc_stdout = repository_ctx.execute([cc, "--version"]).stdout
+    return cc_stdout.startswith("gcc ") or cc_stdout.startswith("gcc-")
 
 def _get_compiler_name(repository_ctx, cc):
     if _is_clang(repository_ctx, cc):

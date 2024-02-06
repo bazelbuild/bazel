@@ -1035,8 +1035,10 @@ message ActionRewinding {
   enum Code {
     ACTION_REWINDING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     LOST_INPUT_TOO_MANY_TIMES = 1 [(metadata) = { exit_code: 1 }];
-    LOST_INPUT_IS_SOURCE = 2 [(metadata) = { exit_code: 1 }];
     REWIND_LOST_INPUTS_PREREQ_UNMET = 3 [(metadata) = { exit_code: 2 }];
+    // Deprecated: attempting to rewind a source artifact is now a hard crash.
+    DEPRECATED_LOST_INPUT_IS_SOURCE = 2
+        [(metadata) = { exit_code: 1 }, deprecated = true];
   }
 
   Code code = 1;

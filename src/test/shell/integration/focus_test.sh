@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# An end-to-end test for the 'focus' command.
+# An end-to-end test for Skyfocus & working sets.
 
 # --- begin runfiles.bash initialization ---
 set -euo pipefail
@@ -55,6 +55,8 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+add_to_bazelrc "build --experimental_enable_skyfocus"
+
 function set_up() {
   # Ensure we always start with a fresh server so that the following
   # env vars are picked up on startup. This could also be `bazel shutdown`,
@@ -67,7 +69,7 @@ function set_up() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
 }
 
-function test_must_be_used_after_a_build() {
+function test_working_set_can_be_used_with_build_command() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -81,8 +83,10 @@ genrule(
 )
 EOF
 
-  bazel focus --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1 && "unexpected success"
-  expect_log "Unable to focus without roots. Run a build first."
+  bazel build //${pkg}:g \
+    --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1 \
+    || "unexpected failure"
+  expect_log "Focusing on"
 }
 
 function test_correctly_rebuilds_after_using_focus() {
@@ -101,14 +105,16 @@ EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
 
-  bazel build //${pkg}:g
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
   assert_contains "input" $out
 
-  echo "a change" >> ${pkg}/in.txt
-  bazel focus --experimental_working_set=${pkg}/in.txt
+  echo "first change" >> ${pkg}/in.txt
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
+  assert_contains "first change" $out
 
+  echo "second change" >> ${pkg}/in.txt
   bazel build //${pkg}:g
-  assert_contains "a change" $out
+  assert_contains "second change" $out
 }
 
 function test_focus_command_prints_info_about_graph() {
@@ -126,10 +132,8 @@ genrule(
 EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
-  bazel build //${pkg}:g
-
-  bazel focus \
-    --dump_used_heap_size_after_gc \
+  bazel build //${pkg}:g\
+    --experimental_skyfocus_dump_post_gc_stats \
     --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
@@ -155,9 +159,9 @@ genrule(
 EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
-  bazel build //${pkg}:g  &> $TEST_log 2>&1
-
-  bazel focus --dump_keys --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
+  bazel build //${pkg}:g \
+    --experimental_skyfocus_dump_keys \
+    --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
 
@@ -197,15 +201,66 @@ genrule(
 )
 EOF
 
-  outdir=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}
-
   bazel build //${pkg}:g
   echo "a change" >> ${pkg}/in.txt
 
-  bazel focus --experimental_working_set=${pkg}/in.txt
+  bazel build //${pkg}:g \
+    --experimental_working_set=${pkg}/in.txt
   bazel build //${pkg}:g
   bazel build //${pkg}:g2 || fail "cannot build //${pkg}:g2"
   bazel build //${pkg}:g3 || fail "cannot build //${pkg}:g3"
+}
+
+function test_working_set_can_be_reduced_without_reanalysis() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
+  mkdir -p ${pkg}
+  echo "input1" > ${pkg}/in.txt
+  echo "input2" > ${pkg}/in2.txt
+  cat > ${pkg}/BUILD <<EOF
+genrule(
+  name = "g",
+  srcs = ["in.txt", "in2.txt"],
+  outs = ["g.txt"],
+  cmd = "cat \$(location in.txt) \$(location in2.txt) > \$@",
+)
+EOF
+
+  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/g.txt
+
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt
+  assert_contains "input1" $out
+  assert_contains "input2" $out
+  echo "a change" >> ${pkg}/in.txt
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt &> "$TEST_log"
+  assert_contains "a change" $out
+  expect_not_log "discarding analysis cache"
+}
+
+function test_working_set_expansion_causes_reanalysis() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
+  mkdir -p ${pkg}
+  echo "input1" > ${pkg}/in.txt
+  echo "input2" > ${pkg}/in2.txt
+  cat > ${pkg}/BUILD <<EOF
+genrule(
+  name = "g",
+  srcs = ["in.txt", "in2.txt"],
+  outs = ["g.txt"],
+  cmd = "cat \$(location in.txt) \$(location in2.txt) > \$@",
+)
+EOF
+
+  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/g.txt
+
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
+  assert_contains "input1" $out
+  assert_contains "input2" $out
+  echo "a change" >> ${pkg}/in2.txt
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt &> "$TEST_log"
+  assert_contains "a change" $out
+  expect_log "discarding analysis cache"
 }
 
 function test_focus_emits_profile_data() {
@@ -222,8 +277,8 @@ genrule(
 )
 EOF
 
-  bazel build //${pkg}:g
-  bazel focus --experimental_working_set=${pkg}/in.txt \
+  bazel build //${pkg}:g \
+    --experimental_working_set=${pkg}/in.txt \
     --profile=/tmp/profile.log &> "$TEST_log" || fail "Expected success"
   grep '"ph":"X"' /tmp/profile.log > "$TEST_log" \
     || fail "Missing profile file."

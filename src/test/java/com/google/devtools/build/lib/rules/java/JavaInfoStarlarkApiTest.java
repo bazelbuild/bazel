@@ -1047,6 +1047,28 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testNeverlinkIsStoredAsABoolean() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  f = ctx.actions.declare_file(ctx.label.name + '.jar')",
+        "  ctx.actions.write(f, '')",
+        "  return [JavaInfo(output_jar=f, compile_jar=None, neverlink = 1)]",
+        "",
+        "my_rule = rule(implementation = _impl)");
+    scratch.file(
+        "foo/BUILD",
+        //
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'my_starlark_rule')");
+
+    JavaInfo javaInfo = getConfiguredTarget("//foo:my_starlark_rule").get(JavaInfo.PROVIDER);
+
+    assertThat(javaInfo).isNotNull();
+    assertThat(javaInfo.isNeverlink()).isTrue();
+  }
+
+  @Test
   public void translateStarlarkJavaInfo_minimal() throws Exception {
     ImmutableMap<String, Object> fields = getBuilderWithMandataryFields().buildOrThrow();
     StarlarkInfo starlarkInfo = makeStruct(fields);

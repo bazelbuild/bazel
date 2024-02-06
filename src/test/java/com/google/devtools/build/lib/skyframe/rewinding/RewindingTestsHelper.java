@@ -20,7 +20,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.assertAndClearBugReporterStoredCrash;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
@@ -52,11 +51,13 @@ import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
@@ -541,13 +542,12 @@ public class RewindingTestsHelper {
           });
     }
 
+    RecordingBugReporter bugReporter = testCase.recordBugReportsAndReinitialize();
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
-    RuntimeException e =
-        assertThrows(RuntimeException.class, () -> testCase.buildTarget("//test:rule2"));
-    IllegalStateException illegalStateException = (IllegalStateException) e.getCause();
-    // Command thread is not interrupted because crash propagates up and is finally processed on
-    // command thread.
-    assertThat(Thread.currentThread().isInterrupted()).isFalse();
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//test:rule2"));
+    assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
+        .isEqualTo(ActionRewinding.Code.LOST_INPUT_TOO_MANY_TIMES);
 
     String errorDetail =
         String.format(
@@ -555,7 +555,10 @@ public class RewindingTestsHelper {
                 + "lostInput digest: fakedigest, "
                 + "failedAction: action 'Executing genrule //test:rule2'",
             ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1, intermediate.get());
-    assertThat(illegalStateException).hasMessageThat().contains(errorDetail);
+    assertThat(e.getDetailedExitCode().getFailureDetail().getMessage()).contains(errorDetail);
+    assertThat(Iterables.getOnlyElement(bugReporter.getExceptions()))
+        .hasMessageThat()
+        .contains(errorDetail);
 
     assertThat(getExecutedSpawnDescriptions())
         .containsExactlyElementsIn(
@@ -587,7 +590,6 @@ public class RewindingTestsHelper {
     assertOnlyActionsRewound(rewoundKeys);
     assertThat(Iterables.frequency(rewoundArtifactOwnerLabels(rewoundKeys), "//test:rule1"))
         .isEqualTo(ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS);
-    assertAndClearBugReporterStoredCrash(RuntimeException.class);
   }
 
   /**

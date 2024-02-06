@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -72,9 +71,9 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
     assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
-        .containsExactly(ImmutableSet.of("--cpu=one"), ImmutableSet.of("--cpu=two"));
-    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=one"))).isEqualTo(PLATFORM1);
-    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=two"))).isEqualTo(PLATFORM2);
+        .containsExactly(ImmutableList.of("--cpu=one"), ImmutableList.of("--cpu=two"));
+    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=one"))).isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=two"))).isEqualTo(PLATFORM2);
   }
 
   @Test
@@ -102,9 +101,9 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
         .containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
-        .containsExactly(ImmutableSet.of("--cpu=one"), ImmutableSet.of("--cpu=two"));
-    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=one"))).isEqualTo(PLATFORM1);
-    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=two")))
+        .containsExactly(ImmutableList.of("--cpu=one"), ImmutableList.of("--cpu=two"));
+    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=one"))).isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=two")))
         .isEqualTo(EXTERNAL_PLATFORM);
   }
 
@@ -132,9 +131,9 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
     assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
-        .containsExactly(ImmutableSet.of("--cpu=one"), ImmutableSet.of("--cpu=two"));
-    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=one"))).isEqualTo(PLATFORM1);
-    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=two"))).isEqualTo(PLATFORM2);
+        .containsExactly(ImmutableList.of("--cpu=one"), ImmutableList.of("--cpu=two"));
+    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=one"))).isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=two"))).isEqualTo(PLATFORM2);
   }
 
   @Test
@@ -162,9 +161,9 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
     assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
-        .containsExactly(ImmutableSet.of("--cpu=one"), ImmutableSet.of("--cpu=two"));
-    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=one"))).isEqualTo(PLATFORM1);
-    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=two"))).isEqualTo(PLATFORM2);
+        .containsExactly(ImmutableList.of("--cpu=one"), ImmutableList.of("--cpu=two"));
+    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=one"))).isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=two"))).isEqualTo(PLATFORM2);
   }
 
   @Test
@@ -196,9 +195,9 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
 
     assertThat(mappings.flagsToPlatforms.keySet())
         .containsExactly(
-            ImmutableSet.of("--cpu=one", "--compilation_mode=dbg"), ImmutableSet.of("--cpu=two"));
+            ImmutableList.of("--compilation_mode=dbg", "--cpu=one"), ImmutableList.of("--cpu=two"));
     assertThat(
-            mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=one", "--compilation_mode=dbg")))
+            mappings.flagsToPlatforms.get(ImmutableList.of("--compilation_mode=dbg", "--cpu=one")))
         .isEqualTo(PLATFORM1);
   }
 
@@ -225,8 +224,8 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
             "    //platforms:one" // Force line break
             );
 
-    assertThat(mappings.flagsToPlatforms.keySet()).containsExactly(ImmutableSet.of("--cpu=one"));
-    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=one"))).isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.keySet()).containsExactly(ImmutableList.of("--cpu=one"));
+    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=one"))).isEqualTo(PLATFORM1);
     assertThat(mappings.platformsToFlags).isEmpty();
   }
 

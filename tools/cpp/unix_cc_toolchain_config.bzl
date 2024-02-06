@@ -1340,7 +1340,7 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 actions = all_compile_actions + all_link_actions,
-                flag_groups = [flag_group(flags = ["-mmacos-version-min={}".format(_target_os_version(ctx))])],
+                flag_groups = [flag_group(flags = ["-mmacosx-version-min={}".format(_target_os_version(ctx))])],
             ),
         ],
     )

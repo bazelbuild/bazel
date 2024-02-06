@@ -1914,7 +1914,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           ruleContext.getTreeArtifact(
               ruleContext.getUniqueDirectory("dexfiles"), ruleContext.getBinOrGenfilesDirectory());
       FilesToRunProvider dexMerger = ruleContext.getExecutablePrerequisite("$dexmerger");
-      createTemplatedMergerActions(ruleContext, multidexShards, shardsToMerge, dexopts, dexMerger);
+      createTemplatedMergerActions(
+          ruleContext, multidexShards, shardsToMerge, dexopts, dexMerger, minSdkVersion);
       // TODO(b/69431301): avoid this action and give the files to apk build action directly
       createZipMergeAction(ruleContext, multidexShards, classesDex);
     }
@@ -2045,7 +2046,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       SpecialArtifact outputTree,
       SpecialArtifact inputTree,
       List<String> dexopts,
-      FilesToRunProvider executable) {
+      FilesToRunProvider executable,
+      int minSdkVersion) {
     SpawnActionTemplate.Builder dexmerger =
         new SpawnActionTemplate.Builder(inputTree, outputTree)
             .setExecutable(executable)
@@ -2062,6 +2064,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     ruleContext,
                     Iterables.filter(
                         dexopts, Predicates.not(Predicates.equalTo(DX_MINIMAL_MAIN_DEX_OPTION)))));
+    if (minSdkVersion > 0) {
+      commandLine.add("--min_sdk_version", Integer.toString(minSdkVersion));
+    }
     dexmerger.setCommandLineTemplate(commandLine.build());
     ruleContext.registerAction(dexmerger.build(ruleContext.getActionOwner()));
   }

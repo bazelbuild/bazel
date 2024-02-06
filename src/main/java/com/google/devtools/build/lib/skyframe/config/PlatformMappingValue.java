@@ -147,7 +147,7 @@ public final class PlatformMappingValue implements SkyValue {
   }
 
   private final ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags;
-  private final ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms;
+  private final ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms;
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
   private final LoadingCache<NativeAndStarlarkFlags, OptionsParsingResult> parserCache;
   private final LoadingCache<BuildOptions, BuildOptions> mappingCache;
@@ -166,7 +166,7 @@ public final class PlatformMappingValue implements SkyValue {
    */
   PlatformMappingValue(
       ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags,
-      ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms,
+      ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms,
       ImmutableSet<Class<? extends FragmentOptions>> optionsClasses,
       RepositoryMapping mainRepositoryMapping) {
     this.platformsToFlags = checkNotNull(platformsToFlags);
@@ -237,7 +237,7 @@ public final class PlatformMappingValue implements SkyValue {
           originalOptions.applyParsingResult(parseWithCache(platformsToFlags.get(targetPlatform)));
     } else {
       boolean mappingFound = false;
-      for (Map.Entry<ImmutableSet<String>, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
+      for (Map.Entry<ImmutableList<String>, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
         if (originalOptions.matches(
             parseWithCache(
                 NativeAndStarlarkFlags.builder()

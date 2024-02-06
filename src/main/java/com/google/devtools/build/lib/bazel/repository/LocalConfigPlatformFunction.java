@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
@@ -56,7 +57,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
       Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData,
+      Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException {
 

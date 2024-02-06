@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -34,7 +35,7 @@ public abstract class NativeAndStarlarkFlags {
   /** Builder for new {@link NativeAndStarlarkFlags} instances. */
   @AutoValue.Builder
   public abstract static class Builder {
-    public abstract Builder nativeFlags(ImmutableSet<String> nativeFlags);
+    public abstract Builder nativeFlags(ImmutableList<String> nativeFlags);
 
     public abstract Builder starlarkFlags(ImmutableMap<String, Object> starlarkFlags);
 
@@ -49,12 +50,12 @@ public abstract class NativeAndStarlarkFlags {
   /** Returns a new {@link Builder}. */
   public static Builder builder() {
     return new AutoValue_NativeAndStarlarkFlags.Builder()
-        .nativeFlags(ImmutableSet.of())
+        .nativeFlags(ImmutableList.of())
         .starlarkFlags(ImmutableMap.of())
         .optionsClasses(ImmutableSet.of());
   }
 
-  public abstract ImmutableSet<String> nativeFlags();
+  public abstract ImmutableList<String> nativeFlags();
 
   public abstract ImmutableMap<String, Object> starlarkFlags();
 

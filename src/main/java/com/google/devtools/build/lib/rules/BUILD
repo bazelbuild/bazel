@@ -382,6 +382,7 @@ java_library(
     srcs = [
         "repository/LocalRepositoryFunction.java",
         "repository/NeedsSkyframeRestartException.java",
+        "repository/RepoRecordedInput.java",
         "repository/RepositoryDelegatorFunction.java",
         "repository/RepositoryDirectoryDirtinessChecker.java",
         "repository/RepositoryFunction.java",
@@ -412,6 +413,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/repository:repository_events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:already_reported_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",

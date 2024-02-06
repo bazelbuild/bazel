@@ -43,7 +43,8 @@ public class BuildEventProtocolOptions extends OptionsBase {
   public String buildEventUploadStrategy;
 
   @Option(
-      name = "experimental_build_event_upload_max_retries",
+      name = "build_event_upload_max_retries",
+      oldName = "experimental_build_event_upload_max_retries",
       defaultValue = "4",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},

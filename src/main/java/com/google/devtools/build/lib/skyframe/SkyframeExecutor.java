@@ -718,7 +718,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             syscallCache));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
-    this.actionRewindStrategy = new ActionRewindStrategy();
+    this.actionRewindStrategy = new ActionRewindStrategy(bugReporter);
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,

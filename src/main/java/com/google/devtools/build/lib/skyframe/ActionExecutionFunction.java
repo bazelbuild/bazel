@@ -87,6 +87,7 @@ import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactVa
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostprocessing;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy.RewindPlan;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
@@ -531,7 +532,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       rewindPlan =
           actionRewindStrategy.getRewindPlan(
               actionLookupData, action, failedActionDeps, e, inputDepOwners, env);
-    } catch (ActionExecutionException rewindingFailedException) {
+    } catch (ActionRewindException rewindingFailedException) {
       // This ensures coalesced shared actions aren't orphaned.
       skyframeActionExecutor.prepareForRewinding(
           actionLookupData, action, /* depsToRewind= */ ImmutableList.of());
@@ -541,7 +542,11 @@ public final class ActionExecutionFunction implements SkyFunction {
                   env.getListener(),
                   e.getPrimaryOutputPath(),
                   action,
-                  rewindingFailedException,
+                  new ActionExecutionException(
+                      e,
+                      action,
+                      /* catastrophe= */ false,
+                      rewindingFailedException.getDetailedExitCode()),
                   e.getFileOutErr(),
                   ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
     } catch (UndoneInputsException undoneInputsException) {
