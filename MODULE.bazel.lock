@@ -2584,7 +2584,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "ghrQ8BO31qug4PG8gGm6hYgZDiRDL6ByzD8vo2lHUqU=",
+        "bzlTransitiveDigest": "5niyH1v8LrVf/hjEoFt/KdqZGys/8xzrfQM0lXYY6/Q=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2667,11 +2667,6 @@
           ],
           [
             "",
-            "rules_java",
-            "rules_java~override"
-          ],
-          [
-            "",
             "rules_jvm_external",
             "rules_jvm_external~6.0"
           ],
@@ -2725,7 +2720,7 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "ghrQ8BO31qug4PG8gGm6hYgZDiRDL6ByzD8vo2lHUqU=",
+        "bzlTransitiveDigest": "5niyH1v8LrVf/hjEoFt/KdqZGys/8xzrfQM0lXYY6/Q=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "ce05b19e5797eeb041153a783455ae7b822676eb25c1e813f7e1f65c389920b0",
           "@@//:MODULE.bazel": "d38ae25b94c0706c5d8d6297821645ecf45defd30925055b847e0e5aab58959c"
@@ -2825,7 +2820,6 @@
                 "platforms",
                 "rules_cc~0.0.9",
                 "rules_go~0.39.1",
-                "rules_java~override",
                 "rules_jvm_external~6.0",
                 "rules_kotlin~1.9.0",
                 "rules_graalvm~0.10.3",
@@ -3049,11 +3043,6 @@
           ],
           [
             "",
-            "rules_java",
-            "rules_java~override"
-          ],
-          [
-            "",
             "rules_jvm_external",
             "rules_jvm_external~6.0"
           ],
@@ -3107,7 +3096,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "ghrQ8BO31qug4PG8gGm6hYgZDiRDL6ByzD8vo2lHUqU=",
+        "bzlTransitiveDigest": "5niyH1v8LrVf/hjEoFt/KdqZGys/8xzrfQM0lXYY6/Q=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -3201,11 +3190,6 @@
             "",
             "rules_graalvm",
             "rules_graalvm~0.10.3"
-          ],
-          [
-            "",
-            "rules_java",
-            "rules_java~override"
           ],
           [
             "",
