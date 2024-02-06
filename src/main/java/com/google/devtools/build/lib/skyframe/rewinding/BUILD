@@ -23,6 +23,7 @@ java_library(
 java_library(
     name = "rewinding",
     srcs = [
+        "ActionRewindException.java",
         "ActionRewindStrategy.java",
         "ActionRewindingStats.java",
     ],
@@ -35,6 +36,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_aware_action",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",

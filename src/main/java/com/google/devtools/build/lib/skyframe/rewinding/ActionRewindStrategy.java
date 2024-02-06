@@ -38,7 +38,6 @@ import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.MutableGraph;
 import com.google.common.graph.Traverser;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -49,13 +48,10 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
-import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.ArtifactDependencies;
 import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -108,8 +104,8 @@ public final class ActionRewindStrategy {
    * nodes corresponding to the actions which create the lost inputs, inclusive, must be included in
    * reevaluate the nodes that will recreate the lost inputs.
    *
-   * @throws ActionExecutionException if any lost inputs have been seen by this action as lost
-   *     before, or if any lost inputs are not the outputs of previously executed actions
+   * @throws ActionRewindException if any lost inputs have been seen by this action as lost before
+   *     too many times
    */
   public RewindPlan getRewindPlan(
       ActionLookupData failedKey,
@@ -118,7 +114,7 @@ public final class ActionRewindStrategy {
       LostInputsActionExecutionException lostInputsException,
       ActionInputDepOwners inputDepOwners,
       Environment env)
-      throws ActionExecutionException, InterruptedException {
+      throws ActionRewindException, InterruptedException {
     ImmutableList<LostInputRecord> lostInputRecordsThisAction =
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsException);
 
@@ -243,7 +239,7 @@ public final class ActionRewindStrategy {
       ActionLookupData failedKey,
       Action failedAction,
       LostInputsActionExecutionException lostInputsException)
-      throws ActionExecutionException {
+      throws ActionRewindException {
     ImmutableMap<String, ActionInput> lostInputsByDigest = lostInputsException.getLostInputs();
     ImmutableList.Builder<LostInputRecord> lostInputRecordsThisAction = ImmutableList.builder();
     for (Map.Entry<String, ActionInput> entry : lostInputsByDigest.entrySet()) {
@@ -271,9 +267,11 @@ public final class ActionRewindStrategy {
                 "lost input too many times (#%s) for the same action. lostInput: %s, "
                     + "lostInput digest: %s, failedAction: %.10000s",
                 priorLosses + 1, lostInputsByDigest.get(digest), digest, failedAction);
-        bugReporter.sendBugReport(new IllegalStateException(message));
-        throw createActionExecutionException(
-            lostInputsException, failedAction, message, Code.LOST_INPUT_TOO_MANY_TIMES);
+        ActionRewindException e =
+            new ActionRewindException(
+                message, lostInputsException, ActionRewinding.Code.LOST_INPUT_TOO_MANY_TIMES);
+        bugReporter.sendBugReport(e);
+        throw e;
       } else if (0 < priorLosses) {
         logger.atInfo().log(
             "lost input again (#%s) for the same action. lostInput: %s, "
@@ -609,22 +607,6 @@ public final class ActionRewindStrategy {
           actionKey,
           target);
     }
-  }
-
-  private static ActionExecutionException createActionExecutionException(
-      LostInputsActionExecutionException lostInputsException,
-      Action failedAction,
-      String message,
-      Code detailedCode) {
-    return new ActionExecutionException(
-        lostInputsException,
-        failedAction,
-        /*catastrophe=*/ false,
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setActionRewinding(ActionRewinding.newBuilder().setCode(detailedCode))
-                .build()));
   }
 
   /**
