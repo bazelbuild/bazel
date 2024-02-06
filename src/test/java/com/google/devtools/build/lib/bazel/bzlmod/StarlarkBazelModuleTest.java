@@ -102,8 +102,8 @@ public class StarlarkBazelModuleTest {
             extension,
             module.getRepoMappingWithBazelDepsOnly(
                 ImmutableMap.of(
-                    fooKey, fooKey.getCanonicalRepoNameWithVersion(),
-                    barKey, barKey.getCanonicalRepoNameWithVersion())),
+                    fooKey, fooKey.getCanonicalRepoNameWithoutVersion(),
+                    barKey, barKey.getCanonicalRepoNameWithoutVersion())),
             usage);
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");
@@ -129,8 +129,8 @@ public class StarlarkBazelModuleTest {
     assertThat(pomTags.get(0).getValue("pom_xmls"))
         .isEqualTo(
             StarlarkList.immutableOf(
-                Label.parseCanonical("@@foo~override//:pom.xml"),
-                Label.parseCanonical("@@bar~2.0//:pom.xml")));
+                Label.parseCanonical("@@foo~//:pom.xml"),
+                Label.parseCanonical("@@bar~//:pom.xml")));
   }
 
   @Test
@@ -150,7 +150,7 @@ public class StarlarkBazelModuleTest {
                     abridgedModule,
                     extension,
                     module.getRepoMappingWithBazelDepsOnly(
-                        ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithVersion())),
+                        ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithoutVersion())),
                     usage));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
   }

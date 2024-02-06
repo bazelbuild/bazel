@@ -43,16 +43,17 @@ public class ModuleTest {
     assertThat(
             module.getRepoMappingWithBazelDepsOnly(
                 Stream.of(key, fooKey, barKey, ModuleKey.ROOT)
-                    .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion))))
+                    .collect(
+                        toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithoutVersion))))
         .isEqualTo(
             createRepositoryMapping(
                 key,
                 "test_module",
-                "test_module~1.0",
+                "test_module~",
                 "my_foo",
-                "foo~1.0",
+                "foo~",
                 "my_bar",
-                "bar~2.0",
+                "bar~",
                 "my_root",
                 ""));
   }
