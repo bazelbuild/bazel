@@ -166,7 +166,7 @@ def merge(
         ),
         "plugins": plugin_info.plugins,
         "api_generating_plugins": plugin_info.api_generating_plugins,
-        "_neverlink": _neverlink,
+        "_neverlink": bool(_neverlink),
         "_constraints": depset(_constraints).to_list(),
         "annotation_processing": None,
         "compilation_info": None,
@@ -625,7 +625,7 @@ def _javainfo_init_base(
             transitive = [dep._compile_time_java_dependencies for dep in exports] +
                          ([depset([compile_jdeps])] if compile_jdeps else []),
         ),
-        "_neverlink": neverlink,
+        "_neverlink": bool(neverlink),
         "compilation_info": None,
         "_constraints": [],
     }
