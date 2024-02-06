@@ -15,18 +15,11 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.TestType;
-import com.google.devtools.build.skyframe.Differencer.Diff;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * An in-memory {@link MemoizingEvaluator} that uses the eager invalidation strategy. This class is,
@@ -40,11 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingEvaluator {
   // Not final only for testing.
   private InMemoryGraph graph;
-
-  private final AtomicBoolean evaluating = new AtomicBoolean(false);
-
-  private Set<SkyKey> latestTopLevelEvaluations = new HashSet<>();
-  private boolean skyfocusEnabled;
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions, Differencer differencer) {
@@ -82,93 +70,12 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
         eventFilter,
         emittedEventState,
         graphInconsistencyReceiver,
-        keepEdges);
+        keepEdges,
+        Version.minimal());
     this.graph =
         keepEdges
             ? InMemoryGraph.create(usePooledInterning)
             : InMemoryGraph.createEdgeless(usePooledInterning);
-  }
-
-  @Override
-  public <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
-      throws InterruptedException {
-    // NOTE: Performance critical code. See bug "Null build performance parity".
-    Version graphVersion = getNextGraphVersion();
-    setAndCheckEvaluateState(true, roots);
-
-    // Only remember roots for Skyfocus if we're tracking incremental states by keeping edges.
-    if (keepEdges && skyfocusEnabled) {
-      // Remember the top level evaluation of the build invocation for post-build consumption.
-      Iterables.addAll(latestTopLevelEvaluations, roots);
-    }
-
-    // Mark for removal any nodes from the previous evaluation that were still inflight or were
-    // rewound but did not complete successfully. When the invalidator runs, it will delete the
-    // reverse transitive closure.
-    valuesToDelete.addAll(progressReceiver.getAndClearInflightKeys());
-    valuesToDelete.addAll(progressReceiver.getAndClearUnsuccessfullyRewoundKeys());
-    try {
-      // The RecordingDifferencer implementation is not quite working as it should be at this point.
-      // It clears the internal data structures after getDiff is called and will not return
-      // diffs for historical versions. This makes the following code sensitive to interrupts.
-      // Ideally we would simply not update lastGraphVersion if an interrupt occurs.
-      Diff diff =
-          differencer.getDiff(new DelegatingWalkableGraph(graph), lastGraphVersion, graphVersion);
-      if (!diff.isEmpty() || !valuesToInject.isEmpty() || !valuesToDelete.isEmpty()) {
-        valuesToInject.putAll(diff.changedKeysWithNewValues());
-        invalidate(diff.changedKeysWithoutNewValues());
-        pruneInjectedValues(valuesToInject);
-        invalidate(valuesToInject.keySet());
-
-        performInvalidation();
-        injectValues(graphVersion);
-      }
-
-      EvaluationResult<T> result;
-      try (SilentCloseable c = Profiler.instance().profile("ParallelEvaluator.eval")) {
-        ParallelEvaluator evaluator =
-            new ParallelEvaluator(
-                graph,
-                graphVersion,
-                Version.minimal(),
-                skyFunctions,
-                evaluationContext.getEventHandler(),
-                emittedEventState,
-                eventFilter,
-                ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
-                evaluationContext.getKeepGoing(),
-                progressReceiver,
-                graphInconsistencyReceiver,
-                evaluationContext
-                    .getExecutor()
-                    .orElseGet(
-                        () ->
-                            AbstractQueueVisitor.create(
-                                "skyframe-evaluator",
-                                evaluationContext.getParallelism(),
-                                ParallelEvaluatorErrorClassifier.instance())),
-                new SimpleCycleDetector(),
-                evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
-        result = evaluator.eval(roots);
-      }
-      return EvaluationResult.<T>builder()
-          .mergeFrom(result)
-          .setWalkableGraph(new DelegatingWalkableGraph(graph))
-          .build();
-    } finally {
-      if (keepEdges) {
-        lastGraphVersion = (IntVersion) graphVersion;
-      }
-      setAndCheckEvaluateState(false, roots);
-    }
-  }
-
-  private void setAndCheckEvaluateState(boolean newValue, Object requestInfo) {
-    checkState(
-        evaluating.getAndSet(newValue) != newValue,
-        "Re-entrant evaluation for request: %s",
-        requestInfo);
   }
 
   @Override
@@ -183,29 +90,11 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
   }
 
   @Override
-  public boolean skyfocusSupported() {
-    return true;
-  }
-
-  @Override
   public InMemoryGraph getInMemoryGraph() {
     return graph;
   }
 
-  public Set<SkyKey> getLatestTopLevelEvaluations() {
-    return latestTopLevelEvaluations;
-  }
-
-  @Override
-  public void cleanupLatestTopLevelEvaluations() {
-    latestTopLevelEvaluations = new HashSet<>();
-  }
-
-  @Override
-  public void setSkyfocusEnabled(boolean enabled) {
-    this.skyfocusEnabled = enabled;
-  }
-
+  @VisibleForTesting
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctionsForTesting() {
     return skyFunctions;
   }
