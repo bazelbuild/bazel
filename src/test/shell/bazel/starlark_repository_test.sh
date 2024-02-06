@@ -2643,7 +2643,7 @@ module(name="bar")
 EOF
 
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@foo~override//:data"
+  expect_log "I see: @@foo~//:data"
 
   # So far, so good. Now we make `@data` point to bar instead!
   cat > MODULE.bazel <<EOF
@@ -2656,7 +2656,7 @@ local_path_override(module_name="bar", path="bar")
 EOF
   # for the repo `r`, nothing except the repo mapping has changed.
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@bar~override//:data"
+  expect_log "I see: @@bar~//:data"
 }
 
 function test_repo_mapping_change_in_bzl_init() {
@@ -2688,7 +2688,7 @@ module(name="bar")
 EOF
 
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@foo~override//:data"
+  expect_log "I see: @@foo~//:data"
 
   # So far, so good. Now we make `@data` point to bar instead!
   cat > MODULE.bazel <<EOF
@@ -2701,7 +2701,7 @@ local_path_override(module_name="bar", path="bar")
 EOF
   # for the repo `r`, nothing except the repo mapping has changed.
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@bar~override//:data"
+  expect_log "I see: @@bar~//:data"
 }
 
 run_suite "local repository tests"
