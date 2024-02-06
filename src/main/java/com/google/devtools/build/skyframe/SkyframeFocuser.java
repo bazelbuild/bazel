@@ -94,12 +94,31 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
    */
   public static class FocusResult {
 
+    private final ImmutableSet<SkyKey> roots;
+
+    private final ImmutableSet<SkyKey> leafs;
+
     private final ImmutableSet<SkyKey> rdeps;
+
     private final ImmutableSet<SkyKey> deps;
 
-    private FocusResult(ImmutableSet<SkyKey> rdeps, ImmutableSet<SkyKey> deps) {
+    private FocusResult(
+        ImmutableSet<SkyKey> roots,
+        ImmutableSet<SkyKey> leafs,
+        ImmutableSet<SkyKey> rdeps,
+        ImmutableSet<SkyKey> deps) {
+      this.roots = roots;
+      this.leafs = leafs;
       this.rdeps = rdeps;
       this.deps = deps;
+    }
+
+    public ImmutableSet<SkyKey> getRoots() {
+      return roots;
+    }
+
+    public ImmutableSet<SkyKey> getLeafs() {
+      return leafs;
     }
 
     /**
@@ -296,6 +315,10 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
         Event.info(
             String.format("Rdep edges: %s -> %s", rdepEdgesBefore.get(), rdepEdgesAfter.get())));
 
-    return new FocusResult(ImmutableSet.copyOf(keptRdeps), ImmutableSet.copyOf(keptDeps));
+    return new FocusResult(
+        ImmutableSet.copyOf(roots),
+        ImmutableSet.copyOf(leafs),
+        ImmutableSet.copyOf(keptRdeps),
+        ImmutableSet.copyOf(keptDeps));
   }
 }

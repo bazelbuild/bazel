@@ -254,7 +254,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_null_config_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:invalid_visibility_dependency_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
@@ -2393,6 +2392,27 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//third_party:flogger",
+    ],
+)
+
+java_library(
+    name = "skyfocus_module",
+    srcs = ["SkyfocusModule.java"],
+    deps = [
+        ":precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
     ],
 )
 

@@ -43,18 +43,8 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
 
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
-  private Set<SkyKey> latestTopLevelEvaluations;
-  private Set<SkyKey> topLevelEvaluations = new HashSet<>();
-
-  @Override
-  public void updateTopLevelEvaluations() {
-    latestTopLevelEvaluations = topLevelEvaluations;
-    topLevelEvaluations = new HashSet<>();
-  }
-
-  public Set<SkyKey> getLatestTopLevelEvaluations() {
-    return latestTopLevelEvaluations;
-  }
+  private Set<SkyKey> latestTopLevelEvaluations = new HashSet<>();
+  private boolean skyfocusEnabled;
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions, Differencer differencer) {
@@ -107,10 +97,10 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
     Version graphVersion = getNextGraphVersion();
     setAndCheckEvaluateState(true, roots);
 
-    // Only remember roots for focusing if we're tracking incremental states by keeping edges.
-    if (keepEdges) {
-      // Remember the top level evaluation of the last build-like invocation.
-      Iterables.addAll(topLevelEvaluations, roots);
+    // Only remember roots for Skyfocus if we're tracking incremental states by keeping edges.
+    if (keepEdges && skyfocusEnabled) {
+      // Remember the top level evaluation of the build invocation for post-build consumption.
+      Iterables.addAll(latestTopLevelEvaluations, roots);
     }
 
     // Mark for removal any nodes from the previous evaluation that were still inflight or were
@@ -193,8 +183,27 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
   }
 
   @Override
+  public boolean skyfocusSupported() {
+    return true;
+  }
+
+  @Override
   public InMemoryGraph getInMemoryGraph() {
     return graph;
+  }
+
+  public Set<SkyKey> getLatestTopLevelEvaluations() {
+    return latestTopLevelEvaluations;
+  }
+
+  @Override
+  public void cleanupLatestTopLevelEvaluations() {
+    latestTopLevelEvaluations = new HashSet<>();
+  }
+
+  @Override
+  public void setSkyfocusEnabled(boolean enabled) {
+    this.skyfocusEnabled = enabled;
   }
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctionsForTesting() {
