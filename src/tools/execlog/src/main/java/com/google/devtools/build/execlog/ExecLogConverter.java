@@ -15,6 +15,7 @@ package com.google.devtools.build.execlog;
 
 import com.google.devtools.build.execlog.ConverterOptions.FormatAndPath;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.exec.SpawnLogReconstructor;
 import com.google.devtools.build.lib.exec.StableSort;
 import com.google.devtools.build.lib.util.io.MessageInputStream;
 import com.google.devtools.build.lib.util.io.MessageInputStreamWrapper.BinaryInputStreamWrapper;
@@ -40,6 +41,8 @@ final class ExecLogConverter {
         return new BinaryInputStreamWrapper<>(in, SpawnExec.getDefaultInstance());
       case JSON:
         return new JsonInputStreamWrapper<>(in, SpawnExec.getDefaultInstance());
+      case COMPACT:
+        return new SpawnLogReconstructor(in);
     }
     throw new AssertionError("unsupported input format");
   }
@@ -52,6 +55,8 @@ final class ExecLogConverter {
         return new BinaryOutputStreamWrapper<>(out);
       case JSON:
         return new JsonOutputStreamWrapper<>(out);
+      case COMPACT:
+        // unsupported
     }
     throw new AssertionError("unsupported output format");
   }
