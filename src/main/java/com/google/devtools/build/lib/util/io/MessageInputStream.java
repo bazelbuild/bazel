@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2024 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,15 @@ package com.google.devtools.build.lib.util.io;
 
 import com.google.protobuf.Message;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
-/** A variation of OutputStream for protobuf messages. */
-public interface MessageOutputStream<T extends Message> extends AutoCloseable {
-  /** Writes a protobuf message to the underlying stream. */
-  void write(T m) throws IOException;
+/** A variation of InputStream for protobuf messages. */
+public interface MessageInputStream<T extends Message> extends AutoCloseable {
+  /** Reads a protobuf message from the underlying stream, or null if there are no more messages. */
+  @Nullable
+  T read() throws IOException;
 
-  /** Closes the underlying stream. Any following writes will fail. */
+  /** Closes the underlying stream. Any following reads will fail. */
   @Override
   void close() throws IOException;
 }
