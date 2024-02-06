@@ -339,7 +339,7 @@ public abstract class BuildIntegrationTestCase {
    *
    * <p>The server is reinitialized so that this change is picked up.
    */
-  protected final RecordingBugReporter recordBugReportsAndReinitialize() throws Exception {
+  public final RecordingBugReporter recordBugReportsAndReinitialize() throws Exception {
     RecordingBugReporter recordingBugReporter = new RecordingBugReporter();
     setCustomBugReporterAndReinitialize(recordingBugReporter);
     return recordingBugReporter;
@@ -1092,7 +1092,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /** {@link BugReporter} that stores bug reports for later inspection. */
-  protected static class RecordingBugReporter implements BugReporter {
+  public static final class RecordingBugReporter implements BugReporter {
     @GuardedBy("this")
     private final List<Throwable> exceptions = new ArrayList<>();
 

@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
@@ -81,11 +81,17 @@ public final class ActionRewindStrategy {
   @VisibleForTesting static final int MAX_ACTION_REWIND_EVENTS = 5;
   private static final int MAX_LOST_INPUTS_RECORDED = 5;
 
+  private final BugReporter bugReporter;
+
   // Note that these references are mutated only outside of Skyframe evaluations, and accessed only
   // inside of them. Their visibility piggybacks on Skyframe evaluation synchronizations.
   private ConcurrentHashMultiset<LostInputRecord> lostInputRecords =
       ConcurrentHashMultiset.create();
   private ConcurrentLinkedQueue<RewindPlanStats> rewindPlansStats = new ConcurrentLinkedQueue<>();
+
+  public ActionRewindStrategy(BugReporter bugReporter) {
+    this.bugReporter = checkNotNull(bugReporter);
+  }
 
   /**
    * Returns a {@link RewindPlan} specifying:
@@ -266,7 +272,7 @@ public final class ActionRewindStrategy {
                 "lost input too many times (#%s) for the same action. lostInput: %s, "
                     + "lostInput digest: %s, failedAction: %.10000s",
                 priorLosses + 1, lostInputsByDigest.get(digest), digest, failedAction);
-        BugReport.sendBugReport(new IllegalStateException(message));
+        bugReporter.sendBugReport(new IllegalStateException(message));
         throw createActionExecutionException(
             lostInputsException, failedAction, message, Code.LOST_INPUT_TOO_MANY_TIMES);
       } else if (0 < priorLosses) {
@@ -279,7 +285,7 @@ public final class ActionRewindStrategy {
     return lostInputRecordsThisAction.build();
   }
 
-  private static Set<DerivedArtifact> getLostInputOwningDirectDeps(
+  private Set<DerivedArtifact> getLostInputOwningDirectDeps(
       ImmutableList<ActionInput> lostInputs,
       ActionInputDepOwners inputDepOwners,
       Set<SkyKey> failedActionDeps,
@@ -340,7 +346,7 @@ public final class ActionRewindStrategy {
         // of the failed action. In this case, try resetting the failed action (and no other deps)
         // just in case that helps. If it does not help, then eventually the action will fail in
         // checkIfActionLostInputTooManyTimes.
-        BugReport.sendNonFatalBugReport(
+        bugReporter.sendNonFatalBugReport(
             new IllegalStateException(
                 String.format(
                     "Lost input not a dep of the failed action and can't be associated with such"
@@ -351,7 +357,7 @@ public final class ActionRewindStrategy {
     return lostInputOwningDirectDeps;
   }
 
-  private static void checkDerived(
+  private void checkDerived(
       String lostInputQualifier,
       Artifact expectedDerived,
       Action failedAction,
@@ -365,7 +371,7 @@ public final class ActionRewindStrategy {
         String.format(
             "Unexpected source artifact as lost input%s: %s %s",
             lostInputQualifier, expectedDerived, failedAction);
-    BugReport.sendBugReport(new IllegalStateException(message));
+    bugReporter.sendBugReport(new IllegalStateException(message));
     throw createActionExecutionException(
         lostInputsException, failedAction, message, Code.LOST_INPUT_IS_SOURCE);
   }
@@ -375,13 +381,12 @@ public final class ActionRewindStrategy {
    * actions, and (in the case of {@link SkyframeAwareAction}s) other Skyframe nodes need to be
    * rewound. If this finds more actions to rewind, those actions are recursively checked too.
    */
-  private static void checkActions(
+  private void checkActions(
       ImmutableList<ActionAndLookupData> actionsToCheck,
       Environment env,
       MutableGraph<SkyKey> rewindGraph,
       ImmutableList.Builder<Action> depsToRewind)
       throws InterruptedException {
-
     ArrayDeque<ActionAndLookupData> uncheckedActions = new ArrayDeque<>(actionsToCheck);
     while (!uncheckedActions.isEmpty()) {
       ActionAndLookupData actionAndLookupData = uncheckedActions.removeFirst();
@@ -466,7 +471,7 @@ public final class ActionRewindStrategy {
    * to {@code newlyVisitedArtifacts}, and add any {@link ActionLookupData}s to {@code
    * newlyVisitedActions}.
    */
-  private static void addPropagatingActionDepsAndGetNewlyVisitedArtifactsAndActions(
+  private void addPropagatingActionDepsAndGetNewlyVisitedArtifactsAndActions(
       MutableGraph<SkyKey> rewindGraph,
       ActionLookupData actionKey,
       Action action,
@@ -499,7 +504,7 @@ public final class ActionRewindStrategy {
     // 2) the set of actions that "mayInsensitivelyPropagateInputs",
     // should have no overlap. Log a bug report if we see such an action:
     if (action.discoversInputs()) {
-      BugReport.sendBugReport(
+      bugReporter.sendBugReport(
           new IllegalStateException(
               String.format(
                   "Action insensitively propagates and discovers inputs. actionKey: %s, action: "
