@@ -249,12 +249,12 @@ echo ${{COMPREPLY[*]}}
 
     # Packages are completed in external repos with canonical repo names.
     self.assertCountEqual(
-        ['@@ext~1.0//tools/', '@@ext~1.0//tools:'],
-        self.complete('build @@ext~1.0//tool'),
+        ['@@ext~//tools/', '@@ext~//tools:'],
+        self.complete('build @@ext~//tool'),
     )
     self.assertCountEqual(
-        ['@@ext~1.0//tools/zip/', '@@ext~1.0//tools/zip:'],
-        self.complete('build @@ext~1.0//tools/zi'),
+        ['@@ext~//tools/zip/', '@@ext~//tools/zip:'],
+        self.complete('build @@ext~//tools/zi'),
     )
     self.assertCountEqual(
         ['@@//pkg/', '@@//pkg:'], self.complete('build @@//p')
@@ -276,7 +276,7 @@ echo ${{COMPREPLY[*]}}
     # Targets are completed in external repos with canonical repo names.
     self.assertCountEqual(['lib_foo'], self.complete('build @@foo~2.0//:'))
     self.assertCountEqual(
-        ['zipper'], self.complete('build @@ext~1.0//tools/zip:zipp')
+        ['zipper'], self.complete('build @@ext~//tools/zip:zipp')
     )
     self.assertCountEqual(['my_lib'], self.complete('build @@//pkg:my_'))
 

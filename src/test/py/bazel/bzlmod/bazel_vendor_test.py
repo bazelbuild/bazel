@@ -90,10 +90,10 @@ class BazelVendorTest(test_base.TestBase):
 
     # Assert repos are vendored with marker files and .vendorignore is created
     repos_vendored = os.listdir(self._test_cwd + '/vendor')
-    self.assertIn('aaa~1.0', repos_vendored)
-    self.assertIn('bbb~1.0', repos_vendored)
-    self.assertIn('@aaa~1.0.marker', repos_vendored)
-    self.assertIn('@bbb~1.0.marker', repos_vendored)
+    self.assertIn('aaa~', repos_vendored)
+    self.assertIn('bbb~', repos_vendored)
+    self.assertIn('@aaa~.marker', repos_vendored)
+    self.assertIn('@bbb~.marker', repos_vendored)
     self.assertIn('.vendorignore', repos_vendored)
 
   def testVendorFailsWithNofetch(self):
@@ -126,7 +126,7 @@ class BazelVendorTest(test_base.TestBase):
     self.RunBazel(['vendor', '--vendor_dir=vendor'])
 
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
-    repo_path = stdout[0] + '/external/aaa~1.0'
+    repo_path = stdout[0] + '/external/aaa~'
     if self.IsWindows():
       self.assertTrue(self.IsJunction(repo_path))
     else:
@@ -149,12 +149,12 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile('BUILD')
     # Test canonical/apparent repo names & multiple repos
     self.RunBazel(
-        ['vendor', '--vendor_dir=vendor', '--repo=@@bbb~1.0', '--repo=@my_repo']
+        ['vendor', '--vendor_dir=vendor', '--repo=@@bbb~', '--repo=@my_repo']
     )
     repos_vendored = os.listdir(self._test_cwd + '/vendor')
-    self.assertIn('bbb~1.0', repos_vendored)
-    self.assertIn('ccc~1.0', repos_vendored)
-    self.assertNotIn('aaa~1.0', repos_vendored)
+    self.assertIn('bbb~', repos_vendored)
+    self.assertIn('ccc~', repos_vendored)
+    self.assertNotIn('aaa~', repos_vendored)
 
   def testVendorInvalidRepo(self):
     # Invalid repo name (not canonical or apparent)
@@ -231,7 +231,7 @@ class BazelVendorTest(test_base.TestBase):
     )
     self.ScratchFile('BUILD')
     self.RunBazel(['vendor', '--vendor_dir=vendor'])
-    self.assertIn('aaa~1.0', os.listdir(self._test_cwd + '/vendor'))
+    self.assertIn('aaa~', os.listdir(self._test_cwd + '/vendor'))
 
     # Empty external & build with vendor
     self.RunBazel(['clean', '--expunge'])
@@ -244,7 +244,7 @@ class BazelVendorTest(test_base.TestBase):
     # Assert repo aaa in {OUTPUT_BASE}/external is a symlink (junction on
     # windows, this validates it was created from vendor and not fetched)=
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
-    repo_path = stdout[0] + '/external/aaa~1.0'
+    repo_path = stdout[0] + '/external/aaa~'
     if self.IsWindows():
       self.assertTrue(self.IsJunction(repo_path))
     else:
@@ -293,19 +293,19 @@ class BazelVendorTest(test_base.TestBase):
 
     os.makedirs(self._test_cwd + '/vendor', exist_ok=True)
     with open(self._test_cwd + '/vendor/.vendorignore', 'w') as f:
-      f.write('aaa~1.0\n')
+      f.write('aaa~\n')
 
     self.RunBazel(['vendor', '--vendor_dir=vendor'])
     repos_vendored = os.listdir(self._test_cwd + '/vendor')
 
     # Assert bbb and the regularRepo are vendored with marker files
-    self.assertIn('bbb~1.0', repos_vendored)
-    self.assertIn('@bbb~1.0.marker', repos_vendored)
+    self.assertIn('bbb~', repos_vendored)
+    self.assertIn('@bbb~.marker', repos_vendored)
     self.assertIn('_main~ext~regularRepo', repos_vendored)
     self.assertIn('@_main~ext~regularRepo.marker', repos_vendored)
 
     # Assert aaa (from .vendorignore), local and config repos are not vendored
-    self.assertNotIn('aaa~1.0', repos_vendored)
+    self.assertNotIn('aaa~', repos_vendored)
     self.assertNotIn('bazel_tools', repos_vendored)
     self.assertNotIn('local_config_platform', repos_vendored)
     self.assertNotIn('_main~ext~localRepo', repos_vendored)
@@ -378,7 +378,7 @@ class BazelVendorTest(test_base.TestBase):
         stderr,
     )
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
-    self.assertFalse(os.path.islink(stdout[0] + '/external/bbb~1.0'))
+    self.assertFalse(os.path.islink(stdout[0] + '/external/bbb~'))
 
     # Assert vendoring again solves the problem
     self.RunBazel(['vendor', '--vendor_dir=vendor'])
