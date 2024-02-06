@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Auxiliary rule to create the deploy archives for java_binary
-
-This needs to be a separate rule because we need to add the runfiles manifest as an input to
-the generating actions, so that the runfiles symlink tree is staged for the deploy jars.
-"""
+"""Auxiliary rule to create the deploy archives for java_binary"""
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/java/java_common.bzl", "java_common")
@@ -40,7 +36,6 @@ def create_deploy_archives(
         ctx,
         java_attrs,
         launcher_info,
-        runfiles,
         main_class,
         coverage_main_class,
         strip_as_default,
@@ -60,7 +55,6 @@ def create_deploy_archives(
         ctx: (RuleContext) The rule context
         java_attrs: (Struct) Struct of (classpath_resources, runtime_jars, runtime_classpath_for_archive, resources)
         launcher_info: (Struct) Struct of (runtime_jars, launcher, unstripped_launcher)
-        runfiles: (Depset) the runfiles for the deploy jar
         main_class: (String) FQN of the entry point for execution
         coverage_main_class: (String) FQN of the entry point for coverage collection
         build_target: (String) Name of the build target for stamping
@@ -90,7 +84,6 @@ def create_deploy_archives(
     create_deploy_archive(
         ctx,
         launcher_info.launcher,
-        runfiles,
         main_class,
         coverage_main_class,
         java_attrs.resources,
@@ -114,7 +107,6 @@ def create_deploy_archives(
         create_deploy_archive(
             ctx,
             launcher_info.unstripped_launcher,
-            runfiles,
             main_class,
             coverage_main_class,
             java_attrs.resources,
@@ -134,7 +126,6 @@ def create_deploy_archives(
 def create_deploy_archive(
         ctx,
         launcher,
-        runfiles,
         main_class,
         coverage_main_class,
         resources,
@@ -159,7 +150,6 @@ def create_deploy_archive(
     Args:
         ctx: (RuleContext) The rule context
         launcher: (File) the launcher artifact
-        runfiles: (Depset) the runfiles for the deploy jar
         main_class: (String) FQN of the entry point for execution
         coverage_main_class: (String) FQN of the entry point for coverage collection
         resources: (Depset) resource inputs
@@ -186,7 +176,6 @@ def create_deploy_archive(
         resources,
         classpath_resources,
         runtime_classpath,
-        runfiles,
     ]
 
     single_jar = semantics.find_java_toolchain(ctx).single_jar
