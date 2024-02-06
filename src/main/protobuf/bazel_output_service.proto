@@ -19,6 +19,7 @@ syntax = "proto3";
 package bazel_output_service;
 
 import "google/protobuf/any.proto";
+import "google/rpc/status.proto";
 
 option java_package = "com.google.devtools.build.lib.remote";
 option java_outer_classname = "BazelOutputServiceProto";
@@ -62,10 +63,6 @@ service BazelOutputService {
 
   // Stage build artifacts at the given paths with digests that are known to the
   // Content Addressable Storage. Contents of these files can be lazily staged.
-  //
-  // If any of the digests or paths are invalid an error is returned without
-  // modifying anything. If some digests are unavailable, the corresponding
-  // StageArtifactsResponse.Response.unavailable flag should be set.
   rpc StageArtifacts(StageArtifactsRequest) returns (StageArtifactsResponse);
 
   // Notifies server that a set of files will no longer be modified by Bazel or
@@ -210,8 +207,12 @@ message StageArtifactsRequest {
 
 message StageArtifactsResponse {
   message Response {
-    // True if the server does not have the requested digest leased.
-    bool unavailable = 1;
+    // If the status has a code other than `OK`, it indicates that the artifact
+    // cannot be staged.
+    //
+    // Errors:
+    // * `NOT_FOUND`: The requested Artifact is not in the CAS.
+    google.rpc.Status status = 1;
   }
 
   // The response for each of the requested artifacts, using the same order as
