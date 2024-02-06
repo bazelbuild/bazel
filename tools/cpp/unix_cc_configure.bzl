@@ -592,7 +592,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                 False,
             )),
             "%{tool_paths}": ",\n        ".join(
-                ['"%s": "%s"' % (k, v) for k, v in tool_paths.items()],
+                ['"%s": "%s"' % (k, v) for k, v in tool_paths.items() if v != None],
             ),
             "%{cxx_builtin_include_directories}": get_starlark_list(builtin_include_directories),
             "%{compile_flags}": get_starlark_list(
