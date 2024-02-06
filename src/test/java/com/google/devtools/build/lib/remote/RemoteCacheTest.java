@@ -626,7 +626,8 @@ public class RemoteCacheTest {
 
     ListenableFuture<Void> upload =
         remoteCache.uploadFile(remoteActionExecutionContext, digest, file);
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).contains(digest);
+    assertThat(remoteCache.casUploadCache.getInProgressTasks()).contains(
+        digest + remoteActionExecutionContext.getWriteCachePolicy().toString());
     remoteCache.shutdownNow();
 
     assertThat(upload.isCancelled()).isTrue();

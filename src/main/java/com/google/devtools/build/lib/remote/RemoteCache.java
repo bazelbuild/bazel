@@ -83,7 +83,7 @@ public class RemoteCache extends AbstractReferenceCounted {
   private static final ListenableFuture<byte[]> EMPTY_BYTES = immediateFuture(new byte[0]);
 
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
-  protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
+  protected final AsyncTaskCache.NoResult<String> casUploadCache = AsyncTaskCache.NoResult.create();
 
   protected final RemoteCacheClient cacheProtocol;
   protected final RemoteOptions options;
@@ -162,7 +162,7 @@ public class RemoteCache extends AbstractReferenceCounted {
 
     Completable upload =
         casUploadCache.execute(
-            digest,
+            digest + context.getWriteCachePolicy().toString(),
             RxFutures.toCompletable(
                 () -> cacheProtocol.uploadFile(context, digest, file), directExecutor()),
             force);
@@ -193,7 +193,7 @@ public class RemoteCache extends AbstractReferenceCounted {
 
     Completable upload =
         casUploadCache.execute(
-            digest,
+            digest + context.getWriteCachePolicy().toString(),
             RxFutures.toCompletable(
                 () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()),
             force);

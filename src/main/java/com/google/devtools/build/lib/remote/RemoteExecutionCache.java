@@ -196,7 +196,7 @@ public class RemoteExecutionCache extends RemoteCache {
           uploadTask.completion = Completable.fromObservable(completion);
           Completable upload =
               casUploadCache.execute(
-                  digest,
+                  digest.getHash() + context.getWriteCachePolicy().toString(),
                   Single.<Boolean>create(
                           continuation -> {
                             uploadTask.continuation = continuation;
