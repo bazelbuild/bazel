@@ -102,8 +102,8 @@ public class StarlarkBazelModuleTest {
             extension,
             module.getRepoMappingWithBazelDepsOnly(
                 ImmutableMap.of(
-                    fooKey, fooKey.getCanonicalRepoName(/* hasUniqueVersion= */ false),
-                    barKey, barKey.getCanonicalRepoName(/* hasUniqueVersion= */ false))),
+                    fooKey, fooKey.getCanonicalRepoNameWithVersion(),
+                    barKey, barKey.getCanonicalRepoNameWithVersion())),
             usage);
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");
@@ -150,8 +150,7 @@ public class StarlarkBazelModuleTest {
                     abridgedModule,
                     extension,
                     module.getRepoMappingWithBazelDepsOnly(
-                        ImmutableMap.of(
-                            fooKey, fooKey.getCanonicalRepoName(/* hasUniqueVersion= */ false))),
+                        ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithVersion())),
                     usage));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
   }

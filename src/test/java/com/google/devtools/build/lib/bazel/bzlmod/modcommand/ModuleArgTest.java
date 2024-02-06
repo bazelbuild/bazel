@@ -80,8 +80,7 @@ public class ModuleArgTest {
 
   ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames =
       depGraph.keySet().stream()
-          .collect(
-              toImmutableMap(k -> k, k -> k.getCanonicalRepoName(/* hasUniqueVersion= */ false)));
+          .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion));
   ImmutableBiMap<String, ModuleKey> baseModuleDeps = ImmutableBiMap.of("fred", foo2);
   ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps = ImmutableBiMap.of("fred", foo1);
   RepositoryMapping rootMapping = createRepositoryMapping(ModuleKey.ROOT, "fred", "foo~2.0");
@@ -271,7 +270,7 @@ public class ModuleArgTest {
 
   @Test
   public void resolve_canonicalRepoName_good() throws Exception {
-    var arg = CanonicalRepoName.create(foo2.getCanonicalRepoName(/* hasUniqueVersion= */ false));
+    var arg = CanonicalRepoName.create(foo2.getCanonicalRepoNameWithVersion());
 
     assertThat(
             arg.resolveToModuleKeys(
@@ -312,7 +311,7 @@ public class ModuleArgTest {
 
   @Test
   public void resolve_canonicalRepoName_unused() throws Exception {
-    var arg = CanonicalRepoName.create(foo1.getCanonicalRepoName(/* hasUniqueVersion= */ false));
+    var arg = CanonicalRepoName.create(foo1.getCanonicalRepoNameWithVersion());
 
     // Without --include_unused, this doesn't resolve, as foo@1.0 has been replaced by foo@2.0.
     assertThat(

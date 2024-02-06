@@ -70,7 +70,10 @@ public abstract class BazelDepGraphValue implements SkyValue {
         emptyDepGraph.keySet().stream()
             .collect(
                 toImmutableMap(
-                    key -> key.getCanonicalRepoName(/* hasUniqueVersion */ true), key -> key));
+                    // All modules in the empty dep graph (just the root module) have an empty
+                    // version, so the choice of including it in the canonical repo name does not
+                    // matter.
+                    ModuleKey::getCanonicalRepoNameWithoutVersion, key -> key));
 
     return BazelDepGraphValue.create(
         emptyDepGraph,

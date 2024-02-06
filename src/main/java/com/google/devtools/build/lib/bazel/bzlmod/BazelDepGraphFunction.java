@@ -19,9 +19,9 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -30,7 +30,6 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -50,7 +49,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Function;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -266,22 +265,32 @@ public class BazelDepGraphFunction implements SkyFunction {
 
   private static ImmutableBiMap<RepositoryName, ModuleKey> computeCanonicalRepoNameLookup(
       ImmutableMap<ModuleKey, Module> depGraph) {
-    // Find those modules of which there is only a single version in the dep graph. Currently, the
-    // only way to have multiple versions of a module in the dep graph is via
-    // multiple_version_override.
-    ImmutableSet<String> uniqueVersionModules =
+    // Find modules with multiple versions in the dep graph. Currently, the only source of such
+    // modules is multiple_version_override.
+    Set<String> multipleVersionsModules =
         depGraph.keySet().stream()
             .collect(groupingBy(ModuleKey::getName, counting()))
             .entrySet()
             .stream()
-            .filter(entry -> entry.getValue() == 1)
+            .filter(entry -> entry.getValue() > 1)
             .map(Entry::getKey)
-            .collect(toImmutableSet());
+            .collect(toSet());
 
+    // If there is a unique version of this module in the entire dep graph, we elide the version
+    // from the canonical repository name. This has a number of benefits:
+    // * It prevents the output base from being polluted with repository directories corresponding
+    //   to outdated versions of modules, which can be large and would otherwise only be cleaned
+    //   up by the discouraged bazel clean --expunge.
+    // * It improves cache hit rates by ensuring that a module update doesn't e.g. cause the paths
+    //   of all toolchains provided by its extensions to change, which would result in widespread
+    //   cache misses on every update.
     return depGraph.keySet().stream()
         .collect(
             toImmutableBiMap(
-                key -> key.getCanonicalRepoName(uniqueVersionModules.contains(key.getName())),
+                key ->
+                    multipleVersionsModules.contains(key.getName())
+                        ? key.getCanonicalRepoNameWithVersion()
+                        : key.getCanonicalRepoNameWithoutVersion(),
                 key -> key));
   }
 

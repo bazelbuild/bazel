@@ -43,9 +43,7 @@ public class ModuleTest {
     assertThat(
             module.getRepoMappingWithBazelDepsOnly(
                 Stream.of(key, fooKey, barKey, ModuleKey.ROOT)
-                    .collect(
-                        toImmutableMap(
-                            k -> k, k -> k.getCanonicalRepoName(/* hasUniqueVersion= */ false)))))
+                    .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion))))
         .isEqualTo(
             createRepositoryMapping(
                 key,
@@ -72,9 +70,7 @@ public class ModuleTest {
     assertThat(
             module.getRepoMappingWithBazelDepsOnly(
                 Stream.of(ModuleKey.ROOT, fooKey, barKey)
-                    .collect(
-                        toImmutableMap(
-                            k -> k, k -> k.getCanonicalRepoName(/* hasUniqueVersion= */ false)))))
+                    .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion))))
         .isEqualTo(
             createRepositoryMapping(
                 ModuleKey.ROOT,

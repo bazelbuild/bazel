@@ -74,8 +74,26 @@ public abstract class ModuleKey {
     return getName() + "@" + (getVersion().isEmpty() ? "_" : getVersion().toString());
   }
 
-  /** Returns the canonical name of the repo backing this module. */
-  public RepositoryName getCanonicalRepoName(boolean hasUniqueVersion) {
+  /**
+   * Returns the canonical name of the repo backing this module, including its version. This name is
+   * always guaranteed to be unique.
+   *
+   * <p>This method must not be called if the module has a {@link NonRegistryOverride}.
+   */
+  public RepositoryName getCanonicalRepoNameWithVersion() {
+    return getCanonicalRepoName(/* includeVersion= */ true);
+  }
+
+  /**
+   * Returns the canonical name of the repo backing this module, excluding its version. This name is
+   * only guaranteed to be unique when there is a single version of the module in the entire dep
+   * graph.
+   */
+  public RepositoryName getCanonicalRepoNameWithoutVersion() {
+    return getCanonicalRepoName(/* includeVersion= */ false);
+  }
+
+  private RepositoryName getCanonicalRepoName(boolean includeVersion) {
     if (WELL_KNOWN_MODULES.containsKey(getName())) {
       return WELL_KNOWN_MODULES.get(getName());
     }
@@ -83,15 +101,12 @@ public abstract class ModuleKey {
       return RepositoryName.MAIN;
     }
     String suffix;
-    if (hasUniqueVersion) {
-      // If there is a unique version of this module in the entire dep graph, we elide the version
-      // from the canonical repository name. This has a number of benefits:
-      // * It prevents the output base from being polluted with repository directories corresponding
-      //   to outdated versions of modules, which can be large and would otherwise only be cleaned
-      //   up by the discouraged bazel clean --expunge.
-      // * It improves cache hit rates by ensuring that a module update doesn't e.g. cause the paths
-      //   of all toolchains provided by its extensions to change, which would result in widespread
-      //   cache misses on every update.
+    if (includeVersion) {
+      // getVersion().isEmpty() is true only for modules with non-registry overrides, which enforce
+      // that there is a single version of the module in the dep graph.
+      Preconditions.checkState(!getVersion().isEmpty());
+      suffix = getVersion().toString();
+    } else {
       // This results in canonical repository names such as `rules_foo~` for the module `rules_foo`.
       // This particular format is chosen since:
       // * The tilde ensures that canonical and apparent repository names can be distinguished even
@@ -107,11 +122,6 @@ public abstract class ModuleKey {
       //   would only be discovered when used with a `multiple_version_override`, which is very
       //   rarely used.
       suffix = "";
-    } else {
-      // getVersion().isEmpty() is true only for modules with non-registry overrides, which imply
-      // enforce there is a single version of the module in the dep graph.
-      Preconditions.checkState(!getVersion().isEmpty());
-      suffix = getVersion().toString();
     }
     return RepositoryName.createUnvalidated(String.format("%s~%s", getName(), suffix));
   }
