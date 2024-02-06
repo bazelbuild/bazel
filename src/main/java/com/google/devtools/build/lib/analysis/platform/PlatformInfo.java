@@ -251,18 +251,6 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
-    /**
-     * Sets the {@link Location} where this {@link PlatformInfo} was created.
-     *
-     * @param location the location where the instance was created
-     * @return the {@link Builder} instance for method chaining
-     */
-    @CanIgnoreReturnValue
-    public Builder setLocation(Location location) {
-      this.creationLocation = location;
-      return this;
-    }
-
     private static void checkRemoteExecutionProperties(
         PlatformInfo parent,
         String remoteExecutionProperties,
