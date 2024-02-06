@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Collection;
 import java.util.Objects;
 
 /** Stores the {@link NativeAndStarlarkFlags} that are the result of {@link ParsedFlagsFunction}. */
@@ -41,19 +40,19 @@ public final class ParsedFlagsValue implements SkyValue {
      */
     @AutoCodec.Instantiator
     @VisibleForSerialization
-    public static Key create(Collection<String> rawFlags, PackageContext packageContext) {
+    public static Key create(ImmutableList<String> rawFlags, PackageContext packageContext) {
       return interner.intern(new Key(rawFlags, packageContext));
     }
 
-    private final ImmutableSet<String> rawFlags;
+    private final ImmutableList<String> rawFlags;
     private final PackageContext packageContext;
 
-    private Key(Collection<String> rawFlags, PackageContext packageContext) {
-      this.rawFlags = ImmutableSet.copyOf(rawFlags);
+    private Key(ImmutableList<String> rawFlags, PackageContext packageContext) {
+      this.rawFlags = rawFlags;
       this.packageContext = packageContext;
     }
 
-    public ImmutableSet<String> rawFlags() {
+    public ImmutableList<String> rawFlags() {
       return rawFlags;
     }
 

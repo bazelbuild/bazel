@@ -175,7 +175,7 @@ public final class PlatformMappingFunction implements SkyFunction {
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.of();
     // Flags -> platform mapping doesn't support Starlark flags. If the need arises we could upgrade
     // this to NativeAndStarlarkFlags like above.
-    ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms = ImmutableMap.of();
+    ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms = ImmutableMap.of();
 
     if (it.peek().equalsIgnoreCase("platforms:")) {
       it.next();
@@ -205,7 +205,7 @@ public final class PlatformMappingFunction implements SkyFunction {
    */
   @Nullable
   private static NativeAndStarlarkFlags parseStarlarkFlags(
-      ImmutableSet<String> rawFlags, Environment env, RepoContext mainRepoContext)
+      ImmutableList<String> rawFlags, Environment env, RepoContext mainRepoContext)
       throws PlatformMappingParsingException, InterruptedException {
     PackageContext rootPackage = mainRepoContext.rootPackage();
     ParsedFlagsValue.Key parsedFlagsKey = ParsedFlagsValue.Key.create(rawFlags, rootPackage);
@@ -232,7 +232,7 @@ public final class PlatformMappingFunction implements SkyFunction {
     boolean needSkyframeDeps = false;
     while (it.hasNext() && !it.peek().equalsIgnoreCase("flags:")) {
       Label platform = readPlatform(it, mainRepoContext);
-      ImmutableSet<String> flags = readFlags(it);
+      ImmutableList<String> flags = readFlags(it);
       NativeAndStarlarkFlags parsedFlags = parseStarlarkFlags(flags, env, mainRepoContext);
       if (parsedFlags == null) {
         needSkyframeDeps = true;
@@ -253,12 +253,12 @@ public final class PlatformMappingFunction implements SkyFunction {
     }
   }
 
-  private static ImmutableMap<ImmutableSet<String>, Label> readFlagsToPlatforms(
+  private static ImmutableMap<ImmutableList<String>, Label> readFlagsToPlatforms(
       PeekingIterator<String> it, RepoContext mainRepoContext)
       throws PlatformMappingParsingException {
-    ImmutableMap.Builder<ImmutableSet<String>, Label> flagsToPlatforms = ImmutableMap.builder();
+    ImmutableMap.Builder<ImmutableList<String>, Label> flagsToPlatforms = ImmutableMap.builder();
     while (it.hasNext() && it.peek().startsWith("--")) {
-      ImmutableSet<String> flags = readFlags(it);
+      ImmutableList<String> flags = readFlags(it);
       Label platform = readPlatform(it, mainRepoContext);
       flagsToPlatforms.put(flags, platform);
     }
@@ -284,14 +284,14 @@ public final class PlatformMappingFunction implements SkyFunction {
     }
   }
 
-  private static ImmutableSet<String> readFlags(PeekingIterator<String> it)
+  private static ImmutableList<String> readFlags(PeekingIterator<String> it)
       throws PlatformMappingParsingException {
-    ImmutableSet.Builder<String> flags = ImmutableSet.builder();
+    ImmutableList.Builder<String> flags = ImmutableList.builder();
     // Note: Short form flags are not supported.
     while (it.hasNext() && it.peek().startsWith("--")) {
       flags.add(it.next());
     }
-    ImmutableSet<String> parsedFlags = flags.build();
+    ImmutableList<String> parsedFlags = flags.build();
     if (parsedFlags.isEmpty()) {
       throw parsingException(
           it.hasNext()
@@ -315,12 +315,12 @@ public final class PlatformMappingFunction implements SkyFunction {
   @VisibleForTesting
   static final class Mappings {
     final ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags;
-    final ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms;
+    final ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms;
     final RepoContext mainRepoContext;
 
     Mappings(
         ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags,
-        ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms,
+        ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms,
         RepoContext mainRepoContext) {
       this.platformsToFlags = platformsToFlags;
       this.flagsToPlatforms = flagsToPlatforms;
