@@ -126,11 +126,67 @@ class BazelVendorTest(test_base.TestBase):
     self.RunBazel(['vendor', '--vendor_dir=vendor'])
 
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
-    repo_path = stdout[0] + '/external/aaa~1.0'
+    repo_path = stdout[0] + '/external/aaa~'
     if self.IsWindows():
       self.assertTrue(self.IsJunction(repo_path))
     else:
       self.assertTrue(os.path.islink(repo_path))
+
+  def testVendorRepo(self):
+    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+        'bbb', '1.0', {'aaa': '1.0'}
+    ).createCcModule('ccc', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "bbb", version = "1.0")',
+            'bazel_dep(name = "ccc", version = "1.0", repo_name = "my_repo")',
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    # Test canonical/apparent repo names & multiple repos
+    self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@bbb~', '--repo=@my_repo']
+    )
+    repos_vendored = os.listdir(self._test_cwd + '/vendor')
+    self.assertIn('bbb~', repos_vendored)
+    self.assertIn('ccc~', repos_vendored)
+    self.assertNotIn('aaa~', repos_vendored)
+
+  def testVendorInvalidRepo(self):
+    # Invalid repo name (not canonical or apparent)
+    exit_code, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=hello'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 8, stderr)
+    self.assertIn(
+        'ERROR: Invalid repo name: The repo value has to be either apparent'
+        " '@repo' or canonical '@@repo' repo name",
+        stderr,
+    )
+    # Repo does not exist
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@nono', '--repo=@nana'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 8, stderr)
+    self.assertIn(
+        "ERROR: Vendoring some repos failed with errors: [Repository '@@nono'"
+        " is not defined, No repository visible as '@nana' from main"
+        ' repository]',
+        stderr,
+    )
 
   # Remove this test when workspace is removed
   def testVendorDirIsNotCheckedForWorkspaceRepos(self):
