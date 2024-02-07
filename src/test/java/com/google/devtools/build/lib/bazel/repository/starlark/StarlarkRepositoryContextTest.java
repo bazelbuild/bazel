@@ -327,7 +327,7 @@ public final class StarlarkRepositoryContextTest {
     StarlarkPath patchFile = context.path("my.patch");
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
-    context.patch(patchFile, StarlarkInt.of(0), thread);
+    context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
     testOutputFile(foo.getPath(), "line one\nline two\n");
   }
 
@@ -338,7 +338,7 @@ public final class StarlarkRepositoryContextTest {
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
-      context.patch(patchFile, StarlarkInt.of(0), thread);
+      context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -361,7 +361,7 @@ public final class StarlarkRepositoryContextTest {
         true,
         thread);
     try {
-      context.patch(patchFile, StarlarkInt.of(0), thread);
+      context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -382,7 +382,7 @@ public final class StarlarkRepositoryContextTest {
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
-      context.patch(patchFile, StarlarkInt.of(0), thread);
+      context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -459,7 +459,7 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule("test");
     context.createFile(context.path("foo"), "foobar", true, true, thread);
 
-    context.symlink(context.path("foo"), context.path("bar"), thread);
+    context.symlink(context.path("foo"), context.path("bar"), "auto", thread);
     testOutputFile(outputDirectory.getChild("bar"), "foobar");
 
     assertThat(context.path("bar").realpath()).isEqualTo(context.path("foo"));
