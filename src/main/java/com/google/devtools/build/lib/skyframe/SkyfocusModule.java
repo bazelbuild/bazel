@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 
@@ -21,9 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
-import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -32,6 +29,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SkyfocusOptions;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
+import com.google.devtools.build.lib.skyframe.SkyframeFocuser.FocusResult;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileStateKey;
@@ -42,8 +40,6 @@ import com.google.devtools.build.skyframe.InMemoryGraphImpl;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyframeFocuser;
-import com.google.devtools.build.skyframe.SkyframeFocuser.FocusResult;
 import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -304,24 +300,7 @@ public class SkyfocusModule extends BlazeModule {
     FocusResult focusResult;
 
     try (SilentCloseable c = Profiler.instance().profile("SkyframeFocuser")) {
-      focusResult =
-          SkyframeFocuser.focus(
-              graph,
-              reporter,
-              roots,
-              leafs,
-              /* additionalDepsToKeep= */ (SkyKey k) -> {
-                // ActionExecutionFunction#lookupInput allows getting a transitive dep without
-                // adding a SkyframeDependency on it. In Blaze/Bazel's case, NestedSets are a major
-                // user. To keep that working, it's not sufficient to only keep the direct deps
-                // (e.g. NestedSets), but also keep the nodes of the transitive artifacts
-                // with this workaround.
-                if (k instanceof ArtifactNestedSetKey) {
-                  return ((ArtifactNestedSetKey) k)
-                      .expandToArtifacts().stream().map(Artifact::key).collect(toImmutableSet());
-                }
-                return ImmutableSet.of();
-              });
+      focusResult = SkyframeFocuser.focus(graph, reporter, roots, leafs);
     }
 
     return focusResult;

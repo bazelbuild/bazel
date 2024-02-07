@@ -2440,12 +2440,16 @@ java_library(
 
 java_library(
     name = "skyfocus_module",
-    srcs = ["SkyfocusModule.java"],
+    srcs = [
+        "SkyfocusModule.java",
+        "SkyframeFocuser.java",
+    ],
     deps = [
         ":precomputed_value",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
