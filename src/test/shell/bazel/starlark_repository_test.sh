@@ -2704,4 +2704,154 @@ EOF
   expect_log "I see: @@bar~//:data"
 }
 
+function test_file_watching_inside_working_dir() {
+  # when reading a file inside the working directory (where the repo
+  # is to be fetched), we shouldn't watch it.
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r')")
+  rctx.file("data.txt", "nothing")
+  print("I see: " + rctx.read("data.txt"))
+  rctx.file("data.txt", "something")
+r=repository_rule(_r)
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+
+  # Running Bazel again shouldn't cause a refetch, despite "data.txt"
+  # having been written to after the read.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
+}
+
+function test_file_watching_inside_working_dir_forcing_error() {
+  # when reading a file inside the working directory (where the repo
+  # is to be fetched), we shouldn't watch it. Forcing the watch should
+  # result in an error.
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r')")
+  rctx.file("data.txt", "nothing")
+  print("I see: " + rctx.read("data.txt", watch="yes"))
+r=repository_rule(_r)
+EOF
+
+  bazel build @r >& $TEST_log && fail "expected bazel to fail"
+  expect_log "attempted to watch file under working directory"
+}
+
+function test_file_watching_outside_workspace() {
+  # when reading a file outside the Bazel workspace, we should watch it.
+  local outside_dir="${TEST_TMPDIR}/outside_dir"
+  mkdir -p "${outside_dir}"
+  echo nothing > ${outside_dir}/data.txt
+
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r')")
+  print("I see: " + rctx.read("${outside_dir}/data.txt"))
+r=repository_rule(_r)
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+
+  # Running Bazel again shouldn't cause a refetch.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
+
+  # But changing the outside file should cause a refetch.
+  echo something > ${outside_dir}/data.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: something"
+}
+
+function test_file_watching_in_other_repo() {
+  # when reading a file in another repo, we should watch it.
+  local outside_dir="${TEST_TMPDIR}/outside_dir"
+  mkdir -p "${outside_dir}"
+  echo nothing > ${outside_dir}/data.txt
+
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+foo = use_repo_rule("//:r.bzl", "foo")
+foo(name = "foo")
+bar = use_repo_rule("//:r.bzl", "bar")
+bar(name = "bar", data = "nothing")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _foo(rctx):
+  rctx.file("BUILD", "filegroup(name='foo')")
+  # intentionally grab a file that's not directly addressable by a label
+  otherfile = rctx.path(Label("@bar//subpkg:BUILD")).dirname.dirname.get_child("data.txt")
+  print("I see: " + rctx.read(otherfile))
+foo=repository_rule(_foo)
+def _bar(rctx):
+  rctx.file("subpkg/BUILD")
+  rctx.file("data.txt", rctx.attr.data)
+bar=repository_rule(_bar, attrs={"data":attr.string()})
+EOF
+
+  bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+
+  # Running Bazel again shouldn't cause a refetch.
+  bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
+
+  # But changing the file inside @bar should cause @foo to refetch.
+  cat > MODULE.bazel <<EOF
+foo = use_repo_rule("//:r.bzl", "foo")
+foo(name = "foo")
+bar = use_repo_rule("//:r.bzl", "bar")
+bar(name = "bar", data = "something")
+EOF
+  bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: something"
+}
+
+function test_file_watching_in_other_repo_cycle() {
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+foo = use_repo_rule("//:r.bzl", "foo")
+foo(name = "foo")
+bar = use_repo_rule("//:r.bzl", "bar")
+bar(name = "bar")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _foo(rctx):
+  rctx.file("BUILD", "filegroup(name='foo')")
+  print("I see: " + rctx.read(Label("@bar//:BUILD")))
+foo=repository_rule(_foo)
+def _bar(rctx):
+  rctx.file("BUILD", "filegroup(name='bar')")
+  print("I see: " + rctx.read(Label("@foo//:BUILD")))
+bar=repository_rule(_bar)
+EOF
+
+  bazel build @foo >& $TEST_log && fail "expected bazel to fail!"
+  expect_log "Circular definition of repositories"
+}
+
 run_suite "local repository tests"

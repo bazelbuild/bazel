@@ -25,6 +25,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.CharStreams;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -82,6 +85,7 @@ import org.mockito.Mockito;
 public final class StarlarkRepositoryContextTest {
 
   private Scratch scratch;
+  private Path outputBase;
   private Path outputDirectory;
   private Root root;
   private Path workspaceFile;
@@ -94,6 +98,7 @@ public final class StarlarkRepositoryContextTest {
   @Before
   public void setUp() throws Exception {
     scratch = new Scratch("/");
+    outputBase = scratch.dir("/outputBase");
     outputDirectory = scratch.dir("/outputDir");
     root = Root.fromPath(scratch.dir("/wsRoot"));
     workspaceFile = scratch.file("/wsRoot/WORKSPACE");
@@ -159,6 +164,12 @@ public final class StarlarkRepositoryContextTest {
             outputDirectory,
             ImmutableList.of(root),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
+    BlazeDirectories directories =
+        new BlazeDirectories(
+            new ServerDirectories(root.asPath(), outputBase, root.asPath()),
+            root.asPath(),
+            /* defaultSystemJavabase= */ null,
+            AnalysisMock.get().getProductName());
     context =
         new StarlarkRepositoryContext(
             rule,
@@ -169,11 +180,11 @@ public final class StarlarkRepositoryContextTest {
             envVariables,
             downloader,
             1.0,
-            /*processWrapper=*/ null,
+            /* processWrapper= */ null,
             starlarkSemantics,
             repoRemoteExecutor,
             SyscallCache.NO_CACHE,
-            root.asPath());
+            directories);
   }
 
   private void setUpContextForRule(String name) throws Exception {
@@ -304,7 +315,7 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule("test");
     context.createFile(context.path("foo/bar"), "foobar", true, true, thread);
 
-    String content = context.readFile(context.path("foo/bar"), thread);
+    String content = context.readFile(context.path("foo/bar"), "auto", thread);
     assertThat(content).isEqualTo("foobar");
   }
 

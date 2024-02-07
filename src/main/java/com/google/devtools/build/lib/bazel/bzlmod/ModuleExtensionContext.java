@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkBaseExternalContext;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -50,6 +51,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
 
   protected ModuleExtensionContext(
       Path workingDirectory,
+      BlazeDirectories directories,
       Environment env,
       Map<String, String> envVariables,
       DownloadManager downloadManager,
@@ -62,13 +64,15 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       boolean rootModuleHasNonDevDependency) {
     super(
         workingDirectory,
+        directories,
         env,
         envVariables,
         downloadManager,
         timeoutScaling,
         processWrapper,
         starlarkSemantics,
-        remoteExecutor);
+        remoteExecutor,
+        /* allowWatchingFilesOutsideWorkspace= */ false);
     this.extensionId = extensionId;
     this.modules = modules;
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;

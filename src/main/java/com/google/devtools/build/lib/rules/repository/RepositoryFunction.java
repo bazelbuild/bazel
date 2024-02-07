@@ -15,14 +15,10 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -191,38 +187,12 @@ public abstract class RepositoryFunction {
    * is needed.
    */
   public boolean verifyRecordedInputs(
-      Rule rule, Map<RepoRecordedInput, String> recordedInputValues, Environment env)
+      Rule rule,
+      BlazeDirectories directories,
+      Map<RepoRecordedInput, String> recordedInputValues,
+      Environment env)
       throws InterruptedException {
-    ImmutableSet<SkyKey> skyKeys =
-        recordedInputValues.keySet().stream()
-            .map(RepoRecordedInput::getSkyKey)
-            .collect(toImmutableSet());
-    env.getValuesAndExceptions(skyKeys);
-    if (env.valuesMissing()) {
-      return false;
-    }
-    for (Map.Entry<RepoRecordedInput, String> recordedInputValue : recordedInputValues.entrySet()) {
-      if (!recordedInputValue.getKey().isUpToDate(env, recordedInputValue.getValue())) {
-        return false;
-      }
-    }
-    return true;
-  }
-  /**
-   * Convert to a {@link com.google.devtools.build.lib.actions.FileValue} to a String appropriate
-   * for placing in a repository marker file.
-   *
-   * @param fileValue The value to convert. It must correspond to a regular file.
-   */
-  public static String fileValueToMarkerValue(FileValue fileValue) throws IOException {
-    Preconditions.checkArgument(fileValue.isFile() && !fileValue.isSpecialFile());
-    // Return the file content digest in hex. fileValue may or may not have the digest available.
-    byte[] digest = fileValue.realFileStateValue().getDigest();
-    if (digest == null) {
-      // Fast digest not available, or it would have been in the FileValue.
-      digest = fileValue.realRootedPath().asPath().getDigest();
-    }
-    return BaseEncoding.base16().lowerCase().encode(digest);
+    return RepoRecordedInput.areAllValuesUpToDate(env, directories, recordedInputValues);
   }
 
   public static RootedPath getRootedPathFromLabel(Label label, Environment env)

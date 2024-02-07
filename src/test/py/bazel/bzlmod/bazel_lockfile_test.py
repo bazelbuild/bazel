@@ -16,8 +16,10 @@
 
 import json
 import os
+import pathlib
 import tempfile
 from absl.testing import absltest
+
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import scratchFile
@@ -1933,6 +1935,62 @@ class BazelLockfileTest(test_base.TestBase):
         'not exist in the lockfile',
         stderr,
     )
+
+  def testWatchingFileUnderWorkingDirectoryFails(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    ctx.file("hello", "repo")',
+            '    repo_rule(name=ctx.read("hello", watch="yes"))',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo'], allow_failure=True)
+    self.assertIn('attempted to watch file under working directory',
+                  '\n'.join(stderr))
+
+  def testWatchingFileOutsideWorkspaceFails(self):
+    outside_file = pathlib.Path(self._temp).joinpath('bleh')
+    scratchFile(outside_file, ['repo'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name=ctx.read(%s, watch="yes"))' % repr(str(
+                outside_file)),
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo'], allow_failure=True)
+    self.assertIn('attempted to watch file outside workspace',
+                  '\n'.join(stderr))
 
 
 if __name__ == '__main__':
