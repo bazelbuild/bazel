@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
+import static java.util.Comparator.comparing;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
@@ -95,8 +97,11 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -111,6 +116,21 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
+  private static class EventRecorder {
+    // Keep in deterministic order even though events are posted in Skyframe evaluation order.
+    private final SortedSet<RootModuleFileFixupEvent> fixupEvents =
+        new TreeSet<>(comparing(RootModuleFileFixupEvent::getSuccessMessage));
+
+    @Subscribe
+    public void onFixupEvent(RootModuleFileFixupEvent fixupEvent) {
+      fixupEvents.add(fixupEvent);
+    }
+
+    public List<RootModuleFileFixupEvent> fixupEvents() {
+      return ImmutableList.copyOf(fixupEvents);
+    }
+  }
+
   private Path workspaceRoot;
   private Path modulesRoot;
   private MemoizingEvaluator evaluator;
@@ -119,9 +139,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   private RecordingDifferencer differencer;
   private final CyclesReporter cyclesReporter =
       new CyclesReporter(new BzlLoadCycleReporter(), new BzlmodRepoCycleReporter());
+  private final EventRecorder eventRecorder = new EventRecorder();
 
   @Before
   public void setup() throws Exception {
+    eventBus.register(eventRecorder);
     workspaceRoot = scratch.dir("/ws");
     String bazelToolsPath = "/ws/embedded_tools";
     scratch.file(bazelToolsPath + "/MODULE.bazel", "module(name = 'bazel_tools')");
@@ -1903,15 +1925,18 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Imported, but reported as indirect dependencies by the extension:\n"
             + "    indirect_dep, indirect_dev_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
-            + " issues:\033[0m\n"
-            + "\n"
-            + "buildozer 'use_repo_add @ext//:defs.bzl ext missing_direct_dep non_dev_as_dev_dep'"
-            + " 'use_repo_remove @ext//:defs.bzl ext dev_as_non_dev_dep indirect_dep invalid_dep'"
-            + " 'use_repo_add dev @ext//:defs.bzl ext dev_as_non_dev_dep missing_direct_dev_dep'"
-            + " 'use_repo_remove dev @ext//:defs.bzl ext indirect_dev_dep invalid_dev_dep"
-            + " non_dev_as_dev_dep' //MODULE.bazel:all",
+            + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
+    assertThat(eventRecorder.fixupEvents()).hasSize(1);
+    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+        .containsExactly(
+            "use_repo_add @ext//:defs.bzl ext missing_direct_dep non_dev_as_dev_dep",
+            "use_repo_remove @ext//:defs.bzl ext dev_as_non_dev_dep indirect_dep invalid_dep",
+            "use_repo_add dev @ext//:defs.bzl ext dev_as_non_dev_dep missing_direct_dev_dep",
+            "use_repo_remove dev @ext//:defs.bzl ext indirect_dev_dep invalid_dev_dep"
+                + " non_dev_as_dev_dep");
+    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+        .isEqualTo("Updated use_repo calls for @ext//:defs.bzl%ext");
   }
 
   @Test
@@ -1984,14 +2009,18 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " extension (may cause the build to fail when used by other modules):\n"
             + "    direct_dev_dep, indirect_dev_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
-            + " issues:\033[0m\n"
-            + "\n"
-            + "buildozer 'use_repo_add @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep"
-            + " missing_direct_dep missing_direct_dev_dep' 'use_repo_remove @ext//:defs.bzl ext"
-            + " invalid_dep' 'use_repo_remove dev @ext//:defs.bzl ext direct_dev_dep"
-            + " indirect_dev_dep invalid_dev_dep' //MODULE.bazel:all",
+            + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
+    assertThat(eventRecorder.fixupEvents()).hasSize(1);
+    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+        .containsExactly(
+            "use_repo_add @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep missing_direct_dep"
+                + " missing_direct_dev_dep",
+            "use_repo_remove @ext//:defs.bzl ext invalid_dep",
+            "use_repo_remove dev @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep"
+                + " invalid_dev_dep");
+    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+        .isEqualTo("Updated use_repo calls for @ext//:defs.bzl%ext");
   }
 
   @Test
@@ -2066,14 +2095,17 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " extension (may cause the build to fail when used by other modules):\n"
             + "    direct_dep, indirect_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
-            + " issues:\033[0m\n"
-            + "\n"
-            + "buildozer 'use_repo_remove @ext//:defs.bzl ext direct_dep indirect_dep invalid_dep'"
-            + " 'use_repo_add dev @ext//:defs.bzl ext direct_dep indirect_dep missing_direct_dep"
-            + " missing_direct_dev_dep' 'use_repo_remove dev @ext//:defs.bzl ext invalid_dev_dep'"
-            + " //MODULE.bazel:all",
+            + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
+    assertThat(eventRecorder.fixupEvents()).hasSize(1);
+    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+        .containsExactly(
+            "use_repo_remove @ext//:defs.bzl ext direct_dep indirect_dep invalid_dep",
+            "use_repo_add dev @ext//:defs.bzl ext direct_dep indirect_dep missing_direct_dep"
+                + " missing_direct_dev_dep",
+            "use_repo_remove dev @ext//:defs.bzl ext invalid_dev_dep");
+    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+        .isEqualTo("Updated use_repo calls for @ext//:defs.bzl%ext");
   }
 
   @Test
@@ -2120,6 +2152,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("indirect_dep_data");
 
     assertEventCount(0, eventCollector);
+    assertThat(eventRecorder.fixupEvents()).isEmpty();
   }
 
   @Test
@@ -2185,11 +2218,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Imported, but reported as indirect dependencies by the extension:\n"
             + "    indirect_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
-            + " issues:\033[0m\n"
-            + "\n"
-            + "buildozer 'use_repo_add ext1 direct_dep missing_direct_dep' 'use_repo_remove ext1"
-            + " indirect_dep' //MODULE.bazel:all",
+            + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
     assertContainsEvent(
         "WARNING /ws/MODULE.bazel:8:21: The module extension ext defined in @ext//:defs.bzl"
@@ -2199,11 +2228,18 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " build to fail):\n"
             + "    missing_direct_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
-            + " issues:\033[0m\n"
-            + "\n"
-            + "buildozer 'use_repo_add ext2 missing_direct_dep' //MODULE.bazel:all",
+            + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
+    assertThat(eventRecorder.fixupEvents()).hasSize(2);
+    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+        .containsExactly(
+            "use_repo_add ext1 direct_dep missing_direct_dep", "use_repo_remove ext1 indirect_dep");
+    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+        .isEqualTo("Updated use_repo calls for isolated usage 'ext1' of @ext//:defs.bzl%ext");
+    assertThat(eventRecorder.fixupEvents().get(1).getBuildozerCommands())
+        .containsExactly("use_repo_add ext2 missing_direct_dep");
+    assertThat(eventRecorder.fixupEvents().get(1).getSuccessMessage())
+        .isEqualTo("Updated use_repo calls for isolated usage 'ext2' of @ext//:defs.bzl%ext");
   }
 
   @Test
@@ -2269,11 +2305,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Imported, but reported as indirect dependencies by the extension:\n"
             + "    indirect_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
-            + " issues:\033[0m\n"
-            + "\n"
-            + "buildozer 'use_repo_add ext1 direct_dep missing_direct_dep' 'use_repo_remove ext1"
-            + " indirect_dep' //MODULE.bazel:all",
+            + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
     assertContainsEvent(
         "WARNING /ws/MODULE.bazel:8:21: The module extension ext defined in @ext//:defs.bzl"
@@ -2283,11 +2315,18 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " build to fail):\n"
             + "    missing_direct_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
-            + " issues:\033[0m\n"
-            + "\n"
-            + "buildozer 'use_repo_add ext2 missing_direct_dep' //MODULE.bazel:all",
+            + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
+    assertThat(eventRecorder.fixupEvents()).hasSize(2);
+    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+        .containsExactly(
+            "use_repo_add ext1 direct_dep missing_direct_dep", "use_repo_remove ext1 indirect_dep");
+    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+        .isEqualTo("Updated use_repo calls for isolated usage 'ext1' of @ext//:defs.bzl%ext");
+    assertThat(eventRecorder.fixupEvents().get(1).getBuildozerCommands())
+        .containsExactly("use_repo_add ext2 missing_direct_dep");
+    assertThat(eventRecorder.fixupEvents().get(1).getSuccessMessage())
+        .isEqualTo("Updated use_repo calls for isolated usage 'ext2' of @ext//:defs.bzl%ext");
   }
 
   private EvaluationResult<SingleExtensionEvalValue> evaluateSimpleModuleExtension(

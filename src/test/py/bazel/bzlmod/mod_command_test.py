@@ -521,6 +521,308 @@ class ModCommandTest(test_base.TestBase):
         stderr,
     )
 
+  def testModTidy(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext1 = use_extension("//:extension.bzl", "ext1")',
+            'use_repo(ext1, "dep", "indirect_dep")',
+            'ext1_isolated = use_extension(',
+            '    "//:extension.bzl",',
+            '    "ext1",',
+            '    isolate = True,',
+            ')',
+            'use_repo(',
+            '    ext1_isolated,',
+            '    my_dep = "dep",',
+            '    my_missing_dep = "missing_dep",',
+            '    my_indirect_dep = "indirect_dep",',
+            ')',
+            (
+                'ext2 = use_extension("//:extension.bzl", "ext2",'
+                ' dev_dependency = True)'
+            ),
+            'use_repo(ext2, "dev_dep", "indirect_dev_dep")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext1_impl(ctx):',
+            '    print("ext1 is being evaluated")',
+            '    repo_rule(name="dep")',
+            '    repo_rule(name="missing_dep")',
+            '    repo_rule(name="indirect_dep")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=["dep", "missing_dep"],',
+            '        root_module_direct_dev_deps=[],',
+            '    )',
+            '',
+            'ext1 = module_extension(implementation=_ext1_impl)',
+            '',
+            'def _ext2_impl(ctx):',
+            '    print("ext2 is being evaluated")',
+            '    repo_rule(name="dev_dep")',
+            '    repo_rule(name="missing_dev_dep")',
+            '    repo_rule(name="indirect_dev_dep")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=[],',
+            (
+                '        root_module_direct_dev_deps=["dev_dep",'
+                ' "missing_dev_dep"],'
+            ),
+            '    )',
+            '',
+            'ext2 = module_extension(implementation=_ext2_impl)',
+        ],
+    )
+
+    # Create a lockfile and let the extension evaluations emit fixup warnings.
+    _, _, stderr = self.RunBazel([
+        'mod',
+        'deps',
+        '--lockfile_mode=update',
+        '--experimental_isolated_extension_usages',
+    ])
+    stderr = '\n'.join(stderr)
+    self.assertIn('ext1 is being evaluated', stderr)
+    self.assertIn('ext2 is being evaluated', stderr)
+    self.assertIn(
+        'Not imported, but reported as direct dependencies by the extension'
+        ' (may cause the build to fail):\nmissing_dep',
+        stderr,
+    )
+    self.assertIn(
+        'Imported, but reported as indirect dependencies by the'
+        ' extension:\nindirect_dep',
+        stderr,
+    )
+
+    # Run bazel mod tidy to fix the imports.
+    _, stdout, stderr = self.RunBazel([
+        'mod',
+        'tidy',
+        '--lockfile_mode=update',
+        '--experimental_isolated_extension_usages',
+    ])
+    self.assertEqual([], stdout)
+    stderr = '\n'.join(stderr)
+    # The extensions should not be reevaluated by the command.
+    self.assertNotIn('ext1 is being evaluated', stderr)
+    self.assertNotIn('ext2 is being evaluated', stderr)
+    # The fixup warnings should be shown again due to Skyframe replaying.
+    self.assertIn(
+        'Not imported, but reported as direct dependencies by the extension'
+        ' (may cause the build to fail):\nmissing_dep',
+        stderr,
+    )
+    self.assertIn(
+        'Imported, but reported as indirect dependencies by the'
+        ' extension:\nindirect_dep',
+        stderr,
+    )
+    # Fixes are reported.
+    self.assertIn(
+        'INFO: Updated use_repo calls for @//:extension.bzl%ext1', stderr
+    )
+    self.assertIn(
+        "INFO: Updated use_repo calls for isolated usage 'ext1_isolated' of"
+        ' @//:extension.bzl%ext1',
+        stderr,
+    )
+    self.assertIn(
+        'INFO: Updated use_repo calls for @//:extension.bzl%ext2', stderr
+    )
+
+    # Rerun bazel mod deps to check that the fixup warnings are gone
+    # and the lockfile is up-to-date.
+    _, _, stderr = self.RunBazel([
+        'mod',
+        'deps',
+        '--lockfile_mode=error',
+        '--experimental_isolated_extension_usages',
+    ])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('ext1 is being evaluated', stderr)
+    self.assertNotIn('ext2 is being evaluated', stderr)
+    self.assertNotIn(
+        'Not imported, but reported as direct dependencies by the extension'
+        ' (may cause the build to fail):\nmissing_dep',
+        stderr,
+    )
+    self.assertNotIn(
+        'Imported, but reported as indirect dependencies by the'
+        ' extension:\nindirect_dep',
+        stderr,
+    )
+
+    # Verify that use_repo statements have been updated.
+    with open('MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'ext1 = use_extension("//:extension.bzl", "ext1")',
+              'use_repo(ext1, "dep", "missing_dep")',
+              '',
+              'ext1_isolated = use_extension(',
+              '    "//:extension.bzl",',
+              '    "ext1",',
+              '    isolate = True,',
+              ')',
+              'use_repo(',
+              '    ext1_isolated,',
+              '    my_dep = "dep",',
+              '    my_missing_dep = "missing_dep",',
+              ')',
+              '',
+              (
+                  'ext2 = use_extension("//:extension.bzl", "ext2",'
+                  ' dev_dependency = True)'
+              ),
+              'use_repo(ext2, "dev_dep", "missing_dev_dep")',
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+
+  def testModTidyAlwaysFormatsModuleFile(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext=use_extension("//:extension.bzl",                   "ext")',
+            'use_repo(ext,  "dep")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="dep")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=["dep"],',
+            '        root_module_direct_dev_deps=[],',
+            '    )',
+            '',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    # Verify that bazel mod tidy formats the MODULE.bazel file
+    # even if there are no use_repos to fix.
+    self.RunBazel(['mod', 'tidy'])
+
+    with open('MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'ext = use_extension("//:extension.bzl", "ext")',
+              'use_repo(ext, "dep")',
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+
+  def testModTidyFailsOnExtensionFailure(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("//:extension.bzl", "ext")',
+            'use_repo(ext, "dep")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _ext_impl(ctx):',
+            '    "foo"[3]',
+            '',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    # Verify that bazel mod tidy fails if an extension fails to execute.
+    exit_code, _, stderr = self.RunBazel(['mod', 'tidy'], allow_failure=True)
+
+    self.assertNotEqual(0, exit_code)
+    stderr = '\n'.join(stderr)
+    self.assertIn('//:extension.bzl', stderr)
+    self.assertIn('Error: index out of range', stderr)
+    self.assertNotIn('buildozer', stderr)
+
+    with open('MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'ext = use_extension("//:extension.bzl", "ext")',
+              'use_repo(ext, "dep")',
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+
+  def testModTidyFixesInvalidImport(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("//:extension.bzl", "ext")',
+            'use_repo(ext, "invalid_dep")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="dep")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=["dep"],',
+            '        root_module_direct_dev_deps=[],',
+            '    )',
+            '',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    # Verify that bazel mod tidy fixes the MODULE.bazel file even though the
+    # extension fails after evaluation.
+    _, _, stderr = self.RunBazel(['mod', 'tidy'])
+    stderr = '\n'.join(stderr)
+    self.assertIn(
+        'ext defined in @//:extension.bzl reported incorrect imports', stderr
+    )
+    self.assertIn('invalid_dep', stderr)
+    self.assertIn(
+        'INFO: Updated use_repo calls for @//:extension.bzl%ext', stderr
+    )
+
+    with open('MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'ext = use_extension("//:extension.bzl", "ext")',
+              'use_repo(ext, "dep")',
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+
 
 if __name__ == '__main__':
   absltest.main()
