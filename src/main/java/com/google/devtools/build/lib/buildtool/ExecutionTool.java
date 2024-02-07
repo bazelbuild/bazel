@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.actions.cache.PostableActionCacheStats;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -1057,8 +1058,7 @@ public class ExecutionTool {
         builder.setSaveTimeInMs(Duration.ofNanos(p.completeAndGetElapsedTimeNanos()).toMillis());
       }
     }
-
-    env.getEventBus().post(builder.build());
+    env.getReporter().post(new PostableActionCacheStats(builder.build()));
   }
 
   private Reporter getReporter() {
