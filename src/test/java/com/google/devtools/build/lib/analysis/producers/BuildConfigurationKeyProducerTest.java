@@ -127,6 +127,78 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     assertThrows(OptionsParsingException.class, () -> fetch(baseOptions));
   }
 
+  @Test
+  public void createKey_platformFlags() throws Exception {
+    scratch.file(
+        "BUILD",
+        "platform(",
+        "    name = 'sample',",
+        "    flags = [",
+        "        '--internal_option=from_platform'",
+        "    ],",
+        ")");
+    invalidatePackages(false);
+
+    BuildOptions baseOptions = createBuildOptions("--platforms=//:sample");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
+    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+        .isEqualTo("from_platform");
+  }
+
+  @Test
+  public void createKey_platformFlags_invalidPlatform() throws Exception {
+    scratch.file("BUILD", "filegroup(name = 'sample')");
+    invalidatePackages(false);
+
+    BuildOptions baseOptions = createBuildOptions("--platforms=//:sample");
+    assertThrows(InvalidPlatformException.class, () -> fetch(baseOptions));
+  }
+
+  @Test
+  public void createKey_platformFlags_invalidOption() throws Exception {
+    scratch.file(
+        "BUILD",
+        "platform(",
+        "    name = 'sample',",
+        "    flags = [",
+        "        '--fake_option_doesnt_exist=from_platform'",
+        "    ],",
+        ")");
+    invalidatePackages(false);
+
+    BuildOptions baseOptions = createBuildOptions("--platforms=//:sample");
+    assertThrows(OptionsParsingException.class, () -> fetch(baseOptions));
+  }
+
+  @Test
+  public void createKey_platformFlags_overridesMapping() throws Exception {
+    scratch.file(
+        "/workspace/platform_mappings",
+        "platforms:",
+        "  //:sample",
+        "    --internal_option=from_mapping");
+    scratch.file(
+        "BUILD",
+        "platform(",
+        "    name = 'sample',",
+        "    flags = [",
+        "        '--internal_option=from_platform'",
+        "    ],",
+        ")");
+    invalidatePackages(false);
+
+    BuildOptions baseOptions = createBuildOptions("--platforms=//:sample");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
+    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+        .isEqualTo("from_platform");
+  }
+
   private BuildConfigurationKey fetch(BuildOptions options)
       throws InterruptedException,
           OptionsParsingException,
