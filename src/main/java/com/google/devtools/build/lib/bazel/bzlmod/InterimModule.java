@@ -217,4 +217,47 @@ public abstract class InterimModule extends ModuleBase {
       return autoBuild();
     }
   }
+
+  /**
+   * Builds a {@link Module} from an {@link InterimModule}, discarding unnecessary fields and adding
+   * extra necessary ones (such as the repo spec).
+   *
+   * @param remoteRepoSpec the {@link RepoSpec} for the module obtained from a registry or null if
+   *     the module has a non-registry override
+   */
+  static Module toModule(
+      InterimModule interim, @Nullable ModuleOverride override, @Nullable RepoSpec remoteRepoSpec) {
+    return Module.builder()
+        .setName(interim.getName())
+        .setVersion(interim.getVersion())
+        .setKey(interim.getKey())
+        .setRepoName(interim.getRepoName())
+        .setExecutionPlatformsToRegister(interim.getExecutionPlatformsToRegister())
+        .setToolchainsToRegister(interim.getToolchainsToRegister())
+        .setDeps(ImmutableMap.copyOf(Maps.transformValues(interim.getDeps(), DepSpec::toModuleKey)))
+        .setRepoSpec(maybeAppendAdditionalPatches(remoteRepoSpec, override))
+        .setExtensionUsages(interim.getExtensionUsages())
+        .build();
+  }
+
+  private static RepoSpec maybeAppendAdditionalPatches(
+      @Nullable RepoSpec repoSpec, @Nullable ModuleOverride override) {
+    if (!(override instanceof SingleVersionOverride)) {
+      return repoSpec;
+    }
+    SingleVersionOverride singleVersion = (SingleVersionOverride) override;
+    if (singleVersion.getPatches().isEmpty()) {
+      return repoSpec;
+    }
+    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
+    attrBuilder.putAll(repoSpec.attributes().attributes());
+    attrBuilder.put("patches", singleVersion.getPatches());
+    attrBuilder.put("patch_cmds", singleVersion.getPatchCmds());
+    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.getPatchStrip()));
+    return RepoSpec.builder()
+        .setBzlFile(repoSpec.bzlFile())
+        .setRuleClassName(repoSpec.ruleClassName())
+        .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
+        .build();
+  }
 }
