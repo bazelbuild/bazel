@@ -33,6 +33,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party/protobuf:protobuf_java",
+        "@maven//:io_reactivex_rxjava3_rxjava",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
