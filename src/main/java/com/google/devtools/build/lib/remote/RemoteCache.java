@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -83,7 +82,6 @@ public class RemoteCache extends AbstractReferenceCounted {
   private static final ListenableFuture<byte[]> EMPTY_BYTES = immediateFuture(new byte[0]);
 
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
-  protected final AsyncTaskCache.NoResult<String> casUploadCache = AsyncTaskCache.NoResult.create();
 
   protected final RemoteCacheClient cacheProtocol;
   protected final RemoteOptions options;
@@ -160,14 +158,8 @@ public class RemoteCache extends AbstractReferenceCounted {
       return COMPLETED_SUCCESS;
     }
 
-    Completable upload =
-        casUploadCache.execute(
-            digest + context.getWriteCachePolicy().toString(),
-            RxFutures.toCompletable(
-                () -> cacheProtocol.uploadFile(context, digest, file), directExecutor()),
-            force);
-
-    return RxFutures.toListenableFuture(upload);
+    return cacheProtocol.uploadFile(context, digest, file, force);
+ 
   }
 
   /**
@@ -191,14 +183,7 @@ public class RemoteCache extends AbstractReferenceCounted {
       return COMPLETED_SUCCESS;
     }
 
-    Completable upload =
-        casUploadCache.execute(
-            digest + context.getWriteCachePolicy().toString(),
-            RxFutures.toCompletable(
-                () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()),
-            force);
-
-    return RxFutures.toListenableFuture(upload);
+    return cacheProtocol.uploadBlob(context, digest, data, force);
   }
 
   public ListenableFuture<byte[]> downloadBlob(
@@ -489,7 +474,6 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   @Override
   protected void deallocate() {
-    casUploadCache.shutdown();
     cacheProtocol.close();
 
     closeCountDownLatch.countDown();
@@ -509,13 +493,13 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   /** Waits for active network I/Os to finish. */
   public void awaitTermination() throws InterruptedException {
-    casUploadCache.awaitTermination();
+    cacheProtocol.awaitTermination();
     closeCountDownLatch.await();
   }
 
   /** Shuts the cache down and cancels active network I/Os. */
   public void shutdownNow() {
-    casUploadCache.shutdownNow();
+    cacheProtocol.shutdownNow();
   }
 
   public static FailureDetail createFailureDetail(String message, Code detailedCode) {

@@ -155,8 +155,8 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * @param force Whether to force the upload, even if an upload was already attempted.
    * @return A future representing pending completion of the upload.
    */
-  ListenableFuture<Void> uploadFile(RemoteActionExecutionContext context, Digest digest, Path file, boolean force);
-
+  ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force);
 
   /**
    * Uploads a BLOB to the CAS.
@@ -179,8 +179,14 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * @return A future representing pending completion of the upload.
    */
   ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force);      
+      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force);
 
   /** Close resources associated with the remote cache. */
   void close();
+
+  /** Waits for active network I/Os to finish. */
+  void awaitTermination() throws InterruptedException;
+
+  /** Shuts the cache down and cancels active network I/Os. */
+  void shutdownNow();
 }

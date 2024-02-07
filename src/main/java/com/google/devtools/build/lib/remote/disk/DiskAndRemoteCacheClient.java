@@ -74,11 +74,25 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     remoteCache.close();
   }
 
+  /** Waits for active network I/Os to finish. */
   @Override
-    public ListenableFuture<Void> uploadFile(
-        RemoteActionExecutionContext context, Digest digest, Path file) {
-    return uploadFile(context, digest, file, /*force=*/false);
-  }  
+  public void awaitTermination() throws InterruptedException {
+    diskCache.awaitTermination();
+    remoteCache.awaitTermination();
+  }
+
+  /** Shuts the cache down and cancels active network I/Os. */
+  @Override
+  public void shutdownNow() {
+    diskCache.shutdownNow();
+    remoteCache.shutdownNow();
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadFile(context, digest, file, /* force= */ false);
+  }
 
   @Override
   public ListenableFuture<Void> uploadFile(
@@ -97,12 +111,12 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     return future;
   }
 
-  
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadBlob(context, digest, data, /*force=*/false);
+    return uploadBlob(context, digest, data, /* force= */ false);
   }
+
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {

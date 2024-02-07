@@ -181,6 +181,18 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     channel.release();
   }
 
+  /** Waits for active network I/Os to finish. */
+  @Override
+  public void awaitTermination() throws InterruptedException {
+    casUploadCache.awaitTermination();
+  }
+
+  /** Shuts the cache down and cancels active network I/Os. */
+  @Override
+  public void shutdownNow() {
+    casUploadCache.shutdownNow();
+  }
+
   /** Returns true if 'options.remoteCache' uses 'grpc' or an empty scheme */
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
     if (isNullOrEmpty(options.remoteCache)) {

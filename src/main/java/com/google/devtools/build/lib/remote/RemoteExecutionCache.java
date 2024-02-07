@@ -131,23 +131,23 @@ public class RemoteExecutionCache extends RemoteCache {
       RemoteActionExecutionContext context,
       Digest digest,
       MerkleTree merkleTree,
-      Map<Digest, Message> additionalInputs) {
+      Map<Digest, Message> additionalInputs, boolean force) {
     Directory node = merkleTree.getDirectoryByDigest(digest);
     if (node != null) {
-      return cacheProtocol.uploadBlob(context, digest, node.toByteString());
+      return cacheProtocol.uploadBlob(context, digest, node.toByteString(), force);
     }
 
     PathOrBytes file = merkleTree.getFileByDigest(digest);
     if (file != null) {
       if (file.getBytes() != null) {
-        return cacheProtocol.uploadBlob(context, digest, file.getBytes());
+        return cacheProtocol.uploadBlob(context, digest, file.getBytes(), force);
       }
-      return cacheProtocol.uploadFile(context, digest, file.getPath());
+      return cacheProtocol.uploadFile(context, digest, file.getPath(), force);
     }
 
     Message message = additionalInputs.get(digest);
     if (message != null) {
-      return cacheProtocol.uploadBlob(context, digest, message.toByteString());
+      return cacheProtocol.uploadBlob(context, digest, message.toByteString(), force);
     }
 
     return immediateFailedFuture(
@@ -195,8 +195,6 @@ public class RemoteExecutionCache extends RemoteCache {
           uploadTask.disposable = new AtomicReference<>();
           uploadTask.completion = Completable.fromObservable(completion);
           Completable upload =
-              casUploadCache.execute(
-                  digest.getHash() + context.getWriteCachePolicy().toString(),
                   Single.<Boolean>create(
                           continuation -> {
                             uploadTask.continuation = continuation;
@@ -211,12 +209,9 @@ public class RemoteExecutionCache extends RemoteCache {
                             return toCompletable(
                                 () ->
                                     uploadBlob(
-                                        context, uploadTask.digest, merkleTree, additionalInputs),
+                                        context, uploadTask.digest, merkleTree, additionalInputs, force),
                                 directExecutor());
-                          }),
-                  /* onAlreadyRunning= */ () -> emitter.onSuccess(uploadTask),
-                  /* onAlreadyFinished= */ emitter::onComplete,
-                  force);
+                          });
           upload.subscribe(
               new CompletableObserver() {
                 @Override
