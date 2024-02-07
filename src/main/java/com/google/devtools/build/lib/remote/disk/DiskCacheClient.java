@@ -36,12 +36,15 @@ import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
+import io.reactivex.rxjava3.core.Completable;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -71,6 +74,8 @@ public class DiskCacheClient implements RemoteCacheClient {
   private final ListeningExecutorService executorService;
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
+
+  protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
   /**
    * @param verifyDownloads whether verify the digest of downloaded content are the same as the
@@ -276,28 +281,71 @@ public class DiskCacheClient implements RemoteCacheClient {
   @Override
   public void close() {}
 
+  /** Waits for active network I/Os to finish. */
+  @Override
+  public void awaitTermination() throws InterruptedException {
+    casUploadCache.awaitTermination();
+  }
+
+  /** Shuts the cache down and cancels active network I/Os. */
+  @Override
+  public void shutdownNow() {
+    casUploadCache.shutdownNow();
+  }
+
+  private ListenableFuture<Void> uploadInternal(
+      RemoteActionExecutionContext context,
+      Digest digest,
+      Store store,
+      InputStream in,
+      boolean force) {
+    Completable upload =
+        casUploadCache.execute(
+            digest,
+            RxFutures.toCompletable(
+                () -> {
+                  try {
+                    saveFile(digest, store, in);
+                    return immediateFuture(null);
+                  } catch (IOException e) {
+                    return Futures.immediateFailedFuture(e);
+                  }
+                },
+                executorService),
+            force);
+    return RxFutures.toListenableFuture(upload);
+  }
+
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
-    return executorService.submit(
-        () -> {
-          try (InputStream in = file.getInputStream()) {
-            saveFile(digest, Store.CAS, in);
-          }
-          return null;
-        });
+    return uploadFile(context, digest, file, /* force= */ false);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
+    try (InputStream in = file.getInputStream()) {
+      return uploadInternal(context, digest, Store.CAS, in, force);
+    } catch (IOException e) {
+      return Futures.immediateFailedFuture(e);
+    }
   }
 
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return executorService.submit(
-        () -> {
-          try (InputStream in = data.newInput()) {
-            saveFile(digest, Store.CAS, in);
-          }
-          return null;
-        });
+    return uploadBlob(context, digest, data, /* force= */ false);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
+    try (InputStream in = data.newInput()) {
+      return uploadInternal(context, digest, Store.CAS, in, force);
+    } catch (IOException e) {
+      return Futures.immediateFailedFuture(e);
+    }
   }
 
   @Override

@@ -75,35 +75,47 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
+    public ListenableFuture<Void> uploadFile(
+        RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadFile(context, digest, file, /*force=*/false);
+  }  
+
+  @Override
   public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     ListenableFuture<Void> future = Futures.immediateVoidFuture();
 
     if (context.getWriteCachePolicy().allowDiskCache()) {
-      future = diskCache.uploadFile(context, digest, file);
+      future = diskCache.uploadFile(context, digest, file, force);
     }
 
     if (context.getWriteCachePolicy().allowRemoteCache()) {
       future =
           Futures.transformAsync(
-              future, v -> remoteCache.uploadFile(context, digest, file), directExecutor());
+              future, v -> remoteCache.uploadFile(context, digest, file, force), directExecutor());
     }
     return future;
   }
 
+  
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    return uploadBlob(context, digest, data, /*force=*/false);
+  }
+  @Override
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
     ListenableFuture<Void> future = Futures.immediateVoidFuture();
 
     if (context.getWriteCachePolicy().allowDiskCache()) {
-      future = diskCache.uploadBlob(context, digest, data);
+      future = diskCache.uploadBlob(context, digest, data, force);
     }
 
     if (context.getWriteCachePolicy().allowRemoteCache()) {
       future =
           Futures.transformAsync(
-              future, v -> remoteCache.uploadBlob(context, digest, data), directExecutor());
+              future, v -> remoteCache.uploadBlob(context, digest, data, force), directExecutor());
     }
     return future;
   }
