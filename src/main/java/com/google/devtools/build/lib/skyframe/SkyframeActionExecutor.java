@@ -429,10 +429,8 @@ public final class SkyframeActionExecutor {
    * Called to prepare action execution states for rewinding after {@code failedAction} observed
    * lost inputs.
    */
-  void prepareForRewinding(
-      ActionLookupData failedKey,
-      Action failedAction,
-      ImmutableList<Action> depsToRewind) {
+  public void prepareForRewinding(
+      ActionLookupData failedKey, Action failedAction, ImmutableList<Action> depsToRewind) {
     var ownerlessArtifactWrapper = new OwnerlessArtifactWrapper(failedAction.getPrimaryOutput());
     ActionExecutionState state = buildActionMap.get(ownerlessArtifactWrapper);
     if (state != null) {

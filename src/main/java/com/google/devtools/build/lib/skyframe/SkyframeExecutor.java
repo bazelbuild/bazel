@@ -718,7 +718,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             syscallCache));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
-    this.actionRewindStrategy = new ActionRewindStrategy(bugReporter);
+    this.actionRewindStrategy = new ActionRewindStrategy(skyframeActionExecutor, bugReporter);
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
@@ -2358,7 +2358,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Returns the value of a node that the caller knows to be done. May be called intra-evaluation.
    * Null values and interrupts are unexpected, and will cause a {@link
    * FailureToRetrieveIntrospectedValueException}. Callers should handle gracefully, probably via
-   * {@link BugReport}.
+   * {@link BugReporter}.
    */
   @ThreadSafety.ThreadSafe
   public SkyValue getDoneSkyValueForIntrospection(SkyKey key)

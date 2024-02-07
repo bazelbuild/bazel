@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -89,8 +88,6 @@ import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.Artifact
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostprocessing;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
-import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy.RewindPlan;
-import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.Pair;
@@ -182,11 +179,16 @@ public final class ActionExecutionFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionExecutionFunctionException, InterruptedException {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
+    Action action = ActionUtils.getActionForLookupData(env, actionLookupData);
+    if (action == null) {
+      return null;
+    }
     try {
-      return computeInternal(actionLookupData, env);
+      return computeInternal(actionLookupData, action, env);
     } catch (ActionExecutionFunctionException e) {
       skyframeActionExecutor.recordExecutionError();
       throw e;
@@ -195,18 +197,15 @@ public final class ActionExecutionFunction implements SkyFunction {
           skyframeActionExecutor.rewindingEnabled(),
           "Unexpected undone inputs: %s",
           e.undoneInputs);
-      return ActionRewindStrategy.patchNestedSetGraphToPropagateError(
-          actionLookupData, e.undoneInputs, e.inputDepKeys);
+      return actionRewindStrategy.patchNestedSetGraphToPropagateError(
+          actionLookupData, action, e.undoneInputs, e.inputDepKeys);
     }
   }
 
   @Nullable
-  private SkyValue computeInternal(ActionLookupData actionLookupData, Environment env)
+  private SkyValue computeInternal(
+      ActionLookupData actionLookupData, Action action, Environment env)
       throws ActionExecutionFunctionException, InterruptedException, UndoneInputsException {
-    Action action = ActionUtils.getActionForLookupData(env, actionLookupData);
-    if (action == null) {
-      return null;
-    }
     skyframeActionExecutor.noteActionEvaluationStarted(actionLookupData, action);
     if (Actions.dependsOnBuildId(action)) {
       PrecomputedValue.BUILD_ID.get(env);
@@ -525,17 +524,20 @@ public final class ActionExecutionFunction implements SkyFunction {
       failedActionDeps = inputDepKeys;
     }
 
-    RewindPlan rewindPlan = null;
+    Reset rewindPlan = null;
     try {
       ActionInputDepOwners inputDepOwners =
           createAugmentedInputDepOwners(e, action, inputDepKeys, env, allInputs);
       rewindPlan =
-          actionRewindStrategy.getRewindPlan(
-              actionLookupData, action, failedActionDeps, e, inputDepOwners, env);
+          actionRewindStrategy.prepareRewindPlan(
+              actionLookupData,
+              action,
+              failedActionDeps,
+              e,
+              inputDepOwners,
+              env,
+              actionStartTimeNanos);
     } catch (ActionRewindException rewindingFailedException) {
-      // This ensures coalesced shared actions aren't orphaned.
-      skyframeActionExecutor.prepareForRewinding(
-          actionLookupData, action, /* depsToRewind= */ ImmutableList.of());
       throw new ActionExecutionFunctionException(
           new AlreadyReportedActionExecutionException(
               skyframeActionExecutor.processAndGetExceptionToThrow(
@@ -549,39 +551,28 @@ public final class ActionExecutionFunction implements SkyFunction {
                       rewindingFailedException.getDetailedExitCode()),
                   e.getFileOutErr(),
                   ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
-    } catch (UndoneInputsException undoneInputsException) {
-      // Obsolete the ActionExecutionState so that after rewinding, we will check inputs again and
-      // discover the propagated exception.
-      skyframeActionExecutor.prepareForRewinding(
-          actionLookupData, action, /* depsToRewind= */ ImmutableList.of());
-      throw undoneInputsException;
     } finally {
-      if (e.isActionStartedEventAlreadyEmitted()) {
+      if (e.isActionStartedEventAlreadyEmitted() && rewindPlan == null) {
+        // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an
+        // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
+        // must emit one to compensate.
         ActionInputMetadataProvider inputMetadataProvider =
             new ActionInputMetadataProvider(
                 skyframeActionExecutor.getExecRoot().asFragment(),
                 state.inputArtifactData,
                 state.getExpandedFilesets());
-
-        Postable event =
-            rewindPlan != null
-                ? new ActionRewoundEvent(actionStartTimeNanos, BlazeClock.nanoTime(), action)
-                // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an
-                // ActionCompletionEvent because it hoped rewinding would fix things. Because it
-                // won't, this must emit one to compensate.
-                : new ActionCompletionEvent(
+        env.getListener()
+            .post(
+                new ActionCompletionEvent(
                     actionStartTimeNanos,
                     BlazeClock.nanoTime(),
                     action,
                     inputMetadataProvider,
-                    actionLookupData);
-        env.getListener().post(event);
+                    actionLookupData));
       }
     }
 
-    skyframeActionExecutor.prepareForRewinding(
-        actionLookupData, action, rewindPlan.getDepsToRewind());
-    return rewindPlan.getReset();
+    return rewindPlan;
   }
 
   /**
