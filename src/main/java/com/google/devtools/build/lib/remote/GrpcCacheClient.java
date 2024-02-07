@@ -55,8 +55,10 @@ import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.zstd.ZstdDecompressingOutputStream;
@@ -68,6 +70,7 @@ import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.ClientResponseObserver;
+import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -94,6 +97,8 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   private final int maxMissingBlobsDigestsPerMessage;
 
   private AtomicBoolean closed = new AtomicBoolean();
+
+  protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
   @VisibleForTesting
   public GrpcCacheClient(
@@ -492,25 +497,53 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path path) {
-    return uploadChunker(
+    return uploadFile(context, digest, path, /* force= */ false);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path path, boolean force) {
+    return uploadChunkerCached(
         context,
         digest,
         Chunker.builder()
             .setInput(digest.getSizeBytes(), path)
             .setCompressed(shouldCompress(digest))
-            .build());
+            .build(),
+        force);
   }
 
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadChunker(
+    return uploadBlob(context, digest, data, /* force= */ false);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
+    return uploadChunkerCached(
         context,
         digest,
         Chunker.builder()
             .setInput(data.toByteArray())
             .setCompressed(shouldCompress(digest))
-            .build());
+            .build(),
+        force);
+  }
+
+  private ListenableFuture<Void> uploadChunkerCached(
+      RemoteActionExecutionContext context, Digest digest, Chunker chunker, boolean force) {
+    Completable upload =
+        casUploadCache.execute(
+            digest,
+            RxFutures.toCompletable(
+                () -> {
+                  return uploadChunker(context, digest, chunker);
+                },
+                MoreExecutors.directExecutor()),
+            force);
+    return RxFutures.toListenableFuture(upload);
   }
 
   ListenableFuture<Void> uploadChunker(
