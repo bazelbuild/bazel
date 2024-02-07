@@ -36,7 +36,7 @@ def _check_srcs_package(target_package, srcs):
 def _get_import_prefix(ctx):
     """Gets and verifies import_prefix attribute if it is declared."""
 
-    import_prefix = ctx.attr.import_prefix if hasattr(ctx.attr, "import_prefix") else ""
+    import_prefix = ctx.attr.import_prefix
 
     if not paths.is_normalized(import_prefix):
         fail("should be normalized (without uplevel references or '.' path segments)", attr = "import_prefix")
@@ -61,8 +61,6 @@ def _get_strip_import_prefix(ctx):
     return strip_import_prefix.removesuffix("/")
 
 def _proto_library_impl(ctx):
-    semantics.preprocess(ctx)
-
     # Verifies attributes.
     _check_srcs_package(ctx.label.package, ctx.attr.srcs)
     srcs = ctx.files.srcs
@@ -247,6 +245,7 @@ proto_library = rule(
             providers = [ProtoInfo],
         ),
         "strip_import_prefix": attr.string(default = "/"),
+        "import_prefix": attr.string(),
         "allow_exports": attr.label(
             cfg = "exec",
             providers = [PackageSpecificationInfo],
@@ -263,9 +262,8 @@ proto_library = rule(
             allow_files = True,
             default = configuration_field("proto", "proto_compiler"),
         ),
-    }) | semantics.EXTRA_ATTRIBUTES,
-    fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
+    }),
+    fragments = ["proto"],
     provides = [ProtoInfo],
-    exec_groups = semantics.EXEC_GROUPS,
     toolchains = toolchains.use_toolchain(semantics.PROTO_TOOLCHAIN),
 )
