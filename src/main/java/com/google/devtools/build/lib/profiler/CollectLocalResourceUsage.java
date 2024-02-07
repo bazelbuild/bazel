@@ -213,7 +213,8 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
         }
         double pressureStallIo = 0;
         double pressureStallMemory = 0;
-        if (collectPressureStallIndicators) {
+        // The pressure stall indicators are only available on Linux.
+        if (collectPressureStallIndicators && OS.getCurrent() == OS.LINUX) {
           pressureStallIo = ResourceUsage.readPressureStallIndicator("io");
           pressureStallMemory = ResourceUsage.readPressureStallIndicator("memory");
         }
