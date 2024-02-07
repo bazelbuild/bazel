@@ -24,6 +24,7 @@ load(
     "feature",
     "flag_group",
     "flag_set",
+    "make_variable",
     "tool",
     "tool_path",
     "variable_with_value",
@@ -1394,6 +1395,11 @@ def _impl(ctx):
         for name, path in ctx.attr.tool_paths.items()
     ]
 
+    make_variables = []
+    # dumpbin.exe is not available in MSYS toolchain
+    if "dumpbin" in ctx.attr.tool_paths:
+        make_variables.append(make_variable(name = "DUMPBIN", value = ctx.attr.tool_paths["dumpbin"]))
+
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
         features = features,
@@ -1409,6 +1415,7 @@ def _impl(ctx):
         abi_version = ctx.attr.abi_version,
         abi_libc_version = ctx.attr.abi_libc_version,
         tool_paths = tool_paths,
+        make_variables = make_variables,
     )
 
 cc_toolchain_config = rule(
