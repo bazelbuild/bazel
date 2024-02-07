@@ -330,6 +330,7 @@ public abstract class FileSystem {
    * filesystem doesn't support them. This digest should be suitable for detecting changes to the
    * file.
    */
+  @Nullable
   protected byte[] getFastDigest(PathFragment path) throws IOException {
     return null;
   }

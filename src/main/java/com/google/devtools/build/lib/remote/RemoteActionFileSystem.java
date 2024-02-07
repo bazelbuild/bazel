@@ -108,21 +108,21 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Nullable private ActionExecutionMetadata action = null;
 
-  /** Describes how to handle symlinks when calling {@link #statUnchecked}. */
+  /** Describes how to handle symlinks when calling {@link #statInternal}. */
   private enum FollowMode {
-    /** Dereference the entire path. This is equivalent to {@link Symlinks.FOLLOW}. */
+    /** Canonicalize the entire path. This is equivalent to {@link Symlinks.FOLLOW}. */
     FOLLOW_ALL,
-    /** Dereference the parent path. This is equivalent to {@link Symlinks.NOFOLLOW}. */
+    /** Canonicalize the parent path. This is equivalent to {@link Symlinks.NOFOLLOW}. */
     FOLLOW_PARENT,
-    /** Do not dereference. This is only used internally to resolve symlinks efficiently. */
+    /** Do not canonicalize. This is only used internally to resolve symlinks efficiently. */
     FOLLOW_NONE
   };
 
-  /** Describes which sources to consider when statting a file. */
+  /** Describes which sources to consider when calling {@link #statInternal}. */
   private enum StatSources {
-    /** Consider all sources (action input map, in-memory filesystem and local filesystem). */
+    /** Consider all sources (action input map, remote output tree and local filesystem). */
     ALL,
-    /** Consider only in-memory sources (action input map and in-memory filesystem). */
+    /** Consider only in-memory sources (action input map and remote output tree). */
     IN_MEMORY_ONLY,
   }
 
@@ -285,13 +285,9 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   private boolean isRemote(PathFragment path) throws IOException {
     // Files in the local filesystem are non-remote by definition, so stat only in-memory sources.
-    try {
-      var status = statUnchecked(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
-      return (status instanceof FileStatusWithMetadata)
-          && ((FileStatusWithMetadata) status).getMetadata().isRemote();
-    } catch (FileNotFoundException e) {
-      return false;
-    }
+    var status = statInternal(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
+    return (status instanceof FileStatusWithMetadata)
+        && ((FileStatusWithMetadata) status).getMetadata().isRemote();
   }
 
   public void updateContext(ActionExecutionMetadata action) {
@@ -377,18 +373,15 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  @Nullable
   protected byte[] getFastDigest(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
     // effectively the same as FOLLOW_PARENT, but more efficient.
-    try {
-      var status = statUnchecked(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
-      if (status instanceof FileStatusWithDigest) {
-        return ((FileStatusWithDigest) status).getDigest();
-      }
-    } catch (FileNotFoundException e) {
-      // Intentionally ignored.
+    var status = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
+    if (status instanceof FileStatusWithDigest) {
+      return ((FileStatusWithDigest) status).getDigest();
     }
     return localFs.getPath(path).getFastDigest();
   }
@@ -399,13 +392,9 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
     // effectively the same as FOLLOW_PARENT, but more efficient.
-    try {
-      var status = statUnchecked(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
-      if (status instanceof FileStatusWithDigest) {
-        return ((FileStatusWithDigest) status).getDigest();
-      }
-    } catch (FileNotFoundException e) {
-      // Intentionally ignored.
+    var status = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
+    if (status instanceof FileStatusWithDigest) {
+      return ((FileStatusWithDigest) status).getDigest();
     }
     return localFs.getPath(path).getDigest();
   }
@@ -541,7 +530,10 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     //
     // The parent path has already been canonicalized, so FOLLOW_NONE is effectively the same as
     // FOLLOW_PARENT, but much more efficient as it doesn't call stat recursively.
-    var stat = statUnchecked(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
+    var stat = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
+    if (stat == null) {
+      throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
+    }
     return stat.isSymbolicLink() ? readSymbolicLink(path) : null;
   }
 
@@ -566,34 +558,45 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
+  @Override
+  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+    FileStatus stat = statIfFound(path, followSymlinks);
+    if (stat == null) {
+      throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
+    }
+    return stat;
+  }
+
   @Nullable
   @Override
   protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
-    try {
-      return stat(path, followSymlinks);
-    } catch (FileNotFoundException e) {
-      return null;
-    }
+    return statInternal(
+        path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
 
   @Nullable
   @Override
   protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     try {
-      return stat(path, followSymlinks);
+      return statIfFound(path, followSymlinks);
     } catch (IOException e) {
       return null;
     }
   }
 
-  @Override
-  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    return statUnchecked(
-        path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
-  }
-
-  private FileStatus statUnchecked(
-      PathFragment path, FollowMode followMode, StatSources statSources) throws IOException {
+  /**
+   * Internal stat implementation.
+   *
+   * @param path the path to stat
+   * @param followMode whether and how to canonicalize the path
+   * @param statSources which sources to consider
+   * @return the file status on success, or null if the file was not found in any of the sources
+   *     under consideration
+   * @throws IOException if an error other than file not found occurred
+   */
+  @Nullable
+  private FileStatus statInternal(PathFragment path, FollowMode followMode, StatSources statSources)
+      throws IOException {
     // Canonicalize the path.
     if (followMode == FollowMode.FOLLOW_ALL) {
       path = resolveSymbolicLinks(path).asFragment();
@@ -623,10 +626,10 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     }
 
     if (statSources == StatSources.ALL) {
-      return localFs.getPath(path).stat(Symlinks.NOFOLLOW);
+      return localFs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
     }
 
-    throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
+    return null;
   }
 
   private static FileStatusWithMetadata statFromMetadata(FileArtifactValue m) {
