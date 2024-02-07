@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "5f974fd5881c9dca4e2cb5b533a6777769be705af9117dc35cfa4568cea9be49",
+  "moduleFileHash": "4d4b578dd607ef6ca79369c6c5d896c09e9aaa0fa4787f7865333fb2303d5b70",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -238,7 +238,7 @@
                 "testonly": true,
                 "artifact": "truth",
                 "group": "com.google.truth",
-                "version": "1.4.0"
+                "version": "1.3.0"
               },
               "devDependency": false,
               "location": {
@@ -253,7 +253,7 @@
                 "testonly": true,
                 "artifact": "truth-java8-extension",
                 "group": "com.google.truth.extensions",
-                "version": "1.4.0"
+                "version": "1.3.0"
               },
               "devDependency": false,
               "location": {
@@ -268,7 +268,7 @@
                 "testonly": true,
                 "artifact": "truth-liteproto-extension",
                 "group": "com.google.truth.extensions",
-                "version": "1.4.0"
+                "version": "1.3.0"
               },
               "devDependency": false,
               "location": {
@@ -283,7 +283,7 @@
                 "testonly": true,
                 "artifact": "truth-proto-extension",
                 "group": "com.google.truth.extensions",
-                "version": "1.4.0"
+                "version": "1.3.0"
               },
               "devDependency": false,
               "location": {
@@ -2742,7 +2742,7 @@
         "bzlTransitiveDigest": "wiyY30lgHvAgghminN0h4lxMWexDIg/6r/+eOIA5bPU=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "ed93fcc527529036d5c4ddf2a35e451ce53d47d9ee2e3d838c1c68bf1422c8eb",
-          "@@//:MODULE.bazel": "5f974fd5881c9dca4e2cb5b533a6777769be705af9117dc35cfa4568cea9be49"
+          "@@//:MODULE.bazel": "4d4b578dd607ef6ca79369c6c5d896c09e9aaa0fa4787f7865333fb2303d5b70"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -5353,7 +5353,7 @@
       "general": {
         "bzlTransitiveDigest": "ZfFFJr1eI3/nwAJgyEcYi9fjDDO/97v19BWbwVi0WeE=",
         "accumulatedFileDigests": {
-          "@@//:maven_install.json": "89746217319ae862ea1c136c4c9de910ad67d4c2473a47706c1d5af72768c1b7",
+          "@@//:maven_install.json": "c53cb94d72fa691d97888c8bd722a04c92fc6369c5b33c1680cc4b20ddd1269a",
           "@@rules_jvm_external~6.0//:rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
           "@@//src/tools/android:maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f"
         },
@@ -5981,10 +5981,10 @@
                 "{ \"group\": \"com.google.jimfs\", \"artifact\": \"jimfs\", \"version\": \"1.2\", \"testonly\": true }",
                 "{ \"group\": \"com.google.testing.compile\", \"artifact\": \"compile-testing\", \"version\": \"0.18\", \"testonly\": true }",
                 "{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.0\", \"testonly\": true }",
-                "{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.4.0\", \"testonly\": true }",
-                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-java8-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
-                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-liteproto-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
-                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-proto-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
+                "{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.3.0\", \"testonly\": true }",
+                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-java8-extension\", \"version\": \"1.3.0\", \"testonly\": true }",
+                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-liteproto-extension\", \"version\": \"1.3.0\", \"testonly\": true }",
+                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-proto-extension\", \"version\": \"1.3.0\", \"testonly\": true }",
                 "{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"5.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.beust\", \"artifact\": \"jcommander\", \"version\": \"1.82\" }",
                 "{ \"group\": \"com.github.ben-manes.caffeine\", \"artifact\": \"caffeine\", \"version\": \"3.0.5\" }",
@@ -7212,6 +7212,18 @@
               "downloaded_file_path": "v1/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar"
             }
           },
+          "com_google_truth_extensions_truth_proto_extension_1_3_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "rules_jvm_external~6.0~maven~com_google_truth_extensions_truth_proto_extension_1_3_0",
+              "sha256": "22bc50d86f0eea621fb249dfa2f0c3d62ca1fc073b14b120b0da161f325d52e7",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/truth/extensions/truth-proto-extension/1.3.0/truth-proto-extension-1.3.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/truth/extensions/truth-proto-extension/1.3.0/truth-proto-extension-1.3.0.jar"
+            }
+          },
           "io_netty_netty_transport_native_unix_common_jar_osx_aarch_64_4_1_93_Final": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -7665,6 +7677,18 @@
               "downloaded_file_path": "v1/com/google/guava/guava-testlib/33.0.0-jre/guava-testlib-33.0.0-jre.jar"
             }
           },
+          "com_google_truth_extensions_truth_liteproto_extension_1_3_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "rules_jvm_external~6.0~maven~com_google_truth_extensions_truth_liteproto_extension_1_3_0",
+              "sha256": "b63ebff4d2698ea6f3ca2523cf723027e96395b6646bca4412137367c7fec456",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/truth/extensions/truth-liteproto-extension/1.3.0/truth-liteproto-extension-1.3.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/truth/extensions/truth-liteproto-extension/1.3.0/truth-liteproto-extension-1.3.0.jar"
+            }
+          },
           "org_apache_maven_maven_artifact_3_9_4": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -7675,18 +7699,6 @@
                 "https://repo1.maven.org/maven2/org/apache/maven/maven-artifact/3.9.4/maven-artifact-3.9.4.jar"
               ],
               "downloaded_file_path": "v1/org/apache/maven/maven-artifact/3.9.4/maven-artifact-3.9.4.jar"
-            }
-          },
-          "com_google_truth_truth_1_4_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "rules_jvm_external~6.0~maven~com_google_truth_truth_1_4_0",
-              "sha256": "235c28e96ee6701ab01cc852fb294cb0f34756f636a8154b9aef08fb1215bbc4",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/truth/truth/1.4.0/truth-1.4.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/truth/truth/1.4.0/truth-1.4.0.jar"
             }
           },
           "com_android_tools_build_apksig_7_1_3": {
@@ -7797,6 +7809,18 @@
                 "https://repo1.maven.org/maven2/io/netty/netty-codec-dns/4.1.93.Final/netty-codec-dns-4.1.93.Final.jar"
               ],
               "downloaded_file_path": "v1/io/netty/netty-codec-dns/4.1.93.Final/netty-codec-dns-4.1.93.Final.jar"
+            }
+          },
+          "com_google_truth_extensions_truth_java8_extension_1_3_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "rules_jvm_external~6.0~maven~com_google_truth_extensions_truth_java8_extension_1_3_0",
+              "sha256": "7b25e309a9232e1230fa30a4db9758c8bbee937664ba2ba1ec106b6fcdb3d8ec",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/truth/extensions/truth-java8-extension/1.3.0/truth-java8-extension-1.3.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/truth/extensions/truth-java8-extension/1.3.0/truth-java8-extension-1.3.0.jar"
             }
           },
           "io_netty_netty_transport_native_unix_common_jar_linux_x86_64_4_1_93_Final": {
@@ -8190,6 +8214,18 @@
               "downloaded_file_path": "v1/io/grpc/grpc-protobuf-lite/1.48.1/grpc-protobuf-lite-1.48.1.jar"
             }
           },
+          "com_google_truth_truth_1_3_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "rules_jvm_external~6.0~maven~com_google_truth_truth_1_3_0",
+              "sha256": "5e74b4879d1f824978703d7afb99327a37ed75b4fd33198ac00dfe8104afbec9",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/truth/truth/1.3.0/truth-1.3.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/truth/truth/1.3.0/truth-1.3.0.jar"
+            }
+          },
           "software_amazon_awssdk_third_party_jackson_core_2_20_128": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -8421,18 +8457,6 @@
                 "https://repo1.maven.org/maven2/com/google/http-client/google-http-client/1.43.3/google-http-client-1.43.3.jar"
               ],
               "downloaded_file_path": "v1/com/google/http-client/google-http-client/1.43.3/google-http-client-1.43.3.jar"
-            }
-          },
-          "com_google_truth_extensions_truth_proto_extension_1_4_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "rules_jvm_external~6.0~maven~com_google_truth_extensions_truth_proto_extension_1_4_0",
-              "sha256": "99e6cede45cb1fe962e6ae4e95fb045df8038b01eee03eee362bb073e42f54fc",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/truth/extensions/truth-proto-extension/1.4.0/truth-proto-extension-1.4.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/truth/extensions/truth-proto-extension/1.4.0/truth-proto-extension-1.4.0.jar"
             }
           },
           "io_grpc_grpc_stub_1_48_1": {
@@ -8745,10 +8769,10 @@
                 "{ \"group\": \"com.google.jimfs\", \"artifact\": \"jimfs\", \"version\": \"1.2\", \"testonly\": true }",
                 "{ \"group\": \"com.google.testing.compile\", \"artifact\": \"compile-testing\", \"version\": \"0.18\", \"testonly\": true }",
                 "{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.0\", \"testonly\": true }",
-                "{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.4.0\", \"testonly\": true }",
-                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-java8-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
-                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-liteproto-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
-                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-proto-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
+                "{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.3.0\", \"testonly\": true }",
+                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-java8-extension\", \"version\": \"1.3.0\", \"testonly\": true }",
+                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-liteproto-extension\", \"version\": \"1.3.0\", \"testonly\": true }",
+                "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-proto-extension\", \"version\": \"1.3.0\", \"testonly\": true }",
                 "{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"5.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.beust\", \"artifact\": \"jcommander\", \"version\": \"1.82\" }",
                 "{ \"group\": \"com.github.ben-manes.caffeine\", \"artifact\": \"caffeine\", \"version\": \"3.0.5\" }",
@@ -9135,18 +9159,6 @@
               "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.93.Final/netty-transport-native-unix-common-4.1.93.Final.jar"
             }
           },
-          "com_google_truth_extensions_truth_liteproto_extension_1_4_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "rules_jvm_external~6.0~maven~com_google_truth_extensions_truth_liteproto_extension_1_4_0",
-              "sha256": "2445c955286b8bc58903a853d4b9166000c94e4b95aea6ac9da3e1fdc3e08f10",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/truth/extensions/truth-liteproto-extension/1.4.0/truth-liteproto-extension-1.4.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/truth/extensions/truth-liteproto-extension/1.4.0/truth-liteproto-extension-1.4.0.jar"
-            }
-          },
           "net_bytebuddy_byte_buddy_1_14_5": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -9170,18 +9182,6 @@
                 "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/1.4.32/kotlin-stdlib-common-1.4.32.jar"
               ],
               "downloaded_file_path": "v1/org/jetbrains/kotlin/kotlin-stdlib-common/1.4.32/kotlin-stdlib-common-1.4.32.jar"
-            }
-          },
-          "com_google_truth_extensions_truth_java8_extension_1_4_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "rules_jvm_external~6.0~maven~com_google_truth_extensions_truth_java8_extension_1_4_0",
-              "sha256": "293f4e4c59ce48e8b68651321d2d9f2355534412b221369b2af8ff76e6acf381",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/truth/extensions/truth-java8-extension/1.4.0/truth-java8-extension-1.4.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/truth/extensions/truth-java8-extension/1.4.0/truth-java8-extension-1.4.0.jar"
             }
           },
           "org_jetbrains_intellij_deps_trove4j_1_0_20181211": {
