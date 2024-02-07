@@ -213,6 +213,8 @@ public class BazelLockFileModule extends BlazeModule {
 
   @Subscribe
   public void bazelModuleResolved(BazelModuleResolutionEvent moduleResolutionEvent) {
+    // Latest event wins, which is relevant in the case of `bazel mod tidy`, where a new event is
+    // sent after the command has modified the module file.
     this.moduleResolutionEvent = moduleResolutionEvent;
   }
 

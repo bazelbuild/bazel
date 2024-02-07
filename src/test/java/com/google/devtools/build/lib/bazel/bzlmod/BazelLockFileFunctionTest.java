@@ -232,10 +232,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.of(
-            ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
-                rootValue.getModule(), null, null));
+        ImmutableMap.of(ModuleKey.ROOT, InterimModule.toModule(rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
         UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
@@ -271,10 +268,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.of(
-            ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
-                rootValue.getModule(), null, null));
+        ImmutableMap.of(ModuleKey.ROOT, InterimModule.toModule(rootValue.getModule(), null, null));
 
     ImmutableList<String> yankedVersions = ImmutableList.of("2.4", "2.3");
     LocalPathOverride override = LocalPathOverride.create("override_path");
@@ -335,10 +329,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.of(
-            ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
-                rootValue.getModule(), null, null));
+        ImmutableMap.of(ModuleKey.ROOT, InterimModule.toModule(rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
         UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
@@ -380,10 +371,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.of(
-            ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
-                rootValue.getModule(), null, null));
+        ImmutableMap.of(ModuleKey.ROOT, InterimModule.toModule(rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
         UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
@@ -417,10 +405,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.of(
-            ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
-                rootValue.getModule(), null, null));
+        ImmutableMap.of(ModuleKey.ROOT, InterimModule.toModule(rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
         UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
@@ -460,10 +445,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.of(
-            ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
-                rootValue.getModule(), null, null));
+        ImmutableMap.of(ModuleKey.ROOT, InterimModule.toModule(rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
         UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
@@ -504,10 +486,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.of(
-            ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
-                rootValue.getModule(), null, null));
+        ImmutableMap.of(ModuleKey.ROOT, InterimModule.toModule(rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
         UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
