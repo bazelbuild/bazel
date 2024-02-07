@@ -1371,10 +1371,6 @@ public final class SkyframeBuildView {
     this.enableAnalysis = enable;
   }
 
-  public ActionKeyContext getActionKeyContext() {
-    return skyframeExecutor.getActionKeyContext();
-  }
-
   public StarlarkTransitionCache getStarlarkTransitionCache() {
     return starlarkTransitionCache;
   }

@@ -108,9 +108,6 @@ public abstract class TransitiveTraversalValue implements SkyValue {
     return value;
   }
 
-  /** Returns if the associated target can have any provider. True for "alias" rules. */
-  public abstract boolean canHaveAnyProvider();
-
   /**
    * Returns the set of provider names from the target, if the target is a {@link Rule}. Otherwise
    * returns the empty set.
@@ -164,11 +161,6 @@ public abstract class TransitiveTraversalValue implements SkyValue {
     }
 
     @Override
-    public boolean canHaveAnyProvider() {
-      return advertisedProviders.canHaveAnyProvider();
-    }
-
-    @Override
     public AdvertisedProviderSet getProviders() {
       return advertisedProviders;
     }
@@ -195,11 +187,6 @@ public abstract class TransitiveTraversalValue implements SkyValue {
     private TransitiveTraversalValueWithError(String errorMessage, String kind) {
       super(kind);
       this.errorMessage = StringCanonicalizer.intern(Preconditions.checkNotNull(errorMessage));
-    }
-
-    @Override
-    public boolean canHaveAnyProvider() {
-      return AdvertisedProviderSet.EMPTY.canHaveAnyProvider();
     }
 
     @Override
