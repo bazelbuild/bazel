@@ -42,8 +42,8 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   final Path sandboxExecRoot;
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
-  final SandboxInputs inputs;
-  final SandboxOutputs outputs;
+  protected final SandboxInputs inputs;
+  protected final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
   protected final TreeDeleter treeDeleter;
   @Nullable private final Path sandboxDebugPath;
