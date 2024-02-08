@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import javax.annotation.Nullable;
@@ -49,12 +50,14 @@ class TargetCompletor
       PathResolverFactory pathResolverFactory,
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
+      ActionRewindStrategy actionRewindStrategy,
       BugReporter bugReporter) {
     return new CompletionFunction<>(
         pathResolverFactory,
         new TargetCompletor(skyframeActionExecutor),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
+        actionRewindStrategy,
         bugReporter);
   }
 

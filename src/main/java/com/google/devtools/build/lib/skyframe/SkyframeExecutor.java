@@ -562,6 +562,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
+    this.actionRewindStrategy = new ActionRewindStrategy(skyframeActionExecutor, bugReporter);
     BzlLoadFunction bzlLoadFunctionForInliningPackageAndWorkspaceNodes =
         getBzlLoadFunctionForInliningPackageAndWorkspaceNodes();
 
@@ -706,11 +707,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.TARGET_COMPLETION,
         TargetCompletor.targetCompletionFunction(
-            pathResolverFactory, skyframeActionExecutor, topLevelArtifactsMetric, bugReporter));
+            pathResolverFactory,
+            skyframeActionExecutor,
+            topLevelArtifactsMetric,
+            actionRewindStrategy,
+            bugReporter));
     map.put(
         SkyFunctions.ASPECT_COMPLETION,
         AspectCompletor.aspectCompletionFunction(
-            pathResolverFactory, skyframeActionExecutor, topLevelArtifactsMetric, bugReporter));
+            pathResolverFactory,
+            skyframeActionExecutor,
+            topLevelArtifactsMetric,
+            actionRewindStrategy,
+            bugReporter));
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
     map.put(
         Artifact.ARTIFACT,
@@ -720,7 +729,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             syscallCache));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
-    this.actionRewindStrategy = new ActionRewindStrategy(skyframeActionExecutor, bugReporter);
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,

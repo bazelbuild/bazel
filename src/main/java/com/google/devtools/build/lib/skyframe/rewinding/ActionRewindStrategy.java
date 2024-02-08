@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.ActionUtils;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.ArtifactDependencies;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
+import com.google.devtools.build.lib.skyframe.TopLevelActionLookupKeyWrapper;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
@@ -95,6 +96,34 @@ public final class ActionRewindStrategy {
   }
 
   /**
+   * Returns a {@link Reset} specifying the Skyframe nodes to rewind to recreate lost outputs
+   * observed by a top-level completion function.
+   *
+   * <p>Also prepares {@link SkyframeActionExecutor} for the rewind plan.
+   */
+  // TODO: b/321044105 - Incorporate checkIfActionLostInputTooManyTimes and add stats.
+  public Reset prepareRewindPlanForLostTopLevelOutputs(
+      TopLevelActionLookupKeyWrapper failedKey,
+      Set<SkyKey> failedKeyDeps,
+      ImmutableMap<String, ActionInput> lostOutputsByDigest,
+      ActionInputDepOwners depOwners,
+      Environment env)
+      throws InterruptedException {
+    checkState(
+        skyframeActionExecutor.rewindingEnabled(),
+        "Unexpected lost outputs: %s",
+        lostOutputsByDigest);
+    ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
+    Reset rewindPlan =
+        prepareRewindPlan(
+            failedKey, failedKeyDeps, lostOutputsByDigest, depOwners, env, depsToRewind);
+    for (Action dep : depsToRewind.build()) {
+      skyframeActionExecutor.prepareDepForRewinding(failedKey, dep);
+    }
+    return rewindPlan;
+  }
+
+  /**
    * Returns a {@link Reset} specifying the Skyframe nodes to rewind to recreate the lost inputs
    * specified by {@code lostInputsException}.
    *
@@ -104,7 +133,7 @@ public final class ActionRewindStrategy {
    * @throws ActionRewindException if any lost inputs have been seen by this action as lost before
    *     too many times
    */
-  public Reset prepareRewindPlan(
+  public Reset prepareRewindPlanForLostInputs(
       ActionLookupData failedKey,
       Action failedAction,
       Set<SkyKey> failedActionDeps,
@@ -113,18 +142,53 @@ public final class ActionRewindStrategy {
       Environment env,
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
+    checkState(
+        skyframeActionExecutor.rewindingEnabled(),
+        "Unexpected lost inputs: %s",
+        lostInputsException.getLostInputs());
     ImmutableList<LostInputRecord> lostInputRecordsThisAction =
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsException);
 
-    ImmutableList<ActionInput> lostInputs = lostInputsException.getLostInputs().values().asList();
+    ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
+    Reset rewindPlan =
+        prepareRewindPlan(
+            failedKey,
+            failedActionDeps,
+            lostInputsException.getLostInputs(),
+            inputDepOwners,
+            env,
+            depsToRewind);
+
+    int lostInputRecordsCount = lostInputRecordsThisAction.size();
+    rewindPlansStats.add(
+        RewindPlanStats.create(
+            failedAction,
+            rewindPlan.rewindGraph().nodes().size(),
+            lostInputRecordsCount,
+            lostInputRecordsThisAction.subList(
+                0, Math.min(lostInputRecordsCount, MAX_LOST_INPUTS_RECORDED))));
+
+    if (lostInputsException.isActionStartedEventAlreadyEmitted()) {
+      env.getListener()
+          .post(new ActionRewoundEvent(actionStartTimeNanos, BlazeClock.nanoTime(), failedAction));
+    }
+    skyframeActionExecutor.prepareForRewinding(failedKey, failedAction, depsToRewind.build());
+    return rewindPlan;
+  }
+
+  private Reset prepareRewindPlan(
+      SkyKey failedKey,
+      Set<SkyKey> failedActionDeps,
+      ImmutableMap<String, ActionInput> lostInputsByDigest,
+      ActionInputDepOwners inputDepOwners,
+      Environment env,
+      ImmutableList.Builder<Action> depsToRewind)
+      throws InterruptedException {
+    ImmutableList<ActionInput> lostInputs = lostInputsByDigest.values().asList();
 
     // This graph tracks which Skyframe nodes must be rewound and the dependency relationships
     // between them.
     MutableGraph<SkyKey> rewindGraph = Reset.newRewindGraphFor(failedKey);
-
-    // SkyframeActionExecutor must re-execute the actions being rewound, so we must tell it to evict
-    // its cached results for those actions. This collection tracks those actions.
-    ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
 
     // With NSOS, not all input artifacts' keys are direct deps of the action. This maps input
     // artifacts to their containing direct dep ArtifactNestedSetKey(s).
@@ -132,13 +196,13 @@ public final class ActionRewindStrategy {
 
     Set<DerivedArtifact> lostArtifacts =
         getLostInputOwningDirectDeps(
+            failedKey,
             lostInputs,
             inputDepOwners,
             ImmutableSet.<SkyKey>builder()
                 .addAll(failedActionDeps)
                 .addAll(Artifact.keys(nestedSetKeys.keySet()))
-                .build(),
-            failedAction);
+                .build());
 
     for (DerivedArtifact lostArtifact : lostArtifacts) {
       SkyKey artifactKey = Artifact.key(lostArtifact);
@@ -164,21 +228,6 @@ public final class ActionRewindStrategy {
       checkActions(newlyVisitedActions, env, rewindGraph, depsToRewind);
     }
 
-    int lostInputRecordsCount = lostInputRecordsThisAction.size();
-    rewindPlansStats.add(
-        RewindPlanStats.create(
-            failedAction,
-            rewindGraph.nodes().size(),
-            lostInputRecordsCount,
-            lostInputRecordsThisAction.subList(
-                0, Math.min(lostInputRecordsCount, MAX_LOST_INPUTS_RECORDED))));
-
-    if (lostInputsException.isActionStartedEventAlreadyEmitted()) {
-      env.getListener()
-          .post(new ActionRewoundEvent(actionStartTimeNanos, BlazeClock.nanoTime(), failedAction));
-    }
-    skyframeActionExecutor.prepareForRewinding(failedKey, failedAction, depsToRewind.build());
-
     return Reset.of(rewindGraph);
   }
 
@@ -203,6 +252,8 @@ public final class ActionRewindStrategy {
       Action failedAction,
       ImmutableList<Artifact> undoneInputs,
       ImmutableSet<SkyKey> failedActionDeps) {
+    checkState(
+        skyframeActionExecutor.rewindingEnabled(), "Unexpected undone inputs: %s", undoneInputs);
     MutableGraph<SkyKey> rewindGraph = Reset.newRewindGraphFor(failedKey);
     Multimap<Artifact, ArtifactNestedSetKey> nestedSetKeys = expandNestedSetKeys(failedActionDeps);
     for (Artifact input : undoneInputs) {
@@ -301,10 +352,10 @@ public final class ActionRewindStrategy {
   }
 
   private Set<DerivedArtifact> getLostInputOwningDirectDeps(
+      SkyKey failedKey,
       ImmutableList<ActionInput> lostInputs,
       ActionInputDepOwners inputDepOwners,
-      Set<SkyKey> failedActionDeps,
-      Action failedAction) {
+      Set<SkyKey> failedActionDeps) {
     Set<DerivedArtifact> lostInputOwningDirectDeps = new HashSet<>();
     for (ActionInput lostInput : lostInputs) {
       boolean foundLostInputDepOwner = false;
@@ -357,8 +408,8 @@ public final class ActionRewindStrategy {
             new IllegalStateException(
                 String.format(
                     "Lost input not a dep of the failed action and can't be associated with such"
-                        + " a dep. lostInput: %s, owners: %s, failedAction: %s",
-                    lostInput, owners, failedAction.describe())));
+                        + " a dep. lostInput: %s, owners: %s, failedKey: %s",
+                    lostInput, owners, failedKey)));
       }
     }
     return lostInputOwningDirectDeps;
@@ -727,7 +778,7 @@ public final class ActionRewindStrategy {
    */
   private static void addNestedSetToRewindGraph(
       MutableGraph<SkyKey> rewindGraph,
-      ActionLookupData failedKey,
+      SkyKey failedKey,
       Artifact lostArtifact,
       ArtifactNestedSetKey directDep) {
     SkyKey current = failedKey;

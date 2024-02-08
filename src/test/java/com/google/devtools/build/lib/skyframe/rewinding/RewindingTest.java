@@ -54,6 +54,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     return super.getRuntimeBuilder()
         .addBlazeModule(new IncludeScanningModule())
         .addBlazeModule(helper.makeControllableActionStrategyModule("standalone"))
+        .addBlazeModule(helper.getLostOutputsModule())
         .addBlazeModule(
             new BlazeModule() {
               @Override
@@ -250,5 +251,10 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   public void discoveredCppModuleLost() throws Exception {
     skipIfBazel();
     helper.runDiscoveredCppModuleLost();
+  }
+
+  @Test
+  public void topLevelOutputRewound_regularFile() throws Exception {
+    helper.runTopLevelOutputRewound_regularFile();
   }
 }

@@ -53,8 +53,10 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.exec.SpawnExecException;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
@@ -135,10 +137,16 @@ public class RewindingTestsHelper {
   final ActionEventRecorder recorder;
   final BuildIntegrationTestCase testCase;
   private final SpawnController spawnController = new SpawnController();
+  final LostImportantOutputHandlerModule lostOutputsModule =
+      new LostImportantOutputHandlerModule(this::toHex);
 
   RewindingTestsHelper(BuildIntegrationTestCase testCase, ActionEventRecorder recorder) {
     this.testCase = checkNotNull(testCase);
     this.recorder = checkNotNull(recorder);
+  }
+
+  public final BlazeModule getLostOutputsModule() {
+    return lostOutputsModule;
   }
 
   /** Disables remote caching if the execution strategy supports it. */
@@ -2644,6 +2652,34 @@ public class RewindingTestsHelper {
         .hasCount("Compiling foo/dep.cppmap", 2);
   }
 
+  public final void runTopLevelOutputRewound_regularFile() throws Exception {
+    testCase.write(
+        "foo/BUILD", "genrule(name = 'lost', outs = ['lost.out'], cmd = 'echo lost > $@')");
+    lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost.out"));
+    Label fooLost = Label.parseCanonical("//foo:lost");
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
+    Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
+
+    testCase.injectListenerAtStartOfNextBuild(
+        (key, type, order, context) -> {
+          if (type == EventType.MARK_DIRTY
+              || (isActionExecutionKey(key, fooLost) && type == EventType.SET_VALUE)) {
+            // The TargetCompleteEvent should not be emitted until after rewinding completes.
+            // Otherwise, we may publish stale artifact URIs to the BEP.
+            assertThat(targetCompleteEvents).isEmpty();
+          }
+        });
+
+    testCase.buildTarget("//foo:lost");
+
+    lostOutputsModule.verifyAllLostOutputsConsumed();
+    assertThat(rewoundKeys).hasSize(1);
+    assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//foo:lost");
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Executing genrule //foo:lost", 2);
+    assertThat(targetCompleteEvents.keySet()).containsExactly(fooLost);
+  }
+
   static boolean isActionExecutionKey(Object key, Label label) {
     return key instanceof ActionLookupData && label.equals(((ActionLookupData) key).getLabel());
   }
@@ -2675,5 +2711,23 @@ public class RewindingTestsHelper {
               }
             });
     return targetCompleteEvents;
+  }
+
+  /**
+   * Converts a root-relative output path to an exec path, accounting for the top-level
+   * configuration's mnemonic and {@link TestConstants#PRODUCT_NAME}.
+   *
+   * <p>Example: bin/pkg/file.out -> bazel-out/k8-fastbuild/bin/pkg/file.out
+   */
+  private String getExecPath(String rootRelativePath) throws Exception {
+    if (testCase.getConfiguration() == null) {
+      testCase.buildTarget();
+    }
+    return testCase
+        .getConfiguration()
+        .getOutputDirectory(RepositoryName.MAIN)
+        .getExecPath()
+        .getRelative(rootRelativePath)
+        .getPathString();
   }
 }

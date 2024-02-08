@@ -91,6 +91,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
+import javax.annotation.Nullable;
 
 /**
  * A wrapper for {@link BlazeRuntime} for testing purposes that makes it possible to exercise (most)
@@ -461,14 +462,17 @@ public class BlazeRuntimeWrapper {
     return builder.build();
   }
 
+  @Nullable // Null if no build has been run.
   public BuildRequest getLastRequest() {
     return lastRequest;
   }
 
+  @Nullable // Null if no build has been run.
   public BuildResult getLastResult() {
     return lastResult;
   }
 
+  @Nullable // Null if no build has been run.
   public BuildConfigurationValue getConfiguration() {
     return configuration;
   }

@@ -41,6 +41,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_action_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_aware_action",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_action_lookup_key_wrapper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -82,6 +83,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:recursive_filesystem_traversal",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:test_completion_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_action_lookup_key_wrapper",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )

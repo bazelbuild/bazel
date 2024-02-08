@@ -13,11 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -26,6 +30,7 @@ import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -45,6 +50,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -53,9 +59,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -83,8 +87,8 @@ public final class CompletionFunction<
     ResultT getResult();
 
     /**
-     * Creates supplementary data needed to call {@link #createFailed(Object, NestedSet,
-     * CompletionContext, ImmutableMap, Object)}; returns null if skyframe found missing values.
+     * Creates supplementary data needed to call {@link #createFailed}; returns null if skyframe
+     * found missing values.
      */
     @Nullable
     FailureT getFailureData(KeyT key, ValueT value, Environment env) throws InterruptedException;
@@ -113,6 +117,7 @@ public final class CompletionFunction<
   private final Completor<ValueT, ResultT, KeyT, FailureT> completor;
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final FilesMetricConsumer topLevelArtifactsMetric;
+  private final ActionRewindStrategy actionRewindStrategy;
   private final BugReporter bugReporter;
 
   CompletionFunction(
@@ -120,12 +125,14 @@ public final class CompletionFunction<
       Completor<ValueT, ResultT, KeyT, FailureT> completor,
       SkyframeActionExecutor skyframeActionExecutor,
       FilesMetricConsumer topLevelArtifactsMetric,
+      ActionRewindStrategy actionRewindStrategy,
       BugReporter bugReporter) {
-    this.pathResolverFactory = pathResolverFactory;
-    this.completor = completor;
-    this.skyframeActionExecutor = skyframeActionExecutor;
-    this.topLevelArtifactsMetric = topLevelArtifactsMetric;
-    this.bugReporter = bugReporter;
+    this.pathResolverFactory = checkNotNull(pathResolverFactory);
+    this.completor = checkNotNull(completor);
+    this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
+    this.topLevelArtifactsMetric = checkNotNull(topLevelArtifactsMetric);
+    this.actionRewindStrategy = checkNotNull(actionRewindStrategy);
+    this.bugReporter = checkNotNull(bugReporter);
   }
 
   @SuppressWarnings("unchecked") // Cast to KeyT
@@ -159,14 +166,12 @@ public final class CompletionFunction<
     // event is delivered to transports. If the BEP events reference *all* artifacts it can increase
     // heap high-watermark by multiple GB.
     ActionInputMap importantInputMap;
-    Set<Artifact> importantArtifactSet;
+    ImmutableCollection<Artifact> importantArtifacts;
     if (allArtifactsAreImportant) {
-      importantArtifactSet = ImmutableSet.of();
+      importantArtifacts = allArtifacts;
       importantInputMap = inputMap;
     } else {
-      ImmutableList<Artifact> importantArtifacts =
-          artifactsToBuild.getImportantArtifacts().toList();
-      importantArtifactSet = new HashSet<>(importantArtifacts);
+      importantArtifacts = artifactsToBuild.getImportantArtifacts().toSet();
       importantInputMap = new ActionInputMap(bugReporter, importantArtifacts.size());
     }
 
@@ -206,7 +211,7 @@ public final class CompletionFunction<
                 artifactValue,
                 env,
                 currentConsumer);
-            if (!allArtifactsAreImportant && importantArtifactSet.contains(input)) {
+            if (!allArtifactsAreImportant && importantArtifacts.contains(input)) {
               // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
               // updates to the secondary collections passed in (eg. expandedArtifacts,
               // topLevelFilesets). MetadataConsumerForMetrics.NO_OP is used to avoid
@@ -262,6 +267,7 @@ public final class CompletionFunction<
             workspaceNameValue.getName());
 
     if (!rootCauses.isEmpty()) {
+      // TODO: b/321044105 - Check for lost built outputs in the error case.
       ImmutableMap<String, ArtifactsInOutputGroup> builtOutputs =
           new SuccessfulArtifactFilter(builtArtifactsBuilder.build())
               .filterArtifactsInOutputGroup(artifactsToBuild.getAllArtifactsByOutputGroup());
@@ -292,6 +298,21 @@ public final class CompletionFunction<
     // to report the error.
     if (env.valuesMissing()) {
       return null;
+    }
+
+    ImmutableMap<String, ActionInput> lostOutputs =
+        skyframeActionExecutor
+            .getActionContextRegistry()
+            .getContext(ImportantOutputHandler.class)
+            .processAndGetLostArtifacts(importantArtifacts, importantInputMap);
+    if (!lostOutputs.isEmpty()) {
+      return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
+          key,
+          ImmutableSet.copyOf(Artifact.keys(allArtifacts)),
+          lostOutputs,
+          // TODO: b/321044105 - Compute precise owners.
+          new ActionInputDepOwnerMap(lostOutputs.values()),
+          env);
     }
 
     ExtendedEventHandler.Postable postable =

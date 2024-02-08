@@ -163,7 +163,7 @@ public interface SkyFunction {
       this.rewindGraph = rewindGraph;
     }
 
-    ImmutableGraph<SkyKey> rewindGraph() {
+    public ImmutableGraph<SkyKey> rewindGraph() {
       return rewindGraph;
     }
   }

@@ -193,10 +193,6 @@ public final class ActionExecutionFunction implements SkyFunction {
       skyframeActionExecutor.recordExecutionError();
       throw e;
     } catch (UndoneInputsException e) {
-      checkState(
-          skyframeActionExecutor.rewindingEnabled(),
-          "Unexpected undone inputs: %s",
-          e.undoneInputs);
       return actionRewindStrategy.patchNestedSetGraphToPropagateError(
           actionLookupData, action, e.undoneInputs, e.inputDepKeys);
     }
@@ -529,7 +525,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       ActionInputDepOwners inputDepOwners =
           createAugmentedInputDepOwners(e, action, inputDepKeys, env, allInputs);
       rewindPlan =
-          actionRewindStrategy.prepareRewindPlan(
+          actionRewindStrategy.prepareRewindPlanForLostInputs(
               actionLookupData,
               action,
               failedActionDeps,

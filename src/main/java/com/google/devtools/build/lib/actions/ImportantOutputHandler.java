@@ -26,7 +26,7 @@ public interface ImportantOutputHandler extends ActionContext {
    * digest to output for any artifacts that need to be regenerated via action rewinding.
    */
   ImmutableMap<String, ActionInput> processAndGetLostArtifacts(
-      Collection<ActionInput> outputs, InputMetadataProvider metadataProvider);
+      Collection<? extends ActionInput> outputs, InputMetadataProvider metadataProvider);
 
   ImportantOutputHandler NO_OP = (outputs, metadataProvider) -> ImmutableMap.of();
 }

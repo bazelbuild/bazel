@@ -347,7 +347,7 @@ public final class SkyframeActionExecutor {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
 
-  boolean rewindingEnabled() {
+  public boolean rewindingEnabled() {
     return rewindingEnabled;
   }
 
@@ -446,7 +446,7 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  private void prepareDepForRewinding(ActionLookupData failedKey, Action dep) {
+  public void prepareDepForRewinding(SkyKey failedKey, Action dep) {
     OwnerlessArtifactWrapper ownerlessArtifactWrapper =
         new OwnerlessArtifactWrapper(dep.getPrimaryOutput());
     ActionExecutionState actionExecutionState = buildActionMap.get(ownerlessArtifactWrapper);
