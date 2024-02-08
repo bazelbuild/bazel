@@ -31,6 +31,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import javax.annotation.Nullable;
 
 /**
@@ -60,13 +62,16 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
                   + " is not readable because: "
                   + errorMessage
                   + ". Was it modified mid-build?"));
+    } catch (InvalidPathException e) {
+      throw new IgnoredPatternsFunctionException(
+          new InvalidIgnorePathException(e, patternFile.asPath().toString()));
     }
   }
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws IgnoredPatternsFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) key.argument();
 
     ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
@@ -122,6 +127,15 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
     public boolean processLine(String line) {
       if (!line.isEmpty() && !line.startsWith("#")) {
         fragments.add(PathFragment.create(line));
+
+        // This is called for its side-effects rather than its output.
+        // Specifically, it validates that the line is a valid path. This
+        // doesn't do much on UNIX machines where only NUL is an invalid
+        // character but can reject paths on Windows.
+        //
+        // This logic would need to be adjusted if wildcards are ever supported
+        // (https://github.com/bazelbuild/bazel/issues/7093).
+        var unused = Path.of(line);
       }
       return true;
     }
@@ -132,9 +146,19 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
     }
   }
 
+  private static class InvalidIgnorePathException extends Exception {
+    public InvalidIgnorePathException(InvalidPathException e, String path) {
+      super("Invalid path in " + path + ": " + e);
+    }
+  }
+
   private static final class IgnoredPatternsFunctionException extends SkyFunctionException {
     public IgnoredPatternsFunctionException(InconsistentFilesystemException e) {
       super(e, Transience.TRANSIENT);
+    }
+
+    public IgnoredPatternsFunctionException(InvalidIgnorePathException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }
