@@ -168,7 +168,9 @@ pkg_tar(
 write_file(
     name = "gen_maven_repo_name",
     out = "MAVEN_CANONICAL_REPO_NAME",
-    content = [get_canonical_repo_name("@maven")],
+    # TODO: Use this instead after building with Bazel 7.1.0 or later.
+    #    content = [get_canonical_repo_name("@maven")],
+    content = ["rules_jvm_external~~maven~maven"],
 )
 
 # The @maven repository is created by maven_install from rules_jvm_external.
