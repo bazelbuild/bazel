@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandAction;
-import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -287,11 +286,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         getInputs().toList().stream()
             .filter(Artifact::isDirectory)
             .collect(ImmutableSet.toImmutableSet());
-
-    CommandLine commandLine = linkCommandLine.getCommandLineForStarlark();
-
     CommandLineAndParamFileInfo commandLineAndParamFileInfo =
-        new CommandLineAndParamFileInfo(commandLine, /* paramFileInfo= */ null);
+        new CommandLineAndParamFileInfo(linkCommandLine, /* paramFileInfo= */ null);
 
     Args args = Args.forRegisteredAction(commandLineAndParamFileInfo, directoryInputs);
 
@@ -399,7 +395,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     info.setLinkStaticness(linkCommandLine.getLinkingMode().name());
     info.addAllLinkStamp(Artifact.toExecPaths(getLinkstampObjects()));
     info.addAllBuildInfoHeaderArtifact(Artifact.toExecPaths(getBuildInfoHeaderArtifacts()));
-    info.addAllLinkOpt(linkCommandLine.getRawLinkArgv(null));
+    info.addAllLinkOpt(linkCommandLine.arguments());
 
     try {
       return super.getExtraActionInfo(actionKeyContext)
