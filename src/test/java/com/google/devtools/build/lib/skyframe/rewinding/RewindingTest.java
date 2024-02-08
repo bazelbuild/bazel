@@ -257,4 +257,9 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   public void topLevelOutputRewound_regularFile() throws Exception {
     helper.runTopLevelOutputRewound_regularFile();
   }
+
+  @Test
+  public void topLevelOutputRewound_aspectOwned() throws Exception {
+    helper.runTopLevelOutputRewound_aspectOwned();
+  }
 }

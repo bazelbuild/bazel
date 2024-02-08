@@ -44,9 +44,11 @@ import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -62,6 +64,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder.ActionRewindEventAsserter;
 import com.google.devtools.build.lib.testutil.ControllableActionStrategyModule;
@@ -2659,16 +2662,7 @@ public class RewindingTestsHelper {
     Label fooLost = Label.parseCanonical("//foo:lost");
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
-
-    testCase.injectListenerAtStartOfNextBuild(
-        (key, type, order, context) -> {
-          if (type == EventType.MARK_DIRTY
-              || (isActionExecutionKey(key, fooLost) && type == EventType.SET_VALUE)) {
-            // The TargetCompleteEvent should not be emitted until after rewinding completes.
-            // Otherwise, we may publish stale artifact URIs to the BEP.
-            assertThat(targetCompleteEvents).isEmpty();
-          }
-        });
+    listenForNoCompletionEventsBeforeRewinding(fooLost, targetCompleteEvents);
 
     testCase.buildTarget("//foo:lost");
 
@@ -2678,6 +2672,48 @@ public class RewindingTestsHelper {
     assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
         .hasCount("Executing genrule //foo:lost", 2);
     assertThat(targetCompleteEvents.keySet()).containsExactly(fooLost);
+  }
+
+  public final void runTopLevelOutputRewound_aspectOwned() throws Exception {
+    testCase.write(
+        "foo/defs.bzl",
+        "def _lost_aspect_impl(target, ctx):",
+        "  out = ctx.actions.declare_file(ctx.rule.attr.name + '_lost_aspect.out')",
+        "  ctx.actions.run_shell(outputs = [out], command = 'echo lost_aspect > %s' % out.path)",
+        "  return [OutputGroupInfo(default = depset([out]))]",
+        "",
+        "lost_aspect = aspect(implementation = _lost_aspect_impl)");
+    testCase.write("foo/BUILD", "sh_library(name = 'lib')");
+    lostOutputsModule.addLostOutput(getExecPath("bin/foo/lib_lost_aspect.out"));
+    Label fooLib = Label.parseCanonical("//foo:lib");
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
+    Map<Label, AspectCompleteEvent> aspectCompleteEvents = recordAspectCompleteEvents();
+    listenForNoCompletionEventsBeforeRewinding(fooLib, aspectCompleteEvents);
+
+    testCase.addOptions("--aspects=foo/defs.bzl%lost_aspect");
+    testCase.buildTarget("//foo:lib");
+
+    lostOutputsModule.verifyAllLostOutputsConsumed();
+    assertThat(rewoundKeys).hasSize(1);
+    assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//foo:lib");
+    assertThat(((ActionLookupData) rewoundKeys.get(0)).getActionLookupKey())
+        .isInstanceOf(AspectKey.class);
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Action foo/lib_lost_aspect.out", 2);
+    assertThat(aspectCompleteEvents.keySet()).containsExactly(fooLib);
+  }
+
+  private void listenForNoCompletionEventsBeforeRewinding(
+      Label lostLabel, Map<Label, ? extends EventReportingArtifacts> events) {
+    testCase.injectListenerAtStartOfNextBuild(
+        (key, type, order, context) -> {
+          if (type == EventType.MARK_DIRTY
+              || (isActionExecutionKey(key, lostLabel) && type == EventType.SET_VALUE)) {
+            // Completion events for lost outputs should not be emitted until after rewinding
+            // completes. Otherwise, we may publish stale artifact URIs to the BEP.
+            assertThat(events).isEmpty();
+          }
+        });
   }
 
   static boolean isActionExecutionKey(Object key, Label label) {
@@ -2711,6 +2747,22 @@ public class RewindingTestsHelper {
               }
             });
     return targetCompleteEvents;
+  }
+
+  private Map<Label, AspectCompleteEvent> recordAspectCompleteEvents() {
+    Map<Label, AspectCompleteEvent> aspectCompleteEvents = new HashMap<>();
+    testCase
+        .getRuntimeWrapper()
+        .registerSubscriber(
+            new Object() {
+              @Subscribe
+              @SuppressWarnings("unused")
+              public void accept(AspectCompleteEvent event) {
+                // If we need to track targets with multiple aspects, we could change the key type.
+                aspectCompleteEvents.put(event.getLabel(), event);
+              }
+            });
+    return aspectCompleteEvents;
   }
 
   /**
