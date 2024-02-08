@@ -194,6 +194,7 @@ tasks:
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       # MacOS does not have cgroups so it can't support hardened sandbox
+      - "-//src/test/java/com/google/devtools/build/lib/sandbox:CgroupsInfoTest"
       - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
       # https://github.com/bazelbuild/bazel/issues/16526
       - "-//src/test/shell/bazel:starlark_repository_test"
@@ -253,6 +254,7 @@ tasks:
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       # MacOS does not have cgroups so it can't support hardened sandbox
+      - "-//src/test/java/com/google/devtools/build/lib/sandbox:CgroupsInfoTest"
       - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
       # https://github.com/bazelbuild/bazel/issues/16525
       - "-//src/test/java/com/google/devtools/build/lib/buildtool:KeepGoingTest"

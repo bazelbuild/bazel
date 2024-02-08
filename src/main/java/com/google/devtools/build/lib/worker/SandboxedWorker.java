@@ -198,10 +198,9 @@ final class SandboxedWorker extends SingleplexWorker {
       if (hardenedSandboxOptions.memoryLimit() > 0) {
         // We put the sandbox inside a unique subdirectory using the worker's ID.
         CgroupsInfo workerCgroup =
-            CgroupsInfo.createMemoryLimitCgroupDir(
-                CgroupsInfo.getBlazeSpawnsCgroup(),
-                "worker_sandbox_" + workerId,
-                hardenedSandboxOptions.memoryLimit());
+            CgroupsInfo.getBlazeSpawnsCgroup()
+                .createIndividualSpawnCgroup(
+                    "worker_sandbox_" + workerId, hardenedSandboxOptions.memoryLimit());
         cgroupsDir = workerCgroup.getCgroupDir().toString();
         commandLineBuilder.setCgroupsDir(cgroupsDir);
       }

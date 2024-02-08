@@ -195,6 +195,8 @@ java_library(
     name = "linux_sandbox",
     srcs = [
         "CgroupsInfo.java",
+        "CgroupsInfoV1.java",
+        "CgroupsInfoV2.java",
         "LinuxSandboxedSpawnRunner.java",
         "LinuxSandboxedStrategy.java",
     ],
@@ -222,7 +224,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:flogger",
