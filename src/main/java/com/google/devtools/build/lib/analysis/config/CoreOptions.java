@@ -210,12 +210,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "incompatible_disallow_unsound_directory_outputs",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
           "If set, it is an error for an action to materialize an output file as a directory. Does"
-              + " not affect source directories.")
+              + " not affect source directories. See https://github.com/bazelbuild/bazel/issues/18646.")
   public boolean disallowUnsoundDirectoryOutputs;
 
   // This option is only used during execution. However, it is a required input to the analysis
