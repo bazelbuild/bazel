@@ -283,6 +283,7 @@ public final class GraphOutputWriter<T> {
     // already belongs to one.
     HashMap<Node<T>, Set<Node<T>>> eqClasses = new HashMap<>();
     ArrayDeque<Node<T>> queue = new ArrayDeque<>(graph.getRoots());
+    Set<Node<T>> enqueued = new HashSet<>(graph.getRoots());
 
     // Top-level nodes need to be compared amongst each other because they can form an equivalence
     // class amongst themselves too.
@@ -292,7 +293,13 @@ public final class GraphOutputWriter<T> {
       Node<T> node = queue.removeFirst();
       List<Node<T>> successors = new ArrayList<>(node.getSuccessors());
       processSuccessors(successors, eqClasses, equivalenceRelation);
-      queue.addAll(node.getSuccessors());
+      for (Node<T> child : node.getSuccessors()) {
+        // We don't want the queue to grow to O(E); also, there is no need to visit children twice.
+        if (!enqueued.contains(child)) {
+          queue.add(child);
+          enqueued.add(child);
+        }
+      }
     }
 
     return eqClasses.values().stream().distinct().collect(toImmutableList());
