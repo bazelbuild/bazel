@@ -658,9 +658,17 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void readdir_fromMultipleSources() throws Exception {
+  public void readdir_fromInputArtifactData_emptyDir() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
-    createLocalTreeArtifact("dir", ImmutableMap.of("subdir/subfile", ""), inputs);
+    createLocalTreeArtifact("tree", ImmutableMap.of(), inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    assertReaddir(actionFs, getOutputPath("tree"), /* followSymlinks= */ true);
+  }
+
+  @Test
+  public void readdir_fromRemoteOutputTreeAndLocalFilesystem() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
     writeLocalFile(actionFs, getOutputPath("dir/out1"), "contents1");
     injectRemoteFile(actionFs, getOutputPath("dir/out2"), "contents2");
@@ -671,8 +679,18 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         dirPath,
         /* followSymlinks= */ true,
         new Dirent("out1", Dirent.Type.FILE),
-        new Dirent("out2", Dirent.Type.FILE),
-        new Dirent("subdir", Dirent.Type.DIRECTORY));
+        new Dirent("out2", Dirent.Type.FILE));
+  }
+
+  @Test
+  public void readdir_fromRemoteOutputTreeAndLocalFilesystem_emptyDir() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment dirPath = getOutputPath("dir");
+    actionFs.getRemoteOutputTree().getPath(dirPath).createDirectoryAndParents();
+    actionFs.getLocalFileSystem().getPath(dirPath).createDirectoryAndParents();
+
+    assertReaddir(actionFs, dirPath, /* followSymlinks= */ true);
   }
 
   @Test

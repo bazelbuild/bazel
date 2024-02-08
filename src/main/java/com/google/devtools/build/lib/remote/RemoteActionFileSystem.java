@@ -782,7 +782,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     path = resolveSymbolicLinks(path).asFragment();
 
     HashMap<String, Dirent> entries = new HashMap<>();
-    boolean found = false;
+    boolean exists = false;
 
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
@@ -791,31 +791,38 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
         for (var entry : treeEntries) {
           entries.put(entry.getName(), entry);
         }
-        found = true;
+        exists = true;
       }
     }
 
-    if (isOutput(path)) {
+    // Since actions are assumed not to modify their inputs, a directory belonging to an input tree
+    // artifact cannot also contain an output, so we can safely skip the other sources.
+    if (!exists) {
+      if (isOutput(path)) {
+        try {
+          for (var entry : remoteOutputTree.getPath(path).readdir(Symlinks.NOFOLLOW)) {
+            entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
+            entries.put(entry.getName(), entry);
+          }
+          exists = true;
+        } catch (FileNotFoundException ignored) {
+          // Will be rethrown below if directory does not exist in any of the sources.
+        }
+      }
+
       try {
-        for (var entry : remoteOutputTree.getPath(path).readdir(Symlinks.NOFOLLOW)) {
+        for (var entry : localFs.getPath(path).readdir(Symlinks.NOFOLLOW)) {
           entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
           entries.put(entry.getName(), entry);
         }
-        found = true;
+        exists = true;
       } catch (FileNotFoundException ignored) {
-        // Will be rethrown below if directory exists on neither side.
+        // Will be rethrown below if directory does not exist in any of the sources.
       }
     }
 
-    try {
-      for (var entry : localFs.getPath(path).readdir(Symlinks.NOFOLLOW)) {
-        entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
-        entries.put(entry.getName(), entry);
-      }
-    } catch (FileNotFoundException e) {
-      if (!found) {
-        throw e;
-      }
+    if (!exists) {
+      throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
     }
 
     // Sort entries to get a deterministic order.
