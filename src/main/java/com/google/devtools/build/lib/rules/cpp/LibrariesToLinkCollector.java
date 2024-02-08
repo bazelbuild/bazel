@@ -607,10 +607,9 @@ public class LibrariesToLinkCollector {
     // -lfoo -> libfoo.so
     // -l:foo -> foo.so
     // -l:libfoo.so.1 -> libfoo.so.1
-    boolean hasCompatibleName =
-        name.startsWith("lib") || (!name.endsWith(".so") && !name.endsWith(".dylib"));
+    boolean hasCompatibleName = name.endsWith(".so") || name.endsWith(".dylib") || name.endsWith(".dll");
     if (CppFileTypes.SHARED_LIBRARY.matches(name) && hasCompatibleName) {
-      String libName = name.replaceAll("(^lib|\\.(so|dylib)$)", "");
+      String libName = name.replaceAll("(^lib|\\.(so|dylib|dll)$)", "");
       librariesToLink.addValue(LibraryToLinkValue.forDynamicLibrary(libName));
     } else if (CppFileTypes.SHARED_LIBRARY.matches(name)
         || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
