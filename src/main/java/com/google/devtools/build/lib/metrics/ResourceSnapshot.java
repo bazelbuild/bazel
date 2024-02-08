@@ -32,7 +32,7 @@ public abstract class ResourceSnapshot {
     return new AutoValue_ResourceSnapshot(pidToMemoryInKb, collectionTime);
   }
 
-  public static ResourceSnapshot createEmpty() {
-    return new AutoValue_ResourceSnapshot(ImmutableMap.of(), Instant.now());
+  public static ResourceSnapshot createEmpty(Instant collectionTime) {
+    return new AutoValue_ResourceSnapshot(ImmutableMap.of(), collectionTime);
   }
 }

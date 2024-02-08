@@ -136,8 +136,7 @@ java_test(
     srcs = ["CgroupsInfoTest.java"],
     tags = ["no_windows"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox",
-        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:guava",
         "//third_party:junit4",

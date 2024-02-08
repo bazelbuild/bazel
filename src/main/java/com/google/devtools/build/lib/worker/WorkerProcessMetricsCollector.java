@@ -76,12 +76,12 @@ public class WorkerProcessMetricsCollector {
   ResourceSnapshot collectResourceUsage(OS os, ImmutableSet<Long> processIds) {
     // TODO(b/181317827): Support Windows.
     if (processIds.isEmpty()) {
-      return ResourceSnapshot.createEmpty();
+      return ResourceSnapshot.createEmpty(clock.now());
     }
     if (os == OS.LINUX || os == OS.DARWIN) {
-      return PsInfoCollector.instance().collectResourceUsage(processIds);
+      return PsInfoCollector.instance().collectResourceUsage(processIds, clock);
     }
-    return ResourceSnapshot.createEmpty();
+    return ResourceSnapshot.createEmpty(clock.now());
   }
 
   public ImmutableList<WorkerProcessMetrics> getLiveWorkerProcessMetrics() {

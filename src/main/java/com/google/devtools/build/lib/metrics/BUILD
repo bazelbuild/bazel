@@ -49,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_java_proto",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:network_metrics_collector",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
@@ -88,13 +89,15 @@ java_library(
 )
 
 java_library(
-    name = "ps_info_collector",
+    name = "resource_collector",
     srcs = [
+        "CgroupsInfoCollector.java",
         "PsInfoCollector.java",
         "ResourceSnapshot.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
