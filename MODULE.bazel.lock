@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "5f974fd5881c9dca4e2cb5b533a6777769be705af9117dc35cfa4568cea9be49",
+  "moduleFileHash": "f291782aef1d2989f49c0e884b32ec8d7814ae48c598b6f3060870ccb3f5c0b6",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -223,7 +223,7 @@
                 "testonly": true,
                 "artifact": "test-parameter-injector",
                 "group": "com.google.testparameterinjector",
-                "version": "1.0"
+                "version": "1.15"
               },
               "devDependency": false,
               "location": {
@@ -2742,7 +2742,7 @@
         "bzlTransitiveDigest": "wiyY30lgHvAgghminN0h4lxMWexDIg/6r/+eOIA5bPU=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "c5a21b1716921abcd71d97668caa3dddc331daa5c7a1a80e4e041f2fd0e74767",
-          "@@//:MODULE.bazel": "5f974fd5881c9dca4e2cb5b533a6777769be705af9117dc35cfa4568cea9be49"
+          "@@//:MODULE.bazel": "f291782aef1d2989f49c0e884b32ec8d7814ae48c598b6f3060870ccb3f5c0b6"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -5354,7 +5354,7 @@
       "general": {
         "bzlTransitiveDigest": "ZfFFJr1eI3/nwAJgyEcYi9fjDDO/97v19BWbwVi0WeE=",
         "accumulatedFileDigests": {
-          "@@//:maven_install.json": "89746217319ae862ea1c136c4c9de910ad67d4c2473a47706c1d5af72768c1b7",
+          "@@//:maven_install.json": "600f9d8ccad307e6c413a66a066844c6f6bb573c8178275de601e611a4cd3a82",
           "@@rules_jvm_external~6.0//:rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
           "@@//src/tools/android:maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f"
         },
@@ -5691,6 +5691,18 @@
               "downloaded_file_path": "v1/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar"
             }
           },
+          "com_google_testparameterinjector_test_parameter_injector_1_15": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "rules_jvm_external~6.0~maven~com_google_testparameterinjector_test_parameter_injector_1_15",
+              "sha256": "a1ac1820becc772baaac57c4d2a4d49b6f7920e5dfd25b293ba8fb933a11dfe2",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/testparameterinjector/test-parameter-injector/1.15/test-parameter-injector-1.15.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/testparameterinjector/test-parameter-injector/1.15/test-parameter-injector-1.15.jar"
+            }
+          },
           "com_google_api_grpc_proto_google_iam_v1_1_18_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -5981,7 +5993,7 @@
                 "{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"33.0.0-jre\", \"testonly\": true }",
                 "{ \"group\": \"com.google.jimfs\", \"artifact\": \"jimfs\", \"version\": \"1.2\", \"testonly\": true }",
                 "{ \"group\": \"com.google.testing.compile\", \"artifact\": \"compile-testing\", \"version\": \"0.18\", \"testonly\": true }",
-                "{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.0\", \"testonly\": true }",
+                "{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.15\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-java8-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-liteproto-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
@@ -7982,18 +7994,6 @@
               "downloaded_file_path": "v1/io/perfmark/perfmark-api/0.25.0/perfmark-api-0.25.0.jar"
             }
           },
-          "com_google_testparameterinjector_test_parameter_injector_1_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "rules_jvm_external~6.0~maven~com_google_testparameterinjector_test_parameter_injector_1_0",
-              "sha256": "c3d4c8d7055b6fd7f1047ab37e3d476709c492510d485f1bfb204a3c16f0351c",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/testparameterinjector/test-parameter-injector/1.0/test-parameter-injector-1.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/testparameterinjector/test-parameter-injector/1.0/test-parameter-injector-1.0.jar"
-            }
-          },
           "io_netty_netty_transport_4_1_94_Final": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -8683,6 +8683,18 @@
               "downloaded_file_path": "v1/io/netty/netty-buffer/4.1.94.Final/netty-buffer-4.1.94.Final.jar"
             }
           },
+          "org_yaml_snakeyaml_2_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "rules_jvm_external~6.0~maven~org_yaml_snakeyaml_2_0",
+              "sha256": "880c9d896e4b74a06c549c15ca496450165d6909fa15d7e662bee8f6a66d7afa",
+              "urls": [
+                "https://repo1.maven.org/maven2/org/yaml/snakeyaml/2.0/snakeyaml-2.0.jar"
+              ],
+              "downloaded_file_path": "v1/org/yaml/snakeyaml/2.0/snakeyaml-2.0.jar"
+            }
+          },
           "io_reactivex_rxjava3_rxjava_3_1_2": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -8745,7 +8757,7 @@
                 "{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"33.0.0-jre\", \"testonly\": true }",
                 "{ \"group\": \"com.google.jimfs\", \"artifact\": \"jimfs\", \"version\": \"1.2\", \"testonly\": true }",
                 "{ \"group\": \"com.google.testing.compile\", \"artifact\": \"compile-testing\", \"version\": \"0.18\", \"testonly\": true }",
-                "{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.0\", \"testonly\": true }",
+                "{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.15\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-java8-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-liteproto-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
@@ -9309,18 +9321,6 @@
                 "https://repo1.maven.org/maven2/org/glassfish/jaxb/txw2/2.3.2/txw2-2.3.2.jar"
               ],
               "downloaded_file_path": "v1/org/glassfish/jaxb/txw2/2.3.2/txw2-2.3.2.jar"
-            }
-          },
-          "org_yaml_snakeyaml_1_28": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "rules_jvm_external~6.0~maven~org_yaml_snakeyaml_1_28",
-              "sha256": "35446a1421435d45e4c6ac0de3b5378527d5cc2446c07183e24447730ce1fffa",
-              "urls": [
-                "https://repo1.maven.org/maven2/org/yaml/snakeyaml/1.28/snakeyaml-1.28.jar"
-              ],
-              "downloaded_file_path": "v1/org/yaml/snakeyaml/1.28/snakeyaml-1.28.jar"
             }
           },
           "io_netty_netty_transport_native_epoll_jar_linux_aarch_64_4_1_93_Final": {
