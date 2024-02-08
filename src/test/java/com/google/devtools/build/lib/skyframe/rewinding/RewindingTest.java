@@ -44,6 +44,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @TestParameter private boolean trackIncrementalState;
   @TestParameter private boolean keepGoing;
+  @TestParameter private boolean skymeld;
 
   private final ActionEventRecorder actionEventRecorder = new ActionEventRecorder();
   private final RewindingTestsHelper helper = new RewindingTestsHelper(this, actionEventRecorder);
@@ -76,7 +77,8 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         "--features=cc_include_scanning",
         "--experimental_remote_include_extraction_size_threshold=0",
         "--track_incremental_state=" + trackIncrementalState,
-        "--keep_going=" + keepGoing);
+        "--keep_going=" + keepGoing,
+        "--experimental_merged_skyframe_analysis_execution=" + skymeld);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
   }
 
