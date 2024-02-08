@@ -50,6 +50,7 @@ public final class WorkerTest {
   final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
   private TestWorker workerForCleanup = null;
+  private final WorkerOptions options = new WorkerOptions();
 
   @After
   public void destroyWorker() throws IOException {
@@ -78,7 +79,8 @@ public final class WorkerTest {
     int workerId = 1;
     Path logFile = workerBaseDir.getRelative("test-log-file.log");
 
-    TestWorker worker = new TestWorker(key, workerId, key.getExecRoot(), logFile, fakeSubprocess);
+    TestWorker worker =
+        new TestWorker(key, workerId, key.getExecRoot(), logFile, fakeSubprocess, options);
 
     SandboxInputs sandboxInputs = null;
     SandboxOutputs sandboxOutputs = null;

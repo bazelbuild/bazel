@@ -49,9 +49,12 @@ public class WorkerPoolTest {
   private FileSystem fileSystem;
   private int workerIds = 1;
 
+  private final WorkerOptions options = new WorkerOptions();
+
   private static class TestWorker extends SingleplexWorker {
-    TestWorker(WorkerKey workerKey, int workerId, Path workDir, Path logFile) {
-      super(workerKey, workerId, workDir, logFile);
+    TestWorker(
+        WorkerKey workerKey, int workerId, Path workDir, Path logFile, WorkerOptions options) {
+      super(workerKey, workerId, workDir, logFile, options);
     }
   }
 
@@ -65,7 +68,8 @@ public class WorkerPoolTest {
                         arg.getArgument(0),
                         workerIds++,
                         fileSystem.getPath("/workDir"),
-                        fileSystem.getPath("/logDir"))))
+                        fileSystem.getPath("/logDir"),
+                        options)))
         .when(factoryMock)
         .makeObject(any());
     doAnswer(

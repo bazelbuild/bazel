@@ -616,7 +616,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
         workerKey.getMnemonic(),
         workerKey.isMultiplex(),
         workerKey.isSandboxed(),
-        workerKey.hashCode());
+        workerKey.hashCode(),
+        worker.getCgroup());
   }
 
   /**

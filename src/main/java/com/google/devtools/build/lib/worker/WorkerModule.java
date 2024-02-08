@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
+import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
@@ -115,7 +116,7 @@ public class WorkerModule extends BlazeModule {
       treeDeleter = new AsynchronousTreeDeleter(trashBase);
     }
     WorkerFactory newWorkerFactory =
-        new WorkerFactory(workerDir, workerSandboxOptions, treeDeleter);
+        new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter);
     if (!newWorkerFactory.equals(workerFactory)) {
       if (workerDir.exists()) {
         try {
@@ -169,6 +170,10 @@ public class WorkerModule extends BlazeModule {
       // If workerPool is restarted then we should recreate metrics.
       WorkerProcessMetricsCollector.instance().clear();
     }
+
+    // Override the flag value if we can't actually use cgroups so that we at least fallback to ps.
+    boolean useCgroupsOnLinux = options.useCgroupsOnLinux && CgroupsInfo.isSupported();
+    WorkerProcessMetricsCollector.instance().setUseCgroupsOnLinux(useCgroupsOnLinux);
 
     // Start collecting after a pool is defined
     workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);

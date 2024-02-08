@@ -106,6 +106,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/events",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_util",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
@@ -159,8 +160,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/metrics:resource_collector",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -186,6 +189,7 @@ java_library(
         ":singleplex_worker",
         ":worker",
         ":worker_key",
+        ":worker_options",
         ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
@@ -237,11 +241,13 @@ java_library(
         ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -267,6 +273,7 @@ java_library(
         ":worker",
         ":worker_exec_root",
         ":worker_key",
+        ":worker_options",
         ":worker_process_status",
         ":worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/actions",

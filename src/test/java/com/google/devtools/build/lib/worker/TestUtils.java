@@ -219,8 +219,9 @@ class TestUtils {
         int workerId,
         final Path workDir,
         Path logFile,
-        FakeSubprocess fakeSubprocess) {
-      super(workerKey, workerId, workDir, logFile);
+        FakeSubprocess fakeSubprocess,
+        WorkerOptions options) {
+      super(workerKey, workerId, workDir, logFile, options);
       this.fakeSubprocess = fakeSubprocess;
     }
 

@@ -46,6 +46,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   private static final AtomicInteger pidCounter = new AtomicInteger(1);
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  protected final WorkerOptions workerOptions;
 
   private final Path workerBaseDir;
   private final TreeDeleter treeDeleter;
@@ -57,15 +58,17 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
    */
   @Nullable private final WorkerSandboxOptions hardenedSandboxOptions;
 
-  public WorkerFactory(Path workerBaseDir) {
-    this(workerBaseDir, null, null);
+  public WorkerFactory(Path workerBaseDir, WorkerOptions workerOptions) {
+    this(workerBaseDir, workerOptions, null, null);
   }
 
   public WorkerFactory(
       Path workerBaseDir,
+      WorkerOptions workerOptions,
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
       @Nullable TreeDeleter treeDeleter) {
     this.workerBaseDir = workerBaseDir;
+    this.workerOptions = workerOptions;
     this.hardenedSandboxOptions = hardenedSandboxOptions;
     this.treeDeleter = treeDeleter;
   }
@@ -94,7 +97,13 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
         Path workDir = getSandboxedWorkerPath(key, workerId);
         worker =
             new SandboxedWorker(
-                key, workerId, workDir, logFile, hardenedSandboxOptions, treeDeleter);
+                key,
+                workerId,
+                workDir,
+                logFile,
+                workerOptions,
+                hardenedSandboxOptions,
+                treeDeleter);
       }
     } else if (key.isMultiplex()) {
       WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
@@ -102,7 +111,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
           new WorkerProxy(
               key, workerId, workerMultiplexer.getLogFile(), workerMultiplexer, key.getExecRoot());
     } else {
-      worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile);
+      worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile, workerOptions);
     }
 
     String msg =
@@ -150,7 +159,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     }
     String msg =
         String.format(
-            "Destroying %s %s (id %d, key hash %d) with cause: %s %s",
+            "Destroying %s %s (id %d, key hash %d) with cause: %s %s\n",
             key.getMnemonic(),
             key.getWorkerTypeName(),
             workerId,
@@ -240,6 +249,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     }
     WorkerFactory that = (WorkerFactory) o;
     return workerBaseDir.equals(that.workerBaseDir)
+        && workerOptions.useCgroupsOnLinux == that.workerOptions.useCgroupsOnLinux
         && Objects.equals(this.hardenedSandboxOptions, that.hardenedSandboxOptions);
   }
 

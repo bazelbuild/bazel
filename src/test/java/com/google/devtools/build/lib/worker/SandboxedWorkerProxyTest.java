@@ -162,7 +162,7 @@ public class SandboxedWorkerProxyTest {
     WorkerKey key =
         TestUtils.createWorkerKeyFromOptions(
             PROTO, globalOutputBase, options, true, spawn, "worker.sh");
-    WorkerFactory factory = new WorkerFactory(workerBaseDir);
+    WorkerFactory factory = new WorkerFactory(workerBaseDir, options);
     return (SandboxedWorkerProxy) factory.create(key);
   }
 
@@ -187,7 +187,7 @@ public class SandboxedWorkerProxyTest {
             super.process = new FakeSubprocess(serverInputStream);
           }
         });
-    WorkerFactory factory = new WorkerFactory(workerBaseDir);
+    WorkerFactory factory = new WorkerFactory(workerBaseDir, options);
     return (SandboxedWorkerProxy) factory.create(key);
   }
 }

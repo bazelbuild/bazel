@@ -108,7 +108,7 @@ public class WorkerSpawnRunnerTest {
     doNothing()
         .when(metricsCollector)
         .registerWorker(
-            anyInt(), anyLong(), any(), anyString(), anyBoolean(), anyBoolean(), anyInt());
+            anyInt(), anyLong(), any(), anyString(), anyBoolean(), anyBoolean(), anyInt(), any());
     when(spawn.getLocalResources()).thenReturn(ResourceSet.createWithRamCpu(100, 1));
     when(resourceManager.acquireResources(any(), any(), any())).thenReturn(resourceHandle);
     when(resourceHandle.getWorker()).thenReturn(worker);
@@ -117,7 +117,7 @@ public class WorkerSpawnRunnerTest {
   private WorkerPoolImpl createWorkerPool() {
     return new WorkerPoolImpl(
         new WorkerPoolConfig(
-            new WorkerFactory(fs.getPath("/workerBase")) {
+            new WorkerFactory(fs.getPath("/workerBase"), options) {
               @Override
               public Worker create(WorkerKey key) {
                 return worker;

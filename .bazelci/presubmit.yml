@@ -196,6 +196,8 @@ tasks:
       # MacOS does not have cgroups so it can't support hardened sandbox
       - "-//src/test/java/com/google/devtools/build/lib/sandbox:CgroupsInfoTest"
       - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
+      - "-//src/test/shell/integration:bazel_sandboxed_worker_with_cgroups_test"
+      - "-//src/test/shell/integration:bazel_worker_with_cgroups_test"
       # https://github.com/bazelbuild/bazel/issues/16526
       - "-//src/test/shell/bazel:starlark_repository_test"
       # https://github.com/bazelbuild/bazel/issues/17407
@@ -256,6 +258,8 @@ tasks:
       # MacOS does not have cgroups so it can't support hardened sandbox
       - "-//src/test/java/com/google/devtools/build/lib/sandbox:CgroupsInfoTest"
       - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
+      - "-//src/test/shell/integration:bazel_sandboxed_worker_with_cgroups_test"
+      - "-//src/test/shell/integration:bazel_worker_with_cgroups_test"
       # https://github.com/bazelbuild/bazel/issues/16525
       - "-//src/test/java/com/google/devtools/build/lib/buildtool:KeepGoingTest"
       - "-//src/test/java/com/google/devtools/build/lib/buildtool:DanglingSymlinkTest"

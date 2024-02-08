@@ -329,8 +329,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           CgroupsInfo.getBlazeSpawnsCgroup()
               .createIndividualSpawnCgroup(
                   "sandbox_" + context.getId(), sandboxOptions.memoryLimitMb);
-      cgroupsDir = sandboxCgroup.getCgroupDir().toString();
-      commandLineBuilder.setCgroupsDir(cgroupsDir);
+      if (sandboxCgroup.exists()) {
+        commandLineBuilder.setCgroupsDir(sandboxCgroup.getCgroupDir().toString());
+      }
     }
 
     if (useHermeticTmp) {

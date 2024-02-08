@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerFactory;
 import com.google.devtools.build.lib.worker.WorkerKey;
+import com.google.devtools.build.lib.worker.WorkerOptions;
 import com.google.devtools.build.lib.worker.WorkerPoolImpl;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
@@ -95,7 +96,7 @@ public final class ResourceManagerTest {
   private WorkerPoolImpl createWorkerPool() {
     return new WorkerPoolImpl(
         new WorkerPoolImpl.WorkerPoolConfig(
-            new WorkerFactory(fs.getPath("/workerBase")) {
+            new WorkerFactory(fs.getPath("/workerBase"), new WorkerOptions()) {
               @Override
               public Worker create(WorkerKey key) {
                 return worker;
