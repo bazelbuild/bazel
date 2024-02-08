@@ -81,7 +81,7 @@ public class CredentialHelperCredentials extends Credentials {
       throw e.getWrapped();
     }
     if (response != null) {
-      return (Map) response;
+      return (Map) response.getHeaders();
     }
 
     if (fallbackCredentials.isPresent()) {
