@@ -16,24 +16,24 @@
 Definition of j2objc_aspect.
 """
 
-load(":common/paths.bzl", "paths")
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
-load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_semantics.bzl", java_semantics = "semantics")
-load(":common/proto/proto_info.bzl", "ProtoInfo")
-load(":common/objc/providers.bzl", "J2ObjcMappingFileInfo")
+load(":common/objc/apple_common.bzl", "apple_common")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/objc_common.bzl", "objc_common")
+load(":common/objc/providers.bzl", "J2ObjcMappingFileInfo")
+load(":common/paths.bzl", "paths")
 load(
     ":common/proto/proto_common.bzl",
     "ProtoLangToolchainInfo",
     proto_common = "proto_common_do_not_use",
 )
-load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/proto/proto_info.bzl", "ProtoInfo")
 
-apple_common = _builtins.toplevel.apple_common
 objc_internal = _builtins.internal.objc_internal
 
 def _j2objc_source_header_search_paths(genfiles_dir_path, objc_file_path, proto_sources):

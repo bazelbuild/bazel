@@ -21,11 +21,11 @@ load(":common/cc/fdo_profile.bzl", "FdoProfileInfo")
 load(":common/cc/memprof_profile.bzl", "MemProfProfileInfo")
 load(":common/cc/propeller_optimize.bzl", "PropellerOptimizeInfo")
 load(":common/cc/semantics.bzl", "semantics")
+load(":common/objc/apple_common.bzl", "apple_common")
 
 cc_internal = _builtins.internal.cc_internal
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
-apple_common = _builtins.toplevel.apple_common
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
 

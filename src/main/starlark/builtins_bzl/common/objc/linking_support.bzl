@@ -14,12 +14,12 @@
 
 """apple_common.link_multi_arch_static_library Starlark implementation"""
 
-load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
+load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
 
-apple_common = _builtins.toplevel.apple_common
 objc_internal = _builtins.internal.objc_internal
+ObjcInfo = _builtins.internal.apple_common.Objc
 
 def _link_multi_arch_static_library(ctx, split_target_triplets):
     """Links a (potentially multi-architecture) static library targeting Apple platforms.
@@ -65,8 +65,8 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
 
         if len(split_avoid_deps.keys()):
             for dep in split_avoid_deps[split_transition_key]:
-                if apple_common.Objc in dep:
-                    avoid_objc_providers.append(dep[apple_common.Objc])
+                if ObjcInfo in dep:
+                    avoid_objc_providers.append(dep[ObjcInfo])
                 if CcInfo in dep:
                     avoid_cc_providers.append(dep[CcInfo])
                     avoid_cc_linking_contexts.append(dep[CcInfo].linking_context)

@@ -25,7 +25,6 @@ CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 config_common = _builtins.toplevel.config_common
 coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common
-apple_common = _builtins.toplevel.apple_common
 
 artifact_category = struct(
     STATIC_LIBRARY = "STATIC_LIBRARY",

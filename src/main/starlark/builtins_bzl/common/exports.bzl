@@ -46,6 +46,7 @@ load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
 load(":common/java/java_package_configuration.bzl", "java_package_configuration")
 load(":common/java/java_runtime.bzl", "java_runtime")
 load(":common/java/java_toolchain.bzl", "java_toolchain")
+load(":common/objc/apple_common.bzl", "apple_common")
 load(":common/objc/objc_common.bzl", "objc_common")
 
 exported_toplevels = {
@@ -64,6 +65,7 @@ exported_toplevels = {
     "+JavaPluginInfo": JavaPluginInfo,
     "+JavaInfo": JavaInfo,
     "java_common": java_common,
+    "apple_common": apple_common,
 }
 
 # A list of Starlarkified native rules.
