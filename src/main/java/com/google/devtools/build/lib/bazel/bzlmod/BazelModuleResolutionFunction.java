@@ -189,7 +189,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         String message =
             String.format(
                 "For repository '%s', the root module requires module version %s, but got %s in the"
-                    + " resolved dependency graph.",
+                    + " resolved dependency graph. Please update the version in your MODULE.bazel"
+                    + " or set --check_direct_dependencies=off",
                 dep.getKey(), dep.getValue().toModuleKey(), resolved);
         if (mode == CheckDirectDepsMode.WARNING) {
           eventHandler.handle(Event.warn(message));

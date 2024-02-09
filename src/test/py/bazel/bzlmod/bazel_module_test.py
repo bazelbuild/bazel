@@ -218,6 +218,7 @@ class BazelModuleTest(test_base.TestBase):
     _, stdout, stderr = self.RunBazel(
         ['run', '//:main', '--check_direct_dependencies=warning']
     )
+    stderr = '\n'.join(stderr)
     self.assertIn(
         'WARNING: For repository \'aaa\', the root module requires module version aaa@1.0, but got aaa@1.1 in the resolved dependency graph.',
         stderr)
@@ -232,6 +233,7 @@ class BazelModuleTest(test_base.TestBase):
         ['run', '//:main', '--check_direct_dependencies=error'],
         allow_failure=True)
     self.AssertExitCode(exit_code, 48, stderr)
+    stderr = '\n'.join(stderr)
     self.assertIn(
         'ERROR: For repository \'aaa\', the root module requires module version aaa@1.0, but got aaa@1.1 in the resolved dependency graph.',
         stderr)
