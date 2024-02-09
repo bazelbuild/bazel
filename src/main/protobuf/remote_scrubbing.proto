@@ -34,7 +34,7 @@ message Config {
     // Whether to match actions built for a tool configuration.
     // The default is to match only actions built for non-tool configurations.
     bool match_tools = 3;
-    // A regex matching the action target kind.
+    // A regex matching the rule kind of the action owner.
     // Use .* if a partial match is desired.
     // If empty, matches every target kind.
     string target_kind = 4;
