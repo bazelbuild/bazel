@@ -38,8 +38,6 @@ function tear_down() {
 }
 
 function test_sandbox_base_keeps_dirs_with_sandbox_debug {
-  local extra_args=( "${@}" )
-
   mkdir pkg
   cat >pkg/BUILD <<EOF
 genrule(name = "pkg", outs = ["pkg.out"], cmd = "echo >\$@")
@@ -47,7 +45,7 @@ EOF
 
   local output_base="$(bazel info output_base)"
 
-  bazel build --sandbox_debug "${extra_args[@]}" //pkg >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
+  bazel build --sandbox_debug //pkg >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
   find "${output_base}" >>"${TEST_log}" 2>&1 || true
 
   local sandbox_dir="$(echo "${output_base}/sandbox"/*-sandbox)"
@@ -200,7 +198,7 @@ EOF
   [[ -d "${sandbox_base}/_moved_trash_dir" ]] \
     || fail "${sandbox_base}/_moved_trash_dir directory not present"
 
-  [[ $(ls -1 ${sandbox_base} | wc -l) == 2 ]] \
+  [[ $(ls -1 ${sandbox_base} | wc -l | tr -d ' ') == 2 ]] \
     || fail "${sandbox_base} contains stale dirs"
 }
 
