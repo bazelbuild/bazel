@@ -461,6 +461,49 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void delete_deleteSymlink() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+
+    PathFragment linkPath = getOutputPath("link");
+    PathFragment targetPath = getOutputPath("target");
+    actionFs.getPath(linkPath).createSymbolicLink(execRoot.getRelative(targetPath).asFragment());
+    writeLocalFile(actionFs, targetPath, "content");
+
+    assertThat(actionFs.delete(linkPath)).isTrue();
+    assertThat(actionFs.exists(linkPath, /* followSymlinks= */ false)).isFalse();
+    assertThat(actionFs.exists(targetPath, /* followSymlinks= */ false)).isTrue();
+  }
+
+  @Test
+  public void delete_followSymlinks(
+      @TestParameter FilesystemTestParam from, @TestParameter FilesystemTestParam to)
+      throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem fromFs = from.getFilesystem(actionFs);
+    FileSystem toFs = to.getFilesystem(actionFs);
+
+    PathFragment dirLinkPath = getOutputPath("dirLink");
+    PathFragment dirTargetPath = getOutputPath("dirTarget");
+    fromFs
+        .getPath(dirLinkPath)
+        .createSymbolicLink(execRoot.getRelative(dirTargetPath).asFragment());
+    actionFs.getPath(dirTargetPath).createDirectoryAndParents();
+
+    PathFragment naivePath = dirLinkPath.getChild("file");
+    PathFragment canonicalPath = dirTargetPath.getChild("file");
+
+    if (toFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, canonicalPath, "content");
+    } else {
+      injectRemoteFile(actionFs, canonicalPath, "content");
+    }
+
+    assertThat(actionFs.delete(naivePath)).isTrue();
+    assertThat(actionFs.exists(naivePath, /* followSymlinks= */ false)).isFalse();
+    assertThat(actionFs.exists(canonicalPath, /* followSymlinks= */ false)).isFalse();
+  }
+
+  @Test
   public void setLastModifiedTime_forRemoteOutputTree() throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
