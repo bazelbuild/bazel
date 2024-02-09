@@ -1,3 +1,90 @@
+## Release 8.0.0-pre.20240128.3 (2024-02-09)
+
+```
+Baseline: ca728739071c78c67b5d251c7be4b9ba7c17b225
+
+Cherry picks:
+
+   + 41acf91534e3b70847a667642ab3acba034a6e6e:
+     Only cache runfiles mappings of tests if they have more than one
+     shard or run per test.
+```
+
+Incompatible changes:
+
+  - CppLinkAction returns 2 args to aspects that have correct quoting
+    set (before it was always 1 args object defaulting to bash
+    escaping)
+  - CppLinkAction returns 2 args to aspects that have correct quoting
+    set (before it was always 1 args object defaulting to bash
+    escaping)
+
+Important changes:
+
+  - Update iOS tutorial link.
+  - The package(distribs=[...]) attribute has been removed
+    It has been a no-op for several years now.
+  - Prevent linux-sandbox(ed) spawns from being able to write in the
+    cgroups mount.
+  - modifies visibility error to be more readable.
+  - fixes overly-broad test assertion
+  - The deprecated `fragments["apple"].bitcode_mode` and
+    `fragments["cpp"].apple_bitcode_mode` APIs have been removed from
+    Bazel. Apple deprecated Bitcode in Xcode 14.
+  - `bazel mod dump_repo_mapping <canonical repo name>...` returns
+    the repository mappings of the given repositories in NDJSON. This
+    information can be used by IDEs and Starlark language servers to
+    resolve
+    labels with `--enable_bzlmod`.
+  - The flag `--experimental_worker_for_repo_fetching` now defaults
+    to `auto`, which uses virtual threads from JDK 21 if it's
+    available. This eliminates restarts during repo fetching.
+
+This release contains contributions from many people at Google, as well as Adam Singer, Alessandro Patti, Ben Lee, Brentley Jones, Chirag Ramani, Chi Wawng, Chris Gray, Clay McClure, dependabot[bot], Fabian Meumertzheim, Grzegorz Lukasik, hvd, jonshea, Keith Smiley, Nikhil Kalige, Richard Smith, Ryan Beasley, Xdng Yng.
+
+## Release 8.0.0-pre.20240108.7 (2024-02-05)
+
+```
+Baseline: 8e8ddaba0e90c280bfd85644d6ccd91df5b6d353
+
+Cherry picks:
+
+   + bbc51a06ba4db1c88bfce6dfa3c7b0622cb56d72:
+     Fix `cc_test` coverage broken by
+     https://github.com/bazelbuild/bazel/commit/92cba040904c2ccbd0b5a7
+     0263de739f72c592ae
+   + 162cacd30dc19352ec34fe1de6a056d6b1ee9374:
+     Automated rollback of commit
+     915fb3e861dd28e16f42072101adf498242d26d0.
+   + bf6ebe9f7c428e15b7c4d7e86a762b7470f97d5b:
+     Make tree artifacts that are symlinks to absolute paths work
+     correctly.
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 8.0.0-pre.20240108.6 (2024-01-29)
+
+```
+Baseline: 8e8ddaba0e90c280bfd85644d6ccd91df5b6d353
+
+Cherry picks:
+
+   + bbc51a06ba4db1c88bfce6dfa3c7b0622cb56d72:
+     Fix `cc_test` coverage broken by
+     https://github.com/bazelbuild/bazel/commit/92cba040904c2ccbd0b5a7
+     0263de739f72c592ae
+   + 162cacd30dc19352ec34fe1de6a056d6b1ee9374:
+     Automated rollback of commit
+     915fb3e861dd28e16f42072101adf498242d26d0.
+   + 7788abb73f09921197d27c45ac9eb23b5a4f89a0:
+     Release 8.0.0-pre.20240108.6 (2024-01-29)
+   + 581c8b5cbfc772d8b13d96e0bbf40cbb8c2a1cc9:
+     Release 8.0.0-pre.20240108.6 (2024-01-29)
+```
+
+Initial release.
+
 ## Release 7.0.2 (2024-01-25)
 
 ```
