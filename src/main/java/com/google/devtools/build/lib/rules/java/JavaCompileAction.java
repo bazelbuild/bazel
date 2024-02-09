@@ -25,8 +25,6 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -84,6 +82,7 @@ import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -293,6 +292,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       this.fullLength = fullLength;
     }
   }
+
 
   private JavaSpawn getReducedSpawn(
       ActionExecutionContext actionExecutionContext,
@@ -724,15 +724,14 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
    *
    * @param spawnResult the executor action that created the possibly stripped .jdeps output
    * @param outputDepsProto path to the .jdeps output
-   * @param artifactsToPathMap all inputs to the current action plus any additional artifacts that
-   *     may be referenced in the .jdeps file by path
+   * @param actionInputs all inputs to the current action
    * @param actionExecutionContext the action execution context
    * @return the full deps proto (also written to disk to satisfy the action's declared output)
    */
   static Deps.Dependencies createFullOutputDeps(
       SpawnResult spawnResult,
       Artifact outputDepsProto,
-      Iterable<Artifact> artifactsToPathMap,
+      NestedSet<Artifact> actionInputs,
       ActionExecutionContext actionExecutionContext,
       PathMapper pathMapper)
       throws IOException {
@@ -744,25 +743,24 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       return executorJdeps;
     }
 
-    // No paths to rewrite.
-    if (executorJdeps.getDependencyCount() == 0) {
-      return executorJdeps;
-    }
-
     // For each of the action's generated inputs, revert its mapped path back to its original path.
-    BiMap<String, PathFragment> mappedToOriginalPath = HashBiMap.create();
-    for (Artifact actionInput : artifactsToPathMap) {
+    Map<String, PathFragment> mappedToOriginalPath = new HashMap<>();
+    for (Artifact actionInput : actionInputs.toList()) {
       if (actionInput.isSourceArtifact()) {
         continue;
       }
       String mappedPath = pathMapper.getMappedExecPathString(actionInput);
-      PathFragment previousPath = mappedToOriginalPath.put(mappedPath, actionInput.getExecPath());
-      if (previousPath != null && !previousPath.equals(actionInput.getExecPath())) {
-        throw new IllegalStateException(
-            String.format(
-                "Duplicate mapped path %s derived from %s and %s",
-                mappedPath, actionInput.getExecPath(), mappedToOriginalPath.get(mappedPath)));
+      if (mappedToOriginalPath.put(mappedPath, actionInput.getExecPath()) != null) {
+        // If an entry already exists, that means different inputs reduce to the same stripped path.
+        // That also means PathStripper would exempt this action from path stripping, so the
+        // executor-produced .jdeps already includes full paths. No need to update it.
+        return executorJdeps;
       }
+    }
+
+    // No paths to rewrite.
+    if (executorJdeps.getDependencyCount() == 0) {
+      return executorJdeps;
     }
 
     // Rewrite the .jdeps proto with full paths.
@@ -771,23 +769,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
       PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
       PathFragment originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
-      // Source files, which do not lie under the output root, are not mapped. It is also possible
-      // that a jdeps file contains a reference to a transitive classpath element that isn't an
-      // input to the current action (see
-      // https://github.com/google/turbine/commit/f9f2decee04a3c651671f7488a7c9d7952df88c8), just an
-      // additional artifact marked for path mapping, and itself wasn't built with path mapping
-      // enabled (e .g. due to path collisions). In that case, the path will already be unmapped and
-      // we can leave it as is. For entirely unexpected paths, we still report an error.
-      if (originalPath == null
-          && pathOnExecutor.subFragment(0, 1).equals(outputRoot)
-          && !mappedToOriginalPath.containsValue(pathOnExecutor)) {
-        throw new IllegalStateException(
-            String.format(
-                "Missing original path for mapped path %s in %s%njdeps: %s%npath map: %s",
-                pathOnExecutor,
-                outputDepsProto.getExecPath(),
-                executorJdeps,
-                mappedToOriginalPath));
+      if (originalPath == null && pathOnExecutor.subFragment(0, 1).equals(outputRoot)) {
+        // The mapped path -> full path map failed, which means the paths weren't mapped. Fast-
+        // return the original jdeps to save unnecessary CPU time.
+        return executorJdeps;
       }
       dep.setPath(
           originalPath == null ? pathOnExecutor.getPathString() : originalPath.getPathString());
@@ -835,7 +820,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     SpawnResult result = Iterables.getOnlyElement(results);
     try {
       return createFullOutputDeps(
-          result, outputDepsProto, getInputs().toList(), actionExecutionContext, pathMapper);
+          result, outputDepsProto, getInputs(), actionExecutionContext, pathMapper);
     } catch (IOException e) {
       throw ActionExecutionException.fromExecException(
           new EnvironmentalExecException(
@@ -847,7 +832,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   private ActionExecutionException createActionExecutionException(Exception e, Code detailedCode) {
     DetailedExitCode detailedExitCode =
         DetailedExitCode.of(createFailureDetail(Strings.nullToEmpty(e.getMessage()), detailedCode));
-    return new ActionExecutionException(e, this, /* catastrophe= */ false, detailedExitCode);
+    return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {
