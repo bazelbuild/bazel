@@ -36,8 +36,8 @@ import javax.annotation.Nullable;
  * able to reuse things common for that mnemonic, e.g. standard libraries.
  */
 public class SandboxStash {
-  private static final String TEST_RUNNER_MNEMONIC = "TestRunner";
-  private static final String RUNFILES_DIR = "RUNFILES_DIR";
+
+  public static final String SANDBOX_STASH_BASE = "sandbox_stash";
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An incrementing count of stashes to avoid filename clashes. */
@@ -54,26 +54,24 @@ public class SandboxStash {
 
   private static SandboxStash instance;
   private final String workspaceName;
-  private final Path outputBase;
+  private final Path sandboxBase;
 
-  private final Map<Path, String> stashPathToRunfilesDir = new ConcurrentHashMap<>();
-
-  public SandboxStash(String workspaceName, Path outputBase) {
+  public SandboxStash(String workspaceName, Path sandboxBase) {
     this.workspaceName = workspaceName;
-    this.outputBase = outputBase;
+    this.sandboxBase = sandboxBase;
   }
 
-  static boolean takeStashedSandbox(Path sandboxPath, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
+  static boolean takeStashedSandbox(Path sandboxPath, String mnemonic) {
     if (instance == null) {
       return false;
     }
-    return instance.takeStashedSandboxInternal(sandboxPath, mnemonic, environment, outputs);
+    return instance.takeStashedSandboxInternal(sandboxPath, mnemonic);
   }
 
-  private boolean takeStashedSandboxInternal(Path sandboxPath, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
+  private boolean takeStashedSandboxInternal(Path sandboxPath, String mnemonic) {
     try {
       Path sandboxes = getSandboxStashDir(mnemonic, sandboxPath.getFileSystem());
-      if (sandboxes == null || (mnemonic.equals(TEST_RUNNER_MNEMONIC) && outputs.files().keySet().size() == 1)) {
+      if (sandboxes == null) {
         return false;
       }
       Collection<Path> stashes = sandboxes.getDirectoryEntries();
@@ -90,13 +88,6 @@ public class SandboxStash {
           Path stashExecroot = stash.getChild("execroot");
           stashExecroot.renameTo(sandboxExecroot);
           stash.deleteTree();
-          if (mnemonic.equals(TEST_RUNNER_MNEMONIC)) {
-            String stashedRunfilesDir = stashPathToRunfilesDir.get(stashExecroot);
-            String currentRunfilesDir = "_main/" + environment.get(RUNFILES_DIR);
-            sandboxExecroot.getRelative(stashedRunfilesDir)
-                  .renameTo(sandboxExecroot.getRelative(currentRunfilesDir));
-            stashPathToRunfilesDir.remove(stashExecroot);
-          }
           return true;
         } catch (FileNotFoundException e) {
           // Try the next one, somebody else took this one.
@@ -113,16 +104,16 @@ public class SandboxStash {
   }
 
   /** Atomically moves the sandboxPath directory aside for later reuse. */
-  static void stashSandbox(Path path, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
+  static void stashSandbox(Path path, String mnemonic) {
     if (instance == null) {
       return;
     }
-    instance.stashSandboxInternal(path, mnemonic, environment, outputs);
+    instance.stashSandboxInternal(path, mnemonic);
   }
 
-  private void stashSandboxInternal(Path path, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
+  private void stashSandboxInternal(Path path, String mnemonic) {
     Path sandboxes = getSandboxStashDir(mnemonic, path.getFileSystem());
-    if (sandboxes == null || (mnemonic.equals(TEST_RUNNER_MNEMONIC) && outputs.files().keySet().size() == 1)) {
+    if (sandboxes == null) {
       return;
     }
     String stashName;
@@ -135,11 +126,7 @@ public class SandboxStash {
     }
     try {
       stashPath.createDirectory();
-      Path stashPathExecroot = stashPath.getChild("execroot");
-      path.getChild("execroot").renameTo(stashPathExecroot);
-      if (mnemonic.equals(TEST_RUNNER_MNEMONIC)) {
-        stashPathToRunfilesDir.put(stashPathExecroot, "_main/" + environment.get(RUNFILES_DIR));
-      }
+      path.getChild("execroot").renameTo(stashPath.getChild("execroot"));
     } catch (IOException e) {
       // Since stash names are unique, this IOException indicates some other problem with stashing,
       // so we turn it off.
@@ -158,7 +145,7 @@ public class SandboxStash {
    */
   @Nullable
   private Path getSandboxStashDir(String mnemonic, FileSystem fileSystem) {
-    Path stashDir = getStashBase(fileSystem.getPath(this.outputBase.getPathString()));
+    Path stashDir = getStashBase(fileSystem.getPath(this.sandboxBase.getPathString()));
     try {
       stashDir.createDirectory();
       if (!maybeClearExistingStash(stashDir)) {
@@ -180,8 +167,8 @@ public class SandboxStash {
     }
   }
 
-  private static Path getStashBase(Path outputBase1) {
-    return outputBase1.getChild("sandbox_stash");
+  private static Path getStashBase(Path sandboxBase) {
+    return sandboxBase.getChild(SANDBOX_STASH_BASE);
   }
 
   /**
@@ -219,7 +206,7 @@ public class SandboxStash {
       if (instance == null) {
         instance = new SandboxStash(workspaceName, sandboxBase);
       } else if (!Objects.equals(workspaceName, instance.workspaceName)) {
-        Path stashBase = getStashBase(instance.outputBase);
+        Path stashBase = getStashBase(instance.sandboxBase);
         try {
           for (Path directoryEntry : stashBase.getDirectoryEntries()) {
             directoryEntry.deleteTree();
@@ -236,8 +223,8 @@ public class SandboxStash {
   }
 
   /** Cleans up the entire current stash, if any. Cleaning may be asynchronous. */
-  static void clean(TreeDeleter treeDeleter, Path outputBase) {
-    Path stashDir = getStashBase(outputBase);
+  static void clean(TreeDeleter treeDeleter, Path sandboxBase) {
+    Path stashDir = getStashBase(sandboxBase);
     if (!stashDir.isDirectory()) {
       return;
     }
