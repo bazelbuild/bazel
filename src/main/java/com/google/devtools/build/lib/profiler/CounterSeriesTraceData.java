@@ -89,8 +89,11 @@ final class CounterSeriesTraceData implements TraceData {
           entry(ProfilerTask.SYSTEM_LOAD_AVERAGE, "generic_work"),
           entry(ProfilerTask.MEMORY_USAGE_ESTIMATION, "rail_idle"),
           entry(ProfilerTask.CPU_USAGE_ESTIMATION, "cq_build_attempt_passed"),
-          entry(ProfilerTask.PRESSURE_STALL_IO, "rail_idle"),
-          entry(ProfilerTask.PRESSURE_STALL_MEMORY, "rail_animation"));
+          entry(ProfilerTask.PRESSURE_STALL_FULL_IO, "rail_animation"),
+          entry(ProfilerTask.PRESSURE_STALL_SOME_IO, "cq_build_attempt_failed"),
+          entry(ProfilerTask.PRESSURE_STALL_FULL_MEMORY, "thread_state_unknown"),
+          entry(ProfilerTask.PRESSURE_STALL_SOME_MEMORY, "rail_idle"),
+          entry(ProfilerTask.PRESSURE_STALL_SOME_CPU, "thread_state_running"));
 
   private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_SERIES_NAME =
       ImmutableMap.ofEntries(
@@ -106,8 +109,11 @@ final class CounterSeriesTraceData implements TraceData {
           entry(ProfilerTask.SYSTEM_LOAD_AVERAGE, "load"),
           entry(ProfilerTask.MEMORY_USAGE_ESTIMATION, "estimated memory"),
           entry(ProfilerTask.CPU_USAGE_ESTIMATION, "estimated cpu"),
-          entry(ProfilerTask.PRESSURE_STALL_IO, "i/o pressure"),
-          entry(ProfilerTask.PRESSURE_STALL_MEMORY, "memory pressure"));
+          entry(ProfilerTask.PRESSURE_STALL_FULL_IO, "i/o pressure (full)"),
+          entry(ProfilerTask.PRESSURE_STALL_FULL_MEMORY, "memory pressure (full)"),
+          entry(ProfilerTask.PRESSURE_STALL_SOME_IO, "i/o pressure (some)"),
+          entry(ProfilerTask.PRESSURE_STALL_SOME_MEMORY, "memory pressure (some)"),
+          entry(ProfilerTask.PRESSURE_STALL_SOME_CPU, "cpu pressure (some)"));
 
   @Override
   public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException {

@@ -47,7 +47,12 @@ public final class ResourceUsage {
 
   private static final MemoryMXBean MEM_BEAN = ManagementFactory.getMemoryMXBean();
   private static final Splitter WHITESPACE_SPLITTER = Splitter.on(CharMatcher.whitespace());
-  private static final Pattern PSI_AVG10_VALUE_PATTERN = Pattern.compile("^full avg10=([\\d.]+).*");
+  private static final Pattern PSI_AVG10_VALUE_PATTERN_FULL =
+      Pattern.compile("^full avg10=([\\d.]+).*");
+  private static final Pattern PSI_AVG10_VALUE_PATTERN_SOME =
+      Pattern.compile("^some avg10=([\\d.]+).*");
+  private static final String PSI_AVG10_START_FULL = "full avg10";
+  private static final String PSI_AVG10_START_SOME = "some avg10";
 
   private ResourceUsage() {}
 
@@ -120,8 +125,10 @@ public final class ResourceUsage {
         MEM_BEAN.getNonHeapMemoryUsage().getUsed(),
         MEM_BEAN.getNonHeapMemoryUsage().getCommitted(),
         (float) OS_BEAN.getSystemLoadAverage(),
-        readPressureStallIndicator("memory"),
-        readPressureStallIndicator("io"),
+        readPressureStallIndicator(
+            PressureStallIndicatorResource.MEMORY, PressureStallIndicatorMetric.FULL),
+        readPressureStallIndicator(
+            PressureStallIndicatorResource.IO, PressureStallIndicatorMetric.FULL),
         getAvailableMemory(),
         getCurrentCpuUtilizationInMs());
   }
@@ -155,26 +162,84 @@ public final class ResourceUsage {
    * Reads the Pressure Staller Indicator file for a given type and returns the double value for
    * `avg10`, or -1 if we couldn't read that value.
    */
-  public static float readPressureStallIndicator(String type) {
-    String fileName = "/proc/pressure/" + type;
+  public static float readPressureStallIndicator(
+      PressureStallIndicatorResource resource, PressureStallIndicatorMetric metric) {
+    String fileName = "/proc/pressure/" + resource.getResource();
     File procFile = new File(fileName);
     if (!procFile.canRead()) {
       return -1.0F;
     }
     try {
       List<String> lines = Files.readLines(procFile, Charset.defaultCharset());
-      for (String l : lines) {
-        if (l.startsWith("full avg10")) {
-          Matcher matcher = PSI_AVG10_VALUE_PATTERN.matcher(l);
-          if (!matcher.matches()) {
-            return -1.0F;
-          }
-          return Float.parseFloat(matcher.group(1));
+      for (String line : lines) {
+        switch (metric) {
+          case FULL:
+            // Tries to find a line in file with the `full` metrics
+            if (!line.startsWith(PSI_AVG10_START_FULL)) {
+              break;
+            }
+            Matcher fullMatcher = PSI_AVG10_VALUE_PATTERN_FULL.matcher(line);
+            if (!fullMatcher.matches()) {
+              return -1.0F;
+            }
+            return Float.parseFloat(fullMatcher.group(1));
+          case SOME:
+            // Tries to find a line in file with the `some` metrics
+            if (!line.startsWith(PSI_AVG10_START_SOME)) {
+              break;
+            }
+            Matcher someMatcher = PSI_AVG10_VALUE_PATTERN_SOME.matcher(line);
+            if (!someMatcher.matches()) {
+              return -1.0F;
+            }
+            return Float.parseFloat(someMatcher.group(1));
         }
       }
       return -1.0F;
     } catch (IOException e) {
       return -1.0F;
+    }
+  }
+
+  /**
+   * Represents a type of resource which pressure stall indicator could be collected.
+   *
+   * <p>Indicators for only this 3 types of resources are available in Linux machines.
+   */
+  public enum PressureStallIndicatorResource {
+    MEMORY("memory"),
+    IO("io"),
+    CPU("cpu");
+
+    private final String resource;
+
+    PressureStallIndicatorResource(String resource) {
+      this.resource = resource;
+    }
+
+    public String getResource() {
+      return resource;
+    }
+  }
+
+  /**
+   * Represents a type of metric for pressure stall indicators. The "some" metric indicates the
+   * share of time in which at least some tasks are stalled on a given resource. The "full" metric
+   * indicates the share of time in which all non-idle tasks are stalled on a given resource
+   * simultaneously. (CPU full is undefined at the system level, by default always zero)
+   */
+  public enum PressureStallIndicatorMetric {
+    FULL("full"),
+    SOME("some");
+
+    private final String metric;
+
+    PressureStallIndicatorMetric(String metric) {
+      this.metric = metric;
+    }
+
+    public String getMetric() {
+      return metric;
     }
   }
 
@@ -301,7 +366,7 @@ public final class ResourceUsage {
       return ioPressureLast10Sec;
     }
 
-    /** Returns the free physical memmory in bytes at the time of measurement. */
+    /** Returns the free physical memory in bytes at the time of measurement. */
     public long getFreePhysicalMemory() {
       return freePhysicalMemory;
     }
