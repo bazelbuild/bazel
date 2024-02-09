@@ -1139,8 +1139,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Override
   protected void writeLocalFile(FileSystem actionFs, PathFragment path, String content)
       throws IOException {
-    actionFs.getPath(path).getParentDirectory().createDirectoryAndParents();
-    FileSystemUtils.writeContent(actionFs.getPath(path), UTF_8, content);
+    FileSystem localFs = getLocalFileSystem(actionFs);
+    localFs.getPath(path).getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(localFs.getPath(path), UTF_8, content);
   }
 
   /** Returns a remote artifact and puts its metadata into the action input map. */
