@@ -294,7 +294,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     // b/152078818 was unique in that an error was hidden until the next run due to how event replay
     // was done. Test it by supplying a value to the starlark config, which should trigger the
     // analysis phase again.
-    useConfiguration(ImmutableMap.of("//test/starlark:custom_arg", "snowboard"));
+    useConfiguration("--//test/starlark:custom_arg=snowboard");
     getConfiguredTarget("//test/starlark:test");
   }
 
@@ -1079,14 +1079,14 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "my_rule(name = 'dep')",
         "int_flag(name = 'the-answer', build_setting_default = 0)");
 
-    useConfiguration(ImmutableMap.of("//test/starlark:the-answer", 7));
+    useConfiguration("--//test/starlark:the-answer=7");
     ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
     assertThat(
             getConfiguration(test)
                 .getOptions()
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//test/starlark:the-answer")))
-        .isEqualTo(7);
+        .isEqualTo(StarlarkInt.of(7));
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget dep =
@@ -1135,7 +1135,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "my_rule(name = 'dep3')",
         "int_flag(name = 'the-answer', build_setting_default=0)",
         "int_flag(name = 'did-transition', build_setting_default=0)");
-    useConfiguration(ImmutableMap.of(), "--cpu=FOO");
+    useConfiguration("--cpu=FOO");
 
     ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
 
@@ -1178,7 +1178,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "int_flag(name = 'the-answer', build_setting_default = 0)",
         "int_flag(name = 'cmd-line-option', build_setting_default = 0)");
 
-    useConfiguration(ImmutableMap.of("//test/starlark:cmd-line-option", 100), "--cpu=FOO");
+    useConfiguration("--//test/starlark:cmd-line-option=100", "--cpu=FOO");
 
     ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
 
@@ -1191,7 +1191,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     assertThat(getStarlarkOption(dep, "//test/starlark:the-answer")).isEqualTo(StarlarkInt.of(42));
 
     // Assert starlark option set via command line.
-    assertThat(getStarlarkOption(dep, "//test/starlark:cmd-line-option")).isEqualTo(100);
+    assertThat(getStarlarkOption(dep, "//test/starlark:cmd-line-option"))
+        .isEqualTo(StarlarkInt.of(100));
 
     // Assert native option set via command line.
     assertThat(getCoreOptions(dep).cpu).isEqualTo("FOO");
@@ -1236,7 +1237,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "my_rule(name = 'test', dep = ':dep1', cmode_for_dep='opt')",
         "my_rule(name = 'dep1', dep = ':dep2', cmode_for_dep='fastbuild')",
         "my_rule(name = 'dep2')");
-    useConfiguration(ImmutableMap.of(), "--compilation_mode=fastbuild");
+    useConfiguration("--compilation_mode=fastbuild");
 
     ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
 
@@ -1582,7 +1583,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "simple(name = 'dep')",
         "string_flag(name = 'foo', build_setting_default = 'foosballerina')");
 
-    useConfiguration(ImmutableMap.of("//test:foo", "foosball"));
+    useConfiguration("--//test:foo=foosball");
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget dep =
@@ -2263,7 +2264,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     //   these Starlark options at all (i.e. check they are the right type or that values at default
     //   are unset/set to null rather than explicitly set to the default.
     if (!buildSettingsDefault.equals("frisbee")) {
-      useConfiguration(ImmutableMap.of("//test:flag", "frisbee"));
+      useConfiguration("--//test:flag=frisbee");
     }
     ConfiguredTarget test = getConfiguredTarget("//test");
 
@@ -2852,7 +2853,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "    out = 'main_out',",
         ")");
 
-    useConfiguration(ImmutableMap.of("//test/starlark:input_only", "not_the_default"));
+    useConfiguration("--//test/starlark:input_only=not_the_default");
     Label inputOnlySetting = Label.parseCanonicalUnchecked("//test/starlark:input_only");
     ConfiguredTarget transitionedDep =
         getDirectPrerequisite(

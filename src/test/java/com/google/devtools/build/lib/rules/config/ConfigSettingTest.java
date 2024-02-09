@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -1678,8 +1677,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_matchesFromCommandLine() throws Exception {
-    useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
-
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1695,6 +1692,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    },",
         ")",
         "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+
+    useConfiguration("--//test:cheese=gouda");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
@@ -1724,8 +1723,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_doesntMatch() throws Exception {
-    useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
-
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1741,6 +1738,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    },",
         ")",
         "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+
+    useConfiguration("--//test:cheese=gouda");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
@@ -1787,7 +1786,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    },",
         ")",
         "string_flag(name = 'cheese', build_setting_default = 'gouda')");
-    useConfiguration(ImmutableMap.of("//test:cheese", ImmutableList.of("pepperjack", "brie")));
+    useConfiguration("--//test:cheese=pepperjack", "--//test:cheese=brie");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
@@ -1812,7 +1811,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         ")",
         "string_list_flag(name = 'cheese', build_setting_default = ['gouda'])");
 
-    useConfiguration(ImmutableMap.of("//test:cheese", ImmutableList.of("pepperjack", "brie")));
+    useConfiguration("--//test:cheese=pepperjack", "--//test:cheese=pepperjack=brie");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
@@ -2194,7 +2193,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "alias(name = 'alias', actual = ':flag')",
         "config_setting(name = 'alias_setting', flag_values = {':alias': 'specified'})");
 
-    useConfiguration(ImmutableMap.of("//test:flag", "specified"));
+    useConfiguration("--//test:flag=specified");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:alias_setting")).isTrue();
   }
 

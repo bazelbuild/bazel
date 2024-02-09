@@ -203,7 +203,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   // bypass default toolchain flags added by BuildViewTestCase#useConfiguration
   // TODO(cushon): delete this helper method once useConfiguration stops passing toolchain flags
   private void useConfigurationInternal(String... args) throws Exception {
-    targetConfig = createConfiguration(ImmutableMap.of(), args);
+    targetConfig = createConfiguration(args);
     targetConfigKey = targetConfig.getKey();
     createBuildView();
   }

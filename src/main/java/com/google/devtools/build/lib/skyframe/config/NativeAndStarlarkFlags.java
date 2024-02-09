@@ -64,7 +64,7 @@ public abstract class NativeAndStarlarkFlags {
   @Nullable
   abstract RepositoryMapping repoMapping();
 
-  OptionsParsingResult parse() throws OptionsParsingException {
+  public OptionsParsingResult parse() throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsClasses(this.optionsClasses())

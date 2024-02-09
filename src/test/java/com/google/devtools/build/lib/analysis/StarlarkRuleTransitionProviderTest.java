@@ -17,7 +17,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
@@ -331,7 +330,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
-        "  return {'//test:cute-animal-fact': 'puffins mate for life'}",
+        "  return {'//test:cute-animal-fact': 'puffins_mate_for_life'}",
         "my_transition = transition(",
         "  implementation = _transition_impl,",
         "  inputs = [],",
@@ -339,7 +338,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         ")");
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
-    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
+    useConfiguration("--//test:cute-animal-fact=cats_cant_taste_sugar");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
@@ -347,7 +346,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
                 .getOptions()
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
-        .isEqualTo("puffins mate for life");
+        .isEqualTo("puffins_mate_for_life");
   }
 
   @Test
@@ -363,12 +362,12 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         ")");
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
-    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
+    useConfiguration("--//test:cute-animal-fact=cats_cant_taste_sugar");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
     assertContainsEvent(
-        "expected value of type 'string' for " + "//test:cute-animal-fact, but got 24 (int)");
+        "expected value of type 'string' for //test:cute-animal-fact, but got 24 (int)");
   }
 
   @Test
@@ -457,7 +456,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         ")");
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
-    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
+    useConfiguration("--//test:cute-animal-fact=cats_cant_taste_sugar");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().getStarlarkOptions())
@@ -545,7 +544,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         ")");
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
-    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "rats are ticklish <- FALSE"));
+    useConfiguration("--//test:cute-animal-fact=rats_are_ticklish_FALSE");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
@@ -553,7 +552,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
                 .getOptions()
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
-        .isEqualTo("rats are ticklish <- TRUE");
+        .isEqualTo("rats_are_ticklish_TRUE");
   }
 
   @Test
@@ -614,7 +613,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
-        "  return {'//test:fact':  'puffins mate for life'}",
+        "  return {'//test:fact':  'puffins_mate_for_life'}",
         "my_transition = transition(",
         "  implementation = _transition_impl,",
         "  inputs = [],",
@@ -632,12 +631,12 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
         ")");
 
-    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "rats are ticklish"));
+    useConfiguration("--//test:cute-animal-fact=rats_are_ticklish");
 
     ImmutableMap<Label, Object> starlarkOptions =
         getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions();
     assertThat(starlarkOptions.get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
-        .isEqualTo("puffins mate for life");
+        .isEqualTo("puffins_mate_for_life");
     assertThat(starlarkOptions).doesNotContainKey(Label.parseCanonicalUnchecked("//test:fact"));
     assertThat(starlarkOptions.keySet())
         .containsExactly(Label.parseCanonicalUnchecked("//test:cute-animal-fact"));
@@ -648,7 +647,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
-        "  return {'//test:fact':  'puffins mate for life'}",
+        "  return {'//test:fact':  'puffins_mate_for_life'}",
         "my_transition = transition(",
         "  implementation = _transition_impl,",
         "  inputs = [],",
@@ -667,7 +666,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
         ")");
 
-    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "rats are ticklish"));
+    useConfiguration("--//test:cute-animal-fact=rats_are_ticklish");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
@@ -675,7 +674,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
                 .getOptions()
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
-        .isEqualTo("puffins mate for life");
+        .isEqualTo("puffins_mate_for_life");
   }
 
   @Test
@@ -1401,10 +1400,10 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     // Starlark option at is default value.
     getConfiguredTarget("//test");
 
-    useConfiguration(ImmutableMap.of("//test:multiple_flag", ImmutableList.of("foo")));
+    useConfiguration("--//test:multiple_flag=foo");
     getConfiguredTarget("//test");
 
-    useConfiguration(ImmutableMap.of("//test:multiple_flag", ImmutableList.of("foo", "bar")));
+    useConfiguration("--//test:multiple_flag=foo,bar");
     getConfiguredTarget("//test");
   }
 

@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -354,8 +353,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     // Set the Starlark flag explicitly. Otherwise it won't show up at all in the top-level config's
     // getOptions().getStarlarkOptions() map.
     useConfiguration(
-        /* starlarkOptions= */ ImmutableMap.of("//test/flags:my_string_flag", "top-level value"),
-        /* args...= */ "--platform_mappings=my_mapping_file");
+        "--//test/flags:my_string_flag=top-level value", "--platform_mappings=my_mapping_file");
     ConfiguredTarget main = getConfiguredTarget("//test:main");
     ConfiguredTarget dep = getDirectPrerequisite(main, "//test:dep");
 

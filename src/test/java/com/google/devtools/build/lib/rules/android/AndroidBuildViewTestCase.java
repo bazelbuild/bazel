@@ -74,8 +74,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   @Override
-  protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
-      throws Exception {
+  protected void useConfiguration(String... args) throws Exception {
 
     // Platform-based toolchain resolution:
     ImmutableList.Builder<String> fullArgs = ImmutableList.builder();
@@ -112,7 +111,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       fullArgs.add(defaultPlatformFlag());
     }
     fullArgs.add("--incompatible_enable_cc_toolchain_resolution");
-    super.useConfiguration(starlarkOptions, fullArgs.build().toArray(new String[0]));
+    super.useConfiguration(fullArgs.build().toArray(new String[0]));
   }
 
   protected Iterable<Artifact> getNativeLibrariesInApk(ConfiguredTarget target) {

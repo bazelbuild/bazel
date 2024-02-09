@@ -108,6 +108,8 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
+import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -191,7 +193,9 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
+import com.google.devtools.build.lib.skyframe.config.NativeAndStarlarkFlags;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsFunction;
+import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
@@ -245,6 +249,8 @@ import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -1534,6 +1540,43 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Called when a top-level configuration is determined. */
   protected void setTopLevelConfiguration(BuildConfigurationValue topLevelConfiguration) {}
+
+  /**
+   * Parse raw options and create a {@link BuildOptions} instance. Options may be a mix of native
+   * and Starlark options.
+   */
+  @VisibleForTesting
+  public BuildOptions createBuildOptionsForTesting(
+      ExtendedEventHandler eventHandler, ImmutableList<String> args)
+      throws OptionsParsingException, InvalidConfigurationException {
+    RepositoryMappingValue.Key mainRepositoryMappingKey =
+        RepositoryMappingValue.key(RepositoryName.MAIN);
+    EvaluationResult<SkyValue> mainRepoMappingResult =
+        evaluateSkyKeys(eventHandler, ImmutableList.of(mainRepositoryMappingKey));
+    if (mainRepoMappingResult.hasError()) {
+      throw new InvalidConfigurationException(
+          "Cannot find main repository mapping", Code.INVALID_BUILD_OPTIONS);
+    }
+    RepositoryMappingValue mainRepositoryMappingValue =
+        (RepositoryMappingValue) mainRepoMappingResult.get(mainRepositoryMappingKey);
+    RepoContext mainRepoContext =
+        RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.getRepositoryMapping());
+
+    // Parse the options.
+    PackageContext rootPackage = mainRepoContext.rootPackage();
+    ParsedFlagsValue.Key parsedFlagsKey = ParsedFlagsValue.Key.create(args, rootPackage);
+    EvaluationResult<SkyValue> result =
+        evaluateSkyKeys(eventHandler, ImmutableList.of(parsedFlagsKey));
+    if (result.hasError()) {
+      throw new InvalidConfigurationException("Cannot parse options", Code.INVALID_BUILD_OPTIONS);
+    }
+    ParsedFlagsValue parsedFlagsValue = (ParsedFlagsValue) result.get(parsedFlagsKey);
+    NativeAndStarlarkFlags flags = parsedFlagsValue.flags();
+    OptionsParsingResult optionsParsingResult = flags.parse();
+
+    return BuildOptions.of(
+        ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParsingResult);
+  }
 
   /** Asks the Skyframe evaluator to build a {@link BuildConfigurationValue}. */
   public BuildConfigurationValue createConfiguration(

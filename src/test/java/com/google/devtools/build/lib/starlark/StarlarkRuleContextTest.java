@@ -3014,7 +3014,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testBuildSettingValue_explicitlySet() throws Exception {
     writeIntFlagBuildSettingFiles();
-    useConfiguration(ImmutableMap.of("//test:int_flag", 24));
+    useConfiguration("--//test:int_flag=24");
 
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:int_flag");
     Provider.Key key =
@@ -3071,8 +3071,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     // Set multiple times
     useConfiguration(
-        ImmutableMap.of(
-            "//test:string_flag", ImmutableList.of("some-other-value", "some-other-other-value")));
+        "--//test:string_flag=some-other-value", "--//test:string_flag=some-other-other-value");
     buildSetting = getConfiguredTarget("//test:string_flag");
     key =
         new StarlarkProvider.Key(
@@ -3116,9 +3115,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     // Set multiple times
     useConfiguration(
-        ImmutableMap.of(
-            "//test:string_list_flag",
-            ImmutableList.of("some-other-value", "some-other-other-value")));
+        "--//test:string_list_flag=some-other-value",
+        "--//test:string_list_flag=some-other-other-value");
     buildSetting = getConfiguredTarget("//test:string_list_flag");
     key =
         new StarlarkProvider.Key(
@@ -3132,7 +3130,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     // No splitting on comma.
     useConfiguration(
-        ImmutableMap.of("//test:string_list_flag", ImmutableList.of("a,b,c", "a", "b,c")));
+        "--//test:string_list_flag=a,b,c",
+        "--//test:string_list_flag=a",
+        "--//test:string_list_flag=b,c");
     buildSetting = getConfiguredTarget("//test:string_list_flag");
     key =
         new StarlarkProvider.Key(

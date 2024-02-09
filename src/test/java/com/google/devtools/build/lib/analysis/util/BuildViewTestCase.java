@@ -420,13 +420,21 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return PackageOverheadEstimator.NOOP_ESTIMATOR;
   }
 
-  protected final BuildConfigurationValue createConfiguration(
-      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(ruleClassProvider.getFragmentRegistry().getOptionsClasses())
-            .build();
-    List<String> allArgs = new ArrayList<>();
+  protected final BuildConfigurationValue createConfiguration(String... args) throws Exception {
+    BuildOptions buildOptions = createBuildOptions(args);
+
+    // This is being done outside of BuildView, potentially even before the BuildView was
+    // constructed and thus cannot rely on BuildView having injected this for us.
+    skyframeExecutor.setBaselineConfiguration(buildOptions);
+    return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
+  }
+
+  private BuildOptions createBuildOptions(String... args)
+      throws OptionsParsingException, InvalidConfigurationException {
+    ImmutableList.Builder<String> allArgs = new ImmutableList.Builder<>();
+
+    // Add standard flags.
+
     // TODO(dmarting): Add --stamp option only to test that requires it.
     allArgs.add("--stamp"); // Stamp is now defaulted to false.
     allArgs.add("--experimental_extended_sanity_checks");
@@ -435,22 +443,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     allArgs.add("--cpu=k8");
     allArgs.add("--host_cpu=k8");
 
-    optionsParser.parse(allArgs);
-    optionsParser.parse(args);
+    // Now the flags from the test.
+    allArgs.add(args);
 
-    // TODO(blaze-configurability): It would be nice to be able to do some starlark options loading
-    // to ensure that the values given in this map are the right types for their keys.
-    // TODO(blaze-configurability): It is actually incorrect that build options are potentially
-    // being explicitly set to their default values. In production, Starlark options set to their
-    // default are always null (and various parts of the infra rely on this).
-    optionsParser.setStarlarkOptions(starlarkOptions);
-
-    BuildOptions buildOptions =
-        BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);
-    // This is being done outside of BuildView, potentially even before the BuildView was
-    // constructed and thus cannot rely on BuildView having injected this for us.
-    skyframeExecutor.setBaselineConfiguration(buildOptions);
-    return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
+    return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs.build());
   }
 
   protected Target getTarget(String label)
@@ -595,22 +591,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Sets exec and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    *
-   * <p>TODO(juliexxia): when Starlark option parsing exists, find a way to combine these parameters
-   * into a single parameter so Starlark/native options don't have to be specified separately.
-   *
    * <p>NOTE: Build language options are not support by this method, for example
    * --experimental_google_legacy_api. Use {@link #setBuildLanguageOptions} instead.
    *
-   * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
-   *     form of label-like strings) and the values are option values
-   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   * @param args native and Starlark option name/pair descriptions in command line form (e.g.
+   *     "--cpu=k8")
    */
-  protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
-      throws Exception {
+  protected void useConfiguration(String... args) throws Exception {
     ImmutableList<String> actualArgs =
         ImmutableList.<String>builder().addAll(getDefaultsForConfiguration()).add(args).build();
 
-    targetConfig = createConfiguration(starlarkOptions, actualArgs.toArray(new String[0]));
+    targetConfig = createConfiguration(actualArgs.toArray(new String[0]));
     if (!scratch.resolve("platform/BUILD").exists()) {
       scratch.overwriteFile("platform/BUILD", "platform(name = 'exec')");
     }
@@ -623,10 +614,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     targetConfigKey = targetConfig.getKey();
     configurationArgs = actualArgs;
     createBuildView();
-  }
-
-  protected void useConfiguration(String... args) throws Exception {
-    useConfiguration(ImmutableMap.of(), args);
   }
 
   /**

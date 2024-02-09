@@ -56,6 +56,7 @@ java_library(
 
 java_test(
     name = "ConfigRulesTests",
+    shard_count = 5,
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":ConfigRulesTests_lib",
