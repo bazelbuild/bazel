@@ -309,8 +309,24 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     return "remoteActionFS";
   }
 
+  // Like resolveSymbolicLinks(), except that only the parent path is canonicalized.
+  private PathFragment resolveSymbolicLinksForParent(PathFragment path) throws IOException {
+    PathFragment parentPath = path.getParentDirectory();
+    if (parentPath != null) {
+      return resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
+    }
+    return path;
+  }
+
   @Override
   protected boolean delete(PathFragment path) throws IOException {
+    try {
+      path = resolveSymbolicLinksForParent(path);
+    } catch (FileNotFoundException ignored) {
+      // Failure to delete a nonexistent path is not an error.
+      return false;
+    }
+
     boolean deleted = localFs.getPath(path).delete();
     if (isOutput(path)) {
       deleted = remoteOutputTree.getPath(path).delete() || deleted;
@@ -474,10 +490,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    PathFragment parentPath = path.getParentDirectory();
-    if (parentPath != null) {
-      path = resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
-    }
+    path = resolveSymbolicLinksForParent(path);
 
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
@@ -509,10 +522,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
-    PathFragment parentPath = linkPath.getParentDirectory();
-    if (parentPath != null) {
-      linkPath = resolveSymbolicLinks(parentPath).asFragment().getChild(linkPath.getBaseName());
-    }
+    linkPath = resolveSymbolicLinksForParent(linkPath);
 
     if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
