@@ -41,7 +41,6 @@ final class LostImportantOutputHandlerModule extends BlazeModule {
   private final Set<String> pathsToConsiderLost = Sets.newConcurrentHashSet();
   private final Function<byte[], String> digestFn;
   private PathFragment execRoot;
-  private PathFragment output;
 
   LostImportantOutputHandlerModule(Function<byte[], String> digestFn) {
     this.digestFn = checkNotNull(digestFn);

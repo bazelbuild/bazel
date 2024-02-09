@@ -2657,40 +2657,56 @@ public class RewindingTestsHelper {
 
   public final void runTopLevelOutputRewound_regularFile() throws Exception {
     testCase.write(
-        "foo/BUILD", "genrule(name = 'lost', outs = ['lost.out'], cmd = 'echo lost > $@')");
+        "foo/defs.bzl",
+        "def _lost_and_found_impl(ctx):",
+        "  lost = ctx.actions.declare_file('lost.out')",
+        "  found = ctx.actions.declare_file('found.out')",
+        "  ctx.actions.run_shell(outputs = [lost], command = 'echo lost > %s' % lost.path)",
+        "  ctx.actions.run_shell(outputs = [found], command = 'echo found > %s' % found.path)",
+        "  return DefaultInfo(files = depset([lost, found]))",
+        "",
+        "lost_and_found = rule(implementation = _lost_and_found_impl)");
+    testCase.write(
+        "foo/BUILD",
+        "load(':defs.bzl', 'lost_and_found')",
+        "lost_and_found(name = 'lost_and_found')");
     lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost.out"));
-    Label fooLost = Label.parseCanonical("//foo:lost");
+    Label fooLostAndFound = Label.parseCanonical("//foo:lost_and_found");
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
-    listenForNoCompletionEventsBeforeRewinding(fooLost, targetCompleteEvents);
+    listenForNoCompletionEventsBeforeRewinding(fooLostAndFound, targetCompleteEvents);
 
-    testCase.buildTarget("//foo:lost");
+    testCase.buildTarget("//foo:lost_and_found");
 
     lostOutputsModule.verifyAllLostOutputsConsumed();
     assertThat(rewoundKeys).hasSize(1);
-    assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//foo:lost");
+    assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//foo:lost_and_found");
     assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
-        .hasCount("Executing genrule //foo:lost", 2);
-    assertThat(targetCompleteEvents.keySet()).containsExactly(fooLost);
+        .hasCount("Action foo/lost.out", 2);
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Action foo/found.out", 1);
+    assertThat(targetCompleteEvents.keySet()).containsExactly(fooLostAndFound);
   }
 
   public final void runTopLevelOutputRewound_aspectOwned() throws Exception {
     testCase.write(
         "foo/defs.bzl",
-        "def _lost_aspect_impl(target, ctx):",
-        "  out = ctx.actions.declare_file(ctx.rule.attr.name + '_lost_aspect.out')",
-        "  ctx.actions.run_shell(outputs = [out], command = 'echo lost_aspect > %s' % out.path)",
-        "  return [OutputGroupInfo(default = depset([out]))]",
+        "def _lost_and_found_aspect_impl(target, ctx):",
+        "  lost = ctx.actions.declare_file('lost.out')",
+        "  found = ctx.actions.declare_file('found.out')",
+        "  ctx.actions.run_shell(outputs = [lost], command = 'echo lost > %s' % lost.path)",
+        "  ctx.actions.run_shell(outputs = [found], command = 'echo found > %s' % found.path)",
+        "  return [OutputGroupInfo(default = depset([lost, found]))]",
         "",
-        "lost_aspect = aspect(implementation = _lost_aspect_impl)");
+        "lost_and_found_aspect = aspect(implementation = _lost_and_found_aspect_impl)");
     testCase.write("foo/BUILD", "sh_library(name = 'lib')");
-    lostOutputsModule.addLostOutput(getExecPath("bin/foo/lib_lost_aspect.out"));
+    lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost.out"));
     Label fooLib = Label.parseCanonical("//foo:lib");
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     Map<Label, AspectCompleteEvent> aspectCompleteEvents = recordAspectCompleteEvents();
     listenForNoCompletionEventsBeforeRewinding(fooLib, aspectCompleteEvents);
 
-    testCase.addOptions("--aspects=foo/defs.bzl%lost_aspect");
+    testCase.addOptions("--aspects=foo/defs.bzl%lost_and_found_aspect");
     testCase.buildTarget("//foo:lib");
 
     lostOutputsModule.verifyAllLostOutputsConsumed();
@@ -2699,7 +2715,9 @@ public class RewindingTestsHelper {
     assertThat(((ActionLookupData) rewoundKeys.get(0)).getActionLookupKey())
         .isInstanceOf(AspectKey.class);
     assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
-        .hasCount("Action foo/lib_lost_aspect.out", 2);
+        .hasCount("Action foo/lost.out", 2);
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Action foo/found.out", 1);
     assertThat(aspectCompleteEvents.keySet()).containsExactly(fooLib);
   }
 
