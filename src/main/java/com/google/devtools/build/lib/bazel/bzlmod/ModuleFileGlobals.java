@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashBiMap;
@@ -513,6 +515,27 @@ public class ModuleFileGlobals {
     }
   }
 
+  /**
+   * Returns a {@link Label} when the given string is a valid label, otherwise the string itself.
+   */
+  private Object parseOverrideLabelAttribute(String rawLabel) {
+    RepositoryMapping repoMapping =
+        RepositoryMapping.create(
+            ImmutableMap.<String, RepositoryName>builder()
+                .put("", RepositoryName.MAIN)
+                .put(module.getRepoName().orElse(module.getName()), RepositoryName.MAIN)
+                .buildKeepingLast(),
+            RepositoryName.MAIN);
+    try {
+      return Label.parseWithPackageContext(
+          rawLabel, Label.PackageContext.of(PackageIdentifier.EMPTY_PACKAGE_ID, repoMapping));
+    } catch (LabelSyntaxException e) {
+      // Preserve backwards compatibility by not failing eagerly, rather keep the invalid label and
+      // let the module repo fail when fetched.
+      return rawLabel;
+    }
+  }
+
   class ModuleExtensionUsageBuilder {
     private final String extensionBzlFile;
     private final String extensionName;
@@ -848,7 +871,9 @@ public class ModuleFileGlobals {
         SingleVersionOverride.create(
             parsedVersion,
             registry,
-            Sequence.cast(patches, String.class, "patches").getImmutableList(),
+            Sequence.cast(patches, String.class, "patches").stream()
+                .map(this::parseOverrideLabelAttribute)
+                .collect(toImmutableList()),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             patchStrip.toInt("single_version_override.patch_strip")));
   }
@@ -984,7 +1009,9 @@ public class ModuleFileGlobals {
         moduleName,
         ArchiveOverride.create(
             urlList,
-            Sequence.cast(patches, String.class, "patches").getImmutableList(),
+            Sequence.cast(patches, String.class, "patches").stream()
+                .map(this::parseOverrideLabelAttribute)
+                .collect(toImmutableList()),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             integrity,
             stripPrefix,
@@ -1060,7 +1087,9 @@ public class ModuleFileGlobals {
         GitOverride.create(
             remote,
             commit,
-            Sequence.cast(patches, String.class, "patches").getImmutableList(),
+            Sequence.cast(patches, String.class, "patches").stream()
+                .map(this::parseOverrideLabelAttribute)
+                .collect(toImmutableList()),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             patchStrip.toInt("git_override.patch_strip"),
             initSubmodules));
