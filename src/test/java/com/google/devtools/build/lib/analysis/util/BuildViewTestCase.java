@@ -429,7 +429,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
   }
 
-  private BuildOptions createBuildOptions(String... args)
+  protected BuildOptions createBuildOptions(String... args)
       throws OptionsParsingException, InvalidConfigurationException {
     ImmutableList.Builder<String> allArgs = new ImmutableList.Builder<>();
 
