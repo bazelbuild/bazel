@@ -23,6 +23,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -34,6 +35,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -295,5 +297,17 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"),
         Sequence.cast(
             avoidDepLinkingContexts, CcLinkingContext.class, "avoid_dep_linking_contexts"));
+  }
+
+  @StarlarkMethod(
+      name = "get_split_target_triplet",
+      documented = false,
+      parameters = {@Param(name = "ctx", named = true)})
+  public Dict<String, StructImpl> getSplitTargetTriplet(StarlarkRuleContext starlarkRuleContext)
+      throws EvalException {
+    return MultiArchBinarySupport.getSplitTargetTripletFromCtads(
+        starlarkRuleContext
+            .getRuleContext()
+            .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR));
   }
 }

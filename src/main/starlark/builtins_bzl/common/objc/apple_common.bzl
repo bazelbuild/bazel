@@ -14,6 +14,8 @@
 
 """Legacy apple_common module"""
 
+load(":common/objc/linking_support.bzl", "linking_support")
+
 native_apple_common = _builtins.internal.apple_common
 
 apple_common = struct(
@@ -32,6 +34,6 @@ apple_common = struct(
     new_dynamic_framework_provider = lambda **kwargs: native_apple_common.new_dynamic_framework_provider(**kwargs),
     new_executable_binary_provider = lambda **kwargs: native_apple_common.new_executable_binary_provider(**kwargs),
     link_multi_arch_binary = lambda **kwargs: native_apple_common.link_multi_arch_binary(**kwargs),
-    link_multi_arch_static_library = lambda **kwargs: native_apple_common.link_multi_arch_static_library(**kwargs),
+    link_multi_arch_static_library = linking_support.link_multi_arch_static_library,
     dotted_version = lambda version: native_apple_common.dotted_version(version),
 )

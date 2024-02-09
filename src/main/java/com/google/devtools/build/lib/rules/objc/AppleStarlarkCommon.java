@@ -47,7 +47,6 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -240,32 +239,6 @@ public class AppleStarlarkCommon
               isStampingEnabled,
               new UserVariablesExtension(asDict(variablesExtension)));
       return createStarlarkLinkingOutputs(linkingOutputs, thread);
-    } catch (RuleErrorException exception) {
-      throw new EvalException(exception);
-    }
-  }
-
-  @Override
-  public StructImpl linkMultiArchStaticLibrary(
-      StarlarkRuleContext starlarkRuleContext, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    try {
-      RuleContext ruleContext = starlarkRuleContext.getRuleContext();
-      StarlarkFunction linkMultiArchLibrary =
-          (StarlarkFunction)
-              ruleContext.getStarlarkDefinedBuiltin("link_multi_arch_static_library");
-      Dict<String, StructImpl> splitTargetTriplets =
-          MultiArchBinarySupport.getSplitTargetTripletFromCtads(
-              ruleContext.getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR));
-      return (StructImpl)
-          ruleContext.callStarlarkOrThrowRuleError(
-              linkMultiArchLibrary,
-              ImmutableList.of(),
-              ImmutableMap.of(
-                  "ctx",
-                  ruleContext.getStarlarkRuleContext(),
-                  "split_target_triplets",
-                  splitTargetTriplets));
     } catch (RuleErrorException exception) {
       throw new EvalException(exception);
     }

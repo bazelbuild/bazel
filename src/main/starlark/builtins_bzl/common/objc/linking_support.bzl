@@ -21,16 +21,13 @@ load(":common/cc/cc_common.bzl", "cc_common")
 objc_internal = _builtins.internal.objc_internal
 ObjcInfo = _builtins.internal.apple_common.Objc
 
-def _link_multi_arch_static_library(ctx, split_target_triplets):
+def _link_multi_arch_static_library(ctx):
     """Links a (potentially multi-architecture) static library targeting Apple platforms.
 
     Rule context is a required parameter due to usage of the cc_common.configure_features API.
 
     Args:
         ctx: The Starlark rule context.
-        split_target_triplets: Dict for split transition keys and target triplet struct (arch,
-          platform, environment). These values come from Java (see AppleStarlarkCommon.java) and are
-          in place due to no available Starlark API for these values.
 
     Returns:
         A Starlark struct containing the following attributes:
@@ -41,6 +38,8 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
                 - platform: Linked static library target Apple platform (e.g. 'ios', 'macos').
                 - environment: Linked static library environment (e.g. 'device', 'simulator').
     """
+    split_target_triplets = objc_internal.get_split_target_triplet(ctx)
+
     split_deps = ctx.split_attr.deps
     split_avoid_deps = ctx.split_attr.avoid_deps
     child_configs_and_toolchains = ctx.split_attr._child_configuration_dummy

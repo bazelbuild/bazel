@@ -27,7 +27,6 @@ load("@_builtins//:common/cc/cc_toolchain.bzl", "apple_cc_toolchain", "cc_toolch
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
-load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
@@ -99,7 +98,6 @@ exported_rules = {
 
 # A list of Starlark functions callable from native rules implementation.
 exported_to_java = {
-    "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
     "j2objc_mapping_file_info_union": objc_common.j2objc_mapping_file_info_union,
     "j2objc_entry_class_info_union": objc_common.j2objc_entry_class_info_union,
     "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,
