@@ -746,20 +746,23 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
-    checkArgument(isOutput(sourcePath), "sourcePath must be an output path");
-    checkArgument(isOutput(targetPath), "targetPath must be an output path");
+  public void renameTo(PathFragment srcPath, PathFragment dstPath) throws IOException {
+    srcPath = resolveSymbolicLinksForParent(srcPath);
+    dstPath = resolveSymbolicLinksForParent(dstPath);
+
+    checkArgument(isOutput(srcPath), "srcPath must be an output path");
+    checkArgument(isOutput(dstPath), "dstPath must be an output path");
 
     FileNotFoundException remoteException = null;
     try {
-      remoteOutputTree.renameTo(sourcePath, targetPath);
+      remoteOutputTree.renameTo(srcPath, dstPath);
     } catch (FileNotFoundException e) {
       remoteException = e;
     }
 
     FileNotFoundException localException = null;
     try {
-      localFs.renameTo(sourcePath, targetPath);
+      localFs.renameTo(srcPath, dstPath);
     } catch (FileNotFoundException e) {
       localException = e;
     }
