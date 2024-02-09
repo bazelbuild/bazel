@@ -7,4 +7,13 @@ if [ $# != 2 ]; then
    exit 1
 fi
 
-exec "$LLVM_IFS_PATH" --input-format=ELF "$1" --output-elf "$2"
+has_versioned_symbol() {
+  "$NM" --dynamic --format=just-symbols --no-sort "$1" \
+    | grep --quiet --max-count=1 --fixed-strings @
+}
+
+if has_versioned_symbol "$1"; then
+  exec cp "$1" "$2"
+else
+  "$LLVM_IFS" --input-format=ELF "$1" --output-elf "$2"
+fi

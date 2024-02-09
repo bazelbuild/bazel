@@ -96,8 +96,10 @@ def layering_check_features(compiler):
         ),
     ]
 
-def interface_shared_libraries_support(cc_path, llvm_ifs_path, link_dynamic_library_tool):
-    if not llvm_ifs_path:
+def interface_shared_libraries_support(tool_paths, link_dynamic_library_tool):
+    llvm_ifs_path = tool_paths.get("llvm-ifs")
+    nm_path = tool_paths.get("nm")
+    if not llvm_ifs_path or not nm_path:
         return [], []
     dynamic_library_actions = [
         ACTION_NAMES.cpp_link_dynamic_library,
@@ -158,8 +160,12 @@ def interface_shared_libraries_support(cc_path, llvm_ifs_path, link_dynamic_libr
                     actions = dynamic_library_actions,
                     env_entries = [
                         env_entry(
-                            key = "LLVM_IFS_PATH",
+                            key = "LLVM_IFS",
                             value = llvm_ifs_path,
+                        ),
+                        env_entry(
+                            key = "NM",
+                            value = nm_path,
                         ),
                     ],
                 ),
@@ -172,7 +178,7 @@ def interface_shared_libraries_support(cc_path, llvm_ifs_path, link_dynamic_libr
                     actions = dynamic_library_actions,
                     flag_groups = [
                         flag_group(
-                            flags = [cc_path],
+                            flags = [tool_paths["gcc"]],
                             expand_if_available = "generate_interface_library",
                         ),
                     ],
@@ -1398,8 +1404,7 @@ def _impl(ctx):
         # Linux artifact name patterns are the default.
         artifact_name_patterns = []
         ifso_action_configs, ifso_features = interface_shared_libraries_support(
-            cc_path = ctx.attr.tool_paths["gcc"],
-            llvm_ifs_path = ctx.attr.tool_paths.get("llvm-ifs"),
+            tool_paths = ctx.attr.tool_paths,
             link_dynamic_library_tool = ctx.file._link_dynamic_library,
         )
         action_configs.extend(ifso_action_configs)

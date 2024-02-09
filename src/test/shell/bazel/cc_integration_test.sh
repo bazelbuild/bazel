@@ -1967,4 +1967,72 @@ EOF
   expect_log "func(): 43"
 }
 
+function test_ifso_symbol_versioning() {
+  type -P llvm-ifs-14 || return 0
+
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+cc_library(
+  name = "lib",
+  srcs = ["lib.c"],
+  hdrs = ["lib.h"],
+  additional_linker_inputs = ["version_script.lds"],
+  linkopts = ["-Wl,--version-script,$(execpath version_script.lds)"],
+)
+cc_test(
+  name = "test",
+  srcs = ["test.c"],
+  deps = [":lib"],
+)
+EOF
+  cat > pkg/version_script.lds <<'EOF'
+v1 {};
+v2 {};
+EOF
+  cat > pkg/lib.c <<'EOF'
+#include "lib.h"
+__asm__(".symver old_func, func@@v1, remove");
+int old_func() { return 42; }
+__asm__(".symver new_func, func@v2, remove");
+int new_func() { return 43; }
+EOF
+  cat > pkg/lib.h <<'EOF'
+int func();
+EOF
+  cat > pkg/test.c <<'EOF'
+#include "lib.h"
+#include "stdio.h"
+int main() {
+  printf("func(): %d\n", func());
+}
+EOF
+
+  bazel test //pkg:test -s --test_output=all \
+    --repo_env=BAZEL_LLVM_IFS=llvm-ifs-14 \
+    &> "$TEST_log" || fail "Build failed"
+  expect_log "action 'Compiling pkg/lib.c'"
+  expect_log "action 'Linking pkg/liblib.so'"
+  expect_log "action 'Linking pkg/test'"
+  expect_log "func(): 42"
+  [[ -f ${PRODUCT_NAME}-bin/pkg/liblib.ifso ]] || fail "liblib.ifso not found"
+
+  # Only modify the default symbol version of func(). This results in a
+  # different implementation being at runtime after a relink. Without the
+  # relink, the runtime behavior will be incorrect.
+  cat > pkg/lib.c <<'EOF'
+#include "lib.h"
+__asm__(".symver old_func, func@v1, remove");
+int old_func() { return 42; }
+__asm__(".symver new_func, func@@v2, remove");
+int new_func() { return 43; }
+EOF
+  bazel test //pkg:test -s --test_output=all \
+    --repo_env=BAZEL_LLVM_IFS=llvm-ifs-14 \
+    &> "$TEST_log" || fail "Build failed"
+  expect_log "action 'Compiling pkg/lib.c'"
+  expect_log "action 'Linking pkg/liblib.so'"
+  expect_log "action 'Linking pkg/test'"
+  expect_log "func(): 43"
+}
+
 run_suite "cc_integration_test"
