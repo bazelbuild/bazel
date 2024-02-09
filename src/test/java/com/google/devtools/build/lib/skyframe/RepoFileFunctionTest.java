@@ -69,7 +69,7 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
                 .get("deprecation", Type.STRING))
         .isNull();
     assertThat(
-            getRuleContext(getConfiguredTarget("@@foo~1.0//abc/def:what"))
+            getRuleContext(getConfiguredTarget("@@foo~//abc/def:what"))
                 .attributes()
                 .get("deprecation", Type.STRING))
         .isEqualTo("EVERYTHING IS DEPRECATED");

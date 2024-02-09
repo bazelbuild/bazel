@@ -151,13 +151,13 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         .containsExactly(
             ",aaa," + getRuleClassProvider().getRunfilesPrefix(),
             ",aaa_ws," + getRuleClassProvider().getRunfilesPrefix(),
-            ",bbb,bbb~1.0",
-            "bbb~1.0,bbb,bbb~1.0",
-            "bbb~1.0,ddd,ddd~2.0",
-            "ddd~2.0,ddd,ddd~2.0")
+            ",bbb,bbb~",
+            "bbb~,bbb,bbb~",
+            "bbb~,ddd,ddd~",
+            "ddd~,ddd,ddd~")
         .inOrder();
-    assertThat(getRepoMappingManifestForTarget("@@ccc~2.0//:ccc"))
-        .containsExactly("ccc~2.0,ccc,ccc~2.0", "ccc~2.0,ddd,ddd~2.0", "ddd~2.0,ddd,ddd~2.0")
+    assertThat(getRepoMappingManifestForTarget("@@ccc~//:ccc"))
+        .containsExactly("ccc~,ccc,ccc~", "ccc~,ddd,ddd~", "ddd~,ddd,ddd~")
         .inOrder();
   }
 
@@ -220,8 +220,8 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     assertThat(getRepoMappingManifestForTarget("//:tooled"))
         .containsExactly(
             ",main," + getRuleClassProvider().getRunfilesPrefix(),
-            "bare_rule~1.0,bare_rule,bare_rule~1.0",
-            "tooled_rule~1.0,bare_rule,bare_rule~1.0")
+            "bare_rule~,bare_rule,bare_rule~",
+            "tooled_rule~,bare_rule,bare_rule~")
         .inOrder();
   }
 
@@ -361,7 +361,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         "bare_binary(name='ddd')");
     invalidatePackages();
 
-    RunfilesSupport runfilesSupport = getRunfilesSupport("@aaa~1.0//:aaa");
+    RunfilesSupport runfilesSupport = getRunfilesSupport("@aaa~//:aaa");
     ImmutableList<String> runfilesPaths =
         runfilesSupport
             .getRunfiles()
@@ -372,21 +372,21 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
             .collect(toImmutableList());
     assertThat(runfilesPaths)
         .containsAtLeast(
-            "aaa~1.0/aaa",
+            "aaa~/aaa",
             getRuleClassProvider().getRunfilesPrefix() + "/path/to/pkg/symlink",
-            "symlinks~1.0/path/to/pkg/root_symlink",
+            "symlinks~/path/to/pkg/root_symlink",
             "_repo_mapping");
 
-    assertThat(getRepoMappingManifestForTarget("@aaa~1.0//:aaa"))
+    assertThat(getRepoMappingManifestForTarget("@aaa~//:aaa"))
         .containsExactly(
-            // @aaa~1.0 contributes the top-level executable to runfiles.
-            "aaa~1.0,aaa,aaa~1.0",
+            // @aaa~ contributes the top-level executable to runfiles.
+            "aaa~,aaa,aaa~",
             // The symlink is staged under the main repository's runfiles directory and aaa has a
             // repo mapping entry for it.
-            "aaa~1.0,my_module," + getRuleClassProvider().getRunfilesPrefix(),
-            // @symlinks~1.0 appears as the first segment of a root symlink.
-            "aaa~1.0,symlinks,symlinks~1.0",
-            "symlinks~1.0,symlinks,symlinks~1.0")
+            "aaa~,my_module," + getRuleClassProvider().getRunfilesPrefix(),
+            // @symlinks~ appears as the first segment of a root symlink.
+            "aaa~,symlinks,symlinks~",
+            "symlinks~,symlinks,symlinks~")
         .inOrder();
   }
 

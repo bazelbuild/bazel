@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
@@ -45,7 +46,7 @@ public abstract class BazelDepGraphValue implements SkyValue {
       ImmutableMap<ModuleExtensionId, String> extensionUniqueNames) {
     return new AutoValue_BazelDepGraphValue(
         depGraph,
-        canonicalRepoNameLookup,
+        ImmutableBiMap.copyOf(canonicalRepoNameLookup),
         abridgedModules,
         extensionUsagesTable,
         extensionUniqueNames);
@@ -67,7 +68,12 @@ public abstract class BazelDepGraphValue implements SkyValue {
 
     ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
         emptyDepGraph.keySet().stream()
-            .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
+            .collect(
+                toImmutableMap(
+                    // All modules in the empty dep graph (just the root module) have an empty
+                    // version, so the choice of including it in the canonical repo name does not
+                    // matter.
+                    ModuleKey::getCanonicalRepoNameWithoutVersion, key -> key));
 
     return BazelDepGraphValue.create(
         emptyDepGraph,
@@ -83,8 +89,8 @@ public abstract class BazelDepGraphValue implements SkyValue {
    */
   public abstract ImmutableMap<ModuleKey, Module> getDepGraph();
 
-  /** A mapping from a canonical repo name to the key of the module backing it. */
-  public abstract ImmutableMap<RepositoryName, ModuleKey> getCanonicalRepoNameLookup();
+  /** A mapping from a canonical repo name to the key of the module backing it and back. */
+  public abstract ImmutableBiMap<RepositoryName, ModuleKey> getCanonicalRepoNameLookup();
 
   /** All modules in the same order as {@link #getDepGraph}, but with limited information. */
   public abstract ImmutableList<AbridgedModule> getAbridgedModules();
@@ -124,7 +130,7 @@ public abstract class BazelDepGraphValue implements SkyValue {
     }
     return getDepGraph()
         .get(key)
-        .getRepoMappingWithBazelDepsOnly()
+        .getRepoMappingWithBazelDepsOnly(getCanonicalRepoNameLookup().inverse())
         .withAdditionalMappings(mapping.buildOrThrow());
   }
 }

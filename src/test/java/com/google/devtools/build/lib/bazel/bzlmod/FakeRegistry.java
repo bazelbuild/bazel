@@ -80,7 +80,8 @@ public class FakeRegistry implements Registry {
         .setRuleClassName("local_repository")
         .setAttributes(
             AttributeValues.create(
-                ImmutableMap.of("path", rootPath + "/" + key.getCanonicalRepoName().getName())))
+                ImmutableMap.of(
+                    "path", rootPath + "/" + key.getCanonicalRepoNameWithVersion().getName())))
         .build();
   }
 

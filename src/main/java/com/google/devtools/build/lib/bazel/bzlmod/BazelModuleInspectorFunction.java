@@ -82,7 +82,11 @@ public class BazelModuleInspectorFunction implements SkyFunction {
                         AugmentedModule::getName,
                         Collectors.mapping(AugmentedModule::getKey, toImmutableSet()))));
 
-    return BazelModuleInspectorValue.create(depGraph, modulesIndex, extensionToRepoInternalNames);
+    return BazelModuleInspectorValue.create(
+        depGraph,
+        modulesIndex,
+        extensionToRepoInternalNames,
+        depGraphValue.getCanonicalRepoNameLookup().inverse());
   }
 
   public static ImmutableMap<ModuleKey, AugmentedModule> computeAugmentedGraph(
