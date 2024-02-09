@@ -265,7 +265,7 @@ class BazelOverridesTest(test_base.TestBase):
     )
     # module file override should be ignored, and bb directory should be used
     self.assertIn(
-        'Target @@ss~override//:choose_me up-to-date (nothing to build)', stderr
+        'Target @@ss~//:choose_me up-to-date (nothing to build)', stderr
     )
 
   def testCmdRelativeModuleOverride(self):
@@ -303,7 +303,7 @@ class BazelOverridesTest(test_base.TestBase):
         cwd=self.Path('aa/cc'),
     )
     self.assertIn(
-        'Target @@ss~override//:choose_me up-to-date (nothing to build)', stderr
+        'Target @@ss~//:choose_me up-to-date (nothing to build)', stderr
     )
 
   def testCmdWorkspaceRelativeModuleOverride(self):
@@ -338,7 +338,7 @@ class BazelOverridesTest(test_base.TestBase):
         cwd=self.Path('aa'),
     )
     self.assertIn(
-        'Target @@ss~override//:choose_me up-to-date (nothing to build)', stderr
+        'Target @@ss~//:choose_me up-to-date (nothing to build)', stderr
     )
 
 

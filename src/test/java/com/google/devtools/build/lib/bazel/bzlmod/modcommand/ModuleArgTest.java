@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.AugmentedModuleBuilder.buildAugmentedModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
@@ -76,6 +77,10 @@ public class ModuleArgTest {
           .put(buildAugmentedModule("foo", "1.0").addOriginalDependant(ModuleKey.ROOT).buildEntry())
           .put(buildAugmentedModule("foo", "2.0").addStillDependant(ModuleKey.ROOT).buildEntry())
           .buildOrThrow();
+
+  ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames =
+      depGraph.keySet().stream()
+          .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion));
   ImmutableBiMap<String, ModuleKey> baseModuleDeps = ImmutableBiMap.of("fred", foo2);
   ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps = ImmutableBiMap.of("fred", foo1);
   RepositoryMapping rootMapping = createRepositoryMapping(ModuleKey.ROOT, "fred", "foo~2.0");
@@ -89,13 +94,15 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ false,
                 /* warnUnused= */ false))
         .containsExactly(foo2);
 
-    assertThat(arg.resolveToRepoNames(modulesIndex, depGraph, rootMapping))
+    assertThat(
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
         .containsExactly("foo@2.0", RepositoryName.create("foo~2.0"));
   }
 
@@ -108,13 +115,15 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ true,
                 /* warnUnused= */ true));
     assertThrows(
         InvalidArgumentException.class,
-        () -> arg.resolveToRepoNames(modulesIndex, depGraph, rootMapping));
+        () ->
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping));
   }
 
   @Test
@@ -128,6 +137,7 @@ public class ModuleArgTest {
                     arg.resolveToModuleKeys(
                         modulesIndex,
                         depGraph,
+                        moduleKeyToCanonicalNames,
                         baseModuleDeps,
                         baseModuleUnusedDeps,
                         /* includeUnused= */ false,
@@ -139,6 +149,7 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ true,
@@ -148,7 +159,8 @@ public class ModuleArgTest {
     // resolving to repo names doesn't care about unused deps.
     assertThrows(
         InvalidArgumentException.class,
-        () -> arg.resolveToRepoNames(modulesIndex, depGraph, rootMapping));
+        () ->
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping));
   }
 
   @Test
@@ -159,6 +171,7 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ false,
@@ -169,6 +182,7 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ true,
@@ -176,7 +190,8 @@ public class ModuleArgTest {
         .containsExactly(foo2, foo1);
 
     // resolving to repo names doesn't care about unused deps.
-    assertThat(arg.resolveToRepoNames(modulesIndex, depGraph, rootMapping))
+    assertThat(
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
         .containsExactly("foo@2.0", RepositoryName.create("foo~2.0"));
   }
 
@@ -190,13 +205,15 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ true,
                 /* warnUnused= */ true));
     assertThrows(
         InvalidArgumentException.class,
-        () -> arg.resolveToRepoNames(modulesIndex, depGraph, rootMapping));
+        () ->
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping));
   }
 
   @Test
@@ -207,6 +224,7 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ false,
@@ -217,13 +235,15 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ true,
                 /* warnUnused= */ false))
         .containsExactly(foo2, foo1);
 
-    assertThat(arg.resolveToRepoNames(modulesIndex, depGraph, rootMapping))
+    assertThat(
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
         .containsExactly("@fred", RepositoryName.create("foo~2.0"));
   }
 
@@ -237,30 +257,34 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ true,
                 /* warnUnused= */ true));
     assertThrows(
         InvalidArgumentException.class,
-        () -> arg.resolveToRepoNames(modulesIndex, depGraph, rootMapping));
+        () ->
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping));
   }
 
   @Test
   public void resolve_canonicalRepoName_good() throws Exception {
-    var arg = CanonicalRepoName.create(foo2.getCanonicalRepoName());
+    var arg = CanonicalRepoName.create(foo2.getCanonicalRepoNameWithVersion());
 
     assertThat(
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ false,
                 /* warnUnused= */ false))
         .containsExactly(foo2);
 
-    assertThat(arg.resolveToRepoNames(modulesIndex, depGraph, rootMapping))
+    assertThat(
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
         .containsExactly("@@foo~2.0", RepositoryName.create("foo~2.0"));
   }
 
@@ -274,18 +298,20 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ true,
                 /* warnUnused= */ true));
     assertThrows(
         InvalidArgumentException.class,
-        () -> arg.resolveToRepoNames(modulesIndex, depGraph, rootMapping));
+        () ->
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping));
   }
 
   @Test
   public void resolve_canonicalRepoName_unused() throws Exception {
-    var arg = CanonicalRepoName.create(foo1.getCanonicalRepoName());
+    var arg = CanonicalRepoName.create(foo1.getCanonicalRepoNameWithVersion());
 
     // Without --include_unused, this doesn't resolve, as foo@1.0 has been replaced by foo@2.0.
     assertThat(
@@ -295,6 +321,7 @@ public class ModuleArgTest {
                     arg.resolveToModuleKeys(
                         modulesIndex,
                         depGraph,
+                        moduleKeyToCanonicalNames,
                         baseModuleDeps,
                         baseModuleUnusedDeps,
                         /* includeUnused= */ false,
@@ -306,6 +333,7 @@ public class ModuleArgTest {
             arg.resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ true,
@@ -315,6 +343,7 @@ public class ModuleArgTest {
     // resolving to repo names doesn't care about unused deps.
     assertThrows(
         InvalidArgumentException.class,
-        () -> arg.resolveToRepoNames(modulesIndex, depGraph, rootMapping));
+        () ->
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping));
   }
 }

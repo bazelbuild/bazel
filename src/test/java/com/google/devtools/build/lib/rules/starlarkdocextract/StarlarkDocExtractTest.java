@@ -1038,7 +1038,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         ")");
     invalidatePackages();
 
-    ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep_mod~0.1//:extract");
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep_mod~//:extract");
     assertThat(moduleInfo.getFile()).isEqualTo("@dep_mod//:foo.bzl");
     assertThat(moduleInfo.getFuncInfo(0).getParameter(0).getDefaultValue())
         .isEqualTo("Label(\"@dep_mod//target:target\")");

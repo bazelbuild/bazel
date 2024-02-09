@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.server.FailureDetails.ModCommand.Code;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
@@ -56,6 +57,7 @@ public abstract class ExtensionArg {
   public final ModuleExtensionId resolveToExtensionId(
       ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
       ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+      ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
       ImmutableBiMap<String, ModuleKey> baseModuleDeps,
       ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps)
       throws InvalidArgumentException {
@@ -64,6 +66,7 @@ public abstract class ExtensionArg {
             .resolveToModuleKeys(
                 modulesIndex,
                 depGraph,
+                moduleKeyToCanonicalNames,
                 baseModuleDeps,
                 baseModuleUnusedDeps,
                 /* includeUnused= */ false,
@@ -82,9 +85,9 @@ public abstract class ExtensionArg {
           Label.parseWithRepoContext(
               repoRelativeBzlLabel(),
               RepoContext.of(
-                  key.getCanonicalRepoName(),
+                  moduleKeyToCanonicalNames.get(key),
                   // Intentionally allow no repo mapping here: it's a repo-relative label!
-                  RepositoryMapping.create(ImmutableMap.of(), key.getCanonicalRepoName())));
+                  RepositoryMapping.create(ImmutableMap.of(), moduleKeyToCanonicalNames.get(key))));
       // TODO(wyv): support isolated extension usages?
       return ModuleExtensionId.create(label, extensionName(), Optional.empty());
     } catch (LabelSyntaxException e) {

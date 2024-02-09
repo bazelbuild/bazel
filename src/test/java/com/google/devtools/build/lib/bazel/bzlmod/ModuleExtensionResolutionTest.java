@@ -684,7 +684,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
 
     SkyKey skyKey =
-        BzlLoadValue.keyForBuild(Label.parseCanonical("@@ext~1.0~ext~ext_repo//:data.bzl"));
+        BzlLoadValue.keyForBuild(Label.parseCanonical("@@ext~~ext~ext_repo//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
@@ -781,7 +781,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.get(skyKey).getModule().getGlobal("isolated_dev_data"))
         .isEqualTo("root@1.0 (root): root_isolated_dev\n");
 
-    skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@foo~1.0//:data.bzl"));
+    skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@foo~//:data.bzl"));
     result = evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
@@ -1442,7 +1442,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(
         workspaceRoot.getRelative("defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
-        "load('@@ext~1.0~ext~candy//:data.bzl', candy='data')",
+        "load('@@ext~~ext~candy//:data.bzl', candy='data')",
         "load('@exposed_candy//:data.bzl', exposed_candy='data')",
         "def _ext_impl(ctx):",
         "  data_str = exposed_candy + ' (and ' + candy + ')'",
@@ -1989,7 +1989,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.getError().getException())
         .hasMessageThat()
         .isEqualTo(
-            "module extension \"ext\" from \"@@ext~1.0//:defs.bzl\" does not generate repository "
+            "module extension \"ext\" from \"@@ext~//:defs.bzl\" does not generate repository "
                 + "\"invalid_dep\", yet it is imported as \"invalid_dep\" in the usage at "
                 + "/ws/MODULE.bazel:3:20");
 
@@ -2075,7 +2075,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.getError().getException())
         .hasMessageThat()
         .isEqualTo(
-            "module extension \"ext\" from \"@@ext~1.0//:defs.bzl\" does not generate repository "
+            "module extension \"ext\" from \"@@ext~//:defs.bzl\" does not generate repository "
                 + "\"invalid_dep\", yet it is imported as \"invalid_dep\" in the usage at "
                 + "/ws/MODULE.bazel:3:20");
 
@@ -2146,7 +2146,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "load('@indirect_dep//:data.bzl', indirect_dep_data='data')",
         "data = indirect_dep_data");
 
-    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@ext~1.0//:data.bzl"));
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@ext~//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("indirect_dep_data");

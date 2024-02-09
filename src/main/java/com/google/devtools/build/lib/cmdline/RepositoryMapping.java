@@ -77,6 +77,11 @@ public class RepositoryMapping {
     return Objects.hashCode(entries, ownerRepo);
   }
 
+  @Override
+  public String toString() {
+    return String.format("RepositoryMapping{entries=%s, ownerRepo=%s}", entries, ownerRepo);
+  }
+
   public static RepositoryMapping create(
       Map<String, RepositoryName> entries, RepositoryName ownerRepo) {
     return new RepositoryMapping(
