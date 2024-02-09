@@ -38,9 +38,22 @@ function generate_lock_file() {
   touch MODULE.bazel
   bazel=$(rlocation io_bazel/src/bazel)
 
-  echo "Running: $bazel mod deps $@"
+  echo "Generating default lockfile: $bazel mod deps $@"
   $bazel mod deps "$@"
   cp ./MODULE.bazel.lock $BUILD_WORKSPACE_DIRECTORY/src/test/tools/bzlmod/MODULE.bazel.lock
 }
 
+function generate_bazel_dist_lock_file() {
+  cd "${BUILD_WORKSPACE_DIRECTORY}"
+  bazel=$(rlocation io_bazel/src/bazel)
+
+  cp ./MODULE.bazel.lock ./MODULE.bazel.lock.bak
+  trap 'mv -f ./MODULE.bazel.lock.bak ./MODULE.bazel.lock' EXIT
+
+  echo "Generating the lockfile for the distribution archive: $bazel mod deps $@"
+  $bazel mod deps "$@"
+  cp ./MODULE.bazel.lock ./MODULE.bazel.lock.dist
+}
+
 generate_lock_file "$@"
+generate_bazel_dist_lock_file "$@"

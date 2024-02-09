@@ -26,6 +26,7 @@ filegroup(
     srcs = glob(
         ["*"],
         exclude = [
+            "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
             "WORKSPACE.bzlmod",  # Needs to be filtered.
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
@@ -141,6 +142,7 @@ pkg_tar(
     ],
     # TODO(aiuto): Replace with pkg_filegroup when that is available.
     remap_paths = {
+        "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
         "WORKSPACE.bzlmod.filtered": "WORKSPACE.bzlmod",
         # Rewrite paths coming from local repositories back into third_party.
         "external/googleapis~override": "third_party/googleapis",

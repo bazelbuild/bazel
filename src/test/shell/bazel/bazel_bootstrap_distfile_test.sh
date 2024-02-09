@@ -103,7 +103,7 @@ function test_bootstrap() {
     JAVABASE=$(echo reduced*)
 
     env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" ./compile.sh \
-        || fail "Expected to be able to bootstrap bazel. If you updated MODULE.bazel, see the NOTE in that file."
+        || fail 'Expected to be able to bootstrap bazel. If the error complains about an out-of-date lockfile, try running `bazel run //src/test/tools/bzlmod:update_default_lock_file` first'
 
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \

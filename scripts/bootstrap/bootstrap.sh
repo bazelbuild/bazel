@@ -43,7 +43,7 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain \
       --enable_bzlmod \
       --check_direct_dependencies=error \
-      --lockfile_mode=update \
+      --lockfile_mode=error \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"

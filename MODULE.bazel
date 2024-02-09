@@ -1,6 +1,7 @@
 """Bazel build and test dependencies."""
 
-# NOTE: When editing this file, also update the lockfile.
+# NOTE: When editing this file, also update various lockfiles.
+#   bazel run //src/test/tools/bzlmod:update_default_lock_file
 #   bazel mod deps --lockfile_mode=update
 
 module(
