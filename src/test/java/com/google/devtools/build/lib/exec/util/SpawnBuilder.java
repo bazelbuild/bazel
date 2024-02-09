@@ -47,6 +47,7 @@ public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
   private String ownerLabel = "//dummy:label";
+  private String ownerRuleKind = "dummy-target-kind";
   @Nullable private Artifact ownerPrimaryOutput;
   @Nullable private PlatformInfo platform;
   private final List<String> args;
@@ -96,6 +97,7 @@ public final class SpawnBuilder {
             mnemonic,
             progressMessage,
             ownerLabel,
+            ownerRuleKind,
             ownerPrimaryOutput,
             platform,
             execProperties,
@@ -137,6 +139,12 @@ public final class SpawnBuilder {
   @CanIgnoreReturnValue
   public SpawnBuilder withOwnerLabel(String ownerLabel) {
     this.ownerLabel = checkNotNull(ownerLabel);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder withOwnerRuleKind(String ownerRuleKind) {
+    this.ownerRuleKind = checkNotNull(ownerRuleKind);
     return this;
   }
 
