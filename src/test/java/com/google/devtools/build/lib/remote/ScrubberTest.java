@@ -126,6 +126,54 @@ public class ScrubberTest {
   }
 
   @Test
+  public void matchExactKind() {
+    var scrubber =
+        new Scrubber(
+            Config.newBuilder()
+                .addRules(
+                    Config.Rule.newBuilder()
+                        .setMatcher(Config.Matcher.newBuilder().setKind("java_library")))
+                .build());
+
+    assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo", "java_library", false)))
+        .isNotNull();
+    assertThat(scrubber.forSpawn(createSpawn("//foo:barbaz", "Foo", "java_test", false))).isNull();
+  }
+
+  @Test
+  public void matchUnionKind() {
+    var scrubber =
+        new Scrubber(
+            Config.newBuilder()
+                .addRules(
+                    Config.Rule.newBuilder()
+                        .setMatcher(Config.Matcher.newBuilder().setKind("java_library|java_test")))
+                .build());
+
+    assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo", "java_library", false)))
+        .isNotNull();
+    assertThat(scrubber.forSpawn(createSpawn("//spam:eggs", "Foo", "java_test", false)))
+        .isNotNull();
+    assertThat(scrubber.forSpawn(createSpawn("//quux:xyzzy", "Foo", "go_library", false))).isNull();
+  }
+
+  @Test
+  public void matchWildcardKind() {
+    var scrubber =
+        new Scrubber(
+            Config.newBuilder()
+                .addRules(
+                    Config.Rule.newBuilder()
+                        .setMatcher(Config.Matcher.newBuilder().setKind("java_.*")))
+                .build());
+
+    assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo", "java_library", false)))
+        .isNotNull();
+    assertThat(scrubber.forSpawn(createSpawn("//foo:baz", "Foo", "java_test", false))).isNotNull();
+    assertThat(scrubber.forSpawn(createSpawn("//spam:eggs", "Foo", "go_library", false))).isNull();
+  }
+
+  @Test
   public void rejectToolAction() {
     var scrubber =
         new Scrubber(
@@ -137,7 +185,9 @@ public class ScrubberTest {
                 .build());
 
     assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo"))).isNotNull();
-    assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo", /* forTool= */ true))).isNull();
+    assertThat(
+            scrubber.forSpawn(createSpawn("//foo:bar", "Foo", "java_library", /* forTool= */ true)))
+        .isNull();
   }
 
   @Test
@@ -155,7 +205,9 @@ public class ScrubberTest {
                 .build());
 
     assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo"))).isNotNull();
-    assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo", /* forTool= */ true))).isNotNull();
+    assertThat(
+            scrubber.forSpawn(createSpawn("//foo:bar", "Foo", "java_library", /* forTool= */ true)))
+        .isNotNull();
   }
 
   @Test
@@ -420,13 +472,15 @@ public class ScrubberTest {
   }
 
   private static Spawn createSpawn(String label, String mnemonic) {
-    return createSpawn(label, mnemonic, /* forTool= */ false);
+    return createSpawn(label, mnemonic, /* ruleKind= */ "dummy-target-kind", /* forTool= */ false);
   }
 
-  private static Spawn createSpawn(String label, String mnemonic, boolean forTool) {
+  private static Spawn createSpawn(
+      String label, String mnemonic, String ruleKind, boolean forTool) {
     return new SpawnBuilder("cmd")
         .withOwnerLabel(label)
         .withMnemonic(mnemonic)
+        .withOwnerRuleKind(ruleKind)
         .setBuiltForToolConfiguration(forTool)
         .build();
   }
