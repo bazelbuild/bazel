@@ -160,7 +160,7 @@ maven.install(
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
         "org.yaml:snakeyaml:1.28",
-        "tools.profiler:async-profiler:2.9",
+        "tools.profiler:async-profiler:3.0",
         # The following jars are for testing.
         # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
         # and hamcrest is a dependency of junit.
