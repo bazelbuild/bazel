@@ -124,8 +124,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
           JavaCompileAction.createFullOutputDeps(
               spawnResult,
               outputDepsProto,
-              Iterables.concat(
-                  getInputs().toList(), getAdditionalArtifactsForPathMapping().toList()),
+              getInputs(),
+              getAdditionalArtifactsForPathMapping(),
               context,
               pathMapper);
       JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);

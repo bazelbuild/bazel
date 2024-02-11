@@ -720,15 +720,17 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
    *
    * @param spawnResult the executor action that created the possibly stripped .jdeps output
    * @param outputDepsProto path to the .jdeps output
-   * @param artifactsToPathMap all inputs to the current action plus any additional artifacts that
-   *     may be referenced in the .jdeps file by path
+   * @param actionInputs all inputs to the current action
+   * @param additionalArtifactsForPathMapping any additional artifacts that may be referenced in the
+   *     .jdeps file by path
    * @param actionExecutionContext the action execution context
    * @return the full deps proto (also written to disk to satisfy the action's declared output)
    */
   static Deps.Dependencies createFullOutputDeps(
       SpawnResult spawnResult,
       Artifact outputDepsProto,
-      Iterable<Artifact> artifactsToPathMap,
+      NestedSet<Artifact> actionInputs,
+      NestedSet<Artifact> additionalArtifactsForPathMapping,
       ActionExecutionContext actionExecutionContext,
       PathMapper pathMapper)
       throws IOException {
@@ -747,7 +749,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
     // For each of the action's generated inputs, revert its mapped path back to its original path.
     BiMap<String, PathFragment> mappedToOriginalPath = HashBiMap.create();
-    for (Artifact actionInput : artifactsToPathMap) {
+    for (Artifact actionInput :
+        Iterables.concat(actionInputs.toList(), additionalArtifactsForPathMapping.toList())) {
       if (actionInput.isSourceArtifact()) {
         continue;
       }
@@ -831,7 +834,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     SpawnResult result = Iterables.getOnlyElement(results);
     try {
       return createFullOutputDeps(
-          result, outputDepsProto, getInputs().toList(), actionExecutionContext, pathMapper);
+          result,
+          outputDepsProto,
+          getInputs(),
+          getAdditionalArtifactsForPathMapping(),
+          actionExecutionContext,
+          pathMapper);
     } catch (IOException e) {
       throw ActionExecutionException.fromExecException(
           new EnvironmentalExecException(
