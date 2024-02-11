@@ -107,7 +107,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     JdepsCachingActionContext jdepsCache = context.getContext(JdepsCachingActionContext.class);
     // If using the BAZEL classpath mode, read and cache the proto message in the .jdeps file. By
     // doing this when the .jdeps file is written rather than when it is used by dependencies, the
-    // IO is spread over the entire and less likely to affect the critical path with a large
+    // IO is spread over the entire build and less likely to affect the critical path with a large
     // compilation action scheduled at the end.
     // If using path mapping, read the .jdeps file as obtained from the executor and rewrite it back
     // to unmapped paths, which is necessary for the .jdeps file to be usable by downstream actions.
