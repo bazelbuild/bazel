@@ -23,8 +23,13 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Context for compiling Java files. */
-public class JavaCompileActionContext implements ActionContext {
+/**
+ * Caches the Dependencies proto messages read from .jdeps files during a single build.
+ *
+ * <p>This context is registered if and only if using {@link
+ * com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode#BAZEL}.
+ */
+public class JdepsCachingActionContext implements ActionContext {
   private final ConcurrentHashMap<Artifact, Deps.Dependencies> cache = new ConcurrentHashMap<>();
 
   Deps.Dependencies getDependencies(

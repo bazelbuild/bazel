@@ -20,7 +20,9 @@ import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
-import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaOptions;
+import com.google.devtools.build.lib.rules.java.JdepsCachingActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -563,6 +565,10 @@ public final class BazelRulesModule extends BlazeModule {
       ModuleActionContextRegistry.Builder registryBuilder,
       CommandEnvironment env,
       BuildRequest buildRequest) {
-    registryBuilder.register(JavaCompileActionContext.class, new JavaCompileActionContext());
+    JavaOptions javaOptions = env.getOptions().getOptions(JavaOptions.class);
+    if (javaOptions != null
+        && javaOptions.javaClasspath == JavaConfiguration.JavaClasspathMode.BAZEL) {
+      registryBuilder.register(JdepsCachingActionContext.class, new JdepsCachingActionContext());
+    }
   }
 }

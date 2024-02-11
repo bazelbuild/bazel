@@ -247,7 +247,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
    */
   @VisibleForTesting
   ReducedClasspath getReducedClasspath(
-      ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
+      ActionExecutionContext actionExecutionContext, JdepsCachingActionContext jdepsCache)
       throws IOException {
     HashSet<String> direct = new HashSet<>();
     for (Artifact directJar : directJars.toList()) {
@@ -255,7 +255,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
     for (Artifact depArtifact : dependencyArtifacts.toList()) {
       for (Deps.Dependency dep :
-          context.getDependencies(depArtifact, actionExecutionContext).getDependencyList()) {
+          jdepsCache.getDependencies(depArtifact, actionExecutionContext).getDependencyList()) {
         direct.add(dep.getPath());
       }
     }
@@ -391,10 +391,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     Spawn spawn;
     try {
       if (classpathMode == JavaClasspathMode.BAZEL) {
-        JavaCompileActionContext context =
-            actionExecutionContext.getContext(JavaCompileActionContext.class);
+        JdepsCachingActionContext jdepsCache =
+            actionExecutionContext.getContext(JdepsCachingActionContext.class);
         try {
-          reducedClasspath = getReducedClasspath(actionExecutionContext, context);
+          reducedClasspath = getReducedClasspath(actionExecutionContext, jdepsCache);
         } catch (IOException e) {
           throw createActionExecutionException(e, Code.REDUCED_CLASSPATH_FAILURE);
         }
@@ -425,9 +425,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         readFullOutputDeps(primaryResults, actionExecutionContext, spawn.getPathMapper());
 
     if (compilationType == CompilationType.TURBINE) {
-      actionExecutionContext
-          .getContext(JavaCompileActionContext.class)
-          .insertDependencies(outputDepsProto, dependencies);
+      JdepsCachingActionContext jdepsCache =
+          actionExecutionContext.getContext(JdepsCachingActionContext.class);
+      if (jdepsCache != null) {
+        jdepsCache.insertDependencies(outputDepsProto, dependencies);
+      }
     }
     if (!dependencies.getRequiresReducedClasspathFallback()) {
       return ActionResult.create(primaryResults);
@@ -475,11 +477,13 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
 
     if (compilationType == CompilationType.TURBINE) {
-      actionExecutionContext
-          .getContext(JavaCompileActionContext.class)
-          .insertDependencies(
-              outputDepsProto,
-              readFullOutputDeps(fallbackResults, actionExecutionContext, spawn.getPathMapper()));
+      JdepsCachingActionContext jdepsCache =
+          actionExecutionContext.getContext(JdepsCachingActionContext.class);
+      if (jdepsCache != null) {
+        jdepsCache.insertDependencies(
+            outputDepsProto,
+            readFullOutputDeps(fallbackResults, actionExecutionContext, spawn.getPathMapper()));
+      }
     } else if (!spawn.getPathMapper().isNoop()) {
       // As a side effect, readFullOutputDeps rewrites the on-disk .jdeps file from mapped to
       // unmapped paths. To make path mapping fully transparent to consumers of this action's

@@ -75,8 +75,6 @@ import javax.annotation.Nullable;
  */
 public final class JavaHeaderCompileAction extends SpawnAction {
 
-  private final boolean insertDependencies;
-
   private JavaHeaderCompileAction(
       ActionOwner owner,
       NestedSet<Artifact> tools,
@@ -88,8 +86,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
       String mnemonic,
-      OutputPathsMode outputPathsMode,
-      boolean insertDependencies) {
+      OutputPathsMode outputPathsMode) {
     super(
         owner,
         tools,
@@ -102,21 +99,29 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         progressMessage,
         mnemonic,
         outputPathsMode);
-    this.insertDependencies = insertDependencies;
   }
 
   @Override
   protected void afterExecute(
       ActionExecutionContext context, List<SpawnResult> spawnResults, PathMapper pathMapper) {
+    JdepsCachingActionContext jdepsCache = context.getContext(JdepsCachingActionContext.class);
+    // If using the BAZEL classpath mode, read and cache the proto message in the .jdeps file. By
+    // doing this when the .jdeps file is written rather than when it is used by dependencies, the
+    // IO is spread over the entire and less likely to affect the critical path with a large
+    // compilation action scheduled at the end.
+    // If using path mapping, read the .jdeps file as obtained from the executor and rewrite it back
+    // to unmapped paths, which is necessary for the .jdeps file to be usable by downstream actions.
+    if (jdepsCache == null && pathMapper.isNoop()) {
+      return;
+    }
     SpawnResult spawnResult = Iterables.getOnlyElement(spawnResults);
     Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
     try {
       Deps.Dependencies fullOutputDeps =
           JavaCompileAction.createFullOutputDeps(
               spawnResult, outputDepsProto, getInputs(), context, pathMapper);
-      JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);
-      if (insertDependencies && javaContext != null) {
-        javaContext.insertDependencies(outputDepsProto, fullOutputDeps);
+      if (jdepsCache != null) {
+        jdepsCache.insertDependencies(outputDepsProto, fullOutputDeps);
       }
     } catch (IOException e) {
       // Left empty. If we cannot read the .jdeps file now, we will read it later or throw an
@@ -490,11 +495,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                 /* progressMessage= */ progressMessage,
                 /* mnemonic= */ "Turbine",
                 /* outputPathsMode= */ PathMappers.getOutputPathsMode(
-                    ruleContext.getConfiguration()),
-                // If classPathMode == BAZEL, also make sure to inject the dependencies to be
-                // available to downstream actions. Else just do enough work to locally create the
-                // full .jdeps from the .stripped .jdeps produced on the executor.
-                /* insertDependencies= */ classpathMode == JavaClasspathMode.BAZEL));
+                    ruleContext.getConfiguration())));
         return;
       }
 

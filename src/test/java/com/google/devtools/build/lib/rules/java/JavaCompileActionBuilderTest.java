@@ -130,16 +130,17 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
         getBinArtifact("libc-hjar.jar", getConfiguredTarget("//java/com/google/test:libc.jar"));
     JavaCompileAction action =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
-    JavaCompileActionContext context = new JavaCompileActionContext();
+    JdepsCachingActionContext jdepsCache = new JdepsCachingActionContext();
     Deps.Dependency dep =
         Deps.Dependency.newBuilder()
             .setKind(Kind.EXPLICIT)
             .setPath(cHjar.getExecPathString())
             .build();
-    context.insertDependencies(bJdeps, Deps.Dependencies.newBuilder().addDependency(dep).build());
+    jdepsCache.insertDependencies(
+        bJdeps, Deps.Dependencies.newBuilder().addDependency(dep).build());
     assertThat(
             artifactsToStrings(
-                action.getReducedClasspath(new ActionExecutionContextBuilder().build(), context)
+                action.getReducedClasspath(new ActionExecutionContextBuilder().build(), jdepsCache)
                     .reducedJars))
         .containsExactly(
             "bin java/com/google/test/libb-hjar.jar", "bin java/com/google/test/libc-hjar.jar");
