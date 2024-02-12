@@ -22,7 +22,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -1529,7 +1528,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     String solibDir = toolchain.getSolibDirectory();
-    Truth8.assertThat(
+    assertThat(
             librariesToLink.toList(LibraryToLink.class).stream()
                 .filter(x -> x.getDynamicLibrary() != null)
                 .map(
@@ -1539,7 +1538,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                             .relativeTo(solibDir)
                             .toString()))
         .containsExactly("custom/libcustom.so");
-    Truth8.assertThat(
+    assertThat(
             librariesToLink.toList(LibraryToLink.class).stream()
                 .filter(x -> x.getInterfaceLibrary() != null)
                 .map(
@@ -1597,7 +1596,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(userLinkFlags.getImmutableList())
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
     Depset additionalInputs = info.getValue("additional_inputs", Depset.class);
-    Truth8.assertThat(additionalInputs.toList(Artifact.class).stream().map(Artifact::getFilename))
+    assertThat(additionalInputs.toList(Artifact.class).stream().map(Artifact::getFilename))
         .containsExactly("b.lds", "d.lds");
     Depset linkstamps = info.getValue("linkstamps", Depset.class);
     assertThat(
@@ -6939,7 +6938,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  fragments = ['cpp'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//b:b_lib");
-    Truth8.assertThat(
+    assertThat(
             target
                 .get(CcInfo.PROVIDER)
                 .getCcDebugInfoContext()

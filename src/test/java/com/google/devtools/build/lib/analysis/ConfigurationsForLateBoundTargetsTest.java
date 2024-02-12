@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -128,8 +127,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
     assertThat(deps).hasSize(1);
-    Truth8.assertThat(
-            deps.stream().filter(d -> getConfiguration(d).isExecConfiguration()).findFirst())
+    assertThat(deps.stream().filter(d -> getConfiguration(d).isExecConfiguration()).findFirst())
         .isPresent();
   }
 }

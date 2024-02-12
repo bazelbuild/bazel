@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -258,8 +257,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     verify(mockPackageValidator, times(2))
         .validate(packageCaptor.capture(), any(ExtendedEventHandler.class));
     List<Package> packages = packageCaptor.getAllValues();
-    Truth8.assertThat(packages.get(0).getPackageOverhead()).isEmpty(); // Workspace pkg
-    Truth8.assertThat(packages.get(1).getPackageOverhead()).isEqualTo(OptionalLong.of(42));
+    assertThat(packages.get(0).getPackageOverhead()).isEmpty(); // Workspace pkg
+    assertThat(packages.get(1).getPackageOverhead()).isEqualTo(OptionalLong.of(42));
   }
 
   @Test

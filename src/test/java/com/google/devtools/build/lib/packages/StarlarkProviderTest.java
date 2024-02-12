@@ -23,7 +23,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -258,13 +257,13 @@ public final class StarlarkProviderTest {
   public void documentedProvider_getDocumentation() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN).setDocumentation("My doc string").build();
-    Truth8.assertThat(provider.getDocumentation()).hasValue("My doc string");
+    assertThat(provider.getDocumentation()).hasValue("My doc string");
   }
 
   @Test
   public void undocumentedProvider_getDocumentation() throws Exception {
     StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).build();
-    Truth8.assertThat(provider.getDocumentation()).isEmpty();
+    assertThat(provider.getDocumentation()).isEmpty();
   }
 
   @Test

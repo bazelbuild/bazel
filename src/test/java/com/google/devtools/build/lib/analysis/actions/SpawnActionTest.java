@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -274,7 +273,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
         spawn.getInputFiles().toList().stream()
             .filter(i -> i instanceof VirtualActionInput)
             .findFirst();
-    Truth8.assertThat(input).isPresent();
+    assertThat(input).isPresent();
     VirtualActionInput paramFile = (VirtualActionInput) input.get();
     assertThat(paramFile.getBytes().toString(ISO_8859_1).trim()).isEqualTo("-X");
   }
