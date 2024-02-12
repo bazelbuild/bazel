@@ -1080,6 +1080,14 @@ sh_test(
 )
 
 sh_test(
+    name = "command_profiler_test",
+    size = "medium",
+    srcs = ["command_profiler_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "execroot_test",
     size = "medium",
     srcs = ["execroot_test.sh"],
