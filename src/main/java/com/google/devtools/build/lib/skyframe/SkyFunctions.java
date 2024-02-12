@@ -139,6 +139,9 @@ public final class SkyFunctions {
   public static final SkyFunctionName REPO_FILE = SkyFunctionName.createHermetic("REPO_FILE");
   public static final SkyFunctionName BUILD_DRIVER =
       SkyFunctionName.createNonHermetic("BUILD_DRIVER");
+
+  public static final SkyFunctionName BAZEL_MOD_TIDY =
+      SkyFunctionName.createHermetic("BAZEL_MOD_TIDY");
   public static final SkyFunctionName BAZEL_MODULE_RESOLUTION =
       SkyFunctionName.createHermetic("BAZEL_MODULE_RESOLUTION");
   public static final SkyFunctionName BAZEL_MODULE_INSPECTION =

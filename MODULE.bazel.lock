@@ -2293,7 +2293,7 @@
       "general": {
         "bzlTransitiveDigest": "TaEUQXsOyJBUS1hp5pqPajfzBJlceug58PemF8nCEa8=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "c61fe9fb628aaae087bfa754fc5d1f7a7d19b0d5debaf9bf84eb37fc1a365e71",
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "764150deafd5a0f7ab16ce189e9cc616b0f667f3bd8704c1f5049782bb1193b1",
           "@@//:MODULE.bazel": "f0f6c040c50ad1d3555157b29dea32260bdaf5cc7205dfc346d4b1b6b008baca"
         },
         "envVariables": {},
@@ -2319,6 +2319,7 @@
                 "rules_license~0.0.7",
                 "rules_proto~5.3.0-21.7",
                 "rules_python~0.22.0",
+                "buildozer~6.4.0.2",
                 "platforms",
                 "protobuf~21.7",
                 "zlib~1.3",
