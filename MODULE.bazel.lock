@@ -2293,7 +2293,7 @@
       "general": {
         "bzlTransitiveDigest": "TaEUQXsOyJBUS1hp5pqPajfzBJlceug58PemF8nCEa8=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "764150deafd5a0f7ab16ce189e9cc616b0f667f3bd8704c1f5049782bb1193b1",
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "50cae33efeced92457f02701d6d43ffbef4629533788a59dae209e0b50bfd8b0",
           "@@//:MODULE.bazel": "f0f6c040c50ad1d3555157b29dea32260bdaf5cc7205dfc346d4b1b6b008baca"
         },
         "envVariables": {},
