@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
@@ -76,7 +75,7 @@ public class SandboxStash {
   private boolean takeStashedSandboxInternal(Path sandboxPath, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
     try {
       Path sandboxes = getSandboxStashDir(mnemonic, sandboxPath.getFileSystem());
-      if (sandboxes == null || isTestXmlGenerationAction(mnemonic, outputs)) {
+      if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
         return false;
       }
       Collection<Path> stashes = sandboxes.getDirectoryEntries();
@@ -95,8 +94,10 @@ public class SandboxStash {
           stash.deleteTree();
           if (isTestAction(mnemonic)) {
             String stashedRunfilesDir = stashPathToRunfilesDir.get(stashExecroot);
+            Path currentRunfiles = sandboxExecroot.getRelative(getCurrentRunfilesDir(environment));
+            currentRunfiles.getParentDirectory().createDirectoryAndParents();
             sandboxExecroot.getRelative(stashedRunfilesDir)
-                  .renameTo(sandboxExecroot.getRelative(getCurrentRunfilesDir(environment)));
+                   .renameTo(currentRunfiles);
             stashPathToRunfilesDir.remove(stashExecroot);
           }
           return true;
@@ -124,7 +125,7 @@ public class SandboxStash {
 
   private void stashSandboxInternal(Path path, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
     Path sandboxes = getSandboxStashDir(mnemonic, path.getFileSystem());
-    if (sandboxes == null || isTestXmlGenerationAction(mnemonic, outputs)) {
+    if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
       return;
     }
     String stashName;
@@ -284,7 +285,7 @@ public class SandboxStash {
    *
    * We identify the second spawn by having a single output.
    */
-  private static boolean isTestXmlGenerationAction(String mnemonic, SandboxOutputs outputs) {
+  private static boolean isTestXmlGenerationOrCoverageSpawn(String mnemonic, SandboxOutputs outputs) {
     return isTestAction(mnemonic) && outputs.files().keySet().size() == 1;
   }
 

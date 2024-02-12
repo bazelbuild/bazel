@@ -1001,19 +1001,22 @@ reused_runfiles_test(
 EOF
 
   test_output="reuse_test_output.txt"
-  bazel test --test_output=streamed //pkg:a > ${test_output} \
+  bazel coverage --experimental_split_coverage_postprocessing=1 \
+      --experimental_fetch_all_coverage_outputs --test_output=streamed \
+      //pkg:a > ${test_output} \
     || fail "Expected build to succeed"
   dir_inode_a=$(awk '/The directory inode is/ {print $5}' ${test_output})
   file_inode_a=$(awk '/The file inode is/ {print $5}' ${test_output})
 
-  bazel test --test_output=streamed //pkg:b > ${test_output} \
+  bazel coverage --experimental_split_coverage_postprocessing=1 \
+      --experimental_fetch_all_coverage_outputs --test_output=streamed \
+      //pkg:b > ${test_output} \
     || fail "Expected build to succeed"
   dir_inode_b=$(awk '/The directory inode is/ {print $5}' ${test_output})
   file_inode_b=$(awk '/The file inode is/ {print $5}' ${test_output})
 
   [[ ${dir_inode_a} == ${dir_inode_b} ]] \
     || fail "Test //pkg:b didn't reuse runfiles directory"
-
   [[ ${file_inode_a} == ${file_inode_b} ]] \
     || fail "Test //pkg:b didn't reuse runfiles file"
 }
