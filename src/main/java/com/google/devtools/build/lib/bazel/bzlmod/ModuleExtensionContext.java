@@ -206,11 +206,24 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
               @ParamType(type = String.class),
               @ParamType(type = NoneType.class)
             }),
+        @Param(
+            name = "reproducible",
+            doc =
+                "States that this module extension ensures complete reproducibility, thereby it "
+                    + "should not be stored in the lockfile.",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+            }),
       })
   public ModuleExtensionMetadata extensionMetadata(
-      Object rootModuleDirectDepsUnchecked, Object rootModuleDirectDevDepsUnchecked)
+      Object rootModuleDirectDepsUnchecked,
+      Object rootModuleDirectDevDepsUnchecked,
+      boolean reproducible)
       throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked);
+        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible);
   }
 }
