@@ -121,6 +121,11 @@ public class BazelLockFileModule extends BlazeModule {
 
     // Add the new resolved extensions
     for (var event : extensionResolutionEventsMap.values()) {
+      LockFileModuleExtension extension = event.getModuleExtension();
+      if (!extension.shouldLockExtesnsion()) {
+        continue;
+      }
+
       var oldExtensionEntries = updatedExtensionMap.get(event.getExtensionId());
       ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension> extensionEntries;
       if (oldExtensionEntries != null) {
@@ -128,11 +133,11 @@ public class BazelLockFileModule extends BlazeModule {
         extensionEntries =
             new ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>()
                 .putAll(oldExtensionEntries)
-                .put(event.getExtensionFactors(), event.getModuleExtension())
+                .put(event.getExtensionFactors(), extension)
                 .buildKeepingLast();
       } else {
         // new extension
-        extensionEntries = ImmutableMap.of(event.getExtensionFactors(), event.getModuleExtension());
+        extensionEntries = ImmutableMap.of(event.getExtensionFactors(), extension);
       }
       updatedExtensionMap.put(event.getExtensionId(), extensionEntries);
     }
@@ -164,12 +169,13 @@ public class BazelLockFileModule extends BlazeModule {
     // If there is a new event for this extension, compare it with the existing ones
     ModuleExtensionResolutionEvent extEvent = extensionResolutionEventsMap.get(extensionId);
     if (extEvent != null) {
+      boolean doNotLockExtension = !extEvent.getModuleExtension().shouldLockExtesnsion();
       boolean dependencyOnOsChanged =
           lockedExtensionKey.getOs().isEmpty() != extEvent.getExtensionFactors().getOs().isEmpty();
       boolean dependencyOnArchChanged =
           lockedExtensionKey.getArch().isEmpty()
               != extEvent.getExtensionFactors().getArch().isEmpty();
-      if (dependencyOnOsChanged || dependencyOnArchChanged) {
+      if (doNotLockExtension || dependencyOnOsChanged || dependencyOnArchChanged) {
         return false;
       }
     }
