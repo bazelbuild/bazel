@@ -517,7 +517,9 @@ public final class SandboxModule extends BlazeModule {
 
   @Subscribe
   public void cleanStarting(@SuppressWarnings("unused") CleanStartingEvent event) {
-    SandboxStash.clean(treeDeleter, sandboxBase);
+    if (sandboxBase != null) {
+      SandboxStash.clean(treeDeleter, sandboxBase);
+    }
   }
 
   /**
