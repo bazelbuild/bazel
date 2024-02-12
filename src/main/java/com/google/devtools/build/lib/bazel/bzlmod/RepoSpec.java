@@ -29,7 +29,8 @@ import javax.annotation.Nullable;
 public abstract class RepoSpec implements SkyValue {
 
   /**
-   * The label string for the bzl file this repository rule is defined in, empty for native rule.
+   * The unambiguous canonical label string for the bzl file this repository rule is defined in,
+   * empty for native rule.
    */
   @Nullable
   public abstract String bzlFile();
@@ -51,6 +52,8 @@ public abstract class RepoSpec implements SkyValue {
   @AutoValue.Builder
   public abstract static class Builder {
     public abstract Builder setBzlFile(String bzlFile);
+
+    abstract String bzlFile();
 
     public abstract Builder setRuleClassName(String name);
 

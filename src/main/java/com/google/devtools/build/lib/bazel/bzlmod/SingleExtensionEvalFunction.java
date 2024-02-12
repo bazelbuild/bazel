@@ -151,20 +151,27 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
 
     // Check the lockfile first for that module extension
+    LockFileModuleExtension lockedExtension = null;
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
       if (lockfile == null) {
         return null;
       }
-      try {
-        SingleExtensionEvalValue singleExtensionEvalValue =
-            tryGettingValueFromLockFile(env, extensionId, extension, usagesValue, lockfile);
-        if (singleExtensionEvalValue != null) {
-          return singleExtensionEvalValue;
+      var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
+      lockedExtension =
+          lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
+      if (lockedExtension != null) {
+        try {
+          SingleExtensionEvalValue singleExtensionEvalValue =
+              tryGettingValueFromLockFile(
+                  env, extensionId, extension, usagesValue, lockfile, lockedExtension);
+          if (singleExtensionEvalValue != null) {
+            return singleExtensionEvalValue;
+          }
+        } catch (NeedsSkyframeRestartException e) {
+          return null;
         }
-      } catch (NeedsSkyframeRestartException e) {
-        return null;
       }
     }
 
@@ -180,6 +187,24 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         moduleExtensionResult.getGeneratedRepoSpecs();
     Optional<ModuleExtensionMetadata> moduleExtensionMetadata =
         moduleExtensionResult.getModuleExtensionMetadata();
+
+    if (lockfileMode.equals(LockfileMode.ERROR)) {
+      boolean extensionShouldHaveBeenLocked =
+          moduleExtensionMetadata.map(metadata -> !metadata.getReproducible()).orElse(true);
+      // If this extension was not found in the lockfile, and after evaluation we found that it is
+      // not reproducible, then error indicating that it was expected to be in the lockfile.
+      if (lockedExtension == null && extensionShouldHaveBeenLocked) {
+        throw new SingleExtensionEvalFunctionException(
+            ExternalDepsException.withMessage(
+                Code.BAD_MODULE,
+                "The module extension '%s'%s does not exist in the lockfile",
+                extensionId,
+                extension.getEvalFactors().isEmpty()
+                    ? ""
+                    : " for platform " + extension.getEvalFactors()),
+            Transience.PERSISTENT);
+      }
+    }
 
     // At this point the extension has been evaluated successfully, but SingleExtensionEvalFunction
     // may still fail if imported repositories were not generated. However, since imports do not
@@ -219,29 +244,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       ModuleExtensionId extensionId,
       RunnableExtension extension,
       SingleExtensionUsagesValue usagesValue,
-      BazelLockFileValue lockfile)
+      BazelLockFileValue lockfile,
+      LockFileModuleExtension lockedExtension)
       throws SingleExtensionEvalFunctionException,
           InterruptedException,
           NeedsSkyframeRestartException {
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
-
-    var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
-    LockFileModuleExtension lockedExtension =
-        lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
-    if (lockedExtension == null) {
-      if (lockfileMode.equals(LockfileMode.ERROR)) {
-        throw new SingleExtensionEvalFunctionException(
-            ExternalDepsException.withMessage(
-                Code.BAD_MODULE,
-                "The module extension '%s'%s does not exist in the lockfile",
-                extensionId,
-                extension.getEvalFactors().isEmpty()
-                    ? ""
-                    : " for platform " + extension.getEvalFactors()),
-            Transience.PERSISTENT);
-      }
-      return null;
-    }
 
     ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages;
     try {

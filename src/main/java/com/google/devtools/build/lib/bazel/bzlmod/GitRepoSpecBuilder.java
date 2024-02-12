@@ -25,7 +25,7 @@ import java.util.List;
  */
 public class GitRepoSpecBuilder {
 
-  public static final String GIT_REPO_PATH = "@bazel_tools//tools/build_defs/repo:git.bzl";
+  public static final String GIT_REPO_PATH = "@@bazel_tools//tools/build_defs/repo:git.bzl";
 
   private final ImmutableMap.Builder<String, Object> attrBuilder;
 
@@ -71,7 +71,7 @@ public class GitRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatches(List<String> patches) {
+  public GitRepoSpecBuilder setPatches(List<Object> patches) {
     return setAttr("patches", patches);
   }
 
@@ -113,7 +113,7 @@ public class GitRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  private GitRepoSpecBuilder setAttr(String name, List<String> value) {
+  private GitRepoSpecBuilder setAttr(String name, List<?> value) {
     if (value != null && !value.isEmpty()) {
       attrBuilder.put(name, value);
     }

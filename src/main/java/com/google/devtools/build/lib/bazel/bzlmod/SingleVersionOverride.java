@@ -33,7 +33,7 @@ public abstract class SingleVersionOverride implements RegistryOverride {
   public static SingleVersionOverride create(
       Version version,
       String registry,
-      ImmutableList<String> patches,
+      ImmutableList<Object> patches,
       ImmutableList<String> patchCmds,
       int patchStrip) {
     return new AutoValue_SingleVersionOverride(version, registry, patches, patchCmds, patchStrip);
@@ -48,8 +48,8 @@ public abstract class SingleVersionOverride implements RegistryOverride {
   @Override
   public abstract String getRegistry();
 
-  /** The patches to apply after retrieving per the registry. Should be a list of labels. */
-  public abstract ImmutableList<String> getPatches();
+  /** The labels of patches to apply after retrieving per the registry. */
+  public abstract ImmutableList<Object> getPatches();
 
   /**
    * The patch commands to execute after retrieving per the registry. Should be a list of commands.
