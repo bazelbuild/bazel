@@ -54,6 +54,11 @@ public abstract class LockFileModuleExtension implements Postable {
 
   public abstract Builder toBuilder();
 
+  public boolean shouldLockExtesnsion() {
+    return getModuleExtensionMetadata().isEmpty()
+        || !getModuleExtensionMetadata().get().getReproducible();
+  }
+
   /** Builder type for {@link LockFileModuleExtension}. */
   @AutoValue.Builder
   public abstract static class Builder {
