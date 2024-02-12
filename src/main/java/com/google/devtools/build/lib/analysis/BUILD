@@ -2734,7 +2734,10 @@ java_library(
 
 java_library(
     name = "test/test_configuration",
-    srcs = ["test/TestConfiguration.java"],
+    srcs = [
+        "test/TestConfiguration.java",
+        "test/TestResourcesConverter.java",
+    ],
     deps = [
         ":config/build_options",
         ":config/core_option_converters",
@@ -2747,6 +2750,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],

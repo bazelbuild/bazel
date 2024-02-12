@@ -53,6 +53,37 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testTestResourcesFlag() throws Exception {
+    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests/BUILD",
+        "sh_test(",
+        "  name = 'test',",
+        "  size = 'medium',",
+        "  srcs = ['test.sh'],",
+        "  tags = ['resources:gpu:4'],",
+        ")");
+    useConfiguration(
+        "--default_test_resources=memory=10,20,30,40",
+        "--default_test_resources=cpu=1,2,3,4",
+        "--default_test_resources=gpu=1",
+        "--default_test_resources=cpu=5");
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+    ResourceSet localResourceUsage =
+        testAction
+            .getTestProperties()
+            .getLocalResourceUsage(testAction.getOwner().getLabel(), false);
+    // Tags-specified resources overrides --default_test_resources=gpu.
+    assertThat(localResourceUsage.getResources()).containsEntry("gpu", 4.0);
+    // The last-specified value of --default_test_resources=cpu is used.
+    assertThat(localResourceUsage.getCpuUsage()).isEqualTo(5.0);
+    assertThat(localResourceUsage.getMemoryMb()).isEqualTo(20);
+  }
+
+  @Test
   public void testTestWithExclusiveRunLocallyByDefault() throws Exception {
     useConfiguration("--noincompatible_exclusive_test_sandboxed");
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
