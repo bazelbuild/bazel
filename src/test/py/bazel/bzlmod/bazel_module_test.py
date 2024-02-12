@@ -964,11 +964,11 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn('workspace_repo_macro => @workspace_repo//:workspace_repo_macro', stderr)
 
     # Display form of labels in extensions uses canonical names.
-    self.assertIn('ext_impl => @@foo~1.0//:ext_impl', stderr)
-    self.assertIn('ext_repo_impl => @@foo~1.0//:repo_impl', stderr)
+    self.assertIn('ext_impl => @@foo~//:ext_impl', stderr)
+    self.assertIn('ext_repo_impl => @@foo~//:repo_impl', stderr)
 
     # Display form of labels in WORKSPACE loaded files uses canonical names.
-    self.assertIn('workspace_repo_impl => @@foo~1.0//:repo_impl', stderr)
+    self.assertIn('workspace_repo_impl => @@foo~//:repo_impl', stderr)
 
 
 if __name__ == '__main__':

@@ -2549,6 +2549,6 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
       throw result.getError().getException();
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
-        .isEqualTo("foo://:foo bar:@@data_repo~1.0//:bar baz:@@canonical_name//:baz");
+        .isEqualTo("foo://:foo bar:@@data_repo~//:bar baz:@@canonical_name//:baz");
   }
 }
