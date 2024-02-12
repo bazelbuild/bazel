@@ -96,8 +96,11 @@ genrule(
         "//third_party/remoteapis:MODULE.bazel",
     ],
     outs = ["MODULE.bazel.lock.dist"],
-    cmd = "touch BUILD && trap 'rm -rf tmp_bazel_root' EXIT && $(location //src:bazel) --output_user_root=$$PWD/tmp_bazel_root query --check_direct_dependencies=error --lockfile_mode=update :all && mv MODULE.bazel.lock $@",
-    tags = ["allow-network"],
+    cmd = "touch BUILD && " +
+          "trap 'rm -rf tmp_bazel_root' EXIT && " +
+          "$(location //src:bazel) --batch --output_user_root=$$PWD/tmp_bazel_root query --check_direct_dependencies=error --lockfile_mode=update :all && " +
+          "mv MODULE.bazel.lock $@",
+    tags = ["requires-network"],
     tools = ["//src:bazel"],
 )
 
