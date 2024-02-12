@@ -380,6 +380,7 @@ public interface SkyFunction {
      * may be called upon to transform a lower-level exception. This method can tell it whether to
      * transform a dependency's exception or ignore it and return a value as usual.
      */
+    // TODO: Rename this as it can be called for other purposes.
     boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
 
     /**
