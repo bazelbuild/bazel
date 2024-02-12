@@ -26,6 +26,7 @@ filegroup(
     srcs = glob(
         ["*"],
         exclude = [
+            "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
             "WORKSPACE.bzlmod",  # Needs to be filtered.
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
@@ -33,6 +34,7 @@ filegroup(
             ".*",  # mainly .git* files
         ],
     ) + [
+        "//:MODULE.bazel.lock.dist",
         "//:WORKSPACE.bzlmod.filtered",
         "//examples:srcs",
         "//scripts:srcs",
@@ -84,6 +86,18 @@ genrule(
         # Comment out the android repos if they exist.
         "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' -e 's/^android_ndk_repository/# android_ndk_repository/' $@",
     ]),
+)
+
+genrule(
+    name = "generate_dist_lockfile",
+    srcs = [
+        "MODULE.bazel",
+        "//third_party/googleapis:MODULE.bazel",
+        "//third_party/remoteapis:MODULE.bazel",
+    ],
+    outs = ["MODULE.bazel.lock.dist"],
+    cmd = "touch BUILD && $(location //src:bazel) query --check_direct_dependencies=error --lockfile_mode=update :all && mv MODULE.bazel.lock $@",
+    tools = ["//src:bazel"],
 )
 
 pkg_tar(
@@ -141,6 +155,7 @@ pkg_tar(
     ],
     # TODO(aiuto): Replace with pkg_filegroup when that is available.
     remap_paths = {
+        "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
         "WORKSPACE.bzlmod.filtered": "WORKSPACE.bzlmod",
         # Rewrite paths coming from local repositories back into third_party.
         "external/googleapis~override": "third_party/googleapis",
