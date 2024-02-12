@@ -135,6 +135,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:auth",
         "//third_party:caffeine",
+        "//third_party:checker_framework_annotations",
         "//third_party:error_prone_annotations",
         "//third_party:gson",
         "//third_party:guava",
