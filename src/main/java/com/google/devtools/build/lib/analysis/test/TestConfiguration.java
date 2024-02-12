@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -83,6 +85,26 @@ public class TestConfiguration extends Fragment {
                 + "short, moderate, long and eternal (in that order). In either form, a value of "
                 + "-1 tells blaze to use its default timeouts for that category.")
     public Map<TestTimeout, Duration> testTimeout;
+
+    @Option(
+        name = "default_test_resources",
+        defaultValue = "null",
+        converter = TestResourcesConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Override the default resources amount for tests. The expected format is"
+                + " <resource>=<value>. If a single positive number is specified as <value>"
+                + " it will override the default resources for all test sizes. If 4"
+                + " comma-separated numbers are specified, they will override the resource"
+                + " amount for respectively the small, medium, large, enormous test sizes."
+                + " Values can also be HOST_RAM/HOST_CPU, optionally followed"
+                + " by [-|*]<float> (eg. memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4)."
+                + " The default test resources specified by this flag are overridden by explicit"
+                + " resources specified in tags.")
+    // We need to store these as Pair(s) instead of Map.Entry(s) so that they are serializable.
+    public List<Pair<String, Map<TestSize, Double>>> testResources;
 
     @Option(
       name = "test_filter",
@@ -308,6 +330,7 @@ public class TestConfiguration extends Fragment {
   private final TestOptions options;
   private final ImmutableMap<TestTimeout, Duration> testTimeout;
   private final boolean shouldInclude;
+  private final ImmutableMap<TestSize, ImmutableMap<String, Double>> testResources;
 
   public TestConfiguration(BuildOptions buildOptions) {
     this.shouldInclude = buildOptions.contains(TestOptions.class);
@@ -315,9 +338,20 @@ public class TestConfiguration extends Fragment {
       TestOptions options = buildOptions.get(TestOptions.class);
       this.options = options;
       this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
+      ImmutableMap.Builder<TestSize, ImmutableMap<String, Double>> testResources =
+          ImmutableMap.builderWithExpectedSize(TestSize.values().length);
+      for (TestSize size : TestSize.values()) {
+        ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
+        for (Pair<String, Map<TestSize, Double>> resource : options.testResources) {
+          resources.put(resource.getFirst(), resource.getSecond().get(size));
+        }
+        testResources.put(size, resources.buildKeepingLast());
+      }
+      this.testResources = testResources.buildOrThrow();
     } else {
       this.options = null;
       this.testTimeout = null;
+      this.testResources = ImmutableMap.of();
     }
   }
 
@@ -329,6 +363,11 @@ public class TestConfiguration extends Fragment {
   /** Returns test timeout mapping as set by --test_timeout options. */
   public ImmutableMap<TestTimeout, Duration> getTestTimeout() {
     return testTimeout;
+  }
+
+  /** Returns test resource mapping as set by --default_test_resources options. */
+  public ImmutableMap<String, Double> getTestResources(TestSize size) {
+    return testResources.getOrDefault(size, ImmutableMap.of());
   }
 
   public String getTestFilter() {
