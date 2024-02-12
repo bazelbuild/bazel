@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.unix.FileStatus;
 import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.testing.junit.testparameterinjector.TestParameter;
-import com.google.testing.junit.testparameterinjector.TestParameter.TestParameterValuesProvider;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -74,9 +74,9 @@ public abstract class FileSystemTest {
   @TestParameter(valuesProvider = DigestHashFunctionsProvider.class)
   public DigestHashFunction digestHashFunction;
 
-  private static final class DigestHashFunctionsProvider implements TestParameterValuesProvider {
+  private static final class DigestHashFunctionsProvider extends TestParameterValuesProvider {
     @Override
-    public ImmutableList<?> provideValues() {
+    public ImmutableList<?> provideValues(Context context) {
       return DigestHashFunction.getPossibleHashFunctions().asList();
     }
   }
