@@ -50,7 +50,7 @@ public class WorkspaceBaseRule implements RuleDefinition {
         <p>For example, an entry <code>"@foo": "@bar"</code> declares that, for any time this
         repository depends on <code>"@foo"</code> (such as a dependency on
         <code>"@foo//some:target"</code>), it should actually resolve that dependency within
-        globally-declared <code>"@bar"</code> (<code>"@bar//some:target"</code>).
+        globally-declared <code>"@bar"</code> (<code>"@bar//some:target"</code>).</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("repo_mapping", STRING_DICT))
         .build();
