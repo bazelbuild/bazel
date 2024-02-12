@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.TruthJUnit.assume;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
@@ -2686,6 +2687,8 @@ public class RewindingTestsHelper {
     assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
         .hasCount("Action foo/found.out", 1);
     assertThat(targetCompleteEvents.keySet()).containsExactly(fooLostAndFound);
+    assertOutputsReported(
+        targetCompleteEvents.get(fooLostAndFound), "bin/foo/lost.out", "bin/foo/found.out");
   }
 
   public final void runTopLevelOutputRewound_aspectOwned() throws Exception {
@@ -2719,6 +2722,54 @@ public class RewindingTestsHelper {
     assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
         .hasCount("Action foo/found.out", 1);
     assertThat(aspectCompleteEvents.keySet()).containsExactly(fooLib);
+    assertOutputsReported(
+        aspectCompleteEvents.get(fooLib), "bin/foo/lost.out", "bin/foo/found.out");
+  }
+
+  public final void runTopLevelOutputRewound_partiallyBuiltTarget() throws Exception {
+    // TODO: b/321044105 - Handle and test lost outputs during error bubbling.
+    testCase.getRuntimeWrapper().newCommand(); // Initialize options parser.
+    assume().that(keepGoing()).isTrue();
+    testCase.write(
+        "foo/defs.bzl",
+        "def _lost_found_and_failed_impl(ctx):",
+        "  lost = ctx.actions.declare_file('lost.out')",
+        "  found = ctx.actions.declare_file('found.out')",
+        "  failed = ctx.actions.declare_file('failed.out')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [lost, found],",
+        "    command = 'echo lost > %s && echo found > %s' % (lost.path, found.path),",
+        "  )",
+        "  ctx.actions.run_shell(outputs = [failed], inputs = [found], command = 'false')",
+        "  return DefaultInfo(files = depset([lost, found, failed]))",
+        "",
+        "lost_found_and_failed = rule(implementation = _lost_found_and_failed_impl)");
+    testCase.write(
+        "foo/BUILD",
+        "load(':defs.bzl', 'lost_found_and_failed')",
+        "lost_found_and_failed(name = 'lost_found_and_failed')");
+    lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost.out"));
+    Label fooLostFoundAndFailed = Label.parseCanonical("//foo:lost_found_and_failed");
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
+    Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
+    listenForNoCompletionEventsBeforeRewinding(fooLostFoundAndFailed, targetCompleteEvents);
+
+    assertThrows(
+        BuildFailedException.class, () -> testCase.buildTarget("//foo:lost_found_and_failed"));
+
+    lostOutputsModule.verifyAllLostOutputsConsumed();
+    assertThat(rewoundKeys).hasSize(1);
+    assertThat(rewoundArtifactOwnerLabels(rewoundKeys))
+        .containsExactly("//foo:lost_found_and_failed");
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Action foo/lost.out", 2);
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Action foo/failed.out", 1);
+
+    // The event is failed but still reports the built artifacts, including the one that was lost.
+    TargetCompleteEvent event = targetCompleteEvents.get(fooLostFoundAndFailed);
+    assertThat(event.failed()).isTrue();
+    assertOutputsReported(event, "bin/foo/lost.out", "bin/foo/found.out");
   }
 
   private void listenForNoCompletionEventsBeforeRewinding(
@@ -2732,6 +2783,19 @@ public class RewindingTestsHelper {
             assertThat(events).isEmpty();
           }
         });
+  }
+
+  private void assertOutputsReported(
+      EventReportingArtifacts event, String... expectedRootRelativePaths) throws Exception {
+    List<String> expectedExecPaths = new ArrayList<>();
+    for (String path : expectedRootRelativePaths) {
+      expectedExecPaths.add(getExecPath(path));
+    }
+    assertThat(
+            event.reportedArtifacts().artifacts.stream()
+                .flatMap(set -> set.toList().stream())
+                .map(Artifact::getExecPathString))
+        .containsExactlyElementsIn(expectedExecPaths);
   }
 
   static boolean isActionExecutionKey(Object key, Label label) {
