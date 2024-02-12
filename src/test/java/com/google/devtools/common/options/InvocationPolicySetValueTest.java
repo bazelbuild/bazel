@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
@@ -58,7 +57,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TEST_STRING_POLICY_VALUE);
-    Truth8.assertThat(
+    assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
         .containsExactly(

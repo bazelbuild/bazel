@@ -251,7 +251,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(
-                        new ActionRewindStrategy(BugReporter.defaultInstance()),
+                        new ActionRewindStrategy(
+                            skyframeActionExecutor, BugReporter.defaultInstance()),
                         skyframeActionExecutor,
                         evaluatorRef::get,
                         directories,

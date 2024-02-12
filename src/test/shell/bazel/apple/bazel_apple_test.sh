@@ -42,7 +42,7 @@ function test_host_xcodes() {
       | sed -E "s/Xcode (([0-9]|.)+).*/\1/")
   XCODE_BUILD_VERSION=$(env -i xcodebuild -version | grep "Build version" \
       | sed -E "s/Build version (([0-9]|.)+).*/\1/")
-  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos \
+  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos -m 1 \
       | sed -E "s/.*\(iphoneos(([0-9]|.)+)\).*/\1/")
   MACOSX_SDK=$(env -i xcodebuild -version -sdk | grep "(macosx" \
       | sed -E "s/.*\(macosx(([0-9]|.)+)\).*/\1/" | head -n 1)

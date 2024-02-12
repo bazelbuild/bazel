@@ -406,9 +406,10 @@ public interface AppleCommonApi<
         @Param(name = "ctx", named = true, positional = false, doc = "The Starlark rule context."),
       },
       useStarlarkThread = true)
-  StructApi linkMultiArchStaticLibrary(
-      StarlarkRuleContextT starlarkRuleContext, StarlarkThread thread)
-      throws EvalException, InterruptedException;
+  default StructApi linkMultiArchStaticLibrary(
+      StarlarkRuleContextT starlarkRuleContext, StarlarkThread thread) {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "dotted_version",

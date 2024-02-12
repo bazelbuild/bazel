@@ -461,6 +461,69 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void delete_deleteSymlink() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+
+    PathFragment linkPath = getOutputPath("link");
+    PathFragment targetPath = getOutputPath("target");
+    actionFs.getPath(linkPath).createSymbolicLink(execRoot.getRelative(targetPath).asFragment());
+    writeLocalFile(actionFs, targetPath, "content");
+
+    assertThat(actionFs.delete(linkPath)).isTrue();
+    assertThat(actionFs.exists(linkPath, /* followSymlinks= */ false)).isFalse();
+    assertThat(actionFs.exists(targetPath, /* followSymlinks= */ false)).isTrue();
+  }
+
+  @Test
+  public void delete_followSymlinks(
+      @TestParameter FilesystemTestParam from, @TestParameter FilesystemTestParam to)
+      throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem fromFs = from.getFilesystem(actionFs);
+    FileSystem toFs = to.getFilesystem(actionFs);
+
+    PathFragment dirLinkPath = getOutputPath("dirLink");
+    PathFragment dirTargetPath = getOutputPath("dirTarget");
+    fromFs
+        .getPath(dirLinkPath)
+        .createSymbolicLink(execRoot.getRelative(dirTargetPath).asFragment());
+    actionFs.getPath(dirTargetPath).createDirectoryAndParents();
+
+    PathFragment naivePath = dirLinkPath.getChild("file");
+    PathFragment canonicalPath = dirTargetPath.getChild("file");
+
+    if (toFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, canonicalPath, "content");
+    } else {
+      injectRemoteFile(actionFs, canonicalPath, "content");
+    }
+
+    assertThat(actionFs.delete(naivePath)).isTrue();
+    assertThat(actionFs.exists(naivePath, /* followSymlinks= */ false)).isFalse();
+    assertThat(actionFs.exists(canonicalPath, /* followSymlinks= */ false)).isFalse();
+  }
+
+  @Test
+  public void delete_invalidatesResolveSymbolicLinksCache() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = getOutputPath("target");
+
+    actionFs.getPath(linkPath).getParentDirectory().createDirectoryAndParents();
+    actionFs.getPath(linkPath).createSymbolicLink(targetPath);
+    writeLocalFile(actionFs, targetPath, "content");
+
+    assertThat(actionFs.getPath(linkPath).resolveSymbolicLinks())
+        .isEqualTo(actionFs.getPath(targetPath));
+
+    assertThat(actionFs.delete(linkPath)).isTrue();
+    writeLocalFile(actionFs, linkPath, "content");
+
+    assertThat(actionFs.getPath(linkPath).resolveSymbolicLinks())
+        .isEqualTo(actionFs.getPath(linkPath));
+  }
+
+  @Test
   public void setLastModifiedTime_forRemoteOutputTree() throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
@@ -1124,6 +1187,86 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(getLocalFileSystem(actionFs).exists(newPath)).isTrue();
   }
 
+  @Test
+  public void renameTo_moveSymlink() throws Exception {
+    FileSystem actionFs = createActionFileSystem();
+    PathFragment oldLinkPath = getOutputPath("oldLink");
+    PathFragment newLinkPath = getOutputPath("newLink");
+    PathFragment targetPath = getOutputPath("target");
+    actionFs.getPath(oldLinkPath).createSymbolicLink(execRoot.getRelative(targetPath).asFragment());
+    writeLocalFile(actionFs, targetPath, "content");
+
+    actionFs.renameTo(oldLinkPath, newLinkPath);
+
+    assertThat(actionFs.getPath(oldLinkPath).exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(actionFs.getPath(newLinkPath).exists(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(actionFs.getPath(newLinkPath).readSymbolicLink()).isEqualTo(targetPath);
+    assertThat(actionFs.getPath(targetPath).exists()).isTrue();
+  }
+
+  @Test
+  public void renameTo_followSymlinks(
+      @TestParameter FilesystemTestParam from, @TestParameter FilesystemTestParam to)
+      throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem fromFs = from.getFilesystem(actionFs);
+    FileSystem toFs = to.getFilesystem(actionFs);
+
+    PathFragment srcDirLinkPath = getOutputPath("srcDirLink");
+    PathFragment srcDirTargetPath = getOutputPath("srcDirTarget");
+    PathFragment naiveSrcPath = srcDirLinkPath.getChild("oldFile");
+    PathFragment canonicalSrcPath = srcDirTargetPath.getChild("oldFile");
+
+    PathFragment dstDirLinkPath = getOutputPath("dstDirLink");
+    PathFragment dstDirTargetPath = getOutputPath("dstDirTarget");
+    PathFragment naiveDstPath = dstDirLinkPath.getChild("newFile");
+    PathFragment canonicalDstPath = dstDirTargetPath.getChild("newFile");
+
+    actionFs.getPath(srcDirTargetPath).createDirectoryAndParents();
+    actionFs.getPath(dstDirTargetPath).createDirectoryAndParents();
+
+    fromFs
+        .getPath(srcDirLinkPath)
+        .createSymbolicLink(execRoot.getRelative(srcDirTargetPath).asFragment());
+    fromFs
+        .getPath(dstDirLinkPath)
+        .createSymbolicLink(execRoot.getRelative(dstDirTargetPath).asFragment());
+
+    if (toFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, canonicalSrcPath, "content");
+    } else {
+      injectRemoteFile(actionFs, canonicalSrcPath, "content");
+    }
+
+    actionFs.renameTo(naiveSrcPath, naiveDstPath);
+
+    assertThat(actionFs.exists(naiveSrcPath)).isFalse();
+    assertThat(actionFs.exists(canonicalSrcPath)).isFalse();
+    assertThat(actionFs.exists(naiveDstPath)).isTrue();
+    assertThat(actionFs.exists(canonicalDstPath)).isTrue();
+  }
+
+  @Test
+  public void renameTo_invalidatesResolveSymbolicLinksCache() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = getOutputPath("target");
+    PathFragment renamedPath = getOutputPath("renamed");
+
+    actionFs.getPath(linkPath).getParentDirectory().createDirectoryAndParents();
+    actionFs.getPath(linkPath).createSymbolicLink(targetPath);
+    writeLocalFile(actionFs, targetPath, "content");
+
+    assertThat(actionFs.getPath(linkPath).resolveSymbolicLinks())
+        .isEqualTo(actionFs.getPath(targetPath));
+
+    actionFs.renameTo(linkPath, renamedPath);
+    writeLocalFile(actionFs, linkPath, "content");
+
+    assertThat(actionFs.getPath(linkPath).resolveSymbolicLinks())
+        .isEqualTo(actionFs.getPath(linkPath));
+  }
+
   @Override
   @CanIgnoreReturnValue
   protected FileArtifactValue injectRemoteFile(
@@ -1139,8 +1282,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Override
   protected void writeLocalFile(FileSystem actionFs, PathFragment path, String content)
       throws IOException {
-    actionFs.getPath(path).getParentDirectory().createDirectoryAndParents();
-    FileSystemUtils.writeContent(actionFs.getPath(path), UTF_8, content);
+    FileSystem localFs = getLocalFileSystem(actionFs);
+    localFs.getPath(path).getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(localFs.getPath(path), UTF_8, content);
   }
 
   /** Returns a remote artifact and puts its metadata into the action input map. */

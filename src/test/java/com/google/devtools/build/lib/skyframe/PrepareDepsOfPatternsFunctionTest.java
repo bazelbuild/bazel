@@ -213,9 +213,9 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains a value for the target "@//rinne:rinne" and the dep
-    // "@@repo~1.0//a:x",
+    // "@@repo~//a:x",
     assertValidValue(walkableGraph, getKeyForLabel(Label.create("//rinne", "rinne")));
-    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@repo~1.0//a", "x")));
+    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@repo~//a", "x")));
   }
 
   // Regression test for b/225877591 ("Unexpected missing value in PrepareDepsOfPatternsFunction

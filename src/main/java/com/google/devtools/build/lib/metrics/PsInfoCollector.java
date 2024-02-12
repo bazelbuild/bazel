@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -42,7 +41,6 @@ public class PsInfoCollector {
   // Updates snapshots no more than once per interval. Running ps is somewhat slow and should not be
   // done too often.
   private static final Duration MIN_COLLECTION_INTERVAL = Duration.ofMillis(500);
-  private static final Clock clock = BlazeClock.instance();
   private static final PsInfoCollector instance = new PsInfoCollector();
 
   public static PsInfoCollector instance() {
@@ -58,14 +56,15 @@ public class PsInfoCollector {
    * If ps snapshot was outdated will update it, and then returns resource consumption snapshot of
    * processes subtrees based on collected ps snapshot.
    */
-  public synchronized ResourceSnapshot collectResourceUsage(ImmutableSet<Long> processIds) {
+  public synchronized ResourceSnapshot collectResourceUsage(
+      ImmutableSet<Long> processIds, Clock clock) {
     Instant now = clock.now();
     if (currentPsSnapshot == null
         || Duration.between(currentPsSnapshot.getCollectionTime(), now)
                 .compareTo(MIN_COLLECTION_INTERVAL)
             > 0) {
 
-      updatePsSnapshot();
+      updatePsSnapshot(clock);
     }
 
     ImmutableMap.Builder<Long, Integer> pidToMemoryInKb = ImmutableMap.builder();
@@ -82,7 +81,7 @@ public class PsInfoCollector {
   }
 
   /** Updates current snapshot of all processes state, using ps command. */
-  private void updatePsSnapshot() {
+  private void updatePsSnapshot(Clock clock) {
     // TODO(b/279003887): add exception if we couldn't collect the metrics.
     ImmutableMap<Long, PsInfo> pidToPsInfo = collectDataFromPs();
 

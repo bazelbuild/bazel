@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -390,7 +389,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testExpectedBuildEventOutput_asFlag() throws Exception {
     writeBasicIntFlag();
     scratch.file("blah/BUILD", "cc_library(name = 'mylib')");
-    useConfiguration(ImmutableMap.of("//test:my_int_setting", "15"));
+    useConfiguration("--//test:my_int_setting=15");
     update(
         ImmutableList.of("//blah:mylib"),
         /*keepGoing=*/ false,
@@ -413,7 +412,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testExpectedBuildEventOutput_asTarget() throws Exception {
     writeBasicIntFlag();
     scratch.file("blah/BUILD", "cc_library(name = 'mylib')");
-    useConfiguration(ImmutableMap.of("//test:my_int_setting", "15"));
+    useConfiguration("--//test:my_int_setting=15");
     update(
         ImmutableList.of("//blah:mylib", "//test:my_int_setting"),
         /*keepGoing=*/ false,

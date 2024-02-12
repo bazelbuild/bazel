@@ -25,7 +25,7 @@ public abstract class GitOverride implements NonRegistryOverride {
   public static GitOverride create(
       String remote,
       String commit,
-      ImmutableList<String> patches,
+      ImmutableList<Object> patches,
       ImmutableList<String> patchCmds,
       int patchStrip,
       boolean initSubmodules) {
@@ -39,8 +39,8 @@ public abstract class GitOverride implements NonRegistryOverride {
   /** The commit hash to use. */
   public abstract String getCommit();
 
-  /** The patches to apply after fetching from Git. Should be a list of labels. */
-  public abstract ImmutableList<String> getPatches();
+  /** The labels of patches to apply after fetching from Git. */
+  public abstract ImmutableList<Object> getPatches();
 
   /** The patch commands to execute after fetching from Git. Should be a list of commands. */
   public abstract ImmutableList<String> getPatchCmds();

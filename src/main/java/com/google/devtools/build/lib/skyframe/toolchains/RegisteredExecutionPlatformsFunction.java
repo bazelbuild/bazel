@@ -197,7 +197,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,
-              module.getCanonicalRepoName(),
+              bazelDepGraphValue.getCanonicalRepoNameLookup().inverse().get(module.getKey()),
               bazelDepGraphValue.getFullRepoMapping(module.getKey()));
       for (String pattern : module.getExecutionPlatformsToRegister()) {
         try {

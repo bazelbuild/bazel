@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.server.FailureDetails.DiffAwareness.Code;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
@@ -430,7 +429,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest
         Maps.immutableEntry(file1Key, fileStateValueDelta("dir/file1")),
         Maps.immutableEntry(file2Key, fileStateValueDelta("dir/file2")));
     assertThat(diff.changedKeysWithoutNewValues()).contains(dirKey);
-    Truth8.assertThat(
+    assertThat(
             Streams.concat(
                 diff.changedKeysWithoutNewValues().stream(),
                 diff.changedKeysWithNewValues().keySet().stream()))

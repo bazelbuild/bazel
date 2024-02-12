@@ -123,7 +123,14 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
-    if (workerExecutorService == null) {
+    if (workerExecutorService == null
+        || env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      // Don't use the worker thread if we're in Skyframe error bubbling. For some reason, using a
+      // worker thread during error bubbling very frequently causes deadlocks on Linux platforms.
+      // The deadlock is rather elusive and this is just the immediate thing that seems to help.
+      // Fortunately, no Skyframe restarts should happen during error bubbling anyway, so this
+      // shouldn't be a performance concern. See https://github.com/bazelbuild/bazel/issues/21238
+      // for more context.
       return fetchInternal(rule, outputDirectory, directories, env, recordedInputValues, key);
     }
     var state = env.getState(RepoFetchingSkyKeyComputeState::new);

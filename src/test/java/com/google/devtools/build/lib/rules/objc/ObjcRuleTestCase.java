@@ -22,7 +22,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -518,7 +517,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       assertThat(declaredIncludeSrcs)
           .containsExactly(getSourceArtifact("x/a.h").getExecPathString());
     }
-    Truth8.assertThat(
+    assertThat(
             ccCompilationContext.getIncludeDirs().stream()
                 .map(x -> removeConfigFragment(x.toString())))
         .containsExactly(PathFragment.create("x/incdir").toString(), OUTPUTDIR + "/x/incdir");

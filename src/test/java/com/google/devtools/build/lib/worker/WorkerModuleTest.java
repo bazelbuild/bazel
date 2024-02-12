@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import org.junit.Rule;
@@ -141,6 +143,35 @@ public class WorkerModuleTest {
   }
 
   @Test
+  public void buildStarting_restartsOnUseCgroupsOnLinuxChanges()
+      throws IOException, AbruptExitException, OptionsParsingException {
+    WorkerModule module = new WorkerModule();
+    WorkerOptions options =
+        Options.parse(WorkerOptions.class, "--noexperimental_worker_use_cgroups_on_linux")
+            .getOptions();
+    when(request.getOptions(WorkerOptions.class)).thenReturn(options);
+    setupEnvironment("/outputRoot");
+
+    module.beforeCommand(env);
+    // Check that new pools/factories are made with default options
+    module.buildStarting(BuildStartingEvent.create(env, request));
+    assertThat(storedEventHandler.getEvents()).isEmpty();
+
+    WorkerPool oldPool = module.workerPool;
+    WorkerOptions newOptions =
+        Options.parse(WorkerOptions.class, "--experimental_worker_use_cgroups_on_linux")
+            .getOptions();
+    when(request.getOptions(WorkerOptions.class)).thenReturn(newOptions);
+
+    module.beforeCommand(env);
+    module.buildStarting(BuildStartingEvent.create(env, request));
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    assertThat(storedEventHandler.getEvents().get(0).getMessage())
+        .contains("Worker factory configuration has changed");
+    assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
+  }
+
+  @Test
   public void buildStarting_clearsLogsOnFactoryCreation() throws IOException, AbruptExitException {
     WorkerModule module = new WorkerModule();
     WorkerOptions options = WorkerOptions.DEFAULTS;
@@ -159,7 +190,6 @@ public class WorkerModuleTest {
     assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isTrue();
     assertThat(oldLog.exists()).isFalse();
   }
-
 
   @Test
   public void buildStarting_restartsOnNumMultiplexWorkersChanges()
@@ -228,7 +258,7 @@ public class WorkerModuleTest {
     workerDir.getParentDirectory().setWritable(false);
 
     // But an actual worker cannot be created.
-    WorkerKey key = TestUtils.createWorkerKey(fs, "Work", /* proxied=*/ false);
+    WorkerKey key = TestUtils.createWorkerKey(fs, "Work", /* proxied= */ false);
     assertThrows(IOException.class, () -> module.workerPool.borrowObject(key));
   }
 

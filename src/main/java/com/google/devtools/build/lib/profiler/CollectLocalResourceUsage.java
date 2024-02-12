@@ -14,6 +14,11 @@
 package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorMetric.FULL;
+import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorMetric.SOME;
+import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.CPU;
+import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.IO;
+import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.MEMORY;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -59,6 +64,10 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
   @GuardedBy("this")
   @Nullable
   private Map<ProfilerTask, TimeSeries> timeSeries;
+
+  @GuardedBy("this")
+  @Nullable
+  private List<List<ProfilerTask>> stackedTaskGroups;
 
   private Stopwatch stopwatch;
 
@@ -108,6 +117,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
       stopwatch = Stopwatch.createStarted();
       synchronized (CollectLocalResourceUsage.this) {
         timeSeries = new HashMap<>();
+        stackedTaskGroups = new ArrayList<>();
         Duration startTime = stopwatch.elapsed();
         List<ProfilerTask> enabledCounters = new ArrayList<>();
         enabledCounters.addAll(
@@ -132,8 +142,20 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
           enabledCounters.add(ProfilerTask.CPU_USAGE_ESTIMATION);
         }
         if (collectPressureStallIndicators) {
-          enabledCounters.add(ProfilerTask.PRESSURE_STALL_IO);
-          enabledCounters.add(ProfilerTask.PRESSURE_STALL_MEMORY);
+          enabledCounters.add(ProfilerTask.PRESSURE_STALL_FULL_IO);
+          enabledCounters.add(ProfilerTask.PRESSURE_STALL_FULL_MEMORY);
+          enabledCounters.add(ProfilerTask.PRESSURE_STALL_SOME_IO);
+          enabledCounters.add(ProfilerTask.PRESSURE_STALL_SOME_MEMORY);
+          enabledCounters.add(ProfilerTask.PRESSURE_STALL_SOME_CPU);
+
+          // There is no PRESSURE_STALL_FULL_CPU metric, so it's not a stacked counter.
+          stackedTaskGroups.add(
+              ImmutableList.of(
+                  ProfilerTask.PRESSURE_STALL_FULL_IO, ProfilerTask.PRESSURE_STALL_SOME_IO));
+          stackedTaskGroups.add(
+              ImmutableList.of(
+                  ProfilerTask.PRESSURE_STALL_FULL_MEMORY,
+                  ProfilerTask.PRESSURE_STALL_SOME_MEMORY));
         }
 
         for (ProfilerTask counter : enabledCounters) {
@@ -211,11 +233,21 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
         if (collectLoadAverage) {
           loadAverage = osBean.getSystemLoadAverage();
         }
-        double pressureStallIo = 0;
-        double pressureStallMemory = 0;
-        if (collectPressureStallIndicators) {
-          pressureStallIo = ResourceUsage.readPressureStallIndicator("io");
-          pressureStallMemory = ResourceUsage.readPressureStallIndicator("memory");
+
+        // The pressure stall indicator for full CPU metric is not defined.
+        double pressureStallFullIo = 0;
+        double pressureStallFullMemory = 0;
+        double pressureStallSomeIo = 0;
+        double pressureStallSomeMemory = 0;
+        double pressureStallSomeCpu = 0;
+        // The pressure stall indicators are only available on Linux.
+        if (collectPressureStallIndicators && OS.getCurrent() == OS.LINUX) {
+          pressureStallFullIo = ResourceUsage.readPressureStallIndicator(IO, FULL);
+          pressureStallFullMemory = ResourceUsage.readPressureStallIndicator(MEMORY, FULL);
+
+          pressureStallSomeIo = ResourceUsage.readPressureStallIndicator(IO, SOME);
+          pressureStallSomeMemory = ResourceUsage.readPressureStallIndicator(MEMORY, SOME);
+          pressureStallSomeCpu = ResourceUsage.readPressureStallIndicator(CPU, SOME);
         }
 
         double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
@@ -251,16 +283,31 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
           if (loadAverage > 0) {
             addRange(ProfilerTask.SYSTEM_LOAD_AVERAGE, previousElapsed, nextElapsed, loadAverage);
           }
-          if (pressureStallIo >= 0) {
-            addRange(ProfilerTask.PRESSURE_STALL_IO, previousElapsed, nextElapsed, pressureStallIo);
-          }
-          if (pressureStallMemory >= 0) {
-            addRange(
-                ProfilerTask.PRESSURE_STALL_MEMORY,
-                previousElapsed,
-                nextElapsed,
-                pressureStallMemory);
-          }
+          addRange(
+              ProfilerTask.PRESSURE_STALL_SOME_CPU,
+              previousElapsed,
+              nextElapsed,
+              pressureStallSomeCpu);
+          addRange(
+              ProfilerTask.PRESSURE_STALL_SOME_IO,
+              previousElapsed,
+              nextElapsed,
+              pressureStallSomeIo);
+          addRange(
+              ProfilerTask.PRESSURE_STALL_FULL_IO,
+              previousElapsed,
+              nextElapsed,
+              pressureStallFullIo);
+          addRange(
+              ProfilerTask.PRESSURE_STALL_SOME_MEMORY,
+              previousElapsed,
+              nextElapsed,
+              pressureStallSomeMemory);
+          addRange(
+              ProfilerTask.PRESSURE_STALL_FULL_MEMORY,
+              previousElapsed,
+              nextElapsed,
+              pressureStallFullMemory);
           if (systemNetworkUsages != null) {
             addRange(
                 ProfilerTask.SYSTEM_NETWORK_UP_USAGE,
@@ -317,12 +364,34 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     Profiler profiler = Profiler.instance();
 
     for (ProfilerTask task : timeSeries.keySet()) {
+      if (isStacked(task)) {
+        continue;
+      }
       profiler.logCounters(
           ImmutableMap.ofEntries(Map.entry(task, timeSeries.get(task).toDoubleArray(len))),
           profileStart,
           BUCKET_DURATION);
     }
+
+    for (List<ProfilerTask> taskGroup : stackedTaskGroups) {
+      ImmutableMap.Builder<ProfilerTask, double[]> stackedCounters = ImmutableMap.builder();
+      for (ProfilerTask task : taskGroup) {
+        stackedCounters.put(task, timeSeries.get(task).toDoubleArray(len));
+      }
+      profiler.logCounters(stackedCounters.buildOrThrow(), profileStart, BUCKET_DURATION);
+    }
+
     timeSeries = null;
+    stackedTaskGroups = null;
+  }
+
+  private synchronized boolean isStacked(ProfilerTask type) {
+    for (List<ProfilerTask> tasks : stackedTaskGroups) {
+      if (tasks.contains(type)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private void addRange(

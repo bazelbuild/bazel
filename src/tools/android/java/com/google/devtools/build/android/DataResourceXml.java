@@ -308,6 +308,7 @@ public class DataResourceXml implements DataResource {
       case STRING:
       case BOOL:
       case COLOR:
+      case FONT:
       case FRACTION:
       case INTEGER:
       case DRAWABLE:

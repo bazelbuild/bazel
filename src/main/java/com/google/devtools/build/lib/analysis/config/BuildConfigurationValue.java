@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -51,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -135,11 +133,12 @@ public class BuildConfigurationValue
   /** Data for introspecting the options used by this configuration. */
   private final BuildOptionDetails buildOptionDetails;
 
-  private final Supplier<BuildConfigurationEvent> buildEventSupplier;
-
   private final boolean siblingRepositoryLayout;
 
   private final FeatureSet defaultFeatures;
+
+  @Nullable // lazily initialized
+  private transient volatile BuildConfigurationEvent buildEvent;
 
   /**
    * Validates the options for this BuildConfigurationValue. Issues warnings for the use of
@@ -304,7 +303,6 @@ public class BuildConfigurationValue
             getGenfilesDirectory(RepositoryName.MAIN).getExecPathString());
 
     this.reservedActionMnemonics = reservedActionMnemonics;
-    this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
     this.commandLineLimits = new CommandLineLimits(options.minParamFileSize);
     this.defaultFeatures = FeatureSet.parse(options.defaultFeatures);
   }
@@ -948,7 +946,14 @@ public class BuildConfigurationValue
 
   @Override
   public BuildConfigurationEvent toBuildEvent() {
-    return buildEventSupplier.get();
+    if (buildEvent == null) {
+      synchronized (this) {
+        if (buildEvent == null) {
+          buildEvent = createBuildEvent();
+        }
+      }
+    }
+    return buildEvent;
   }
 
   private BuildConfigurationEvent createBuildEvent() {

@@ -16,8 +16,12 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.stream.Collectors.counting;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -31,6 +35,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
@@ -44,6 +49,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -113,13 +119,11 @@ public class BazelDepGraphFunction implements SkyFunction {
       depGraph = selectionResult.getResolvedDepGraph();
     }
 
-    ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
-        depGraph.keySet().stream()
-            .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
-
+    ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
+        computeCanonicalRepoNameLookup(depGraph);
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById;
     try {
-      extensionUsagesById = getExtensionUsagesById(depGraph);
+      extensionUsagesById = getExtensionUsagesById(depGraph, canonicalRepoNameLookup.inverse());
     } catch (ExternalDepsException e) {
       throw new BazelDepGraphFunctionException(e, Transience.PERSISTENT);
     }
@@ -214,13 +218,23 @@ public class BazelDepGraphFunction implements SkyFunction {
   public static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
       getExtensionUsagesById(ImmutableMap<ModuleKey, Module> depGraph)
           throws ExternalDepsException {
+    return getExtensionUsagesById(depGraph, computeCanonicalRepoNameLookup(depGraph).inverse());
+  }
+
+  private static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
+      getExtensionUsagesById(
+          ImmutableMap<ModuleKey, Module> depGraph,
+          ImmutableMap<ModuleKey, RepositoryName> moduleKeyToRepositoryNames)
+          throws ExternalDepsException {
     ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
         extensionUsagesTableBuilder = ImmutableTable.builder();
     for (Module module : depGraph.values()) {
+      RepositoryMapping repoMapping =
+          module.getRepoMappingWithBazelDepsOnly(moduleKeyToRepositoryNames);
       LabelConverter labelConverter =
           new LabelConverter(
-              PackageIdentifier.create(module.getCanonicalRepoName(), PathFragment.EMPTY_FRAGMENT),
-              module.getRepoMappingWithBazelDepsOnly());
+              PackageIdentifier.create(repoMapping.ownerRepo(), PathFragment.EMPTY_FRAGMENT),
+              module.getRepoMappingWithBazelDepsOnly(moduleKeyToRepositoryNames));
       for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
         ModuleExtensionId moduleExtensionId;
         try {
@@ -247,6 +261,37 @@ public class BazelDepGraphFunction implements SkyFunction {
       }
     }
     return extensionUsagesTableBuilder.buildOrThrow();
+  }
+
+  private static ImmutableBiMap<RepositoryName, ModuleKey> computeCanonicalRepoNameLookup(
+      ImmutableMap<ModuleKey, Module> depGraph) {
+    // Find modules with multiple versions in the dep graph. Currently, the only source of such
+    // modules is multiple_version_override.
+    Set<String> multipleVersionsModules =
+        depGraph.keySet().stream()
+            .collect(groupingBy(ModuleKey::getName, counting()))
+            .entrySet()
+            .stream()
+            .filter(entry -> entry.getValue() > 1)
+            .map(Entry::getKey)
+            .collect(toSet());
+
+    // If there is a unique version of this module in the entire dep graph, we elide the version
+    // from the canonical repository name. This has a number of benefits:
+    // * It prevents the output base from being polluted with repository directories corresponding
+    //   to outdated versions of modules, which can be large and would otherwise only be cleaned
+    //   up by the discouraged bazel clean --expunge.
+    // * It improves cache hit rates by ensuring that a module update doesn't e.g. cause the paths
+    //   of all toolchains provided by its extensions to change, which would result in widespread
+    //   cache misses on every update.
+    return depGraph.keySet().stream()
+        .collect(
+            toImmutableBiMap(
+                key ->
+                    multipleVersionsModules.contains(key.getName())
+                        ? key.getCanonicalRepoNameWithVersion()
+                        : key.getCanonicalRepoNameWithoutVersion(),
+                key -> key));
   }
 
   private ImmutableBiMap<String, ModuleExtensionId> calculateUniqueNameForUsedExtensionId(

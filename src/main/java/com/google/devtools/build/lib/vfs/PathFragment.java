@@ -421,7 +421,7 @@ public abstract class PathFragment
   ////////////////////////////////////////////////////////////////////////
 
   /**
-   * Returns the number of segments in this path.
+   * Returns the number of segments in this path, excluding the drive string for absolute paths.
    *
    * <p>This operation is O(N) on the length of the string.
    */
@@ -501,6 +501,10 @@ public abstract class PathFragment
    * </code>. Thus the number of segments in the new PathFragment is <code>endIndex - beginIndex
    * </code>.
    *
+   * <p>If the path is absolute and <code>beginIndex</code> is zero, the returned path is absolute.
+   * Otherwise, if the path is relative or <code>beginIndex> is greater than zero, the returned path
+   * is relative.
+   *
    * <p>This operation is O(N) on the length of the string.
    *
    * @param beginIndex the beginning index, inclusive.
@@ -557,7 +561,7 @@ public abstract class PathFragment
       throw new IndexOutOfBoundsException(
           String.format("path: %s, beginIndex: %d endIndex: %d", toString(), beginIndex, endIndex));
     }
-    // If beginIndex is 0 we include the drive. Very odd semantics.
+    // If beginIndex is 0, we include the drive string.
     int driveStrLength = 0;
     if (beginIndex == 0) {
       starti = 0;

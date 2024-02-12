@@ -18,7 +18,7 @@ load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
 
 objc_internal = _builtins.internal.objc_internal
-apple_common = _builtins.toplevel.apple_common
+apple_common = _builtins.internal.apple_common
 cc_internal = _builtins.internal.cc_internal
 
 CPP_SOURCES = [".cc", ".cpp", ".mm", ".cxx", ".C"]

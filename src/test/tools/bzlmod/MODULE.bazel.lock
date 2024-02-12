@@ -1,5 +1,5 @@
 {
-  "lockFileVersion": 3,
+  "lockFileVersion": 4,
   "moduleFileHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "flags": {
     "cmdRegistries": [
@@ -46,7 +46,7 @@
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 17,
+            "line": 18,
             "column": 29
           },
           "imports": {
@@ -64,7 +64,7 @@
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 21,
+            "line": 22,
             "column": 32
           },
           "imports": {
@@ -81,7 +81,7 @@
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 24,
+            "line": 25,
             "column": 32
           },
           "imports": {
@@ -103,7 +103,7 @@
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 35,
+            "line": 36,
             "column": 39
           },
           "imports": {
@@ -120,7 +120,7 @@
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 39,
+            "line": 40,
             "column": 48
           },
           "imports": {
@@ -137,12 +137,29 @@
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 42,
+            "line": 43,
             "column": 42
           },
           "imports": {
             "android_gmaven_r8": "android_gmaven_r8",
             "android_tools": "android_tools"
+          },
+          "devImports": [],
+          "tags": [],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
+          "extensionBzlFile": "@buildozer//:buildozer_binary.bzl",
+          "extensionName": "buildozer_binary",
+          "usingModule": "bazel_tools@_",
+          "location": {
+            "file": "@@bazel_tools//:MODULE.bazel",
+            "line": 47,
+            "column": 33
+          },
+          "imports": {
+            "buildozer_binary": "buildozer_binary"
           },
           "devImports": [],
           "tags": [],
@@ -156,6 +173,7 @@
         "rules_license": "rules_license@0.0.7",
         "rules_proto": "rules_proto@5.3.0-21.7",
         "rules_python": "rules_python@0.22.1",
+        "buildozer": "buildozer@6.4.0.2",
         "platforms": "platforms@0.0.7",
         "com_google_protobuf": "protobuf@21.7",
         "zlib": "zlib@1.3",
@@ -210,7 +228,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -312,7 +330,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -338,7 +356,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -367,7 +385,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -473,7 +491,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -483,6 +501,72 @@
           "strip_prefix": "rules_python-0.22.1",
           "remote_patches": {
             "https://bcr.bazel.build/modules/rules_python/0.22.1/patches/module_dot_bazel_version.patch": "sha256-3+VLDH9gYDzNI4eOW7mABC/LKxh1xqF6NhacLbNTucs="
+          },
+          "remote_patch_strip": 1
+        }
+      }
+    },
+    "buildozer@6.4.0.2": {
+      "name": "buildozer",
+      "version": "6.4.0.2",
+      "key": "buildozer@6.4.0.2",
+      "repoName": "buildozer",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [],
+      "extensionUsages": [
+        {
+          "extensionBzlFile": "@buildozer//:buildozer_binary.bzl",
+          "extensionName": "buildozer_binary",
+          "usingModule": "buildozer@6.4.0.2",
+          "location": {
+            "file": "https://bcr.bazel.build/modules/buildozer/6.4.0.2/MODULE.bazel",
+            "line": 7,
+            "column": 33
+          },
+          "imports": {
+            "buildozer_binary": "buildozer_binary"
+          },
+          "devImports": [],
+          "tags": [
+            {
+              "tagName": "buildozer",
+              "attributeValues": {
+                "sha256": {
+                  "darwin-amd64": "d29e347ecd6b5673d72cb1a8de05bf1b06178dd229ff5eb67fad5100c840cc8e",
+                  "darwin-arm64": "9b9e71bdbec5e7223871e913b65d12f6d8fa026684daf991f00e52ed36a6978d",
+                  "linux-amd64": "8dfd6345da4e9042daa738d7fdf34f699c5dfce4632f7207956fceedd8494119",
+                  "linux-arm64": "6559558fded658c8fa7432a9d011f7c4dcbac6b738feae73d2d5c352e5f605fa",
+                  "windows-amd64": "e7f05bf847f7c3689dd28926460ce6e1097ae97380ac8e6ae7147b7b706ba19b"
+                },
+                "version": "6.4.0"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "https://bcr.bazel.build/modules/buildozer/6.4.0.2/MODULE.bazel",
+                "line": 8,
+                "column": 27
+              }
+            }
+          ],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        }
+      ],
+      "deps": {
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "urls": [
+            "https://github.com/fmeum/buildozer/releases/download/v6.4.0.2/buildozer-v6.4.0.2.tar.gz"
+          ],
+          "integrity": "sha256-k7tFKQMR2AygxpmZfH0yEPnQmF3efFgD9rBPkj+Yz/8=",
+          "strip_prefix": "buildozer-6.4.0.2",
+          "remote_patches": {
+            "https://bcr.bazel.build/modules/buildozer/6.4.0.2/patches/module_dot_bazel_version.patch": "sha256-gKANF2HMilj7bWmuXs4lbBIAAansuWC4IhWGB/CerjU="
           },
           "remote_patch_strip": 1
         }
@@ -502,7 +586,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -581,7 +665,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -614,7 +698,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -666,7 +750,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -696,7 +780,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -725,7 +809,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -755,7 +839,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -788,7 +872,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -874,7 +958,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -903,7 +987,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -933,7 +1017,7 @@
         "local_config_platform": "local_config_platform@_"
       },
       "repoSpec": {
-        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
@@ -950,26 +1034,26 @@
     }
   },
   "moduleExtensions": {
-    "@@apple_support~1.5.0//crosstool:setup.bzl%apple_cc_configure_extension": {
+    "@@apple_support~//crosstool:setup.bzl%apple_cc_configure_extension": {
       "general": {
         "bzlTransitiveDigest": "pMLFCYaRPkgXPQ8vtuNkMfiHfPmRBy6QJfnid4sWfv0=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "local_config_apple_cc": {
-            "bzlFile": "@@apple_support~1.5.0//crosstool:setup.bzl",
+            "bzlFile": "@@apple_support~//crosstool:setup.bzl",
             "ruleClassName": "_apple_cc_autoconf",
             "attributes": {}
           },
           "local_config_apple_cc_toolchains": {
-            "bzlFile": "@@apple_support~1.5.0//crosstool:setup.bzl",
+            "bzlFile": "@@apple_support~//crosstool:setup.bzl",
             "ruleClassName": "_apple_cc_autoconf_toolchains",
             "attributes": {}
           }
         },
         "recordedRepoMappingEntries": [
           [
-            "apple_support~1.5.0",
+            "apple_support~",
             "bazel_tools",
             "bazel_tools"
           ]
@@ -1004,7 +1088,7 @@
     },
     "@@bazel_tools//tools/cpp:cc_configure.bzl%cc_configure_extension": {
       "general": {
-        "bzlTransitiveDigest": "R+z/o9z6DUWAxJKuQZet/vuZ78BjspYvMfHxTQ3VEb4=",
+        "bzlTransitiveDigest": "XWy8pzw7/6RclAFWd6/VfUdoXn2SdSpmHOrbfEFJ1ao=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -1585,11 +1669,11 @@
         ]
       }
     },
-    "@@rules_jvm_external~4.4.2//:extensions.bzl%maven": {
+    "@@rules_jvm_external~//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "yXprMX4LqzJwuZlbtT9WNeu7p2iEYw7j4R1NP9pc4Ow=",
         "accumulatedFileDigests": {
-          "@@rules_jvm_external~4.4.2//:rules_jvm_external_deps_install.json": "10442a5ae27d9ff4c2003e5ab71643bf0d8b48dcf968b4173fa274c3232a8c06"
+          "@@rules_jvm_external~//:rules_jvm_external_deps_install.json": "10442a5ae27d9ff4c2003e5ab71643bf0d8b48dcf968b4173fa274c3232a8c06"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -1846,7 +1930,7 @@
             }
           },
           "rules_jvm_external_deps": {
-            "bzlFile": "@@rules_jvm_external~4.4.2//:coursier.bzl",
+            "bzlFile": "@@rules_jvm_external~//:coursier.bzl",
             "ruleClassName": "pinned_coursier_fetch",
             "attributes": {
               "repositories": [
@@ -1862,7 +1946,7 @@
               "fetch_sources": true,
               "fetch_javadoc": false,
               "generate_compat_repositories": false,
-              "maven_install_json": "@@rules_jvm_external~4.4.2//:rules_jvm_external_deps_install.json",
+              "maven_install_json": "@@rules_jvm_external~//:rules_jvm_external_deps_install.json",
               "override_targets": {},
               "strict_visibility": false,
               "strict_visibility_value": [
@@ -1940,7 +2024,7 @@
             }
           },
           "maven": {
-            "bzlFile": "@@rules_jvm_external~4.4.2//:coursier.bzl",
+            "bzlFile": "@@rules_jvm_external~//:coursier.bzl",
             "ruleClassName": "coursier_fetch",
             "attributes": {
               "repositories": [
@@ -2208,7 +2292,7 @@
             }
           },
           "unpinned_rules_jvm_external_deps": {
-            "bzlFile": "@@rules_jvm_external~4.4.2//:coursier.bzl",
+            "bzlFile": "@@rules_jvm_external~//:coursier.bzl",
             "ruleClassName": "coursier_fetch",
             "attributes": {
               "repositories": [
@@ -2233,7 +2317,7 @@
               "strict_visibility_value": [
                 "@@//visibility:private"
               ],
-              "maven_install_json": "@@rules_jvm_external~4.4.2//:rules_jvm_external_deps_install.json",
+              "maven_install_json": "@@rules_jvm_external~//:rules_jvm_external_deps_install.json",
               "resolve_timeout": 600,
               "jetify": false,
               "jetify_include_list": [
@@ -2595,19 +2679,19 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_jvm_external~4.4.2",
+            "rules_jvm_external~",
             "bazel_tools",
             "bazel_tools"
           ],
           [
-            "rules_jvm_external~4.4.2",
+            "rules_jvm_external~",
             "rules_jvm_external",
-            "rules_jvm_external~4.4.2"
+            "rules_jvm_external~"
           ]
         ]
       }
     },
-    "@@rules_jvm_external~4.4.2//:non-module-deps.bzl%non_module_deps": {
+    "@@rules_jvm_external~//:non-module-deps.bzl%non_module_deps": {
       "general": {
         "bzlTransitiveDigest": "Td87llNSs5GZ/kAxu6pAqfEXBZ3HdkSqRmUzvIfbFWg=",
         "accumulatedFileDigests": {},
@@ -2626,21 +2710,21 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_jvm_external~4.4.2",
+            "rules_jvm_external~",
             "bazel_tools",
             "bazel_tools"
           ]
         ]
       }
     },
-    "@@rules_python~0.22.1//python/extensions:python.bzl%python": {
+    "@@rules_python~//python/extensions:python.bzl%python": {
       "general": {
         "bzlTransitiveDigest": "NGtTMUqs2EEJeXu6mXdpmYRrQGZiJV7S3mxeod3Hm7M=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "pythons_hub": {
-            "bzlFile": "@@rules_python~0.22.1//python/extensions/private:interpreter_hub.bzl",
+            "bzlFile": "@@rules_python~//python/extensions/private:interpreter_hub.bzl",
             "ruleClassName": "hub_repo",
             "attributes": {
               "toolchains": []
@@ -2649,19 +2733,19 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_python~0.22.1",
+            "rules_python~",
             "bazel_tools",
             "bazel_tools"
           ],
           [
-            "rules_python~0.22.1",
+            "rules_python~",
             "rules_python",
-            "rules_python~0.22.1"
+            "rules_python~"
           ]
         ]
       }
     },
-    "@@rules_python~0.22.1//python/extensions/private:internal_deps.bzl%internal_deps": {
+    "@@rules_python~//python/extensions/private:internal_deps.bzl%internal_deps": {
       "general": {
         "bzlTransitiveDigest": "5c1tkdV6L67SQOZWc9MUoS5ZnsSxeDKsh9urs01jZSM=",
         "accumulatedFileDigests": {},
@@ -2676,7 +2760,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "95203854f974e07af96358c0b261f1048d8e1083f2de9b1c565e1be4a3a48cfc",
               "type": "zip",
@@ -2694,7 +2778,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "6c4459b3de97b75e3bd6b7d4b7f0db13f17f504f3d13e2a7c623786289dd670e",
               "type": "zip",
@@ -2722,7 +2806,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "af4fffaffc4067232253715065e30c5a7ec6faac36f8fc8d6f64263b15f74db0",
               "type": "zip",
@@ -2740,7 +2824,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "4a5375e28c5191ac38cca59b38edd33ef4cc914732c916f2929029b4bfb50795",
               "type": "zip",
@@ -2758,7 +2842,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "b4a5be1748d538a710f87542f22c2cad22f80545a847ad91ce45e77417293eb4",
               "type": "zip",
@@ -2776,7 +2860,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "b9023e237f4c02ff739581ef35969c3739445fb059b060ca51771e69101efffe",
               "type": "zip",
@@ -2794,7 +2878,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "784f53ebc9f3fd0e2a3f6a78b2be1bd1f5575d7863e10c6e12504f240fd06660",
               "type": "zip",
@@ -2822,7 +2906,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "d900bb429fdfd7f511f868cedd03a6bbb142f3f9118c09b99ef8dc9bf9643c3c",
               "type": "zip",
@@ -2840,7 +2924,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "a8fb6cf131ac4070c9c5a3e21de0f7dc5a0fbe8bc77c9456ced896c12fcdad91",
               "type": "zip",
@@ -2868,7 +2952,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "633713d70ad6bfc49b34ead4060531658dc6dfc9b3eb7d8a716d5873377ab745",
               "type": "zip",
@@ -2896,7 +2980,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "c4ed2820d919351f4167e52425e096af41bfabacb1857186c1ea32ff9983ed75",
               "type": "zip",
@@ -2924,7 +3008,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "8f830ed581b45b82451a40faabb89c84e1a998124ee4212d440e9c6cf70083e5",
               "type": "zip",
@@ -2962,7 +3046,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "6b07130585d54fe8dff3d97b93b0e20290de974dc8177c320aeaf23459219c0b",
               "type": "zip",
@@ -2980,7 +3064,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "2198ea6fc548de52adc826f62cb18554caedfb1d26548c1b7c88d8f7faa8f6ba",
               "type": "zip",
@@ -3048,7 +3132,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.1//python/private:coverage.patch"
+                "@@rules_python~//python/private:coverage.patch"
               ],
               "sha256": "ef8674b0ee8cc11e2d574e3e2998aea5df5ab242e012286824ea3c6970580e53",
               "type": "zip",
@@ -3080,19 +3164,19 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_python~0.22.1",
+            "rules_python~",
             "bazel_skylib",
-            "bazel_skylib~1.3.0"
+            "bazel_skylib~"
           ],
           [
-            "rules_python~0.22.1",
+            "rules_python~",
             "bazel_tools",
             "bazel_tools"
           ],
           [
-            "rules_python~0.22.1",
+            "rules_python~",
             "rules_python",
-            "rules_python~0.22.1"
+            "rules_python~"
           ]
         ]
       }

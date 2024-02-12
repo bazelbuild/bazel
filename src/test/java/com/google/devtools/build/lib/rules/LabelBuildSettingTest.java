@@ -17,10 +17,8 @@ package com.google.devtools.build.lib.rules;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -108,9 +106,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
     scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])", "alias(name='b', actual='a')");
 
-    useConfiguration(
-        ImmutableMap.of(
-            "//test:my_label_flag", Label.parseCanonicalUnchecked("//test:command_line")));
+    useConfiguration("--//test:my_label_flag=//test:command_line");
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
     assertThat(b.get("value")).isEqualTo("command_line_value");
@@ -137,9 +133,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     assertNoEvents();
 
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        ImmutableMap.of(
-            "//test:my_label_flag", Label.parseCanonicalUnchecked("//test:command_line")));
+    useConfiguration("--//test:my_label_flag=//test:command_line");
     getConfiguredTarget("//test:selector");
     assertContainsEvent(
         "configurable attribute \"value\" in //test:selector doesn't match this configuration");
@@ -165,9 +159,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     assertNoEvents();
 
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        ImmutableMap.of(
-            "//test:my_label_flag", Label.parseCanonicalUnchecked("//test:command_line")));
+    useConfiguration("--//test:my_label_flag=//test:command_line");
     getConfiguredTarget("//test:selector");
     assertContainsEvent(
         "configurable attribute \"value\" in //test:selector doesn't match this configuration");
@@ -193,9 +185,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     assertNoEvents();
 
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        ImmutableMap.of(
-            "//test:my_label_flag", Label.parseCanonicalUnchecked("//test:command_line")));
+    useConfiguration("--//test:my_label_flag=//test:command_line");
     getConfiguredTarget("//test:selector");
     assertContainsEvent(
         "configurable attribute \"value\" in //test:selector doesn't match this configuration");

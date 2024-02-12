@@ -58,7 +58,7 @@ public final class WorkerLifecycleManagerTest {
   @Before
   public void setUp() throws Exception {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
-
+    WorkerOptions options = new WorkerOptions();
     doAnswer(
             args -> {
               WorkerKey key = args.getArgument(0);
@@ -78,7 +78,8 @@ public final class WorkerLifecycleManagerTest {
                       key,
                       workerIds++,
                       fileSystem.getPath("/workDir"),
-                      fileSystem.getPath("/logDir")));
+                      fileSystem.getPath("/logDir"),
+                      options));
             })
         .when(factoryMock)
         .makeObject(any());

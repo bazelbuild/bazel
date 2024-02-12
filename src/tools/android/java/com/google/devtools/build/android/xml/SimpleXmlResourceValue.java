@@ -62,6 +62,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   static final QName TAG_COLOR = QName.valueOf("color");
   static final QName TAG_DIMEN = QName.valueOf("dimen");
   static final QName TAG_DRAWABLE = QName.valueOf("drawable");
+  static final QName TAG_FONT = QName.valueOf("font");
   static final QName TAG_FRACTION = QName.valueOf("fraction");
   static final QName TAG_INTEGER = QName.valueOf("integer");
   static final QName TAG_ITEM = QName.valueOf("item");
@@ -80,7 +81,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     COLOR(TAG_COLOR),
     DIMEN(TAG_DIMEN),
     DRAWABLE(TAG_DRAWABLE),
-    FONT(TAG_ITEM),
+    FONT(TAG_FONT),
     FRACTION(TAG_FRACTION),
     INTEGER(TAG_INTEGER),
     ITEM(TAG_ITEM),

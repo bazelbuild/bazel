@@ -26,7 +26,6 @@ load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInf
 
 objc_internal = _builtins.internal.objc_internal
 coverage_common = _builtins.toplevel.coverage_common
-apple_common = _builtins.toplevel.apple_common
 
 def _attribute_error(attr_name, msg):
     fail("in attribute '" + attr_name + "': " + msg)

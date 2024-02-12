@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 
@@ -21,17 +20,17 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
-import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SkyfocusOptions;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
+import com.google.devtools.build.lib.skyframe.SkyframeFocuser.FocusResult;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileStateKey;
@@ -42,14 +41,13 @@ import com.google.devtools.build.skyframe.InMemoryGraphImpl;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyframeFocuser;
-import com.google.devtools.build.skyframe.SkyframeFocuser.FocusResult;
 import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * SkyfocusModule implements the concept of using working sets to reduce the memory footprint for
@@ -76,50 +74,59 @@ public class SkyfocusModule extends BlazeModule {
     DO_NOTHING
   }
 
-  private ImmutableSet<String> activeWorkingSet = ImmutableSet.of();
-
-  private CommandEnvironment env;
+  @Nullable private CommandEnvironment env;
 
   private PendingSkyfocusState pendingSkyfocusState;
 
-  private SkyfocusOptions skyfocusOptions;
+  @Nullable private SkyfocusOptions skyfocusOptions;
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     // This should come before everything, as 'clean' would cause Blaze to drop its analysis
     // state, therefore focusing needs to be re-done no matter what.
     if (env.getCommandName().equals("clean")) {
-      activeWorkingSet = ImmutableSet.of();
+      env.getSkyframeExecutor().setWorkingSet(ImmutableSet.of());
       return;
     }
 
-    skyfocusOptions = env.getOptions().getOptions(SkyfocusOptions.class);
-    if (skyfocusOptions == null) {
-      // This is not a build command and is therefore a no-op as far as Skyfocus is concerned.
+    if (!commandActuallyBuilds(env.getCommand())) {
       return;
     }
+    // All commands that inherit from 'build' will have SkyfocusOptions.
+    skyfocusOptions = env.getOptions().getOptions(SkyfocusOptions.class);
+    Preconditions.checkNotNull(skyfocusOptions);
 
     if (!env.getSkyframeExecutor().getEvaluator().skyfocusSupported()) {
-      activeWorkingSet = ImmutableSet.of();
+      env.getSkyframeExecutor().setWorkingSet(ImmutableSet.of());
       return;
     }
 
     env.getSkyframeExecutor().getEvaluator().setSkyfocusEnabled(skyfocusOptions.skyfocusEnabled);
     if (!skyfocusOptions.skyfocusEnabled) {
-      activeWorkingSet = ImmutableSet.of();
+      env.getSkyframeExecutor().setWorkingSet(ImmutableSet.of());
       return;
     }
 
     // Allows this object to listen to build events.
     env.getEventBus().register(this);
     this.env = env;
+    ImmutableSet<String> activeWorkingSet = env.getSkyframeExecutor().getWorkingSet();
 
     if (!activeWorkingSet.isEmpty()) {
       env.getReporter()
           .handle(
-              Event.info(
-                  "Skyfocus is active. Changes not in the active working set are currently"
-                      + " ignored."));
+              Event.warn(
+                  "You are using the experimental Skyfocus feature. Feel free to test it, "
+                      + "but do not depend on it yet."));
+
+      // TODO: b/323434582 - Implement verification sets.
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "Skyfocus: Changes not in the active working set are currently ignored."
+                      + " Run '"
+                      + env.getRuntime().getProductName()
+                      + " info working_set' to print the set."));
     }
 
     ImmutableSet<String> newWorkingSet = ImmutableSet.copyOf(skyfocusOptions.workingSet);
@@ -130,8 +137,8 @@ public class SkyfocusModule extends BlazeModule {
         env.getReporter()
             .handle(
                 Event.warn(
-                    "Working set changed, discarding analysis cache. This can be expensive, "
-                        + "so choose your working set carefully."));
+                    "Working set changed to include new files, discarding analysis cache. This can"
+                        + " be expensive, so choose your working set carefully."));
         env.getSkyframeExecutor().resetEvaluator();
         // fall through
       case RUN_FOCUS:
@@ -140,13 +147,33 @@ public class SkyfocusModule extends BlazeModule {
                 Event.info(
                     "Updated working set successfully. Skyfocus will run at the end of the"
                         + " build."));
-        activeWorkingSet = newWorkingSet;
+        env.getSkyframeExecutor().setWorkingSet(newWorkingSet);
         env.getSkyframeExecutor().getEvaluator().setSkyfocusEnabled(true);
         break;
       case DO_NOTHING:
         // Do not replace the active working set.
         break;
     }
+  }
+
+  /**
+   * Checks if the command builds.
+   *
+   * <p>Not all 'build = true' annotated commands actually run a build.
+   */
+  private static boolean commandActuallyBuilds(Command command) {
+    if (!command.builds()) {
+      return false;
+    }
+    // 'clean' and 'info' set 'build = true' to make build options accessible to users (and info
+    // uses them), but does not run a build.
+    if (command.name().equals("clean")) {
+      return false;
+    }
+    if (command.name().equals("info")) {
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -194,7 +221,7 @@ public class SkyfocusModule extends BlazeModule {
   @SuppressWarnings("unused")
   @Subscribe
   public void onBuildPrecomplete(BuildPrecompleteEvent event) throws InterruptedException {
-    if (!skyfocusOptions.skyfocusEnabled) {
+    if (!commandActuallyBuilds(env.getCommand()) || !skyfocusOptions.skyfocusEnabled) {
       // Skyfocus not enabled, nothing to do here.
       return;
     }
@@ -244,8 +271,6 @@ public class SkyfocusModule extends BlazeModule {
     InMemoryGraphImpl graph = (InMemoryGraphImpl) evaluator.getInMemoryGraph();
 
     Reporter reporter = env.getReporter();
-    reporter.handle(
-        Event.warn("Skyfocus is experimental. Feel free to test it, but do not depend on it yet."));
 
     // Compute the roots and leafs.
     Set<SkyKey> roots = evaluator.getLatestTopLevelEvaluations();
@@ -259,7 +284,7 @@ public class SkyfocusModule extends BlazeModule {
     // This may be an issue with packages from a different package_path root.
     Root packageRoot = env.getPackageLocator().getPathEntries().get(0);
     HashSet<RootedPath> workingSetRootedPaths =
-        activeWorkingSet.stream()
+        env.getSkyframeExecutor().getWorkingSet().stream()
             .map(f -> RootedPath.toRootedPath(packageRoot, PathFragment.create(f)))
             .collect(toCollection(HashSet::new));
 
@@ -304,24 +329,7 @@ public class SkyfocusModule extends BlazeModule {
     FocusResult focusResult;
 
     try (SilentCloseable c = Profiler.instance().profile("SkyframeFocuser")) {
-      focusResult =
-          SkyframeFocuser.focus(
-              graph,
-              reporter,
-              roots,
-              leafs,
-              /* additionalDepsToKeep= */ (SkyKey k) -> {
-                // ActionExecutionFunction#lookupInput allows getting a transitive dep without
-                // adding a SkyframeDependency on it. In Blaze/Bazel's case, NestedSets are a major
-                // user. To keep that working, it's not sufficient to only keep the direct deps
-                // (e.g. NestedSets), but also keep the nodes of the transitive artifacts
-                // with this workaround.
-                if (k instanceof ArtifactNestedSetKey) {
-                  return ((ArtifactNestedSetKey) k)
-                      .expandToArtifacts().stream().map(Artifact::key).collect(toImmutableSet());
-                }
-                return ImmutableSet.of();
-              });
+      focusResult = SkyframeFocuser.focus(graph, reporter, roots, leafs);
     }
 
     return focusResult;

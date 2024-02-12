@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
+import net.starlark.java.eval.Starlark;
 
 /** {@link Bootstrap} for Starlark objects related to apple rules. */
 public class AppleBootstrap implements Bootstrap {
@@ -31,19 +32,13 @@ public class AppleBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("rules_apple", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/apple"));
 
-  private final AppleCommonApi<?, ?, ?, ?, ?, ?, ?> appleCommon;
-
-  public AppleBootstrap(AppleCommonApi<?, ?, ?, ?, ?, ?, ?> appleCommon) {
-    this.appleCommon = appleCommon;
-  }
-
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put(
         "apple_common",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            appleCommon,
+            Starlark.NONE,
             allowedRepositories));
   }
 }

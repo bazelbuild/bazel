@@ -23,6 +23,10 @@ option java_package = "com.google.devtools.build.lib.remote";
 message Config {
   // Describes a set of actions. An action must pass all criteria to match.
   message Matcher {
+    // A regex matching the rule kind of the action owner.
+    // Use .* if a partial match is desired.
+    // If empty, matches every kind.
+    string kind = 4;
     // A regex matching the canonical label of the action owner.
     // Use .* if a partial match is desired.
     // If empty, matches every label.

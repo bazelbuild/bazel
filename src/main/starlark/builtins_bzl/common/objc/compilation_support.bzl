@@ -14,8 +14,8 @@
 
 """Utility methods used for creating objc_* rules actions"""
 
-load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
-load("@_builtins//:common/objc/objc_common.bzl", "objc_common")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/cc/cc_common.bzl", "cc_common")
 
 objc_internal = _builtins.internal.objc_internal

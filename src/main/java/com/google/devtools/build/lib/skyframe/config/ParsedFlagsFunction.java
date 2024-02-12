@@ -53,7 +53,7 @@ public class ParsedFlagsFunction implements SkyFunction {
       throws InterruptedException, ParsedFlagsFunctionException {
     ParsedFlagsValue.Key key = (ParsedFlagsValue.Key) skyKey.argument();
 
-    ImmutableSet.Builder<String> nativeFlags = ImmutableSet.builder();
+    ImmutableList.Builder<String> nativeFlags = ImmutableList.builder();
     ImmutableList.Builder<String> starlarkFlags = ImmutableList.builder();
     for (String flagSetting : key.rawFlags()) {
       if (STARLARK_SKIPPED_PREFIXES.stream().noneMatch(flagSetting::startsWith)) {

@@ -97,6 +97,10 @@ public class BuildConfigurationKeyProducer
   }
 
   private StateMachine applyMappings(Tasks tasks) {
+    if (this.platformMappingValue == null) {
+      return DONE; // There was an error.
+    }
+
     var result =
         ImmutableMap.<String, BuildConfigurationKey>builderWithExpectedSize(options.size());
     for (Map.Entry<String, BuildOptions> entry : options.entrySet()) {

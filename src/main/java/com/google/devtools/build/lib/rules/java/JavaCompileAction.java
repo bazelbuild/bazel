@@ -828,7 +828,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   private ActionExecutionException createActionExecutionException(Exception e, Code detailedCode) {
     DetailedExitCode detailedExitCode =
         DetailedExitCode.of(createFailureDetail(Strings.nullToEmpty(e.getMessage()), detailedCode));
-    return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
+    return new ActionExecutionException(e, this, /* catastrophe= */ false, detailedExitCode);
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {

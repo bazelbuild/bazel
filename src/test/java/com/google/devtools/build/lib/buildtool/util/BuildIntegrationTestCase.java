@@ -742,7 +742,8 @@ public abstract class BuildIntegrationTestCase {
     return existingConfiguredTarget;
   }
 
-  protected BuildConfigurationValue getConfiguration() {
+  @Nullable // Null if no build has been run.
+  public BuildConfigurationValue getConfiguration() {
     return runtimeWrapper.getConfiguration();
   }
 

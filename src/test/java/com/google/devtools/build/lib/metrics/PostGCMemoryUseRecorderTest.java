@@ -26,7 +26,6 @@ import static org.mockito.Mockito.withSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -84,8 +83,8 @@ public final class PostGCMemoryUseRecorderTest {
   public void peakHeapsStartAbsent() {
     PostGCMemoryUseRecorder rec =
         new PostGCMemoryUseRecorder(new ArrayList<>(), BugReporter.defaultInstance());
-    Truth8.assertThat(rec.getPeakPostGcHeap()).isEmpty();
-    Truth8.assertThat(rec.getPeakPostGcHeapTenuredSpace()).isEmpty();
+    assertThat(rec.getPeakPostGcHeap()).isEmpty();
+    assertThat(rec.getPeakPostGcHeapTenuredSpace()).isEmpty();
   }
 
   @Test
@@ -95,8 +94,8 @@ public final class PostGCMemoryUseRecorderTest {
     rec.handleNotification(
         createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(1000L), null);
     rec.reset();
-    Truth8.assertThat(rec.getPeakPostGcHeap()).isEmpty();
-    Truth8.assertThat(rec.getPeakPostGcHeapTenuredSpace()).isEmpty();
+    assertThat(rec.getPeakPostGcHeap()).isEmpty();
+    assertThat(rec.getPeakPostGcHeapTenuredSpace()).isEmpty();
   }
 
   @Test
@@ -113,9 +112,9 @@ public final class PostGCMemoryUseRecorderTest {
 
     underTest.handleNotification(notificationWithNoGcCause, /*handback=*/ null);
 
-    Truth8.assertThat(underTest.getPeakPostGcHeap())
+    assertThat(underTest.getPeakPostGcHeap())
         .hasValue(PeakHeap.create(100, clock.currentTimeMillis()));
-    Truth8.assertThat(underTest.getPeakPostGcHeapTenuredSpace())
+    assertThat(underTest.getPeakPostGcHeapTenuredSpace())
         .hasValue(PeakHeap.create(0, clock.currentTimeMillis()));
   }
 
@@ -127,25 +126,22 @@ public final class PostGCMemoryUseRecorderTest {
     clock.advanceMillis(1);
     rec.handleNotification(
         createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(1000L), null);
-    Truth8.assertThat(rec.getPeakPostGcHeap())
-        .hasValue(PeakHeap.create(2000, clock.currentTimeMillis()));
-    Truth8.assertThat(rec.getPeakPostGcHeapTenuredSpace())
+    assertThat(rec.getPeakPostGcHeap()).hasValue(PeakHeap.create(2000, clock.currentTimeMillis()));
+    assertThat(rec.getPeakPostGcHeapTenuredSpace())
         .hasValue(PeakHeap.create(1000, clock.currentTimeMillis()));
 
     clock.advanceMillis(1);
     rec.handleNotification(
         createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(1001L), null);
-    Truth8.assertThat(rec.getPeakPostGcHeap())
-        .hasValue(PeakHeap.create(2002, clock.currentTimeMillis()));
-    Truth8.assertThat(rec.getPeakPostGcHeapTenuredSpace())
+    assertThat(rec.getPeakPostGcHeap()).hasValue(PeakHeap.create(2002, clock.currentTimeMillis()));
+    assertThat(rec.getPeakPostGcHeapTenuredSpace())
         .hasValue(PeakHeap.create(1001, clock.currentTimeMillis()));
 
     clock.advanceMillis(1);
     rec.handleNotification(
         createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(1002L), null);
-    Truth8.assertThat(rec.getPeakPostGcHeap())
-        .hasValue(PeakHeap.create(2004, clock.currentTimeMillis()));
-    Truth8.assertThat(rec.getPeakPostGcHeapTenuredSpace())
+    assertThat(rec.getPeakPostGcHeap()).hasValue(PeakHeap.create(2004, clock.currentTimeMillis()));
+    assertThat(rec.getPeakPostGcHeapTenuredSpace())
         .hasValue(PeakHeap.create(1002, clock.currentTimeMillis()));
   }
 
@@ -161,13 +157,13 @@ public final class PostGCMemoryUseRecorderTest {
 
     clock.advanceMillis(1);
     rec.handleNotification(createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(500), null);
-    Truth8.assertThat(rec.getPeakPostGcHeap()).hasValue(expectedTotal);
-    Truth8.assertThat(rec.getPeakPostGcHeapTenuredSpace()).hasValue(expectedTenuredSpace);
+    assertThat(rec.getPeakPostGcHeap()).hasValue(expectedTotal);
+    assertThat(rec.getPeakPostGcHeapTenuredSpace()).hasValue(expectedTenuredSpace);
 
     clock.advanceMillis(1);
     rec.handleNotification(createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(999), null);
-    Truth8.assertThat(rec.getPeakPostGcHeap()).hasValue(expectedTotal);
-    Truth8.assertThat(rec.getPeakPostGcHeapTenuredSpace()).hasValue(expectedTenuredSpace);
+    assertThat(rec.getPeakPostGcHeap()).hasValue(expectedTotal);
+    assertThat(rec.getPeakPostGcHeapTenuredSpace()).hasValue(expectedTenuredSpace);
   }
 
   @Test
@@ -178,8 +174,8 @@ public final class PostGCMemoryUseRecorderTest {
         createMockNotification(
             "some other notification", "end of major GC", ImmutableMap.of("Foo", 1000L)),
         null);
-    Truth8.assertThat(rec.getPeakPostGcHeap()).isEmpty();
-    Truth8.assertThat(rec.getPeakPostGcHeapTenuredSpace()).isEmpty();
+    assertThat(rec.getPeakPostGcHeap()).isEmpty();
+    assertThat(rec.getPeakPostGcHeapTenuredSpace()).isEmpty();
   }
 
   @Test
@@ -192,8 +188,8 @@ public final class PostGCMemoryUseRecorderTest {
             "end of minor GC",
             ImmutableMap.of("Foo", 1000L)),
         null);
-    Truth8.assertThat(rec.getPeakPostGcHeap()).isEmpty();
-    Truth8.assertThat(rec.getPeakPostGcHeapTenuredSpace()).isEmpty();
+    assertThat(rec.getPeakPostGcHeap()).isEmpty();
+    assertThat(rec.getPeakPostGcHeapTenuredSpace()).isEmpty();
   }
 
   @Test
@@ -204,9 +200,8 @@ public final class PostGCMemoryUseRecorderTest {
         createMajorGCNotification(
             ImmutableMap.of("Foo", 111L, "Bar", 222L, "Qux", 333L, "CMS Old Gen", 111L)),
         null);
-    Truth8.assertThat(rec.getPeakPostGcHeap())
-        .hasValue(PeakHeap.create(777, clock.currentTimeMillis()));
-    Truth8.assertThat(rec.getPeakPostGcHeapTenuredSpace())
+    assertThat(rec.getPeakPostGcHeap()).hasValue(PeakHeap.create(777, clock.currentTimeMillis()));
+    assertThat(rec.getPeakPostGcHeapTenuredSpace())
         .hasValue(PeakHeap.create(111, clock.currentTimeMillis()));
   }
 

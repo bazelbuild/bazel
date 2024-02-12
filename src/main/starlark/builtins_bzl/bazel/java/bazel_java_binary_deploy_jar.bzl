@@ -47,6 +47,8 @@ def _bazel_deploy_jars_impl(ctx):
         info.strip_as_default,
         build_info_files,
         str(ctx.attr.binary.label),
+        add_exports = info.add_exports,
+        add_opens = info.add_opens,
         manifest_lines = info.manifest_lines,
     )
 

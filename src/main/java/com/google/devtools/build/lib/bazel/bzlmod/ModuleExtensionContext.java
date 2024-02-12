@@ -160,6 +160,9 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
                     + " dependencies of the root module. If the root module imports additional"
                     + " repositories or does not import all of these repositories via <a"
                     + " href=\"../globals/module.html#use_repo\"><code>use_repo</code></a>, Bazel"
+                    + " will print a warning when the extension is evaluated, instructing the user"
+                    + " to run <code>bazel mod tidy</code> to fix the <code>use_repo</code> calls"
+                    + " automatically. <p>If one of <code>root_module_direct_deps</code> and"
                     + " will print a warning and a fixup command when the extension is"
                     + " evaluated.<p>If one of <code>root_module_direct_deps</code> and"
                     + " <code>root_module_direct_dev_deps</code> is specified, the other has to be"
@@ -185,9 +188,10 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
                     + " href=\"../globals/module.html#use_repo\"><code>use_repo</code></a> on an"
                     + " extension proxy created with <code><a"
                     + " href=\"../globals/module.html#use_extension\">use_extension</a>(...,"
-                    + " dev_dependency = True)</code>, Bazel will print a warning and a fixup"
-                    + " command when the extension is evaluated.<p>If one of"
-                    + " <code>root_module_direct_deps</code> and"
+                    + " dev_dependency = True)</code>, Bazel will print a warning when the "
+                    + " extension is evaluated, instructing the user to run"
+                    + " <code>bazel mod tidy</code> to fix the <code>use_repo</code> calls"
+                    + " automatically. <p>If one of <code>root_module_direct_deps</code> and"
                     + " <code>root_module_direct_dev_deps</code> is specified, the other has to be"
                     + " as well. The lists specified by these two parameters must be"
                     + " disjoint.<p>Exactly one of <code>root_module_direct_deps</code> and"
@@ -202,11 +206,24 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
               @ParamType(type = String.class),
               @ParamType(type = NoneType.class)
             }),
+        @Param(
+            name = "reproducible",
+            doc =
+                "States that this module extension ensures complete reproducibility, thereby it "
+                    + "should not be stored in the lockfile.",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+            }),
       })
   public ModuleExtensionMetadata extensionMetadata(
-      Object rootModuleDirectDepsUnchecked, Object rootModuleDirectDevDepsUnchecked)
+      Object rootModuleDirectDepsUnchecked,
+      Object rootModuleDirectDevDepsUnchecked,
+      boolean reproducible)
       throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, extensionId);
+        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible);
   }
 }

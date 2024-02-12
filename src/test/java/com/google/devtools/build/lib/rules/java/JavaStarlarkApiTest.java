@@ -24,7 +24,6 @@ import static java.util.Arrays.stream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ObjectArrays;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -1209,9 +1208,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ true);
 
     assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
-    Truth8.assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
         .containsExactly("libplugin.jar", "libplugin_dep.jar");
-    Truth8.assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
         .containsExactly("pluginfile.dat");
     assertThat(apiPluginData).isEqualTo(JavaPluginData.empty());
   }
@@ -1244,10 +1243,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(apiPluginData.processorClasses().toList())
         .containsExactly("com.google.process.stuff");
-    Truth8.assertThat(
-            apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+    assertThat(apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
         .containsExactly("libplugin.jar", "libplugin_dep.jar");
-    Truth8.assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
+    assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
         .containsExactly("pluginfile.dat");
     assertThat(apiPluginData).isEqualTo(pluginData);
   }
@@ -1288,17 +1286,16 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(pluginData.processorClasses().toList())
         .containsExactly("com.google.process.stuff", "com.google.process.apistuff");
-    Truth8.assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
         .containsExactly(
             "libplugin.jar", "libplugin_dep1.jar", "libapiplugin.jar", "libplugin_dep2.jar");
-    Truth8.assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
         .containsExactly("pluginfile1.dat", "pluginfile2.dat");
     assertThat(apiPluginData.processorClasses().toList())
         .containsExactly("com.google.process.apistuff");
-    Truth8.assertThat(
-            apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+    assertThat(apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
         .containsExactly("libapiplugin.jar", "libplugin_dep2.jar");
-    Truth8.assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
+    assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
         .containsExactly("pluginfile2.dat");
   }
 
@@ -1340,9 +1337,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
 
     assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
-    Truth8.assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
         .containsExactly("lib.jar", "libplugin_dep1.jar");
-    Truth8.assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
         .containsExactly("pluginfile1.dat");
     assertThat(apiPluginData.processorClasses().toList()).isEmpty();
     assertThat(apiPluginData.processorClasspath().toList()).isEmpty();
@@ -1389,10 +1386,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(apiPluginData.processorClasses().toList())
         .containsExactly("com.google.process.stuff");
-    Truth8.assertThat(
-            apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+    assertThat(apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
         .containsExactly("lib.jar", "libplugin_dep1.jar");
-    Truth8.assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
+    assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
         .containsExactly("pluginfile1.dat");
     assertThat(apiPluginData).isEqualTo(pluginData);
   }
@@ -1433,9 +1429,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
 
     assertThat(pluginData.processorClasses().toList()).isEmpty();
-    Truth8.assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
         .containsExactly("lib.jar", "libplugin_dep1.jar");
-    Truth8.assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
         .containsExactly("pluginfile1.dat");
     assertThat(apiPluginData.processorClasses().toList()).isEmpty();
     assertThat(apiPluginData.processorClasspath().toList()).isEmpty();
@@ -1480,9 +1476,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
 
     assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
-    Truth8.assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
         .containsExactly("lib.jar", "libplugin_dep1.jar");
-    Truth8.assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
         .containsExactly("pluginfile1.dat");
     assertThat(apiPluginData.processorClasses().toList()).isEmpty();
     assertThat(apiPluginData.processorClasspath().toList()).isEmpty();
@@ -1968,7 +1964,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     Depset nativeLibs = (Depset) info.getValue("property");
 
-    Truth8.assertThat(
+    assertThat(
             nativeLibs.getSet(LibraryToLink.class).toList().stream()
                 .map(LibraryToLink::getLibraryIdentifier))
         .containsExactly("foo/libmy_cc_lib_a.so", "foo/libmy_cc_lib_b.so", "foo/libmy_cc_lib_c.so");
@@ -2002,8 +1998,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     NestedSet<LibraryToLink> librariesForTopTarget =
         topJavaLibrary.get(JavaInfo.PROVIDER).getTransitiveNativeLibraries();
-    Truth8.assertThat(
-            librariesForTopTarget.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+    assertThat(librariesForTopTarget.toList().stream().map(LibraryToLink::getLibraryIdentifier))
         .containsExactly("foo/libnative", "foo/libccl")
         .inOrder();
   }
@@ -2160,7 +2155,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
     NestedSet<LibraryToLink> nativeLibraries = info.getTransitiveNativeLibraries();
-    Truth8.assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+    assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
         .containsExactly(
             "java/test/libnative_rdeps1.so",
             "java/test/libnative_exports1.so",
@@ -2489,7 +2484,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
     NestedSet<LibraryToLink> nativeLibraries = info.getTransitiveNativeLibraries();
-    Truth8.assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+    assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
         .containsExactly(
             "java/test/libnative_rdeps1.so",
             "java/test/libnative_exports1.so",
@@ -2547,7 +2542,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
     NestedSet<LibraryToLink> nativeLibraries = info.getTransitiveNativeLibraries();
-    Truth8.assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+    assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
         .containsExactly("java/test/libnative.so")
         .inOrder();
   }
@@ -3650,7 +3645,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     Sequence<CcInfo> hermeticStaticLibs =
         (Sequence<CcInfo>) myInfo.getValue("hermetic_static_libs");
     assertThat(hermeticStaticLibs).hasSize(1);
-    Truth8.assertThat(
+    assertThat(
             hermeticStaticLibs.get(0).getCcLinkingContext().getLibraries().toList().stream()
                 .map(LibraryToLink::getLibraryIdentifier))
         .containsExactly("a/libStatic");

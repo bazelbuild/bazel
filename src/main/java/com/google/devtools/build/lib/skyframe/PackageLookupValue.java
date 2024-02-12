@@ -185,11 +185,6 @@ public abstract class PackageLookupValue implements SkyValue {
       this.buildFileName = buildFileName;
     }
 
-    @Nullable
-    public RepositoryDirectoryValue repository() {
-      return repository;
-    }
-
     @Override
     public boolean packageExists() {
       return true;

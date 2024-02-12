@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -196,7 +195,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Stream<Attribute> builtInAttributes =
         getRuleClass("r").getAttributes().stream()
             .filter(attr -> !(attr.getName().equals("a") || attr.getName().equals("b")));
-    Truth8.assertThat(builtInAttributes.map(Attribute::starlarkDefined)).doesNotContain(true);
+    assertThat(builtInAttributes.map(Attribute::starlarkDefined)).doesNotContain(true);
   }
 
   @Test
@@ -1126,9 +1125,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkRuleFunction longDocumentedRule =
         (StarlarkRuleFunction) ev.lookup("long_documented_rule");
     StarlarkRuleFunction undocumentedRule = (StarlarkRuleFunction) ev.lookup("undocumented_rule");
-    Truth8.assertThat(documentedRule.getDocumentation()).hasValue("My doc string");
-    Truth8.assertThat(longDocumentedRule.getDocumentation()).hasValue("Long doc\n\nWith details");
-    Truth8.assertThat(undocumentedRule.getDocumentation()).isEmpty();
+    assertThat(documentedRule.getDocumentation()).hasValue("My doc string");
+    assertThat(longDocumentedRule.getDocumentation()).hasValue("Long doc\n\nWith details");
+    assertThat(undocumentedRule.getDocumentation()).isEmpty();
   }
 
   @Test
@@ -1953,9 +1952,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         (StarlarkProvider) ev.lookup("SchemafulWithoutDocsInfo");
     StarlarkProvider schemafulWithDocsInfo = (StarlarkProvider) ev.lookup("SchemafulWithDocsInfo");
 
-    Truth8.assertThat(undocumentedInfo.getDocumentation()).isEmpty();
-    Truth8.assertThat(documentedInfo.getDocumentation())
-        .hasValue("My documented provider\n\nDetails");
+    assertThat(undocumentedInfo.getDocumentation()).isEmpty();
+    assertThat(documentedInfo.getDocumentation()).hasValue("My documented provider\n\nDetails");
     assertThat(schemafulWithoutDocsInfo.getSchema())
         .containsExactly("b", Optional.empty(), "a", Optional.empty());
     assertThat(schemafulWithDocsInfo.getSchema())
@@ -2433,14 +2431,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "undocumented_aspect = aspect(_impl)");
 
     StarlarkDefinedAspect documentedAspect = (StarlarkDefinedAspect) ev.lookup("documented_aspect");
-    Truth8.assertThat(documentedAspect.getDocumentation()).hasValue("My doc string");
+    assertThat(documentedAspect.getDocumentation()).hasValue("My doc string");
     StarlarkDefinedAspect longDocumentedAspect =
         (StarlarkDefinedAspect) ev.lookup("long_documented_aspect");
-    Truth8.assertThat(longDocumentedAspect.getDocumentation())
-        .hasValue("My doc string\n\nWith details");
+    assertThat(longDocumentedAspect.getDocumentation()).hasValue("My doc string\n\nWith details");
     StarlarkDefinedAspect undocumentedAspect =
         (StarlarkDefinedAspect) ev.lookup("undocumented_aspect");
-    Truth8.assertThat(undocumentedAspect.getDocumentation()).isEmpty();
+    assertThat(undocumentedAspect.getDocumentation()).isEmpty();
   }
 
   @Test
@@ -3671,16 +3668,16 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertNoEvents();
     assertThat(rule.getRuleClassObject().isExecutableStarlark()).isFalse();
     assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.NORMAL);
-    Truth8.assertThat(
+    assertThat(
             Sequence.cast(myInfo.getValue("srcs"), Artifact.class, "srcs").stream()
                 .map(Artifact::getFilename))
         .containsExactly("a.parent");
-    Truth8.assertThat(
+    assertThat(
             Sequence.cast(myInfo.getValue("deps"), ConfiguredTarget.class, "deps").stream()
                 .map(ConfiguredTarget::getLabel)
                 .map(Label::getName))
         .containsExactly();
-    Truth8.assertThat(
+    assertThat(
             Sequence.cast(myInfo.getValue("runtime_deps"), ConfiguredTarget.class, "runtime_deps")
                 .stream()
                 .map(ConfiguredTarget::getLabel)
@@ -3749,17 +3746,17 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertNoEvents();
     assertThat(rule.getRuleClassObject().isExecutableStarlark()).isFalse();
     assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.NORMAL);
-    Truth8.assertThat(
+    assertThat(
             Sequence.cast(myInfo.getValue("srcs"), Artifact.class, "srcs").stream()
                 .map(Artifact::getFilename))
         .containsExactly("a.parent");
-    Truth8.assertThat(
+    assertThat(
             Sequence.cast(myInfo.getValue("deps"), ConfiguredTarget.class, "deps").stream()
                 .map(ConfiguredTarget::getLabel)
                 .map(Label::getName))
         .containsExactly("dep", "child_dep", "parent_dep")
         .inOrder();
-    Truth8.assertThat(
+    assertThat(
             Sequence.cast(myInfo.getValue("runtime_deps"), ConfiguredTarget.class, "runtime_deps")
                 .stream()
                 .map(ConfiguredTarget::getLabel)
@@ -4001,13 +3998,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     assertThat(rule.getRuleClassObject().isExecutableStarlark()).isFalse();
     assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.NORMAL);
-    Truth8.assertThat(
+    assertThat(
             rule.getRuleClassObject().getAttributeByName("deps").getAspectClasses().stream()
                 .map(AspectClass::toString))
         .containsExactly(
             "//extend_rule_testing/parent:parent.bzl%parent_aspect",
             "//extend_rule_testing:child.bzl%my_aspect");
-    Truth8.assertThat(
+    assertThat(
             rule.getRuleClassObject().getAttributeByName("tool").getAspectClasses().stream()
                 .map(AspectClass::toString))
         .containsExactly("//extend_rule_testing:child.bzl%my_aspect");
@@ -4098,12 +4095,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkInfo parentInfo = (StarlarkInfo) myTarget.get(parentInfoKey);
 
     assertNoEvents();
-    Truth8.assertThat(
+    assertThat(
             Sequence.cast(parentInfo.getValue("deps"), ConfiguredTarget.class, "deps").stream()
                 .map(ConfiguredTarget::getLabel)
                 .map(Label::getName))
         .containsExactly("dep");
-    Truth8.assertThat(
+    assertThat(
             Sequence.cast(parentInfo.getValue("tools"), ConfiguredTarget.class, "tools").stream()
                 .map(ConfiguredTarget::getLabel)
                 .map(Label::getName))
@@ -4521,7 +4518,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Rule rule = getRuleContext(myTarget).getRule();
 
     assertNoEvents();
-    Truth8.assertThat(
+    assertThat(
             rule.getRuleClassObject().getToolchainTypes().stream()
                 .map(ToolchainTypeRequirement::toolchainType)
                 .map(Label::toString))
@@ -4554,7 +4551,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Rule rule = getRuleContext(myTarget).getRule();
 
     assertNoEvents();
-    Truth8.assertThat(
+    assertThat(
             rule.getRuleClassObject().getAdvertisedProviders().getStarlarkProviders().stream()
                 .map(StarlarkProviderIdentifier::getKey)
                 .map(key -> ((StarlarkProvider.Key) key).getExportedName()))

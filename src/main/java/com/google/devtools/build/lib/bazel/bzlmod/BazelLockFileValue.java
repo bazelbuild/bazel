@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.devtools.build.lib.bazel.bzlmod.InterimModule.toModule;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -36,7 +37,7 @@ import java.util.Map;
 @GenerateTypeAdapter
 public abstract class BazelLockFileValue implements SkyValue, Postable {
 
-  public static final int LOCK_FILE_VERSION = 3;
+  public static final int LOCK_FILE_VERSION = 4;
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_LOCK_FILE;
 
@@ -116,5 +117,25 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
       }
     }
     return moduleDiff.build();
+  }
+
+  /**
+   * Returns a new BazelLockFileValue in which all information about the root module has been
+   * replaced by the given value.
+   *
+   * <p>This operation is shallow: If the new root module has different dependencies, the dep graph
+   * will not be updated.
+   */
+  public BazelLockFileValue withShallowlyReplacedRootModule(
+      ModuleFileValue.RootModuleFileValue value) {
+    ImmutableMap.Builder<ModuleKey, Module> newDepGraph = ImmutableMap.builder();
+    newDepGraph.putAll(getModuleDepGraph());
+    newDepGraph.put(
+        ModuleKey.ROOT,
+        toModule(value.getModule(), /* override= */ null, /* remoteRepoSpec= */ null));
+    return toBuilder()
+        .setModuleFileHash(value.getModuleFileHash())
+        .setModuleDepGraph(newDepGraph.buildKeepingLast())
+        .build();
   }
 }

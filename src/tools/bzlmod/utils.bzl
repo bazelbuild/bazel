@@ -75,7 +75,7 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
 
     for extension_id, extension_entry in lockfile["moduleExtensions"].items():
         if extension_id.startswith("@@"):
-            # @@rules_foo~1.2.3//:extensions.bzl%foo --> rules_foo~1.2.3
+            # @@rules_foo~//:extensions.bzl%foo --> rules_foo~
             module_repo_name = extension_id.removeprefix("@@").partition("//")[0]
         else:
             # //:extensions.bzl%foo --> _main

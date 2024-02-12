@@ -185,26 +185,29 @@ def _impl(ctx):
     ]
     action_configs = []
 
-    llvm_cov_action = action_config(
-        action_name = ACTION_NAMES.llvm_cov,
-        tools = [
-            tool(
-                path = ctx.attr.tool_paths["llvm-cov"],
-            ),
-        ],
-    )
+    llvm_cov = ctx.attr.tool_paths.get("llvm-cov")
+    if llvm_cov:
+        llvm_cov_action = action_config(
+            action_name = ACTION_NAMES.llvm_cov,
+            tools = [
+                tool(
+                    path = llvm_cov,
+                ),
+            ],
+        )
+        action_configs.append(llvm_cov_action)
 
-    objcopy_action = action_config(
-        action_name = ACTION_NAMES.objcopy_embed_data,
-        tools = [
-            tool(
-                path = ctx.attr.tool_paths["objcopy"],
-            ),
-        ],
-    )
-
-    action_configs.append(llvm_cov_action)
-    action_configs.append(objcopy_action)
+    objcopy = ctx.attr.tool_paths.get("objcopy")
+    if objcopy:
+        objcopy_action = action_config(
+            action_name = ACTION_NAMES.objcopy_embed_data,
+            tools = [
+                tool(
+                    path = objcopy,
+                ),
+            ],
+        )
+        action_configs.append(objcopy_action)
 
     supports_pic_feature = feature(
         name = "supports_pic",

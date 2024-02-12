@@ -2233,6 +2233,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (!AndroidCommon.getAndroidConfig(ruleContext).desugarJava8()) {
       return Functions.identity();
     }
+    if (Allowlist.hasAllowlist(ruleContext, "enable_starlark_dex_desugar_proguard")
+        && Allowlist.isAvailable(ruleContext, "enable_starlark_dex_desugar_proguard")) {
+      return Functions.identity();
+    }
     AndroidRuntimeJarProvider.Builder result =
         collectDesugaredJarsFromAttributes(
             ruleContext, semantics.getAttributesWithJavaRuntimeDeps(ruleContext));

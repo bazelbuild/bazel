@@ -118,6 +118,8 @@ def create_deploy_archives(
             output = ctx.outputs.unstrippeddeployjar,
             multi_release = multi_release,
             hermetic = hermetic,
+            add_exports = add_exports,
+            add_opens = add_opens,
             extra_args = extra_args,
         )
     else:

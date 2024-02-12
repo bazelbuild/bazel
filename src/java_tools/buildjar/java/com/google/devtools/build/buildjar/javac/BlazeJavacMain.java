@@ -418,10 +418,14 @@ public class BlazeJavacMain {
   }
 
   /**
-   * When Bazel invokes JavaBuilder, it puts javac.jar on the bootstrap class path and
-   * JavaBuilder_deploy.jar on the user class path. We need Error Prone to be available on the
-   * annotation processor path, but we want to mask out any other classes to minimize class version
-   * skew.
+   * Ensure that classes that appear in the API between JavaBuilder and plugins are consistently
+   * loaded by the same classloader. 'Plugins' here means both annotation processors and Error Prone
+   * plugins. The annotation processor API is defined in the JDK and doesn't require any special
+   * handling, since the versions in the system classloader will always be loaded preferentially.
+   * For Error Prone plugins, we want to ensure that classes in the API are loaded from the same
+   * classloader as JavaBuilder, but that other classes referenced by plugins are loaded from the
+   * processor classpath to avoid plugins seeing stale versions of classes from the releases
+   * JavaBuilder jar.
    */
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
@@ -455,11 +459,8 @@ public class BlazeJavacMain {
               if (name.startsWith("com.google.errorprone.")
                   || name.startsWith("com.google.common.collect.")
                   || name.startsWith("com.google.common.base.")
-                  || name.startsWith("com.google.common.graph.")
                   || name.startsWith("com.google.common.regex.")
                   || name.startsWith("org.checkerframework.errorprone.dataflow.")
-                  || name.startsWith("com.sun.source.")
-                  || name.startsWith("com.sun.tools.")
                   || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
                 return Class.forName(name);
               }

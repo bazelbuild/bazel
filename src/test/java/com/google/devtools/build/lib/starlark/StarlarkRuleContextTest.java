@@ -26,7 +26,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -676,7 +675,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    Truth8.assertThat(action.getUnusedInputsList()).isPresent();
+    assertThat(action.getUnusedInputsList()).isPresent();
     assertThat(action.getUnusedInputsList().get().getFilename()).isEqualTo("a.txt");
     assertThat(action.discoversInputs()).isTrue();
     assertThat(action.isShareable()).isFalse();
@@ -922,7 +921,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    Truth8.assertThat(action.getUnusedInputsList()).isEmpty();
+    assertThat(action.getUnusedInputsList()).isEmpty();
     assertThat(action.discoversInputs()).isFalse();
   }
 
@@ -3014,7 +3013,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testBuildSettingValue_explicitlySet() throws Exception {
     writeIntFlagBuildSettingFiles();
-    useConfiguration(ImmutableMap.of("//test:int_flag", 24));
+    useConfiguration("--//test:int_flag=24");
 
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:int_flag");
     Provider.Key key =
@@ -3071,8 +3070,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     // Set multiple times
     useConfiguration(
-        ImmutableMap.of(
-            "//test:string_flag", ImmutableList.of("some-other-value", "some-other-other-value")));
+        "--//test:string_flag=some-other-value", "--//test:string_flag=some-other-other-value");
     buildSetting = getConfiguredTarget("//test:string_flag");
     key =
         new StarlarkProvider.Key(
@@ -3116,9 +3114,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     // Set multiple times
     useConfiguration(
-        ImmutableMap.of(
-            "//test:string_list_flag",
-            ImmutableList.of("some-other-value", "some-other-other-value")));
+        "--//test:string_list_flag=some-other-value",
+        "--//test:string_list_flag=some-other-other-value");
     buildSetting = getConfiguredTarget("//test:string_list_flag");
     key =
         new StarlarkProvider.Key(
@@ -3132,7 +3129,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     // No splitting on comma.
     useConfiguration(
-        ImmutableMap.of("//test:string_list_flag", ImmutableList.of("a,b,c", "a", "b,c")));
+        "--//test:string_list_flag=a,b,c",
+        "--//test:string_list_flag=a",
+        "--//test:string_list_flag=b,c");
     buildSetting = getConfiguredTarget("//test:string_list_flag");
     key =
         new StarlarkProvider.Key(

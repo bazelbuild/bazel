@@ -30,7 +30,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -604,7 +603,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     JavaCompileAction javacAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/exports:libc.jar");
 
-    Truth8.assertThat(
+    assertThat(
             prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))).stream()
                 .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly("java/exports/libb-hjar.jar", "java/exports/liba-hjar.jar");
@@ -1774,7 +1773,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     JavaCompileAction javacAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/strict:liba.jar");
 
-    Truth8.assertThat(
+    assertThat(
             prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))).stream()
                 .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly("java/strict/libb-hjar.jar");
@@ -2438,14 +2437,14 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         (JavaCompileAction)
             getGeneratingAction(getFileConfiguredTarget("//java/foo:liblib.jar").getArtifact());
 
-    Truth8.assertThat(
+    assertThat(
             prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))).stream()
                 .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly(
             "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
         .inOrder();
 
-    Truth8.assertThat(
+    assertThat(
             prettyArtifactNames(getInputs(javacAction, getClasspath(javacAction))).stream()
                 .filter(a -> !a.equals("tools/android/bootclasspath_android_only_auxiliary.jar")))
         .containsExactly(

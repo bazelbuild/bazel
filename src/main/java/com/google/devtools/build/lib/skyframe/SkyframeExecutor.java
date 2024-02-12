@@ -108,6 +108,8 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
+import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -191,7 +193,9 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
+import com.google.devtools.build.lib.skyframe.config.NativeAndStarlarkFlags;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsFunction;
+import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
@@ -245,6 +249,8 @@ import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -454,6 +460,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
   private boolean clearNestedSetAfterActionExecution = false;
 
+  private ImmutableSet<String> activeWorkingSet = ImmutableSet.of();
+
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public boolean shouldCreatePathResolverForArtifactValues() {
@@ -560,6 +568,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
+    this.actionRewindStrategy = new ActionRewindStrategy(skyframeActionExecutor, bugReporter);
     BzlLoadFunction bzlLoadFunctionForInliningPackageAndWorkspaceNodes =
         getBzlLoadFunctionForInliningPackageAndWorkspaceNodes();
 
@@ -704,11 +713,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.TARGET_COMPLETION,
         TargetCompletor.targetCompletionFunction(
-            pathResolverFactory, skyframeActionExecutor, topLevelArtifactsMetric, bugReporter));
+            pathResolverFactory,
+            skyframeActionExecutor,
+            topLevelArtifactsMetric,
+            actionRewindStrategy,
+            bugReporter));
     map.put(
         SkyFunctions.ASPECT_COMPLETION,
         AspectCompletor.aspectCompletionFunction(
-            pathResolverFactory, skyframeActionExecutor, topLevelArtifactsMetric, bugReporter));
+            pathResolverFactory,
+            skyframeActionExecutor,
+            topLevelArtifactsMetric,
+            actionRewindStrategy,
+            bugReporter));
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
     map.put(
         Artifact.ARTIFACT,
@@ -718,7 +735,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             syscallCache));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
-    this.actionRewindStrategy = new ActionRewindStrategy(bugReporter);
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
@@ -1334,6 +1350,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return ignoredPaths;
   }
 
+  public ImmutableSet<String> getWorkingSet() {
+    return activeWorkingSet;
+  }
+
+  public void setWorkingSet(ImmutableSet<String> workingSet) {
+    activeWorkingSet = workingSet;
+  }
+
   protected Differencer.Diff getDiff(
       TimestampGranularityMonitor tsgm,
       ModifiedFileSet modifiedFileSet,
@@ -1516,6 +1540,43 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Called when a top-level configuration is determined. */
   protected void setTopLevelConfiguration(BuildConfigurationValue topLevelConfiguration) {}
+
+  /**
+   * Parse raw options and create a {@link BuildOptions} instance. Options may be a mix of native
+   * and Starlark options.
+   */
+  @VisibleForTesting
+  public BuildOptions createBuildOptionsForTesting(
+      ExtendedEventHandler eventHandler, ImmutableList<String> args)
+      throws OptionsParsingException, InvalidConfigurationException {
+    RepositoryMappingValue.Key mainRepositoryMappingKey =
+        RepositoryMappingValue.key(RepositoryName.MAIN);
+    EvaluationResult<SkyValue> mainRepoMappingResult =
+        evaluateSkyKeys(eventHandler, ImmutableList.of(mainRepositoryMappingKey));
+    if (mainRepoMappingResult.hasError()) {
+      throw new InvalidConfigurationException(
+          "Cannot find main repository mapping", Code.INVALID_BUILD_OPTIONS);
+    }
+    RepositoryMappingValue mainRepositoryMappingValue =
+        (RepositoryMappingValue) mainRepoMappingResult.get(mainRepositoryMappingKey);
+    RepoContext mainRepoContext =
+        RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.getRepositoryMapping());
+
+    // Parse the options.
+    PackageContext rootPackage = mainRepoContext.rootPackage();
+    ParsedFlagsValue.Key parsedFlagsKey = ParsedFlagsValue.Key.create(args, rootPackage);
+    EvaluationResult<SkyValue> result =
+        evaluateSkyKeys(eventHandler, ImmutableList.of(parsedFlagsKey));
+    if (result.hasError()) {
+      throw new InvalidConfigurationException("Cannot parse options", Code.INVALID_BUILD_OPTIONS);
+    }
+    ParsedFlagsValue parsedFlagsValue = (ParsedFlagsValue) result.get(parsedFlagsKey);
+    NativeAndStarlarkFlags flags = parsedFlagsValue.flags();
+    OptionsParsingResult optionsParsingResult = flags.parse();
+
+    return BuildOptions.of(
+        ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParsingResult);
+  }
 
   /** Asks the Skyframe evaluator to build a {@link BuildConfigurationValue}. */
   public BuildConfigurationValue createConfiguration(
@@ -2358,7 +2419,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Returns the value of a node that the caller knows to be done. May be called intra-evaluation.
    * Null values and interrupts are unexpected, and will cause a {@link
    * FailureToRetrieveIntrospectedValueException}. Callers should handle gracefully, probably via
-   * {@link BugReport}.
+   * {@link BugReporter}.
    */
   @ThreadSafety.ThreadSafe
   public SkyValue getDoneSkyValueForIntrospection(SkyKey key)
@@ -3176,7 +3237,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // Ignored package prefixes are specified relative to the workspace root
         // by definition of .bazelignore. So, we only use ignored paths when the
         // package root is equal to the workspace path.
-        if (workspacePath != null && workspacePath.equals(pathEntry.asPath())) {
+        if (workspacePath != null
+            && workspacePath.equals(pathEntry.asPath())
+            && ignoredPackagePrefixesValue != null) {
           ignoredPaths =
               ignoredPackagePrefixesValue.getPatterns().stream()
                   .map(pathEntry::getRelative)

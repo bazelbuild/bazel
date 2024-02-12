@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FIL
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -1944,7 +1944,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget lib = getConfiguredTarget("//foo:lib");
-    Truth8.assertThat(
+    assertThat(
             lib
                 .get(CcInfo.PROVIDER)
                 .getCcDebugInfoContext()
@@ -1953,7 +1953,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .stream()
                 .map(Artifact::getFilename))
         .contains("public_dep.dwo");
-    Truth8.assertThat(
+    assertThat(
             lib
                 .get(CcInfo.PROVIDER)
                 .getCcDebugInfoContext()
@@ -2115,9 +2115,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     ConfiguredTarget main = getConfiguredTarget("//:main");
     Artifact mainBin = getBinArtifact("main", main);
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
-    assertThat(Joiner.on(" ").join(action.getLinkCommandLineForTesting().arguments()))
-        .doesNotContain("-Xlinker -rpath");
+    SpawnAction action = (SpawnAction) getGeneratingAction(mainBin);
+    assertThat(Joiner.on(" ").join(action.getArguments())).doesNotContain("-Xlinker -rpath");
   }
 
   @Test
@@ -2148,8 +2147,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     ConfiguredTarget main = getConfiguredTarget("//no-transition:main");
     Artifact mainBin = getBinArtifact("main", main);
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
-    List<String> linkArgv = action.getLinkCommandLineForTesting().arguments();
+    SpawnAction action = (SpawnAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getArguments();
     assertThat(linkArgv)
         .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/")
         .inOrder();
@@ -2219,8 +2218,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     ConfiguredTarget main = getConfiguredTarget("//transition:main");
     Artifact mainBin = getBinArtifact("main", main);
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
-    List<String> linkArgv = action.getLinkCommandLineForTesting().arguments();
+    SpawnAction action = (SpawnAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getArguments();
     assertThat(linkArgv)
         .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/")
         .inOrder();
@@ -2319,7 +2318,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testLinkerInputAlwaysAddedEvenIfEmpty() throws Exception {
     AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
     scratch.file("foo/BUILD", "cc_library(", "    name = 'lib',", ")");
-    Truth8.assertThat(
+    assertThat(
             getConfiguredTarget("//foo:lib")
                 .get(CcInfo.PROVIDER)
                 .getCcLinkingContext()

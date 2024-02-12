@@ -143,6 +143,7 @@ java_library(
         "cache/MetadataInjector.java",
         "cache/OutputMetadataStore.java",
         "cache/PersistentStringIndexer.java",
+        "cache/PostableActionCacheStats.java",
         "cache/VirtualActionInput.java",
     ],
     deps = [

@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import java.io.File;
 import java.io.IOException;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -95,10 +94,9 @@ final class SandboxedWorker extends SingleplexWorker {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final WorkerExecRoot workerExecRoot;
+
   /** Options specific to hardened sandbox, null if not using that. */
   @Nullable private final WorkerSandboxOptions hardenedSandboxOptions;
-  /** If non-null, a directory that allows cgroup control. */
-  private String cgroupsDir;
 
   private Path inaccessibleHelperDir;
   private Path inaccessibleHelperFile;
@@ -109,9 +107,10 @@ final class SandboxedWorker extends SingleplexWorker {
       int workerId,
       Path workDir,
       Path logFile,
+      WorkerOptions workerOptions,
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
       TreeDeleter treeDeleter) {
-    super(workerKey, workerId, workDir, logFile);
+    super(workerKey, workerId, workDir, logFile, workerOptions);
     this.workerExecRoot =
         new WorkerExecRoot(
             workDir,
@@ -177,6 +176,18 @@ final class SandboxedWorker extends SingleplexWorker {
   @Override
   protected Subprocess createProcess() throws IOException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
+
+    // We put the sandbox inside a unique subdirectory using the worker's ID.
+    if (options.useCgroupsOnLinux || hardenedSandboxOptions != null) {
+      // In the event that the memory limit is 0, we defer to using Blaze's WorkerLifecycleManager
+      // to kill workers rather than cgroup's OOM killer.
+      cgroup =
+          CgroupsInfo.getBlazeSpawnsCgroup()
+              .createIndividualSpawnCgroup(
+                  "worker_sandbox_" + workerId,
+                  hardenedSandboxOptions != null ? hardenedSandboxOptions.memoryLimit() : 0);
+    }
+
     // TODO(larsrc): Check that execRoot and outputBase are not under /tmp
     if (hardenedSandboxOptions != null) {
       // In hardened mode, we bindmount a temp dir. We put the mount dir in the parent directory to
@@ -195,15 +206,8 @@ final class SandboxedWorker extends SingleplexWorker {
               .setUseFakeHostname(this.hardenedSandboxOptions.fakeHostname())
               .setCreateNetworkNamespace(NETNS);
 
-      if (hardenedSandboxOptions.memoryLimit() > 0) {
-        // We put the sandbox inside a unique subdirectory using the worker's ID.
-        CgroupsInfo workerCgroup =
-            CgroupsInfo.createMemoryLimitCgroupDir(
-                CgroupsInfo.getBlazeSpawnsCgroup(),
-                "worker_sandbox_" + workerId,
-                hardenedSandboxOptions.memoryLimit());
-        cgroupsDir = workerCgroup.getCgroupDir().toString();
-        commandLineBuilder.setCgroupsDir(cgroupsDir);
+      if (cgroup != null && cgroup.exists()) {
+        commandLineBuilder.setCgroupsDir(cgroup.getCgroupDir().toString());
       }
 
       if (this.hardenedSandboxOptions.fakeUsername()) {
@@ -212,7 +216,17 @@ final class SandboxedWorker extends SingleplexWorker {
 
       args = commandLineBuilder.buildForCommand(args);
     }
-    return createProcessBuilder(args).start();
+
+    Subprocess process = createProcessBuilder(args).start();
+
+    // If using hardened sandbox (aka linux-sandbox), the linux-sandbox parent process moves the
+    // sandboxed children processes (pid 1, 2) into the cgroup. But we still need to move the
+    // linux-sandbox process into the worker cgroup. On the other hand, without linux-sandbox, Blaze
+    // needs to do this itself for the spawned worker process.
+    if (cgroup != null && cgroup.exists()) {
+      cgroup.addProcess(process.getProcessId());
+    }
+    return process;
   }
 
   @Override
@@ -229,9 +243,9 @@ final class SandboxedWorker extends SingleplexWorker {
   @Override
   public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {
     super.finishExecution(execRoot, outputs);
-    if (cgroupsDir != null) {
+    if (cgroup != null && cgroup.exists()) {
       // This is only to not leave too much behind in the cgroups tree, can ignore errors.
-      new File(cgroupsDir).delete();
+      cgroup.getCgroupDir().delete();
     }
     workerExecRoot.copyOutputs(execRoot, outputs);
   }
@@ -246,9 +260,9 @@ final class SandboxedWorker extends SingleplexWorker {
       if (inaccessibleHelperDir != null) {
         inaccessibleHelperDir.delete();
       }
-      if (cgroupsDir != null) {
+      if (cgroup != null && cgroup.exists()) {
         // This is only to not leave too much behind in the cgroups tree, can ignore errors.
-        new File(cgroupsDir).delete();
+        cgroup.getCgroupDir().delete();
       }
       workDir.deleteTree();
     } catch (IOException e) {

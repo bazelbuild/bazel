@@ -218,6 +218,7 @@ class BazelModuleTest(test_base.TestBase):
     _, stdout, stderr = self.RunBazel(
         ['run', '//:main', '--check_direct_dependencies=warning']
     )
+    stderr = '\n'.join(stderr)
     self.assertIn(
         'WARNING: For repository \'aaa\', the root module requires module version aaa@1.0, but got aaa@1.1 in the resolved dependency graph.',
         stderr)
@@ -232,6 +233,7 @@ class BazelModuleTest(test_base.TestBase):
         ['run', '//:main', '--check_direct_dependencies=error'],
         allow_failure=True)
     self.AssertExitCode(exit_code, 48, stderr)
+    stderr = '\n'.join(stderr)
     self.assertIn(
         'ERROR: For repository \'aaa\', the root module requires module version aaa@1.0, but got aaa@1.1 in the resolved dependency graph.',
         stderr)
@@ -416,10 +418,10 @@ class BazelModuleTest(test_base.TestBase):
 
     _, _, stderr = self.RunBazel(['build', '@bar//quux:book'])
     stderr = '\n'.join(stderr)
-    self.assertIn('1st: @@bar~override//quux:bleb', stderr)
-    self.assertIn('2nd: @@bar~override//bleb:bleb', stderr)
+    self.assertIn('1st: @@bar~//quux:bleb', stderr)
+    self.assertIn('2nd: @@bar~//bleb:bleb', stderr)
     self.assertIn('3rd: @@//bleb:bleb', stderr)
-    self.assertIn('4th: @@bar~override//bleb:bleb', stderr)
+    self.assertIn('4th: @@bar~//bleb:bleb', stderr)
     self.assertIn('5th: @@bleb//bleb:bleb', stderr)
     self.assertIn('6th: @@//bleb:bleb', stderr)
 
@@ -459,10 +461,10 @@ class BazelModuleTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     # @bar is mapped to @@baz, which Bzlmod doesn't recognize, so we leave it be
     self.assertIn('1st: @@baz//:z', stderr)
-    # @my_aaa is mapped to @@aaa, which Bzlmod remaps to @@aaa~1.0
-    self.assertIn('2nd: @@aaa~1.0//:z', stderr)
-    # @bbb isn't mapped in WORKSPACE, but Bzlmod maps it to @@bbb~1.0
-    self.assertIn('3rd: @@bbb~1.0//:z', stderr)
+    # @my_aaa is mapped to @@aaa, which Bzlmod remaps to @@aaa~
+    self.assertIn('2nd: @@aaa~//:z', stderr)
+    # @bbb isn't mapped in WORKSPACE, but Bzlmod maps it to @@bbb~
+    self.assertIn('3rd: @@bbb~//:z', stderr)
     # @blarg isn't mapped by WORKSPACE or Bzlmod
     self.assertIn('4th: @@blarg//:z', stderr)
 
@@ -641,11 +643,9 @@ class BazelModuleTest(test_base.TestBase):
     )
     stderr = '\n'.join(stderr)
     self.assertIn('@@ reporting in: root@0.1', stderr)
-    self.assertIn('@@foo~1.0 reporting in: foo@1.0', stderr)
-    self.assertIn(
-        '@@foo~1.0~report_ext~report_repo reporting in: foo@1.0', stderr
-    )
-    self.assertIn('@@bar~override reporting in: bar@2.0', stderr)
+    self.assertIn('@@foo~ reporting in: foo@1.0', stderr)
+    self.assertIn('@@foo~~report_ext~report_repo reporting in: foo@1.0', stderr)
+    self.assertIn('@@bar~ reporting in: bar@2.0', stderr)
     self.assertIn('@@quux reporting in: None@None', stderr)
 
   def testWorkspaceToolchainRegistrationWithPlatformsConstraint(self):
@@ -791,7 +791,7 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.ScratchFile('hello/MODULE.bazel', ['wat'])
     _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
-    self.assertIn('ERROR: @@hello~override//:MODULE.bazel', '\n'.join(stderr))
+    self.assertIn('ERROR: @@hello~//:MODULE.bazel', '\n'.join(stderr))
 
   def testLoadRulesJavaSymbolThroughBazelTools(self):
     """Tests that loads from @bazel_tools that delegate to other modules resolve."""

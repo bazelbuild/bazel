@@ -279,7 +279,7 @@ EOF
 
   bazel build //${pkg}:g \
     --experimental_working_set=${pkg}/in.txt \
-    --profile=/tmp/profile.log &> "$TEST_log" || fail "Expected success"
+    --profile=/tmp/profile.log &> "$TEST_log" || fail "expected success"
   grep '"ph":"X"' /tmp/profile.log > "$TEST_log" \
     || fail "Missing profile file."
 
@@ -287,6 +287,54 @@ EOF
   expect_log '"focus.mark"'
   expect_log '"focus.sweep_nodes"'
   expect_log '"focus.sweep_edges"'
+}
+
+function test_info_supports_printing_working_set() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
+  mkdir -p ${pkg}
+  touch ${pkg}/in.txt
+  touch ${pkg}/in2.txt
+  touch ${pkg}/not.used
+  cat > ${pkg}/BUILD <<EOF
+genrule(
+  name = "g",
+  srcs = ["in.txt", "in2.txt"],
+  outs = ["out.txt"],
+  cmd = "cat \$(location in.txt) \$(location in2.txt) > \$@",
+)
+EOF
+
+  # Fresh build, so there is no working set.
+  bazel info working_set &> "$TEST_log" \
+    || fail "expected working_set to be a valid key"
+  expect_log "No working set found."
+  expect_not_log "${pkg}/in.txt"
+
+  # Initial build with working set.
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
+  bazel info working_set &> "$TEST_log"
+  expect_log "${pkg}/in.txt"
+
+  # Working set is expanded.
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt
+  bazel info working_set &> "$TEST_log"
+  expect_log "${pkg}/in.txt"
+  expect_log "${pkg}/in2.txt"
+
+  # Working set can be expanded to include files not in the downward transitive closure.
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt,${pkg}/not.used
+  bazel info working_set &> "$TEST_log"
+  expect_log "${pkg}/in.txt"
+  expect_log "${pkg}/in2.txt"
+  expect_log "${pkg}/not.used"
+
+  # The active set is retained for subsequent builds that don't pass the flag.
+  bazel build //${pkg}:g
+  bazel info working_set &> "$TEST_log"
+  expect_log "${pkg}/in.txt"
+  expect_log "${pkg}/in2.txt"
+  expect_log "${pkg}/not.used"
 }
 
 run_suite "Tests for the focus command"

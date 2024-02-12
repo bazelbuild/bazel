@@ -50,7 +50,7 @@ import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** An {@link ActionContext} providing the ability to log executed spawns. */
-public interface SpawnLogContext extends ActionContext {
+public abstract class SpawnLogContext implements ActionContext {
   /**
    * Logs an executed spawn.
    *
@@ -64,7 +64,7 @@ public interface SpawnLogContext extends ActionContext {
    * @param timeout the timeout the spawn was run under
    * @param result the spawn result
    */
-  void logSpawn(
+  public abstract void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
       SortedMap<PathFragment, ActionInput> inputMap,
@@ -74,10 +74,10 @@ public interface SpawnLogContext extends ActionContext {
       throws IOException, ExecException;
 
   /** Finishes writing the log and performs any required post-processing. */
-  void close() throws IOException;
+  public abstract void close() throws IOException;
 
   /** Computes the environment variables. */
-  static ImmutableList<EnvironmentVariable> getEnvironmentVariables(Spawn spawn) {
+  protected ImmutableList<EnvironmentVariable> getEnvironmentVariables(Spawn spawn) {
     ImmutableMap<String, String> environment = spawn.getEnvironment();
     ImmutableList.Builder<EnvironmentVariable> builder =
         ImmutableList.builderWithExpectedSize(environment.size());
@@ -93,7 +93,8 @@ public interface SpawnLogContext extends ActionContext {
 
   /** Computes the execution platform. */
   @Nullable
-  static Platform getPlatform(Spawn spawn, RemoteOptions remoteOptions) throws UserExecException {
+  protected Platform getPlatform(Spawn spawn, RemoteOptions remoteOptions)
+      throws UserExecException {
     var execPlatform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
     if (execPlatform == null) {
       return null;
@@ -110,7 +111,7 @@ public interface SpawnLogContext extends ActionContext {
    *
    * <p>Do not call for action outputs.
    */
-  static boolean isInputDirectory(ActionInput input, InputMetadataProvider inputMetadataProvider)
+  protected boolean isInputDirectory(ActionInput input, InputMetadataProvider inputMetadataProvider)
       throws IOException {
     if (input.isDirectory()) {
       return true;
@@ -134,7 +135,7 @@ public interface SpawnLogContext extends ActionContext {
    * <p>Will try to obtain the digest from cached metadata first, falling back to digesting the
    * contents manually.
    */
-  static Digest computeDigest(
+  protected Digest computeDigest(
       @Nullable ActionInput input,
       Path path,
       InputMetadataProvider inputMetadataProvider,
@@ -183,7 +184,7 @@ public interface SpawnLogContext extends ActionContext {
         .build();
   }
 
-  static Protos.SpawnMetrics getSpawnMetricsProto(SpawnResult result) {
+  protected static Protos.SpawnMetrics getSpawnMetricsProto(SpawnResult result) {
     SpawnMetrics metrics = result.getMetrics();
     Protos.SpawnMetrics.Builder builder = Protos.SpawnMetrics.newBuilder();
     if (metrics.totalTimeInMs() != 0L) {

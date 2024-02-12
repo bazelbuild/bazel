@@ -11,22 +11,27 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.skyframe;
+package com.google.devtools.build.lib.skyframe;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.IncrementalInMemoryNodeEntry;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 
 /**
  * SkyframeFocuser is a minimizing optimizer (i.e. garbage collector) for the Skyframe graph, based
@@ -72,20 +77,13 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
    * @param eventHandler handler to report events during focusing
    * @param roots the SkyKeys of the roots to be kept, i.e. the top level keys.
    * @param leafs the SkyKeys of the leafs to be kept. This is the "working set".
-   * @param additionalDepsToKeep by default, all direct deps of rdeps are kept. this function is
-   *     applied on all direct deps, in case there are optimizations elsewhere in the skyframe
-   *     implementation that reads transitive nodes without specifying a dependency on them.
    * @return the set of kept SkyKeys in the in-memory graph, categorized by deps and rdeps.
    */
   public static FocusResult focus(
-      InMemoryGraph graph,
-      EventHandler eventHandler,
-      Set<SkyKey> roots,
-      Set<SkyKey> leafs,
-      Function<SkyKey, Set<SkyKey>> additionalDepsToKeep)
+      InMemoryGraph graph, EventHandler eventHandler, Set<SkyKey> roots, Set<SkyKey> leafs)
       throws InterruptedException {
     SkyframeFocuser focuser = new SkyframeFocuser(graph, eventHandler);
-    return focuser.run(roots, leafs, additionalDepsToKeep);
+    return focuser.run(roots, leafs);
   }
 
   /**
@@ -153,18 +151,10 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     // concurrently.
     private final Set<SkyKey> keptDeps;
 
-    // See javadoc for the additionalDepsToKeep parameter of {@code SkyframeFocuser#focus}.
-    private final Function<SkyKey, Set<SkyKey>> additionalDepsToKeep;
-
-    protected NodeVisitor(
-        SkyKey key,
-        Set<SkyKey> keptRdeps,
-        Set<SkyKey> keptDeps,
-        Function<SkyKey, Set<SkyKey>> additionalDepsToKeep) {
+    protected NodeVisitor(SkyKey key, Set<SkyKey> keptRdeps, Set<SkyKey> keptDeps) {
       this.key = key;
       this.keptRdeps = keptRdeps;
       this.keptDeps = keptDeps;
-      this.additionalDepsToKeep = additionalDepsToKeep;
     }
 
     @Override
@@ -192,7 +182,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
 
         // Queue a traversal up the graph. This will not create duplicate NodeVisitors on the
         // same rdep due to the atomic keptRdeps.add check above.
-        execute(new NodeVisitor(rdep, keptRdeps, keptDeps, additionalDepsToKeep));
+        execute(new NodeVisitor(rdep, keptRdeps, keptDeps));
       }
 
       for (SkyKey dep : nodeEntry.getDirectDeps()) {
@@ -202,19 +192,18 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
         }
 
         // This is necessary to keep the action inputs encapsulated by a NestedSet. Otherwise,
-        // those inputs will be missing.
-        //
-        // TODO: b/312819241 - move SkyframeFocuser from build.skyframe to build.lib.skyframe so
-        // that we can do the check directly without using an injected Function.
-        execute(() -> keptDeps.addAll(additionalDepsToKeep.apply(dep)));
+        // those inputs will be missing. ActionExecutionFunction#lookupInput allows getting a
+        // transitive dep without adding a SkyframeDependency on it.
+        if (dep instanceof ArtifactNestedSetKey) {
+          ((ArtifactNestedSetKey) dep)
+              .expandToArtifacts().stream().map(Artifact::key).forEach(keptDeps::add);
+        }
       }
     }
   }
 
   /** Entry point of the Skyframe garbage collection algorithm. */
-  private FocusResult run(
-      Set<SkyKey> roots, Set<SkyKey> leafs, Function<SkyKey, Set<SkyKey>> additionalDepsToKeep)
-      throws InterruptedException {
+  private FocusResult run(Set<SkyKey> roots, Set<SkyKey> leafs) throws InterruptedException {
 
     Set<SkyKey> keptDeps = Sets.newConcurrentHashSet();
     Set<SkyKey> keptRdeps = Sets.newConcurrentHashSet();
@@ -235,7 +224,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     try (SilentCloseable c = Profiler.instance().profile("focus.mark")) {
       // Start traversal from leafs.
       for (SkyKey leaf : leafs) {
-        execute(new NodeVisitor(leaf, keptRdeps, keptDeps, additionalDepsToKeep));
+        execute(new NodeVisitor(leaf, keptRdeps, keptDeps));
       }
       awaitQuiescenceWithoutShutdown(true);
     }
@@ -286,7 +275,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               // B is the root, and A is the only leaf. We can throw out the CD edge, even
               // though both C and D are still used by B. This is because no changes are expected to
               // C and D, so it's unnecessary to maintain the edges.
-              nodeEntry.directDeps = GroupedDeps.EMPTY_COMPRESSED;
+              nodeEntry.clearDirectDepsForSkyfocus();
 
               // No need to keep the rdep edges of the deps if they do not point to an rdep
               // reachable (hence, dirty-able) by the working set.
@@ -304,7 +293,8 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               }
               rdepEdgesAfter.getAndAdd(rdepEdgesKept);
 
-              ReverseDepsUtility.consolidateData(nodeEntry);
+              // This calls ReverseDepsUtility.consolidateData().
+              nodeEntry.consolidateReverseDeps();
             });
       }
 

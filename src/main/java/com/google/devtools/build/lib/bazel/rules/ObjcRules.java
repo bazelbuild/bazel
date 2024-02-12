@@ -62,8 +62,9 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new AvailableXcodesRule());
     builder.addRuleDefinition(new XcodeVersionRule());
 
-    builder.addStarlarkBootstrap(
-        new AppleBootstrap(new AppleStarlarkCommon(BazelCppSemantics.OBJC)));
+    builder.addStarlarkBuiltinsInternal(
+        "apple_common", new AppleStarlarkCommon(BazelCppSemantics.OBJC));
+    builder.addStarlarkBootstrap(new AppleBootstrap());
   }
 
   @Override

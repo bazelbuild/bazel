@@ -26,9 +26,7 @@ load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
 load("@_builtins//:common/cc/cc_toolchain.bzl", "apple_cc_toolchain", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
-load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
-load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
@@ -46,6 +44,7 @@ load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
 load(":common/java/java_package_configuration.bzl", "java_package_configuration")
 load(":common/java/java_runtime.bzl", "java_runtime")
 load(":common/java/java_toolchain.bzl", "java_toolchain")
+load(":common/objc/apple_common.bzl", "apple_common")
 load(":common/objc/objc_common.bzl", "objc_common")
 
 exported_toplevels = {
@@ -64,6 +63,7 @@ exported_toplevels = {
     "+JavaPluginInfo": JavaPluginInfo,
     "+JavaInfo": JavaInfo,
     "java_common": java_common,
+    "apple_common": apple_common,
 }
 
 # A list of Starlarkified native rules.
@@ -98,12 +98,6 @@ exported_rules = {
 
 # A list of Starlark functions callable from native rules implementation.
 exported_to_java = {
-    "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,
-    "proto_common_compile": proto_common_do_not_use.compile,
-    "proto_common_declare_generated_files": proto_common_do_not_use.declare_generated_files,
-    "proto_common_experimental_should_generate_code": proto_common_do_not_use.experimental_should_generate_code,
-    "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
-    "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
     "j2objc_mapping_file_info_union": objc_common.j2objc_mapping_file_info_union,
     "j2objc_entry_class_info_union": objc_common.j2objc_entry_class_info_union,
     "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,

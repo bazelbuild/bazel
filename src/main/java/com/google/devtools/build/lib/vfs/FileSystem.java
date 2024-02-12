@@ -39,6 +39,10 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public abstract class FileSystem {
 
+  // The maximum number of symbolic links that may be traversed by resolveSymbolicLinks() while
+  // canonicalizing a path before it gives up and throws a FileSymlinkLoopException.
+  public static final int MAX_SYMLINKS = 32;
+
   private final DigestHashFunction digestFunction;
 
   public FileSystem(DigestHashFunction digestFunction) {
@@ -330,6 +334,7 @@ public abstract class FileSystem {
    * filesystem doesn't support them. This digest should be suitable for detecting changes to the
    * file.
    */
+  @Nullable
   protected byte[] getFastDigest(PathFragment path) throws IOException {
     return null;
   }
@@ -360,7 +365,7 @@ public abstract class FileSystem {
   /**
    * Appends a single regular path segment 'child' to 'dir', recursively resolving symbolic links in
    * 'child'. 'dir' must be canonical. 'maxLinks' is the maximum number of symbolic links that may
-   * be traversed before it gives up (the Linux kernel uses 32).
+   * be traversed before it gives up.
    *
    * <p>(This method does not need to be synchronized; but the result may be stale in the case of
    * concurrent modification.)
@@ -441,7 +446,8 @@ public abstract class FileSystem {
     return parentNode == null
         ? getPath(path) // (root)
         : getPath(
-            appendSegment(resolveSymbolicLinks(parentNode).asFragment(), path.getBaseName(), 32));
+            appendSegment(
+                resolveSymbolicLinks(parentNode).asFragment(), path.getBaseName(), MAX_SYMLINKS));
   }
 
   /**
