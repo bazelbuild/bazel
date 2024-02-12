@@ -9,7 +9,7 @@ rule_info {
   }
   attribute {
     name: "repo_mapping"
-    doc_string: "A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository.<p>For example, an entry `\"@foo\": \"@bar\"` declares that, for any time this repository depends on `@foo` (such as a dependency on `@foo//some:target`, it should actually resolve that dependency within globally-declared `@bar` (`@bar//some:target`)."
+    doc_string: "A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository.<p>For example, an entry `\"@foo\": \"@bar\"` declares that, for any time this repository depends on `@foo` (such as a dependency on `@foo//some:target`, it should actually resolve that dependency within globally-declared `@bar` (`@bar//some:target`).</p>"
     type: STRING_DICT
     mandatory: true
   }

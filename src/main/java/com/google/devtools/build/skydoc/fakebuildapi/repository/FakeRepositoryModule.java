@@ -56,7 +56,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
                   + "<p>For example, an entry `\"@foo\": \"@bar\"` declares that, for any time "
                   + "this repository depends on `@foo` (such as a dependency on "
                   + "`@foo//some:target`, it should actually resolve that dependency within "
-                  + "globally-declared `@bar` (`@bar//some:target`)."),
+                  + "globally-declared `@bar` (`@bar//some:target`).</p>"),
           true,
           ImmutableList.of(),
           "");
