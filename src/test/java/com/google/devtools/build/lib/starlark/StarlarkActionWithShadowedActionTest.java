@@ -21,7 +21,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
@@ -142,7 +141,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
 
     assertThat(starlarkAction.getInputs().toList()).isEmpty();
     assertThat(starlarkAction.discoversInputs()).isFalse();
-    Truth8.assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
+    assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
     assertThat(starlarkAction.getAllowedDerivedInputs().toList()).isEmpty();
 
     // If the starlark action does not have any inputs, then it will use the shadowed action inputs
@@ -159,7 +158,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(shadowedActionInputs.toList());
     assertThat(starlarkAction.discoversInputs()).isFalse();
-    Truth8.assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
+    assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
     assertThat(starlarkAction.getAllowedDerivedInputs().toList())
         .containsExactlyElementsIn(shadowedActionInputs.toList());
   }
@@ -182,7 +181,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     collectingAnalysisEnvironment.registerAction(starlarkAction);
 
     assertThat(starlarkAction.getInputs().toList()).isEmpty();
-    Truth8.assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
+    assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
     assertThat(starlarkAction.getAllowedDerivedInputs().toList()).isEmpty();
     assertThat(starlarkAction.discoversInputs()).isTrue();
     assertThat(starlarkAction.discoverInputs(executionContext).toList())
@@ -206,7 +205,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
 
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(shadowedActionInputs.toList());
-    Truth8.assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
+    assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
     assertThat(starlarkAction.getAllowedDerivedInputs().toList())
         .containsExactlyElementsIn(shadowedActionInputs.toList());
     assertThat(starlarkAction.discoversInputs()).isTrue();
@@ -236,7 +235,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
 
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(starlarkActionInputs.toList());
-    Truth8.assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
+    assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
     assertThat(starlarkAction.discoversInputs()).isFalse();
 
     // Test using Starlark actions's inputs with shadowed action's inputs
@@ -258,7 +257,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(
             Sets.union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet()));
-    Truth8.assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
+    assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
     assertThat(starlarkAction.getAllowedDerivedInputs().toList())
         .containsExactlyElementsIn(
             Sets.union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet()));
@@ -281,7 +280,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(
             Sets.union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet()));
-    Truth8.assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
+    assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
     assertThat(starlarkAction.getAllowedDerivedInputs().toList())
         .containsExactlyElementsIn(
             Sets.union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet()));

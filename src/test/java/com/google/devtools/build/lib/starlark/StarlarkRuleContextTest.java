@@ -26,7 +26,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -676,7 +675,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    Truth8.assertThat(action.getUnusedInputsList()).isPresent();
+    assertThat(action.getUnusedInputsList()).isPresent();
     assertThat(action.getUnusedInputsList().get().getFilename()).isEqualTo("a.txt");
     assertThat(action.discoversInputs()).isTrue();
     assertThat(action.isShareable()).isFalse();
@@ -922,7 +921,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    Truth8.assertThat(action.getUnusedInputsList()).isEmpty();
+    assertThat(action.getUnusedInputsList()).isEmpty();
     assertThat(action.discoversInputs()).isFalse();
   }
 
