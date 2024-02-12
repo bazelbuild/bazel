@@ -26,7 +26,7 @@ WORKSPACE_REPOS = {
     },
     "rules_java": {
         "archive": "rules_java-7.4.0.tar.gz",
-        "sha256": "490b5859eb9eca515fe7dbf610d7f673b7c4a933cc0dbfe0603110d8482c792b",
+        "sha256": "976ef08b49c929741f201790e59e3807c72ad81f428c8bc953cdbeff5fed15eb",
         "urls": ["https://github.com/bazelbuild/rules_java/releases/download/7.4.0/rules_java-7.4.0.tar.gz"],
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
