@@ -584,7 +584,7 @@ public final class SkyframeBuildView {
           BuildFailedException,
           TestExecException {
     Stopwatch analysisWorkTimer = Stopwatch.createStarted();
-    EvaluationResult<SkyValue> evaluationResult;
+    EvaluationResult<SkyValue> mainEvaluationResult;
 
     var newKeys =
         ImmutableSet.<ActionLookupKey>builderWithExpectedSize(
@@ -663,7 +663,7 @@ public final class SkyframeBuildView {
             Profiler.instance().profile("skyframeExecutor.evaluateBuildDriverKeys")) {
           // Will be disabled later by the AnalysisOperationWatcher upon conclusion of analysis.
           enableAnalysis(true);
-          evaluationResult =
+          mainEvaluationResult =
               skyframeExecutor.evaluateBuildDriverKeys(
                   eventHandler,
                   buildDriverCTKeys,
@@ -689,8 +689,10 @@ public final class SkyframeBuildView {
         }
 
         // The exclusive tests whose analysis succeeded i.e. those that can be run.
-        ImmutableSet<ConfiguredTarget> exclusiveTestsToRun = getExclusiveTests(evaluationResult);
-        boolean continueWithExclusiveTests = !evaluationResult.hasError() || keepGoing;
+        ImmutableSet<ConfiguredTarget> exclusiveTestsToRun =
+            getExclusiveTests(mainEvaluationResult);
+        boolean continueWithExclusiveTests = !mainEvaluationResult.hasError() || keepGoing;
+        boolean hasExclusiveTestsError = false;
 
         if (continueWithExclusiveTests && !exclusiveTestsToRun.isEmpty()) {
           skyframeExecutor.getIsBuildingExclusiveArtifacts().set(true);
@@ -707,6 +709,7 @@ public final class SkyframeBuildView {
                     keepGoing,
                     executors.executionParallelism());
             if (testRunResult.hasError()) {
+              hasExclusiveTestsError = true;
               detailedExitCodes.add(
                   SkyframeErrorProcessor.processErrors(
                           testRunResult,
@@ -721,29 +724,33 @@ public final class SkyframeBuildView {
             }
           }
         }
+
         // Coverage report generation should only be requested after all tests have executed.
         // We could generate baseline coverage artifacts earlier; it is only the timing of the
         // combined report that matters.
-        ImmutableSet<Artifact> coverageArtifacts =
-            coverageReportActionsWrapperSupplier.getCoverageArtifacts(
-                buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
-        eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
-        additionalArtifactsResult =
-            skyframeExecutor.evaluateSkyKeys(
-                eventHandler, Artifact.keys(coverageArtifacts), keepGoing);
-        eventBus.post(new CoverageActionFinishedEvent());
-        if (additionalArtifactsResult.hasError()) {
-          detailedExitCodes.add(
-              SkyframeErrorProcessor.processErrors(
-                      additionalArtifactsResult,
-                      skyframeExecutor.getCyclesReporter(),
-                      eventHandler,
-                      keepGoing,
-                      skyframeExecutor.tracksStateForIncrementality(),
-                      eventBus,
-                      bugReporter,
-                      /* includeExecutionPhase= */ true)
-                  .executionDetailedExitCode());
+        // When --nokeep_going and there's an earlier error, we should skip this and fail fast.
+        if ((!mainEvaluationResult.hasError() && !hasExclusiveTestsError) || keepGoing) {
+          ImmutableSet<Artifact> coverageArtifacts =
+              coverageReportActionsWrapperSupplier.getCoverageArtifacts(
+                  buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
+          eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
+          additionalArtifactsResult =
+              skyframeExecutor.evaluateSkyKeys(
+                  eventHandler, Artifact.keys(coverageArtifacts), keepGoing);
+          eventBus.post(new CoverageActionFinishedEvent());
+          if (additionalArtifactsResult.hasError()) {
+            detailedExitCodes.add(
+                SkyframeErrorProcessor.processErrors(
+                        additionalArtifactsResult,
+                        skyframeExecutor.getCyclesReporter(),
+                        eventHandler,
+                        keepGoing,
+                        skyframeExecutor.tracksStateForIncrementality(),
+                        eventBus,
+                        bugReporter,
+                        /* includeExecutionPhase= */ true)
+                    .executionDetailedExitCode());
+          }
         }
       } finally {
         // No more action execution beyond this point.
@@ -752,19 +759,19 @@ public final class SkyframeBuildView {
         resourceManager.resetResourceUsage();
       }
 
-      if (!evaluationResult.hasError() && detailedExitCodes.isEmpty()) {
+      if (!mainEvaluationResult.hasError() && detailedExitCodes.isEmpty()) {
         ImmutableMap<AspectKey, ConfiguredAspect> successfulAspects =
             getSuccessfulAspectMap(
                 topLevelAspectsKeys.size(),
-                evaluationResult,
+                mainEvaluationResult,
                 buildDriverAspectKeys,
-                /*topLevelActionConflictReport=*/ null);
+                /* topLevelActionConflictReport= */ null);
         var targetsWithConfiguration =
             ImmutableList.<TargetAndConfiguration>builderWithExpectedSize(ctKeys.size());
         ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
             getSuccessfulConfiguredTargets(
                 ctKeys.size(),
-                evaluationResult,
+                mainEvaluationResult,
                 buildDriverCTKeys,
                 labelTargetMap,
                 targetsWithConfiguration,
@@ -772,7 +779,7 @@ public final class SkyframeBuildView {
 
         return SkyframeAnalysisAndExecutionResult.success(
             successfulConfiguredTargets,
-            evaluationResult.getWalkableGraph(),
+            mainEvaluationResult.getWalkableGraph(),
             successfulAspects,
             targetsWithConfiguration.build(),
             /* packageRoots= */ null);
@@ -780,7 +787,7 @@ public final class SkyframeBuildView {
 
       ErrorProcessingResult errorProcessingResult =
           SkyframeErrorProcessor.processErrors(
-              evaluationResult,
+              mainEvaluationResult,
               skyframeExecutor.getCyclesReporter(),
               eventHandler,
               keepGoing,
@@ -795,7 +802,7 @@ public final class SkyframeBuildView {
           foundActionConflictInLatestCheck
               ? handleActionConflicts(
                   eventHandler,
-                  evaluationResult.getWalkableGraph(),
+                  mainEvaluationResult.getWalkableGraph(),
                   ctKeys,
                   topLevelAspectsKeys,
                   topLevelArtifactContext,
@@ -807,7 +814,7 @@ public final class SkyframeBuildView {
       ImmutableMap<AspectKey, ConfiguredAspect> successfulAspects =
           getSuccessfulAspectMap(
               topLevelAspectsKeys.size(),
-              evaluationResult,
+              mainEvaluationResult,
               buildDriverAspectKeys,
               topLevelActionConflictReport);
       var targetsWithConfiguration =
@@ -815,7 +822,7 @@ public final class SkyframeBuildView {
       ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
           getSuccessfulConfiguredTargets(
               ctKeys.size(),
-              evaluationResult,
+              mainEvaluationResult,
               buildDriverCTKeys,
               labelTargetMap,
               targetsWithConfiguration,
@@ -826,7 +833,7 @@ public final class SkyframeBuildView {
           /* hasAnalysisError= */ errorProcessingResult.hasAnalysisError(),
           /* hasActionConflicts= */ foundActionConflictInLatestCheck,
           successfulConfiguredTargets,
-          evaluationResult.getWalkableGraph(),
+          mainEvaluationResult.getWalkableGraph(),
           successfulAspects,
           targetsWithConfiguration.build(),
           /* packageRoots= */ null,
