@@ -735,6 +735,8 @@ public class CommandEnvironment {
 
   /**
    * Initializes and syncs the graph with the given options, readying it for the next evaluation.
+   *
+   * @throws IllegalStateException if the method has already been called in this environment.
    */
   public void syncPackageLoading(OptionsProvider options)
       throws InterruptedException, AbruptExitException {
@@ -758,6 +760,11 @@ public class CommandEnvironment {
                 timestampGranularityMonitor,
                 quiescingExecutors,
                 options);
+  }
+
+  /** Returns true if {@link #syncPackageLoading} has already been called. */
+  public boolean hasSyncedPackageLoading() {
+    return hasSyncedPackageLoading;
   }
 
   public void recordLastExecutionTime() {

@@ -49,6 +49,16 @@ public abstract class InfoItem {
   }
 
   /**
+   * Returns true if this info item requires CommandEnvironment.syncPackageLoading to be called,
+   * e.g. in order to initialize the skyframe executor.
+   *
+   * <p>Virtually all info items do not need it.
+   */
+  public boolean needsSyncPackageLoading() {
+    return false;
+  }
+
+  /**
    * Whether the key is printed when "blaze info" is invoked without arguments.
    *
    * <p>This is usually true for info keys that take multiple lines, thus, cannot really be included
