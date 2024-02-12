@@ -225,6 +225,5 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       throws EvalException {
     return ModuleExtensionMetadata.create(
         rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible);
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked);
   }
 }
