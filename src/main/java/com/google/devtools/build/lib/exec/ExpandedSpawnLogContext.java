@@ -13,12 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.devtools.build.lib.exec.SpawnLogContext.computeDigest;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getEnvironmentVariables;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getPlatform;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getSpawnMetricsProto;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.isInputDirectory;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -62,7 +56,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** A {@link SpawnLogContext} implementation that produces a log in expanded format. */
-public class ExpandedSpawnLogContext implements SpawnLogContext {
+public class ExpandedSpawnLogContext extends SpawnLogContext {
 
   /** The log encoding. */
   public enum Encoding {
