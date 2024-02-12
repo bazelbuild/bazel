@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
@@ -109,14 +110,14 @@ public class ParsedFlagsFunction implements SkyFunction {
       } catch (LabelSyntaxException e) {
         throw new IllegalArgumentException(e);
       }
-      SkyKey pkgKey = asLabel.getPackageIdentifier();
-      PackageValue pkg = (PackageValue) env.getValue(pkgKey);
-      if (pkg == null) {
-        return null;
-      }
       try {
+        SkyKey pkgKey = asLabel.getPackageIdentifier();
+        PackageValue pkg = (PackageValue) env.getValueOrThrow(pkgKey, NoSuchPackageException.class);
+        if (pkg == null) {
+          return null;
+        }
         return pkg.getPackage().getTarget(asLabel.getName());
-      } catch (NoSuchTargetException e) {
+      } catch (NoSuchPackageException | NoSuchTargetException e) {
         throw new TargetParsingException(
             String.format("Failed to load %s", name), e, DEPENDENCY_NOT_FOUND);
       }
