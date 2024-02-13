@@ -293,6 +293,7 @@ genrule(
     executable = 1,
     output_to_bindir = 1,
     visibility = [
+        "//:__pkg__",  # For distribution archive lockfile generation
         "//scripts:__pkg__",  # For bash completion generation
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/java:__subpackages__",  # For command line reference generation
