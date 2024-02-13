@@ -37,7 +37,7 @@ public final class ExpandedSpawnLogContextTest extends SpawnLogContextTestBase {
 
   @Override
   protected SpawnLogContext createSpawnLogContext(ImmutableMap<String, String> platformProperties)
-      throws IOException {
+      throws IOException, InterruptedException {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteDefaultExecProperties = platformProperties.entrySet().asList();
 
@@ -54,7 +54,7 @@ public final class ExpandedSpawnLogContextTest extends SpawnLogContextTestBase {
 
   @Override
   protected void closeAndAssertLog(SpawnLogContext context, SpawnExec... expected)
-      throws IOException {
+      throws IOException, InterruptedException {
     context.close();
 
     ArrayList<SpawnExec> actual = new ArrayList<>();
