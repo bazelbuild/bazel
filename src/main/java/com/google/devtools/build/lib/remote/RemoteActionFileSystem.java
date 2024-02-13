@@ -68,7 +68,7 @@ import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
- * An action filesystem suitable for use when building with remote caching or execution.
+ * An action filesystem suitable for use when building with disk/remote caching or execution.
  *
  * <p>It acts as a union filesystem over three different sources:
  *
@@ -91,17 +91,21 @@ import javax.annotation.Nullable;
  * to an input. Most operations call resolveSymbolicLinks upfront (which is able to canonicalize
  * paths taking every source into account) and only then delegate to the underlying sources.
  *
- * <p>The implementation assumes that an action never modifies its input files, but may otherwise
- * modify any path in the output tree, including modifications that undo previous ones (e.g.,
- * writing to a path and then moving it elsewhere). No effort is made to detect irreconcilable
- * differences between sources (e.g., distinct files of the same name in two different sources).
+ * <p>The implementation assumes that an action never modifies its input paths, but may otherwise
+ * modify any path in the output tree. Concurrent operations are supported as long as they don't
+ * affect filesystem structure (i.e., create, move or delete paths). Otherwise, they might fail or
+ * produce inconsistent results. No effort is made to detect irreconcilable differences between
+ * sources, such as the same path existing in multiple underlying sources with different type or
+ * contents.
  */
-public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
+public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
+    implements PathCanonicalizer.Resolver {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final InputMetadataProvider fileCache;
   private final ActionInputMap inputArtifactData;
   private final TreeArtifactDirectoryCache inputTreeArtifactDirectoryCache;
+  private final PathCanonicalizer pathCanonicalizer;
   private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
   private final FileSystem localFs;
@@ -241,6 +245,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
+    this.pathCanonicalizer = new PathCanonicalizer(this);
     this.outputMapping =
         stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
     this.fileCache = checkNotNull(fileCache, "fileCache");
@@ -310,6 +315,27 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     return "remoteActionFS";
   }
 
+  @Override
+  protected Path resolveSymbolicLinks(PathFragment path) throws IOException {
+    return getPath(pathCanonicalizer.resolveSymbolicLinks(path));
+  }
+
+  @Override
+  @Nullable
+  public PathFragment resolveOneLink(PathFragment path) throws IOException {
+    // The base implementation attempts to readSymbolicLink first and falls back to stat, but that
+    // unnecessarily allocates a NotASymlinkException in the overwhelmingly likely non-symlink case.
+    // It's more efficient to stat unconditionally.
+    //
+    // The parent path has already been canonicalized, so FOLLOW_NONE is effectively the same as
+    // FOLLOW_PARENT, but much more efficient as it doesn't call stat recursively.
+    var stat = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
+    if (stat == null) {
+      throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
+    }
+    return stat.isSymbolicLink() ? readSymbolicLink(path) : null;
+  }
+
   // Like resolveSymbolicLinks(), except that only the parent path is canonicalized.
   private PathFragment resolveSymbolicLinksForParent(PathFragment path) throws IOException {
     PathFragment parentPath = path.getParentDirectory();
@@ -328,10 +354,15 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
       return false;
     }
 
+    // No action implementations call renameTo concurrently with other filesystem operations, so
+    // there's no risk of a race condition below.
+    pathCanonicalizer.clearPrefix(path);
+
     boolean deleted = localFs.getPath(path).delete();
     if (isOutput(path)) {
       deleted = remoteOutputTree.getPath(path).delete() || deleted;
     }
+
     return deleted;
   }
 
@@ -536,22 +567,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     }
 
     localFs.getPath(linkPath).createSymbolicLink(targetFragment);
-  }
-
-  @Nullable
-  @Override
-  protected PathFragment resolveOneLink(PathFragment path) throws IOException {
-    // The base implementation attempts to readSymbolicLink first and falls back to stat, but that
-    // unnecessarily allocates a NotASymlinkException in the overwhelmingly likely non-symlink case.
-    // It's more efficient to stat unconditionally.
-    //
-    // The parent path has already been canonicalized, so FOLLOW_NONE is effectively the same as
-    // FOLLOW_PARENT, but much more efficient as it doesn't call stat recursively.
-    var stat = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
-    if (stat == null) {
-      throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
-    }
-    return stat.isSymbolicLink() ? readSymbolicLink(path) : null;
   }
 
   @Override
@@ -759,6 +774,11 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
     checkArgument(isOutput(srcPath), "srcPath must be an output path");
     checkArgument(isOutput(dstPath), "dstPath must be an output path");
+
+    // No action implementations call renameTo concurrently with other filesystem operations, so
+    // there's no risk of a race condition below.
+    pathCanonicalizer.clearPrefix(srcPath);
+    pathCanonicalizer.clearPrefix(dstPath);
 
     FileNotFoundException remoteException = null;
     try {

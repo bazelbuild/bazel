@@ -504,6 +504,26 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void delete_invalidatesResolveSymbolicLinksCache() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = getOutputPath("target");
+
+    actionFs.getPath(linkPath).getParentDirectory().createDirectoryAndParents();
+    actionFs.getPath(linkPath).createSymbolicLink(targetPath);
+    writeLocalFile(actionFs, targetPath, "content");
+
+    assertThat(actionFs.getPath(linkPath).resolveSymbolicLinks())
+        .isEqualTo(actionFs.getPath(targetPath));
+
+    assertThat(actionFs.delete(linkPath)).isTrue();
+    writeLocalFile(actionFs, linkPath, "content");
+
+    assertThat(actionFs.getPath(linkPath).resolveSymbolicLinks())
+        .isEqualTo(actionFs.getPath(linkPath));
+  }
+
+  @Test
   public void setLastModifiedTime_forRemoteOutputTree() throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
@@ -1224,6 +1244,27 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actionFs.exists(canonicalSrcPath)).isFalse();
     assertThat(actionFs.exists(naiveDstPath)).isTrue();
     assertThat(actionFs.exists(canonicalDstPath)).isTrue();
+  }
+
+  @Test
+  public void renameTo_invalidatesResolveSymbolicLinksCache() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = getOutputPath("target");
+    PathFragment renamedPath = getOutputPath("renamed");
+
+    actionFs.getPath(linkPath).getParentDirectory().createDirectoryAndParents();
+    actionFs.getPath(linkPath).createSymbolicLink(targetPath);
+    writeLocalFile(actionFs, targetPath, "content");
+
+    assertThat(actionFs.getPath(linkPath).resolveSymbolicLinks())
+        .isEqualTo(actionFs.getPath(targetPath));
+
+    actionFs.renameTo(linkPath, renamedPath);
+    writeLocalFile(actionFs, linkPath, "content");
+
+    assertThat(actionFs.getPath(linkPath).resolveSymbolicLinks())
+        .isEqualTo(actionFs.getPath(linkPath));
   }
 
   @Override
