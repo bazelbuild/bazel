@@ -476,10 +476,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             Label.parseCanonical("//toolchain:suffix_toolchain_2_impl"),
             Label.parseCanonical("//:wstool2_impl"),
             // Other modules' toolchains
-            Label.parseCanonical("@@bbb~1.0//:tool_impl"),
-            Label.parseCanonical("@@ccc~1.1//:tool_impl"),
-            Label.parseCanonical("@@eee~1.0//:tool_impl"),
-            Label.parseCanonical("@@ddd~1.1//:tool_impl"),
+            Label.parseCanonical("@@bbb~//:tool_impl"),
+            Label.parseCanonical("@@ccc~//:tool_impl"),
+            Label.parseCanonical("@@eee~//:tool_impl"),
+            Label.parseCanonical("@@ddd~//:tool_impl"),
             // WORKSPACE suffix toolchains
             Label.parseCanonical("//toolchain:suffix_toolchain_1_impl"))
         .inOrder();

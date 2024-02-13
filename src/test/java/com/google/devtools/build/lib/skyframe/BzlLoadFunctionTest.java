@@ -1086,7 +1086,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     scratch.file(barDir.getRelative("BUILD").getPathString());
     scratch.file(barDir.getRelative("test.scl").getPathString(), "haha = 5");
 
-    SkyKey skyKey = BzlLoadValue.keyForBzlmod(Label.parseCanonical("@@foo~1.0//:test.bzl"));
+    SkyKey skyKey = BzlLoadValue.keyForBzlmod(Label.parseCanonical("@@foo~//:test.bzl"));
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
@@ -1097,9 +1097,9 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     assertThat(bzlLoadValue.getRecordedRepoMappings().cellSet())
         .containsExactly(
             Tables.immutableCell(
-                RepositoryName.create("foo~1.0"), "bar_alias", RepositoryName.create("bar~2.0")),
+                RepositoryName.create("foo~"), "bar_alias", RepositoryName.create("bar~")),
             Tables.immutableCell(
-                RepositoryName.create("foo~1.0"), "foo", RepositoryName.create("foo~1.0")))
+                RepositoryName.create("foo~"), "foo", RepositoryName.create("foo~")))
         .inOrder();
     // Note that we're not testing the case of a non-registry override using @bazel_tools here, but
     // that is incredibly hard to set up in a unit test. So we should just rely on integration tests

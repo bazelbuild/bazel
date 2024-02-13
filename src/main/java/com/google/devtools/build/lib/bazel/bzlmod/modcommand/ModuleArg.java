@@ -47,6 +47,7 @@ public interface ModuleArg {
   ImmutableSet<ModuleKey> resolveToModuleKeys(
       ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
       ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+      ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
       ImmutableBiMap<String, ModuleKey> baseModuleDeps,
       ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps,
       boolean includeUnused,
@@ -57,6 +58,7 @@ public interface ModuleArg {
   ImmutableMap<String, RepositoryName> resolveToRepoNames(
       ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
       ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+      ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
       RepositoryMapping mapping)
       throws InvalidArgumentException;
 
@@ -116,6 +118,7 @@ public interface ModuleArg {
     public final ImmutableSet<ModuleKey> resolveToModuleKeys(
         ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+        ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
         ImmutableBiMap<String, ModuleKey> baseModuleDeps,
         ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps,
         boolean includeUnused,
@@ -129,11 +132,12 @@ public interface ModuleArg {
     public ImmutableMap<String, RepositoryName> resolveToRepoNames(
         ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+        ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
         RepositoryMapping mapping)
         throws InvalidArgumentException {
       throwIfNonexistent(
           modulesIndex, depGraph, /* includeUnused= */ false, /* warnUnused= */ false);
-      return ImmutableMap.of(moduleKey().toString(), moduleKey().getCanonicalRepoName());
+      return ImmutableMap.of(moduleKey().toString(), moduleKeyToCanonicalNames.get(moduleKey()));
     }
 
     @Override
@@ -187,6 +191,7 @@ public interface ModuleArg {
     public ImmutableSet<ModuleKey> resolveToModuleKeys(
         ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+        ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
         ImmutableBiMap<String, ModuleKey> baseModuleDeps,
         ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps,
         boolean includeUnused,
@@ -199,12 +204,13 @@ public interface ModuleArg {
     public ImmutableMap<String, RepositoryName> resolveToRepoNames(
         ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+        ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
         RepositoryMapping mapping)
         throws InvalidArgumentException {
       return resolveInternal(
               modulesIndex, depGraph, /* includeUnused= */ false, /* warnUnused= */ false)
           .stream()
-          .collect(toImmutableMap(ModuleKey::toString, ModuleKey::getCanonicalRepoName));
+          .collect(toImmutableMap(ModuleKey::toString, moduleKeyToCanonicalNames::get));
     }
 
     @Override
@@ -230,6 +236,7 @@ public interface ModuleArg {
     public ImmutableSet<ModuleKey> resolveToModuleKeys(
         ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+        ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
         ImmutableBiMap<String, ModuleKey> baseModuleDeps,
         ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps,
         boolean includeUnused,
@@ -258,6 +265,7 @@ public interface ModuleArg {
     public ImmutableMap<String, RepositoryName> resolveToRepoNames(
         ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+        ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
         RepositoryMapping mapping)
         throws InvalidArgumentException {
       RepositoryName repoName = mapping.get(name());
@@ -289,6 +297,7 @@ public interface ModuleArg {
     public ImmutableSet<ModuleKey> resolveToModuleKeys(
         ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+        ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
         ImmutableBiMap<String, ModuleKey> baseModuleDeps,
         ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps,
         boolean includeUnused,
@@ -296,7 +305,7 @@ public interface ModuleArg {
         throws InvalidArgumentException {
       Optional<AugmentedModule> mod =
           depGraph.values().stream()
-              .filter(m -> m.getKey().getCanonicalRepoName().equals(repoName()))
+              .filter(m -> moduleKeyToCanonicalNames.get(m.getKey()).equals(repoName()))
               .findAny();
       if (mod.isPresent() && !includeUnused && warnUnused && !mod.get().isUsed()) {
         // Warn the user when unused modules are allowed and the specified version exists, but the
@@ -324,10 +333,11 @@ public interface ModuleArg {
     public ImmutableMap<String, RepositoryName> resolveToRepoNames(
         ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+        ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
         RepositoryMapping mapping)
         throws InvalidArgumentException {
       if (depGraph.values().stream()
-          .filter(m -> m.getKey().getCanonicalRepoName().equals(repoName()) && m.isUsed())
+          .filter(m -> moduleKeyToCanonicalNames.get(m.getKey()).equals(repoName()) && m.isUsed())
           .findAny()
           .isEmpty()) {
         throw new InvalidArgumentException(

@@ -21,7 +21,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -615,15 +614,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
     ModuleKey moduleKey = Iterables.getOnlyElement(usagesValue.getExtensionUsages().keySet());
-    Preconditions.checkState(moduleKey.moduleFileLabel().equals(extensionId.getBzlFileLabel()));
     ImmutableList<Tag> tags =
         Iterables.getOnlyElement(usagesValue.getExtensionUsages().values()).getTags();
     RepositoryMapping repoMapping = usagesValue.getRepoMappings().get(moduleKey);
 
     // Each tag of this usage defines a repo. The name of the tag is of the form
     // "<bzl_file_label>%<rule_name>". Collect the .bzl files referenced and load them.
-    Label.RepoContext repoContext =
-        Label.RepoContext.of(moduleKey.getCanonicalRepoName(), repoMapping);
+    Label.RepoContext repoContext = Label.RepoContext.of(repoMapping.ownerRepo(), repoMapping);
     ArrayList<InnateExtensionRepo.Builder> repoBuilders = new ArrayList<>(tags.size());
     for (Tag tag : tags) {
       Iterator<String> parts = Splitter.on('%').split(tag.getTagName()).iterator();

@@ -2323,16 +2323,16 @@ public abstract class AbstractQueryTest<T> {
         "sh_library(name = 'a_b_shar')");
     RepositoryMapping mapping =
         RepositoryMapping.create(
-            ImmutableMap.of("my_repo", RepositoryName.create("repo~1.0")), RepositoryName.MAIN);
+            ImmutableMap.of("my_repo", RepositoryName.create("repo~")), RepositoryName.MAIN);
     helper.setMainRepoTargetParser(mapping);
   }
 
-  protected static final String REPO_A_RULES = "@@repo~1.0//a:a_shar";
-  protected static final String REPO_AB_RULES = "@@repo~1.0//a/b:a_b_shar";
+  protected static final String REPO_A_RULES = "@@repo~//a:a_shar";
+  protected static final String REPO_AB_RULES = "@@repo~//a/b:a_b_shar";
   protected static final String REPO_AB_ALL =
-      "@@repo~1.0//a/b:BUILD @@repo~1.0//a/b:a_b_shar @@repo~1.0//a/b:p @@repo~1.0//a/b:q";
+      "@@repo~//a/b:BUILD @@repo~//a/b:a_b_shar @@repo~//a/b:p @@repo~//a/b:q";
   protected static final String REPO_A_ALL =
-      "@@repo~1.0//a:BUILD @@repo~1.0//a:a_shar @@repo~1.0//a:x @@repo~1.0//a:y @@repo~1.0//a:z";
+      "@@repo~//a:BUILD @@repo~//a:a_shar @@repo~//a:x @@repo~//a:y @@repo~//a:z";
   protected static final String REPO_A_AB_RULES = REPO_AB_RULES + " " + REPO_A_RULES;
   protected static final String REPO_A_AB_ALL = REPO_AB_ALL + " " + REPO_A_ALL;
 

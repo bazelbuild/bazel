@@ -366,10 +366,10 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
             Label.parseCanonical("//:wsplat"),
             Label.parseCanonical("//:wsplat2"),
             // Other modules' toolchains
-            Label.parseCanonical("@@bbb~1.0//:plat"),
-            Label.parseCanonical("@@ccc~1.1//:plat"),
-            Label.parseCanonical("@@eee~1.0//:plat"),
-            Label.parseCanonical("@@ddd~1.1//:plat"))
+            Label.parseCanonical("@@bbb~//:plat"),
+            Label.parseCanonical("@@ccc~//:plat"),
+            Label.parseCanonical("@@eee~//:plat"),
+            Label.parseCanonical("@@ddd~//:plat"))
         .inOrder();
   }
 

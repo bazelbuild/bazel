@@ -16,13 +16,10 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Comparator;
 import java.util.List;
 
@@ -34,8 +31,9 @@ public abstract class ModuleKey {
    * A mapping from module name to repository name for certain special "well-known" modules.
    *
    * <p>The repository name of certain modules are required to be exact strings (instead of the
-   * normal format seen in {@link #getCanonicalRepoName()}) due to backwards compatibility reasons.
-   * For example, bazel_tools must be known as "@bazel_tools" for WORKSPACE repos to work correctly.
+   * normal format seen in {@link #getCanonicalRepoName(boolean)}) due to backwards compatibility
+   * reasons. For example, bazel_tools must be known as "@bazel_tools" for WORKSPACE repos to work
+   * correctly.
    */
   // Keep in sync with src/tools/bzlmod/utils.bzl.
   private static final ImmutableMap<String, RepositoryName> WELL_KNOWN_MODULES =
@@ -67,13 +65,6 @@ public abstract class ModuleKey {
   /** The version of the module. Must be empty iff the module has a {@link NonRegistryOverride}. */
   public abstract Version getVersion();
 
-  /** Returns the label that points to the MODULE.bazel file of this module. */
-  public final Label moduleFileLabel() {
-    return Label.createUnvalidated(
-        PackageIdentifier.create(getCanonicalRepoName(), PathFragment.EMPTY_FRAGMENT),
-        LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getBaseName());
-  }
-
   @Override
   public final String toString() {
     if (this.equals(ROOT)) {
@@ -82,16 +73,56 @@ public abstract class ModuleKey {
     return getName() + "@" + (getVersion().isEmpty() ? "_" : getVersion().toString());
   }
 
-  /** Returns the canonical name of the repo backing this module. */
-  public RepositoryName getCanonicalRepoName() {
+  /**
+   * Returns the canonical name of the repo backing this module, including its version. This name is
+   * always guaranteed to be unique.
+   *
+   * <p>This method must not be called if the module has a {@link NonRegistryOverride}.
+   */
+  public RepositoryName getCanonicalRepoNameWithVersion() {
+    return getCanonicalRepoName(/* includeVersion= */ true);
+  }
+
+  /**
+   * Returns the canonical name of the repo backing this module, excluding its version. This name is
+   * only guaranteed to be unique when there is a single version of the module in the entire dep
+   * graph.
+   */
+  public RepositoryName getCanonicalRepoNameWithoutVersion() {
+    return getCanonicalRepoName(/* includeVersion= */ false);
+  }
+
+  private RepositoryName getCanonicalRepoName(boolean includeVersion) {
     if (WELL_KNOWN_MODULES.containsKey(getName())) {
       return WELL_KNOWN_MODULES.get(getName());
     }
     if (ROOT.equals(this)) {
       return RepositoryName.MAIN;
     }
-    return RepositoryName.createUnvalidated(
-        String.format("%s~%s", getName(), getVersion().isEmpty() ? "override" : getVersion()));
+    String suffix;
+    if (includeVersion) {
+      // getVersion().isEmpty() is true only for modules with non-registry overrides, which enforce
+      // that there is a single version of the module in the dep graph.
+      Preconditions.checkState(!getVersion().isEmpty());
+      suffix = getVersion().toString();
+    } else {
+      // This results in canonical repository names such as `rules_foo~` for the module `rules_foo`.
+      // This particular format is chosen since:
+      // * The tilde ensures that canonical and apparent repository names can be distinguished even
+      //   in contexts where users don't rely on `@` vs. `@@` to distinguish between them. For
+      //   example, this means that the repo mapping as applied by runfiles libraries is idempotent.
+      // * Appending a tilde even in the case of a unique version means that module repository
+      //   names always contain the same number of tilde-separated components, which improves
+      //   compatibility with existing logic based on the `rules_foo~1.2.3` format.
+      // * By making it so that the module name and the canonical repository name of a module are
+      //   never identical, even when using an override, we introduce "grease" that intentionally
+      //   tickles bugs in code that doesn't properly distinguish between the two, e.g., by not
+      //   applying repo mappings. Otherwise, these bugs could go unnoticed in BCR test modules and
+      //   would only be discovered when used with a `multiple_version_override`, which is very
+      //   rarely used.
+      suffix = "";
+    }
+    return RepositoryName.createUnvalidated(String.format("%s~%s", getName(), suffix));
   }
 
   public static ModuleKey fromString(String s) throws Version.ParseException {
