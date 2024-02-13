@@ -60,7 +60,7 @@ public abstract class SerializationResult<T> {
         : createWithoutFuture(object);
   }
 
-  /** Creates an {@link SerializationResult} with a null future (no waiting necessary. */
+  /** Creates a {@link SerializationResult} with a null future (no waiting necessary). */
   public static <T> SerializationResult<T> createWithoutFuture(T object) {
     return new ObjectWithoutFuture<>(object);
   }
