@@ -138,9 +138,8 @@ public class RunfilesTreeUpdater {
       // an up-to-date check.
       if (!outputManifest.isSymbolicLink()
           && Arrays.equals(
-              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(outputManifest, xattrProvider),
-              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(
-                  inputManifest, xattrProvider))) {
+              DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
+              DigestUtils.getDigestWithManualFallback(inputManifest, xattrProvider))) {
         return;
       }
     } catch (IOException e) {
