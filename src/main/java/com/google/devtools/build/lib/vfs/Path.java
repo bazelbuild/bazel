@@ -717,8 +717,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
         } else {
           hasher.putChar('-');
         }
-        hasher.putBytes(
-            DigestUtils.getDigestWithManualFallback(path, stat.getSize(), xattrProvider));
+        hasher.putBytes(DigestUtils.getDigestWithManualFallback(path, xattrProvider));
       } else if (stat.isDirectory()) {
         hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest(xattrProvider));
       } else if (stat.isSymbolicLink()) {
@@ -732,8 +731,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
               } else {
                 hasher.putChar('-');
               }
-              hasher.putBytes(
-                  DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(resolved, xattrProvider));
+              hasher.putBytes(DigestUtils.getDigestWithManualFallback(resolved, xattrProvider));
             } else {
               // link to a non-file: include the link itself in the hash
               hasher.putChar('l').putUnencodedChars(link.toString());
