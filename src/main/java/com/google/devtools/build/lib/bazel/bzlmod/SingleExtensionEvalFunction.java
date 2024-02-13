@@ -713,7 +713,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         ModuleExtensionId extensionId)
         throws InterruptedException, SingleExtensionEvalFunctionException {
       var generatedRepoSpecs = ImmutableMap.<String, RepoSpec>builderWithExpectedSize(repos.size());
-      // Instiantiate the repos one by one.
+      // Instantiate the repos one by one.
       for (InnateExtensionRepo repo : repos) {
         Object exported = repo.loadedBzl().getModule().getGlobal(repo.ruleName());
         if (exported == null) {
@@ -790,7 +790,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       return RunModuleExtensionResult.create(
           ImmutableMap.of(),
           generatedRepoSpecs.buildOrThrow(),
-          Optional.empty(),
+          Optional.of(ModuleExtensionMetadata.REPRODUCIBLE),
           ImmutableTable.of());
     }
   }

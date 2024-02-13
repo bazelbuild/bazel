@@ -1460,52 +1460,6 @@ class BazelLockfileTest(test_base.TestBase):
         ]['attributes']['value'],
     )
 
-  def testInnateModuleExtension(self):
-    # tests that the repo spec in the lockfile is invalidated when the attr type
-    # changes, even if the MODULE.bazel file hasn't changed
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'r=use_repo_rule("//:bzl.bzl","r")',
-            'r(name="hello",value="hello.txt")',
-        ],
-    )
-    self.ScratchFile('BUILD.bazel')
-    self.ScratchFile(
-        'bzl.bzl',
-        [
-            'def _impl(ctx):',
-            '    ctx.file("BUILD", "filegroup(name=\'lol\')")',
-            'r = repository_rule(_impl,attrs={"value":attr.string()})',
-        ],
-    )
-
-    self.RunBazel(['build', '@hello//:lol'])
-    with open('MODULE.bazel.lock', 'r') as json_file:
-      lockfile = json.load(json_file)
-      hello_attrs = lockfile['moduleExtensions']['//:MODULE.bazel%_repo_rules'][
-          'general']['generatedRepoSpecs']['hello']['attributes']
-      self.assertEqual(hello_attrs['value'], 'hello.txt')
-
-    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
-    self.RunBazel(['shutdown'])
-
-    self.ScratchFile(
-        'bzl.bzl',
-        [
-            'def _impl(ctx):',
-            '    ctx.file("BUILD", "filegroup(name=\'lol\')")',
-            'r = repository_rule(_impl,attrs={"value":attr.label()})',
-            # changed attr type to label in the line above!
-        ],
-    )
-    self.RunBazel(['build', '@hello//:lol'])
-    with open('MODULE.bazel.lock', 'r') as json_file:
-      lockfile = json.load(json_file)
-      hello_attrs = lockfile['moduleExtensions']['//:MODULE.bazel%_repo_rules'][
-          'general']['generatedRepoSpecs']['hello']['attributes']
-      self.assertEqual(hello_attrs['value'], '@@//:hello.txt')
-
   def testExtensionRepoMappingChange(self):
     # Regression test for #20721
     self.main_registry.createCcModule('foo', '1.0')
