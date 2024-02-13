@@ -705,11 +705,12 @@ exit 1
 EOF
   chmod +x true.sh flaky.sh false.sh
 
-  # The next line ensures that the test passes in IPv6-only networks.
+  # The next two lines ensure that the test passes in IPv6-only networks.
   export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
+  export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
 
   # We do not use sandboxing so we can trick to be deterministically flaky
-  bazel --ignore_all_rc_files test --experimental_ui_debug_all_events \
+  bazel --ignore_all_rc_files "$STARTUP_OPTS" test --experimental_ui_debug_all_events \
       --spawn_strategy=standalone //:flaky &> $TEST_log \
       || fail "//:flaky should have passed with flaky support"
   [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
@@ -723,7 +724,7 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 
-  bazel --ignore_all_rc_files test --experimental_ui_debug_all_events //:pass \
+  bazel --ignore_all_rc_files "$STARTUP_OPTS" test --experimental_ui_debug_all_events //:pass \
       &> $TEST_log || fail "//:pass should have passed"
   expect_log_once "PASS.*: //:pass"
   expect_log_once "PASSED"
@@ -732,7 +733,7 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  bazel --ignore_all_rc_files test --experimental_ui_debug_all_events //:fail \
+  bazel --ignore_all_rc_files "$STARTUP_OPTS" test --experimental_ui_debug_all_events //:fail \
       &> $TEST_log && fail "//:fail should have failed" \
       || true
   expect_log_n "FAIL.*: //:fail (.*/fail/test_attempts/attempt_..log)" 2
