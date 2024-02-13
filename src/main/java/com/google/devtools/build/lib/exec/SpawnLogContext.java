@@ -177,8 +177,7 @@ public abstract class SpawnLogContext implements ActionContext {
     // Try to obtain a digest from the filesystem.
     return builder
         .setHash(
-            HashCode.fromBytes(
-                    DigestUtils.getDigestWithManualFallback(path, fileSize, xattrProvider))
+            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, xattrProvider))
                 .toString())
         .setSizeBytes(fileSize)
         .build();
