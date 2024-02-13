@@ -126,7 +126,7 @@ public final class RunfilesSupport {
     }
 
     @Override
-    public PathFragment getPossiblyIncorrectExecPath() {
+    public PathFragment getExecPath() {
       return execPath;
     }
 

@@ -78,7 +78,7 @@ public class RunfilesTreeUpdater {
       RunfilesSupplier runfilesSupplier, ImmutableMap<String, String> env, OutErr outErr)
       throws ExecException, IOException, InterruptedException {
     for (RunfilesTree tree : runfilesSupplier.getRunfilesTrees()) {
-      PathFragment runfilesDir = RunfilesSupplier.getExecPathForTree(runfilesSupplier, tree);
+      PathFragment runfilesDir = tree.getExecPath();
       if (tree.isBuildRunfileLinks()) {
         continue;
       }
@@ -89,7 +89,7 @@ public class RunfilesTreeUpdater {
       if (priorFuture == null) {
         // We are the first attempt; update the runfiles tree and mark the future complete.
         try {
-          updateRunfilesTree(runfilesSupplier, tree, env, outErr);
+          updateRunfilesTree(tree, env, outErr);
           freshFuture.complete(null);
         } catch (Exception e) {
           freshFuture.completeExceptionally(e);
@@ -114,13 +114,11 @@ public class RunfilesTreeUpdater {
   }
 
   private void updateRunfilesTree(
-      RunfilesSupplier runfilesSupplier,
       RunfilesTree tree,
       ImmutableMap<String, String> env,
       OutErr outErr)
       throws IOException, ExecException, InterruptedException {
-    Path runfilesDirPath =
-        execRoot.getRelative(RunfilesSupplier.getExecPathForTree(runfilesSupplier, tree));
+    Path runfilesDirPath = execRoot.getRelative(tree.getExecPath());
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
     if (!inputManifest.exists()) {
       return;

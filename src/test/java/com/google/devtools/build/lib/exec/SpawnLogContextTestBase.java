@@ -880,11 +880,10 @@ public abstract class SpawnLogContextTestBase {
       mappingByPath.put(PathFragment.create(entry.getKey()), entry.getValue());
     }
     RunfilesTree runfilesTree = mock(RunfilesTree.class);
-    when(runfilesTree.getPossiblyIncorrectExecPath()).thenReturn(root);
+    when(runfilesTree.getExecPath()).thenReturn(root);
     when(runfilesTree.getMapping()).thenReturn(mappingByPath);
     RunfilesSupplier runfilesSupplier = mock(RunfilesSupplier.class);
     when(runfilesSupplier.getRunfilesTrees()).thenReturn(ImmutableList.of(runfilesTree));
-    when(runfilesSupplier.getRunfilesDirOverride()).thenReturn(null);
     return runfilesSupplier;
   }
 
@@ -920,7 +919,7 @@ public abstract class SpawnLogContextTestBase {
         ImmutableSortedMap.naturalOrder();
     for (RunfilesTree tree : runfilesSupplier.getRunfilesTrees()) {
       // Emulate SpawnInputExpander: expand runfiles, replacing nulls with empty inputs.
-      PathFragment root = tree.getPossiblyIncorrectExecPath();
+      PathFragment root = tree.getExecPath();
       for (Map.Entry<PathFragment, Artifact> entry : tree.getMapping().entrySet()) {
         PathFragment execPath = root.getRelative(entry.getKey());
         Artifact artifact = entry.getValue();
