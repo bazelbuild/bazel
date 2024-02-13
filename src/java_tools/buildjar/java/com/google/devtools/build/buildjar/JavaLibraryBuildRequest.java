@@ -21,7 +21,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.MoreFiles;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
@@ -31,7 +30,6 @@ import com.google.devtools.build.buildjar.javac.JavacOptions.FilteredJavacopts;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.processing.AnnotationProcessingModule;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -88,9 +86,6 @@ public final class JavaLibraryBuildRequest {
   /** List of plugins that are given to javac. */
   private final ImmutableList<BlazeJavaCompilerPlugin> plugins;
 
-  /** Map of inputs' path and digest */
-  private final ImmutableMap<String, ByteString> inputsAndDigest;
-
   private final OptionalInt requestId;
 
   /**
@@ -121,7 +116,7 @@ public final class JavaLibraryBuildRequest {
       List<BlazeJavaCompilerPlugin> extraPlugins,
       DependencyModule.Builder depsBuilder)
       throws InvalidCommandLineException, IOException {
-    this(optionsParser, extraPlugins, depsBuilder, ImmutableMap.of(), OptionalInt.empty());
+    this(optionsParser, extraPlugins, depsBuilder, OptionalInt.empty());
   }
 
   /**
@@ -131,14 +126,12 @@ public final class JavaLibraryBuildRequest {
    * @param optionsParser the parsed command line args.
    * @param extraPlugins extraneous plugins to use in addition to the strict dependency module.
    * @param depsBuilder a preconstructed dependency module builder.
-   * @param inputsAndDigest a map of inputs' paths and their digest
    * @throws InvalidCommandLineException on any command line error
    */
   public JavaLibraryBuildRequest(
       OptionsParser optionsParser,
       List<BlazeJavaCompilerPlugin> extraPlugins,
       DependencyModule.Builder depsBuilder,
-      ImmutableMap<String, ByteString> inputsAndDigest,
       OptionalInt requestId)
       throws InvalidCommandLineException, IOException {
     depsBuilder.setDirectJars(
@@ -207,7 +200,6 @@ public final class JavaLibraryBuildRequest {
     this.generatedSourcesOutputJar = asPath(optionsParser.getGeneratedSourcesOutputJar());
     this.targetLabel = optionsParser.getTargetLabel();
     this.injectingRuleKind = optionsParser.getInjectingRuleKind();
-    this.inputsAndDigest = inputsAndDigest;
     this.requestId = requestId;
   }
 
@@ -337,10 +329,6 @@ public final class JavaLibraryBuildRequest {
     return plugins;
   }
 
-  public ImmutableMap<String, ByteString> getInputsAndDigest() {
-    return inputsAndDigest;
-  }
-
   public OptionalInt getRequestId() {
     return requestId;
   }
@@ -367,7 +355,6 @@ public final class JavaLibraryBuildRequest {
             .sourceOutput(getSourceGenDir())
             .processorPath(getProcessorPath())
             .plugins(getPlugins())
-            .inputsAndDigest(getInputsAndDigest())
             .requestId(getRequestId());
     addJavacArguments(builder);
     // Performance optimization: when reduced classpaths are enabled, stop the compilation after
