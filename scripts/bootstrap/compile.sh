@@ -250,15 +250,8 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
 workspace(name = 'bazel_tools')
 EOF
 
-  # Set up the MODULE.bazel file for `bazel_tools` and update the hash in the lockfile.
+  # Set up the MODULE.bazel file for `bazel_tools`
   link_file "${PWD}/src/MODULE.tools" "${BAZEL_TOOLS_REPO}/MODULE.bazel"
-  new_hash=$(shasum -a 256 "${BAZEL_TOOLS_REPO}/MODULE.bazel" | awk '{print $1}')
-  sed -i.bak "/\"bazel_tools\":/s/\"[a-f0-9]*\"/\"$new_hash\"/" MODULE.bazel.lock
-  # TODO: Temporary hack for lockfile version mismatch, remove these lines after updating to 7.1.0
-  sed -i.bak 's/"lockFileVersion": 3/"lockFileVersion": 4/' MODULE.bazel.lock
-  # Replace canonical repository names and parts thereof of the form rules_foo~1.2.3 with rules_foo~
-  sed -i.bak -E 's/([a-z]([a-z0-9._-]*[a-z0-9]){0,1})~[a-zA-Z0-9.]{1,}(-[0-9.-]{1,}){0,1}(\+[0-9.-]{1,}){0,1}/\1/g' MODULE.bazel.lock
-  rm MODULE.bazel.lock.bak
 
   mkdir -p "${BAZEL_TOOLS_REPO}/src/conditions"
   link_file "${PWD}/src/conditions/BUILD.tools" \
