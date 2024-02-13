@@ -130,6 +130,16 @@ public class DigestUtils {
   }
 
   /**
+   * Clears the cache contents without changing its size. No-op if the cache hasn't yet been
+   * initialized.
+   */
+  public static void clearCache() {
+    if (globalCache != null) {
+      globalCache.invalidateAll();
+    }
+  }
+
+  /**
    * Obtains cache statistics.
    *
    * <p>The cache must have previously been enabled by a call to {@link #configureCache(long)}.
