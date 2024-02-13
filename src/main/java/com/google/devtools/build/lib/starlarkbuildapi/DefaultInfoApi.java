@@ -169,7 +169,8 @@ public interface DefaultInfoApi extends StructApi {
                       + " <a href='../globals/bzl.html#rule.test'><code>test</code></a>, this is a"
                       + " <a href='../builtins/File.html'><code>File</code></a> object representing"
                       + " the file that should be executed to run the target. By default it is the"
-                      + " predeclared output <code>ctx.outputs.executable</code>.")
+                      + " predeclared output <code>ctx.outputs.executable</code> but it is"
+                      + " recommended to pass another file (either predeclared or not) explicitly.")
         },
         selfCall = true,
         useStarlarkThread = true)

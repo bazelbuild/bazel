@@ -55,6 +55,14 @@ import net.starlark.java.syntax.Location;
 @AutoValue
 @GenerateTypeAdapter
 public abstract class ModuleExtensionMetadata implements StarlarkValue {
+
+  static final ModuleExtensionMetadata REPRODUCIBLE =
+      create(
+          /* explicitRootModuleDirectDeps= */ null,
+          /* explicitRootModuleDirectDevDeps= */ null,
+          UseAllRepos.NO,
+          /* reproducible= */ true);
+
   @Nullable
   abstract ImmutableSet<String> getExplicitRootModuleDirectDeps();
 

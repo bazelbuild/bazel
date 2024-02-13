@@ -203,10 +203,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       // The runfiles symlink tree might not have been materialized on disk, so use the mapping.
       additionalDirectoryIds.add(
           logRunfilesDirectory(
-              RunfilesSupplier.getExecPathForTree(runfilesSupplier, tree),
-              tree.getMapping(),
-              inputMetadataProvider,
-              fileSystem));
+              tree.getExecPath(), tree.getMapping(), inputMetadataProvider, fileSystem));
     }
 
     for (Artifact fileset : spawn.getFilesetMappings().keySet()) {

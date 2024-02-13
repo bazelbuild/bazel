@@ -1928,30 +1928,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return evaluateSkyKeys(eventHandler, skyKeys, false);
   }
 
-  /** Evaluates sky keys that require action execution and returns their evaluation results. */
-  public EvaluationResult<SkyValue> evaluateSkyKeysWithExecution(
-      final Reporter reporter,
-      final Executor executor,
-      final Iterable<? extends SkyKey> skyKeys,
-      final OptionsProvider options,
-      final ActionCacheChecker actionCacheChecker,
-      final ActionOutputDirectoryHelper outputDirectoryHelper) {
-
-    prepareSkyframeActionExecutorForExecution(
-        reporter, executor, options, actionCacheChecker, outputDirectoryHelper);
-    try {
-      return evaluateSkyKeys(
-          reporter, skyKeys, options.getOptions(KeepGoingOption.class).keepGoing);
-    } finally {
-      cleanUpAfterSingleEvaluationWithActionExecution(reporter);
-    }
-  }
-
   /**
    * Evaluates the given sky keys, blocks, and returns their evaluation results. Enables/disables
    * "keep going" on evaluation errors as specified.
    */
-  EvaluationResult<SkyValue> evaluateSkyKeys(
+  public EvaluationResult<SkyValue> evaluateSkyKeys(
       final ExtendedEventHandler eventHandler,
       final Iterable<? extends SkyKey> skyKeys,
       final boolean keepGoing) {
@@ -1971,6 +1952,25 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throw new IllegalStateException(e); // Should never happen.
     }
     return result;
+  }
+
+  /** Evaluates sky keys that require action execution and returns their evaluation results. */
+  public EvaluationResult<SkyValue> evaluateSkyKeysWithExecution(
+      final Reporter reporter,
+      final Executor executor,
+      final Iterable<? extends SkyKey> skyKeys,
+      final OptionsProvider options,
+      final ActionCacheChecker actionCacheChecker,
+      final ActionOutputDirectoryHelper outputDirectoryHelper) {
+
+    prepareSkyframeActionExecutorForExecution(
+        reporter, executor, options, actionCacheChecker, outputDirectoryHelper);
+    try {
+      return evaluateSkyKeys(
+          reporter, skyKeys, options.getOptions(KeepGoingOption.class).keepGoing);
+    } finally {
+      cleanUpAfterSingleEvaluationWithActionExecution(reporter);
+    }
   }
 
   private class EnableAnalysisScope implements AutoCloseable {

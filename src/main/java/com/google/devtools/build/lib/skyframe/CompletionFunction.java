@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
@@ -58,8 +59,10 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -267,9 +270,23 @@ public final class CompletionFunction<
             workspaceNameValue.getName());
 
     if (!rootCauses.isEmpty()) {
-      // TODO: b/321044105 - Check for lost built outputs in the error case.
+      ImmutableSet<Artifact> builtArtifacts = builtArtifactsBuilder.build();
+      if (!builtArtifacts.isEmpty()) {
+        Reset reset =
+            informImportantOutputHandler(
+                key,
+                env,
+                allArtifactsAreImportant
+                    ? builtArtifacts
+                    : Sets.intersection(builtArtifacts, (Set<?>) importantArtifacts),
+                ctx);
+        if (reset != null) {
+          // TODO: b/321044105 - Handle error bubbling, in which case we can't rewind.
+          return reset;
+        }
+      }
       ImmutableMap<String, ArtifactsInOutputGroup> builtOutputs =
-          new SuccessfulArtifactFilter(builtArtifactsBuilder.build())
+          new SuccessfulArtifactFilter(builtArtifacts)
               .filterArtifactsInOutputGroup(artifactsToBuild.getAllArtifactsByOutputGroup());
       env.getListener()
           .post(completor.createFailed(key, rootCauses, ctx, builtOutputs, failureData));
@@ -300,19 +317,9 @@ public final class CompletionFunction<
       return null;
     }
 
-    ImmutableMap<String, ActionInput> lostOutputs =
-        skyframeActionExecutor
-            .getActionContextRegistry()
-            .getContext(ImportantOutputHandler.class)
-            .processAndGetLostArtifacts(importantArtifacts, importantInputMap);
-    if (!lostOutputs.isEmpty()) {
-      return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
-          key,
-          ImmutableSet.copyOf(Artifact.keys(allArtifacts)),
-          lostOutputs,
-          // TODO: b/321044105 - Compute precise owners.
-          new ActionInputDepOwnerMap(lostOutputs.values()),
-          env);
+    Reset reset = informImportantOutputHandler(key, env, importantArtifacts, ctx);
+    if (reset != null) {
+      return reset; // Initiate action rewinding to regenerate lost outputs.
     }
 
     ExtendedEventHandler.Postable postable =
@@ -356,6 +363,34 @@ public final class CompletionFunction<
     ArtifactsToBuild artifactsToBuild =
         TopLevelArtifactHelper.getAllArtifactsToBuild(value.getConfiguredObject(), topLevelContext);
     return Pair.of(value, artifactsToBuild);
+  }
+
+  /**
+   * Calls {@link ImportantOutputHandler#processAndGetLostArtifacts}.
+   *
+   * <p>If any outputs are lost, returns a {@link Reset} which can be used to initiate action
+   * rewinding and regenerate the lost outputs. Otherwise, returns {@code null}.
+   */
+  @Nullable
+  private Reset informImportantOutputHandler(
+      KeyT key, Environment env, Collection<Artifact> importantArtifacts, CompletionContext ctx)
+      throws InterruptedException {
+    ImmutableMap<String, ActionInput> lostOutputs =
+        skyframeActionExecutor
+            .getActionContextRegistry()
+            .getContext(ImportantOutputHandler.class)
+            .processAndGetLostArtifacts(importantArtifacts, ctx.getImportantInputMap());
+    if (lostOutputs.isEmpty()) {
+      return null;
+    }
+
+    return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
+        key,
+        ImmutableSet.copyOf(Artifact.keys(importantArtifacts)),
+        lostOutputs,
+        // TODO: b/321044105 - Compute precise owners.
+        new ActionInputDepOwnerMap(lostOutputs.values()),
+        env);
   }
 
   @Override

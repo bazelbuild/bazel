@@ -34,8 +34,9 @@ import org.junit.runner.RunWith;
 /**
  * Integration tests for action rewinding.
  *
- * <p>Uses {@link TestParameter}s to run tests with all four combinations of {@code
- * --track_incremental_state} and {@code --keep_going}.
+ * <p>Uses {@link TestParameter}s to run tests with all combinations of {@code
+ * --track_incremental_state}, {@code --keep_going}, and {@code
+ * --experimental_merged_skyframe_analysis_execution}.
  */
 // TODO(b/228090759): Consider asserting on graph structure to improve coverage for incrementality.
 // TODO(b/228090759): Add back actionFromPreviousBuildReevaluated.
@@ -261,5 +262,10 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   @Test
   public void topLevelOutputRewound_aspectOwned() throws Exception {
     helper.runTopLevelOutputRewound_aspectOwned();
+  }
+
+  @Test
+  public void topLevelOutputRewound_partiallyBuiltTarget() throws Exception {
+    helper.runTopLevelOutputRewound_partiallyBuiltTarget();
   }
 }

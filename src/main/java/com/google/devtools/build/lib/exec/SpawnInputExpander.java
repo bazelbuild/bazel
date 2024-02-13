@@ -108,7 +108,7 @@ public final class SpawnInputExpander {
     for (RunfilesTree runfilesTree : runfilesSupplier.getRunfilesTrees()) {
       addSingleRunfilesTreeToInputs(
           inputSink,
-          RunfilesSupplier.getExecPathForTree(runfilesSupplier, runfilesTree),
+          runfilesTree.getExecPath(),
           runfilesTree.getMapping(),
           artifactExpander,
           pathMapper,
@@ -385,7 +385,7 @@ public final class SpawnInputExpander {
       InputVisitor visitor)
       throws IOException, ForbiddenActionInputException {
     for (RunfilesTree runfilesTree : runfilesSupplier.getRunfilesTrees()) {
-      PathFragment root = RunfilesSupplier.getExecPathForTree(runfilesSupplier, runfilesTree);
+      PathFragment root = runfilesTree.getExecPath();
       Map<PathFragment, Artifact> mappings = runfilesTree.getMapping();
       visitor.visit(
           // Cache key for the sub-mapping containing this runfiles tree.

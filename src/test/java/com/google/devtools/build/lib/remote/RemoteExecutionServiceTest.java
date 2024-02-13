@@ -2477,7 +2477,7 @@ public class RemoteExecutionServiceTest {
     RunfilesTree tree =
         new RunfilesTree() {
           @Override
-          public PathFragment getPossiblyIncorrectExecPath() {
+          public PathFragment getExecPath() {
             return PathFragment.create(root);
           }
 

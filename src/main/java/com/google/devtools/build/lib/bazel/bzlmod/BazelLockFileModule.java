@@ -122,7 +122,7 @@ public class BazelLockFileModule extends BlazeModule {
     // Add the new resolved extensions
     for (var event : extensionResolutionEventsMap.values()) {
       LockFileModuleExtension extension = event.getModuleExtension();
-      if (!extension.shouldLockExtesnsion()) {
+      if (!extension.shouldLockExtension()) {
         continue;
       }
 
@@ -169,7 +169,7 @@ public class BazelLockFileModule extends BlazeModule {
     // If there is a new event for this extension, compare it with the existing ones
     ModuleExtensionResolutionEvent extEvent = extensionResolutionEventsMap.get(extensionId);
     if (extEvent != null) {
-      boolean doNotLockExtension = !extEvent.getModuleExtension().shouldLockExtesnsion();
+      boolean doNotLockExtension = !extEvent.getModuleExtension().shouldLockExtension();
       boolean dependencyOnOsChanged =
           lockedExtensionKey.getOs().isEmpty() != extEvent.getExtensionFactors().getOs().isEmpty();
       boolean dependencyOnArchChanged =

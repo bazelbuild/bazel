@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -213,6 +214,7 @@ public final class CleanCommand implements BlazeCommand {
       CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
       throws CleanException, InterruptedException {
     BlazeRuntime runtime = env.getRuntime();
+
     if (env.getOutputService() != null) {
       try {
         env.getOutputService().clean();
@@ -220,11 +222,15 @@ public final class CleanCommand implements BlazeCommand {
         throw new CleanException(Code.OUTPUT_SERVICE_CLEAN_FAILURE, e);
       }
     }
+
     try {
       env.getBlazeWorkspace().clearCaches();
     } catch (IOException e) {
       throw new CleanException(Code.ACTION_CACHE_CLEAN_FAILURE, e);
     }
+
+    DigestUtils.clearCache();
+
     if (expunge && !async) {
       logger.atInfo().log("Expunging...");
       runtime.prepareForAbruptShutdown();

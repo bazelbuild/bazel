@@ -45,15 +45,11 @@ JAVAC_OPTIONS_SRCS = [
     "javac/WerrorCustomOption.java",
 ]
 
-JAVAC_TEST_SRCS = [
-    "javac/BootClassPathCachingFileManagerTest.java",
-]
-
 java_library(
     name = "javac",
     srcs = glob(
         ["javac/*.java"],
-        exclude = JAVAC_OPTIONS_SRCS + JAVAC_TEST_SRCS,
+        exclude = JAVAC_OPTIONS_SRCS,
     ),
     add_exports = [
         "jdk.compiler/com.sun.tools.javac.api",
@@ -111,7 +107,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jacoco:core",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -218,27 +213,5 @@ bootstrap_java_binary(
     deps = [
         ":starlark-deps",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
-    ],
-)
-
-java_test(
-    name = "BootClassPathCachingFileManagerTest",
-    srcs = ["javac/BootClassPathCachingFileManagerTest.java"],
-    javacopts = [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-    ],
-    jvm_flags = [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-    ],
-    deps = [
-        ":javac",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
     ],
 )

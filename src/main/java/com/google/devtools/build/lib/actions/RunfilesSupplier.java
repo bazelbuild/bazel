@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.Run
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /** Convenience wrapper around runfiles allowing lazy expansion. */
 public interface RunfilesSupplier {
@@ -27,15 +26,9 @@ public interface RunfilesSupplier {
   // TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
   // structure makes this difficult. Consider moving things around to make this possible.
   interface RunfilesTree {
-    /**
-     * Returns the exec path of the root directory of the runfiles tree.
-     *
-     * <p>Should only ever be called indirectly through {@link
-     * RunfilesSupplier#getExecPathForTree(RunfilesSupplier, RunfilesTree)} because {@link
-     * RunfilesSupplier} may override it.
-     */
+    /** Returns the exec path of the root directory of the runfiles tree. */
     // TODO(lberki): Remove this method once RunfilesSupplier.getRunfilesTrees() is gone.
-    PathFragment getPossiblyIncorrectExecPath();
+    PathFragment getExecPath();
 
     /** Returns the mapping from the location in the runfiles tree to the artifact that's there. */
     Map<PathFragment, Artifact> getMapping();
@@ -60,26 +53,4 @@ public interface RunfilesSupplier {
 
   /** Returns the runfiles trees to be materialized on the inputs of the action. */
   ImmutableList<RunfilesTree> getRunfilesTrees();
-
-  /**
-   * If not null, the runfile tree in this runfiles supplier should be assumed to be rooted at the
-   * path this method returns, regardless of the return value of {@link
-   * RunfilesTree#getPossiblyIncorrectExecPath()}
-   */
-  @Nullable
-  default PathFragment getRunfilesDirOverride() {
-    return null;
-  }
-
-  /**
-   * Returns the effective root for the given runfiles tree, taking the potential override directory
-   * of the {@link RunfilesSupplier} into account.
-   */
-  static PathFragment getExecPathForTree(
-      RunfilesSupplier runfilesSupplier, RunfilesTree runfilesTree) {
-    if (runfilesSupplier.getRunfilesDirOverride() != null) {
-      return runfilesSupplier.getRunfilesDirOverride();
-    }
-    return runfilesTree.getPossiblyIncorrectExecPath();
-  }
 }

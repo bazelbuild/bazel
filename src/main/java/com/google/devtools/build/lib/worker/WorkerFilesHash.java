@@ -79,7 +79,7 @@ public class WorkerFilesHash {
 
     RunfilesSupplier runfilesSupplier = spawn.getRunfilesSupplier();
     for (RunfilesTree runfilesTree : runfilesSupplier.getRunfilesTrees()) {
-      PathFragment root = RunfilesSupplier.getExecPathForTree(runfilesSupplier, runfilesTree);
+      PathFragment root = runfilesTree.getExecPath();
       Preconditions.checkState(!root.isAbsolute(), root);
       for (Map.Entry<PathFragment, Artifact> mapping : runfilesTree.getMapping().entrySet()) {
         Artifact localArtifact = mapping.getValue();

@@ -363,8 +363,6 @@ public interface ArrayProcessor {
         }
       };
 
-  static final AsyncObjectArrayProcessor OBJECT_ARRAY_PROCESSOR = new AsyncObjectArrayProcessor();
-
   /**
    * Handles possibly nested arrays of {@code Object} or any type derived from {@code Object}.
    *
@@ -373,112 +371,74 @@ public interface ArrayProcessor {
    * nested arrays of appropriate type and nesting level.
    *
    * <p>Finally, at the leaf level, it uses the {@code (Ser|Deser)ializationContext} to apply codecs
-   * to the base array components. The {@link DeserializationContext} can be either a {@link
-   * FlatDeserializationContext} or an {@link AsyncDeserializationContext} in the different
-   * subclasses.
+   * to the base array components. The {@link DeserializationContext} must be an {@link
+   * AsyncDeserializationContext}.
    */
-  abstract static class ObjectArrayProcessor<T extends FlatDeserializationContext> {
-    // Special case uses `Array.newInstance` to also create leaf-level arrays. Unlike the
-    // `PrimitiveArrayProcessor`, the unnested arrays depend on serialization contexts.
+  static final ArrayProcessor OBJECT_ARRAY_PROCESSOR =
+      new ArrayProcessor() {
+        // Special case uses `Array.newInstance` to also create leaf-level arrays. Unlike the
+        // `PrimitiveArrayProcessor`, the unnested arrays depend on serialization contexts.
 
-    /** Overrides {@link ArrayProcessor#serialize}. */
-    public void serialize(
-        SerializationContext context, CodedOutputStream codedOut, Class<?> type, Object arr)
-        throws IOException, SerializationException {
-      // Tagging works exactly the same as PrimitiveArrayProcessor.serialize: 0 for null;
-      // 1 + length otherwise. See comment there for more details.
-      if (arr == null) {
-        codedOut.writeInt32NoTag(0);
-        return;
-      }
-
-      Class<?> componentType = type.getComponentType();
-      if (componentType.isArray()) {
-        Object[] subarrays = (Object[]) arr;
-        codedOut.writeInt32NoTag(subarrays.length + 1);
-        for (Object subarray : subarrays) {
-          serialize(context, codedOut, componentType, subarray);
-        }
-        return;
-      }
-
-      serializeObjectArray(context, codedOut, arr);
-    }
-
-    /**
-     * Overrides {@link ArrayProcessor#deserialize} if {@code T} is {@link
-     * AsyncDeserializationContext}.
-     */
-    public void deserialize(
-        T context, CodedInputStream codedIn, Class<?> type, Object obj, long offset)
-        throws IOException, SerializationException {
-      int length = codedIn.readInt32();
-      if (length == 0) {
-        return; // It was null.
-      }
-      length--; // Shifts the length back. It was shifted to allow 0 to be used for null.
-
-      Class<?> componentType = type.getComponentType();
-      Object arr = Array.newInstance(componentType, length);
-      unsafe().putObject(obj, offset, arr);
-
-      if (length == 0) {
-        return; // Empty array.
-      }
-
-      // It's a non-empty array if this is reached.
-      if (componentType.isArray()) {
-        for (int i = 0; i < length; ++i) {
-          deserialize(
-              context,
-              codedIn,
-              componentType,
-              arr,
-              ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i);
-        }
-        return;
-      }
-
-      deserializeObjectArray(context, codedIn, arr, length);
-    }
-
-    /** Deserializes {@code length} objects from {@code codedIn} into {@code untypedArr}. */
-    abstract void deserializeObjectArray(
-        T context, CodedInputStream codedIn, Object untypedArr, int length)
-        throws IOException, SerializationException;
-  }
-
-  /** {@link ArrayProcessor} for {@code Object} arrays. */
-  static class AsyncObjectArrayProcessor extends ObjectArrayProcessor<AsyncDeserializationContext>
-      implements ArrayProcessor {
-    @Override
-    void deserializeObjectArray(
-        AsyncDeserializationContext context,
-        CodedInputStream codedIn,
-        Object untypedArr,
-        int length)
-        throws IOException, SerializationException {
-      ArrayProcessor.deserializeObjectArray(context, codedIn, untypedArr, length);
-    }
-
-    private AsyncObjectArrayProcessor() {}
-  }
-
-  /**
-   * Like {@link AsyncObjectArrayProcessor} but requires full deserializization of array values.
-   *
-   * <p>Used by {@code AutoCodec} implementations.
-   */
-  static final ObjectArrayProcessor<FlatDeserializationContext> FLAT_OBJECT_ARRAY_PROCESSOR =
-      new ObjectArrayProcessor<FlatDeserializationContext>() {
         @Override
-        void deserializeObjectArray(
-            FlatDeserializationContext context,
-            CodedInputStream codedIn,
-            Object untypedArr,
-            int length)
+        public void serialize(
+            SerializationContext context, CodedOutputStream codedOut, Class<?> type, Object arr)
             throws IOException, SerializationException {
-          deserializeObjectArrayFully(context, codedIn, untypedArr, length);
+          // Tagging works exactly the same as PrimitiveArrayProcessor.serialize: 0 for null;
+          // 1 + length otherwise. See comment there for more details.
+          if (arr == null) {
+            codedOut.writeInt32NoTag(0);
+            return;
+          }
+
+          Class<?> componentType = type.getComponentType();
+          if (componentType.isArray()) {
+            Object[] subarrays = (Object[]) arr;
+            codedOut.writeInt32NoTag(subarrays.length + 1);
+            for (Object subarray : subarrays) {
+              serialize(context, codedOut, componentType, subarray);
+            }
+            return;
+          }
+
+          serializeObjectArray(context, codedOut, arr);
+        }
+
+        @Override
+        public void deserialize(
+            AsyncDeserializationContext context,
+            CodedInputStream codedIn,
+            Class<?> type,
+            Object obj,
+            long offset)
+            throws IOException, SerializationException {
+          int length = codedIn.readInt32();
+          if (length == 0) {
+            return; // It was null.
+          }
+          length--; // Shifts the length back. It was shifted to allow 0 to be used for null.
+
+          Class<?> componentType = type.getComponentType();
+          Object arr = Array.newInstance(componentType, length);
+          unsafe().putObject(obj, offset, arr);
+
+          if (length == 0) {
+            return; // Empty array.
+          }
+
+          // It's a non-empty array if this is reached.
+          if (componentType.isArray()) {
+            for (int i = 0; i < length; ++i) {
+              deserialize(
+                  context,
+                  codedIn,
+                  componentType,
+                  arr,
+                  ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i);
+            }
+            return;
+          }
+
+          deserializeObjectArray(context, codedIn, arr, length);
         }
       };
 
@@ -503,20 +463,6 @@ public interface ArrayProcessor {
       throws IOException, SerializationException {
     for (int i = 0; i < length; ++i) {
       context.deserialize(codedIn, arr, ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i);
-    }
-  }
-
-  /**
-   * Deserializes {@code length} objects into the untyped {@code Object[]} in {@code arr}.
-   *
-   * <p>Only fully deserialized values will be visible to the caller.
-   */
-  static void deserializeObjectArrayFully(
-      FlatDeserializationContext context, CodedInputStream codedIn, Object arr, int length)
-      throws IOException, SerializationException {
-    for (int i = 0; i < length; ++i) {
-      context.deserializeFully(
-          codedIn, arr, ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i);
     }
   }
 }

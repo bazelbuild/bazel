@@ -62,6 +62,10 @@ public final class RunfilesArtifactValue implements SkyValue {
         this);
   }
 
+  public RunfilesArtifactValue withOverriddenRunfilesTree(RunfilesTree overrideTree) {
+    return new RunfilesArtifactValue(metadata, overrideTree, files, fileValues, trees, treeValues);
+  }
+
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */
   public FileArtifactValue getMetadata() {
     return metadata;

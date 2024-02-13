@@ -75,12 +75,14 @@ public final class DigestUtilsTest {
 
     TestThread thread1 =
         new TestThread(
-            () ->
-                DigestUtils.getDigestWithManualFallback(myFile1, fileSize1, SyscallCache.NO_CACHE));
+            () -> {
+              var unused = DigestUtils.getDigestWithManualFallback(myFile1, SyscallCache.NO_CACHE);
+            });
     TestThread thread2 =
         new TestThread(
-            () ->
-                DigestUtils.getDigestWithManualFallback(myFile2, fileSize2, SyscallCache.NO_CACHE));
+            () -> {
+              var unused = DigestUtils.getDigestWithManualFallback(myFile2, SyscallCache.NO_CACHE);
+            });
      thread1.start();
      thread2.start();
      if (!expectConcurrent) { // Synchronized case.
@@ -120,17 +122,21 @@ public final class DigestUtilsTest {
     Path file = tracingFileSystem.getPath("/file.txt");
     FileSystemUtils.writeContentAsLatin1(file, "some contents");
 
-    byte[] digest1 =
-        DigestUtils.getDigestWithManualFallback(file, file.getFileSize(), SyscallCache.NO_CACHE);
+    byte[] digest = DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE);
     assertThat(getFastDigestCounter.get()).isEqualTo(1);
     assertThat(getDigestCounter.get()).isEqualTo(1);
 
-    assertThat(
-            DigestUtils.getDigestWithManualFallback(
-                file, file.getFileSize(), SyscallCache.NO_CACHE))
-        .isEqualTo(digest1);
+    assertThat(DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE))
+        .isEqualTo(digest);
     assertThat(getFastDigestCounter.get()).isEqualTo(2);
     assertThat(getDigestCounter.get()).isEqualTo(1); // Cached.
+
+    DigestUtils.clearCache();
+
+    assertThat(DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE))
+        .isEqualTo(digest);
+    assertThat(getFastDigestCounter.get()).isEqualTo(3);
+    assertThat(getDigestCounter.get()).isEqualTo(2); // Not cached.
   }
 
   @Test
@@ -151,6 +157,6 @@ public final class DigestUtilsTest {
     Path file = noDigestFileSystem.getPath("/f.txt");
     FileSystemUtils.writeContentAsLatin1(file, "contents");
 
-    assertThat(DigestUtils.manuallyComputeDigest(file, /*fileSize=*/ 8)).isEqualTo(digest);
+    assertThat(DigestUtils.manuallyComputeDigest(file)).isEqualTo(digest);
   }
 }
