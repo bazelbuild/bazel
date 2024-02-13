@@ -358,7 +358,7 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "cache_computed_file_digests",
       defaultValue = "50000",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If greater than 0, configures Bazel to cache file digests in memory based on their "
