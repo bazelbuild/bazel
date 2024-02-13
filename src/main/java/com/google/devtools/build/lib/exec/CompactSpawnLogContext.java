@@ -14,11 +14,6 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.computeDigest;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getEnvironmentVariables;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getPlatform;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getSpawnMetricsProto;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.isInputDirectory;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.collect.ImmutableList;
@@ -58,7 +53,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** A {@link SpawnLogContext} implementation that produces a log in compact format. */
-public class CompactSpawnLogContext implements SpawnLogContext {
+public class CompactSpawnLogContext extends SpawnLogContext {
 
   private interface ExecLogEntrySupplier {
     ExecLogEntry.Builder get() throws IOException;
