@@ -961,12 +961,12 @@ public abstract class SpawnLogContextTestBase {
     return builder.build();
   }
 
-  protected SpawnLogContext createSpawnLogContext() throws IOException {
+  protected SpawnLogContext createSpawnLogContext() throws IOException, InterruptedException {
     return createSpawnLogContext(ImmutableSortedMap.of());
   }
 
   protected abstract SpawnLogContext createSpawnLogContext(
-      ImmutableMap<String, String> platformProperties) throws IOException;
+      ImmutableMap<String, String> platformProperties) throws IOException, InterruptedException;
 
   protected Digest getDigest(String content) {
     return Digest.newBuilder()
@@ -986,5 +986,5 @@ public abstract class SpawnLogContextTestBase {
   }
 
   protected abstract void closeAndAssertLog(SpawnLogContext context, SpawnExec... expected)
-      throws IOException;
+      throws IOException, InterruptedException;
 }

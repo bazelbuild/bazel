@@ -71,7 +71,7 @@ public abstract class SpawnLogContext implements ActionContext {
       FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)
-      throws IOException, ExecException;
+      throws IOException, InterruptedException, ExecException;
 
   /** Finishes writing the log and performs any required post-processing. */
   public abstract void close() throws IOException;
