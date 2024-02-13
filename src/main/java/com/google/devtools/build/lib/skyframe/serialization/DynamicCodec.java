@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.skyframe.serialization.FlatDeserializationContext.FieldSetter;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext.FieldSetter;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;

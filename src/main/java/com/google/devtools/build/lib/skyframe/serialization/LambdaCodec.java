@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.lang.invoke.SerializedLambda;
 import java.lang.reflect.Method;
-import java.util.function.Supplier;
 
 /**
  * A codec for Java 8 serializable lambdas. Lambdas that are tagged as {@link Serializable} have a
@@ -85,19 +84,19 @@ class LambdaCodec extends DeferredObjectCodec<Serializable> {
   }
 
   @Override
-  public Supplier<Serializable> deserializeDeferred(
+  public DeferredValue<Serializable> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     LambdaSupplier supplier = new LambdaSupplier();
-    context.deserializeFully(codedIn, supplier, SERIALIZED_LAMBDA_OFFSET);
+    context.deserialize(codedIn, supplier, SERIALIZED_LAMBDA_OFFSET);
     return supplier;
   }
 
-  private static class LambdaSupplier implements Supplier<Serializable> {
+  private static class LambdaSupplier implements DeferredValue<Serializable> {
     private SerializedLambda serializedLambda;
 
     @Override
-    public Serializable get() {
+    public Serializable call() {
       try {
         return (Serializable) READ_RESOLVE_METHOD.invoke(serializedLambda);
       } catch (ReflectiveOperationException e) {

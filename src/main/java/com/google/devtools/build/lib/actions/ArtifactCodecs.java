@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.function.Supplier;
 
 /** Codec implementations for {@link Artifact} subclasses. */
 final class ArtifactCodecs {
@@ -56,22 +56,23 @@ final class ArtifactCodecs {
     }
 
     @Override
-    public Supplier<DerivedArtifact> deserializeDeferred(
+    public DeferredValue<DerivedArtifact> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       DeserializedDerivedArtifactBuilder builder =
           new DeserializedDerivedArtifactBuilder(
               context.getDependency(ArtifactSerializationContext.class));
-      context.deserializeFully(codedIn, builder, DeserializedDerivedArtifactBuilder::setRoot);
-      context.deserializeFully(
+      context.deserialize(codedIn, builder, DeserializedDerivedArtifactBuilder::setRoot);
+      context.deserialize(
           codedIn, builder, DeserializedDerivedArtifactBuilder::setRootRelativePath);
-      context.deserializeFully(
+      context.deserialize(
           codedIn, builder, DeserializedDerivedArtifactBuilder::setGeneratingActionKey);
       return builder;
     }
   }
 
-  private static class DeserializedDerivedArtifactBuilder implements Supplier<DerivedArtifact> {
+  private static class DeserializedDerivedArtifactBuilder
+      implements DeferredValue<DerivedArtifact> {
     private final ArtifactSerializationContext context;
     private ArtifactRoot root;
     private PathFragment rootRelativePath;
@@ -82,7 +83,7 @@ final class ArtifactCodecs {
     }
 
     @Override
-    public DerivedArtifact get() {
+    public DerivedArtifact call() {
       return context.intern(
           new DerivedArtifact(
               root,
@@ -150,20 +151,20 @@ final class ArtifactCodecs {
     }
 
     @Override
-    public Supplier<SourceArtifact> deserializeDeferred(
+    public DeferredValue<SourceArtifact> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       DeserializedSourceArtifactBuilder builder =
           new DeserializedSourceArtifactBuilder(
               context.getDependency(ArtifactSerializationContext.class));
-      context.deserializeFully(codedIn, builder, DeserializedSourceArtifactBuilder::setExecPath);
-      context.deserializeFully(codedIn, builder, DeserializedSourceArtifactBuilder::setRoot);
-      context.deserializeFully(codedIn, builder, DeserializedSourceArtifactBuilder::setOwner);
+      context.deserialize(codedIn, builder, DeserializedSourceArtifactBuilder::setExecPath);
+      context.deserialize(codedIn, builder, DeserializedSourceArtifactBuilder::setRoot);
+      context.deserialize(codedIn, builder, DeserializedSourceArtifactBuilder::setOwner);
       return builder;
     }
   }
 
-  private static class DeserializedSourceArtifactBuilder implements Supplier<SourceArtifact> {
+  private static class DeserializedSourceArtifactBuilder implements DeferredValue<SourceArtifact> {
     private final ArtifactSerializationContext context;
     private PathFragment execPath;
     private Root root;
@@ -174,7 +175,7 @@ final class ArtifactCodecs {
     }
 
     @Override
-    public SourceArtifact get() {
+    public SourceArtifact call() {
       return context.getSourceArtifact(execPath, root, owner);
     }
 
@@ -211,23 +212,24 @@ final class ArtifactCodecs {
     }
 
     @Override
-    public Supplier<SpecialArtifact> deserializeDeferred(
+    public DeferredValue<SpecialArtifact> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       DeserializedSpecialArtifactBuilder builder =
           new DeserializedSpecialArtifactBuilder(
               context.getDependency(ArtifactSerializationContext.class));
-      context.deserializeFully(codedIn, builder, DeserializedSpecialArtifactBuilder::setRoot);
-      context.deserializeFully(
+      context.deserialize(codedIn, builder, DeserializedSpecialArtifactBuilder::setRoot);
+      context.deserialize(
           codedIn, builder, DeserializedSpecialArtifactBuilder::setRootRelativePath);
-      context.deserializeFully(
+      context.deserialize(
           codedIn, builder, DeserializedSpecialArtifactBuilder::setGeneratingActionKey);
-      context.deserializeFully(codedIn, builder, DeserializedSpecialArtifactBuilder::setType);
+      context.deserialize(codedIn, builder, DeserializedSpecialArtifactBuilder::setType);
       return builder;
     }
   }
 
-  private static class DeserializedSpecialArtifactBuilder implements Supplier<SpecialArtifact> {
+  private static class DeserializedSpecialArtifactBuilder
+      implements DeferredValue<SpecialArtifact> {
     private final ArtifactSerializationContext context;
     private ArtifactRoot root;
     private PathFragment rootRelativePath;
@@ -239,7 +241,7 @@ final class ArtifactCodecs {
     }
 
     @Override
-    public SpecialArtifact get() {
+    public SpecialArtifact call() {
       return (SpecialArtifact)
           context.intern(
               new SpecialArtifact(
@@ -289,29 +291,29 @@ final class ArtifactCodecs {
     }
 
     @Override
-    public Supplier<ArchivedTreeArtifact> deserializeDeferred(
+    public DeferredValue<ArchivedTreeArtifact> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       DeserializedArchivedTreeArtifactBuilder builder =
           new DeserializedArchivedTreeArtifactBuilder();
-      context.deserializeFully(
+      context.deserialize(
           codedIn, builder, DeserializedArchivedTreeArtifactBuilder::setTreeArtifact);
-      context.deserializeFully(
+      context.deserialize(
           codedIn, builder, DeserializedArchivedTreeArtifactBuilder::setDerivedTreeRoot);
-      context.deserializeFully(
+      context.deserialize(
           codedIn, builder, DeserializedArchivedTreeArtifactBuilder::setRootRelativePath);
       return builder;
     }
   }
 
   private static class DeserializedArchivedTreeArtifactBuilder
-      implements Supplier<ArchivedTreeArtifact> {
+      implements DeferredValue<ArchivedTreeArtifact> {
     private SpecialArtifact treeArtifact;
     private PathFragment derivedTreeRoot;
     private PathFragment rootRelativePath;
 
     @Override
-    public ArchivedTreeArtifact get() {
+    public ArchivedTreeArtifact call() {
       Object generatingActionKey =
           treeArtifact.hasGeneratingActionKey()
               ? treeArtifact.getGeneratingActionKey()
@@ -354,26 +356,27 @@ final class ArtifactCodecs {
     }
 
     @Override
-    public Supplier<TreeFileArtifact> deserializeDeferred(
+    public DeferredValue<TreeFileArtifact> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       DeserializedTreeFileArtifactBuilder builder = new DeserializedTreeFileArtifactBuilder();
-      context.deserializeFully(codedIn, builder, DeserializedTreeFileArtifactBuilder::setParent);
-      context.deserializeFully(
+      context.deserialize(codedIn, builder, DeserializedTreeFileArtifactBuilder::setParent);
+      context.deserialize(
           codedIn, builder, DeserializedTreeFileArtifactBuilder::setParentRelativePath);
-      context.deserializeFully(
+      context.deserialize(
           codedIn, builder, DeserializedTreeFileArtifactBuilder::setGeneratingActionKey);
       return builder;
     }
   }
 
-  private static class DeserializedTreeFileArtifactBuilder implements Supplier<TreeFileArtifact> {
+  private static class DeserializedTreeFileArtifactBuilder
+      implements DeferredValue<TreeFileArtifact> {
     private SpecialArtifact parent;
     private PathFragment parentRelativePath;
     private Object generatingActionKey;
 
     @Override
-    public TreeFileArtifact get() {
+    public TreeFileArtifact call() {
       return new TreeFileArtifact(parent, parentRelativePath, generatingActionKey);
     }
 

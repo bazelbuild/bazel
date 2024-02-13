@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArrayFully;
+import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +28,6 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /** {@link ObjectCodec} for {@link ImmutableSet} and other sets that should be immutable. */
 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -75,17 +74,17 @@ final class ImmutableSetCodec extends DeferredObjectCodec<Set> {
   }
 
   @Override
-  public Supplier<Set> deserializeDeferred(
+  public DeferredValue<Set> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int size = codedIn.readInt32();
 
     ElementBuffer buffer = new ElementBuffer(size);
-    deserializeObjectArrayFully(context, codedIn, buffer.elements, size);
+    deserializeObjectArray(context, codedIn, buffer.elements, size);
     return buffer;
   }
 
-  private static class ElementBuffer implements Supplier<Set> {
+  private static class ElementBuffer implements DeferredValue<Set> {
     private final Object[] elements;
 
     private ElementBuffer(int size) {
@@ -93,7 +92,7 @@ final class ImmutableSetCodec extends DeferredObjectCodec<Set> {
     }
 
     @Override
-    public ImmutableSet get() {
+    public ImmutableSet call() {
       return ImmutableSet.builderWithExpectedSize(elements.length).add(elements).build();
     }
   }

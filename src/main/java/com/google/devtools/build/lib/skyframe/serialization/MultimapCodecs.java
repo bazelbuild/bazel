@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
-import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArrayFully;
 import static sun.misc.Unsafe.ARRAY_OBJECT_BASE_OFFSET;
 import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
 
@@ -22,6 +21,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
-import java.util.function.Supplier;
 
 /**
  * Codecs for {@link Multimap}. Handles {@link ImmutableListMultimap}, {@link ImmutableSetMultimap}
@@ -53,7 +52,7 @@ public final class MultimapCodecs {
     }
 
     @Override
-    public Supplier<ImmutableListMultimap> deserializeDeferred(
+    public DeferredValue<ImmutableListMultimap> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       int size = codedIn.readInt32();
@@ -63,7 +62,7 @@ public final class MultimapCodecs {
 
       ImmutableListMultimapBuffer buffer = new ImmutableListMultimapBuffer(size);
       for (int i = 0; i < size; i++) {
-        context.deserializeFully(
+        context.deserialize(
             codedIn, buffer.keys, ARRAY_OBJECT_BASE_OFFSET + i * ARRAY_OBJECT_INDEX_SCALE);
         int valuesCount = codedIn.readInt32();
         Object[] values = new Object[valuesCount];
@@ -91,7 +90,7 @@ public final class MultimapCodecs {
     }
 
     @Override
-    public Supplier<ImmutableSetMultimap> deserializeDeferred(
+    public DeferredValue<ImmutableSetMultimap> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       int size = codedIn.readInt32();
@@ -120,7 +119,7 @@ public final class MultimapCodecs {
     }
 
     @Override
-    public Supplier<LinkedHashMultimap> deserializeDeferred(
+    public DeferredValue<LinkedHashMultimap> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       int size = codedIn.readInt32();
@@ -157,14 +156,14 @@ public final class MultimapCodecs {
       AsyncDeserializationContext context, CodedInputStream codedIn, MultimapBuffer buffer)
       throws SerializationException, IOException {
     for (int i = 0; i < buffer.size(); i++) {
-      context.deserializeFully(
+      context.deserialize(
           codedIn, buffer.keys, ARRAY_OBJECT_BASE_OFFSET + i * ARRAY_OBJECT_INDEX_SCALE);
 
       int valuesCount = codedIn.readInt32();
       Object[] values = new Object[valuesCount];
       buffer.values[i] = values;
       // The builder uses a set to collect the values so they must be complete.
-      deserializeObjectArrayFully(context, codedIn, values, valuesCount);
+      deserializeObjectArray(context, codedIn, values, valuesCount);
     }
   }
 
@@ -183,13 +182,13 @@ public final class MultimapCodecs {
   }
 
   private static class ImmutableListMultimapBuffer extends MultimapBuffer
-      implements Supplier<ImmutableListMultimap> {
+      implements DeferredValue<ImmutableListMultimap> {
     private ImmutableListMultimapBuffer(int size) {
       super(size);
     }
 
     @Override
-    public ImmutableListMultimap get() {
+    public ImmutableListMultimap call() {
       ImmutableListMultimap.Builder builder = ImmutableListMultimap.builder();
       for (int i = 0; i < size(); i++) {
         builder.putAll(keys[i], values[i]);
@@ -199,13 +198,13 @@ public final class MultimapCodecs {
   }
 
   private static class ImmutableSetMultimapBuffer extends MultimapBuffer
-      implements Supplier<ImmutableSetMultimap> {
+      implements DeferredValue<ImmutableSetMultimap> {
     private ImmutableSetMultimapBuffer(int size) {
       super(size);
     }
 
     @Override
-    public ImmutableSetMultimap get() {
+    public ImmutableSetMultimap call() {
       ImmutableSetMultimap.Builder builder = ImmutableSetMultimap.builder();
       for (int i = 0; i < size(); i++) {
         builder.putAll(keys[i], values[i]);
@@ -215,13 +214,13 @@ public final class MultimapCodecs {
   }
 
   private static class LinkedHashMultimapBuffer extends MultimapBuffer
-      implements Supplier<LinkedHashMultimap> {
+      implements DeferredValue<LinkedHashMultimap> {
     private LinkedHashMultimapBuffer(int size) {
       super(size);
     }
 
     @Override
-    public LinkedHashMultimap get() {
+    public LinkedHashMultimap call() {
       int totalValues = 0;
       for (int i = 0; i < size(); i++) {
         totalValues += values[i].length;
