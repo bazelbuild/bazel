@@ -135,4 +135,9 @@ def _module_repo_name(module):
     module_name = module["name"]
     if module_name in _WELL_KNOWN_MODULES:
         return module_name
+
+    # TODO(pcloudy): Simplify the following logic after we upgrade to 7.1
+    if get_canonical_repo_name("rules_cc").endswith("~"):
+        return "{}~".format(module_name)
+
     return "{}~{}".format(module_name, module["version"])
