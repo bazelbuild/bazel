@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -215,7 +216,7 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    *       <dd>only with Bzlmod if the current package belongs to a repository that is not visible
    *           from the main module
    */
-  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
+  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
     return repository.getDisplayForm(mainRepositoryMapping) + "//" + pkgName;
   }
 
