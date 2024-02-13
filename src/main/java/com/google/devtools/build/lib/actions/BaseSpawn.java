@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -76,33 +75,7 @@ public class BaseSpawn implements Spawn {
 
   @Override
   public ImmutableMap<String, String> getEnvironment() {
-    PathFragment runfilesRoot = getRunfilesRoot();
-    if (runfilesRoot == null
-        || (environment.containsKey("JAVA_RUNFILES")
-            && environment.containsKey("PYTHON_RUNFILES"))) {
-      return environment;
-    } else {
-      ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
-      // TODO(bazel-team): Unify these into a single env variable.
-      String runfilesRootString = runfilesRoot.getPathString();
-      env.put("JAVA_RUNFILES", runfilesRootString);
-      env.put("PYTHON_RUNFILES", runfilesRootString);
-      env.putAll(environment);
-      return env.buildKeepingLast();
-    }
-  }
-
-  /**
-   * @return the runfiles directory if there is only one, otherwise null
-   */
-  @Nullable
-  private PathFragment getRunfilesRoot() {
-    if (runfilesSupplier.getRunfilesTrees().size() != 1) {
-      return null;
-    }
-
-    return RunfilesSupplier.getExecPathForTree(
-        runfilesSupplier, runfilesSupplier.getRunfilesTrees().get(0));
+    return environment;
   }
 
   @Override
