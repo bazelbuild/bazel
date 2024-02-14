@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
@@ -383,6 +382,7 @@ public final class TreeArtifactValueTest {
 
     assertThat(children)
         .containsExactly(
+            Pair.of(PathFragment.create(""), Dirent.Type.DIRECTORY),
             Pair.of(PathFragment.create("a"), Dirent.Type.DIRECTORY),
             Pair.of(PathFragment.create("a/b"), Dirent.Type.DIRECTORY),
             Pair.of(PathFragment.create("file1"), Dirent.Type.FILE),
@@ -406,17 +406,13 @@ public final class TreeArtifactValueTest {
 
     Exception e =
         assertThrows(
-            IOException.class,
-            () ->
-                TreeArtifactValue.visitTree(
-                    treeDir, (child, type) -> fail("Should not be called")));
-    assertThat(e).hasMessageThat().contains("Could not determine type of file for ? under /tree");
+            IOException.class, () -> TreeArtifactValue.visitTree(treeDir, (child, type) -> {}));
+    assertThat(e).hasMessageThat().contains("Could not determine type of file for /tree/?");
   }
 
   @Test
   public void visitTree_propagatesIoExceptionFromVisitor() throws Exception {
     Path treeDir = scratch.dir("tree");
-    scratch.file("tree/file");
     IOException e = new IOException("From visitor");
 
     IOException thrown =
@@ -426,8 +422,6 @@ public final class TreeArtifactValueTest {
                 TreeArtifactValue.visitTree(
                     treeDir,
                     (child, type) -> {
-                      assertThat(child).isEqualTo(PathFragment.create("file"));
-                      assertThat(type).isEqualTo(Dirent.Type.FILE);
                       throw e;
                     }));
     assertThat(thrown).isSameInstanceAs(e);
@@ -451,6 +445,7 @@ public final class TreeArtifactValueTest {
 
     assertThat(children)
         .containsExactly(
+            Pair.of(PathFragment.create(""), Dirent.Type.DIRECTORY),
             Pair.of(PathFragment.create("file"), Dirent.Type.FILE),
             Pair.of(PathFragment.create("a"), Dirent.Type.DIRECTORY),
             Pair.of(PathFragment.create("a/up_link"), Dirent.Type.SYMLINK));
@@ -471,7 +466,9 @@ public final class TreeArtifactValueTest {
         });
 
     assertThat(children)
-        .containsExactly(Pair.of(PathFragment.create("absolute_link"), Dirent.Type.SYMLINK));
+        .containsExactly(
+            Pair.of(PathFragment.create(""), Dirent.Type.DIRECTORY),
+            Pair.of(PathFragment.create("absolute_link"), Dirent.Type.SYMLINK));
   }
 
   @Test
@@ -479,21 +476,7 @@ public final class TreeArtifactValueTest {
     Path treeDir = scratch.dir("tree");
     scratch.file("outside");
     scratch.resolve("tree/link").createSymbolicLink(PathFragment.create("../outside"));
-
-    Exception e =
-        assertThrows(
-            IOException.class,
-            () ->
-                TreeArtifactValue.visitTree(
-                    treeDir, (child, type) -> fail("Should not be called")));
-    assertThat(e).hasMessageThat().contains("/tree/link pointing to ../outside");
-  }
-
-  @Test
-  public void visitTree_throwsOnSymlinkTraversingOutsideThenBackInsideTree() throws Exception {
-    Path treeDir = scratch.dir("tree");
-    scratch.file("tree/file");
-    scratch.resolve("tree/link").createSymbolicLink(PathFragment.create("../tree/file"));
+    List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
 
     Exception e =
         assertThrows(
@@ -502,9 +485,36 @@ public final class TreeArtifactValueTest {
                 TreeArtifactValue.visitTree(
                     treeDir,
                     (child, type) -> {
-                      assertThat(child).isEqualTo(PathFragment.create("file"));
-                      assertThat(type).isEqualTo(Dirent.Type.FILE);
+                      synchronized (children) {
+                        children.add(Pair.of(child, type));
+                      }
                     }));
+    assertThat(children).containsExactly(Pair.of(PathFragment.create(""), Dirent.Type.DIRECTORY));
+    assertThat(e).hasMessageThat().contains("/tree/link pointing to ../outside");
+  }
+
+  @Test
+  public void visitTree_throwsOnSymlinkTraversingOutsideThenBackInsideTree() throws Exception {
+    Path treeDir = scratch.dir("tree");
+    scratch.file("tree/file");
+    scratch.resolve("tree/link").createSymbolicLink(PathFragment.create("../tree/file"));
+    List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
+
+    Exception e =
+        assertThrows(
+            IOException.class,
+            () ->
+                TreeArtifactValue.visitTree(
+                    treeDir,
+                    (child, type) -> {
+                      synchronized (children) {
+                        children.add(Pair.of(child, type));
+                      }
+                    }));
+    assertThat(children)
+        .containsExactly(
+            Pair.of(PathFragment.create(""), Dirent.Type.DIRECTORY),
+            Pair.of(PathFragment.create("file"), Dirent.Type.FILE));
     assertThat(e).hasMessageThat().contains("/tree/link pointing to ../tree/file");
   }
 
