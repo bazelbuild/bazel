@@ -283,10 +283,6 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       return TreeArtifactValue.MISSING_TREE_ARTIFACT;
     }
 
-    if (chmod) {
-      setPathPermissions(treeDir);
-    }
-
     AtomicBoolean anyRemote = new AtomicBoolean(false);
 
     TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);

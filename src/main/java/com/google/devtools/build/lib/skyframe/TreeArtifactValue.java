@@ -517,7 +517,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
 
     void run() throws IOException, InterruptedException {
-      execute(() -> visitTree(PathFragment.EMPTY_FRAGMENT));
+      execute(() -> visit(PathFragment.EMPTY_FRAGMENT, Dirent.Type.DIRECTORY));
       try {
         awaitQuiescence(true);
       } catch (IORuntimeException e) {
@@ -525,30 +525,25 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       }
     }
 
-    // IOExceptions are wrapped in IORuntimeException so that it can be propagated to the main
-    // thread
-    private void visitTree(PathFragment subdir) {
+    private void visit(PathFragment parentRelativePath, Dirent.Type type) {
       try {
-        for (Dirent dirent : parentDir.getRelative(subdir).readdir(Symlinks.NOFOLLOW)) {
-          PathFragment parentRelativePath = subdir.getChild(dirent.getName());
-          Dirent.Type type = dirent.getType();
+        Path path = parentDir.getRelative(parentRelativePath);
 
-          if (type == Dirent.Type.UNKNOWN) {
-            throw new IOException(
-                "Could not determine type of file for "
-                    + parentRelativePath
-                    + " under "
-                    + parentDir);
-          }
+        if (type == Dirent.Type.UNKNOWN) {
+          throw new IOException("Could not determine type of file for " + path.getPathString());
+        }
 
-          if (type == Dirent.Type.SYMLINK) {
-            checkSymlink(subdir, parentDir.getRelative(parentRelativePath));
-          }
+        if (type == Dirent.Type.SYMLINK) {
+          checkSymlink(parentRelativePath.getParentDirectory(), path);
+        }
 
-          visitor.visit(parentRelativePath, type);
+        visitor.visit(parentRelativePath, type);
 
-          if (type == Dirent.Type.DIRECTORY) {
-            execute(() -> visitTree(parentRelativePath));
+        if (type == Dirent.Type.DIRECTORY) {
+          for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
+            PathFragment childPath = parentRelativePath.getChild(dirent.getName());
+            Dirent.Type childType = dirent.getType();
+            execute(() -> visit(childPath, childType));
           }
         }
       } catch (IOException e) {
@@ -562,7 +557,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * Recursively visits all descendants under a directory.
    *
    * <p>{@link TreeArtifactVisitor#visit} is invoked on {@code visitor} for each directory, file,
-   * and symlink under the given {@code parentDir}.
+   * and symlink under the given {@code parentDir}, including {@code parentDir} itself.
    *
    * <p>This method is intended to provide uniform semantics for constructing a tree artifact,
    * including special logic that validates directory entries. Invalid directory entries include a
