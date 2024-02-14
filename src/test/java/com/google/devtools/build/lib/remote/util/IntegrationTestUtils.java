@@ -25,16 +25,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.IOException;
-import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.SocketException;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
-import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
@@ -48,41 +44,6 @@ public final class IntegrationTestUtils {
               + (OS.getCurrent() == OS.WINDOWS ? ".exe" : ""));
 
   private static final AtomicInteger WORKER_COUNTER = new AtomicInteger(0);
-
-  private static boolean isPortAvailable(int port) {
-    if (port < 1024 || port > 65535) {
-      return false;
-    }
-
-    try (ServerSocket ss = new ServerSocket(port)) {
-      ss.setReuseAddress(true);
-    } catch (IOException e) {
-      return false;
-    }
-
-    try (DatagramSocket ds = new DatagramSocket(port)) {
-      ds.setReuseAddress(true);
-    } catch (SocketException e) {
-      return false;
-    }
-
-    return true;
-  }
-
-  public static int pickUnusedRandomPort() throws IOException, InterruptedException {
-    Random rand = new Random();
-    for (int i = 0; i < 128; ++i) {
-      int port = rand.nextInt(64551) + 1024;
-      if (isPortAvailable(port)) {
-        return port;
-      }
-      if (Thread.interrupted()) {
-        throw new InterruptedException("interrupted");
-      }
-    }
-
-    throw new IOException("Failed to find available port");
-  }
 
   private static void waitForPortOpen(Subprocess process, int port)
       throws IOException, InterruptedException {
@@ -118,7 +79,7 @@ public final class IntegrationTestUtils {
     PathFragment stdPath = testTmpDir.getRelative("remote.std");
     PathFragment workPath = testTmpDir.getRelative("remote.work_path");
     PathFragment casPath = testTmpDir.getRelative("remote.cas_path");
-    int workerPort = pickUnusedRandomPort();
+    int workerPort = FreePortFinder.pickUnusedRandomPort();
     var worker =
         new WorkerInstance(WORKER_COUNTER, useHttp, workerPort, stdPath, workPath, casPath);
     worker.start();
