@@ -1926,4 +1926,23 @@ EOF
   bazel build //pkg:a >& $TEST_log || fail "build failed"
 }
 
+function test_sandboxed_multiplexing() {
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+java_library(name = "a", srcs = ["A.java"], deps = [":b"])
+java_library(name = "b", srcs = ["B.java"])
+EOF
+  cat << 'EOF' > pkg/A.java
+public class A extends B {}
+EOF
+  cat << 'EOF' > pkg/B.java
+public class B {}
+EOF
+
+  bazel build //pkg:a \
+    --experimental_worker_multiplex_sandboxing \
+    --modify_execution_info=Javac=+supports-multiplex-sandboxing \
+    >& $TEST_log || fail "build failed"
+}
+
 run_suite "Java integration tests"
