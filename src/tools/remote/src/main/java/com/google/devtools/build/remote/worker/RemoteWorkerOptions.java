@@ -15,7 +15,6 @@
 package com.google.devtools.build.remote.worker;
 
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -192,16 +191,13 @@ public class RemoteWorkerOptions extends OptionsBase {
    * Converter for jobs. Takes {@value FLAG_SYNTAX}. Values must be between 1 and {@value MAX_JOBS}.
    * Values higher than {@value MAX_JOBS} will be set to {@value MAX_JOBS}.
    */
-  public static class JobsConverter extends ResourceConverter {
+  public static class JobsConverter extends ResourceConverter.IntegerConverter {
     public JobsConverter() {
-      super(
-          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          1,
-          MAX_JOBS);
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 1, /* maxValue= */ MAX_JOBS);
     }
 
     @Override
-    public int checkAndLimit(int value) throws OptionsParsingException {
+    public Integer checkAndLimit(Integer value) throws OptionsParsingException {
       if (value < minValue) {
         throw new OptionsParsingException(
             String.format("Value '(%d)' must be at least %d.", value, minValue));
