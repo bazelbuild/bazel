@@ -33,6 +33,8 @@ import javax.annotation.Nullable;
  * able to reuse things common for that mnemonic, e.g. standard libraries.
  */
 public class SandboxStash {
+
+  public static final String SANDBOX_STASH_BASE = "sandbox_stash";
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An incrementing count of stashes to avoid filename clashes. */
@@ -49,11 +51,11 @@ public class SandboxStash {
 
   private static SandboxStash instance;
   private final String workspaceName;
-  private final Path outputBase;
+  private final Path sandboxBase;
 
-  public SandboxStash(String workspaceName, Path outputBase) {
+  public SandboxStash(String workspaceName, Path sandboxBase) {
     this.workspaceName = workspaceName;
-    this.outputBase = outputBase;
+    this.sandboxBase = sandboxBase;
   }
 
   static boolean takeStashedSandbox(Path sandboxPath, String mnemonic) {
@@ -140,7 +142,7 @@ public class SandboxStash {
    */
   @Nullable
   private Path getSandboxStashDir(String mnemonic, FileSystem fileSystem) {
-    Path stashDir = getStashBase(fileSystem.getPath(this.outputBase.getPathString()));
+    Path stashDir = getStashBase(fileSystem.getPath(this.sandboxBase.getPathString()));
     try {
       stashDir.createDirectory();
       if (!maybeClearExistingStash(stashDir)) {
@@ -162,8 +164,8 @@ public class SandboxStash {
     }
   }
 
-  private static Path getStashBase(Path outputBase1) {
-    return outputBase1.getChild("sandbox_stash");
+  private static Path getStashBase(Path sandboxBase) {
+    return sandboxBase.getChild(SANDBOX_STASH_BASE);
   }
 
   /**
@@ -201,7 +203,7 @@ public class SandboxStash {
       if (instance == null) {
         instance = new SandboxStash(workspaceName, sandboxBase);
       } else if (!Objects.equals(workspaceName, instance.workspaceName)) {
-        Path stashBase = getStashBase(instance.outputBase);
+        Path stashBase = getStashBase(instance.sandboxBase);
         try {
           for (Path directoryEntry : stashBase.getDirectoryEntries()) {
             directoryEntry.deleteTree();
@@ -218,8 +220,8 @@ public class SandboxStash {
   }
 
   /** Cleans up the entire current stash, if any. Cleaning may be asynchronous. */
-  static void clean(TreeDeleter treeDeleter, Path outputBase) {
-    Path stashDir = getStashBase(outputBase);
+  static void clean(TreeDeleter treeDeleter, Path sandboxBase) {
+    Path stashDir = getStashBase(sandboxBase);
     if (!stashDir.isDirectory()) {
       return;
     }
