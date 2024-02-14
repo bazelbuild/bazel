@@ -64,8 +64,7 @@ import java.util.Set;
     shortDescription = "Executes a dependency graph query.",
     allowResidue = true,
     binaryStdOut = true,
-    completion = "label",
-    canRunInOutputDirectory = true)
+    completion = "label")
 public final class QueryCommand extends QueryEnvironmentBasedCommand {
 
   @Override

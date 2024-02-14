@@ -114,13 +114,6 @@ public @interface Command {
   boolean mustRunInWorkspace() default true;
 
   /**
-   * Returns true iff this command is allowed to run in the output directory,
-   * i.e. $OUTPUT_BASE/_blaze_$USER/$MD5/... . No command should be allowed to run here,
-   * but there are some legacy uses of 'blaze query'.
-   */
-  boolean canRunInOutputDirectory() default false;
-
-  /**
    * Returns the type completion help for this command, that is the type arguments that this command
    * expects. It can be a whitespace separated list if the command take several arguments. The type
    * of each arguments can be <code>label</code>, <code>path</code>, <code>string</code>, ... It can
