@@ -261,13 +261,16 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
 
   @Override
   public boolean verifyRecordedInputs(
-      Rule rule, Map<RepoRecordedInput, String> recordedInputValues, Environment env)
+      Rule rule,
+      BlazeDirectories directories,
+      Map<RepoRecordedInput, String> recordedInputValues,
+      Environment env)
       throws InterruptedException {
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       return true;
     }
-    return super.verifyRecordedInputs(rule, recordedInputValues, env);
+    return super.verifyRecordedInputs(rule, directories, recordedInputValues, env);
   }
 
   @Override

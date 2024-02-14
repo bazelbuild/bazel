@@ -18,6 +18,7 @@ import com.github.difflib.patch.PatchFailedException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
@@ -74,7 +75,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final Rule rule;
   private final RepositoryName repoName;
   private final PathPackageLocator packageLocator;
-  private final Path workspaceRoot;
   private final StructImpl attrObject;
   private final ImmutableSet<PathFragment> ignoredPatterns;
   private final SyscallCache syscallCache;
@@ -96,23 +96,24 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       SyscallCache syscallCache,
-      Path workspaceRoot)
+      BlazeDirectories directories)
       throws EvalException {
     super(
         outputDirectory,
+        directories,
         environment,
         env,
         downloadManager,
         timeoutScaling,
         processWrapper,
         starlarkSemantics,
-        remoteExecutor);
+        remoteExecutor,
+        /* allowWatchingFilesOutsideWorkspace= */ true);
     this.rule = rule;
     this.repoName = RepositoryName.createUnvalidated(rule.getName());
     this.packageLocator = packageLocator;
     this.ignoredPatterns = ignoredPatterns;
     this.syscallCache = syscallCache;
-    this.workspaceRoot = workspaceRoot;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
@@ -143,7 +144,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       structField = true,
       doc = "The path to the root workspace of the bazel invocation.")
   public StarlarkPath getWorkspaceRoot() {
-    return new StarlarkPath(workspaceRoot);
+    return new StarlarkPath(directories.getWorkspace());
   }
 
   @StarlarkMethod(

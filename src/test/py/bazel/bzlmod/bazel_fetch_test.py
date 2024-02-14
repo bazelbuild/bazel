@@ -234,7 +234,7 @@ class BazelFetchTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    file_content = ctx.read("' + file_path + '").strip()',
+            '    file_content = ctx.read("' + file_path + '", watch="no")',
             '    print(file_content)',
             '    ctx.file("BUILD")',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',

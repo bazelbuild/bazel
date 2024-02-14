@@ -147,9 +147,11 @@ public class NewRepositoryFileHandler {
         // Link x/FILENAME to <build_root>/x.FILENAME.
         symlinkFile(fileValue, filename, outputDirectory);
         try {
+          Label label = getFileAttributeAsLabel(rule);
           recordedInputValues.put(
-              new RepoRecordedInput.LabelFile(getFileAttributeAsLabel(rule)),
-              RepositoryFunction.fileValueToMarkerValue(fileValue));
+              new RepoRecordedInput.FileInsideWorkspace(
+                  label.getRepository(), label.toPathFragment()),
+              RepoRecordedInput.File.fileValueToMarkerValue(fileValue));
         } catch (IOException e) {
           throw new RepositoryFunctionException(e, Transience.TRANSIENT);
         }
