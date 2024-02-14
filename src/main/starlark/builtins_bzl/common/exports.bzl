@@ -23,7 +23,7 @@ load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 load("@_builtins//:common/cc/cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
 load("@_builtins//:common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
-load("@_builtins//:common/cc/cc_toolchain.bzl", "apple_cc_toolchain", "cc_toolchain")
+load("@_builtins//:common/cc/cc_toolchain.bzl", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
@@ -86,7 +86,6 @@ exported_rules = {
     "py_runtime": py_runtime,
     "cc_toolchain_alias": cc_toolchain_alias,
     "cc_toolchain": cc_toolchain,
-    "apple_cc_toolchain": apple_cc_toolchain,
     "java_package_configuration": java_package_configuration,
     "java_toolchain": java_toolchain,
     "java_runtime": java_runtime,

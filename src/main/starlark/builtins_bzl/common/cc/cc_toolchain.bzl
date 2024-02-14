@@ -21,7 +21,6 @@ load(":common/cc/fdo_profile.bzl", "FdoProfileInfo")
 load(":common/cc/memprof_profile.bzl", "MemProfProfileInfo")
 load(":common/cc/propeller_optimize.bzl", "PropellerOptimizeInfo")
 load(":common/cc/semantics.bzl", "semantics")
-load(":common/objc/apple_common.bzl", "apple_common")
 
 cc_internal = _builtins.internal.cc_internal
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
@@ -45,13 +44,11 @@ def _latebound_libc(ctx, attr_name, implicit_attr_name):
         return attr_name
     return implicit_attr_name
 
-def _full_inputs_for_link(ctx, linker_files, libc, is_apple_toolchain):
-    if not is_apple_toolchain:
-        return depset(
-            [ctx.file._interface_library_builder, ctx.file._link_dynamic_library_tool],
-            transitive = [linker_files, libc],
-        )
-    return depset(transitive = [linker_files, libc])
+def _full_inputs_for_link(ctx, linker_files, libc):
+    return depset(
+        [ctx.file._interface_library_builder, ctx.file._link_dynamic_library_tool],
+        transitive = [linker_files, libc],
+    )
 
 def _label(ctx, attr_name):
     if getattr(ctx.attr, attr_name, None) != None:
@@ -75,7 +72,7 @@ def _single_file(ctx, attr_name):
         return files[0]
     return None
 
-def _attributes(ctx, is_apple):
+def _attributes(ctx):
     grep_includes = None
     if not semantics.is_bazel:
         grep_includes = _single_file(ctx, "_grep_includes")
@@ -118,7 +115,6 @@ def _attributes(ctx, is_apple):
             ctx,
             _files(ctx, "linker_files"),
             _files(ctx, latebound_libc),
-            is_apple,
         ),
         cc_toolchain_label = ctx.label,
         coverage_files = _files(ctx, "coverage_files") or all_files,
@@ -133,15 +129,12 @@ def _attributes(ctx, is_apple):
     )
 
 def _cc_toolchain_impl(ctx):
-    xcode_config_info = None
-    if hasattr(ctx.attr, "_xcode_config"):
-        xcode_config_info = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
-    attributes = _attributes(ctx, hasattr(ctx.attr, "_xcode_config"))
+    attributes = _attributes(ctx)
     providers = []
     if attributes.licenses_provider != None:
         providers.append(attributes.licenses_provider)
 
-    cc_toolchain = get_cc_toolchain_provider(ctx, attributes, xcode_config_info)
+    cc_toolchain = get_cc_toolchain_provider(ctx, attributes)
     if cc_toolchain == None:
         fail("This should never happen")
     template_variable_info = TemplateVariableInfo(
@@ -294,26 +287,6 @@ cc_toolchain = rule(
         "_build_info_translator": attr.label(
             default = semantics.BUILD_INFO_TRANLATOR_LABEL,
             providers = [OutputGroupInfo],
-        ),
-    },
-)
-
-def _apple_cc_toolchain_impl(ctx):
-    if ctx.attr._xcode_config[apple_common.XcodeVersionConfig].xcode_version() == None:
-        fail("Xcode version must be specified to use an Apple CROSSTOOL. If your Xcode version has " +
-             "changed recently, verify that \"xcode-select -p\" is correct and then try: " +
-             "\"bazel shutdown\" to re-run Xcode configuration")
-    return ctx.super()
-
-apple_cc_toolchain = rule(
-    implementation = _apple_cc_toolchain_impl,
-    parent = cc_toolchain,
-    fragments = ["apple"],
-    attrs = {
-        "_xcode_config": attr.label(
-            default = configuration_field(fragment = "apple", name = "xcode_config_label"),
-            allow_rules = ["xcode_config"],
-            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
     },
 )

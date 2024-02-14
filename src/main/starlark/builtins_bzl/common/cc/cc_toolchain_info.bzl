@@ -75,7 +75,6 @@ def _create_cc_toolchain_info(
         default_sysroot,
         builtin_include_files,
         build_variables,
-        xcode_config_info,
         cc_info,
         all_files,
         all_files_including_libc,
@@ -152,7 +151,6 @@ def _create_cc_toolchain_info(
         _compiler_files_without_includes = compiler_files_without_includes,
         _build_variables = build_variables,
         _allowlist_for_layering_check = allowlist_for_layering_check,
-        _xcode_config_info = xcode_config_info,
         _cc_info = cc_info,
         _objcopy_files = objcopy_files,
     )
@@ -228,7 +226,6 @@ CcToolchainInfo, _ = provider(
         "_crosstool_top_path": "INTERNAL API, DO NOT USE!",
         "_build_info_files": "INTERNAL API, DO NOT USE!",
         "_build_variables": "INTERNAL API, DO NOT USE!",
-        "_xcode_config_info": "INTERNAL API, DO NOT USE!",
         # Fields still used by native code - will be used by Starlark in the future.
         "_supports_header_parsing": "INTERNAL API, DO NOT USE!",
         "_supports_param_files": "INTERNAL API, DO NOT USE!",

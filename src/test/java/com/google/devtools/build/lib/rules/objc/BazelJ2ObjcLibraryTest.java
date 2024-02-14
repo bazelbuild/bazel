@@ -1313,7 +1313,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add("-fobjc-abi-version=2")
             .add("-fobjc-legacy-dispatch")
             .add("-DOS_IOS")
-            .add("-mios-simulator-version-min=1.0")
             .add("-arch", "i386")
             .add("-isysroot")
             .add(AppleToolchain.sdkDir())

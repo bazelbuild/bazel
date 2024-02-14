@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AvailableXcodesRule;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.objc.AppleCcToolchainRule;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleToolchain;
 import com.google.devtools.build.lib.rules.objc.BazelXcodeConfig;
@@ -53,7 +52,6 @@ public class ObjcRules implements RuleSet {
     builder.addConfigurationFragment(J2ObjcConfiguration.class);
     builder.addRuleDefinition(new EmptyRule("j2objc_library") {});
 
-    builder.addRuleDefinition(new AppleCcToolchainRule());
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
     builder.addRuleDefinition(new EmptyRule("objc_import") {});
     builder.addRuleDefinition(new EmptyRule("objc_library") {});

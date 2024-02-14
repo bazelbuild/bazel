@@ -663,7 +663,7 @@ public final class Crosstool {
       }
 
       crosstoolBuild.add(
-          "apple_cc_toolchain(",
+          "cc_toolchain(",
           "    name = 'cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
           "    toolchain_identifier = '" + toolchainConfig.getTargetCpu() + "',",
           "    toolchain_config = ':"
