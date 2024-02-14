@@ -33,14 +33,19 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.Dirents;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
+import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -48,6 +53,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -108,7 +114,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         processWrapper,
         starlarkSemantics,
         remoteExecutor,
-        /* allowWatchingFilesOutsideWorkspace= */ true);
+        /* allowWatchingPathsOutsideWorkspace= */ true);
     this.rule = rule;
     this.repoName = RepositoryName.createUnvalidated(rule.getName());
     this.packageLocator = packageLocator;
@@ -144,7 +150,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       structField = true,
       doc = "The path to the root workspace of the bazel invocation.")
   public StarlarkPath getWorkspaceRoot() {
-    return new StarlarkPath(directories.getWorkspace());
+    return new StarlarkPath(this, directories.getWorkspace());
   }
 
   @StarlarkMethod(

@@ -72,7 +72,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         processWrapper,
         starlarkSemantics,
         remoteExecutor,
-        /* allowWatchingFilesOutsideWorkspace= */ false);
+        /* allowWatchingPathsOutsideWorkspace= */ false);
     this.extensionId = extensionId;
     this.modules = modules;
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;

@@ -479,7 +479,7 @@ public final class StarlarkRepositoryContextTest {
     scratch.file("/my/folder/a");
     scratch.file("/my/folder/b");
     scratch.file("/my/folder/c");
-    assertThat(context.path("/my/folder").readdir()).containsExactly(
+    assertThat(context.path("/my/folder").readdir("no")).containsExactly(
         context.path("/my/folder/a"), context.path("/my/folder/b"), context.path("/my/folder/c"));
   }
 

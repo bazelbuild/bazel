@@ -149,8 +149,9 @@ public class NewRepositoryFileHandler {
         try {
           Label label = getFileAttributeAsLabel(rule);
           recordedInputValues.put(
-              new RepoRecordedInput.FileInsideWorkspace(
-                  label.getRepository(), label.toPathFragment()),
+              new RepoRecordedInput.File(
+                  RepoRecordedInput.RepoCacheFriendlyPath.createInsideWorkspace(
+                      label.getRepository(), label.toPathFragment())),
               RepoRecordedInput.File.fileValueToMarkerValue(fileValue));
         } catch (IOException e) {
           throw new RepositoryFunctionException(e, Transience.TRANSIENT);
