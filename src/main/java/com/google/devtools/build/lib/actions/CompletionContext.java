@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collection;
 import java.util.Map;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -114,6 +116,31 @@ public class CompletionContext {
     return importantInputMap.getInputMetadata(artifact);
   }
 
+  /** Returns the expansion of the given artifacts. */
+  public ImmutableList<? extends ActionInput> expand(Collection<Artifact> artifacts) {
+    ImmutableList.Builder<ActionInput> expansion = ImmutableList.builder();
+    visitArtifacts(artifacts, actionInputReceiver(expansion::add));
+    return expansion.build();
+  }
+
+  /** Returns owner mappings for artifact expansions contained in {@code inputsOfInterest}. */
+  public ActionInputDepOwners getDepOwners(Collection<ActionInput> inputsOfInterest) {
+    ActionInputDepOwnerMap depOwners = new ActionInputDepOwnerMap(inputsOfInterest);
+    expandedArtifacts.forEach(
+        (tree, children) -> {
+          for (Artifact child : children) {
+            depOwners.addOwner(child, tree);
+          }
+        });
+    if (expandFilesets) {
+      for (Artifact fileset : expandedFilesets.keySet()) {
+        visitFileset(fileset, actionInputReceiver(input -> depOwners.addOwner(input, fileset)));
+      }
+    }
+    return depOwners;
+  }
+
+  /** Visits the expansion of the given artifacts. */
   public void visitArtifacts(Iterable<Artifact> artifacts, ArtifactReceiver receiver) {
     for (Artifact artifact : artifacts) {
       if (artifact.isMiddlemanArtifact()) {
@@ -121,12 +148,7 @@ public class CompletionContext {
       }
       if (artifact.isFileset()) {
         if (expandFilesets) {
-          visitFileset(
-              artifact,
-              receiver,
-              fullyResolveFilesetLinks
-                  ? RelativeSymlinkBehaviorWithoutError.RESOLVE_FULLY
-                  : RelativeSymlinkBehaviorWithoutError.RESOLVE);
+          visitFileset(artifact, receiver);
         }
       } else if (artifact.isTreeArtifact()) {
         FileArtifactValue treeArtifactMetadata = importantInputMap.getInputMetadata(artifact);
@@ -141,13 +163,11 @@ public class CompletionContext {
           // Expansion can be missing for omitted tree artifacts -- skip the whole tree.
           continue;
         }
-        ImmutableCollection<? extends Artifact> expandedArtifacts =
-            checkNotNull(
-                this.expandedArtifacts.get(artifact),
-                "Missing expansion for tree artifact: %s",
-                artifact);
         for (Artifact expandedArtifact :
-            checkNotNull(expandedArtifacts, "Missing expansion for tree artifact: %s", artifact)) {
+            checkNotNull(
+                expandedArtifacts.get(artifact),
+                "Missing expansion for tree artifact: %s",
+                artifact)) {
           receiver.accept(expandedArtifact);
         }
       } else {
@@ -156,14 +176,15 @@ public class CompletionContext {
     }
   }
 
-  private void visitFileset(
-      Artifact filesetArtifact,
-      ArtifactReceiver receiver,
-      RelativeSymlinkBehaviorWithoutError relativeSymlinkBehavior) {
+  private void visitFileset(Artifact filesetArtifact, ArtifactReceiver receiver) {
     ImmutableList<FilesetOutputSymlink> links = expandedFilesets.get(filesetArtifact);
     FilesetManifest filesetManifest =
         FilesetManifest.constructFilesetManifestWithoutError(
-            links, PathFragment.EMPTY_FRAGMENT, relativeSymlinkBehavior);
+            links,
+            PathFragment.EMPTY_FRAGMENT,
+            fullyResolveFilesetLinks
+                ? RelativeSymlinkBehaviorWithoutError.RESOLVE_FULLY
+                : RelativeSymlinkBehaviorWithoutError.RESOLVE);
 
     for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
       String targetFile = mapping.getValue();
@@ -178,6 +199,21 @@ public class CompletionContext {
     void accept(Artifact artifact);
 
     void acceptFilesetMapping(Artifact fileset, PathFragment relName, Path targetFile);
+  }
+
+  /** Adapts a {@code Consumer<ActionInput>} to an {@link ArtifactReceiver}. */
+  private static ArtifactReceiver actionInputReceiver(Consumer<ActionInput> consumer) {
+    return new ArtifactReceiver() {
+      @Override
+      public void accept(Artifact artifact) {
+        consumer.accept(artifact);
+      }
+
+      @Override
+      public void acceptFilesetMapping(Artifact fileset, PathFragment relName, Path targetFile) {
+        consumer.accept(ActionInputHelper.fromPath(targetFile.asFragment()));
+      }
+    };
   }
 
   /** A factory for {@link ArtifactPathResolver}. */
