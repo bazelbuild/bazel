@@ -461,7 +461,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    exec_groups = {",
         "        'j2objc': exec_group()",
         "    },",
-        "    fragments = ['apple', 'objc', 'cpp',],",
+        "    fragments = ['apple', 'objc', 'cpp', 'j2objc'],",
         ")");
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",

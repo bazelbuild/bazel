@@ -18,6 +18,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a utility module involving the Apple toolchain. */
@@ -48,5 +49,5 @@ public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigura
             named = false,
             doc = "The apple configuration fragment.")
       })
-  String platformFrameworkDirFromConfig(AppleConfigurationApiT configuration);
+  String platformFrameworkDirFromConfig(AppleConfigurationApiT configuration) throws EvalException;
 }
