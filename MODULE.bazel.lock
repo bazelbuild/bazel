@@ -9008,7 +9008,7 @@
         ]
       },
       "os:linux,arch:amd64": {
-        "bzlTransitiveDigest": "HvNJw9DRhW6hcHWnCfzgfEH8JNCp1PMvu52eKFU5MlM=",
+        "bzlTransitiveDigest": "fw05y6IIQALgJ+ozxZMUz7LiAM8K7GaxCr/ddS6XHSw=",
         "accumulatedFileDigests": {
           "@@//:requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
