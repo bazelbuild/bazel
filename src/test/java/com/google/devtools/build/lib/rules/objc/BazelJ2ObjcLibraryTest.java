@@ -1307,7 +1307,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     String commandLine = Joiner.on(" ").join(compileAction.getArguments());
     ImmutableList<String> expectedArgs =
         new ImmutableList.Builder<String>()
-            .addAll(AppleToolchain.DEFAULT_WARNINGS.values())
             .add("-fexceptions")
             .add("-fasm-blocks")
             .add("-fobjc-abi-version=2")

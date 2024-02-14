@@ -1311,7 +1311,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1343,7 +1342,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1375,7 +1373,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1407,7 +1404,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1439,7 +1435,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1471,7 +1466,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1503,7 +1497,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1536,7 +1529,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1569,7 +1561,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1602,7 +1593,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1635,7 +1625,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1668,7 +1657,6 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1705,7 +1693,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1739,7 +1726,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1773,7 +1759,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1807,7 +1792,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1841,7 +1825,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1875,7 +1858,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1909,7 +1891,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1944,7 +1925,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -1979,7 +1959,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -2014,7 +1993,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -2049,7 +2027,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -2084,7 +2061,6 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
@@ -7133,34 +7109,6 @@ def _impl(ctx):
 
     no_generate_debug_symbols_feature = feature(name = "no_generate_debug_symbols")
 
-    apply_default_warnings_feature = feature(
-        name = "apply_default_warnings",
-        flag_sets = [
-            flag_set(
-                actions = [ACTION_NAMES.objc_compile, ACTION_NAMES.objcpp_compile],
-                flag_groups = [
-                    flag_group(
-                        flags = [
-                            "-Wshorten-64-to-32",
-                            "-Wbool-conversion",
-                            "-Wconstant-conversion",
-                            "-Wduplicate-method-match",
-                            "-Wempty-body",
-                            "-Wenum-conversion",
-                            "-Wint-conversion",
-                            "-Wunreachable-code",
-                            "-Wmismatched-return-types",
-                            "-Wundeclared-selector",
-                            "-Wuninitialized",
-                            "-Wunused-function",
-                            "-Wunused-variable",
-                        ],
-                    ),
-                ],
-            ),
-        ],
-    )
-
     preprocessor_defines_feature = feature(
         name = "preprocessor_defines",
         enabled = True,
@@ -7255,7 +7203,6 @@ def _impl(ctx):
         force_pic_flags_feature,
         pch_feature,
         module_maps_feature,
-        apply_default_warnings_feature,
         preprocessor_defines_feature,
         framework_paths_feature,
         apply_default_compiler_flags_feature,

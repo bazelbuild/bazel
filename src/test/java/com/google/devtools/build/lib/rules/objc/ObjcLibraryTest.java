@@ -506,8 +506,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
         .inOrder();
     assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(AppleToolchain.DEFAULT_WARNINGS.values());
-    assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
@@ -548,8 +546,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments())
         .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
         .inOrder();
-    assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(AppleToolchain.DEFAULT_WARNINGS.values());
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
     assertThat(compileActionA.getArguments())
@@ -1133,7 +1129,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(removeConfigFragment(compileActionA.getArguments()))
         .containsAtLeastElementsIn(
             new ImmutableList.Builder<String>()
-                .addAll(AppleToolchain.DEFAULT_WARNINGS.values())
                 .add("-fexceptions")
                 .add("-fasm-blocks")
                 .add("-fobjc-abi-version=2")

@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
-import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
 import java.io.Serializable;
 
@@ -52,28 +50,6 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
   public static final String DEVELOPER_FRAMEWORK_PATH = "/Developer/Library/Frameworks";
   @VisibleForTesting
   public static final String SYSTEM_FRAMEWORK_PATH = "/System/Library/Frameworks";
-
-  // There is a handy reference to many clang warning flags at
-  // http://nshipster.com/clang-diagnostics/
-  // There is also a useful narrative for many Xcode settings at
-  // http://www.xs-labs.com/en/blog/2011/02/04/xcode-build-settings/
-  public static final ImmutableMap<String, String> DEFAULT_WARNINGS =
-      new ImmutableMap.Builder<String, String>()
-          .put("GCC_WARN_64_TO_32_BIT_CONVERSION", "-Wshorten-64-to-32")
-          .put("CLANG_WARN_BOOL_CONVERSION", "-Wbool-conversion")
-          .put("CLANG_WARN_CONSTANT_CONVERSION", "-Wconstant-conversion")
-          // Double-underscores are intentional - thanks Xcode.
-          .put("CLANG_WARN__DUPLICATE_METHOD_MATCH", "-Wduplicate-method-match")
-          .put("CLANG_WARN_EMPTY_BODY", "-Wempty-body")
-          .put("CLANG_WARN_ENUM_CONVERSION", "-Wenum-conversion")
-          .put("CLANG_WARN_INT_CONVERSION", "-Wint-conversion")
-          .put("CLANG_WARN_UNREACHABLE_CODE", "-Wunreachable-code")
-          .put("GCC_WARN_ABOUT_RETURN_TYPE", "-Wmismatched-return-types")
-          .put("GCC_WARN_UNDECLARED_SELECTOR", "-Wundeclared-selector")
-          .put("GCC_WARN_UNINITIALIZED_AUTOS", "-Wuninitialized")
-          .put("GCC_WARN_UNUSED_FUNCTION", "-Wunused-function")
-          .put("GCC_WARN_UNUSED_VARIABLE", "-Wunused-variable")
-          .build();
 
   /** Returns the platform directory inside of Xcode for a platform name. */
   public static String platformDir(String platformName) {
@@ -100,37 +76,6 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
   public static String platformDeveloperFrameworkDir(ApplePlatform platform) {
     String platformDir = platformDir(platform.getNameInPlist());
     return platformDir + "/Developer/Library/Frameworks";
-  }
-
-  /** Returns the SDK frameworks directory inside of Xcode for a given configuration. */
-  public static String sdkFrameworkDir(ApplePlatform targetPlatform, XcodeConfigInfo xcodeConfig) {
-    String relativePath;
-    switch (targetPlatform) {
-      case IOS_DEVICE:
-      case IOS_SIMULATOR:
-        if (xcodeConfig
-                .getSdkVersionForPlatform(targetPlatform)
-                .compareTo(DottedVersion.fromStringUnchecked("9.0"))
-            >= 0) {
-          relativePath = SYSTEM_FRAMEWORK_PATH;
-        } else {
-          relativePath = DEVELOPER_FRAMEWORK_PATH;
-        }
-        break;
-      case MACOS:
-      case VISIONOS_DEVICE:
-      case VISIONOS_SIMULATOR:
-      case WATCHOS_DEVICE:
-      case WATCHOS_SIMULATOR:
-      case TVOS_DEVICE:
-      case TVOS_SIMULATOR:
-      case CATALYST:
-        relativePath = SYSTEM_FRAMEWORK_PATH;
-        break;
-      default:
-        throw new IllegalArgumentException("Unhandled platform " + targetPlatform);
-    }
-    return sdkDir() + relativePath;
   }
 
   /** The default label of the build-wide {@code xcode_config} configuration rule. */
