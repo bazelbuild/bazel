@@ -141,7 +141,8 @@ public class JavaStarlarkCommon
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(sourceFiles.toList(Artifact.class))
             .addDirectJars(directJars.getSet(Artifact.class))
-            .addCompileTimeClassPathEntries(compileTimeClasspath.getSet(Artifact.class))
+            .setCompileTimeClassPathEntriesWithPrependedDirectJars(
+                compileTimeClasspath.getSet(Artifact.class))
             .setStrictJavaDeps(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)))
             .setTargetLabel(targetLabel)
             .setInjectingRuleKind(
@@ -214,7 +215,8 @@ public class JavaStarlarkCommon
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(Depset.noneableCast(sourceFiles, Artifact.class, "sources").toList())
             .addDirectJars(directJars.getSet(Artifact.class))
-            .addCompileTimeClassPathEntries(compileTimeClasspath.getSet(Artifact.class))
+            .setCompileTimeClassPathEntriesWithPrependedDirectJars(
+                compileTimeClasspath.getSet(Artifact.class))
             .addClassPathResources(
                 Sequence.cast(classpathResources, Artifact.class, "classpath_resources"))
             .setStrictJavaDeps(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)))
