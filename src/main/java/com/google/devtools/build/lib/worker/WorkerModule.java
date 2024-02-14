@@ -111,7 +111,7 @@ public class WorkerModule extends BlazeModule {
     } else {
       workerSandboxOptions = null;
     }
-    Path trashBase = workerDir.getRelative("_moved_trash_dir");
+    Path trashBase = workerDir.getRelative(AsynchronousTreeDeleter.MOVED_TRASH_DIR);
     if (treeDeleter == null) {
       treeDeleter = new AsynchronousTreeDeleter(trashBase);
     }
