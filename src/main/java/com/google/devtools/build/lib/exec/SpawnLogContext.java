@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -172,14 +173,13 @@ public abstract class SpawnLogContext implements ActionContext {
       }
     }
 
-    long fileSize = path.getFileSize();
-
-    // Try to obtain a digest from the filesystem.
+    // Obtain a digest from the filesystem.
+    FileStatus status = path.stat();
     return builder
         .setHash(
-            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, xattrProvider))
+            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, xattrProvider, status))
                 .toString())
-        .setSizeBytes(fileSize)
+        .setSizeBytes(status.getSize())
         .build();
   }
 

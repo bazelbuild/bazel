@@ -19,6 +19,7 @@ import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Longs;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Utility class for getting digests of files.
@@ -159,27 +160,57 @@ public class DigestUtils {
    * <p>If {@link Path#getFastDigest} has already been attempted and was not available, call {@link
    * #manuallyComputeDigest} to skip an additional attempt to obtain the fast digest.
    *
-   * @param path Path of the file.
+   * <p>Prefer calling {@link #manuallyComputeDigest(Path, FileStatus)} when a recently obtained
+   * {@link FileStatus} is available.
+   *
+   * @param path the file path
    */
   public static byte[] getDigestWithManualFallback(Path path, XattrProvider xattrProvider)
       throws IOException {
-    byte[] digest = xattrProvider.getFastDigest(path);
-    return digest != null ? digest : manuallyComputeDigest(path);
+    return getDigestWithManualFallback(path, xattrProvider, null);
   }
 
   /**
-   * Calculates the digest manually.
+   * Same as {@link #getDigestWithManualFallback(Path, XattrProvider)}, but providing the ability to
+   * reuse a recently obtained {@link FileStatus}.
    *
-   * @param path Path of the file.
+   * @param path the file path
+   * @param status a recently obtained file status, if available
+   */
+  public static byte[] getDigestWithManualFallback(
+      Path path, XattrProvider xattrProvider, @Nullable FileStatus status) throws IOException {
+    byte[] digest = xattrProvider.getFastDigest(path);
+    return digest != null ? digest : manuallyComputeDigest(path, status);
+  }
+
+  /**
+   * Calculates a digest manually (i.e., assuming that a fast digest can't obtained).
+   *
+   * <p>Prefer calling {@link #manuallyComputeDigest(Path, FileStatus)} when a recently obtained
+   * {@link FileStatus} is available.
+   *
+   * @param path the file path
    */
   public static byte[] manuallyComputeDigest(Path path) throws IOException {
+    return manuallyComputeDigest(path, null);
+  }
+
+  /**
+   * Same as {@link #manuallyComputeDigest(Path)}, but providing the ability to reuse a recently
+   * obtained {@link FileStatus}.
+   *
+   * @param path the file path
+   * @param status a recently obtained file status, if available
+   */
+  public static byte[] manuallyComputeDigest(Path path, @Nullable FileStatus status)
+      throws IOException {
     byte[] digest;
 
     // Attempt a cache lookup if the cache is enabled.
     Cache<CacheKey, byte[]> cache = globalCache;
     CacheKey key = null;
     if (cache != null) {
-      key = new CacheKey(path, path.stat());
+      key = new CacheKey(path, status != null ? status : path.stat());
       digest = cache.getIfPresent(key);
       if (digest != null) {
         return digest;
