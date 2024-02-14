@@ -270,6 +270,7 @@ export CLASSLOADER_PREFIX_PATH="${RUNPATH}"
 %set_jacoco_main_class%
 %set_jacoco_java_runfiles_root%
 export JACOCO_IS_JAR_WRAPPED=0
+export CLASSPATH_JAR=""
 
 if [[ -n "$JVM_DEBUG_PORT" ]]; then
   JVM_DEBUG_SUSPEND=${DEFAULT_JVM_DEBUG_SUSPEND:-"y"}
@@ -354,6 +355,7 @@ function create_and_run_classpath_jar() {
 
   # Create classpath JAR file
   MANIFEST_JAR_FILE="$(mktemp -t XXXXXXXX-classpath.jar)"
+  export CLASSPATH_JAR="$(basename $MANIFEST_JAR_FILE)"
   if is_windows; then
     MANIFEST_JAR_FILE="$(cygpath --windows "$MANIFEST_JAR_FILE")"
     MANIFEST_FILE="$(cygpath --windows "$MANIFEST_FILE")"
