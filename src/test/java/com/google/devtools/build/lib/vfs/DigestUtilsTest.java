@@ -122,14 +122,21 @@ public final class DigestUtilsTest {
     Path file = tracingFileSystem.getPath("/file.txt");
     FileSystemUtils.writeContentAsLatin1(file, "some contents");
 
-    byte[] digest1 = DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE);
+    byte[] digest = DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE);
     assertThat(getFastDigestCounter.get()).isEqualTo(1);
     assertThat(getDigestCounter.get()).isEqualTo(1);
 
     assertThat(DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE))
-        .isEqualTo(digest1);
+        .isEqualTo(digest);
     assertThat(getFastDigestCounter.get()).isEqualTo(2);
     assertThat(getDigestCounter.get()).isEqualTo(1); // Cached.
+
+    DigestUtils.clearCache();
+
+    assertThat(DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE))
+        .isEqualTo(digest);
+    assertThat(getFastDigestCounter.get()).isEqualTo(3);
+    assertThat(getDigestCounter.get()).isEqualTo(2); // Not cached.
   }
 
   @Test
