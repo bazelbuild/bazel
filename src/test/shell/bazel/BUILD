@@ -221,7 +221,9 @@ sh_test(
 write_file(
     name = "gen_rules_java_repo_name",
     out = "RULES_JAVA_REPO_NAME",
-    content = [get_canonical_repo_name("@rules_java")],
+    # TODO: Revert to the following when building with Bazel 7.1.0.
+    # content = [get_canonical_repo_name("@rules_java")],
+    content = ["rules_java~"],
 )
 
 sh_test(
