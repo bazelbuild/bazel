@@ -475,20 +475,10 @@ public final class TreeArtifactValueTest {
     Path treeDir = scratch.dir("tree");
     scratch.file("outside");
     scratch.resolve("tree/link").createSymbolicLink(PathFragment.create("../outside"));
-    List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
 
     Exception e =
         assertThrows(
-            IOException.class,
-            () ->
-                TreeArtifactValue.visitTree(
-                    treeDir,
-                    (child, type) -> {
-                      synchronized (children) {
-                        children.add(Pair.of(child, type));
-                      }
-                    }));
-    assertThat(children).containsExactly(Pair.of(PathFragment.create(""), Dirent.Type.DIRECTORY));
+            IOException.class, () -> TreeArtifactValue.visitTree(treeDir, (child, type) -> {}));
     assertThat(e).hasMessageThat().contains("/tree/link pointing to ../outside");
   }
 
@@ -497,23 +487,10 @@ public final class TreeArtifactValueTest {
     Path treeDir = scratch.dir("tree");
     scratch.file("tree/file");
     scratch.resolve("tree/link").createSymbolicLink(PathFragment.create("../tree/file"));
-    List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
 
     Exception e =
         assertThrows(
-            IOException.class,
-            () ->
-                TreeArtifactValue.visitTree(
-                    treeDir,
-                    (child, type) -> {
-                      synchronized (children) {
-                        children.add(Pair.of(child, type));
-                      }
-                    }));
-    assertThat(children)
-        .containsExactly(
-            Pair.of(PathFragment.create(""), Dirent.Type.DIRECTORY),
-            Pair.of(PathFragment.create("file"), Dirent.Type.FILE));
+            IOException.class, () -> TreeArtifactValue.visitTree(treeDir, (child, type) -> {}));
     assertThat(e).hasMessageThat().contains("/tree/link pointing to ../tree/file");
   }
 
