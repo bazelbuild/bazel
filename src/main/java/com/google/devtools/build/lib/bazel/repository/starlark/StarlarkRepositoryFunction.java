@@ -253,7 +253,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
               starlarkSemantics,
               repositoryRemoteExecutor,
               syscallCache,
-              directories.getWorkspace());
+              directories);
 
       if (starlarkRepositoryContext.isRemotable()) {
         // If a rule is declared remotable then invalidate it if remote execution gets
@@ -310,10 +310,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       }
 
       // Modify marker data to include the files used by the rule's implementation function.
-      for (Map.Entry<Label, String> entry :
-          starlarkRepositoryContext.getAccumulatedFileDigests().entrySet()) {
-        recordedInputValues.put(new RepoRecordedInput.LabelFile(entry.getKey()), entry.getValue());
-      }
+      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
 
       // Ditto for environment variables accessed via `getenv`.
       for (String envKey : starlarkRepositoryContext.getAccumulatedEnvKeys()) {

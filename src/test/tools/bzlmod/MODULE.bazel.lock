@@ -1,5 +1,5 @@
 {
-  "lockFileVersion": 4,
+  "lockFileVersion": 5,
   "moduleFileHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "flags": {
     "cmdRegistries": [
@@ -1037,7 +1037,7 @@
     "@@apple_support~//crosstool:setup.bzl%apple_cc_configure_extension": {
       "general": {
         "bzlTransitiveDigest": "pMLFCYaRPkgXPQ8vtuNkMfiHfPmRBy6QJfnid4sWfv0=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "local_config_apple_cc": {
@@ -1063,7 +1063,7 @@
     "@@bazel_tools//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
         "bzlTransitiveDigest": "vsrPPBNf8OgywAYLMcIL1oNm2R8WtbCIL9wgQBUecpA=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "android_tools": {
@@ -1089,7 +1089,7 @@
     "@@bazel_tools//tools/cpp:cc_configure.bzl%cc_configure_extension": {
       "general": {
         "bzlTransitiveDigest": "XWy8pzw7/6RclAFWd6/VfUdoXn2SdSpmHOrbfEFJ1ao=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "local_config_cc": {
@@ -1115,7 +1115,7 @@
     "@@bazel_tools//tools/osx:xcode_configure.bzl%xcode_configure_extension": {
       "general": {
         "bzlTransitiveDigest": "Qh2bWTU6QW6wkrd87qrU4YeY+SG37Nvw3A0PR4Y0L2Y=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "local_config_xcode": {
@@ -1133,7 +1133,7 @@
     "@@bazel_tools//tools/sh:sh_configure.bzl%sh_configure_extension": {
       "general": {
         "bzlTransitiveDigest": "hp4NgmNjEg5+xgvzfh6L83bt9/aiiWETuNpwNuF1MSU=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "local_config_sh": {
@@ -1148,7 +1148,7 @@
     "@@bazel_tools//tools/test:extensions.bzl%remote_coverage_tools_extension": {
       "general": {
         "bzlTransitiveDigest": "AL+K5m+GCP3XRzLPqpKAq4GsjIVDXgUveWm8nih4ju0=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "remote_coverage_tools": {
@@ -1168,7 +1168,7 @@
     "@@buildozer~//:buildozer_binary.bzl%buildozer_binary": {
       "general": {
         "bzlTransitiveDigest": "EleDU/FQ1+e/RgkW3aIDmdaxZEthvoWQhsqFTxiSgMI=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "buildozer_binary": {
@@ -1192,7 +1192,7 @@
     "@@rules_java~//java:extensions.bzl%toolchains": {
       "general": {
         "bzlTransitiveDigest": "Vo8tBC4aLZTSWFbox69vCUJ2B0S7GYQDr5txjiyYfgQ=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "remotejdk21_linux_toolchain_config_repo": {
@@ -1696,8 +1696,8 @@
     "@@rules_jvm_external~//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "yXprMX4LqzJwuZlbtT9WNeu7p2iEYw7j4R1NP9pc4Ow=",
-        "accumulatedFileDigests": {
-          "@@rules_jvm_external~//:rules_jvm_external_deps_install.json": "10442a5ae27d9ff4c2003e5ab71643bf0d8b48dcf968b4173fa274c3232a8c06"
+        "recordedFileInputs": {
+          "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "10442a5ae27d9ff4c2003e5ab71643bf0d8b48dcf968b4173fa274c3232a8c06"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2718,7 +2718,7 @@
     "@@rules_jvm_external~//:non-module-deps.bzl%non_module_deps": {
       "general": {
         "bzlTransitiveDigest": "Td87llNSs5GZ/kAxu6pAqfEXBZ3HdkSqRmUzvIfbFWg=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "io_bazel_rules_kotlin": {
@@ -2744,7 +2744,7 @@
     "@@rules_python~//python/extensions:python.bzl%python": {
       "general": {
         "bzlTransitiveDigest": "NGtTMUqs2EEJeXu6mXdpmYRrQGZiJV7S3mxeod3Hm7M=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "pythons_hub": {
@@ -2772,7 +2772,7 @@
     "@@rules_python~//python/extensions/private:internal_deps.bzl%internal_deps": {
       "general": {
         "bzlTransitiveDigest": "5c1tkdV6L67SQOZWc9MUoS5ZnsSxeDKsh9urs01jZSM=",
-        "accumulatedFileDigests": {},
+        "recordedFileInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "pypi__coverage_cp39_aarch64-apple-darwin": {
