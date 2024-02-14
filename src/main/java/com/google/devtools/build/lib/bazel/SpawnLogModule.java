@@ -88,6 +88,7 @@ public final class SpawnLogModule extends BlazeModule {
     Path outputBase = env.getOutputBase();
 
     if (executionOptions.executionLogCompactFile != null) {
+      try {
       spawnLogContext =
           new CompactSpawnLogContext(
               workingDirectory.getRelative(executionOptions.executionLogCompactFile),
@@ -95,6 +96,10 @@ public final class SpawnLogModule extends BlazeModule {
               env.getOptions().getOptions(RemoteOptions.class),
               env.getRuntime().getFileSystem().getDigestFunction(),
               env.getXattrProvider());
+      } catch (InterruptedException e) {
+        env.getReporter()
+            .handle(Event.error("Error while setting up the execution log: " + e.getMessage()));
+      }
     } else {
       Path outputPath = null;
       Encoding encoding = null;

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.github.luben.zstd.ZstdOutputStream;
@@ -27,6 +28,9 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.Platform;
@@ -37,6 +41,7 @@ import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
@@ -45,18 +50,84 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** A {@link SpawnLogContext} implementation that produces a log in compact format. */
 public class CompactSpawnLogContext extends SpawnLogContext {
 
+  private static final Comparator<ExecLogEntry.File> EXEC_LOG_ENTRY_FILE_COMPARATOR =
+      Comparator.comparing(ExecLogEntry.File::getPath);
+
+  private static final ForkJoinPool VISITOR_POOL =
+      NamedForkJoinPool.newNamedPool(
+          "execlog-directory-visitor", Runtime.getRuntime().availableProcessors());
+
+  /** Visitor for use in {@link #visitDirectory}. */
+  protected interface DirectoryChildVisitor {
+    void visit(Path path) throws IOException;
+  }
+
+  private static class DirectoryVisitor extends AbstractQueueVisitor {
+    private final Path rootDir;
+    private final DirectoryChildVisitor childVisitor;
+
+    private DirectoryVisitor(Path rootDir, DirectoryChildVisitor childVisitor) {
+      super(
+          VISITOR_POOL,
+          ExecutorOwnership.SHARED,
+          ExceptionHandlingMode.FAIL_FAST,
+          ErrorClassifier.DEFAULT);
+      this.rootDir = checkNotNull(rootDir);
+      this.childVisitor = checkNotNull(childVisitor);
+    }
+
+    private void run() throws IOException, InterruptedException {
+      execute(() -> visitSubdirectory(rootDir));
+      try {
+        awaitQuiescence(true);
+      } catch (IORuntimeException e) {
+        throw e.getCauseIOException();
+      }
+    }
+
+    private void visitSubdirectory(Path dir) {
+      try {
+        for (Path child : dir.getDirectoryEntries()) {
+          if (child.isDirectory()) {
+            execute(() -> visitSubdirectory(child));
+            continue;
+          }
+          childVisitor.visit(child);
+        }
+      } catch (IOException e) {
+        throw new IORuntimeException(e);
+      }
+    }
+  }
+
+  /**
+   * Visits a directory hierarchy in parallel.
+   *
+   * <p>Calls {@code childVisitor} for every descendant path of {@code rootDir} that isn't itself a
+   * directory, following symlinks. The visitor may be concurrently called by multiple threads, and
+   * must synchronize accesses to shared data.
+   */
+  private void visitDirectory(Path rootDir, DirectoryChildVisitor childVisitor)
+      throws IOException, InterruptedException {
+    new DirectoryVisitor(rootDir, childVisitor).run();
+  }
+
   private interface ExecLogEntrySupplier {
-    ExecLogEntry.Builder get() throws IOException;
+    ExecLogEntry.Builder get() throws IOException, InterruptedException;
   }
 
   private final PathFragment execRoot;
@@ -84,7 +155,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider)
-      throws IOException {
+      throws IOException, InterruptedException {
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
@@ -101,7 +172,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         path.toString(), new ZstdOutputStream(new BufferedOutputStream(path.getOutputStream())));
   }
 
-  private void logInvocation() throws IOException {
+  private void logInvocation() throws IOException, InterruptedException {
     logEntry(
         null,
         () ->
@@ -119,7 +190,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)
-      throws IOException, ExecException {
+      throws IOException, InterruptedException, ExecException {
     try (SilentCloseable c = Profiler.instance().profile("logSpawn")) {
       ExecLogEntry.Spawn.Builder builder = ExecLogEntry.Spawn.newBuilder();
 
@@ -187,7 +258,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    */
   private int logInputs(
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
-      throws IOException {
+      throws IOException, InterruptedException {
 
     // Add runfiles and filesets as additional direct members of the top-level nested set of inputs.
     // This prevents it from being shared, but experimentally, the top-level input nested set for a
@@ -229,7 +300,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    */
   private int logTools(
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
-      throws IOException {
+      throws IOException, InterruptedException {
     return logNestedSet(
         spawn.getToolFiles(),
         ImmutableList.of(),
@@ -254,7 +325,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       InputMetadataProvider inputMetadataProvider,
       FileSystem fileSystem,
       boolean shared)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (set.isEmpty() && additionalDirectoryIds.isEmpty()) {
       return 0;
     }
@@ -308,7 +379,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * @return the entry ID of the {@link ExecLogEntry.File} describing the file.
    */
   private int logFile(ActionInput input, Path path, InputMetadataProvider inputMetadataProvider)
-      throws IOException {
+      throws IOException, InterruptedException {
     checkState(!(input instanceof VirtualActionInput.EmptyActionInput));
 
     return logEntry(
@@ -347,7 +418,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    */
   private int logDirectory(
       ActionInput input, Path root, InputMetadataProvider inputMetadataProvider)
-      throws IOException {
+      throws IOException, InterruptedException {
     return logEntry(
         input.getExecPathString(),
         () ->
@@ -375,7 +446,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       Map<PathFragment, Artifact> mapping,
       InputMetadataProvider inputMetadataProvider,
       FileSystem fileSystem)
-      throws IOException {
+      throws IOException, InterruptedException {
     return logEntry(
         root.getPathString(),
         () -> {
@@ -423,38 +494,36 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * @param pathPrefix a prefix to prepend to each child path
    * @return the list of files transitively contained in the directory
    */
-  private ImmutableList<ExecLogEntry.File> expandDirectory(
+  private List<ExecLogEntry.File> expandDirectory(
       Path root, @Nullable String pathPrefix, InputMetadataProvider inputMetadataProvider)
-      throws IOException {
-    ImmutableList.Builder<ExecLogEntry.File> builder = ImmutableList.builder();
+      throws IOException, InterruptedException {
+    ArrayList<ExecLogEntry.File> files = new ArrayList<>();
+    visitDirectory(
+        root,
+        (child) -> {
+          String childPath = pathPrefix != null ? pathPrefix + "/" : "";
+          childPath += child.relativeTo(root).getPathString();
 
-    ArrayDeque<Path> dirs = new ArrayDeque<>();
-    dirs.add(root);
+          Digest digest =
+              computeDigest(
+                  /* input= */ null,
+                  child,
+                  inputMetadataProvider,
+                  xattrProvider,
+                  digestHashFunction,
+                  /* includeHashFunctionName= */ false);
 
-    while (!dirs.isEmpty()) {
-      Path dir = dirs.removeFirst();
-      for (Path child : dir.getDirectoryEntries()) {
-        if (child.isDirectory()) {
-          dirs.addLast(child);
-          continue;
-        }
+          ExecLogEntry.File file =
+              ExecLogEntry.File.newBuilder().setPath(childPath).setDigest(digest).build();
 
-        String childPath = pathPrefix != null ? pathPrefix + "/" : "";
-        childPath += child.relativeTo(root).getPathString();
+          synchronized (files) {
+            files.add(file);
+          }
+        });
 
-        Digest digest =
-            computeDigest(
-                /* input= */ null,
-                child,
-                inputMetadataProvider,
-                xattrProvider,
-                digestHashFunction,
-                /* includeHashFunctionName= */ false);
+    Collections.sort(files, EXEC_LOG_ENTRY_FILE_COMPARATOR);
 
-        builder.add(ExecLogEntry.File.newBuilder().setPath(childPath).setDigest(digest).build());
-      }
-    }
-    return builder.build();
+    return files;
   }
 
   /**
@@ -466,7 +535,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * @return the entry ID of the {@link ExecLogEntry.UnresolvedSymlink} describing the unresolved
    *     symlink.
    */
-  private int logUnresolvedSymlink(ActionInput input, Path path) throws IOException {
+  private int logUnresolvedSymlink(ActionInput input, Path path)
+      throws IOException, InterruptedException {
     return logEntry(
         input.getExecPathString(),
         () ->
@@ -489,7 +559,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    */
   @CanIgnoreReturnValue
   private synchronized int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
-      throws IOException {
+      throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("logEntry/synchronized")) {
       if (key == null) {
         // No need to check for a previously added entry.
