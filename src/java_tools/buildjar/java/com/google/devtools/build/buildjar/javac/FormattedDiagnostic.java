@@ -25,6 +25,7 @@ import com.sun.tools.javac.util.JCDiagnostic;
 import com.sun.tools.javac.util.JavacMessages;
 import com.sun.tools.javac.util.Log;
 import java.util.Locale;
+import java.util.Optional;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileObject;
@@ -38,12 +39,17 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
   public final Diagnostic<? extends JavaFileObject> diagnostic;
   public final String formatted;
   public final String lintCategory;
+  public final boolean werror;
 
   public FormattedDiagnostic(
-      Diagnostic<? extends JavaFileObject> diagnostic, String formatted, String lintCategory) {
+      Diagnostic<? extends JavaFileObject> diagnostic,
+      String formatted,
+      String lintCategory,
+      boolean werror) {
     this.diagnostic = diagnostic;
     this.formatted = formatted;
     this.lintCategory = lintCategory;
+    this.werror = werror;
   }
 
   /** The formatted diagnostic message produced by javac's diagnostic formatter. */
@@ -62,7 +68,7 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
 
   @Override
   public Kind getKind() {
-    return diagnostic.getKind();
+    return werror ? Kind.ERROR : diagnostic.getKind();
   }
 
   @Override
@@ -111,31 +117,68 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
 
     private final ImmutableList.Builder<FormattedDiagnostic> diagnostics = ImmutableList.builder();
     private final boolean failFast;
+    private final Optional<WerrorCustomOption> werrorCustomOption;
     private final Context context;
 
-    Listener(boolean failFast, Context context) {
+    private boolean werror = false;
+
+    Listener(boolean failFast, Optional<WerrorCustomOption> werrorCustomOption, Context context) {
       this.failFast = failFast;
+      this.werrorCustomOption = werrorCustomOption;
       // retrieve context values later, in case it isn't initialized yet
       this.context = context;
     }
 
     @Override
     public void report(Diagnostic<? extends JavaFileObject> diagnostic) {
+      JCDiagnostic jcDiagnostic = (JCDiagnostic) diagnostic;
+      boolean werror = isWerror(jcDiagnostic);
+      if (werror) {
+        this.werror = true;
+      }
       DiagnosticFormatter<JCDiagnostic> formatter = Log.instance(context).getDiagnosticFormatter();
-      Locale locale = JavacMessages.instance(context).getCurrentLocale();
-      String formatted = formatter.format((JCDiagnostic) diagnostic, locale);
-      LintCategory lintCategory = ((JCDiagnostic) diagnostic).getLintCategory();
+      JavacMessages messages = JavacMessages.instance(context);
+      Locale locale = messages.getCurrentLocale();
+      String formatted = formatter.format(jcDiagnostic, locale);
+      if (werror) {
+        formatted =
+            formatted.replaceFirst(
+                formatter.formatKind(jcDiagnostic, locale),
+                messages.getLocalizedString(locale, "compiler.err.error"));
+      }
+      LintCategory lintCategory = jcDiagnostic.getLintCategory();
       FormattedDiagnostic formattedDiagnostic =
           new FormattedDiagnostic(
-              diagnostic, formatted, lintCategory != null ? lintCategory.option : null);
+              diagnostic, formatted, lintCategory != null ? lintCategory.option : null, werror);
       diagnostics.add(formattedDiagnostic);
       if (failFast && diagnostic.getKind().equals(Diagnostic.Kind.ERROR)) {
         throw new FailFastException(formatted);
       }
     }
 
+    private boolean isWerror(JCDiagnostic diagnostic) {
+      if (werrorCustomOption.isEmpty()) {
+        return false;
+      }
+      LintCategory lintCategory = diagnostic.getLintCategory();
+      if (lintCategory == null) {
+        return false;
+      }
+      switch (diagnostic.getKind()) {
+        case WARNING:
+        case MANDATORY_WARNING:
+          return werrorCustomOption.get().isEnabled(lintCategory.option);
+        default:
+          return false;
+      }
+    }
+
     ImmutableList<FormattedDiagnostic> build() {
       return diagnostics.build();
+    }
+
+    boolean werror() {
+      return werror;
     }
   }
 

@@ -102,6 +102,12 @@ public class BlazeJavacMain {
       return BlazeJavacResult.error(e.getMessage());
     }
 
+    Optional<WerrorCustomOption> maybeWerrorCustom =
+        arguments.blazeJavacOptions().stream()
+            .filter(arg -> arg.startsWith("-Werror:"))
+            .collect(toOptional())
+            .map(WerrorCustomOption::create);
+
     Context context = new Context();
     BlazeJavacStatistics.preRegister(context);
     CacheFSInfo.preRegister(context);
@@ -113,7 +119,7 @@ public class BlazeJavacMain {
     // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
     // it and handling exceptions directly in callers.
     PrintWriter errWriter = new PrintWriter(errOutput);
-    Listener diagnosticsBuilder = new Listener(arguments.failFast(), context);
+    Listener diagnosticsBuilder = new Listener(arguments.failFast(), maybeWerrorCustom, context);
     BlazeJavaCompiler compiler;
 
     // Initialize parts of context that the filemanager depends on
@@ -189,20 +195,10 @@ public class BlazeJavacMain {
 
     boolean werror =
         diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
-    if (status.equals(Status.OK)) {
-      Optional<WerrorCustomOption> maybeWerrorCustom =
-          arguments.blazeJavacOptions().stream()
-              .filter(arg -> arg.startsWith("-Werror:"))
-              .collect(toOptional())
-              .map(WerrorCustomOption::create);
-      if (maybeWerrorCustom.isPresent()) {
-        WerrorCustomOption werrorCustom = maybeWerrorCustom.get();
-        if (diagnostics.stream().anyMatch(d -> isWerror(werrorCustom, d))) {
-          errOutput.append("error: warnings found and -Werror specified\n");
-          status = Status.ERROR;
-          werror = true;
-        }
-      }
+    if (status.equals(Status.OK) && diagnosticsBuilder.werror()) {
+      errOutput.append("error: warnings found and -Werror specified\n");
+      status = Status.ERROR;
+      werror = true;
     }
 
     return BlazeJavacResult.createFullResult(
@@ -225,16 +221,6 @@ public class BlazeJavacMain {
         return Status.CRASH;
     }
     throw new AssertionError(result);
-  }
-
-  private static boolean isWerror(WerrorCustomOption werrorCustom, FormattedDiagnostic diagnostic) {
-    switch (diagnostic.getKind()) {
-      case WARNING:
-      case MANDATORY_WARNING:
-        return werrorCustom.isEnabled(diagnostic.getLintCategory());
-      default:
-        return false;
-    }
   }
 
   private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =
