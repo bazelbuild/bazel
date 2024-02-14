@@ -12,6 +12,7 @@ filegroup(
         "//third_party/android_dex:srcs",
         "//third_party/cncf_udpa:srcs",
         "//third_party/def_parser:srcs",
+        "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
         "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
@@ -33,9 +34,8 @@ filegroup(
         "//third_party/py/frozendict:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
+        "//third_party/remoteapis:srcs",
         "//third_party/zlib:srcs",
-        "@googleapis//:srcs",
-        "@remoteapis//:srcs",
     ],
 )
 

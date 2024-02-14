@@ -174,9 +174,6 @@ pkg_tar(
     remap_paths = {
         "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
         "WORKSPACE.bzlmod.filtered": "WORKSPACE.bzlmod",
-        # Rewrite paths coming from local repositories back into third_party.
-        "external/googleapis~override": "third_party/googleapis",
-        "external/remoteapis~override": "third_party/remoteapis",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
