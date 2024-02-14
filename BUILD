@@ -111,7 +111,7 @@ genrule(
           # Instead of `bazel mod deps`, we run a simpler command like `bazel query :all` here
           # so that we only trigger module resolution, not extension eval.
           # Also use `--batch` so that Bazel doesn't keep a server process alive.
-          "$(location //src:bazel) --batch --output_user_root=$$PWD/tmp_bazel_root query --check_direct_dependencies=error --lockfile_mode=update :all && " +
+          "$(location //src:bazel) --batch --host_jvm_args=-Djava.net.preferIPv6Addresses=true --output_user_root=$$PWD/tmp_bazel_root query --check_direct_dependencies=error --lockfile_mode=update :all && " +
           "mv MODULE.bazel.lock $@",
     tags = ["requires-network"],
     tools = ["//src:bazel"],
@@ -174,9 +174,6 @@ pkg_tar(
     remap_paths = {
         "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
         "WORKSPACE.bzlmod.filtered": "WORKSPACE.bzlmod",
-        # Rewrite paths coming from local repositories back into third_party.
-        "external/googleapis~override": "third_party/googleapis",
-        "external/remoteapis~override": "third_party/remoteapis",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
