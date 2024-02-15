@@ -687,7 +687,7 @@ sh_binary(
   configuration conditions to matching values. Each condition is a label
   reference to
   a <code><a href="general.html#config_setting">config_setting</a></code> or
-  <code><a href="platforms-and-toolchains#constraint_value">constraint_value</a></code>,
+  <code><a href="platforms-and-toolchains.html#constraint_value">constraint_value</a></code>,
   which "matches" if the target's configuration matches an expected set of
   values. The value of <code>mytarget#srcs</code> then becomes whichever
   label list matches the current invocation.
