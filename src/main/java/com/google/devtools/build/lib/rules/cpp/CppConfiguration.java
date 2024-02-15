@@ -800,10 +800,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalIncludeScanning;
   }
 
-  public boolean objcShouldScanIncludes() {
-    return cppOptions.objcScanIncludes;
-  }
-
   public boolean objcShouldGenerateDotdFiles() {
     return cppOptions.objcGenerateDotdFiles;
   }
