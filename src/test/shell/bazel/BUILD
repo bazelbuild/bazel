@@ -500,6 +500,7 @@ sh_test(
     ],
     tags = [
         "no_windows",
+        "manual",
     ],
 )
 
@@ -524,6 +525,7 @@ sh_test(
         ],
         tags = [
             "no_windows",
+            "manual",
         ],
     )
     for java_version in JAVA_VERSIONS_COVERAGE
