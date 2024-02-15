@@ -407,9 +407,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set to true, Bazel will represent symlinks in action outputs in the remote"
-              + " caching/execution protocol as such. Otherwise, symlinks will be followed and"
-              + " represented as files or directories. See #6631 for details.")
+          "If set to true, Bazel will upload symlinks as such to a remote or disk cache. Otherwise,"
+              + " non-dangling symlinks will be uploaded as the file or directory they point to.")
   public boolean incompatibleRemoteSymlinks;
 
   @Option(
@@ -419,9 +418,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true and --incompatible_remote_symlinks is also true, symlinks in action"
-              + " outputs are allowed to dangle.")
+      help = "If set to true, symlinks uploaded to a remote or disk cache are allowed to dangle.")
   public boolean incompatibleRemoteDanglingSymlinks;
 
   @Option(
