@@ -247,7 +247,11 @@ public class UploadManifestTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest)))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("foo")
+                            .setDigest(digest)
+                            .setIsExecutable(true)))
             .build();
     Digest treeDigest = digestUtil.compute(tree);
 
@@ -311,7 +315,11 @@ public class UploadManifestTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest)))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("foo")
+                            .setDigest(digest)
+                            .setIsExecutable(true)))
             .build();
     Digest treeDigest = digestUtil.compute(tree);
 
@@ -375,7 +383,11 @@ public class UploadManifestTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest)))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("foo")
+                            .setDigest(digest)
+                            .setIsExecutable(true)))
             .build();
     Digest treeDigest = digestUtil.compute(tree);
 
@@ -631,7 +643,11 @@ public class UploadManifestTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("link").setDigest(digest)))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("link")
+                            .setDigest(digest)
+                            .setIsExecutable(true)))
             .build();
     Digest treeDigest = digestUtil.compute(tree);
 
@@ -671,7 +687,7 @@ public class UploadManifestTest {
 
     Directory barDir =
         Directory.newBuilder()
-            .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest))
+            .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest).setIsExecutable(true))
             .build();
     Digest barDigest = digestUtil.compute(barDir);
     Tree tree =
@@ -720,7 +736,11 @@ public class UploadManifestTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("link").setDigest(digest)))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("link")
+                            .setDigest(digest)
+                            .setIsExecutable(true)))
             .build();
     Digest treeDigest = digestUtil.compute(tree);
 
@@ -760,7 +780,7 @@ public class UploadManifestTest {
 
     Directory barDir =
         Directory.newBuilder()
-            .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest))
+            .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest).setIsExecutable(true))
             .build();
     Digest barDigest = digestUtil.compute(barDir);
     Tree tree =
@@ -808,7 +828,11 @@ public class UploadManifestTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("link").setDigest(digest)))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("link")
+                            .setDigest(digest)
+                            .setIsExecutable(true)))
             .build();
     Digest treeDigest = digestUtil.compute(tree);
 
@@ -848,7 +872,7 @@ public class UploadManifestTest {
 
     Directory barDir =
         Directory.newBuilder()
-            .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest))
+            .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest).setIsExecutable(true))
             .build();
     Digest barDigest = digestUtil.compute(barDir);
     Tree tree =
@@ -1278,7 +1302,10 @@ public class UploadManifestTest {
     Directory root =
         Directory.newBuilder()
             .addFiles(
-                FileNode.newBuilder().setName("file").setDigest(digestUtil.compute(fileContents)))
+                FileNode.newBuilder()
+                    .setName("file")
+                    .setDigest(digestUtil.compute(fileContents))
+                    .setIsExecutable(true))
             .build();
     for (int depth = 0; depth < 3; depth++) {
       Directory.Builder b = Directory.newBuilder();

@@ -202,6 +202,10 @@ public class UploadManifest {
    * non-symlink where a symlink was expected). Outputs are always uploaded according to the
    * filesystem state, possibly after applying the transformation implied by {@link followSymlinks}.
    * A type mismatch may later cause execution to fail, but that's an action-level concern.
+   *
+   * <p>All files are uploaded with the executable bit set, in accordance with input Merkle trees.
+   * This does not affect correctness since we always set the output permissions to 0555 or 0755
+   * after execution, both for cache hits and misses.
    */
   @VisibleForTesting
   void addFiles(Collection<Path> files) throws ExecException, IOException {
@@ -332,7 +336,6 @@ public class UploadManifest {
         .addOutputFilesBuilder()
         .setPath(remotePathResolver.localPathToOutputPath(file))
         .setDigest(digest)
-        // The permission of output file is changed to 0555 after action execution
         .setIsExecutable(true);
 
     digestToFile.put(digest, file);
@@ -395,7 +398,7 @@ public class UploadManifest {
       Path child = path.getRelative(name);
       if (dirent.getType() == Dirent.Type.FILE) {
         Digest digest = digestUtil.compute(child);
-        b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(child.isExecutable());
+        b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(true);
         digestToFile.put(digest, child);
         continue;
       }
@@ -421,7 +424,7 @@ public class UploadManifest {
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
           // Symlink to file uploaded as a file.
           Digest digest = digestUtil.compute(child);
-          b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(child.isExecutable());
+          b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(true);
           digestToFile.put(digest, child);
           continue;
         }
