@@ -716,7 +716,7 @@ function test_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
-  #    5. _validation implicit with --experimental_run_validations (1/0)
+  #    5. _validation implicit with --run_validations (1/0)
   #
   # We request the first three output groups and expect foo_outputs and
   # bar_outputs to appear in BEP, because both groups have at least one
@@ -726,7 +726,7 @@ function test_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
-   --experimental_run_validations \
+   --run_validations \
    --output_groups=foo_outputs,bar_outputs,baz_outputs \
     && fail "expected failure" || true
 
@@ -852,7 +852,7 @@ function test_failing_aspect_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
-  #    5. _validation implicit with --experimental_run_validations (1/0)
+  #    5. _validation implicit with --run_validations (1/0)
   #
   # We request the first two output groups and expect only bar_outputs to
   # appear in BEP, because all actions contributing to bar_outputs succeeded.
@@ -865,7 +865,7 @@ function test_failing_aspect_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
-   --experimental_run_validations \
+   --run_validations \
    --experimental_use_validation_aspect \
    --aspects=semifailingaspect.bzl%semifailing_aspect \
    --output_groups=foo_outputs,bar_outputs,good-aspect-out,bad-aspect-out,mixed-aspect-out \
