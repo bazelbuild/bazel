@@ -507,7 +507,14 @@ public abstract class SpawnLogContextTestBase {
 
     actualPath.createDirectoryAndParents();
     if (!dirContents.isEmpty()) {
-      writeFile(actualPath.getChild("child"), "abc");
+      Path firstChildPath = actualPath.getRelative("dir1/file1");
+      Path secondChildPath = actualPath.getRelative("dir2/file2");
+      firstChildPath.getParentDirectory().createDirectoryAndParents();
+      secondChildPath.getParentDirectory().createDirectoryAndParents();
+      writeFile(firstChildPath, "abc");
+      writeFile(secondChildPath, "def");
+      Path emptySubdirPath = actualPath.getRelative("dir3");
+      emptySubdirPath.createDirectoryAndParents();
     }
 
     Spawn spawn = defaultSpawnBuilder().withOutputs(treeOutput).build();
@@ -531,8 +538,12 @@ public abstract class SpawnLogContextTestBase {
                     ? ImmutableList.of()
                     : ImmutableList.of(
                         File.newBuilder()
-                            .setPath("out/tree/child")
+                            .setPath("out/tree/dir1/file1")
                             .setDigest(getDigest("abc"))
+                            .build(),
+                        File.newBuilder()
+                            .setPath("out/tree/dir2/file2")
+                            .setDigest(getDigest("def"))
                             .build()))
             .build());
   }
