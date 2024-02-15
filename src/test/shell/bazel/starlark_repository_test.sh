@@ -3050,4 +3050,54 @@ EOF
   expect_not_log "I see:"
 }
 
+function test_watch_tree() {
+  local outside_dir=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  touch ${outside_dir}/foo
+  touch ${outside_dir}/bar
+  touch ${outside_dir}/baz
+
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r')")
+  print("I'm running!")
+  rctx.watch_tree("${outside_dir}")
+r=repository_rule(_r)
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I'm running!"
+
+  # changing the contents of a file under there should trigger a refetch.
+  echo haha > ${outside_dir}/foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I'm running!"
+
+  # adding a file should trigger a refetch.
+  touch ${outside_dir}/quux
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I'm running!"
+
+  # just touching an existing file shouldn't cause a refetch.
+  touch ${outside_dir}/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I'm running!"
+
+  # changing a file to a directory should trigger a refetch.
+  rm ${outside_dir}/baz
+  mkdir ${outside_dir}/baz
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I'm running!"
+
+  # changing entries in subdirectories should trigger a refetch.
+  touch ${outside_dir}/baz/inner
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I'm running!"
+}
+
 run_suite "local repository tests"

@@ -33,14 +33,18 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
+import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -48,6 +52,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -78,6 +83,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final StructImpl attrObject;
   private final ImmutableSet<PathFragment> ignoredPatterns;
   private final SyscallCache syscallCache;
+  private final HashMap<RepoRecordedInput.DirTree, String> recordedDirTreeInputs = new HashMap<>();
 
   /**
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
@@ -129,6 +135,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   @Override
   protected String getIdentifyingStringForLogging() {
     return RepositoryFetchProgress.repositoryFetchContextString(repoName);
+  }
+
+  public ImmutableMap<RepoRecordedInput.DirTree, String> getRecordedDirTreeInputs() {
+    return ImmutableMap.copyOf(recordedDirTreeInputs);
   }
 
   @StarlarkMethod(
@@ -564,6 +574,54 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             .setRenameFiles(renameFilesMap)
             .build());
     env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
+  }
+
+  @StarlarkMethod(
+      name = "watch_tree",
+      doc =
+          "Tells Bazel to watch for changes to any files or directories transitively under the "
+              + "given path. Any changes to the contents of files, the existence of files or "
+              + "directories, file names or directory names, will cause this repo to be "
+              + "refetched.<p>Note that attempting to watch paths inside the repo currently being "
+              + "fetched will result in an error. ",
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "path of the directory tree to watch."),
+      })
+  public void watchTree(Object path)
+      throws EvalException, InterruptedException, RepositoryFunctionException {
+    StarlarkPath p = getPath("watch_tree()", path);
+    if (!p.isDir()) {
+      throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
+    }
+    RepoCacheFriendlyPath repoCacheFriendlyPath =
+        toRepoCacheFriendlyPath(p.getPath(), ShouldWatch.YES);
+    if (repoCacheFriendlyPath == null) {
+      return;
+    }
+    RootedPath rootedPath = repoCacheFriendlyPath.getRootedPath(env, directories);
+    if (rootedPath == null) {
+      throw new NeedsSkyframeRestartException();
+    }
+    try {
+      DirectoryTreeDigestValue digestValue =
+          (DirectoryTreeDigestValue)
+              env.getValueOrThrow(DirectoryTreeDigestValue.key(rootedPath), IOException.class);
+      if (digestValue == null) {
+        throw new NeedsSkyframeRestartException();
+      }
+
+      recordedDirTreeInputs.put(
+          new RepoRecordedInput.DirTree(repoCacheFriendlyPath), digestValue.hexDigest());
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
   }
 
   @Override
