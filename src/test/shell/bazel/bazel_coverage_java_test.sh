@@ -25,28 +25,10 @@ source "${CURRENT_DIR}/coverage_helpers.sh" \
 
 
 RULES_JAVA_REPO_NAME=$(cat "$(rlocation io_bazel/src/test/shell/bazel/RULES_JAVA_REPO_NAME)")
-JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}~toolchains~"
-
 JAVA_TOOLS_ZIP="$1"; shift
-if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
-  JAVA_TOOLS_ZIP_FILE="$(rlocation "${JAVA_TOOLS_ZIP}")"
-  JAVA_TOOLS_DIR="$TEST_TMPDIR/_java_tools"
-  unzip -q "${JAVA_TOOLS_ZIP_FILE}" -d "$JAVA_TOOLS_DIR"
-  touch "$JAVA_TOOLS_DIR/WORKSPACE"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools=${JAVA_TOOLS_DIR}"
-fi
-
 JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
-if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
-  JAVA_TOOLS_PREBUILT_ZIP_FILE="$(rlocation "${JAVA_TOOLS_PREBUILT_ZIP}")"
-  JAVA_TOOLS_PREBUILT_DIR="$TEST_TMPDIR/_java_tools_prebuilt"
-  unzip -q "${JAVA_TOOLS_PREBUILT_ZIP_FILE}" -d "$JAVA_TOOLS_PREBUILT_DIR"
-  touch "$JAVA_TOOLS_PREBUILT_DIR/WORKSPACE"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux=${JAVA_TOOLS_PREBUILT_DIR}"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_windows=${JAVA_TOOLS_PREBUILT_DIR}"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_x86_64=${JAVA_TOOLS_PREBUILT_DIR}"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
-fi
+
+override_java_tools "${RULES_JAVA_REPO_NAME}" "${JAVA_TOOLS_ZIP}" "${JAVA_TOOLS_PREBUILT_ZIP}"
 
 COVERAGE_GENERATOR_WORKSPACE_FILE="$1"; shift
 if [[ "${COVERAGE_GENERATOR_WORKSPACE_FILE}" != "released" ]]; then
