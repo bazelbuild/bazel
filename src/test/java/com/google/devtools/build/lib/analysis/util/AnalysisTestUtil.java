@@ -526,7 +526,7 @@ public final class AnalysisTestUtil {
   }
 
   /** Creates a {@link RunfilesSupplier} for use in tests. */
-  public static RunfilesSupplier createRunfilesSupplier(
+  public static SingleRunfilesSupplier createRunfilesSupplier(
       PathFragment runfilesDir, Runfiles runfiles) {
     return new SingleRunfilesSupplier(
         runfilesDir,

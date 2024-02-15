@@ -67,7 +67,10 @@ public class WorkerFilesHash {
 
     List<ActionInput> tools =
         ActionInputHelper.expandArtifacts(
-            spawn.getToolFiles(), artifactExpander, /* keepEmptyTreeArtifacts= */ false);
+            spawn.getToolFiles(),
+            artifactExpander,
+            /* keepEmptyTreeArtifacts= */ false,
+            /* keepMiddlemanArtifacts= */ false);
     for (ActionInput tool : tools) {
       @Nullable FileArtifactValue metadata = actionInputFileCache.getInputMetadata(tool);
       if (metadata == null) {

@@ -254,7 +254,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
         ActionInputHelper.expandArtifacts(
             spawn.getInputFiles(),
             context.getArtifactExpander(),
-            /* keepEmptyTreeArtifacts= */ false);
+            /* keepEmptyTreeArtifacts= */ false,
+            /* keepMiddlemanArtifacts= */ false);
 
     for (ActionInput input : inputs) {
       byte[] digestBytes;

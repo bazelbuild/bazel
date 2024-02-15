@@ -1364,17 +1364,26 @@ public abstract class Artifact
       Artifact artifact,
       Collection<? super Artifact> output,
       ArtifactExpander artifactExpander,
-      Set<Artifact> emptyTreeArtifacts) {
-    if (artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()) {
+      Set<Artifact> emptyTreeArtifacts,
+      boolean keepMiddlemanArtifacts) {
+    if (artifact.isMiddlemanArtifact()) {
+      if (keepMiddlemanArtifacts) {
+        output.add(artifact);
+      }
+      return;
+    }
+
+    if (artifact.isTreeArtifact()) {
       List<Artifact> expandedArtifacts = new ArrayList<>();
       artifactExpander.expand(artifact, expandedArtifacts);
       output.addAll(expandedArtifacts);
       if (artifact.isTreeArtifact() && expandedArtifacts.isEmpty()) {
         emptyTreeArtifacts.add(artifact);
       }
-    } else {
-      output.add(artifact);
+      return;
     }
+
+    output.add(artifact);
   }
 
   /**

@@ -113,24 +113,27 @@ public final class ActionInputHelper {
   /**
    * Expands middleman and tree artifacts in a sequence of {@link ActionInput}s.
    *
-   * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}
-   * is true, a tree artifact will be included in the constructed list when it expands into zero
-   * file artifacts. Otherwise, only the file artifacts the tree artifact expands into will be
-   * included.
+   * <p>If {@code keepEmptyTreeArtifacts} is true, a tree artifact will be included in the
+   * constructed list when it expands into zero file artifacts. Otherwise, only the file artifacts
+   * the tree artifact expands into will be included.
+   *
+   * <p>Middleman artifacts will be returned if {@code keepMiddlemanArtifacts} is set.
    *
    * <p>Non-middleman, non-tree artifacts are returned untouched.
    */
   public static List<ActionInput> expandArtifacts(
       NestedSet<? extends ActionInput> inputs,
       ArtifactExpander artifactExpander,
-      boolean keepEmptyTreeArtifacts) {
+      boolean keepEmptyTreeArtifacts,
+      boolean keepMiddlemanArtifacts) {
     List<ActionInput> result = new ArrayList<>();
     Set<Artifact> emptyTreeArtifacts = new TreeSet<>();
     Set<Artifact> treeFileArtifactParents = new HashSet<>();
     for (ActionInput input : inputs.toList()) {
       if (input instanceof Artifact) {
         Artifact inputArtifact = (Artifact) input;
-        Artifact.addExpandedArtifact(inputArtifact, result, artifactExpander, emptyTreeArtifacts);
+        Artifact.addExpandedArtifact(
+            inputArtifact, result, artifactExpander, emptyTreeArtifacts, keepMiddlemanArtifacts);
         if (inputArtifact.isChildOfDeclaredDirectory()) {
           treeFileArtifactParents.add(inputArtifact.getParent());
         }

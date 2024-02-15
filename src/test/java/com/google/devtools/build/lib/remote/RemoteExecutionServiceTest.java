@@ -155,6 +155,7 @@ public class RemoteExecutionServiceTest {
   private FileSystem fs;
   private Path execRoot;
   private ArtifactRoot artifactRoot;
+  private ArtifactRoot middlemanRoot;
   private TempPathGenerator tempPathGenerator;
   private FakeActionInputFileCache fakeFileCache;
   private RemotePathResolver remotePathResolver;
@@ -175,6 +176,9 @@ public class RemoteExecutionServiceTest {
     execRoot.createDirectoryAndParents();
 
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
+    middlemanRoot =
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.Middleman, PathFragment.create("out"));
+
     checkNotNull(artifactRoot.getRoot().asPath()).createDirectoryAndParents();
 
     tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
@@ -2049,9 +2053,12 @@ public class RemoteExecutionServiceTest {
         NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo2File);
     fakeFileCache.createScratchInput(foo2File, "foo2");
 
+    ActionInput runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanRoot, "runfiles");
+
     NestedSet<ActionInput> nodeRoot1 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
             .add(dummyFile)
+            .add(runfilesMiddleman)
             .add(tree)
             .addTransitive(nodeBar)
             .addTransitive(nodeFoo1)
@@ -2059,6 +2066,7 @@ public class RemoteExecutionServiceTest {
     NestedSet<ActionInput> nodeRoot2 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
             .add(dummyFile)
+            .add(runfilesMiddleman)
             .add(tree)
             .addTransitive(nodeBar)
             .addTransitive(nodeFoo2)
@@ -2069,6 +2077,8 @@ public class RemoteExecutionServiceTest {
 
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier("tools/tool.runfiles", ImmutableList.of(toolDat));
+
+    fakeFileCache.addRunfilesTree(runfilesMiddleman, runfilesSupplier.getRunfilesTrees().get(0));
 
     Spawn spawn1 =
         new SimpleSpawn(
