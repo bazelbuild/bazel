@@ -187,7 +187,7 @@ public final class FetchCommand implements BlazeCommand {
       throws InterruptedException {
     try {
       ImmutableMap<RepositoryName, RepositoryDirectoryValue> repositoryNamesAndValues =
-          RepositoryFetcher.fetchRepos(repos, env, env.getSkyframeExecutor(), threadsOption);
+          RepositoryFetcher.fetchRepos(repos, env, threadsOption);
       String notFoundRepos =
           repositoryNamesAndValues.values().stream()
               .filter(value -> !value.repositoryExists())

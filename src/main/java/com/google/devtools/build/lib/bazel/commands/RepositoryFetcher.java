@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -40,27 +39,23 @@ import net.starlark.java.eval.EvalException;
 final class RepositoryFetcher {
 
   private final CommandEnvironment env;
-  private final SkyframeExecutor skyframeExecutor;
   private final LoadingPhaseThreadsOption threadsOption;
 
   private RepositoryFetcher(
       CommandEnvironment env,
-      SkyframeExecutor skyframeExecutor,
       LoadingPhaseThreadsOption threadsOption) {
     this.env = env;
-    this.skyframeExecutor = skyframeExecutor;
     this.threadsOption = threadsOption;
   }
 
   static ImmutableMap<RepositoryName, RepositoryDirectoryValue> fetchRepos(
       List<String> repos,
       CommandEnvironment env,
-      SkyframeExecutor skyframeExecutor,
       LoadingPhaseThreadsOption threadsOption)
       throws RepositoryMappingResolutionException,
           InterruptedException,
           RepositoryFetcherException {
-    return new RepositoryFetcher(env, skyframeExecutor, threadsOption).fetchRepos(repos);
+    return new RepositoryFetcher(env, threadsOption).fetchRepos(repos);
   }
 
   private ImmutableMap<RepositoryName, RepositoryDirectoryValue> fetchRepos(List<String> repos)
@@ -88,7 +83,7 @@ final class RepositoryFetcher {
     ImmutableSet<SkyKey> repoDelegatorKeys =
         reposnames.stream().map(RepositoryDirectoryValue::key).collect(toImmutableSet());
     EvaluationResult<SkyValue> evaluationResult =
-        skyframeExecutor.prepareAndGet(repoDelegatorKeys, evaluationContext);
+        env.getSkyframeExecutor().prepareAndGet(repoDelegatorKeys, evaluationContext);
     if (evaluationResult.hasError()) {
       Exception e = evaluationResult.getError().getException();
       throw new RepositoryFetcherException(
