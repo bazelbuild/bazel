@@ -441,6 +441,53 @@ public class UploadManifestTest {
   }
 
   @Test
+  public void actionResult_followSymlinks_absoluteDanglingSymlinkAsSymlink() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path link = execRoot.getRelative("link");
+    Path target = execRoot.getRelative("target");
+    link.createSymbolicLink(target);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /* followSymlinks= */ true,
+            /* allowDanglingSymlinks= */ true,
+            /* allowAbsoluteSymlinks= */ true);
+    um.addFiles(ImmutableList.of(link));
+    assertThat(um.getDigestToFile()).isEmpty();
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("/execroot/target");
+    expectedResult.addOutputSymlinksBuilder().setPath("link").setTarget("/execroot/target");
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void actionResult_followSymlinks_relativeDanglingSymlinkAsSymlink() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path link = execRoot.getRelative("link");
+    link.createSymbolicLink(PathFragment.create("target"));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /* followSymlinks= */ true,
+            /* allowDanglingSymlinks= */ true,
+            /* allowAbsoluteSymlinks= */ false);
+    um.addFiles(ImmutableList.of(link));
+    assertThat(um.getDigestToFile()).isEmpty();
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("target");
+    expectedResult.addOutputSymlinksBuilder().setPath("link").setTarget("target");
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
   public void actionResult_noFollowSymlinks_noAllowDanglingSymlinks_absoluteDanglingSymlinkError()
       throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
@@ -901,6 +948,55 @@ public class UploadManifestTest {
         .setTreeDigest(treeDigest)
         .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void
+      actionResult_followSymlinks_allowDanglingSymlinks_absoluteDanglingSymlinkInDirectoryError()
+          throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path link = dir.getRelative("link");
+    Path target = dir.getRelative("target");
+    link.createSymbolicLink(target);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /* followSymlinks= */ true,
+            /* allowDanglingSymlinks= */ true,
+            /* allowAbsoluteSymlinks= */ true);
+    IOException e = assertThrows(IOException.class, () -> um.addFiles(ImmutableList.of(dir)));
+    assertThat(e).hasMessageThat().contains("dangling");
+    assertThat(e).hasMessageThat().contains("/execroot/dir/link");
+    assertThat(e).hasMessageThat().contains("/execroot/dir/target");
+  }
+
+  @Test
+  public void
+      actionResult_followSymlinks_allowDanglingSymlinks_relativeDanglingSymlinkInDirectoryError()
+          throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path link = dir.getRelative("link");
+    link.createSymbolicLink(PathFragment.create("target"));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /* followSymlinks= */ true,
+            /* allowDanglingSymlinks= */ true,
+            /* allowAbsoluteSymlinks= */ false);
+    IOException e = assertThrows(IOException.class, () -> um.addFiles(ImmutableList.of(dir)));
+    assertThat(e).hasMessageThat().contains("dangling");
+    assertThat(e).hasMessageThat().contains("/execroot/dir/link");
+    assertThat(e).hasMessageThat().contains("target");
   }
 
   @Test
