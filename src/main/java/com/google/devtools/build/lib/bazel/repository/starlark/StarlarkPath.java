@@ -77,7 +77,6 @@ public final class StarlarkPath implements StarlarkValue {
 
   @StarlarkMethod(
       name = "readdir",
-      structField = false,
       doc = "The list of entries in the directory denoted by this path.")
   public ImmutableList<StarlarkPath> readdir() throws IOException {
     ImmutableList.Builder<StarlarkPath> builder = ImmutableList.builder();
@@ -118,9 +117,25 @@ public final class StarlarkPath implements StarlarkValue {
   @StarlarkMethod(
       name = "exists",
       structField = true,
-      doc = "Returns true if the file denoted by this path exists.")
+      doc =
+          "Returns true if the file or directory denoted by this path exists.<p>Note that "
+              + "accessing this field does <em>not</em> cause the path to be watched. If you'd "
+              + "like the repo rule or module extension to be sensitive to the path's existence, "
+              + "use the <code>watch()</code> method on the context object.")
   public boolean exists() {
     return path.exists();
+  }
+
+  @StarlarkMethod(
+      name = "is_dir",
+      structField = true,
+      doc =
+          "Returns true if this path points to a directory.<p>Note that accessing this field does "
+              + "<em>not</em> cause the path to be watched. If you'd like the repo rule or module "
+              + "extension to be sensitive to whether the path is a directory or a file, use the "
+              + "<code>watch()</code> method on the context object.")
+  public boolean isDir() {
+    return path.isDirectory();
   }
 
   @StarlarkMethod(

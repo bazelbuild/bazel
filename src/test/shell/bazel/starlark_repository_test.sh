@@ -501,7 +501,7 @@ function test_starlark_repository_environ() {
 def _impl(repository_ctx):
   print(repository_ctx.os.environ["FOO"])
   # Symlink so a repository is created
-  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""), watch_target="no")
 repo = repository_rule(implementation=_impl, local=False)
 EOF
 
@@ -544,7 +544,7 @@ EOF
 def _impl(repository_ctx):
   print(repository_ctx.os.environ["BAR"])
   # Symlink so a repository is created
-  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""), watch_target="no")
 repo = repository_rule(implementation=_impl, local=True)
 EOF
   BAR=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
@@ -556,7 +556,7 @@ EOF
 def _impl(repository_ctx):
   print(repository_ctx.os.environ["BAZ"])
   # Symlink so a repository is created
-  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""), watch_target="no")
 repo = repository_rule(implementation=_impl, local=True)
 EOF
   BAZ=BOZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
@@ -2788,7 +2788,7 @@ EOF
 
 function test_file_watching_outside_workspace() {
   # when reading a file outside the Bazel workspace, we should watch it.
-  local outside_dir="${TEST_TMPDIR}/outside_dir"
+  local outside_dir=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
@@ -2885,6 +2885,152 @@ EOF
 
   bazel build @foo >& $TEST_log && fail "expected bazel to fail!"
   expect_log "Circular definition of repositories"
+}
+
+function test_watch_file_status_change() {
+  local outside_dir=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  mkdir -p "${outside_dir}"
+  echo something > ${outside_dir}/data.txt
+
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r')")
+  data_file = rctx.path("${outside_dir}/data.txt")
+  rctx.watch(data_file)
+  if not data_file.exists:
+    print("I see nothing")
+  elif data_file.is_dir:
+    print("I see a directory")
+  else:
+    print("I see: " + rctx.read(data_file))
+r=repository_rule(_r)
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: something"
+
+  # test that all kinds of transitions between file, dir, and noent are watched
+
+  rm ${outside_dir}/data.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see nothing"
+
+  mkdir ${outside_dir}/data.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see a directory"
+
+  rm -r ${outside_dir}/data.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see nothing"
+
+  echo something again > ${outside_dir}/data.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: something again"
+
+  rm ${outside_dir}/data.txt
+  mkdir ${outside_dir}/data.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see a directory"
+
+  rm -r ${outside_dir}/data.txt
+  echo something yet again > ${outside_dir}/data.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: something yet again"
+}
+
+function test_watch_file_status_change_dangling_symlink() {
+  if "$is_windows"; then
+    # symlinks on Windows... annoying
+    return
+  fi
+  local outside_dir=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  mkdir -p "${outside_dir}"
+  ln -s ${outside_dir}/pointee ${outside_dir}/pointer
+
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r')")
+  data_file = rctx.path("${outside_dir}/pointer")
+  rctx.watch(data_file)
+  if not data_file.exists:
+    print("I see nothing")
+  elif data_file.is_dir:
+    print("I see a directory")
+  else:
+    print("I see: " + rctx.read(data_file))
+r=repository_rule(_r)
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see nothing"
+
+  echo haha > ${outside_dir}/pointee
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: haha"
+
+  rm ${outside_dir}/pointee
+  mkdir ${outside_dir}/pointee
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see a directory"
+}
+
+function test_watch_file_status_change_symlink_parent() {
+  if "$is_windows"; then
+    # symlinks on Windows... annoying
+    return
+  fi
+  local outside_dir=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  mkdir -p "${outside_dir}/a"
+
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r')")
+  data_file = rctx.path("${outside_dir}/a/b/c")
+  rctx.watch(data_file)
+  if not data_file.exists:
+    print("I see nothing")
+  elif data_file.is_dir:
+    print("I see a directory")
+  else:
+    print("I see: " + rctx.read(data_file))
+r=repository_rule(_r)
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see nothing"
+
+  mkdir -p ${outside_dir}/a/b
+  echo blah > ${outside_dir}/a/b/c
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: blah"
+
+  rm -rf ${outside_dir}/a/b
+  ln -s ${outside_dir}/d ${outside_dir}/a/b
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see nothing"
+
+  mkdir ${outside_dir}/d
+  echo bleh > ${outside_dir}/d/c
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bleh"
 }
 
 run_suite "local repository tests"

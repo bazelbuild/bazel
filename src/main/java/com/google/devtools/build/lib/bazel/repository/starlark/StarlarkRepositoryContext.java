@@ -198,9 +198,21 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "The path of the symlink to create, relative to the repository directory."),
+            doc = "The path of the symlink to create."),
+        @Param(
+            name = "watch_target",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the symlink target. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the path; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
       })
-  public void symlink(Object target, Object linkName, StarlarkThread thread)
+  public void symlink(Object target, Object linkName, String watchTarget, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath targetPath = getPath("symlink()", target);
     StarlarkPath linkPath = getPath("symlink()", linkName);
@@ -211,6 +223,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
+    maybeWatch(targetPath, ShouldWatch.fromString(watchTarget));
     try {
       checkInOutputDirectory("write", linkPath);
       makeDirectories(linkPath.getPath());
@@ -269,12 +282,25 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             defaultValue = "True",
             named = true,
             doc = "set the executable flag on the created file, true by default."),
+        @Param(
+            name = "watch_template",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the template file. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the file; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
       })
   public void createFileFromTemplate(
       Object path,
       Object template,
       Dict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
+      String watchTemplate,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath p = getPath("template()", path);
@@ -290,6 +316,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
+    if (t.isDir()) {
+      throw Starlark.errorf("attempting to use a directory as template: %s", t);
+    }
+    maybeWatch(t, ShouldWatch.fromString(watchTemplate));
     try {
       checkInOutputDirectory("write", p);
       makeDirectories(p.getPath());
@@ -385,8 +415,20 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             named = true,
             defaultValue = "0",
             doc = "strip the specified number of leading components from file names."),
+        @Param(
+            name = "watch_patch",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the patch file. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the file; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
       })
-  public void patch(Object patchFile, StarlarkInt stripI, StarlarkThread thread)
+  public void patch(Object patchFile, StarlarkInt stripI, String watchPatch, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     int strip = Starlark.toInt(stripI, "strip");
     StarlarkPath starlarkPath = getPath("patch()", patchFile);
@@ -397,6 +439,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
+    if (starlarkPath.isDir()) {
+      throw Starlark.errorf("attempting to use a directory as patch file: %s", starlarkPath);
+    }
+    maybeWatch(starlarkPath, ShouldWatch.fromString(watchPatch));
     try {
       PatchUtil.apply(starlarkPath.getPath(), strip, workingDirectory);
     } catch (PatchFailedException e) {
@@ -457,12 +503,25 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " any directory prefix adjustment. This can be used to extract archives that"
                     + " contain non-Unicode filenames, or which have files that would extract to"
                     + " the same path on case-insensitive filesystems."),
+        @Param(
+            name = "watch_archive",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the archive file. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the file; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
       })
   public void extract(
       Object archive,
       Object output,
       String stripPrefix,
       Dict<?, ?> renameFiles, // <String, String> expected
+      String watchArchive,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     StarlarkPath archivePath = getPath("extract()", archive);
@@ -471,6 +530,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       throw new RepositoryFunctionException(
           Starlark.errorf("Archive path '%s' does not exist.", archivePath), Transience.TRANSIENT);
     }
+    if (archivePath.isDir()) {
+      throw Starlark.errorf("attempting to extract a directory: %s", archivePath);
+    }
+    maybeWatch(archivePath, ShouldWatch.fromString(watchArchive));
 
     StarlarkPath outputPath = getPath("extract()", output);
     checkInOutputDirectory("write", outputPath);
