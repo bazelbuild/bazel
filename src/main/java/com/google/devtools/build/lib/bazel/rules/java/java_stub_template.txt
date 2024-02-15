@@ -269,6 +269,8 @@ export CLASSLOADER_PREFIX_PATH="${RUNPATH}"
 %set_jacoco_metadata%
 %set_jacoco_main_class%
 %set_jacoco_java_runfiles_root%
+# export JACOCO_IS_JAR_WRAPPED for compatibility with older versions of
+# JacocoCoverageRunner that check for this and not CLASSPATH_JAR
 export JACOCO_IS_JAR_WRAPPED=0
 export CLASSPATH_JAR=""
 
@@ -296,7 +298,8 @@ ARGS=(
   "${ARGS[@]}")
 
 
-function create_and_run_classpath_jar() {
+# Creates a JAR containing the classpath and put the result to stdout
+function create_classpath_jar() {
   # Build class path.
   MANIFEST_CLASSPATH=()
   if is_windows; then
@@ -355,7 +358,6 @@ function create_and_run_classpath_jar() {
 
   # Create classpath JAR file
   MANIFEST_JAR_FILE="$(mktemp -t XXXXXXXX-classpath.jar)"
-  export CLASSPATH_JAR="$(basename $MANIFEST_JAR_FILE)"
   if is_windows; then
     MANIFEST_JAR_FILE="$(cygpath --windows "$MANIFEST_JAR_FILE")"
     MANIFEST_FILE="$(cygpath --windows "$MANIFEST_FILE")"
@@ -367,13 +369,9 @@ function create_and_run_classpath_jar() {
   fi
   $JARBIN cvfm "$MANIFEST_JAR_FILE" "$MANIFEST_FILE" >/dev/null || \
     die "ERROR: $self failed because $JARBIN failed"
-
-  # Execute JAVA command
-  $JAVABIN -classpath "$MANIFEST_JAR_FILE" "${ARGS[@]}"
-  exit_code=$?
   rm -f "$MANIFEST_FILE"
-  rm -f "$MANIFEST_JAR_FILE"
-  exit $exit_code
+
+  echo "$MANIFEST_JAR_FILE"
 }
 
 # If the user didn't specify a --classpath_limit, use the default value.
@@ -396,7 +394,14 @@ fi
 
 if (("${#CLASSPATH}" > ${CLASSPATH_LIMIT})); then
   export JACOCO_IS_JAR_WRAPPED=1
-  create_and_run_classpath_jar
+  CLASSPATH_MANIFEST_JAR=$(create_classpath_jar)
+  export CLASSPATH_JAR="$(basename $CLASSPATH_MANIFEST_JAR)"
+  $JAVABIN -classpath "$CLASSPATH_MANIFEST_JAR" "${ARGS[@]}"
+  exit_code=$?
+  rm -f "$CLASSPATH_MANIFEST_JAR"
+  exit $exit_code
 else
+  export JACOCO_IS_JAR_WRAPPED=0
+  export CLASSPATH_JAR=""
   exec $JAVABIN -classpath $CLASSPATH "${ARGS[@]}"
 fi
