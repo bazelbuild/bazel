@@ -18,11 +18,12 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllValue;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.bazel.commands.RepositoryFetcher.RepositoryFetcherException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -62,13 +63,11 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.List;
-import net.starlark.java.eval.EvalException;
 
 /** Fetches external repositories. Which is so fetch. */
 @Command(
@@ -94,7 +93,7 @@ public final class FetchCommand implements BlazeCommand {
     PackageOptions pkgOptions = options.getOptions(PackageOptions.class);
     if (!pkgOptions.fetch) {
       return createFailedBlazeCommandResult(
-          env.getReporter(), Code.OPTIONS_INVALID, "You cannot run fetch with --fetch=false");
+          env.getReporter(), Code.OPTIONS_INVALID, "You cannot run fetch with --nofetch");
     }
     FetchOptions fetchOptions = options.getOptions(FetchOptions.class);
     int optionsCount =
@@ -129,12 +128,21 @@ public final class FetchCommand implements BlazeCommand {
                   PrecomputedValue.injected(
                       RepositoryDelegatorFunction.FORCE_FETCH, env.getCommandId().toString())));
     }
-    if (fetchOptions.all || fetchOptions.configure) {
+    try {
+      env.syncPackageLoading(options);
+      if (fetchOptions.all || fetchOptions.configure) {
       result = fetchAll(env, options, threadsOption, fetchOptions.configure);
-    } else if (!fetchOptions.repos.isEmpty()) {
-      result = fetchRepo(env, options, threadsOption, fetchOptions.repos);
-    } else {
-      result = fetchTarget(env, options, threadsOption);
+      } else if (!fetchOptions.repos.isEmpty()) {
+        result = fetchRepos(env, threadsOption, fetchOptions.repos);
+      } else {
+        result = fetchTarget(env, options, threadsOption);
+      }
+    } catch (AbruptExitException e) {
+      return createFailedBlazeCommandResult(
+          env.getReporter(), e.getMessage(), e.getDetailedExitCode());
+    } catch (InterruptedException e) {
+      return createFailedBlazeCommandResult(
+          env.getReporter(), "Fetch interrupted: " + e.getMessage());
     }
     env.getEventBus()
         .post(
@@ -147,7 +155,8 @@ public final class FetchCommand implements BlazeCommand {
       CommandEnvironment env,
       OptionsParsingResult options,
       LoadingPhaseThreadsOption threadsOption,
-      boolean configureEnabled) {
+      boolean configureEnabled)
+      throws InterruptedException {
     if (!options.getOptions(BuildLanguageOptions.class).enableBzlmod) {
       return createFailedBlazeCommandResult(
           env.getReporter(),
@@ -161,86 +170,45 @@ public final class FetchCommand implements BlazeCommand {
             .setEventHandler(env.getReporter())
             .build();
 
-    try {
-      env.syncPackageLoading(options);
-      EvaluationResult<SkyValue> evaluationResult =
-          skyframeExecutor.prepareAndGet(
-              ImmutableSet.of(BazelFetchAllValue.key(configureEnabled)), evaluationContext);
-      if (evaluationResult.hasError()) {
-        Exception e = evaluationResult.getError().getException();
-        return createFailedBlazeCommandResult(
-            env.getReporter(),
-            e != null ? e.getMessage() : "Unexpected error during fetching all external deps.");
-      }
-      // Everything is fetched successfully!
-      return BlazeCommandResult.success();
-    } catch (AbruptExitException e) {
+    EvaluationResult<SkyValue> evaluationResult =
+        skyframeExecutor.prepareAndGet(
+            ImmutableSet.of(BazelFetchAllValue.key(configureEnabled)), evaluationContext);
+    if (evaluationResult.hasError()) {
+      Exception e = evaluationResult.getError().getException();
       return createFailedBlazeCommandResult(
-          env.getReporter(), "Unknown error:: " + e.getMessage(), e.getDetailedExitCode());
-    } catch (InterruptedException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Fetch interrupted: " + e.getMessage());
+          env.getReporter(),
+          e != null ? e.getMessage() : "Unexpected error during fetching all external deps.");
     }
+    return BlazeCommandResult.success();
   }
 
-  private BlazeCommandResult fetchRepo(
-      CommandEnvironment env,
-      OptionsParsingResult options,
-      LoadingPhaseThreadsOption threadsOption,
-      List<String> repos) {
-    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
-            .setParallelism(threadsOption.threads)
-            .setEventHandler(env.getReporter())
-            .build();
+  private BlazeCommandResult fetchRepos(
+      CommandEnvironment env, LoadingPhaseThreadsOption threadsOption, List<String> repos)
+      throws InterruptedException {
     try {
-      env.syncPackageLoading(options);
-      ImmutableSet.Builder<SkyKey> repoDelegatorKeys = ImmutableSet.builder();
-      for (String repo : repos) {
-        RepositoryName repoName = getRepositoryName(env, threadsOption, repo);
-        repoDelegatorKeys.add(RepositoryDirectoryValue.key(repoName));
-      }
-      EvaluationResult<SkyValue> evaluationResult =
-          skyframeExecutor.prepareAndGet(repoDelegatorKeys.build(), evaluationContext);
-      if (evaluationResult.hasError()) {
-        Exception e = evaluationResult.getError().getException();
-        return createFailedBlazeCommandResult(
-            env.getReporter(),
-            e != null ? e.getMessage() : "Unexpected error during repository fetching.");
-      }
+      ImmutableMap<RepositoryName, RepositoryDirectoryValue> repositoryNamesAndValues =
+          RepositoryFetcher.fetchRepos(repos, env, threadsOption);
       String notFoundRepos =
-          repoDelegatorKeys.build().stream()
-              .filter(
-                  key -> !((RepositoryDirectoryValue) evaluationResult.get(key)).repositoryExists())
-              .map(key -> ((RepositoryDirectoryValue) evaluationResult.get(key)).getErrorMsg())
+          repositoryNamesAndValues.values().stream()
+              .filter(value -> !value.repositoryExists())
+              .map(value -> value.getErrorMsg())
               .collect(joining("; "));
       if (!notFoundRepos.isEmpty()) {
         return createFailedBlazeCommandResult(
             env.getReporter(), "Fetching repos failed with errors: " + notFoundRepos);
       }
-
-      // Everything has been fetched successfully!
       return BlazeCommandResult.success();
-    } catch (AbruptExitException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Unknown error: " + e.getMessage(), e.getDetailedExitCode());
-    } catch (InterruptedException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Fetch interrupted: " + e.getMessage());
-    } catch (LabelSyntaxException | EvalException | IllegalArgumentException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Invalid repo name: " + e.getMessage());
     } catch (RepositoryMappingResolutionException e) {
       return createFailedBlazeCommandResult(
           env.getReporter(), "Invalid repo name: " + e.getMessage(), e.getDetailedExitCode());
+    } catch (RepositoryFetcherException e) {
+      return createFailedBlazeCommandResult(env.getReporter(), e.getMessage());
     }
   }
 
   private BlazeCommandResult fetchTarget(
-      CommandEnvironment env,
-      OptionsParsingResult options,
-      LoadingPhaseThreadsOption threadsOption) {
+      CommandEnvironment env, OptionsParsingResult options, LoadingPhaseThreadsOption threadsOption)
+      throws InterruptedException {
     if (options.getResidue().isEmpty()) {
       return createFailedBlazeCommandResult(
           env.getReporter(),
@@ -253,7 +221,6 @@ public final class FetchCommand implements BlazeCommand {
     boolean keepGoing = options.getOptions(KeepGoingOption.class).keepGoing;
     TargetPattern.Parser mainRepoTargetParser;
     try {
-      env.syncPackageLoading(options);
       RepositoryMapping repoMapping =
           env.getSkyframeExecutor()
               .getMainRepoMapping(keepGoing, threadsOption.threads, env.getReporter());
@@ -263,12 +230,6 @@ public final class FetchCommand implements BlazeCommand {
     } catch (RepositoryMappingResolutionException e) {
       return createFailedBlazeCommandResult(
           env.getReporter(), e.getMessage(), e.getDetailedExitCode());
-    } catch (InterruptedException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Fetch interrupted: " + e.getMessage());
-    } catch (AbruptExitException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Unknown error: " + e.getMessage(), e.getDetailedExitCode());
     }
 
     // Querying for all of the dependencies of the targets has the side-effect of populating the
@@ -361,29 +322,6 @@ public final class FetchCommand implements BlazeCommand {
             String.format(
                 "Evaluation of query \"%s\" failed but --keep_going specified, ignoring errors",
                 expr));
-  }
-
-  private RepositoryName getRepositoryName(
-      CommandEnvironment env, LoadingPhaseThreadsOption threadsOption, String repoName)
-      throws EvalException,
-          LabelSyntaxException,
-          RepositoryMappingResolutionException,
-          InterruptedException {
-    if (repoName.startsWith("@@")) { // canonical RepoName
-      return RepositoryName.create(repoName.substring(2));
-    } else if (repoName.startsWith("@")) { // apparent RepoName
-      RepositoryName.validateUserProvidedRepoName(repoName.substring(1));
-      RepositoryMapping repoMapping =
-          env.getSkyframeExecutor()
-              .getMainRepoMapping(
-                  env.getOptions().getOptions(KeepGoingOption.class).keepGoing,
-                  threadsOption.threads,
-                  env.getReporter());
-      return repoMapping.get(repoName.substring(1));
-    } else {
-      throw new IllegalArgumentException(
-          "The repo value has to be either apparent '@repo' or canonical '@@repo' repo name");
-    }
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(

@@ -111,6 +111,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(
               RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE,
               RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+          PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
           PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableList.of()),
           PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
           PrecomputedValue.injected(
