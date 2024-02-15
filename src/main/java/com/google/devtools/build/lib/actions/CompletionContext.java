@@ -111,6 +111,10 @@ public class CompletionContext {
     return importantInputMap;
   }
 
+  public Map<Artifact, ImmutableList<FilesetOutputSymlink>> getExpandedFilesets() {
+    return expandedFilesets;
+  }
+
   @Nullable
   public FileArtifactValue getFileArtifactValue(Artifact artifact) {
     return importantInputMap.getInputMetadata(artifact);

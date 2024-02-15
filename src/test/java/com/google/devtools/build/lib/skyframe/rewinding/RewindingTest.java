@@ -268,4 +268,9 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   public void topLevelOutputRewound_partiallyBuiltTarget() throws Exception {
     helper.runTopLevelOutputRewound_partiallyBuiltTarget();
   }
+
+  @Test
+  public void topLevelOutputRewound_fileInTreeArtifact() throws Exception {
+    helper.runTopLevelOutputRewound_fileInTreeArtifact();
+  }
 }

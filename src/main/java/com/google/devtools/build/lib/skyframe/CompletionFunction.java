@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -398,11 +397,19 @@ public final class CompletionFunction<
   private RewindPlan informImportantOutputHandler(
       KeyT key, Environment env, Collection<Artifact> importantArtifacts, CompletionContext ctx)
       throws InterruptedException {
+    ImportantOutputHandler importantOutputHandler =
+        skyframeActionExecutor.getActionContextRegistry().getContext(ImportantOutputHandler.class);
+    if (importantOutputHandler == ImportantOutputHandler.NO_OP) {
+      return null; // Avoid expanding artifacts if the default no-op handler is installed.
+    }
+
     ImmutableMap<String, ActionInput> lostOutputs =
-        skyframeActionExecutor
-            .getActionContextRegistry()
-            .getContext(ImportantOutputHandler.class)
-            .processAndGetLostArtifacts(importantArtifacts, ctx.getImportantInputMap());
+        importantOutputHandler.processAndGetLostArtifacts(
+            ctx.expand(importantArtifacts),
+            new ActionInputMetadataProvider(
+                skyframeActionExecutor.getExecRoot().asFragment(),
+                ctx.getImportantInputMap(),
+                ctx.getExpandedFilesets()));
     if (lostOutputs.isEmpty()) {
       return null;
     }
@@ -412,8 +419,7 @@ public final class CompletionFunction<
             key,
             ImmutableSet.copyOf(Artifact.keys(importantArtifacts)),
             lostOutputs,
-            // TODO: b/321044105 - Compute precise owners.
-            new ActionInputDepOwnerMap(lostOutputs.values()),
+            ctx.getDepOwners(lostOutputs.values()),
             env);
     return new RewindPlan(lostOutputs.values(), reset);
   }

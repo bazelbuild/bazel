@@ -43,8 +43,10 @@ import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -74,6 +76,7 @@ import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
@@ -275,6 +278,15 @@ public class RewindingTestsHelper {
     assertThat(skyKey).isInstanceOf(ActionLookupData.class);
     assertThat(((ActionLookupData) skyKey).getLabel().getCanonicalForm()).isEqualTo(label);
     assertThat(((ActionLookupData) skyKey).getActionIndex()).isEqualTo(index);
+  }
+
+  static void assertTreeArtifactRewound(List<SkyKey> rewoundKeys, String lostTree) {
+    assertThat(rewoundKeys).hasSize(2);
+    assertThat(rewoundKeys.get(1)).isInstanceOf(SpecialArtifact.class);
+    SpecialArtifact treeArtifact = (SpecialArtifact) rewoundKeys.get(1);
+    assertThat(treeArtifact.isTreeArtifact()).isTrue();
+    assertThat(treeArtifact.getRootRelativePathString()).isEqualTo(lostTree);
+    assertThat(rewoundKeys.get(0)).isEqualTo(treeArtifact.getGeneratingActionKey());
   }
 
   static String latin1StringFromActionInput(ActionExecutionContext context, ActionInput input)
@@ -2779,7 +2791,49 @@ public class RewindingTestsHelper {
     }
   }
 
-  private void listenForNoCompletionEventsBeforeRewinding(
+  public final void runTopLevelOutputRewound_fileInTreeArtifact() throws Exception {
+    testCase.write(
+        "foo/defs.bzl",
+        "def _lost_and_found_trees_impl(ctx):",
+        "  lost_tree = ctx.actions.declare_directory('lost_tree')",
+        "  found_tree = ctx.actions.declare_directory('found_tree')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [lost_tree],",
+        "    command = 'echo lost > %s/lost_file' % lost_tree.path,",
+        "  )",
+        "  ctx.actions.run_shell(",
+        "    outputs = [found_tree],",
+        "    command = 'echo found > %s/found_file' % found_tree.path,",
+        "  )",
+        "  return DefaultInfo(files = depset([lost_tree, found_tree]))",
+        "",
+        "lost_and_found_trees = rule(implementation = _lost_and_found_trees_impl)");
+    testCase.write(
+        "foo/BUILD",
+        "load(':defs.bzl', 'lost_and_found_trees')",
+        "lost_and_found_trees(name = 'lost_and_found_trees')");
+    lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost_tree/lost_file"));
+    Label fooLostAndFoundTrees = Label.parseCanonical("//foo:lost_and_found_trees");
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
+    Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
+    listenForNoCompletionEventsBeforeRewinding(fooLostAndFoundTrees, targetCompleteEvents);
+
+    testCase.buildTarget("//foo:lost_and_found_trees");
+
+    lostOutputsModule.verifyAllLostOutputsConsumed();
+    assertTreeArtifactRewound(rewoundKeys, "foo/lost_tree");
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Action foo/lost_tree", 2);
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Action foo/found_tree", 1);
+    assertThat(targetCompleteEvents.keySet()).containsExactly(fooLostAndFoundTrees);
+    assertOutputsReported(
+        targetCompleteEvents.get(fooLostAndFoundTrees),
+        "bin/foo/lost_tree/lost_file",
+        "bin/foo/found_tree/found_file");
+  }
+
+  final void listenForNoCompletionEventsBeforeRewinding(
       Label lostLabel, Map<Label, ? extends EventReportingArtifacts> events) {
     testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
@@ -2792,16 +2846,20 @@ public class RewindingTestsHelper {
         });
   }
 
-  private void assertOutputsReported(
+  final void assertOutputsReported(
       EventReportingArtifacts event, String... expectedRootRelativePaths) throws Exception {
-    List<String> expectedExecPaths = new ArrayList<>();
+    ReportedArtifacts reported = event.reportedArtifacts();
+    List<PathFragment> expectedExecPaths = new ArrayList<>();
     for (String path : expectedRootRelativePaths) {
-      expectedExecPaths.add(getExecPath(path));
+      expectedExecPaths.add(PathFragment.create(getExecPath(path)));
     }
+    PathFragment execRoot =
+        testCase.getRuntimeWrapper().getCommandEnvironment().getExecRoot().asFragment();
     assertThat(
-            event.reportedArtifacts().artifacts.stream()
-                .flatMap(set -> set.toList().stream())
-                .map(Artifact::getExecPathString))
+            reported.artifacts.stream()
+                .flatMap(set -> reported.completionContext.expand(set.toList()).stream())
+                .map(ActionInput::getExecPath)
+                .map(path -> path.isAbsolute() ? path.relativeTo(execRoot) : path))
         .containsExactlyElementsIn(expectedExecPaths);
   }
 
@@ -2823,7 +2881,7 @@ public class RewindingTestsHelper {
     return testCase.getRuntimeWrapper().getOptions(CoreOptions.class).buildRunfileManifests;
   }
 
-  private Map<Label, TargetCompleteEvent> recordTargetCompleteEvents() {
+  final Map<Label, TargetCompleteEvent> recordTargetCompleteEvents() {
     Map<Label, TargetCompleteEvent> targetCompleteEvents = new HashMap<>();
     testCase
         .getRuntimeWrapper()
