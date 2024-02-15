@@ -89,6 +89,34 @@ EOF
   expect_log "I am Python 3"
 }
 
+# Verify that a bzlmod without any workspace interference is able to
+# run Python rules.
+# This test is obsolete once the Python rules are removed from Bazel itself.
+function test_pure_bzlmod_can_build_py_binary() {
+  mkdir -p test
+
+  cat > test/BUILD << EOF
+py_binary(
+    name = "main3",
+    python_version = "PY3",
+    srcs = ["main3.py"],
+)
+EOF
+
+  touch test/main3.py
+
+  # Tell bzlmod to ignore workspace entirely
+  touch WORKSPACE.bzlmod
+  # Also clear out workspace, just to be safe. If workspace is triggered at all,
+  # then internal logic as part of the Python rules registration will trigger
+  # registering a Python toolchain, which we explicitly want to avoid.
+  cat > WORKSPACE
+
+  # Build instead of run. The autodetecting toolchain may not produce something
+  # that actually works (it could be a fake or some arbitrary system python).
+  bazel build --enable_bzlmod //test:main3 &> $TEST_log || fail "unable to build py binary"
+}
+
 # Test that access to runfiles works (in general, and under our test environment
 # specifically).
 function test_can_access_runfiles() {
