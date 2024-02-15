@@ -407,8 +407,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set to true, Bazel will upload symlinks as such to a remote or disk cache. Otherwise,"
-              + " non-dangling symlinks will be uploaded as the file or directory they point to.")
+          "If set to true, Bazel will always upload symlinks as such to a remote or disk cache."
+              + " Otherwise, non-dangling relative symlinks (and only those) will be uploaded as"
+              + " the file or directory they point to.")
   public boolean incompatibleRemoteSymlinks;
 
   @Option(
