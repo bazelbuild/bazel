@@ -1189,6 +1189,9 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             p.toString(), getIdentifyingStringForLogging(), thread.getCallerLocation());
     env.getListener().post(w);
     maybeWatch(p, ShouldWatch.fromString(watch));
+    if (p.isDir()) {
+      throw Starlark.errorf("attempting to read() a directory: %s", p);
+    }
     try {
       return FileSystemUtils.readContent(p.getPath(), ISO_8859_1);
     } catch (IOException e) {
@@ -1274,9 +1277,6 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       if (fileValue == null) {
         throw new NeedsSkyframeRestartException();
       }
-      if (!fileValue.isFile() || fileValue.isSpecialFile()) {
-        throw Starlark.errorf("Not a regular file: %s", pair.second.asPath().getPathString());
-      }
 
       recordedFileInputs.put(pair.first, RepoRecordedInput.File.fileValueToMarkerValue(fileValue));
     } catch (IOException e) {
@@ -1287,12 +1287,19 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   @StarlarkMethod(
       name = "watch",
       doc =
-          "Tells Bazel to watch for changes to the given file. Any changes to the file will "
+          "Tells Bazel to watch for changes to the given path, whether or not it exists, or "
+              + "whether it's a file or a directory. Any changes to the file or directory will "
               + "invalidate this repository or module extension, and cause it to be refetched or "
-              + "re-evaluated next time.<p>Note that attempting to watch files inside the repo "
-              + "currently being fetched, or inside the working directory of the current module "
-              + "extension, will result in an error. A module extension attempting to watch a file "
-              + "outside the current Bazel workspace will also result in an error.",
+              + "re-evaluated next time.<p>\"Changes\" include changes to the contents of the file "
+              + "(if the path is a file); if the path was a file but is now a directory, or vice "
+              + "versa; and if the path starts or stops existing. Notably, this does <em>not</em> "
+              + "include changes to any files under the directory if the path is a directory. For "
+              // TODO: add `watch_dir()`
+              + "that, use <a href=\"#watch_dir\"><code>watch_dir()</code></a> instead.<p>Note "
+              + "that attempting to watch paths inside the repo currently being fetched, or inside "
+              + "the working directory of the current module extension, will result in an error. A "
+              + "module extension attempting to watch a path outside the current Bazel workspace "
+              + "will also result in an error.",
       parameters = {
         @Param(
             name = "path",

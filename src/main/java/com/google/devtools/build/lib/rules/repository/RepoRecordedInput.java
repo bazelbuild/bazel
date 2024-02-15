@@ -194,12 +194,16 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
     /**
      * Convert to a {@link com.google.devtools.build.lib.actions.FileValue} to a String appropriate
-     * for placing in a repository marker file.
-     *
-     * @param fileValue The value to convert. It must correspond to a regular file.
+     * for placing in a repository marker file. The file need not exist, and can be a file or a
+     * directory.
      */
     public static String fileValueToMarkerValue(FileValue fileValue) throws IOException {
-      Preconditions.checkArgument(fileValue.isFile() && !fileValue.isSpecialFile());
+      if (fileValue.isDirectory()) {
+        return "DIR";
+      }
+      if (!fileValue.exists()) {
+        return "ENOENT";
+      }
       // Return the file content digest in hex. fileValue may or may not have the digest available.
       byte[] digest = fileValue.realFileStateValue().getDigest();
       if (digest == null) {
