@@ -71,31 +71,28 @@ import net.starlark.java.syntax.Location;
 public final class CompletionFunction<
         ValueT extends ConfiguredObjectValue,
         ResultT extends SkyValue,
-        KeyT extends TopLevelActionLookupKeyWrapper,
-        FailureT>
+        KeyT extends TopLevelActionLookupKeyWrapper>
     implements SkyFunction {
 
-  /** A strategy for completing the build. */
+  /**
+   * A strategy for completing the build.
+   *
+   * <p>Any Skyframe lookups in methods passed an {@link Environment} must return an already-done
+   * value. For example, it is acceptable to call {@link
+   * ConfiguredTargetAndData#fromExistingConfiguredTargetInSkyframe}.
+   */
   interface Completor<
-      ValueT, ResultT extends SkyValue, KeyT extends TopLevelActionLookupKeyWrapper, FailureT> {
+      ValueT, ResultT extends SkyValue, KeyT extends TopLevelActionLookupKeyWrapper> {
 
     /** Creates an event reporting an absent input artifact. */
-    Event getRootCauseError(ValueT value, KeyT key, LabelCause rootCause, Environment env)
+    Event getRootCauseError(KeyT key, ValueT value, LabelCause rootCause, Environment env)
         throws InterruptedException;
 
-    @Nullable
-    Object getLocationIdentifier(ValueT value, KeyT key, Environment env)
+    Object getLocationIdentifier(KeyT key, ValueT value, Environment env)
         throws InterruptedException;
 
     /** Provides a successful completion value. */
     ResultT getResult();
-
-    /**
-     * Creates supplementary data needed to call {@link #createFailed}; returns null if skyframe
-     * found missing values.
-     */
-    @Nullable
-    FailureT getFailureData(KeyT key, ValueT value, Environment env) throws InterruptedException;
 
     /**
      * Creates a failed completion event.
@@ -104,18 +101,18 @@ public final class CompletionFunction<
      */
     Postable createFailed(
         KeyT skyKey,
+        ValueT value,
         NestedSet<Cause> rootCauses,
         CompletionContext ctx,
         ImmutableMap<String, ArtifactsInOutputGroup> outputs,
-        FailureT failureData)
+        Environment env)
         throws InterruptedException;
 
     /**
-     * Creates a succeeded completion event; returns null if skyframe found missing values.
+     * Creates a succeeded completion event.
      *
      * <p>The event must be {@linkplain Postable#storeForReplay stored}.
      */
-    @Nullable
     EventReportingArtifacts createSucceeded(
         KeyT skyKey,
         ValueT value,
@@ -126,7 +123,7 @@ public final class CompletionFunction<
   }
 
   private final PathResolverFactory pathResolverFactory;
-  private final Completor<ValueT, ResultT, KeyT, FailureT> completor;
+  private final Completor<ValueT, ResultT, KeyT> completor;
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final FilesMetricConsumer topLevelArtifactsMetric;
   private final ActionRewindStrategy actionRewindStrategy;
@@ -134,7 +131,7 @@ public final class CompletionFunction<
 
   CompletionFunction(
       PathResolverFactory pathResolverFactory,
-      Completor<ValueT, ResultT, KeyT, FailureT> completor,
+      Completor<ValueT, ResultT, KeyT> completor,
       SkyframeActionExecutor skyframeActionExecutor,
       FilesMetricConsumer topLevelArtifactsMetric,
       ActionRewindStrategy actionRewindStrategy,
@@ -257,15 +254,6 @@ public final class CompletionFunction<
     }
     expandedFilesets.putAll(topLevelFilesets);
 
-    NestedSet<Cause> rootCauses = rootCausesBuilder.build();
-    @Nullable FailureT failureData = null;
-    if (!rootCauses.isEmpty()) {
-      failureData = completor.getFailureData(key, value, env);
-      if (failureData == null) {
-        return null;
-      }
-    }
-
     CompletionContext ctx =
         CompletionContext.create(
             expandedArtifacts,
@@ -278,6 +266,7 @@ public final class CompletionFunction<
             skyframeActionExecutor.getExecRoot(),
             workspaceNameValue.getName());
 
+    NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
       RewindPlan rewindPlan = null;
       ImmutableSet<Artifact> builtArtifacts = builtArtifactsBuilder.build();
@@ -301,7 +290,7 @@ public final class CompletionFunction<
       ImmutableMap<String, ArtifactsInOutputGroup> builtOutputs =
           new SuccessfulArtifactFilter(builtArtifacts)
               .filterArtifactsInOutputGroup(artifactsToBuild.getAllArtifactsByOutputGroup());
-      Postable event = completor.createFailed(key, rootCauses, ctx, builtOutputs, failureData);
+      Postable event = completor.createFailed(key, value, rootCauses, ctx, builtOutputs, env);
       checkStored(event, key);
       env.getListener().post(event);
       if (rewindPlan != null) {
@@ -315,9 +304,7 @@ public final class CompletionFunction<
       if (firstActionExecutionException != null) {
         throw new CompletionFunctionException(firstActionExecutionException);
       }
-      // locationPrefix theoretically *could* be null because of missing deps, but not in reality,
-      // and we're not allowed to wait for deps to be ready if we're failing anyway.
-      @Nullable Object locationPrefix = completor.getLocationIdentifier(value, key, env);
+      Object locationPrefix = completor.getLocationIdentifier(key, value, env);
       Pair<DetailedExitCode, String> codeAndMessage =
           ActionExecutionFunction.createSourceErrorCodeAndMessage(rootCauses.toList(), key);
       String message;
@@ -325,7 +312,7 @@ public final class CompletionFunction<
         message = codeAndMessage.getSecond();
         env.getListener().handle(Event.error((Location) locationPrefix, message));
       } else {
-        message = (locationPrefix == null ? "" : locationPrefix + " ") + codeAndMessage.getSecond();
+        message = locationPrefix + " " + codeAndMessage.getSecond();
         env.getListener().handle(Event.error(message));
       }
       throw new CompletionFunctionException(
@@ -345,9 +332,6 @@ public final class CompletionFunction<
     }
 
     Postable event = completor.createSucceeded(key, value, ctx, artifactsToBuild, env);
-    if (event == null) {
-      return null;
-    }
     checkStored(event, key);
     env.getListener().post(event);
     topLevelArtifactsMetric.mergeIn(currentConsumer);
@@ -367,7 +351,7 @@ public final class CompletionFunction<
         ActionExecutionFunction.createLabelCause(
             input, detailedExitCode, key.actionLookupKey().getLabel(), bugReporter);
     rootCausesBuilder.add(cause);
-    env.getListener().handle(completor.getRootCauseError(value, key, cause, env));
+    env.getListener().handle(completor.getRootCauseError(key, value, cause, env));
     skyframeActionExecutor.recordExecutionError();
   }
 
