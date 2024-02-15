@@ -951,7 +951,7 @@ EOF
   bazel shutdown
 }
 
-function test_runfiles_from_tests_get_reused() {
+function test_runfiles_from_tests_get_reused_and_tmp_clean() {
   mkdir pkg
   touch pkg/file.txt
   cat >pkg/reusing_test.bzl <<'EOF'
@@ -963,9 +963,9 @@ def _reused_runfiles_test_impl(ctx):
 
     test_code = """
     #!/bin/bash
-    dir_inode_number=$(ls -di $RUNFILES_DIR | cut -f1 -d" ")
+    dir_inode_number=$(ls -di $TEST_SRCDIR | cut -f1 -d" ")
     echo "The directory inode is $dir_inode_number"
-    file_inode_number=$(ls -i $RUNFILES_DIR/_main/pkg/file.txt | cut -f1 -d" ")
+    file_inode_number=$(ls -i $TEST_SRCDIR/_main/pkg/file.txt | cut -f1 -d" ")
     echo "The file inode is $file_inode_number"
     """
 
@@ -999,19 +999,36 @@ reused_runfiles_test(
     name = "b",
 )
 EOF
-
   test_output="reuse_test_output.txt"
-  bazel coverage --experimental_split_coverage_postprocessing=1 \
-      --experimental_fetch_all_coverage_outputs --test_output=streamed \
-      //pkg:a > ${test_output} \
-    || fail "Expected build to succeed"
+  if [[ $TEST_WORKSPACE == "_main" ]]; then
+    bazel coverage --test_output=streamed \
+      --experimental_split_coverage_postprocessing=1 \
+      --experimental_fetch_all_coverage_outputs //pkg:a > ${test_output} \
+      || fail "Expected build to succeed"
+  else
+    bazel test --test_output=streamed //pkg:a > ${test_output} \
+      || fail "Expected build to succeed"
+  fi
   dir_inode_a=$(awk '/The directory inode is/ {print $5}' ${test_output})
   file_inode_a=$(awk '/The file inode is/ {print $5}' ${test_output})
 
-  bazel coverage --experimental_split_coverage_postprocessing=1 \
-      --experimental_fetch_all_coverage_outputs --test_output=streamed \
-      //pkg:b > ${test_output} \
-    || fail "Expected build to succeed"
+  local output_base="$(bazel info output_base)"
+  local stashed_test_dir="${output_base}/sandbox/sandbox_stash/TestRunner/6/execroot/$WORKSPACE_NAME"
+  [[ -d "${stashed_test_dir}/bazel-out" ]] \
+    || fail "${stashed_test_dir}/bazel-out directory not present"
+  [[ -d "${stashed_test_dir}/_tmp" ]] \
+      && fail "${stashed_test_dir}/_tmp directory is present"
+
+
+  if [[ $TEST_WORKSPACE == "_main" ]]; then
+    bazel coverage --test_output=streamed //pkg:b \
+      --experimental_split_coverage_postprocessing=1 \
+      --experimental_fetch_all_coverage_outputs > ${test_output} \
+      || fail "Expected build to succeed"
+  else
+    bazel test --test_output=streamed //pkg:b > ${test_output} \
+      || fail "Expected build to succeed"
+  fi
   dir_inode_b=$(awk '/The directory inode is/ {print $5}' ${test_output})
   file_inode_b=$(awk '/The file inode is/ {print $5}' ${test_output})
 

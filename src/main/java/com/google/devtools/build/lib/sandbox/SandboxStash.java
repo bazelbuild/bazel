@@ -139,8 +139,12 @@ public class SandboxStash {
     try {
       stashPath.createDirectory();
       Path stashPathExecroot = stashPath.getChild("execroot");
+      if (isTestAction(mnemonic)) {
+        path.getRelative("execroot/" + environment.get("TEST_WORKSPACE") + "/_tmp").deleteTree();
+      }
       path.getChild("execroot").renameTo(stashPathExecroot);
       if (isTestAction(mnemonic)) {
+        // We only do this after the rename operation has succeeded
         stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
       }
     } catch (IOException e) {
