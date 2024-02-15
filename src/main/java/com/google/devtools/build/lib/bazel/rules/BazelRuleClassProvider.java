@@ -101,7 +101,6 @@ import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Prov
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
-import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
@@ -292,8 +291,6 @@ public class BazelRuleClassProvider {
           builder.addStarlarkBuiltinsInternal(
               ObjcStarlarkInternal.NAME, new ObjcStarlarkInternal());
           builder.addStarlarkBuiltinsInternal(CcStarlarkInternal.NAME, new CcStarlarkInternal());
-          builder.addStarlarkBuiltinsInternal(
-              BazelObjcStarlarkInternal.NAME, new BazelObjcStarlarkInternal());
 
           // Add the package() function.
           // TODO(bazel-team): Factor this into a group of similar BUILD definitions, or add a more

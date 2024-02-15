@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AvailableXcodesRule;
@@ -60,8 +59,7 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new AvailableXcodesRule());
     builder.addRuleDefinition(new XcodeVersionRule());
 
-    builder.addStarlarkBuiltinsInternal(
-        "apple_common", new AppleStarlarkCommon(BazelCppSemantics.OBJC));
+    builder.addStarlarkBuiltinsInternal("apple_common", new AppleStarlarkCommon());
     builder.addStarlarkBootstrap(new AppleBootstrap());
   }
 
