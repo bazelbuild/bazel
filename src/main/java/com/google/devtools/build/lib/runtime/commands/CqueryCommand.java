@@ -67,6 +67,7 @@ import java.util.Set;
     usesConfigurationOptions = true,
     shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
     allowResidue = true,
+    binaryStdOut = true,
     completion = "label",
     help = "resource:cquery.txt")
 public final class CqueryCommand implements BlazeCommand {

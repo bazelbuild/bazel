@@ -59,16 +59,17 @@ import java.util.Optional;
 
 /** Implementation of the dump command. */
 @Command(
-  mustRunInWorkspace = false,
-  options = {DumpCommand.DumpOptions.class},
-  help =
-      "Usage: %{product} dump <options>\n"
-          + "Dumps the internal state of the %{product} server process.  This command is provided "
-          + "as an aid to debugging, not as a stable interface, so users should not try to "
-          + "parse the output; instead, use 'query' or 'info' for this purpose.\n%{options}",
-  name = "dump",
-  shortDescription = "Dumps the internal state of the %{product} server process."
-)
+    mustRunInWorkspace = false,
+    options = {DumpCommand.DumpOptions.class},
+    help =
+        "Usage: %{product} dump <options>\n"
+            + "Dumps the internal state of the %{product} server process.  This command is provided"
+            + " as an aid to debugging, not as a stable interface, so users should not try to parse"
+            + " the output; instead, use 'query' or 'info' for this purpose.\n"
+            + "%{options}",
+    name = "dump",
+    shortDescription = "Dumps the internal state of the %{product} server process.",
+    binaryStdOut = true)
 public class DumpCommand implements BlazeCommand {
 
   /**

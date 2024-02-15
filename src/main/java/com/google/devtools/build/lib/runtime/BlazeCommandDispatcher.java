@@ -461,11 +461,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         OutErr colorfulOutErr = outErr;
 
         if (!eventHandlerOptions.useColor()) {
-          outErr = ansiStripOut(ansiStripErr(outErr));
           if (!commandAnnotation.binaryStdOut()) {
+            outErr = ansiStripOut(outErr);
             colorfulOutErr = ansiStripOut(colorfulOutErr);
           }
           if (!commandAnnotation.binaryStdErr()) {
+            outErr = ansiStripErr(outErr);
             colorfulOutErr = ansiStripErr(colorfulOutErr);
           }
         }
