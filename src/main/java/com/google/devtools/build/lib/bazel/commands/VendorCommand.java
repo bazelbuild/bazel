@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
@@ -61,6 +60,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /** Fetches external repositories into a specified directory. */
 @Command(
@@ -83,22 +83,9 @@ public final class VendorCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    RepositoryOptions repoOptions = options.getOptions(RepositoryOptions.class);
-    if (!options.getOptions(BuildLanguageOptions.class).enableBzlmod) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(),
-          "Bzlmod has to be enabled for vendoring to work, run with --enable_bzlmod");
-    }
-    if (repoOptions.vendorDirectory == null) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(),
-          Code.OPTIONS_INVALID,
-          "You cannot run vendor without specifying --vendor_dir");
-    }
-    PackageOptions pkgOptions = options.getOptions(PackageOptions.class);
-    if (!pkgOptions.fetch) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), Code.OPTIONS_INVALID, "You cannot run vendor with --nofetch");
+    BlazeCommandResult invalidResult = validateOptions(env, options);
+    if (invalidResult != null) {
+      return invalidResult;
     }
 
     env.getEventBus()
@@ -108,25 +95,25 @@ public final class VendorCommand implements BlazeCommand {
                 env.getCommandStartTime(),
                 /* separateFinishedEvent= */ true,
                 /* showProgress= */ true,
-                /* id= */ null));
+                env.getCommandId().toString()));
 
-    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     // IS_VENDOR_COMMAND & VENDOR_DIR is already injected in "BazelRepositoryModule", we just need
     // to update this value for the delegator function to recognize this call is from VendorCommand
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(RepositoryDelegatorFunction.IS_VENDOR_COMMAND, true)));
+    env.getSkyframeExecutor()
+        .injectExtraPrecomputedValues(
+            ImmutableList.of(
+                PrecomputedValue.injected(RepositoryDelegatorFunction.IS_VENDOR_COMMAND, true)));
 
     BlazeCommandResult result;
     VendorOptions vendorOptions = options.getOptions(VendorOptions.class);
+    PathFragment vendorDirectory = options.getOptions(RepositoryOptions.class).vendorDirectory;
+    LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     try {
       env.syncPackageLoading(options);
       if (!vendorOptions.repos.isEmpty()) {
-        result =
-            vendorRepos(
-                skyframeExecutor, env, options, vendorOptions.repos, repoOptions.vendorDirectory);
+        result = vendorRepos(env, threadsOption, vendorOptions.repos, vendorDirectory);
       } else {
-        result = vendorAll(skyframeExecutor, env, options, repoOptions.vendorDirectory);
+        result = vendorAll(env, threadsOption, vendorDirectory);
       }
     } catch (AbruptExitException e) {
       return createFailedBlazeCommandResult(
@@ -146,13 +133,29 @@ public final class VendorCommand implements BlazeCommand {
     return result;
   }
 
+  @Nullable
+  private BlazeCommandResult validateOptions(CommandEnvironment env, OptionsParsingResult options) {
+    if (!options.getOptions(BuildLanguageOptions.class).enableBzlmod) {
+      return createFailedBlazeCommandResult(
+          env.getReporter(),
+          "Bzlmod has to be enabled for vendoring to work, run with --enable_bzlmod");
+    }
+    if (options.getOptions(RepositoryOptions.class).vendorDirectory == null) {
+      return createFailedBlazeCommandResult(
+          env.getReporter(),
+          Code.OPTIONS_INVALID,
+          "You cannot run vendor without specifying --vendor_dir");
+    }
+    if (!options.getOptions(PackageOptions.class).fetch) {
+      return createFailedBlazeCommandResult(
+          env.getReporter(), Code.OPTIONS_INVALID, "You cannot run vendor with --nofetch");
+    }
+    return null;
+  }
+
   private BlazeCommandResult vendorAll(
-      SkyframeExecutor skyframeExecutor,
-      CommandEnvironment env,
-      OptionsParsingResult options,
-      PathFragment vendorDirectory)
+      CommandEnvironment env, LoadingPhaseThreadsOption threadsOption, PathFragment vendorDirectory)
       throws InterruptedException, IOException {
-    LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setParallelism(threadsOption.threads)
@@ -160,8 +163,8 @@ public final class VendorCommand implements BlazeCommand {
             .build();
 
     SkyKey fetchKey = BazelFetchAllValue.key(/* configureEnabled= */ false);
-      EvaluationResult<SkyValue> evaluationResult =
-          skyframeExecutor.prepareAndGet(ImmutableSet.of(fetchKey), evaluationContext);
+    EvaluationResult<SkyValue> evaluationResult =
+        env.getSkyframeExecutor().prepareAndGet(ImmutableSet.of(fetchKey), evaluationContext);
       if (evaluationResult.hasError()) {
         Exception e = evaluationResult.getError().getException();
         return createFailedBlazeCommandResult(
@@ -175,17 +178,14 @@ public final class VendorCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult vendorRepos(
-      SkyframeExecutor skyframeExecutor,
       CommandEnvironment env,
-      OptionsParsingResult options,
+      LoadingPhaseThreadsOption threadsOption,
       List<String> repos,
       PathFragment vendorDirectory)
       throws InterruptedException, IOException {
     ImmutableMap<RepositoryName, RepositoryDirectoryValue> repositoryNamesAndValues;
     try {
-      repositoryNamesAndValues =
-          RepositoryFetcher.fetchRepos(
-              repos, env, skyframeExecutor, options.getOptions(LoadingPhaseThreadsOption.class));
+      repositoryNamesAndValues = RepositoryFetcher.fetchRepos(repos, env, threadsOption);
     } catch (RepositoryMappingResolutionException e) {
       return createFailedBlazeCommandResult(
           env.getReporter(), "Invalid repo name: " + e.getMessage(), e.getDetailedExitCode());
