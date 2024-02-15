@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -47,7 +48,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -61,6 +62,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -96,8 +98,12 @@ public final class CompletionFunction<
     @Nullable
     FailureT getFailureData(KeyT key, ValueT value, Environment env) throws InterruptedException;
 
-    /** Creates a failed completion value. */
-    ExtendedEventHandler.Postable createFailed(
+    /**
+     * Creates a failed completion event.
+     *
+     * <p>The event must be {@linkplain Postable#storeForReplay stored}.
+     */
+    Postable createFailed(
         KeyT skyKey,
         NestedSet<Cause> rootCauses,
         CompletionContext ctx,
@@ -105,7 +111,11 @@ public final class CompletionFunction<
         FailureT failureData)
         throws InterruptedException;
 
-    /** Creates a succeeded completion value; returns null if skyframe found missing values. */
+    /**
+     * Creates a succeeded completion event; returns null if skyframe found missing values.
+     *
+     * <p>The event must be {@linkplain Postable#storeForReplay stored}.
+     */
     @Nullable
     EventReportingArtifacts createSucceeded(
         KeyT skyKey,
@@ -270,9 +280,10 @@ public final class CompletionFunction<
             workspaceNameValue.getName());
 
     if (!rootCauses.isEmpty()) {
+      RewindPlan rewindPlan = null;
       ImmutableSet<Artifact> builtArtifacts = builtArtifactsBuilder.build();
       if (!builtArtifacts.isEmpty()) {
-        Reset reset =
+        rewindPlan =
             informImportantOutputHandler(
                 key,
                 env,
@@ -280,16 +291,28 @@ public final class CompletionFunction<
                     ? builtArtifacts
                     : Sets.intersection(builtArtifacts, (Set<?>) importantArtifacts),
                 ctx);
-        if (reset != null) {
-          // TODO: b/321044105 - Handle error bubbling, in which case we can't rewind.
-          return reset;
+        if (rewindPlan != null) {
+          // Filter out lost outputs from the set of built artifacts so that they are not reported.
+          // If rewinding is successful, we'll report them later on.
+          builtArtifacts =
+              Sets.difference(builtArtifacts, new HashSet<>(rewindPlan.lostOutputs))
+                  .immutableCopy();
         }
       }
       ImmutableMap<String, ArtifactsInOutputGroup> builtOutputs =
           new SuccessfulArtifactFilter(builtArtifacts)
               .filterArtifactsInOutputGroup(artifactsToBuild.getAllArtifactsByOutputGroup());
-      env.getListener()
-          .post(completor.createFailed(key, rootCauses, ctx, builtOutputs, failureData));
+      Postable event = completor.createFailed(key, rootCauses, ctx, builtOutputs, failureData);
+      checkStored(event, key);
+      env.getListener().post(event);
+      if (rewindPlan != null) {
+        // Only return a reset after posting the failed event. If we're in --nokeep_going mode, the
+        // attempt to rewind will be ignored, so this is our only opportunity to post the event. If
+        // we're in --keep_going mode, rewinding will take place, the event won't actually get
+        // emitted (per the spec of SkyFunction.Environment#getListener for stored events), and
+        // we'll get another opportunity to post an event after rewinding.
+        return rewindPlan.reset;
+      }
       if (firstActionExecutionException != null) {
         throw new CompletionFunctionException(firstActionExecutionException);
       }
@@ -317,17 +340,17 @@ public final class CompletionFunction<
       return null;
     }
 
-    Reset reset = informImportantOutputHandler(key, env, importantArtifacts, ctx);
-    if (reset != null) {
-      return reset; // Initiate action rewinding to regenerate lost outputs.
+    RewindPlan rewindPlan = informImportantOutputHandler(key, env, importantArtifacts, ctx);
+    if (rewindPlan != null) {
+      return rewindPlan.reset; // Initiate action rewinding to regenerate lost outputs.
     }
 
-    ExtendedEventHandler.Postable postable =
-        completor.createSucceeded(key, value, ctx, artifactsToBuild, env);
-    if (postable == null) {
+    Postable event = completor.createSucceeded(key, value, ctx, artifactsToBuild, env);
+    if (event == null) {
       return null;
     }
-    env.getListener().post(postable);
+    checkStored(event, key);
+    env.getListener().post(event);
     topLevelArtifactsMetric.mergeIn(currentConsumer);
 
     return completor.getResult();
@@ -368,11 +391,11 @@ public final class CompletionFunction<
   /**
    * Calls {@link ImportantOutputHandler#processAndGetLostArtifacts}.
    *
-   * <p>If any outputs are lost, returns a {@link Reset} which can be used to initiate action
-   * rewinding and regenerate the lost outputs. Otherwise, returns {@code null}.
+   * <p>If any outputs are lost, returns a {@link RewindPlan} containing a {@link Reset} which used
+   * to initiate action rewinding and regenerate the lost outputs. Otherwise, returns {@code null}.
    */
   @Nullable
-  private Reset informImportantOutputHandler(
+  private RewindPlan informImportantOutputHandler(
       KeyT key, Environment env, Collection<Artifact> importantArtifacts, CompletionContext ctx)
       throws InterruptedException {
     ImmutableMap<String, ActionInput> lostOutputs =
@@ -384,18 +407,39 @@ public final class CompletionFunction<
       return null;
     }
 
-    return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
-        key,
-        ImmutableSet.copyOf(Artifact.keys(importantArtifacts)),
-        lostOutputs,
-        // TODO: b/321044105 - Compute precise owners.
-        new ActionInputDepOwnerMap(lostOutputs.values()),
-        env);
+    Reset reset =
+        actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
+            key,
+            ImmutableSet.copyOf(Artifact.keys(importantArtifacts)),
+            lostOutputs,
+            // TODO: b/321044105 - Compute precise owners.
+            new ActionInputDepOwnerMap(lostOutputs.values()),
+            env);
+    return new RewindPlan(lostOutputs.values(), reset);
+  }
+
+  private static void checkStored(Postable event, TopLevelActionLookupKeyWrapper key) {
+    checkState(
+        event.storeForReplay(), "Completion events must be stored, got %s for %s", event, key);
   }
 
   @Override
   public String extractTag(SkyKey skyKey) {
     return Label.print(((TopLevelActionLookupKeyWrapper) skyKey).actionLookupKey().getLabel());
+  }
+
+  /**
+   * Wraps a collection of lost outputs and a {@link Reset} to initiate rewinding and regenerate
+   * them.
+   */
+  private static final class RewindPlan {
+    private final ImmutableCollection<ActionInput> lostOutputs;
+    private final Reset reset;
+
+    private RewindPlan(ImmutableCollection<ActionInput> lostOutputs, Reset reset) {
+      this.lostOutputs = lostOutputs;
+      this.reset = reset;
+    }
   }
 
   private static final class CompletionFunctionException extends SkyFunctionException {

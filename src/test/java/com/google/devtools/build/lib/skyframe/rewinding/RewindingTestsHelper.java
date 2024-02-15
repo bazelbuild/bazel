@@ -20,7 +20,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.common.truth.TruthJUnit.assume;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
@@ -2471,6 +2470,7 @@ public class RewindingTestsHelper {
 
     // Trying again irons out the flaky failure with no rewinding.
     rewoundKeys.clear();
+    targetCompleteEvents.clear();
     testCase.buildTarget("//foo:top1", "//foo:top2");
     assertThat(rewoundKeys).isEmpty();
   }
@@ -2727,9 +2727,6 @@ public class RewindingTestsHelper {
   }
 
   public final void runTopLevelOutputRewound_partiallyBuiltTarget() throws Exception {
-    // TODO: b/321044105 - Handle and test lost outputs during error bubbling.
-    testCase.getRuntimeWrapper().newCommand(); // Initialize options parser.
-    assume().that(keepGoing()).isTrue();
     testCase.write(
         "foo/defs.bzl",
         "def _lost_found_and_failed_impl(ctx):",
@@ -2758,18 +2755,28 @@ public class RewindingTestsHelper {
         BuildFailedException.class, () -> testCase.buildTarget("//foo:lost_found_and_failed"));
 
     lostOutputsModule.verifyAllLostOutputsConsumed();
-    assertThat(rewoundKeys).hasSize(1);
-    assertThat(rewoundArtifactOwnerLabels(rewoundKeys))
-        .containsExactly("//foo:lost_found_and_failed");
-    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
-        .hasCount("Action foo/lost.out", 2);
-    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
-        .hasCount("Action foo/failed.out", 1);
 
-    // The event is failed but still reports the built artifacts, including the one that was lost.
+    assertThat(targetCompleteEvents.keySet()).containsExactly(fooLostFoundAndFailed);
     TargetCompleteEvent event = targetCompleteEvents.get(fooLostFoundAndFailed);
     assertThat(event.failed()).isTrue();
-    assertOutputsReported(event, "bin/foo/lost.out", "bin/foo/found.out");
+
+    if (keepGoing()) {
+      assertThat(rewoundKeys).hasSize(1);
+      assertThat(rewoundArtifactOwnerLabels(rewoundKeys))
+          .containsExactly("//foo:lost_found_and_failed");
+      assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+          .hasCount("Action foo/lost.out", 2);
+      assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+          .hasCount("Action foo/failed.out", 1);
+      // The event is failed but still reports the built artifacts, including the one that was lost.
+      assertOutputsReported(event, "bin/foo/lost.out", "bin/foo/found.out");
+    } else {
+      assertThat(rewoundKeys).isEmpty();
+      assertThat(getExecutedSpawnDescriptions()).containsNoDuplicates();
+      // The event does not report the lost artifact because with --nokeep_going, we have no
+      // opportunity to rewind after an error is observed.
+      assertOutputsReported(event, "bin/foo/found.out");
+    }
   }
 
   private void listenForNoCompletionEventsBeforeRewinding(
@@ -2825,7 +2832,8 @@ public class RewindingTestsHelper {
               @Subscribe
               @SuppressWarnings("unused")
               public void accept(TargetCompleteEvent event) {
-                targetCompleteEvents.put(event.getLabel(), event);
+                var prev = targetCompleteEvents.put(event.getLabel(), event);
+                checkState(prev == null, "Duplicate TargetCompleteEvent for %s", event.getLabel());
               }
             });
     return targetCompleteEvents;
@@ -2841,7 +2849,8 @@ public class RewindingTestsHelper {
               @SuppressWarnings("unused")
               public void accept(AspectCompleteEvent event) {
                 // If we need to track targets with multiple aspects, we could change the key type.
-                aspectCompleteEvents.put(event.getLabel(), event);
+                var prev = aspectCompleteEvents.put(event.getLabel(), event);
+                checkState(prev == null, "Duplicate AspectCompleteEvent for %s", event.getLabel());
               }
             });
     return aspectCompleteEvents;
