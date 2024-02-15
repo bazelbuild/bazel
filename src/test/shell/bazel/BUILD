@@ -246,7 +246,6 @@ sh_test(
 sh_test(
     name = "bazel_rules_java_override_test",
     srcs = ["bazel_rules_java_override_test.sh"],
-    args = [],
     data = [
         ":gen_rules_java_repo_name",
         ":test-deps",
