@@ -98,7 +98,7 @@ class BazelFetchTest(test_base.TestBase):
         ],
     )
 
-    self.RunBazel(['fetch', '--all'])
+    self.RunBazel(['fetch'])
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     repos_fetched = os.listdir(stdout[0] + '/external')
     self.assertIn('aaa~', repos_fetched)
@@ -151,15 +151,15 @@ class BazelFetchTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn(
-        'ERROR: Only one fetch option should be provided for fetch command.',
+        'ERROR: Only one fetch option can be provided for fetch command',
         stderr,
     )
     exit_code, _, stderr = self.RunBazel(
-        ['fetch', '--all', '--repo=@hello'], allow_failure=True
+        ['fetch', '//sometarget', '--repo=@hello'], allow_failure=True
     )
     self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn(
-        'ERROR: Only one fetch option should be provided for fetch command.',
+        'ERROR: Only one fetch option can be provided for fetch command',
         stderr,
     )
 
@@ -211,8 +211,8 @@ class BazelFetchTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 8, stderr)
     self.assertIn(
-        "ERROR: Fetching repos failed with errors: Repository '@@nono' is not "
-        "defined; No repository visible as '@nana' from main repository",
+        "ERROR: Fetching some repos failed with errors: Repository '@@nono' is "
+        "not defined; No repository visible as '@nana' from main repository",
         stderr,
     )
 

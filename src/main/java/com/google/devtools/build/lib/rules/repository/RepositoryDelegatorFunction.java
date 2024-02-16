@@ -190,9 +190,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               .setDigest(markerHash)
               .setExcludeFromVendoring(shouldExcludeRepoFromVendoring(handler, rule))
               .build();
-        } else {
-          // So that we are in a consistent state if something happens while fetching the repository
-          DigestWriter.clearMarkerFile(directories, repositoryName);
         }
       }
 

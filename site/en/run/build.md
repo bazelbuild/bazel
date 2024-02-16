@@ -318,7 +318,7 @@ With Bazel 7 or later, if you have Bzlmod enabled, you can also fetch all
 external dependencies by running
 
 ```posix-terminal
-bazel fetch --all
+bazel fetch
 ```
 
 You do not need to run bazel fetch at all if you have all of the tools you are
@@ -407,7 +407,7 @@ touch WORKSPACE
 To fetch built-in Bzlmod dependencies, run
 
 ```posix-terminal
-bazel fetch --all --repository_cache="path/to/repository/cache"
+bazel fetch --repository_cache="path/to/repository/cache"
 ```
 
 If you still rely on the legacy WORKSPACE file, to fetch built-in WORKSPACE
