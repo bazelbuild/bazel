@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -394,12 +393,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private boolean shouldExcludeRepoFromVendoring(RepositoryFunction handler, Rule rule) {
-    return handler.isLocal(rule) || handler.isConfigure(rule) || isWorkspaceRepo(rule);
-  }
-
-  private boolean isWorkspaceRepo(Rule rule) {
-    // All workspace repos are under //external, while bzlmod repo rules are not
-    return rule.getPackage().getPackageIdentifier().equals(EXTERNAL_PACKAGE_IDENTIFIER);
+    return handler.isLocal(rule)
+        || handler.isConfigure(rule)
+        || RepositoryFunction.isWorkspaceRepo(rule);
   }
 
   @Nullable

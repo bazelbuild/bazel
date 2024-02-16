@@ -2627,10 +2627,12 @@ bazel_dep(name="bar")
 local_path_override(module_name="bar", path="bar")
 EOF
   touch BUILD
+  echo 'load("@r//:r.bzl", "pi"); print(pi)' > WORKSPACE.bzlmod
   cat > r.bzl <<EOF
 def _r(rctx):
   print("I see: " + str(Label("@data")))
   rctx.file("BUILD", "filegroup(name='r')")
+  rctx.file("r.bzl", "pi=3.14")
 r=repository_rule(_r)
 EOF
   mkdir foo
@@ -2671,11 +2673,13 @@ bazel_dep(name="bar")
 local_path_override(module_name="bar", path="bar")
 EOF
   touch BUILD
+  echo 'load("@r//:r.bzl", "pi"); print(pi)' > WORKSPACE.bzlmod
   cat > r.bzl <<EOF
 CONSTANT = Label("@data")
 def _r(rctx):
   print("I see: " + str(CONSTANT))
   rctx.file("BUILD", "filegroup(name='r')")
+  rctx.file("r.bzl", "pi=3.14")
 r=repository_rule(_r)
 EOF
   mkdir foo
