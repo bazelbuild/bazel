@@ -1188,7 +1188,7 @@ public class UploadManifestTest {
   public void actionResult_noFollowSymlinks_specialFileError() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
     Path dir = createDirectoryWithSpecialFile("dir", "special");
-    Path special = dir.getRelative("special");
+    Path special = dir.getChild("special");
 
     UploadManifest um =
         new UploadManifest(
@@ -1208,7 +1208,7 @@ public class UploadManifestTest {
   public void actionResult_followSymlinks_specialFileSymlinkError() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
     Path dir = createDirectoryWithSymlinkToSpecialFile("dir", "link", "special");
-    Path link = dir.getRelative("link");
+    Path link = dir.getChild("link");
 
     UploadManifest um =
         new UploadManifest(
@@ -1344,7 +1344,6 @@ public class UploadManifestTest {
     when(link.toString()).thenReturn(execPath);
     when(link.statIfFound(Symlinks.NOFOLLOW)).thenReturn(SYMLINK_FILE_STATUS);
     when(link.statIfFound(Symlinks.FOLLOW)).thenReturn(SPECIAL_FILE_STATUS);
-    when(link.relativeTo(execRoot)).thenReturn(execRoot.getRelative(execPath).relativeTo(execRoot));
     when(link.readSymbolicLink()).thenReturn(PathFragment.create(target));
 
     return link;
@@ -1359,27 +1358,22 @@ public class UploadManifestTest {
     when(dir.statIfFound(Symlinks.NOFOLLOW)).thenReturn(DIR_FILE_STATUS);
     when(dir.readdir(Symlinks.NOFOLLOW))
         .thenReturn(ImmutableList.of(new Dirent(specialName, Dirent.Type.UNKNOWN)));
-    when(dir.getRelative(specialName)).thenReturn(special);
+    when(dir.getChild(specialName)).thenReturn(special);
 
     return dir;
   }
 
   private Path createDirectoryWithSymlinkToSpecialFile(
-      String dirExecPath, String linkName, String specialName) throws IOException {
-    Path special = createSpecialFile(dirExecPath + "/" + specialName);
-    Path link = createSymlinkToSpecialFile(dirExecPath + "/" + linkName, specialName);
+      String dirExecPath, String linkName, String specialExecPath) throws IOException {
+    Path unusedSpecial = createSpecialFile(specialExecPath);
+    Path link = createSymlinkToSpecialFile(dirExecPath + "/" + linkName, specialExecPath);
 
     Path dir = mock(Path.class);
+    when(dir.toString()).thenReturn(dirExecPath);
     when(dir.statIfFound(Symlinks.NOFOLLOW)).thenReturn(DIR_FILE_STATUS);
     when(dir.readdir(Symlinks.NOFOLLOW))
-        .thenReturn(
-            ImmutableList.of(
-                new Dirent(linkName, Dirent.Type.SYMLINK),
-                new Dirent(specialName, Dirent.Type.UNKNOWN)));
-    when(dir.relativeTo(execRoot))
-        .thenReturn(execRoot.getRelative(dirExecPath).relativeTo(execRoot));
-    when(dir.getRelative(linkName)).thenReturn(link);
-    when(dir.getRelative(specialName)).thenReturn(special);
+        .thenReturn(ImmutableList.of(new Dirent(linkName, Dirent.Type.SYMLINK)));
+    when(dir.getChild(linkName)).thenReturn(link);
 
     return dir;
   }
