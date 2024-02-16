@@ -396,7 +396,7 @@ def run_ijar(
     args.add(jar)
     args.add(output)
     if target_label != None:
-        args.add("--target_label", target_label)
+        args.add_all("--target_label", [target_label], map_each = helper.map_to_display_form)
     if injecting_rule_kind != None:
         args.add("--injecting_rule_kind", injecting_rule_kind)
 
