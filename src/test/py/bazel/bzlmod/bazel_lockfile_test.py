@@ -1960,11 +1960,13 @@ class BazelLockfileTest(test_base.TestBase):
 
     _, _, stderr = self.RunBazel(['build', '@repo'], allow_failure=True)
     self.assertIn(
-        'attempted to watch file under working directory', '\n'.join(stderr)
+        'attempted to watch path under working directory', '\n'.join(stderr)
     )
 
   def testWatchingFileOutsideWorkspaceFails(self):
-    outside_file = pathlib.Path(self._temp).joinpath('bleh')
+    outside_file = pathlib.Path(tempfile.mkdtemp(dir=self._temp)).joinpath(
+        'hello'
+    )
     scratchFile(outside_file, ['repo'])
     self.ScratchFile(
         'MODULE.bazel',
@@ -1990,7 +1992,118 @@ class BazelLockfileTest(test_base.TestBase):
 
     _, _, stderr = self.RunBazel(['build', '@repo'], allow_failure=True)
     self.assertIn(
-        'attempted to watch file outside workspace', '\n'.join(stderr)
+        'attempted to watch path outside workspace', '\n'.join(stderr)
+    )
+
+  def testPathReaddirWatchesDirents(self):
+    self.ScratchFile('some_dir/foo')
+    self.ScratchFile('some_dir/bar')
+    self.ScratchFile('some_dir/baz')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    print("I see: " + ",".join(sorted([e.basename for e in'
+            ' ctx.path(%s).readdir()])))'
+            % repr(self.Path('some_dir')),
+            '    repo_rule(name="repo")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo'])
+    self.assertIn('I see: bar,baz,foo', '\n'.join(stderr))
+
+    # adding and removing entries should cause a reevaluation.
+    os.remove(self.Path('some_dir/baz'))
+    self.ScratchFile('some_dir/quux')
+    _, _, stderr = self.RunBazel(['build', '@repo'])
+    self.assertIn('I see: bar,foo,quux', '\n'.join(stderr))
+
+    # but changing file contents shouldn't.
+    self.ScratchFile('some_dir/bar', ['hulloooo'])
+    _, _, stderr = self.RunBazel(['build', '@repo'])
+    self.assertNotIn('I see:', '\n'.join(stderr))
+
+  def testPathReaddirOutsideWorkspaceDoesNotWatchDirents(self):
+    outside_dir = pathlib.Path(tempfile.mkdtemp(dir=self._temp))
+    scratchFile(outside_dir.joinpath('whatever'), ['repo'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    print("I see: " + ",".join(sorted([e.basename for e in'
+            ' ctx.path(%s).readdir()])))'
+            % repr(str(outside_dir)),
+            '    repo_rule(name="repo")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo'])
+    self.assertIn('I see: whatever', '\n'.join(stderr))
+
+    # since the directory in question is outside the workspace, adding and
+    # removing entries shouldn't cause a reevaluation.
+    os.remove(outside_dir.joinpath('whatever'))
+    scratchFile(outside_dir.joinpath('anything'), ['kek'])
+    _, _, stderr = self.RunBazel(['build', '@repo'])
+    self.assertNotIn('I see:', '\n'.join(stderr))
+
+  def testForceWatchingDirentsOutsideWorkspaceFails(self):
+    outside_dir = pathlib.Path(tempfile.mkdtemp(dir=self._temp))
+    scratchFile(outside_dir.joinpath('whatever'), ['repo'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    print("I see: " + ",".join(sorted([e.basename for e in'
+            ' ctx.path(%s).readdir(watch="yes")])))'
+            % repr(str(outside_dir)),
+            '    repo_rule(name="repo")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo'], allow_failure=True)
+    self.assertIn(
+        'attempted to watch path outside workspace', '\n'.join(stderr)
     )
 
 

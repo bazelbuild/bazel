@@ -108,7 +108,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         processWrapper,
         starlarkSemantics,
         remoteExecutor,
-        /* allowWatchingFilesOutsideWorkspace= */ true);
+        /* allowWatchingPathsOutsideWorkspace= */ true);
     this.rule = rule;
     this.repoName = RepositoryName.createUnvalidated(rule.getName());
     this.packageLocator = packageLocator;
@@ -144,7 +144,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       structField = true,
       doc = "The path to the root workspace of the bazel invocation.")
   public StarlarkPath getWorkspaceRoot() {
-    return new StarlarkPath(directories.getWorkspace());
+    return new StarlarkPath(this, directories.getWorkspace());
   }
 
   @StarlarkMethod(

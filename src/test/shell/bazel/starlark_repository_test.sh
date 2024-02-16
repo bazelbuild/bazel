@@ -2783,7 +2783,7 @@ r=repository_rule(_r)
 EOF
 
   bazel build @r >& $TEST_log && fail "expected bazel to fail"
-  expect_log "attempted to watch file under working directory"
+  expect_log "attempted to watch path under working directory"
 }
 
 function test_file_watching_outside_workspace() {
@@ -3031,6 +3031,56 @@ EOF
   echo bleh > ${outside_dir}/d/c
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I see: bleh"
+}
+
+function test_path_readdir_watches_dirents() {
+  local outside_dir=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  touch ${outside_dir}/foo
+  touch ${outside_dir}/bar
+  touch ${outside_dir}/baz
+
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r')")
+  outside_dir = rctx.path("${outside_dir}")
+  print("I see: " + ",".join(sorted([p.basename for p in outside_dir.readdir()])))
+r=repository_rule(_r)
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar,baz,foo"
+
+  # changing the contents of a file under there shouldn't trigger a refetch.
+  echo haha > ${outside_dir}/foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
+
+  # adding a file should trigger a refetch.
+  touch ${outside_dir}/quux
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar,baz,foo,quux"
+
+  # removing a file should trigger a refetch.
+  rm ${outside_dir}/baz
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar,foo,quux"
+
+  # changing a file to a directory shouldn't trigger a refetch.
+  rm ${outside_dir}/bar
+  mkdir ${outside_dir}/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
+
+  # changing entries in subdirectories shouldn't trigger a refetch.
+  touch ${outside_dir}/bar/inner
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
 }
 
 run_suite "local repository tests"

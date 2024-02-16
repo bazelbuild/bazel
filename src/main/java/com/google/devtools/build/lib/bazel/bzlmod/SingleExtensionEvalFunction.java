@@ -218,6 +218,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   LockFileModuleExtension.builder()
                       .setBzlTransitiveDigest(extension.getBzlTransitiveDigest())
                       .setRecordedFileInputs(moduleExtensionResult.getRecordedFileInputs())
+                      .setRecordedDirentsInputs(moduleExtensionResult.getRecordedDirentsInputs())
                       .setEnvVariables(extension.getEnvVars())
                       .setGeneratedRepoSpecs(generatedRepoSpecs)
                       .setModuleExtensionMetadata(moduleExtensionMetadata)
@@ -289,9 +290,15 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 + extensionId
                 + "' have changed");
       }
-      if (didFilesChange(env, directories, lockedExtension.getRecordedFileInputs())) {
+      if (didRecordedInputsChange(env, directories, lockedExtension.getRecordedFileInputs())) {
         diffRecorder.record(
             "One or more files the extension '" + extensionId + "' is using have changed");
+      }
+      if (didRecordedInputsChange(env, directories, lockedExtension.getRecordedDirentsInputs())) {
+        diffRecorder.record(
+            "One or more directory listings watched by the extension '"
+                + extensionId
+                + "' have changed");
       }
     } catch (DiffFoundEarlyExitException ignored) {
       // ignored
@@ -390,12 +397,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     return false;
   }
 
-  private static boolean didFilesChange(
+  private static boolean didRecordedInputsChange(
       Environment env,
       BlazeDirectories directories,
-      ImmutableMap<RepoRecordedInput.File, String> recordedFileInputs)
+      ImmutableMap<? extends RepoRecordedInput, String> recordedInputs)
       throws InterruptedException, NeedsSkyframeRestartException {
-    boolean upToDate = RepoRecordedInput.areAllValuesUpToDate(env, directories, recordedFileInputs);
+    boolean upToDate = RepoRecordedInput.areAllValuesUpToDate(env, directories, recordedInputs);
     if (env.valuesMissing()) {
       throw new NeedsSkyframeRestartException();
     }
@@ -763,6 +770,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
       return RunModuleExtensionResult.create(
           ImmutableMap.of(),
+          ImmutableMap.of(),
           generatedRepoSpecs.buildOrThrow(),
           Optional.of(ModuleExtensionMetadata.REPRODUCIBLE),
           ImmutableTable.of());
@@ -931,6 +939,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
       return RunModuleExtensionResult.create(
           moduleContext.getRecordedFileInputs(),
+          moduleContext.getRecordedDirentsInputs(),
           threadContext.getGeneratedRepoSpecs(),
           moduleExtensionMetadata,
           repoMappingRecorder.recordedEntries());
@@ -993,6 +1002,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     abstract ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs();
 
+    abstract ImmutableMap<RepoRecordedInput.Dirents, String> getRecordedDirentsInputs();
+
     abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
 
     abstract Optional<ModuleExtensionMetadata> getModuleExtensionMetadata();
@@ -1001,11 +1012,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     static RunModuleExtensionResult create(
         ImmutableMap<RepoRecordedInput.File, String> recordedFileInputs,
+        ImmutableMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs,
         ImmutableMap<String, RepoSpec> generatedRepoSpecs,
         Optional<ModuleExtensionMetadata> moduleExtensionMetadata,
         ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries) {
       return new AutoValue_SingleExtensionEvalFunction_RunModuleExtensionResult(
           recordedFileInputs,
+          recordedDirentsInputs,
           generatedRepoSpecs,
           moduleExtensionMetadata,
           recordedRepoMappingEntries);
