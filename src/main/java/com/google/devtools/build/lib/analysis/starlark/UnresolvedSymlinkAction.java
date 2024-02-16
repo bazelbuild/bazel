@@ -94,6 +94,11 @@ public final class UnresolvedSymlinkAction extends AbstractAction {
   }
 
   @Override
+  public String describeKey() {
+    return String.format("GUID: %s\ntarget: %s\n", GUID, target);
+  }
+
+  @Override
   public String getMnemonic() {
     return "UnresolvedSymlink";
   }
