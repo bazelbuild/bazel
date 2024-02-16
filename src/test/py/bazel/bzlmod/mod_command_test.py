@@ -133,6 +133,16 @@ class ModCommandTest(test_base.TestBase):
     scratchFile(self.projects_dir.joinpath('ext2', 'BUILD'))
     scratchFile(self.projects_dir.joinpath('ext2', 'ext.bzl'), ext_src)
 
+  def testFailWithoutBzlmod(self):
+    _, _, stderr = self.RunBazel(
+        ['mod', 'graph', '--noenable_bzlmod'], allow_failure=True
+    )
+    self.assertIn(
+        'ERROR: Bzlmod has to be enabled for mod command to work, run with '
+        "--enable_bzlmod. Type 'bazel help mod' for syntax and help.",
+        stderr,
+    )
+
   def testGraph(self):
     _, stdout, _ = self.RunBazel(['mod', 'graph'], rstrip=True)
     self.assertListEqual(
