@@ -306,7 +306,11 @@ public class RemoteExecutionServiceTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("bar").setDigest(barDigest)))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("bar")
+                            .setDigest(barDigest)
+                            .setIsExecutable(true)))
             .build();
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
@@ -401,8 +405,16 @@ public class RemoteExecutionServiceTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("foo").setDigest(fooDigest))
-                    .addFiles(FileNode.newBuilder().setName("subdir/bar").setDigest(barDigest)))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("foo")
+                            .setDigest(fooDigest)
+                            .setIsExecutable(true))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("subdir/bar")
+                            .setDigest(barDigest)
+                            .setIsExecutable(true)))
             .build();
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
@@ -469,7 +481,8 @@ public class RemoteExecutionServiceTest {
     Digest quxDigest = cache.addContents(remoteActionExecutionContext, "qux-contents");
     Directory wobbleDirMessage =
         Directory.newBuilder()
-            .addFiles(FileNode.newBuilder().setName("qux").setDigest(quxDigest))
+            .addFiles(
+                FileNode.newBuilder().setName("qux").setDigest(quxDigest).setIsExecutable(true))
             .build();
     Digest wobbleDirDigest =
         cache.addContents(remoteActionExecutionContext, wobbleDirMessage.toByteArray());
@@ -477,7 +490,11 @@ public class RemoteExecutionServiceTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("qux").setDigest(quxDigest))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("qux")
+                            .setDigest(quxDigest)
+                            .setIsExecutable(true))
                     .addDirectories(
                         DirectoryNode.newBuilder().setName("wobble").setDigest(wobbleDirDigest)))
             .addChildren(wobbleDirMessage)
@@ -518,8 +535,16 @@ public class RemoteExecutionServiceTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("foo").setDigest(fooDigest))
-                    .addFiles(FileNode.newBuilder().setName("bar").setDigest(barDigest)))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("foo")
+                            .setDigest(fooDigest)
+                            .setIsExecutable(true))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("bar")
+                            .setDigest(barDigest)
+                            .setIsExecutable(true)))
             .build();
     Digest subdirTreeDigest =
         cache.addContents(remoteActionExecutionContext, subdirTreeMessage.toByteArray());
@@ -559,7 +584,8 @@ public class RemoteExecutionServiceTest {
 
     // arrange
     Digest fileDigest = cache.addContents(remoteActionExecutionContext, "file");
-    FileNode file = FileNode.newBuilder().setName("file").setDigest(fileDigest).build();
+    FileNode file =
+        FileNode.newBuilder().setName("file").setDigest(fileDigest).setIsExecutable(true).build();
     Directory fooDir = Directory.newBuilder().addFiles(file).build();
     Digest fooDigest = cache.addContents(remoteActionExecutionContext, fooDir.toByteArray());
     DirectoryNode fooDirNode =
@@ -815,7 +841,11 @@ public class RemoteExecutionServiceTest {
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addFiles(FileNode.newBuilder().setName("bar").setDigest(barDigest)))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("bar")
+                            .setDigest(barDigest)
+                            .setIsExecutable(true)))
             .build();
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
@@ -850,7 +880,10 @@ public class RemoteExecutionServiceTest {
             .setRoot(
                 Directory.newBuilder()
                     .addFiles(
-                        FileNode.newBuilder().setName("outputfile").setDigest(treeFileDigest)))
+                        FileNode.newBuilder()
+                            .setName("outputfile")
+                            .setDigest(treeFileDigest)
+                            .setIsExecutable(true)))
             .build();
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     Digest otherFileDigest =
@@ -1201,8 +1234,10 @@ public class RemoteExecutionServiceTest {
     // dir/a/file2
     Digest d1 = cache.addContents(remoteActionExecutionContext, "content1");
     Digest d2 = cache.addContents(remoteActionExecutionContext, "content2");
-    FileNode file1 = FileNode.newBuilder().setName("file1").setDigest(d1).build();
-    FileNode file2 = FileNode.newBuilder().setName("file2").setDigest(d2).build();
+    FileNode file1 =
+        FileNode.newBuilder().setName("file1").setDigest(d1).setIsExecutable(true).build();
+    FileNode file2 =
+        FileNode.newBuilder().setName("file2").setDigest(d2).setIsExecutable(true).build();
     Directory a = Directory.newBuilder().addFiles(file2).build();
     Digest da = cache.addContents(remoteActionExecutionContext, a);
     Directory root =
@@ -1251,8 +1286,10 @@ public class RemoteExecutionServiceTest {
     // dir/a/file2
     Digest d1 = cache.addContents(remoteActionExecutionContext, "content1");
     Digest d2 = cache.addContents(remoteActionExecutionContext, "content2");
-    FileNode file1 = FileNode.newBuilder().setName("file1").setDigest(d1).build();
-    FileNode file2 = FileNode.newBuilder().setName("file2").setDigest(d2).build();
+    FileNode file1 =
+        FileNode.newBuilder().setName("file1").setDigest(d1).setIsExecutable(true).build();
+    FileNode file2 =
+        FileNode.newBuilder().setName("file2").setDigest(d2).setIsExecutable(true).build();
     Directory a = Directory.newBuilder().addFiles(file2).build();
     Digest da = cache.addContents(remoteActionExecutionContext, a);
     Directory root =
@@ -1303,8 +1340,10 @@ public class RemoteExecutionServiceTest {
     // dir/a/file2
     Digest d1 = cache.addContents(remoteActionExecutionContext, "content1");
     Digest d2 = cache.addContents(remoteActionExecutionContext, "content2");
-    FileNode file1 = FileNode.newBuilder().setName("file1").setDigest(d1).build();
-    FileNode file2 = FileNode.newBuilder().setName("file2").setDigest(d2).build();
+    FileNode file1 =
+        FileNode.newBuilder().setName("file1").setDigest(d1).setIsExecutable(true).build();
+    FileNode file2 =
+        FileNode.newBuilder().setName("file2").setDigest(d2).setIsExecutable(true).build();
     Directory a = Directory.newBuilder().addFiles(file2).build();
     Digest da = cache.addContents(remoteActionExecutionContext, a);
     Directory root =
@@ -1577,9 +1616,9 @@ public class RemoteExecutionServiceTest {
                     Directory.newBuilder()
                         .addFiles(
                             FileNode.newBuilder()
-                                .setIsExecutable(true)
                                 .setName("qux")
                                 .setDigest(quxDigest)
+                                .setIsExecutable(true)
                                 .build())
                         .build())
                 .build());
@@ -1680,7 +1719,12 @@ public class RemoteExecutionServiceTest {
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("outputs/bar/qux"), "abc");
     final Directory testDirMessage =
         Directory.newBuilder()
-            .addFiles(FileNode.newBuilder().setName("wobble").setDigest(wobbleDigest).build())
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("wobble")
+                    .setDigest(wobbleDigest)
+                    .setIsExecutable(true)
+                    .build())
             .build();
     final Digest testDigest = digestUtil.compute(testDirMessage);
     final Tree barTree =
@@ -1689,9 +1733,9 @@ public class RemoteExecutionServiceTest {
                 Directory.newBuilder()
                     .addFiles(
                         FileNode.newBuilder()
-                            .setIsExecutable(true)
                             .setName("qux")
-                            .setDigest(quxDigest))
+                            .setDigest(quxDigest)
+                            .setIsExecutable(true))
                     .addDirectories(
                         DirectoryNode.newBuilder().setName("test").setDigest(testDigest)))
             .addChildren(testDirMessage)
