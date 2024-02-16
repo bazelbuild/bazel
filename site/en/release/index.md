@@ -12,6 +12,23 @@ post](https://blog.bazel.build/2020/11/10/long-term-support-release.html), Bazel
 releases and long term support (LTS) releases. This page covers the latest
 information about Bazel's release model.
 
+## Support matrix {:#support-matrix}
+
+| LTS release | Support stage | Latest version | End of support |
+| ----------- | ------------- | -------------- | -------------- |
+| Bazel 8 | Rolling| [Check rolling release page](https://bazel.build/release/rolling){: .external} | N/A |
+| Bazel 7 | Active| [7.0.2](https://github.com/bazelbuild/bazel/releases/tag/7.0.2){: .external} | Dec 2026 |
+| Bazel 6 | Maintenance | [6.5.0](https://github.com/bazelbuild/bazel/releases/tag/6.5.0){: .external} | Dec 2025 |
+| Bazel 5 | Maintenance | [5.4.1](https://github.com/bazelbuild/bazel/releases/tag/5.4.1){: .external} | Jan 2025 |
+| Bazel 4 | Deprecated | [4.2.4](https://github.com/bazelbuild/bazel/releases/tag/4.2.4){: .external} | Jan 2024 |
+
+All Bazel LTS releases can be found on the [release
+page](https://github.com/bazelbuild/bazel/releases){: .external} on GitHub.
+
+Note: Bazel version older than Bazel 5 are no longer supported, Bazel users are
+recommended to upgrade to the latest LTS release or use rolling releases if you
+want to keep up with the latest changes at HEAD.
+
 ## Release versioning {:#bazel-versioning}
 
 Bazel uses a _major.minor.patch_ [Semantic
@@ -78,23 +95,6 @@ Bazel regularly publish releases for two release tracks.
 For planned releases, please check our [release
 issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3Arelease){: .external}
 on Github.
-
-## Support matrix {:#support-matrix}
-
-| LTS release | Support stage | Latest version | End of support |
-| ----------- | ------------- | -------------- | -------------- |
-| Bazel 8 | Rolling| [Check rolling release page](https://bazel.build/release/rolling){: .external} | N/A |
-| Bazel 7 | Active| [7.0.2](https://github.com/bazelbuild/bazel/releases/tag/7.0.2){: .external} | Dec 2026 |
-| Bazel 6 | Maintenance | [6.5.0](https://github.com/bazelbuild/bazel/releases/tag/6.5.0){: .external} | Dec 2025 |
-| Bazel 5 | Maintenance | [5.4.1](https://github.com/bazelbuild/bazel/releases/tag/5.4.1){: .external} | Jan 2025 |
-| Bazel 4 | Deprecated | [4.2.4](https://github.com/bazelbuild/bazel/releases/tag/4.2.4){: .external} | Jan 2024 |
-
-All Bazel LTS releases can be found on the [release
-page](https://github.com/bazelbuild/bazel/releases){: .external} on GitHub.
-
-Note: Bazel version older than Bazel 5 are no longer supported, Bazel users are
-recommended to upgrade to the latest LTS release or use rolling releases if you
-want to keep up with the latest changes at HEAD.
 
 ## Release procedure & policies {:#release-procedure-policies}
 

@@ -11,6 +11,8 @@ to the packages for more details.
 
 [Bazelisk](/install/bazelisk) is the recommended way to install Bazel on [Ubuntu Linux](/install/ubuntu), [macOS](/install/os-x), and [Windows](/install/windows).
 
+You can find available Bazel releases on our [release page](/release).
+
 ## Community-supported packages {:#community-supported-packages}
 
 Bazel community members maintain these packages. The Bazel team doesn't
