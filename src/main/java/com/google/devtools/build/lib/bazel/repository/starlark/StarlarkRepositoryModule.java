@@ -107,8 +107,9 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       }
     }
     builder.setConfiguredTargetFunction(implementation);
-    var bzlInitContext = (BzlInitThreadContext) thread.getThreadLocal(BazelStarlarkContext.class);
-    if (bzlInitContext != null) {
+    var threadContext = BazelStarlarkContext.fromOrFail(thread);
+    if (threadContext instanceof BzlInitThreadContext) {
+      var bzlInitContext = (BzlInitThreadContext) threadContext;
       builder.setRuleDefinitionEnvironmentLabelAndDigest(
           bzlInitContext.getBzlFile(), bzlInitContext.getTransitiveDigest());
     } else {
