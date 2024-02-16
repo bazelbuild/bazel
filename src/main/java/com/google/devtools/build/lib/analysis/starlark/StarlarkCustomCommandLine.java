@@ -47,7 +47,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.IllegalFormatException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
@@ -245,13 +244,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
       if ((features & HAS_FORMAT_EACH) != 0) {
         String formatStr = (String) arguments.get(argi++);
-        try {
-          int count = stringValues.size();
-          for (int i = 0; i < count; ++i) {
-            stringValues.set(i, SingleStringArgFormatter.format(formatStr, stringValues.get(i)));
-          }
-        } catch (IllegalFormatException e) {
-          throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, null));
+        int count = stringValues.size();
+        for (int i = 0; i < count; ++i) {
+          stringValues.set(i, SingleStringArgFormatter.format(formatStr, stringValues.get(i)));
         }
       }
       if ((features & HAS_BEFORE_EACH) != 0) {
@@ -268,11 +263,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         if (!isEmptyAndShouldOmit) {
           String result = Joiner.on(joinWith).join(stringValues);
           if (formatJoined != null) {
-            try {
-              result = SingleStringArgFormatter.format(formatJoined, result);
-            } catch (IllegalFormatException e) {
-              throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, null));
-            }
+            result = SingleStringArgFormatter.format(formatJoined, result);
           }
           builder.add(result);
         }
