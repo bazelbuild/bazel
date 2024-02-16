@@ -42,10 +42,12 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -103,8 +105,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
     private void visitSubdirectory(Path dir) {
       try {
-        for (Path child : dir.getDirectoryEntries()) {
-          if (child.isDirectory()) {
+        for (Dirent dirent : dir.readdir(Symlinks.FOLLOW)) {
+          Path child = dir.getChild(dirent.getName());
+          if (dirent.getType() == Dirent.Type.DIRECTORY) {
             execute(() -> visitSubdirectory(child));
             continue;
           }
