@@ -380,7 +380,7 @@ public class JacocoCoverageRunner {
         System.err.println("Classpath JAR " + wrappedJar + " not provided");
         return null;
       }
-    } else if (jarIsWrapped && urls[0].getPath().endsWith("-classpath.jar")) {
+    } else if (jarIsWrapped && urls.length == 1) {
       classPathUrl = urls[0];
     }
     if (classPathUrl != null) {
