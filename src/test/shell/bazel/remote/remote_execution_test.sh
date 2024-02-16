@@ -3294,28 +3294,46 @@ EOF
   bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
         --//:src=//:foo :gen &> $TEST_log \
         || fail "failed to build with input foo and no cache"
-    expect_log "2 processes: 1 internal, 1 .*-sandbox"
+  expect_log "2 processes: 1 internal, 1 .*-sandbox"
 
   bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
       --//:src=//:bar :gen &> $TEST_log \
       || fail "failed to build with input bar and no cache"
   expect_log "2 processes: 1 internal, 1 .*-sandbox"
 
-  # Now build with a cache. Even though Bazel considers the actions distinct,
-  # they will be looked up in the remote cache using the scrubbed key, so one
-  # can serve as a cache hit for the other.
+  # Now build with a disk cache. Even though Bazel considers the actions to be
+  # distinct, they will be looked up in the remote cache using the scrubbed key,
+  # so one can serve as a cache hit for the other.
 
   CACHEDIR=$(mktemp -d)
 
   bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
         --disk_cache=$CACHEDIR --//:src=//:foo :gen &> $TEST_log \
-        || fail "failed to build with input foo and a cache"
+        || fail "failed to build with input foo and a disk cache miss"
   expect_log "2 processes: 1 internal, 1 .*-sandbox"
 
   bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
       --disk_cache=$CACHEDIR --//:src=//:bar :gen &> $TEST_log \
-      || fail "failed to build with input bar and a cache"
+      || fail "failed to build with input bar and a disk cache hit"
   expect_log "2 processes: 1 disk cache hit, 1 internal"
+
+  # Now build with remote execution enabled. The first action should fall back
+  # to local execution. The second action should be able to hit the remote cache
+  # as it was cached by its scrubbed key.
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+        --remote_executor=grpc://localhost:${worker_port} --//:src=//:foo \
+        :gen &> $TEST_log \
+        || fail "failed to build with input foo and remote execution"
+  expect_log "will be executed locally instead"
+  expect_log "2 processes: 1 internal, 1 .*-sandbox"
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+      --remote_executor=grpc://localhost:${worker_port} --//:src=//:bar \
+      :gen &> $TEST_log \
+      || fail "failed to build with input bar and a remote cache hit"
+  expect_log "will be executed locally instead"
+  expect_log "2 processes: 1 remote cache hit, 1 internal"
 }
 
 run_suite "Remote execution and remote cache tests"
