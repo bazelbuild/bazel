@@ -50,12 +50,6 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
   DottedVersionApi<?> getIosSimulatorVersion();
 
   @StarlarkMethod(
-      name = "generate_linkmap",
-      doc = "Whether to generate linkmap artifacts.",
-      structField = true)
-  boolean generateLinkmap();
-
-  @StarlarkMethod(
       name = "run_memleaks",
       structField = true,
       doc = "Returns a boolean indicating whether memleaks should be run during tests or not.")
@@ -68,21 +62,6 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
           "Returns a list of default options to use for compiling Objective-C in the current "
               + "mode.")
   ImmutableList<String> getCoptsForCompilationMode();
-
-  @StarlarkMethod(
-      name = "copts",
-      structField = true,
-      doc =
-          "Returns a list of options to use for compiling Objective-C.These options are applied"
-              + " after any default options but before options specified in the attributes of the"
-              + " rule.")
-  ImmutableList<String> getCopts();
-
-  @StarlarkMethod(
-      name = "should_strip_binary",
-      structField = true,
-      doc = "Returns whether to perform symbol and dead-code strippings on linked binaries.")
-  boolean shouldStripBinary();
 
   @StarlarkMethod(
       name = "signing_certificate_name",
