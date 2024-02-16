@@ -484,7 +484,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   @FunctionalInterface
   public interface TreeArtifactVisitor {
     /**
-     * Called for every directory entry encountered during tree traversal.
+     * Called for every directory entry encountered during tree traversal, in a nondeterministic
+     * order.
      *
      * <p>Symlinks are not followed during traversal and are simply reported as {@link
      * Dirent.Type#SYMLINK} regardless of whether they point to a file, directory, or are dangling.
