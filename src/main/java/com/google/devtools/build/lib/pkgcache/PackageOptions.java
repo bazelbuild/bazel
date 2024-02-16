@@ -149,7 +149,7 @@ public class PackageOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Number of threads to use for glob evaluation. Takes "
+          "Number of threads to use for non-Skyframe glob evaluation. Takes "
               + ResourceConverter.FLAG_SYNTAX
               + ". \"auto\" means to use a reasonable value derived from the machine's hardware"
               + " profile (e.g. the number of processors).")
@@ -166,6 +166,19 @@ public class PackageOptions extends OptionsBase {
             + "lack of parallelism in globbing. At most this many directories will be visited."
   )
   public int maxDirectoriesToEagerlyVisitInGlobbing;
+
+  // TODO(b/290998109): Set the default value to a postive number and converter field to
+  // ParallelismConverter.class when GlobsFunction in-parallel StateMachine work is done.
+  @Option(
+      name = "skyframe_globs_threads",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Number of threads to use for skyframe GlobsFunction's StateMachine in-parallel"
+              + " computation. GlobsFunction creates multiple independent StateMachines to compute"
+              + " each individual package glob expression in-parallel.")
+  public int skyframeGlobsThreads;
 
   @Option(
       name = "fetch",
