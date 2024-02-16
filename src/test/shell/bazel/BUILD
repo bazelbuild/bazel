@@ -244,6 +244,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_rules_java_override_test",
+    srcs = ["bazel_rules_java_override_test.sh"],
+    data = [
+        ":gen_rules_java_repo_name",
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "bazel_java_test",
     # TODO(iirina): Investigate if the 'large' and 'eternal' values still apply.
     size = "large",
