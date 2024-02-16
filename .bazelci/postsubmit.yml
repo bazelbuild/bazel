@@ -196,8 +196,6 @@ tasks:
       - "-//src/test/shell/bazel/apple:bazel_apple_test"
       # https://github.com/bazelbuild/bazel/issues/17408
       - "-//src/test/shell/bazel/apple:bazel_objc_test"
-      # https://github.com/bazelbuild/bazel/issues/17410
-      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # https://github.com/bazelbuild/bazel/issues/17456
       - "-//src/test/shell/bazel:bazel_determinism_test"
       # https://github.com/bazelbuild/bazel/issues/17457
@@ -240,8 +238,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # https://github.com/bazelbuild/bazel/issues/17007
-      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
     include_json_profile:
       - build
       - test
