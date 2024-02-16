@@ -1,5 +1,5 @@
 {
-  "lockFileVersion": 5,
+  "lockFileVersion": 6,
   "moduleFileHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "flags": {
     "cmdRegistries": [
@@ -1038,6 +1038,7 @@
       "general": {
         "bzlTransitiveDigest": "pMLFCYaRPkgXPQ8vtuNkMfiHfPmRBy6QJfnid4sWfv0=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "local_config_apple_cc": {
@@ -1064,6 +1065,7 @@
       "general": {
         "bzlTransitiveDigest": "vsrPPBNf8OgywAYLMcIL1oNm2R8WtbCIL9wgQBUecpA=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "android_tools": {
@@ -1090,6 +1092,7 @@
       "general": {
         "bzlTransitiveDigest": "XWy8pzw7/6RclAFWd6/VfUdoXn2SdSpmHOrbfEFJ1ao=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "local_config_cc": {
@@ -1116,6 +1119,7 @@
       "general": {
         "bzlTransitiveDigest": "Qh2bWTU6QW6wkrd87qrU4YeY+SG37Nvw3A0PR4Y0L2Y=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "local_config_xcode": {
@@ -1134,6 +1138,7 @@
       "general": {
         "bzlTransitiveDigest": "hp4NgmNjEg5+xgvzfh6L83bt9/aiiWETuNpwNuF1MSU=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "local_config_sh": {
@@ -1149,6 +1154,7 @@
       "general": {
         "bzlTransitiveDigest": "AL+K5m+GCP3XRzLPqpKAq4GsjIVDXgUveWm8nih4ju0=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "remote_coverage_tools": {
@@ -1169,6 +1175,7 @@
       "general": {
         "bzlTransitiveDigest": "EleDU/FQ1+e/RgkW3aIDmdaxZEthvoWQhsqFTxiSgMI=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "buildozer_binary": {
@@ -1193,6 +1200,7 @@
       "general": {
         "bzlTransitiveDigest": "Vo8tBC4aLZTSWFbox69vCUJ2B0S7GYQDr5txjiyYfgQ=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "remotejdk21_linux_toolchain_config_repo": {
@@ -1699,6 +1707,7 @@
         "recordedFileInputs": {
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "10442a5ae27d9ff4c2003e5ab71643bf0d8b48dcf968b4173fa274c3232a8c06"
         },
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "org_slf4j_slf4j_api_1_7_30": {
@@ -2719,6 +2728,7 @@
       "general": {
         "bzlTransitiveDigest": "Td87llNSs5GZ/kAxu6pAqfEXBZ3HdkSqRmUzvIfbFWg=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "io_bazel_rules_kotlin": {
@@ -2745,6 +2755,7 @@
       "general": {
         "bzlTransitiveDigest": "NGtTMUqs2EEJeXu6mXdpmYRrQGZiJV7S3mxeod3Hm7M=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "pythons_hub": {
@@ -2773,6 +2784,7 @@
       "general": {
         "bzlTransitiveDigest": "5c1tkdV6L67SQOZWc9MUoS5ZnsSxeDKsh9urs01jZSM=",
         "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "pypi__coverage_cp39_aarch64-apple-darwin": {

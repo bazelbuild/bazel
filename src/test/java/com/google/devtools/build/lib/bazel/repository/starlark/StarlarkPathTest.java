@@ -35,16 +35,20 @@ public class StarlarkPathTest {
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path wd = FileSystemUtils.getWorkingDirectory(fs);
 
+  private static StarlarkPath makePath(Path path) {
+    return new StarlarkPath(/* ctx= */ null, path);
+  }
+
   @Before
   public void setup() throws Exception {
-    ev.update("wd", new StarlarkPath(wd));
+    ev.update("wd", makePath(wd));
   }
 
   @Test
   public void testStarlarkPathGetChild() throws Exception {
-    assertThat(ev.eval("wd.get_child()")).isEqualTo(new StarlarkPath(wd));
-    assertThat(ev.eval("wd.get_child('foo')")).isEqualTo(new StarlarkPath(wd.getChild("foo")));
+    assertThat(ev.eval("wd.get_child()")).isEqualTo(makePath(wd));
+    assertThat(ev.eval("wd.get_child('foo')")).isEqualTo(makePath(wd.getChild("foo")));
     assertThat(ev.eval("wd.get_child('a','b/c','/d/')"))
-        .isEqualTo(new StarlarkPath(wd.getRelative("a/b/c/d")));
+        .isEqualTo(makePath(wd.getRelative("a/b/c/d")));
   }
 }
