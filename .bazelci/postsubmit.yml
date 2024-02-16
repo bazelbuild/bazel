@@ -190,11 +190,6 @@ tasks:
       - "//tools/bash/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      # MacOS does not have cgroups so it can't support hardened sandbox
-      - "-//src/test/java/com/google/devtools/build/lib/sandbox:CgroupsInfoTest"
-      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
-      - "-//src/test/shell/integration:bazel_sandboxed_worker_with_cgroups_test"
-      - "-//src/test/shell/integration:bazel_worker_with_cgroups_test"
       # https://github.com/bazelbuild/bazel/issues/16526
       - "-//src/test/shell/bazel:starlark_repository_test"
       # https://github.com/bazelbuild/bazel/issues/17407
@@ -249,22 +244,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # C++ coverage is not supported on macOS yet.
-      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      # MacOS does not have cgroups so it can't support hardened sandbox
-      - "-//src/test/java/com/google/devtools/build/lib/sandbox:CgroupsInfoTest"
-      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
-      - "-//src/test/shell/integration:bazel_sandboxed_worker_with_cgroups_test"
-      - "-//src/test/shell/integration:bazel_worker_with_cgroups_test"
-      # https://github.com/bazelbuild/bazel/issues/16525
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:KeepGoingTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:DanglingSymlinkTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:CompileOneDependencyIntegrationTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:SkymeldBuildIntegrationTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
-      - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:MiscAnalysisTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
       # https://github.com/bazelbuild/bazel/issues/17007
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # https://github.com/bazelbuild/bazel/issues/16521 & https://github.com/bazelbuild/bazel/issues/18776

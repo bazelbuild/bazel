@@ -527,6 +527,8 @@ sh_test(
     ],
     shard_count = 3,
     tags = [
+        # MacOS does not have cgroups so it can't support hardened sandbox
+        "no_macos",
         "no_windows",
     ],
 )
@@ -602,6 +604,8 @@ sh_test(
     ],
     shard_count = 3,
     tags = [
+        # MacOS does not have cgroups so it can't support hardened sandbox
+        "no_macos",
         "no_windows",
     ],
 )
@@ -621,6 +625,8 @@ sh_test(
     ],
     shard_count = 3,
     tags = [
+        # MacOS does not have cgroups so it can't support hardened sandbox
+        "no_macos",
         "no_windows",
     ],
 )
