@@ -1000,7 +1000,7 @@ reused_runfiles_test(
 )
 EOF
   test_output="reuse_test_output.txt"
-  if [[ $TEST_WORKSPACE == "_main" ]]; then
+  if is_bazel; then
     bazel coverage --test_output=streamed \
       --experimental_split_coverage_postprocessing=1 \
       --experimental_fetch_all_coverage_outputs //pkg:a > ${test_output} \
@@ -1020,7 +1020,7 @@ EOF
       && fail "${stashed_test_dir}/_tmp directory is present"
 
 
-  if [[ $TEST_WORKSPACE == "_main" ]]; then
+  if is_bazel; then
     bazel coverage --test_output=streamed //pkg:b \
       --experimental_split_coverage_postprocessing=1 \
       --experimental_fetch_all_coverage_outputs > ${test_output} \
@@ -1037,4 +1037,9 @@ EOF
   [[ ${file_inode_a} == ${file_inode_b} ]] \
     || fail "Test //pkg:b didn't reuse runfiles file"
 }
+
+function is_bazel() {
+  [ $TEST_WORKSPACE == "_main" ]
+}
+
 run_suite "sandboxing"
