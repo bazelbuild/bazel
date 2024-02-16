@@ -269,6 +269,10 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
+    tags = [
+        # bzlmod usage requires network
+        "requires-network",
+    ],
 )
 
 JAVA_VERSIONS = ("11", "17")
@@ -298,6 +302,10 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
+        tags = [
+            # bzlmod usage requires network
+            "requires-network",
+        ],
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -322,8 +330,12 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
             ":test-deps",
             "@bazel_tools//tools/bash/runfiles",
         ],
-        # This test is only run by the java_tools binaries pipeline.
-        tags = ["manual"],
+        tags = [
+            # This test is only run by the java_tools binaries pipeline.
+            "manual",
+            # bzlmod usage requires network
+            "requires-network",
+        ],
     )
     for java_version in JAVA_VERSIONS
 ]
