@@ -240,6 +240,10 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # https://github.com/bazelbuild/bazel/issues/16521 & https://github.com/bazelbuild/bazel/issues/18776
+      - "-//src/test/shell/bazel/android/..."
+      - "-//src/tools/android/java/com/google/devtools/build/android/..."
+      - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
     include_json_profile:
       - build
       - test
