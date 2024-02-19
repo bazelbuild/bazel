@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBase;
 
@@ -25,9 +27,11 @@ public class BazelGenRule extends GenRuleBase {
 
   @Override
   protected boolean isStampingEnabled(RuleContext ruleContext) {
-    if (!ruleContext.attributes().has("stamp", Type.BOOLEAN)) {
+    if (!ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
       return false;
     }
-    return ruleContext.attributes().get("stamp", Type.BOOLEAN);
+    TriState stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
+    return stamp.equals(TriState.YES) ||
+        (stamp.equals(TriState.AUTO) && ruleContext.getConfiguration().stampBinaries());
   }
 }
