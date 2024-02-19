@@ -20,7 +20,12 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import javax.annotation.Nullable;
 
-/** A context that provide remote execution related information for executing an action remotely. */
+/**
+ * A context providing remote execution related information for executing a {@link RemoteAction}.
+ *
+ * <p>Terminology note: "action" is used here in the remote execution protocol sense, which is
+ * equivalent to a Bazel "spawn" (a Bazel "action" being a higher-level concept).
+ */
 public class RemoteActionExecutionContext {
   /** Determines whether to read/write remote cache, disk cache or both. */
   public enum CachePolicy {

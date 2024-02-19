@@ -466,6 +466,9 @@ function test_xml_is_present_when_timingout() {
      --noexperimental_split_xml_generation \
      //dir:test &> $TEST_log && fail "should have failed" || true
 
+  # Print the log before it's overridden for debugging flakiness
+  cat $TEST_log
+
   xml_log=bazel-testlogs/dir/test/test.xml
   [[ -s "${xml_log}" ]] || fail "${xml_log} was not present after test"
   cat "${xml_log}" > $TEST_log
