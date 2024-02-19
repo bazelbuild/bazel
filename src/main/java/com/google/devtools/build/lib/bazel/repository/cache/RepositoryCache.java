@@ -162,6 +162,43 @@ public class RepositoryCache {
   @Nullable
   public Path get(String cacheKey, Path targetPath, KeyType keyType, String canonicalId)
       throws IOException, InterruptedException {
+    Path cacheValue = findCacheValue(cacheKey, keyType, canonicalId);
+    if (cacheValue == null) {
+      return null;
+    }
+
+    targetPath.getParentDirectory().createDirectoryAndParents();
+    if (useHardlinks) {
+      FileSystemUtils.createHardLink(targetPath, cacheValue);
+    } else {
+      FileSystemUtils.copyFile(cacheValue, targetPath);
+    }
+
+    return targetPath;
+  }
+
+  /**
+   * Get the content of a cached value, if it exists.
+   *
+   * @param cacheKey The string key to cache the value by.
+   * @param keyType The type of key used. See: KeyType
+   * @return The bytes of the cache value. If cache value does not exist, returns null.
+   * @throws IOException
+   */
+  @Nullable
+  public byte[] getBytes(String cacheKey, KeyType keyType)
+      throws IOException, InterruptedException {
+    Path cacheValue = findCacheValue(cacheKey, keyType, /* canonicalId= */ null);
+    if (cacheValue == null) {
+      return null;
+    }
+
+    return FileSystemUtils.readContent(cacheValue);
+  }
+
+  @Nullable
+  private Path findCacheValue(String cacheKey, KeyType keyType, String canonicalId)
+      throws IOException, InterruptedException {
     Preconditions.checkState(isEnabled());
 
     assertKeyIsValid(cacheKey, keyType);
@@ -186,20 +223,13 @@ public class RepositoryCache {
       }
     }
 
-    targetPath.getParentDirectory().createDirectoryAndParents();
-    if (useHardlinks) {
-      FileSystemUtils.createHardLink(targetPath, cacheValue);
-    } else {
-      FileSystemUtils.copyFile(cacheValue, targetPath);
-    }
-
     try {
       FileSystemUtils.touchFile(cacheValue);
     } catch (IOException e) {
       // Ignore, because the cache might be on a read-only volume.
     }
 
-    return targetPath;
+    return cacheValue;
   }
 
   /**
@@ -214,6 +244,54 @@ public class RepositoryCache {
    */
   public void put(String cacheKey, Path sourcePath, KeyType keyType, String canonicalId)
       throws IOException {
+    storeCacheValue(
+        cacheKey, tmpName -> FileSystemUtils.copyFile(sourcePath, tmpName), keyType, canonicalId);
+  }
+
+  /**
+   * Adds an in-memory value to the cache.
+   *
+   * @param content The byte content of the value to be cached.
+   * @param keyType The type of key used. See: KeyType
+   * @throws IOException
+   */
+  public void put(String cacheKey, byte[] content, KeyType keyType) throws IOException {
+    storeCacheValue(
+        cacheKey,
+        tmpName -> FileSystemUtils.writeContent(tmpName, content),
+        keyType,
+        /* canonicalId= */ null);
+  }
+
+  /**
+   * Adds an in-memory value to the cache.
+   *
+   * @param content The byte content of the value to be cached.
+   * @param keyType The type of key used. See: KeyType
+   * @throws IOException
+   */
+  public void put(byte[] content, KeyType keyType) throws IOException {
+    String cacheKey = keyType.newHasher().putBytes(content).hash().toString();
+    put(cacheKey, content, keyType);
+  }
+
+  interface FileWriter {
+    void writeTo(Path name) throws IOException;
+  }
+
+  /**
+   * Copies a value from a specified path into the cache.
+   *
+   * @param cacheKey The string key to cache the value by.
+   * @param fileWriter A function that writes the value to a given file.
+   * @param keyType The type of key used. See: KeyType
+   * @param canonicalId If set to a non-empty String associate the file with this name, allowing
+   *     restricted cache lookups later.
+   * @throws IOException
+   */
+  private void storeCacheValue(
+      String cacheKey, FileWriter fileWriter, KeyType keyType, String canonicalId)
+      throws IOException {
     Preconditions.checkState(isEnabled());
 
     assertKeyIsValid(cacheKey, keyType);
@@ -223,7 +301,7 @@ public class RepositoryCache {
     Path cacheValue = cacheEntry.getRelative(DEFAULT_CACHE_FILENAME);
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     cacheEntry.createDirectoryAndParents();
-    FileSystemUtils.copyFile(sourcePath, tmpName);
+    fileWriter.writeTo(tmpName);
     try {
       tmpName.renameTo(cacheValue);
     } catch (FileAccessException e) {

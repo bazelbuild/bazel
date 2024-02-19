@@ -192,6 +192,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                                 .setFlags(flags)
                                 .setLocalOverrideHashes(localOverrideHashes)
                                 .setModuleDepGraph(key.depGraph())
+                                .setRegistryFileHashes(ImmutableMap.of())
                                 .build());
 
                         return new SkyValue() {};

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -157,6 +158,7 @@ public class ModuleFileFunction implements SkyFunction {
     if (getModuleFileResult == null) {
       return null;
     }
+    getModuleFileResult.downloadEvents.replayOn(env.getListener());
     String moduleFileHash =
         new Fingerprint().addBytes(getModuleFileResult.moduleFile.getContent()).hexDigestAndReset();
 
@@ -217,8 +219,10 @@ public class ModuleFileFunction implements SkyFunction {
           module.getVersion());
     }
 
-
-    return NonRootModuleFileValue.create(module, moduleFileHash);
+    return NonRootModuleFileValue.create(
+        module,
+        moduleFileHash,
+        RegistryFileDownloadEvent.collectToMap(getModuleFileResult.downloadEvents.getPosts()));
   }
 
   @Nullable
@@ -529,7 +533,8 @@ public class ModuleFileFunction implements SkyFunction {
    *
    * @param registry can be null if this module has a non-registry override.
    */
-  private record GetModuleFileResult(ModuleFile moduleFile, @Nullable Registry registry) {}
+  private record GetModuleFileResult(
+      ModuleFile moduleFile, @Nullable Registry registry, StoredEventHandler downloadEvents) {}
 
   @Nullable
   private GetModuleFileResult getModuleFile(
@@ -560,7 +565,13 @@ public class ModuleFileFunction implements SkyFunction {
           ModuleFile.create(
               readModuleFile(moduleFilePath.asPath()),
               moduleFileLabel.getUnambiguousCanonicalForm()),
-          /* registry= */ null);
+          /* registry= */ null,
+          new StoredEventHandler());
+    }
+
+    BazelLockFileValue lockFileValue = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
+    if (lockFileValue == null) {
+      return null;
     }
 
     // Otherwise, we should get the module file from a registry.
@@ -607,13 +618,14 @@ public class ModuleFileFunction implements SkyFunction {
 
     // Now go through the list of registries and use the first one that contains the requested
     // module.
+    StoredEventHandler downloadEvents = new StoredEventHandler();
     for (Registry registry : registryObjects) {
       try {
-        Optional<ModuleFile> moduleFile = registry.getModuleFile(key, env.getListener());
+        Optional<ModuleFile> moduleFile = registry.getModuleFile(key, downloadEvents);
         if (moduleFile.isEmpty()) {
           continue;
         }
-        return new GetModuleFileResult(moduleFile.get(), registry);
+        return new GetModuleFileResult(moduleFile.get(), registry, downloadEvents);
       } catch (IOException e) {
         throw errorf(
             Code.ERROR_ACCESSING_REGISTRY, e, "Error accessing registry %s", registry.getUrl());

@@ -133,26 +133,66 @@ class BazelLockfileTest(test_base.TestBase):
     # hence find no errors
     self.RunBazel(['build', '--nobuild', '//:all'])
 
-  def testChangeFlagWithLockfile(self):
-    # Add module 'sss' to the registry with dep on 'aaa'
-    self.main_registry.createCcModule('sss', '1.3', {'aaa': '1.1'})
-    # Create a project with deps on 'sss'
     self.ScratchFile(
         'MODULE.bazel',
         [
             'bazel_dep(name = "sss", version = "1.3")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+        ],
+    )
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
+    # Even adding a new dependency should not fail due to the registry change
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+  def testAddModuleToRegistryWithLockfile(self):
+    # Create a project with deps on the BCR's 'platforms' module
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "platforms", version = "0.0.9")',
         ],
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
     self.RunBazel(['build', '--nobuild', '//:all'])
 
-    # Change registry -> update 'sss' module file (corrupt it)
-    module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
+    # Add a broken 'platforms' module to the first registry
+    module_dir = self.main_registry.root.joinpath('modules', 'platforms', '0.0.9')
     scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
 
     # Shutdown bazel to empty any cache of the deps tree
     self.RunBazel(['shutdown'])
-    # Running with the lockfile, but adding a flag should cause resolution rerun
+    # Running with the lockfile, should not recognize the registry changes
+    # hence find no errors
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "platforms", version = "0.0.9")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+        ],
+    )
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
+    # Even adding a new dependency should not fail due to the registry change
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+  def testChangeFlagWithLockfile(self):
+    # Create a project with an outdated direct dep on aaa
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
+    # Running with the lockfile, but the changed flag value should be honored
     exit_code, _, stderr = self.RunBazel(
         [
             'build',
@@ -163,9 +203,9 @@ class BazelLockfileTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 48, stderr)
-    self.assertRegex(
+    self.assertIn(
+        "ERROR: For repository 'aaa', the root module requires module version aaa@1.0, but got aaa@1.1",
         '\n'.join(stderr),
-        "ERROR: .*/sss/1.3/MODULE.bazel:1:9: invalid character: '!'",
     )
 
   def testLockfileErrorMode(self):
@@ -1103,6 +1143,62 @@ class BazelLockfileTest(test_base.TestBase):
       new_data = lock_file.read()
 
     self.assertEqual(old_data, new_data)
+
+  def testLockfileExtensionsUpdatedIncrementally(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'lockfile_ext1 = use_extension("extension.bzl", "lockfile_ext1")',
+        'use_repo(lockfile_ext1, "hello1")',
+        'lockfile_ext2 = use_extension("extension.bzl", "lockfile_ext2")',
+        'use_repo(lockfile_ext2, "hello2")',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+        '',
+        'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+        '',
+        'def _module_ext1_impl(ctx):',
+        '    print("Hello from ext1!")',
+        '    repo_rule(name="hello1")',
+        '',
+        'lockfile_ext1 = module_extension(',
+        '    implementation=_module_ext1_impl,',
+        ')',
+        '',
+        'def _module_ext2_impl(ctx):',
+        '    print("Hello from ext2!")',
+        '    repo_rule(name="hello2")',
+        '',
+        'lockfile_ext2 = module_extension(',
+        '    implementation=_module_ext2_impl,',
+        ')',
+      ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello1//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('Hello from ext1!', stderr)
+    self.assertNotIn('Hello from ext2!', stderr)
+
+    self.RunBazel(['shutdown'])
+
+    _, _, stderr = self.RunBazel(['build', '@hello1//:all', "@hello2//:all"])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('Hello from ext1!', stderr)
+    self.assertIn('Hello from ext2!', stderr)
+
+    self.RunBazel(['shutdown'])
+
+    _, _, stderr = self.RunBazel(['build', '@hello1//:all', "@hello2//:all"])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('Hello from ext1!', stderr)
+    self.assertNotIn('Hello from ext2!', stderr)
 
   def testExtensionOsAndArch(self):
     self.ScratchFile(

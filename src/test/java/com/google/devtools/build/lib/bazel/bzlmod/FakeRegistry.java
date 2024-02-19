@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
@@ -63,26 +64,33 @@ public class FakeRegistry implements Registry {
 
   @Override
   public Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
-    return Optional.ofNullable(modules.get(key))
-        .map(value -> value.getBytes(UTF_8))
-        .map(
-            content ->
-                ModuleFile.create(
-                    content,
-                    String.format(
-                        "%s/modules/%s/%s/MODULE.bazel",
-                        url, key.getName(), key.getVersion().toString())));
+    String uri =
+        String.format(
+            "%s/modules/%s/%s/MODULE.bazel", url, key.getName(), key.getVersion().toString());
+    var maybeContent = Optional.ofNullable(modules.get(key)).map(value -> value.getBytes(UTF_8));
+    eventHandler.post(RegistryFileDownloadEvent.create(uri, maybeContent));
+    return maybeContent.map(content -> ModuleFile.create(content, uri));
   }
 
   @Override
   public RepoSpec getRepoSpec(ModuleKey key, ExtendedEventHandler eventHandler) {
-    return RepoSpec.builder()
-        .setRuleClassName("local_repository")
-        .setAttributes(
-            AttributeValues.create(
-                ImmutableMap.of(
-                    "path", rootPath + "/" + key.getCanonicalRepoNameWithVersion().getName())))
-        .build();
+    RepoSpec repoSpec =
+        RepoSpec.builder()
+            .setRuleClassName("local_repository")
+            .setAttributes(
+                AttributeValues.create(
+                    ImmutableMap.of(
+                        "path", rootPath + "/" + key.getCanonicalRepoNameWithVersion().getName())))
+            .build();
+    eventHandler.post(
+        RegistryFileDownloadEvent.create(
+            "%s/modules/%s/%s/source.json"
+                .formatted(url, key.getName(), key.getVersion().toString()),
+            Optional.of(
+                GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson()
+                    .toJson(repoSpec)
+                    .getBytes(UTF_8))));
+    return repoSpec;
   }
 
   @Override
@@ -118,7 +126,8 @@ public class FakeRegistry implements Registry {
     }
 
     @Override
-    public Registry createRegistry(String url) {
+    public Registry createRegistry(
+        String url, ImmutableMap<String, Optional<Checksum>> fileHashes) {
       return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }
   }

@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -28,9 +30,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -49,7 +52,9 @@ final class Discovery {
    */
   @Nullable
   public static ImmutableMap<ModuleKey, InterimModule> run(
-      Environment env, RootModuleFileValue root)
+      Environment env,
+      RootModuleFileValue root,
+      ImmutableList.Builder<ImmutableMap<String, Optional<Checksum>>> nestedRegistryFileHashes)
       throws InterruptedException, ExternalDepsException {
     String rootModuleName = root.getModule().getName();
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
@@ -60,9 +65,10 @@ final class Discovery {
             .withDepSpecsTransformed(InterimModule.applyOverrides(overrides, rootModuleName)));
     Queue<ModuleKey> unexpanded = new ArrayDeque<>();
     Map<ModuleKey, ModuleKey> predecessors = new HashMap<>();
+    nestedRegistryFileHashes.add(root.getRegistryFileHashes());
     unexpanded.add(ModuleKey.ROOT);
     while (!unexpanded.isEmpty()) {
-      Set<SkyKey> unexpandedSkyKeys = new HashSet<>();
+      Set<SkyKey> unexpandedSkyKeys = new LinkedHashSet<>();
       while (!unexpanded.isEmpty()) {
         InterimModule module = depGraph.get(unexpanded.remove());
         for (DepSpec depSpec : module.getDeps().values()) {
@@ -109,6 +115,7 @@ final class Discovery {
                   .getModule()
                   .withDepSpecsTransformed(
                       InterimModule.applyOverrides(overrides, rootModuleName)));
+          nestedRegistryFileHashes.add(moduleFileValue.getRegistryFileHashes());
           unexpanded.add(depKey);
         }
       }

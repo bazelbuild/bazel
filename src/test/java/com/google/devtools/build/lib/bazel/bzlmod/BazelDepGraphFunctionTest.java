@@ -61,7 +61,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -364,10 +363,8 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
     @Override
     @Nullable
-    public SkyValue compute(SkyKey skyKey, Environment env)
-        throws SkyFunctionException, InterruptedException {
-
-      return BazelModuleResolutionValue.create(depGraph, ImmutableMap.of());
+    public SkyValue compute(SkyKey skyKey, Environment env) {
+      return BazelModuleResolutionValue.create(depGraph, ImmutableMap.of(), ImmutableMap.of());
     }
   }
 }

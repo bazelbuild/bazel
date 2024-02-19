@@ -26,6 +26,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -475,10 +477,61 @@ public final class GsonTypeAdapterUtil {
             }
           };
 
+  // This can't reuse the existing type adapter factory for Optional as we need to explicitly
+  // serialize null values but don't want to rely on GSON's serializeNulls.
+  private static final class OptionalChecksumTypeAdapterFactory implements TypeAdapterFactory {
+
+    @Override
+    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {
+      if (typeToken.getRawType() != Optional.class) {
+        return null;
+      }
+      Type type = typeToken.getType();
+      if (!(type instanceof ParameterizedType)) {
+        return null;
+      }
+      Type elementType = ((ParameterizedType) type).getActualTypeArguments()[0];
+      if (elementType != Checksum.class) {
+        return null;
+      }
+      @SuppressWarnings("unchecked")
+      TypeAdapter<T> typeAdapter = (TypeAdapter<T>) new OptionalChecksumTypeAdapter();
+      return typeAdapter;
+    }
+
+    private static class OptionalChecksumTypeAdapter extends TypeAdapter<Optional<Checksum>> {
+      // This value must not be a valid checksum string.
+      private static final String NOT_FOUND_MARKER = "not found";
+
+      @Override
+      public void write(JsonWriter jsonWriter, Optional<Checksum> checksum) throws IOException {
+        if (checksum.isPresent()) {
+          jsonWriter.value(checksum.get().toString());
+        } else {
+          jsonWriter.value(NOT_FOUND_MARKER);
+        }
+      }
+
+      @Override
+      public Optional<Checksum> read(JsonReader jsonReader) throws IOException {
+        String checksumString = jsonReader.nextString();
+        if (NOT_FOUND_MARKER.equals(checksumString)) {
+          return Optional.empty();
+        }
+        try {
+          return Optional.of(Checksum.fromString(RepositoryCache.KeyType.SHA256, checksumString));
+        } catch (Checksum.InvalidChecksumException e) {
+          throw new JsonParseException(String.format("Invalid checksum: %s", checksumString), e);
+        }
+      }
+    }
+  }
+
   public static Gson createLockFileGson(Path moduleFilePath, Path workspaceRoot) {
     return newGsonBuilder()
         .setPrettyPrinting()
         .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath, workspaceRoot))
+        .registerTypeAdapterFactory(new OptionalChecksumTypeAdapterFactory())
         .create();
   }
 

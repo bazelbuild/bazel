@@ -65,6 +65,7 @@ public class BazelLockFileFunction implements SkyFunction {
           .setLocalOverrideHashes(ImmutableMap.of())
           .setModuleDepGraph(ImmutableMap.of())
           .setModuleExtensions(ImmutableMap.of())
+          .setRegistryFileHashes(ImmutableMap.of())
           .build();
 
   public BazelLockFileFunction(Path rootDirectory) {

@@ -23,6 +23,8 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -67,6 +70,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -91,11 +95,17 @@ public class DiscoveryTest extends FoundationTestCase {
     static final SkyFunctionName FUNCTION_NAME = SkyFunctionName.createHermetic("test_discovery");
     static final SkyKey KEY = () -> FUNCTION_NAME;
 
-    static DiscoveryValue create(ImmutableMap<ModuleKey, InterimModule> depGraph) {
-      return new AutoValue_DiscoveryTest_DiscoveryValue(depGraph);
+    static DiscoveryValue create(
+        ImmutableMap<ModuleKey, InterimModule> depGraph,
+        ImmutableList<ImmutableMap<String, Optional<String>>> registryFileHashes) {
+      return new AutoValue_DiscoveryTest_DiscoveryValue(depGraph, registryFileHashes);
     }
 
     abstract ImmutableMap<ModuleKey, InterimModule> getDepGraph();
+
+    // Uses Optional<String> rather than Optional<Checksum> for easier testing (Checksum doesn't
+    // implement equals()).
+    abstract ImmutableList<ImmutableMap<String, Optional<String>>> getRegistryFileHashes();
   }
 
   static class DiscoveryFunction implements SkyFunction {
@@ -108,13 +118,24 @@ public class DiscoveryTest extends FoundationTestCase {
         return null;
       }
       ImmutableMap<ModuleKey, InterimModule> depGraph;
+      ImmutableList.Builder<ImmutableMap<String, Optional<Checksum>>> registryFileHashes =
+          ImmutableList.builder();
       try {
-        depGraph = Discovery.run(env, root);
+        depGraph = Discovery.run(env, root, registryFileHashes);
       } catch (ExternalDepsException e) {
         throw new BazelModuleResolutionFunction.BazelModuleResolutionFunctionException(
             e, SkyFunctionException.Transience.PERSISTENT);
       }
-      return depGraph == null ? null : DiscoveryValue.create(depGraph);
+      return depGraph == null
+          ? null
+          : DiscoveryValue.create(
+              depGraph,
+              ImmutableList.copyOf(
+                  Lists.transform(
+                      registryFileHashes.build(),
+                      map ->
+                          ImmutableMap.copyOf(
+                              Maps.transformValues(map, value -> value.map(Checksum::toString))))));
     }
   }
 
@@ -168,6 +189,7 @@ public class DiscoveryTest extends FoundationTestCase {
                         SyscallCache.NO_CACHE,
                         externalFilesHelper))
                 .put(DiscoveryValue.FUNCTION_NAME, new DiscoveryFunction())
+                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
@@ -260,6 +282,20 @@ public class DiscoveryTest extends FoundationTestCase {
                 .setRegistry(registry)
                 .buildEntry(),
             InterimModuleBuilder.create("ddd", "3.0").setRegistry(registry).buildEntry());
+    assertThat(discoveryValue.getRegistryFileHashes())
+        .containsExactly(
+            // root module
+            ImmutableMap.of(),
+            ImmutableMap.of(
+                registry.getUrl() + "/modules/bbb/1.0/MODULE.bazel",
+                Optional.of("3f48e6d8694e0aa0d16617fd97b7d84da0e17ee9932c18cbc71888c12563372d")),
+            ImmutableMap.of(
+                registry.getUrl() + "/modules/ccc/2.0/MODULE.bazel",
+                Optional.of("e613d4192495192c3d46ee444dc9882a176a9e7a243d1b5a840ab0f01553e8d6")),
+            ImmutableMap.of(
+                registry.getUrl() + "/modules/ddd/3.0/MODULE.bazel",
+                Optional.of("f80d91453520d193b0b79f1501eb902b5b01a991762cc7fb659fc580b95648fd")))
+        .inOrder();
   }
 
   @Test
@@ -525,6 +561,16 @@ public class DiscoveryTest extends FoundationTestCase {
             InterimModuleBuilder.create("ccc", "2.0")
                 .setKey(createModuleKey("ccc", ""))
                 .buildEntry());
+    assertThat(discoveryValue.getRegistryFileHashes())
+        .containsExactly(
+            // root module
+            ImmutableMap.of(),
+            ImmutableMap.of(
+                registry.getUrl() + "/modules/bbb/0.1/MODULE.bazel",
+                Optional.of("3f9e1a600b4adeee1c1a92b92df9d086eca4bbdde656c122872f48f8f3b874a3")),
+            // ccc
+            ImmutableMap.of())
+        .inOrder();
   }
 
   @Test
@@ -587,5 +633,21 @@ public class DiscoveryTest extends FoundationTestCase {
                 .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
                 .setRegistry(registry)
                 .buildEntry());
+
+    assertThat(discoveryValue.getRegistryFileHashes())
+        .containsExactly(
+            // root module
+            ImmutableMap.of(),
+            ImmutableMap.of(
+                registry.getUrl() + "/modules/foo/2.0/MODULE.bazel",
+                Optional.of("76ecb05b455aecab4ec958c1deb17e4cbbe6e708d9c4e85fceda2317f6c86d7b")),
+            // bazel_tools
+            ImmutableMap.of(),
+            // local_config_platform
+            ImmutableMap.of(),
+            ImmutableMap.of(
+                registry.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+                Optional.of("4d887e8dfc1863861e3aa5601eeeebca5d8f110977895f1de4bdb2646e546fb5")))
+        .inOrder();
   }
 }

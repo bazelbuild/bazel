@@ -17,17 +17,9 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
-import java.net.URISyntaxException;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Optional;
 
-/** A factory type for {@link Registry}. */
-public interface RegistryFactory {
-
-  /**
-   * Creates a registry associated with the given URL.
-   *
-   * <p>Outside of tests, only {@link RegistryFunction} should call this method.
-   */
-  Registry createRegistry(String url, ImmutableMap<String, Optional<Checksum>> fileHashes)
-      throws URISyntaxException;
-}
+/** The value for {@link RepoSpecFunction}. */
+record RepoSpecValue(RepoSpec repoSpec, ImmutableMap<String, Optional<Checksum>> registryFileHashes)
+    implements SkyValue {}
