@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.util;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -55,14 +54,15 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   }
 
   @Override
+  @Nullable
   public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
-    return Preconditions.checkNotNull(inputs.get(input));
+    return inputs.get(input);
   }
 
   @Override
   @Nullable
   public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
-    return Preconditions.checkNotNull(runfilesInputs.get(input));
+    return runfilesInputs.get(input);
   }
 
   @Override
@@ -71,7 +71,8 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   }
 
   @Override
+  @Nullable
   public ActionInput getInput(String execPath) {
-    throw new UnsupportedOperationException();
+    return null;
   }
 }
