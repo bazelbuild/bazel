@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -265,20 +264,12 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
       throws IOException, InterruptedException {
 
-    // Add runfiles and filesets as additional direct members of the top-level nested set of inputs.
-    // This prevents it from being shared, but experimentally, the top-level input nested set for a
-    // spawn is almost never a transitive member of other nested sets, and not recording its entry
-    // ID turns out to be a very significant memory optimization.
+    // Add filesets as additional direct members of the top-level nested set of inputs. This
+    // prevents it from being shared, but experimentally, the top-level input nested set for a spawn
+    // is almost never a transitive member of other nested sets, and not recording its entry ID
+    // turns out to be a very significant memory optimization.
 
     ImmutableList.Builder<Integer> additionalDirectoryIds = ImmutableList.builder();
-
-    RunfilesSupplier runfilesSupplier = spawn.getRunfilesSupplier();
-    for (RunfilesTree tree : runfilesSupplier.getRunfilesTrees()) {
-      // The runfiles symlink tree might not have been materialized on disk, so use the mapping.
-      additionalDirectoryIds.add(
-          logRunfilesDirectory(
-              tree.getExecPath(), tree.getMapping(), inputMetadataProvider, fileSystem));
-    }
 
     for (Artifact fileset : spawn.getFilesetMappings().keySet()) {
       // The fileset symlink tree is always materialized on disk.
@@ -353,14 +344,25 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           }
 
           for (ActionInput input : set.getLeaves()) {
-            // Runfiles are logged separately.
             if (input instanceof Artifact && ((Artifact) input).isMiddlemanArtifact()) {
+              RunfilesTree runfilesTree =
+                  inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
+              builder.addDirectoryIds(
+                  // The runfiles symlink tree might not have been materialized on disk, so use the
+                  // mapping.
+                  logRunfilesDirectory(
+                      runfilesTree.getExecPath(),
+                      runfilesTree.getMapping(),
+                      inputMetadataProvider,
+                      fileSystem));
               continue;
             }
+
             // Filesets are logged separately.
             if (input instanceof Artifact && ((Artifact) input).isFileset()) {
               continue;
             }
+
             Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
             if (isInputDirectory(input, inputMetadataProvider)) {
               builder.addDirectoryIds(logDirectory(input, path, inputMetadataProvider));
