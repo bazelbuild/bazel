@@ -88,6 +88,8 @@ public class JavaTargetAttributes {
 
     private final NestedSetBuilder<Artifact> excludedArtifacts = NestedSetBuilder.naiveLinkOrder();
 
+    private boolean prependDirectJars = true;
+
     private boolean built = false;
 
     private final JavaSemantics semantics;
@@ -179,6 +181,24 @@ public class JavaTargetAttributes {
       return this;
     }
 
+    /**
+     * Avoids prepending the direct jars to the compile-time classpath when building the attributes,
+     * assuming that they have already been prepended. This avoids creating a new {@link NestedSet}
+     * instance.
+     *
+     * <p>After this method is called, {@link #addDirectJar(Artifact)} and {@link
+     * #addDirectJars(NestedSet)} will throw an exception.
+     */
+    @CanIgnoreReturnValue
+    public Builder setCompileTimeClassPathEntriesWithPrependedDirectJars(
+        NestedSet<Artifact> entries) {
+      Preconditions.checkArgument(!built);
+      Preconditions.checkArgument(compileTimeClassPathBuilder.isEmpty());
+      prependDirectJars = false;
+      compileTimeClassPathBuilder.addTransitive(entries);
+      return this;
+    }
+
     @CanIgnoreReturnValue
     public Builder setTargetLabel(Label targetLabel) {
       Preconditions.checkArgument(!built);
@@ -251,6 +271,7 @@ public class JavaTargetAttributes {
     @CanIgnoreReturnValue
     public Builder addDirectJars(NestedSet<Artifact> directJars) {
       Preconditions.checkArgument(!built);
+      Preconditions.checkArgument(prependDirectJars);
       this.directJarsBuilder.addTransitive(directJars);
       return this;
     }
@@ -258,6 +279,7 @@ public class JavaTargetAttributes {
     @CanIgnoreReturnValue
     public Builder addDirectJar(Artifact directJar) {
       Preconditions.checkArgument(!built);
+      Preconditions.checkArgument(prependDirectJars);
       this.directJarsBuilder.add(directJar);
       return this;
     }
@@ -323,10 +345,12 @@ public class JavaTargetAttributes {
       built = true;
       NestedSet<Artifact> directJars = directJarsBuilder.build();
       NestedSet<Artifact> compileTimeClassPath =
-          NestedSetBuilder.<Artifact>naiveLinkOrder()
-              .addTransitive(directJars)
-              .addTransitive(compileTimeClassPathBuilder.build())
-              .build();
+          prependDirectJars
+              ? NestedSetBuilder.<Artifact>naiveLinkOrder()
+                  .addTransitive(directJars)
+                  .addTransitive(compileTimeClassPathBuilder.build())
+                  .build()
+              : compileTimeClassPathBuilder.build();
       return new JavaTargetAttributes(
           ImmutableSet.copyOf(sourceFiles),
           runtimeClassPath.build(),
