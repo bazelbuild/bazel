@@ -1,33 +1,20 @@
 package com.google.devtools.build.lib.sandbox.cgroups.controller;
 
-import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.common.base.Defaults;
+import com.google.common.base.Suppliers;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.util.function.Supplier;
 
 public interface Controller {
     default boolean isLegacy() throws IOException {
         return !getPath().resolve("cgroup.controllers").toFile().exists();
-    }
-
-    static <T extends Controller> T getDefault(Class<T> clazz) {
-        InvocationHandler handler = new InvocationHandler() {
-            @Override
-            public Object invoke(Object proxy, Method method, Object[] args) throws ExecException {
-                throw new ExecException("Cgroup requested by cgroups are not available!") {
-                    protected FailureDetails.FailureDetail getFailureDetail(String message) {
-                        return FailureDetails.FailureDetail.newBuilder().setMessage(message).build();
-                    }
-                };
-
-            }
-        };
-
-        return (T) Proxy.newProxyInstance(clazz.getClassLoader(), new Class<?>[]{clazz}, handler);
     }
 
     default boolean exists() {

@@ -17,8 +17,9 @@ java_library(
         "Controller.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
     ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups:__subpackages__",
