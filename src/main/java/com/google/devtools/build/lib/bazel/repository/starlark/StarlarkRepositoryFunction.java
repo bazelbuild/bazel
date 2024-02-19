@@ -319,12 +319,17 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
             new RepoRecordedInput.EnvVar(envKey), clientEnvironment.get(envKey));
       }
 
-      for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
-          repoMappingRecorder.recordedEntries().cellSet()) {
-        recordedInputValues.put(
-            new RepoRecordedInput.RecordedRepoMapping(
-                repoMappings.getRowKey(), repoMappings.getColumnKey()),
-            repoMappings.getValue().getName());
+      // For repos defined in Bzlmod, record any used repo mappings in the marker file.
+      // Repos defined in WORKSPACE are impossible to verify given the chunked loading (we'd have to
+      // record which chunk the repo mapping was used in, and ain't nobody got time for that).
+      if (!isWorkspaceRepo(rule)) {
+        for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
+            repoMappingRecorder.recordedEntries().cellSet()) {
+          recordedInputValues.put(
+              new RepoRecordedInput.RecordedRepoMapping(
+                  repoMappings.getRowKey(), repoMappings.getColumnKey()),
+              repoMappings.getValue().getName());
+        }
       }
 
       env.getListener().post(resolved);
