@@ -74,7 +74,6 @@ public final class CommandLinePathFactory {
     var installBase = directories.getInstallBase();
     if (installBase != null) {
       wellKnownRoots.put("install_base", installBase);
-      System.err.println(installBase);
     }
 
     return new CommandLinePathFactory(fileSystem, wellKnownRoots.buildOrThrow());
