@@ -203,6 +203,11 @@ tasks:
       - "-//src/test/shell/bazel:bazel_determinism_test"
       # https://github.com/bazelbuild/bazel/issues/17457
       - "-//src/test/shell/bazel:jdeps_test"
+      # Macs can't find python, so these fail: https://github.com/bazelbuild/bazel/issues/18776
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:aapt_integration_test"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
       # Disable the top 50 most time-consuming tests on macOS Intel platform in presubmit.
       # Those tests are still covered in postsubmit and by macOS arm64 platform in presubmit.
       # To run any of the following test in presubmit, just comment out the corresponding line.
