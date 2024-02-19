@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -135,6 +136,11 @@ public abstract class RepositoryFunction {
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
+  }
+
+  public static boolean isWorkspaceRepo(Rule rule) {
+    // All workspace repos are under //external, while bzlmod repo rules are not
+    return rule.getPackage().getPackageIdentifier().equals(EXTERNAL_PACKAGE_IDENTIFIER);
   }
 
   protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
