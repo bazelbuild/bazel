@@ -114,7 +114,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     // First compute all the inputs and directories that we need. This is based only on
     // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
-    LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    Set<PathFragment> dirsToCreate = new LinkedHashSet<>();
     Set<PathFragment> writableSandboxDirs =
         writableDirs.stream()
             .filter(p -> p.startsWith(sandboxExecRoot))
@@ -145,7 +145,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   }
 
   protected void filterInputsAndDirsToCreate(
-      Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate)
+      Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate)
       throws IOException, InterruptedException {}
 
   /**
