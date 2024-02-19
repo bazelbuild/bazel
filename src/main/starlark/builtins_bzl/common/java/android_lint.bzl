@@ -14,6 +14,7 @@
 
 """Creates the android lint action for java rules"""
 
+load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_semantics.bzl", "semantics")
 
 def android_lint_action(ctx, source_files, source_jars, compilation_info):
