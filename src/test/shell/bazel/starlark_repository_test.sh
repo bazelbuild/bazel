@@ -784,6 +784,39 @@ function test_starlark_repository_bzl_invalidation_batch() {
   bzl_invalidation_test_template --batch
 }
 
+function test_starlark_repo_bzl_invalidation_wrong_digest() {
+  # regression test for https://github.com/bazelbuild/bazel/pull/21131#discussion_r1471924084
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+ext = use_extension("//:r.bzl", "ext")
+use_repo(ext, "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+load(":make_repo_rule.bzl", "make_repo_rule")
+def _r(rctx):
+  print("I'm here")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=make_repo_rule(_r)
+ext=module_extension(lambda mctx: r(name='r'))
+EOF
+  cat > make_repo_rule.bzl << EOF
+def make_repo_rule(impl):
+  return repository_rule(impl)
+EOF
+
+  bazel build @r >& $TEST_log || fail "Failed to build"
+  expect_log "I'm here"
+
+  cat <<EOF >>r.bzl
+
+# Just add a comment
+EOF
+  # the above SHOULD trigger a refetch.
+  bazel build @r >& $TEST_log || fail "failed to build"
+  expect_log "I'm here"
+}
+
 # Test invalidation based on change to the bzl files
 function file_invalidation_test_template() {
   local startup_flag="${1-}"

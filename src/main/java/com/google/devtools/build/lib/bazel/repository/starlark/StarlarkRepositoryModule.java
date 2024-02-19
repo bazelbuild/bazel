@@ -108,11 +108,20 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       }
     }
     builder.setConfiguredTargetFunction(implementation);
-    // TODO(b/291752414): If we care about the digest of repository rules, we should be using the
-    // transitive bzl digest of the module of the outermost stack frame, not the innermost.
-    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
-    builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        moduleContext.label(), moduleContext.bzlTransitiveDigest());
+    var threadContext = BazelStarlarkContext.fromOrFail(thread);
+    if (threadContext instanceof BzlInitThreadContext) {
+      var bzlInitContext = (BzlInitThreadContext) threadContext;
+      builder.setRuleDefinitionEnvironmentLabelAndDigest(
+          bzlInitContext.getBzlFile(), bzlInitContext.getTransitiveDigest());
+    } else {
+      // TODO: this branch is wrong, but cannot be removed until we deprecate WORKSPACE because
+      //   WORKSPACE can currently call unexported repo rules (so there's potentially no
+      //   BzlInitThreadContext. See
+      //   https://github.com/bazelbuild/bazel/pull/21131#discussion_r1471924084 for more details.
+      BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
+      builder.setRuleDefinitionEnvironmentLabelAndDigest(
+          moduleContext.label(), moduleContext.bzlTransitiveDigest());
+    }
     Label.RepoMappingRecorder repoMappingRecorder =
         thread.getThreadLocal(Label.RepoMappingRecorder.class);
     if (repoMappingRecorder != null) {
