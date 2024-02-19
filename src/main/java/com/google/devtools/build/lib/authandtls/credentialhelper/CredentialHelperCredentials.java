@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.authandtls.credentialhelper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.google.auth.Credentials;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.URI;
@@ -33,7 +32,7 @@ import javax.annotation.Nullable;
 public class CredentialHelperCredentials extends Credentials {
   private final CredentialHelperProvider credentialHelperProvider;
   private final CredentialHelperEnvironment credentialHelperEnvironment;
-  private final Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache;
+  private final Cache<URI, GetCredentialsResponse> credentialCache;
   private final Optional<Credentials> fallbackCredentials;
 
   /** Wraps around an {@link IOException} so we can smuggle it through {@link Cache#get}. */
@@ -53,7 +52,7 @@ public class CredentialHelperCredentials extends Credentials {
   public CredentialHelperCredentials(
       CredentialHelperProvider credentialHelperProvider,
       CredentialHelperEnvironment credentialHelperEnvironment,
-      Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache,
+      Cache<URI, GetCredentialsResponse> credentialCache,
       Optional<Credentials> fallbackCredentials) {
     this.credentialHelperProvider = Preconditions.checkNotNull(credentialHelperProvider);
     this.credentialHelperEnvironment = Preconditions.checkNotNull(credentialHelperEnvironment);
@@ -75,14 +74,14 @@ public class CredentialHelperCredentials extends Credentials {
   public Map<String, List<String>> getRequestMetadata(URI uri) throws IOException {
     Preconditions.checkNotNull(uri);
 
-    ImmutableMap<String, ImmutableList<String>> credentials;
+    GetCredentialsResponse response;
     try {
-      credentials = credentialCache.get(uri, this::getCredentialsFromHelper);
+      response = credentialCache.get(uri, this::getCredentialsFromHelper);
     } catch (WrappedIOException e) {
       throw e.getWrapped();
     }
-    if (credentials != null) {
-      return (Map) credentials;
+    if (response != null) {
+      return (Map) response.getHeaders();
     }
 
     if (fallbackCredentials.isPresent()) {
@@ -93,7 +92,7 @@ public class CredentialHelperCredentials extends Credentials {
   }
 
   @Nullable
-  private ImmutableMap<String, ImmutableList<String>> getCredentialsFromHelper(URI uri) {
+  private GetCredentialsResponse getCredentialsFromHelper(URI uri) {
     Preconditions.checkNotNull(uri);
 
     Optional<CredentialHelper> maybeCredentialHelper =
@@ -113,7 +112,7 @@ public class CredentialHelperCredentials extends Credentials {
       return null;
     }
 
-    return response.getHeaders();
+    return response;
   }
 
   @Override
