@@ -124,7 +124,7 @@ public class WorkerModule extends BlazeModule {
     }
     VirtualCGroupFactory cgroupFactory = null;
     try {
-      VirtualCGroup root = VirtualCGroup.getInstance(env.getReporter());
+      VirtualCGroup root = VirtualCGroup.getInstance();
       cgroupFactory = new VirtualCGroupFactory(
           "worker_",
           root,

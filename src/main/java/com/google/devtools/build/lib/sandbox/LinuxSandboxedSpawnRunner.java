@@ -166,7 +166,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.cgroupFactory =
         new VirtualCGroupFactory(
             "sandbox_",
-            VirtualCGroup.getInstance(cmdEnv.getReporter()),
+            VirtualCGroup.getInstance(),
             ImmutableMap.copyOf(getSandboxOptions().limits),
             /* alwaysCreate= */ false);
     this.helpers = helpers;

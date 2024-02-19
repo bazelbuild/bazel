@@ -45,17 +45,19 @@ public abstract class VirtualCGroup {
     @Nullable
     private static volatile VirtualCGroup instance;
 
+    @Nullable
     public abstract Controller.Cpu cpu();
+    @Nullable
     public abstract Controller.Memory memory();
     public abstract ImmutableSet<Path> paths();
 
     private final Queue<VirtualCGroup> children = new ConcurrentLinkedQueue<>();
 
-    public static VirtualCGroup getInstance(EventHandler reporter) throws IOException {
+    public static VirtualCGroup getInstance() throws IOException {
         if (instance == null) {
             synchronized (VirtualCGroup.class) {
                 if (instance == null) {
-                    instance = create(reporter);
+                    instance = create();
                 }
             }
         }
@@ -73,8 +75,8 @@ public abstract class VirtualCGroup {
         }
     }
 
-    public static VirtualCGroup create(EventHandler reporter) throws IOException {
-        return create(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH, ProcessHandle.current().pid(), reporter);
+    public static VirtualCGroup create() throws IOException {
+        return create(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH, ProcessHandle.current().pid());
     }
 
     private static void copyControllersToSubtree(Path cgroup) throws IOException {
@@ -88,7 +90,9 @@ public abstract class VirtualCGroup {
         }
     }
 
-    public static VirtualCGroup create(File procMounts, File procCgroup, long pid, EventHandler reporter) throws IOException {
+    static public VirtualCGroup NULL = new AutoValue_VirtualCGroup(null, null, ImmutableSet.of());
+
+    public static VirtualCGroup create(File procMounts, File procCgroup, long pid) throws IOException {
         final List<Mount> mounts = Mount.parse(procMounts);
         final Map<String, Hierarchy> hierarchies = Hierarchy.parse(procCgroup)
             .stream()
@@ -173,8 +177,6 @@ public abstract class VirtualCGroup {
             }
         }
 
-        cpu = cpu != null ? cpu : Controller.getDefault(Controller.Cpu.class);
-        memory = memory != null ? memory : Controller.getDefault(Controller.Memory.class);
         VirtualCGroup vcgroup = new AutoValue_VirtualCGroup(cpu, memory, paths.build());
         Runtime.getRuntime().addShutdownHook(new Thread(() -> vcgroup.delete()));
         return vcgroup;
@@ -186,8 +188,8 @@ public abstract class VirtualCGroup {
     }
 
     public VirtualCGroup child(String name) throws IOException {
-        Controller.Cpu cpu = Controller.getDefault(Controller.Cpu.class);
-        Controller.Memory memory = Controller.getDefault(Controller.Memory.class);
+        Controller.Cpu cpu = null;
+        Controller.Memory memory = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
         if (memory() != null && memory().getPath() != null) {
             copyControllersToSubtree(memory().getPath());

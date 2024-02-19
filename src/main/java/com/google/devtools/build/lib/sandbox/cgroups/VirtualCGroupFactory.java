@@ -14,6 +14,9 @@ public class VirtualCGroupFactory {
     private final ConcurrentHashMap<Integer, VirtualCGroup> cgroups;
     private final boolean alwaysCreate;
 
+    public static VirtualCGroupFactory NOOP =
+        new VirtualCGroupFactory("noop_", VirtualCGroup.NULL, ImmutableMap.of(), false);
+
     public VirtualCGroupFactory(String name, VirtualCGroup root, ImmutableMap<String, Double> defaultLimits, boolean alwaysCreate) {
         this.name = Preconditions.checkNotNull(name);
         this.defaultLimits = Preconditions.checkNotNull(defaultLimits);
