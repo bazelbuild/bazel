@@ -45,7 +45,8 @@ class GitRepositoryHelper {
    *     code.
    */
   void init() throws Exception {
-    runGit("init", "-b", "main");
+    runGit("init");
+    runGit("branch", "-M", "main");
     runGit("config", "user.email", "me@example.com");
     runGit("config", "user.name", "E X Ample");
   }
