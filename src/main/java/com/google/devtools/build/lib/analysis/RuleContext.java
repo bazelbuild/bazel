@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -325,6 +326,11 @@ public final class RuleContext extends TargetContext
   /** Returns the workspace name for the rule. */
   public String getWorkspaceName() {
     return rule.getPackage().getWorkspaceName();
+  }
+
+  /** Returns the repository mapping of the main repository. */
+  public RepositoryMapping getMainRepoMapping() {
+    return getAnalysisEnvironment().getMainRepoMapping();
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */

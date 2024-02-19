@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationExc
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -372,11 +373,21 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (starlarkBuiltinsValue == null) {
       return null;
     }
+    RepositoryMappingValue mainRepoMappingValue =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    if (mainRepoMappingValue == null) {
+      return null;
+    }
 
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment =
         view.createAnalysisEnvironment(
-            configuredTargetKey, events, env, configuration, starlarkBuiltinsValue);
+            configuredTargetKey,
+            events,
+            env,
+            configuration,
+            starlarkBuiltinsValue,
+            mainRepoMappingValue.getRepositoryMapping());
 
     Preconditions.checkNotNull(depValueMap);
     ConfiguredTarget configuredTarget;
