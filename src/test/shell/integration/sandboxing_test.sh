@@ -950,4 +950,89 @@ EOF
 
   bazel shutdown
 }
+
+function test_runfiles_from_tests_get_reused() {
+  mkdir pkg
+  touch pkg/file.txt
+  cat >pkg/reusing_test.bzl <<'EOF'
+def _reused_runfiles_test_impl(ctx):
+    output = ctx.actions.declare_file(ctx.label.name + ".sh")
+
+    runfiles = ctx.runfiles(files = ctx.files.file)
+    runfiles = runfiles.merge(runfiles)
+
+    test_code = """
+    #!/bin/bash
+    dir_inode_number=$(ls -di $TEST_SRCDIR | cut -f1 -d" ")
+    echo "The directory inode is $dir_inode_number"
+    file_inode_number=$(ls -i $TEST_SRCDIR/_main/pkg/file.txt | cut -f1 -d" ")
+    echo "The file inode is $file_inode_number"
+    """
+
+    ctx.actions.run_shell(
+        outputs = [output],
+        mnemonic = "myexample",
+        command = """
+        output_path={}
+        echo '{}' > $output_path
+        chmod 777 $output_path
+        """.format(output.path, test_code)
+    )
+
+    return [DefaultInfo(executable = output, runfiles = runfiles)]
+
+reused_runfiles_test = rule(
+    implementation = _reused_runfiles_test_impl,
+    test = True,
+    attrs = {
+        "file" : attr.label(allow_files=True,default="//pkg:file.txt"),
+    }
+)
+EOF
+
+  cat >pkg/BUILD <<'EOF'
+load(":reusing_test.bzl", "reused_runfiles_test")
+reused_runfiles_test(
+    name = "a",
+)
+reused_runfiles_test(
+    name = "b",
+)
+EOF
+
+  test_output="reuse_test_output.txt"
+  if is_bazel; then
+    bazel coverage --test_output=streamed \
+      --experimental_split_coverage_postprocessing=1 \
+      --experimental_fetch_all_coverage_outputs //pkg:a > ${test_output} \
+      || fail "Expected build to succeed"
+  else
+    bazel test --test_output=streamed //pkg:a > ${test_output} \
+      || fail "Expected build to succeed"
+  fi
+  dir_inode_a=$(awk '/The directory inode is/ {print $5}' ${test_output})
+  file_inode_a=$(awk '/The file inode is/ {print $5}' ${test_output})
+
+  if is_bazel; then
+    bazel coverage --test_output=streamed //pkg:b \
+      --experimental_split_coverage_postprocessing=1 \
+      --experimental_fetch_all_coverage_outputs > ${test_output} \
+      || fail "Expected build to succeed"
+  else
+    bazel test --test_output=streamed //pkg:b > ${test_output} \
+      || fail "Expected build to succeed"
+  fi
+  dir_inode_b=$(awk '/The directory inode is/ {print $5}' ${test_output})
+  file_inode_b=$(awk '/The file inode is/ {print $5}' ${test_output})
+
+  [[ ${dir_inode_a} == ${dir_inode_b} ]] \
+    || fail "Test //pkg:b didn't reuse runfiles directory"
+  [[ ${file_inode_a} == ${file_inode_b} ]] \
+    || fail "Test //pkg:b didn't reuse runfiles file"
+}
+
+function is_bazel() {
+  [ $TEST_WORKSPACE == "_main" ]
+}
+
 run_suite "sandboxing"
