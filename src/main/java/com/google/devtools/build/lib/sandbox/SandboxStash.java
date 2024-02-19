@@ -132,10 +132,7 @@ public class SandboxStash {
     if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
       return;
     }
-    String stashName;
-    synchronized (stash) {
-      stashName = Integer.toString(stash.incrementAndGet());
-    }
+    String stashName = Integer.toString(stash.incrementAndGet());
     Path stashPath = sandboxes.getChild(stashName);
     if (!path.exists()) {
       return;
