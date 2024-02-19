@@ -103,6 +103,9 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
                             workspace_layout_->WorkspacePrefix) == 0 &&
            !workspace_layout_->WorkspaceRelativizeRcFilePath(workspace_,
                                                              &words[1]) &&
+           command == kCommandImport) ||
+           (words[1].compare(0, HomePrefixLength_, HomePrefix_) == 0 &&
+           !this->HomeRelativizeRcFilePath(&words[1]) &&
            command == kCommandImport)) {
         blaze_util::StringPrintf(
             error_text,
@@ -151,6 +154,14 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
   }
 
   return ParseError::NONE;
+}
+
+bool RcFile::HomeRelativizeRcFilePath(string *path_fragment) const {
+  // Strip off the "%home%/" prefix and prepend the true home path.
+  // In theory this could use alternate search paths for blazerc files.
+  path_fragment->assign(blaze_util::JoinPath(blaze::GetHomeDir(),
+                          path_fragment->substr(HomePrefixLength_)));
+  return true;
 }
 
 }  // namespace blaze

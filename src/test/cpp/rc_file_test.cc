@@ -826,6 +826,17 @@ TEST_F(BlazercImportTest, BazelRcTryImportDoesNotFailForUnreadableFile) {
   ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
 }
 
+TEST_F(BlazercImportTest, SimpleTryImportUsingHomePrefix) {
+   const std::string home_rc_path =
+      blaze_util::JoinPath(home_, "startup_foo.bazelrc");
+  blaze_util::WriteFile("startup --max_idle_secs=123", home_rc_path, 0755);
+  std::string workspace_rc;
+  ASSERT_TRUE(
+      SetUpWorkspaceRcFile("try-import %home%/startup_foo.bazelrc", &workspace_rc));
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+}
+
 #if defined(_WIN32)
 TEST_F(BlazercImportTest,
        BazelRcTryImportDoesNotFailForInvalidPosixPathOnWindows) {

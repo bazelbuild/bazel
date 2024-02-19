@@ -78,6 +78,17 @@ class RcFile {
   std::vector<std::string> canonical_rcfile_paths_;
   // All options parsed from the file.
   OptionMap options_;
+
+  // Turn a %home%-relative import into its true name in the filesystem.
+  // path_fragment is modified in place.
+  // Unlike FindCandidateBlazercPaths, it is an error if no import file
+  // exists.
+  bool HomeRelativizeRcFilePath(std::string* path_fragment) const;
+
+  // Prefix that will be expanded to the value
+  // of the HOME environment variable.
+  static constexpr const char HomePrefix_[] = "%home%/";
+  static const int HomePrefixLength_ = sizeof HomePrefix_ - 1;
 };
 
 }  // namespace blaze
