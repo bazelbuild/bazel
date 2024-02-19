@@ -476,8 +476,18 @@ public final class GsonTypeAdapterUtil {
           };
 
   public static Gson createLockFileGson(Path moduleFilePath, Path workspaceRoot) {
-    return new GsonBuilder()
+    return newGsonBuilder()
         .setPrettyPrinting()
+        .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath, workspaceRoot))
+        .create();
+  }
+
+  public static Gson createModuleExtensionUsagesHashGson() {
+    return newGsonBuilder().create();
+  }
+
+  private static GsonBuilder newGsonBuilder() {
+    return new GsonBuilder()
         .disableHtmlEscaping()
         .enableComplexMapKeySerialization()
         .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
@@ -488,7 +498,6 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapterFactory(IMMUTABLE_SET)
         .registerTypeAdapterFactory(OPTIONAL)
         .registerTypeAdapterFactory(IMMUTABLE_TABLE)
-        .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath, workspaceRoot))
         .registerTypeAdapter(Label.class, LABEL_TYPE_ADAPTER)
         .registerTypeAdapter(RepositoryName.class, REPOSITORY_NAME_TYPE_ADAPTER)
         .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
@@ -501,8 +510,7 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
         .registerTypeAdapter(RepoRecordedInput.File.class, REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER)
         .registerTypeAdapter(
-            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER)
-        .create();
+            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER);
   }
 
   private GsonTypeAdapterUtil() {}
