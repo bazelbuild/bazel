@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -486,20 +487,34 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      * Called for every directory entry encountered during tree traversal, in a nondeterministic
      * order.
      *
-     * <p>Symlinks are not followed during traversal and are simply reported as {@link
-     * Dirent.Type#SYMLINK} regardless of whether they point to a file, directory, or are dangling.
+     * <p>Regular files and directories are reported as {@link Dirent.Type.FILE} or {@link
+     * Dirent.Type.DIRECTORY}, respectively. Directories are traversed recursively.
      *
-     * <p>{@code type} is guaranteed never to be {@link Dirent.Type#UNKNOWN}, since if this type is
-     * encountered, {@link IOException} is immediately thrown without invoking the visitor.
+     * <p>Symlinks that resolve to an existing file or directory are followed and reported as the
+     * regular files or directories they point to, recursively for directories. Symlinks that fail
+     * to resolve to an existing path cause an {@link IOException} to be immediately thrown without
+     * invoking the visitor. Thus, the visitor is never called with a {@link Dirent.Type.SYMLINK}
+     * type.
      *
-     * <p>If the implementation throws {@link IOException}, traversal is immediately halted and the
+     * <p>Special files or files whose type could not be determined, regardless of whether they are
+     * encountered directly or indirectly through symlinks, cause an {@link IOException} to be
+     * immediately thrown without invoking the visitor. Thus, the visitor is never called with a
+     * {@link Dirent.Type.UNKNOWN} type.
+     *
+     * <p>The {@code parentRelativePath} argument is always set to the apparent path relative to the
+     * tree directory root, without resolving any intervening symlinks. The {@code traversedSymlink}
+     * argument is true if at least one symlink was traversed on the way to the entry being
+     * reported.
+     *
+     * <p>If the visitor throws {@link IOException}, traversal is immediately halted and the
      * exception is propagated.
      *
      * <p>This method can be called from multiple threads in parallel during a single call of {@link
      * TreeArtifactVisitor#visitTree(Path, TreeArtifactVisitor)}.
      */
     @ThreadSafe
-    void visit(PathFragment parentRelativePath, Dirent.Type type) throws IOException;
+    void visit(PathFragment parentRelativePath, Dirent.Type type, boolean traversedSymlink)
+        throws IOException;
   }
 
   /** An {@link AbstractQueueVisitor} that visits every file in the tree artifact. */
@@ -518,7 +533,12 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
 
     void run() throws IOException, InterruptedException {
-      execute(() -> visit(PathFragment.EMPTY_FRAGMENT, Dirent.Type.DIRECTORY));
+      execute(
+          () ->
+              visit(
+                  PathFragment.EMPTY_FRAGMENT,
+                  Dirent.Type.DIRECTORY,
+                  /* traversedSymlink= */ false));
       try {
         awaitQuiescence(true);
       } catch (IORuntimeException e) {
@@ -526,25 +546,49 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       }
     }
 
-    private void visit(PathFragment parentRelativePath, Dirent.Type type) {
+    private void visit(
+        PathFragment parentRelativePath, Dirent.Type type, boolean traversedSymlink) {
       try {
         Path path = parentDir.getRelative(parentRelativePath);
 
-        if (type == Dirent.Type.UNKNOWN) {
-          throw new IOException("Could not determine type of file for " + path.getPathString());
-        }
-
         if (type == Dirent.Type.SYMLINK) {
           checkSymlink(parentRelativePath.getParentDirectory(), path);
+
+          traversedSymlink = true;
+
+          FileStatus statFollow = path.statIfFound(Symlinks.FOLLOW);
+
+          if (statFollow == null) {
+            throw new IOException(
+                String.format(
+                    "Child %s of tree artifact %s is a dangling symbolic link",
+                    parentRelativePath, parentDir));
+          }
+
+          if (statFollow.isFile() && !statFollow.isSpecialFile()) {
+            type = Dirent.Type.FILE;
+          } else if (statFollow.isDirectory()) {
+            type = Dirent.Type.DIRECTORY;
+          } else {
+            type = Dirent.Type.UNKNOWN;
+          }
         }
 
-        visitor.visit(parentRelativePath, type);
+        if (type == Dirent.Type.UNKNOWN) {
+          throw new IOException(
+              String.format(
+                  "Child %s of tree artifact %s has an unsupported type",
+                  parentRelativePath, parentDir));
+        }
+
+        visitor.visit(parentRelativePath, type, traversedSymlink);
 
         if (type == Dirent.Type.DIRECTORY) {
           for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
             PathFragment childPath = parentRelativePath.getChild(dirent.getName());
             Dirent.Type childType = dirent.getType();
-            execute(() -> visit(childPath, childType));
+            boolean finalTraversedSymlink = traversedSymlink;
+            execute(() -> visit(childPath, childType, finalTraversedSymlink));
           }
         }
       } catch (IOException e) {
