@@ -681,11 +681,6 @@ LF:2"
 }
 
 function test_java_coverage_with_classpath_and_data_jar() {
-  # Ignore this test when testing the released java tools.
-  # TODO(cmita): Enable the test in this case after a java_tools release
-  if [[ "$JAVA_TOOLS_ZIP" == "released" ]]; then
-    return 0
-  fi
   cat <<EOF > BUILD
 java_binary(
     name = "foo",
