@@ -119,15 +119,15 @@ public class SandboxStash {
 
   /** Atomically moves the sandboxPath directory aside for later reuse. */
   static void stashSandbox(
-      Path path, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
+      Path path, String mnemonic, Map<String, String> environment, SandboxOutputs outputs, TreeDeleter treeDeleter) {
     if (instance == null) {
       return;
     }
-    instance.stashSandboxInternal(path, mnemonic, environment, outputs);
+    instance.stashSandboxInternal(path, mnemonic, environment, outputs, treeDeleter);
   }
 
   private void stashSandboxInternal(
-      Path path, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
+      Path path, String mnemonic, Map<String, String> environment, SandboxOutputs outputs, TreeDeleter treeDeleter) {
     Path sandboxes = getSandboxStashDir(mnemonic, path.getFileSystem());
     if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
       return;
@@ -143,8 +143,12 @@ public class SandboxStash {
     try {
       stashPath.createDirectory();
       Path stashPathExecroot = stashPath.getChild("execroot");
+      if (isTestAction(mnemonic)) {
+        treeDeleter.deleteTree(path.getRelative("execroot/" + environment.get("TEST_WORKSPACE") + "/_tmp"));
+      }
       path.getChild("execroot").renameTo(stashPathExecroot);
       if (isTestAction(mnemonic)) {
+        // We only do this after the rename operation has succeeded
         stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
       }
     } catch (IOException e) {
