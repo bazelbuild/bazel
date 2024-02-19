@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -58,24 +57,6 @@ class DirectoryTreeBuilder {
      * @return Returns the number of {@link FileNode}s added to {@code currDir}.
      */
     int visit(T input, PathFragment path, DirectoryNode currDir) throws IOException;
-  }
-
-  static DirectoryTree fromActionInputs(
-      SortedMap<PathFragment, ActionInput> inputs,
-      InputMetadataProvider inputMetadataProvider,
-      Path execRoot,
-      ArtifactPathResolver artifactPathResolver,
-      @Nullable SpawnScrubber spawnScrubber,
-      DigestUtil digestUtil)
-      throws IOException {
-    return fromActionInputs(
-        inputs,
-        ImmutableSet.of(),
-        inputMetadataProvider,
-        execRoot,
-        artifactPathResolver,
-        spawnScrubber,
-        digestUtil);
   }
 
   static DirectoryTree fromActionInputs(
