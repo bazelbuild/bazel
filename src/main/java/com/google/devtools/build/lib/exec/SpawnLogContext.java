@@ -77,6 +77,9 @@ public abstract class SpawnLogContext implements ActionContext {
   /** Finishes writing the log and performs any required post-processing. */
   public abstract void close() throws IOException;
 
+  /** Whether the log should be published to the build event protocol. */
+  public abstract boolean shouldPublish();
+
   /** Computes the environment variables. */
   protected ImmutableList<EnvironmentVariable> getEnvironmentVariables(Spawn spawn) {
     ImmutableMap<String, String> environment = spawn.getEnvironment();
