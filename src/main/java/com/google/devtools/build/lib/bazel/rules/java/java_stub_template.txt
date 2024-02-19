@@ -271,6 +271,7 @@ export CLASSLOADER_PREFIX_PATH="${RUNPATH}"
 %set_jacoco_java_runfiles_root%
 # export JACOCO_IS_JAR_WRAPPED for compatibility with older versions of
 # JacocoCoverageRunner that check for this and not CLASSPATH_JAR
+# TODO(cmita): Remove when this is no longer required
 export JACOCO_IS_JAR_WRAPPED=0
 export CLASSPATH_JAR=""
 
@@ -393,6 +394,8 @@ if ! is_macos; then
 fi
 
 if (("${#CLASSPATH}" > ${CLASSPATH_LIMIT})); then
+  # TODO(cmtia): Remove JACOCO_IS_JAR_WRAPPED when JacocoCoverageRunner will
+  # never need it anymore.
   export JACOCO_IS_JAR_WRAPPED=1
   CLASSPATH_MANIFEST_JAR=$(create_classpath_jar)
   export CLASSPATH_JAR="$(basename $CLASSPATH_MANIFEST_JAR)"
