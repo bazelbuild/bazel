@@ -163,7 +163,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         try {
           SingleExtensionEvalValue singleExtensionEvalValue =
               tryGettingValueFromLockFile(
-                  env, extensionId, extension, usagesValue, lockfile, lockedExtension);
+                  env, extensionId, extension, usagesValue, lockedExtension);
           if (singleExtensionEvalValue != null) {
             return singleExtensionEvalValue;
           }
@@ -217,6 +217,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   extension.getEvalFactors(),
                   LockFileModuleExtension.builder()
                       .setBzlTransitiveDigest(extension.getBzlTransitiveDigest())
+                      .setUsagesDigest(
+                          ModuleExtensionUsage.hashForEvaluation(
+                              GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
+                              usagesValue.getExtensionUsages()))
                       .setRecordedFileInputs(moduleExtensionResult.getRecordedFileInputs())
                       .setRecordedDirentsInputs(moduleExtensionResult.getRecordedDirentsInputs())
                       .setEnvVariables(extension.getEnvVars())
@@ -243,24 +247,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       ModuleExtensionId extensionId,
       RunnableExtension extension,
       SingleExtensionUsagesValue usagesValue,
-      BazelLockFileValue lockfile,
       LockFileModuleExtension lockedExtension)
       throws SingleExtensionEvalFunctionException,
           InterruptedException,
           NeedsSkyframeRestartException {
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
-
-    ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages;
-    try {
-      // TODO(salmasamy) might be nicer to precompute this table when we construct
-      // BazelLockFileValue, without adding it to the json file
-      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
-          BazelDepGraphFunction.getExtensionUsagesById(lockfile.getModuleDepGraph());
-      lockedExtensionUsages = extensionUsagesById.row(extensionId);
-    } catch (ExternalDepsException e) {
-      throw new SingleExtensionEvalFunctionException(e, Transience.PERSISTENT);
-    }
-
     DiffRecorder diffRecorder =
         new DiffRecorder(/* recordMessages= */ lockfileMode.equals(LockfileMode.ERROR));
     try {
@@ -280,8 +271,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
       // Check extension data in lockfile is still valid, disregarding usage information that is not
       // relevant for the evaluation of the extension.
-      if (!ModuleExtensionUsage.trimForEvaluation(usagesValue.getExtensionUsages())
-          .equals(ModuleExtensionUsage.trimForEvaluation(lockedExtensionUsages))) {
+      if (!Arrays.equals(
+          ModuleExtensionUsage.hashForEvaluation(
+              GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
+              usagesValue.getExtensionUsages()),
+          lockedExtension.getUsagesDigest())) {
         diffRecorder.record("The usages of the extension '" + extensionId + "' have changed");
       }
       if (didRepoMappingsChange(env, lockedExtension.getRecordedRepoMappingEntries())) {
