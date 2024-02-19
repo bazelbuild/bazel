@@ -314,6 +314,13 @@ To fetch all external dependencies for a workspace, run:
 bazel fetch //...
 ```
 
+With Bazel 7.1 or later, if you have Bzlmod enabled, you can also fetch all
+external dependencies by running
+
+```posix-terminal
+bazel fetch
+```
+
 You do not need to run bazel fetch at all if you have all of the tools you are
 using (from library jars to the JDK itself) under your workspace root.
 However, if you're using anything outside of the workspace directory then Bazel

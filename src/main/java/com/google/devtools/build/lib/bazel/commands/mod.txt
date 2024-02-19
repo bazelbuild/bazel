@@ -2,6 +2,7 @@
 Usage: %{product} %{command} [<option> ...] tidy|<query_type> [<args> ...]
 
 When invoked as %{product} %{command} tidy, the command will format the MODULE.bazel file and update all use_repo calls for supported module extensions.
+Only works when bzlmod is enabled via --enable_bzlmod.
 
 The command will display the external dependency graph or parts thereof, structured to display different kinds of insights depending on the query type.
 
