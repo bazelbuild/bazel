@@ -405,6 +405,61 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
+  public void doesNotSetPermissionsAfterTraversingSymlink() throws Exception {
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Path fileTarget = scratch.file("file");
+    writeFile(fileTarget, "file");
+
+    Path dirTarget = scratch.dir("dir");
+    Path dirFileTarget = dirTarget.getChild("file");
+    writeFile(dirFileTarget, "dir/file");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            out.getPath().getChild("file_link").createSymbolicLink(fileTarget.asFragment());
+            out.getPath().getChild("dir_link").createSymbolicLink(dirTarget.asFragment());
+          }
+        };
+
+    registerAction(action);
+    buildArtifact(out);
+
+    assertThat(fileTarget.isWritable()).isTrue();
+    assertThat(dirTarget.isWritable()).isTrue();
+    assertThat(dirFileTarget.isWritable()).isTrue();
+  }
+
+  @Test
+  public void symlinkLoopRejected() throws Exception {
+    // Failure expected
+    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(eventCollector);
+
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            writeFile(out.getPath().getRelative("dir/file"), "contents");
+            out.getPath().getRelative("dir/sym").createSymbolicLink(PathFragment.create("../dir"));
+          }
+        };
+
+    registerAction(action);
+    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
+
+    ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
+    assertThat(errors).hasSize(2);
+    assertThat(errors.get(0).getMessage()).contains("Too many levels of symbolic links");
+    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
+  }
+
+  @Test
   public void validRelativeSymlinkAccepted() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
 
@@ -448,7 +503,9 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     List<Event> errors = ImmutableList.copyOf(eventCollector);
     assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage()).contains("Failed to resolve relative path links/link");
+    assertThat(errors.get(0).getMessage())
+        .contains(
+            "Child links/link of tree artifact " + out.getPath() + " is a dangling symbolic link");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
@@ -477,7 +534,9 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     List<Event> errors = ImmutableList.copyOf(eventCollector);
     assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage()).contains("Failed to resolve relative path links/link");
+    assertThat(errors.get(0).getMessage())
+        .contains(
+            "Child links/link of tree artifact " + out.getPath() + " is a dangling symbolic link");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
@@ -852,17 +911,18 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertThat(artifact2.getPath().getDirectoryEntries()).isEmpty();
   }
 
-  // This happens in the wild. See https://github.com/bazelbuild/bazel/issues/11813.
   @Test
-  public void treeArtifactContainsSymlinkToDirectory() throws Exception {
+  public void treeArtifactWithSymlinkToFile() throws Exception {
     SpecialArtifact treeArtifact = createTreeArtifact("tree");
     registerAction(
-        new SimpleTestAction(/*output=*/ treeArtifact) {
+        new SimpleTestAction(/* output= */ treeArtifact) {
           @Override
           void run(ActionExecutionContext context) throws IOException {
-            PathFragment subdir = PathFragment.create("subdir");
-            touchFile(treeArtifact.getPath().getRelative(subdir).getRelative("file"));
-            treeArtifact.getPath().getRelative("link").createSymbolicLink(subdir);
+            touchFile(treeArtifact.getPath().getRelative("subdir/file"));
+            treeArtifact
+                .getPath()
+                .getRelative("link")
+                .createSymbolicLink(PathFragment.create("subdir/file"));
           }
         });
 
@@ -872,6 +932,29 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         .containsExactly(
             TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/file"),
             TreeFileArtifact.createTreeOutput(treeArtifact, "link"));
+  }
+
+  @Test
+  public void treeArtifactWithSymlinkToDirectory() throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("tree");
+    registerAction(
+        new SimpleTestAction(/* output= */ treeArtifact) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            touchFile(treeArtifact.getPath().getRelative("subdir/file"));
+            treeArtifact
+                .getPath()
+                .getRelative("link")
+                .createSymbolicLink(PathFragment.create("subdir"));
+          }
+        });
+
+    TreeArtifactValue tree = buildArtifact(treeArtifact);
+
+    assertThat(tree.getChildren())
+        .containsExactly(
+            TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/file"),
+            TreeFileArtifact.createTreeOutput(treeArtifact, "link/file"));
   }
 
   private abstract static class SimpleTestAction extends TestAction {

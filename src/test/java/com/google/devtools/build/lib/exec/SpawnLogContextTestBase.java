@@ -975,7 +975,7 @@ public abstract class SpawnLogContextTestBase {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder((SpecialArtifact) tree);
     TreeArtifactValue.visitTree(
         tree.getPath(),
-        (parentRelativePath, type) -> {
+        (parentRelativePath, type, traversedSymlink) -> {
           if (type.equals(Dirent.Type.DIRECTORY)) {
             return;
           }
