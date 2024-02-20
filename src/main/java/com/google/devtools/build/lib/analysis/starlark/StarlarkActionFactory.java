@@ -23,8 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -41,7 +39,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -124,31 +121,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   ArtifactRoot newFileRoot() {
     return context.newFileRoot();
-  }
-
-  /**
-   * Returns a {@link ActionRegistry} object to register actions using this action factory.
-   *
-   * @throws EvalException if actions cannot be registered with this object
-   */
-  public ActionRegistry asActionRegistry(StarlarkActionFactory starlarkActionFactory)
-      throws EvalException {
-    validateActionCreation();
-    return new ActionRegistry() {
-
-      @Override
-      public void registerAction(ActionAnalysisMetadata action) {
-        getRuleContext().registerAction(action);
-      }
-
-      @Override
-      public ActionLookupKey getOwner() {
-        return starlarkActionFactory
-            .getActionConstructionContext()
-            .getAnalysisEnvironment()
-            .getOwner();
-      }
-    };
   }
 
   private void checkToolchainParameterIsSet(Object toolchainUnchecked) throws EvalException {
@@ -525,20 +497,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   /**
    * Registers action in the context of this {@link StarlarkActionFactory}.
    *
-   * <p>Use {@link #getActionConstructionContext()} to obtain the context required to create this
-   * action.
+   * <p>Use {@link #getRuleContext()} to obtain the context required to create this action.
    */
   public void registerAction(ActionAnalysisMetadata action) throws EvalException {
     validateActionCreation();
     getRuleContext().registerAction(action);
-  }
-
-  /**
-   * Returns information needed to construct actions that can be registered with {@link
-   * #registerAction}.
-   */
-  public ActionConstructionContext getActionConstructionContext() {
-    return context.getRuleContext();
   }
 
   public RuleContext getRuleContext() {

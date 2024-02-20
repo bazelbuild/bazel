@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  *
  * <p>This a "native" equivalent of Starlark's `ctx.actions`.
  */
-public interface ActionConstructionContext {
+public interface ActionConstructionContext extends ActionRegistry {
 
   /** Returns the bin directory for constructed actions. */
   ArtifactRoot getBinDirectory();
@@ -63,8 +63,6 @@ public interface ActionConstructionContext {
 
   /** The current analysis environment. */
   AnalysisEnvironment getAnalysisEnvironment();
-
-  void registerAction(ActionAnalysisMetadata action);
 
   /**
    * Creates an artifact under a given root with the given root-relative path.

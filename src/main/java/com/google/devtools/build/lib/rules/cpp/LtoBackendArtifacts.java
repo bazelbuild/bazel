@@ -101,7 +101,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       boolean usePic,
       boolean generateDwo,
       List<String> userCompileFlags)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     boolean createSharedNonLto = allBitcodeFiles == null;
     this.bitcodeFile = bitcodeFile;
     PathFragment obj = ltoObjRootPrefix.getRelative(bitcodeFile.getExecPath());

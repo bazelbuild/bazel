@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -122,7 +121,6 @@ public final class CcLinkingHelper {
 
   private final ActionConstructionContext actionConstructionContext;
   private final Label label;
-  private final ActionRegistry actionRegistry;
   private final SymbolGenerator<?> symbolGenerator;
   private final ImmutableMap<String, String> executionInfo;
 
@@ -133,7 +131,6 @@ public final class CcLinkingHelper {
    * Creates a CcLinkingHelper that outputs artifacts in a given configuration.
    *
    * @param label the Label of the rule being built
-   * @param actionRegistry the ActionRegistry of the rule being built
    * @param actionConstructionContext the ActionConstructionContext of the rule being built
    * @param semantics CppSemantics for the build
    * @param featureConfiguration activated features and action configs for the build
@@ -144,7 +141,6 @@ public final class CcLinkingHelper {
    */
   public CcLinkingHelper(
       Label label,
-      ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
@@ -159,7 +155,6 @@ public final class CcLinkingHelper {
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
     this.configuration = Preconditions.checkNotNull(configuration);
     this.label = label;
-    this.actionRegistry = actionRegistry;
     this.actionConstructionContext = actionConstructionContext;
     this.symbolGenerator = symbolGenerator;
     this.executionInfo = executionInfo;
@@ -839,7 +834,6 @@ public final class CcLinkingHelper {
         if (dynamicLinkType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
           implLibraryLinkArtifact =
               SolibSymlinkAction.getDynamicLibrarySymlink(
-                  /* actionRegistry= */ actionRegistry,
                   /* actionConstructionContext= */ actionConstructionContext,
                   ccToolchain.getSolibDirectory(),
                   dynamicLibrary.getArtifact(),
@@ -852,7 +846,6 @@ public final class CcLinkingHelper {
         if (interfaceLibrary != null) {
           Artifact libraryLinkArtifact =
               SolibSymlinkAction.getDynamicLibrarySymlink(
-                  /* actionRegistry= */ actionRegistry,
                   /* actionConstructionContext= */ actionConstructionContext,
                   ccToolchain.getSolibDirectory(),
                   interfaceLibrary.getArtifact(),
@@ -1029,7 +1022,6 @@ public final class CcLinkingHelper {
       return null;
     }
     return SolibSymlinkAction.getDynamicLibrarySymlink(
-        /* actionRegistry= */ actionRegistry,
         /* actionConstructionContext= */ actionConstructionContext,
         ccToolchain.getSolibDirectory(),
         linkerOutputArtifact,

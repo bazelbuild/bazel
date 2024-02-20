@@ -249,7 +249,6 @@ public abstract class NativeDepsHelper {
       new CcLinkingHelper(
               ruleContext.getLabel(),
               ruleContext,
-              ruleContext,
               cppSemantics,
               featureConfiguration,
               toolchain,

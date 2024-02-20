@@ -314,7 +314,7 @@ public class CppLinkActionBuilder {
       PathFragment ltoObjRootPrefix,
       boolean createSharedNonLto,
       List<String> argv)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     // Depending on whether LTO indexing is allowed, generate an LTO backend
     // that will be fed the results of the indexing step, or a dummy LTO backend
     // that simply compiles the bitcode into native code without any index-based

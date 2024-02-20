@@ -577,7 +577,7 @@ public abstract class CcModule
     if (checkObjectsBound(picObjectFiles, objectFiles)
         && !isStarlarkCcCommonCalledFromBuiltins(thread)) {
       if (!starlarkActionFactory
-          .getActionConstructionContext()
+          .getRuleContext()
           .getConfiguration()
           .getFragment(CppConfiguration.class)
           .experimentalStarlarkCcImport()) {
@@ -696,16 +696,14 @@ public abstract class CcModule
         }
         dynamicLibrary =
             SolibSymlinkAction.getDynamicLibrarySymlink(
-                starlarkActionFactory.asActionRegistry(starlarkActionFactory),
-                starlarkActionFactory.getActionConstructionContext(),
+                starlarkActionFactory.getRuleContext(),
                 ccToolchainProvider.getSolibDirectory(),
                 dynamicLibrary,
                 dynamicLibraryPathFragment);
       } else {
         dynamicLibrary =
             SolibSymlinkAction.getDynamicLibrarySymlink(
-                starlarkActionFactory.asActionRegistry(starlarkActionFactory),
-                starlarkActionFactory.getActionConstructionContext(),
+                starlarkActionFactory.getRuleContext(),
                 ccToolchainProvider.getSolibDirectory(),
                 dynamicLibrary,
                 /* preserveName= */ true,
@@ -725,18 +723,14 @@ public abstract class CcModule
         }
         interfaceLibrary =
             SolibSymlinkAction.getDynamicLibrarySymlink(
-                /* actionRegistry= */ starlarkActionFactory.asActionRegistry(starlarkActionFactory),
-                /* actionConstructionContext= */ starlarkActionFactory
-                    .getActionConstructionContext(),
+                /* actionConstructionContext= */ starlarkActionFactory.getRuleContext(),
                 ccToolchainProvider.getSolibDirectory(),
                 interfaceLibrary,
                 interfaceLibraryPathFragment);
       } else {
         interfaceLibrary =
             SolibSymlinkAction.getDynamicLibrarySymlink(
-                /* actionRegistry= */ starlarkActionFactory.asActionRegistry(starlarkActionFactory),
-                /* actionConstructionContext= */ starlarkActionFactory
-                    .getActionConstructionContext(),
+                /* actionConstructionContext= */ starlarkActionFactory.getRuleContext(),
                 ccToolchainProvider.getSolibDirectory(),
                 interfaceLibrary,
                 /* preserveName= */ true,
@@ -1017,7 +1011,7 @@ public abstract class CcModule
             ltoObjRootPrefix,
             bitcodeFile,
             /* allBitcodeFiles= */ null,
-            starlarkRuleContext.actions().getActionConstructionContext(),
+            starlarkRuleContext.actions().getRuleContext(),
             ruleContext.getRepository(),
             ruleContext.getConfiguration(),
             CppLinkAction.DEFAULT_ARTIFACT_FACTORY,
@@ -1956,13 +1950,12 @@ public abstract class CcModule
     CcLinkingHelper helper =
         new CcLinkingHelper(
                 label,
-                actions.asActionRegistry(actions),
-                actions.getActionConstructionContext(),
+                actions.getRuleContext(),
                 getSemantics(Language.CPP),
                 featureConfiguration.getFeatureConfiguration(),
                 ccToolchainProvider,
                 fdoContext,
-                actions.getActionConstructionContext().getConfiguration(),
+                actions.getRuleContext().getConfiguration(),
                 BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
@@ -2099,8 +2092,7 @@ public abstract class CcModule
   protected Label getCallerLabel(StarlarkActionFactory actions, String name) throws EvalException {
     try {
       return Label.create(
-          actions.getActionConstructionContext().getActionOwner().getLabel().getPackageIdentifier(),
-          name);
+          actions.getRuleContext().getActionOwner().getLabel().getPackageIdentifier(), name);
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
@@ -2508,19 +2500,17 @@ public abstract class CcModule
     SourceCategory sourceCategory =
         (language == Language.CPP) ? SourceCategory.CC : SourceCategory.CC_AND_OBJC;
     CcCommon common = new CcCommon(actions.getRuleContext());
-    BuildConfigurationValue configuration =
-        actions.getActionConstructionContext().getConfiguration();
+    BuildConfigurationValue configuration = actions.getRuleContext().getConfiguration();
     CcCompilationHelper helper =
         new CcCompilationHelper(
-            actions.asActionRegistry(actions),
-            actions.getActionConstructionContext(),
+            actions.getRuleContext(),
             label,
             getSemantics(language),
             featureConfiguration.getFeatureConfiguration(),
             sourceCategory,
             ccToolchainProvider,
             fdoContext,
-            actions.getActionConstructionContext().getConfiguration(),
+            actions.getRuleContext().getConfiguration(),
             TargetUtils.getExecutionInfo(
                 actions.getRuleContext().getRule(),
                 actions.getRuleContext().isAllowTagsPropagation()),
@@ -2727,13 +2717,12 @@ public abstract class CcModule
     FeatureConfiguration actualFeatureConfiguration =
         featureConfiguration.getFeatureConfiguration();
     BuildConfigurationValue buildConfiguration =
-        convertFromNoneable(buildConfig, actions.getActionConstructionContext().getConfiguration());
+        convertFromNoneable(buildConfig, actions.getRuleContext().getConfiguration());
     ImmutableList<Artifact> linkerOutputs = asClassImmutableList(linkerOutputsObject);
     CcLinkingHelper helper =
         new CcLinkingHelper(
                 label,
-                actions.asActionRegistry(actions),
-                actions.getActionConstructionContext(),
+                actions.getRuleContext(),
                 getSemantics(language),
                 actualFeatureConfiguration,
                 ccToolchainProvider,
@@ -2908,7 +2897,6 @@ public abstract class CcModule
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     CppConfiguration cppConfiguration = ccToolchain.getCppConfiguration();
     starlarkActionFactoryApi
-        .getActionConstructionContext()
         .registerAction(
             CppLinkstampCompileHelper.createLinkstampCompileAction(
                 ruleContext,
