@@ -888,9 +888,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     }
     PathFragment path = dirPath.getChild(entry.getName());
     FileStatus st = statNullable(path, /* followSymlinks= */ true);
-    if (st == null) {
-      return new Dirent(entry.getName(), Dirent.Type.UNKNOWN);
-    }
     return new Dirent(entry.getName(), direntFromStat(st));
   }
 

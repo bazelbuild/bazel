@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -1817,29 +1818,68 @@ public abstract class FileSystemTest {
 
   @Test
   public void testResolveSymlinks() throws Exception {
-    if (testFS.supportsSymbolicLinksNatively(xLink.asFragment())) {
-      createSymbolicLink(xLink, xFile);
-      FileSystemUtils.createEmptyFile(xFile);
-      assertThat(testFS.resolveOneLink(xLink.asFragment())).isEqualTo(xFile.asFragment());
-      assertThat(xLink.resolveSymbolicLinks()).isEqualTo(xFile);
-    }
+    assumeTrue(testFS.supportsSymbolicLinksNatively(xLink.asFragment()));
+
+    createSymbolicLink(xLink, xFile);
+    FileSystemUtils.createEmptyFile(xFile);
+    assertThat(testFS.resolveOneLink(xLink.asFragment())).isEqualTo(xFile.asFragment());
+    assertThat(xLink.resolveSymbolicLinks()).isEqualTo(xFile);
   }
 
   @Test
   public void testResolveDanglingSymlinks() throws Exception {
-    if (testFS.supportsSymbolicLinksNatively(xLink.asFragment())) {
-      createSymbolicLink(xLink, xNothing);
-      assertThat(testFS.resolveOneLink(xLink.asFragment())).isEqualTo(xNothing.asFragment());
-      assertThrows(IOException.class, () -> xLink.resolveSymbolicLinks());
-    }
+    assumeTrue(testFS.supportsSymbolicLinksNatively(xLink.asFragment()));
+
+    createSymbolicLink(xLink, xNothing);
+    assertThat(testFS.resolveOneLink(xLink.asFragment())).isEqualTo(xNothing.asFragment());
+    assertThrows(IOException.class, () -> xLink.resolveSymbolicLinks());
   }
 
   @Test
   public void testResolveNonSymlinks() throws Exception {
-    if (testFS.supportsSymbolicLinksNatively(xFile.asFragment())) {
-      assertThat(testFS.resolveOneLink(xFile.asFragment())).isNull();
-      assertThat(xFile.resolveSymbolicLinks()).isEqualTo(xFile);
-    }
+    assertThat(testFS.resolveOneLink(xFile.asFragment())).isNull();
+    assertThat(xFile.resolveSymbolicLinks()).isEqualTo(xFile);
+  }
+
+  @Test
+  public void testReaddir() throws Exception {
+    Path dir = workingDir.getChild("readdir");
+
+    assumeTrue(testFS.supportsSymbolicLinksNatively(dir.asFragment()));
+
+    dir.getChild("dir").createDirectoryAndParents();
+    FileSystemUtils.createEmptyFile(dir.getChild("file"));
+    dir.getChild("file_link").createSymbolicLink(dir.getChild("file"));
+    dir.getChild("dir_link").createSymbolicLink(dir.getChild("dir"));
+    dir.getChild("looping_link").createSymbolicLink(dir.getChild("looping_link"));
+    dir.getChild("dangling_link").createSymbolicLink(testFS.getPath("/does_not_exist"));
+
+    assertThat(dir.getDirectoryEntries())
+        .containsExactly(
+            dir.getChild("file"),
+            dir.getChild("dir"),
+            dir.getChild("file_link"),
+            dir.getChild("dir_link"),
+            dir.getChild("looping_link"),
+            dir.getChild("dangling_link"));
+
+    assertThat(dir.readdir(Symlinks.NOFOLLOW))
+        .containsExactly(
+            new Dirent("file", Dirent.Type.FILE),
+            new Dirent("dir", Dirent.Type.DIRECTORY),
+            new Dirent("file_link", Dirent.Type.SYMLINK),
+            new Dirent("dir_link", Dirent.Type.SYMLINK),
+            new Dirent("looping_link", Dirent.Type.SYMLINK),
+            new Dirent("dangling_link", Dirent.Type.SYMLINK));
+
+    assertThat(dir.readdir(Symlinks.FOLLOW))
+        .containsExactly(
+            new Dirent("file", Dirent.Type.FILE),
+            new Dirent("dir", Dirent.Type.DIRECTORY),
+            new Dirent("file_link", Dirent.Type.FILE),
+            new Dirent("dir_link", Dirent.Type.DIRECTORY),
+            new Dirent("looping_link", Dirent.Type.UNKNOWN),
+            new Dirent("dangling_link", Dirent.Type.UNKNOWN));
   }
 
   @Test
