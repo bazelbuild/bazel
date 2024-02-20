@@ -55,7 +55,6 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -262,7 +261,7 @@ public final class SandboxHelpers {
   public static void populateInputsAndDirsToCreate(
       Set<PathFragment> writableDirs,
       Set<PathFragment> inputsToCreate,
-      LinkedHashSet<PathFragment> dirsToCreate,
+      Set<PathFragment> dirsToCreate,
       Iterable<PathFragment> inputFiles,
       SandboxOutputs outputs) {
     // Add all worker files, input files, and the parent directories.
