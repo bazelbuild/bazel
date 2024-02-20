@@ -19,9 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -923,7 +921,6 @@ public final class CcLinkingHelper {
             ccToolchain, linkTargetType.getLinkerOutput(), linkedName);
 
     PathFragment artifactFragment = PathFragment.create(linkedName);
-    ArtifactRoot artifactRoot = configuration.getBinDirectory(label.getRepository());
     if (linkTargetType.equals(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)) {
       // TODO(blaze-team): This unfortunate editing of the name is here bedcause Objective-C rules
       // were creating this type of archive without the lib prefix, unlike what the objective-c
@@ -932,16 +929,11 @@ public final class CcLinkingHelper {
       // lib prefix, or by editing the toolchain not to add it.
       Preconditions.checkState(artifactFragment.getBaseName().startsWith("lib"));
       artifactFragment = artifactFragment.replaceName(artifactFragment.getBaseName().substring(3));
-      artifactRoot =
-          ((RuleContext) actionConstructionContext).getRule().outputsToBindir()
-              ? configuration.getBinDirectory(label.getRepository())
-              : configuration.getGenfilesDirectory(label.getRepository());
     }
 
     return CppHelper.getLinkedArtifact(
         label,
         actionConstructionContext,
-        artifactRoot,
         configuration,
         linkTargetType,
         linkedArtifactNameSuffix,

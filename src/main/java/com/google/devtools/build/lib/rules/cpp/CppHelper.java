@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -181,12 +180,13 @@ public class CppHelper {
   public static Artifact getLinkedArtifact(
       Label label,
       ActionConstructionContext actionConstructionContext,
-      ArtifactRoot artifactRoot,
       BuildConfigurationValue config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix,
       PathFragment name) {
-    Artifact result = actionConstructionContext.getPackageRelativeArtifact(name, artifactRoot);
+    Artifact result =
+        actionConstructionContext.getPackageRelativeArtifact(
+            name, config.getBinDirectory(label.getRepository()));
 
     // If the linked artifact is not the linux default, then a FailAction is generated for said
     // linux default to satisfy the requirements of any implicit outputs.
