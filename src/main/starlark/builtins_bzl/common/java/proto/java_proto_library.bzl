@@ -189,7 +189,7 @@ Example:
 <code class="lang-starlark">
 java_library(
     name = "lib",
-    deps = [":foo_java_proto"],
+    runtime_deps = [":foo_java_proto"],
 )
 
 java_proto_library(
