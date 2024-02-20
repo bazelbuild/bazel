@@ -587,6 +587,9 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   public void relativeSymlinkTraversingOutsideOfTreeArtifact() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
 
+    scratch.file(out.getRoot().getRoot().getRelative("some/file").getPathString());
+
+
     Action action =
         new SimpleTestAction(out) {
           @Override
@@ -594,7 +597,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             writeFile(out.getPath().getChild("one"), "one");
             writeFile(out.getPath().getChild("two"), "two");
             FileSystemUtils.ensureSymbolicLink(
-                out.getPath().getChild("links").getChild("link"), "../../output/random/pointer");
+                out.getPath().getChild("links").getChild("link"), "../../some/file");
           }
         };
 
