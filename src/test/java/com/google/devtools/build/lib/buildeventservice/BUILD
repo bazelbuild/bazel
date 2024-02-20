@@ -13,6 +13,47 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+ABSTRACT_TEST_SRCS = [
+    "AbstractBuildEventRecorder.java",
+    "AbstractBuildEventServiceTransportTest.java",
+]
+
+java_library(
+    name = "AbstractBuildEventServiceTransportTest",
+    srcs = ABSTRACT_TEST_SRCS,
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:buildeventservice-options",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:netty",
+        "//third_party:truth",
+        "//third_party/grpc-java:grpc-jar",
+        "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
+        "@googleapis//:google_devtools_build_v1_build_events_java_proto",
+        "@googleapis//:google_devtools_build_v1_build_status_java_proto",
+        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
+    ],
+)
+
 java_test(
     name = "BuildEventTransportTest",
     srcs = [
@@ -33,6 +74,24 @@ java_test(
         "//third_party/protobuf:protobuf_java_util",
         "@googleapis//:google_devtools_build_v1_build_events_java_proto",
         "@googleapis//:google_devtools_build_v1_build_status_java_proto",
+        "@googleapis//:google_devtools_build_v1_publish_build_event_java_grpc",
+        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
+    ],
+)
+
+java_test(
+    name = "BuildEventServiceTransportGrpcTest",
+    srcs = ["BuildEventServiceTransportGrpcTest.java"],
+    deps = [
+        ":AbstractBuildEventServiceTransportTest",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/remote/util:free_port_finder",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party/grpc-java:grpc-jar",
+        "//third_party/protobuf:protobuf_java",
         "@googleapis//:google_devtools_build_v1_publish_build_event_java_grpc",
         "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
     ],
