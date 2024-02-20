@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,7 +20,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -112,22 +109,26 @@ public abstract class SpawnLogContext implements ActionContext {
    *
    * <p>Do not call for action outputs.
    */
-  protected boolean isInputDirectory(ActionInput input, InputMetadataProvider inputMetadataProvider)
+  protected boolean isInputDirectory(
+      ActionInput input, Path path, InputMetadataProvider inputMetadataProvider)
       throws IOException {
     if (input.isDirectory()) {
       return true;
     }
-    if (input.isSymlink() || !(input instanceof SourceArtifact)) {
+    if (input.isSymlink()) {
       return false;
     }
-    // A source artifact may be a directory in spite of claiming to be a file. Avoid unnecessary I/O
-    // by inspecting its metadata, which should have already been collected and cached.
-    FileArtifactValue metadata =
-        checkNotNull(
-            inputMetadataProvider.getInputMetadata(input),
-            "missing metadata for %s",
-            input.getExecPath());
-    return metadata.getType().isDirectory();
+    // There are two cases in which an input's declared type may disagree with the filesystem:
+    //   (1) a source artifact pointing to a directory;
+    //   (2) an output artifact declared as a file but materialized as a directory, when allowed by
+    //       --noincompatible_disallow_unsound_directory_outputs.
+    // Try to avoid unnecessary I/O by inspecting its metadata, which in most cases should have
+    // already been collected and cached.
+    FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
+    if (metadata != null) {
+      return metadata.getType().isDirectory();
+    }
+    return path.isDirectory();
   }
 
   /**

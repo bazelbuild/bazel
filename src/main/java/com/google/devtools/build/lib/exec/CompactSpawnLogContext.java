@@ -216,7 +216,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           builder.addOutputs(
               ExecLogEntry.Output.newBuilder()
                   .setFileId(logFile(output, path, inputMetadataProvider)));
-        } else if (output.isDirectory() && path.isDirectory()) {
+        } else if (!output.isSymlink() && path.isDirectory()) {
+          // TODO(tjgq): Tighten once --incompatible_disallow_unsound_directory_outputs is gone.
           builder.addOutputs(
               ExecLogEntry.Output.newBuilder()
                   .setDirectoryId(logDirectory(output, path, inputMetadataProvider)));
@@ -360,7 +361,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
               continue;
             }
             Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
-            if (isInputDirectory(input, inputMetadataProvider)) {
+            if (isInputDirectory(input, path, inputMetadataProvider)) {
               builder.addDirectoryIds(logDirectory(input, path, inputMetadataProvider));
             } else if (input.isSymlink()) {
               builder.addUnresolvedSymlinkIds(logUnresolvedSymlink(input, path));
@@ -468,7 +469,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
             Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
 
-            if (isInputDirectory(input, inputMetadataProvider)) {
+            if (isInputDirectory(input, path, inputMetadataProvider)) {
               builder.addAllFiles(expandDirectory(path, runfilesPath, inputMetadataProvider));
               continue;
             }
