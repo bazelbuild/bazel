@@ -155,73 +155,166 @@ def _cc_toolchain_impl(ctx):
 cc_toolchain = rule(
     implementation = _cc_toolchain_impl,
     fragments = ["cpp"],
+    doc = """
+<p>Represents a C++ toolchain.</p>
+
+<p>
+  This rule is responsible for:
+
+  <ul>
+    <li>
+      Collecting all artifacts needed for C++ actions to run. This is done by
+      attributes such as <code>all_files</code>, <code>compiler_files</code>,
+      <code>linker_files</code>, or other attributes ending with <code>_files</code>). These are
+      most commonly filegroups globbing all required files.
+    </li>
+    <li>
+      Generating correct command lines for C++ actions. This is done using
+      <code>CcToolchainConfigInfo</code> provider (details below).
+    </li>
+  </ul>
+</p>
+<p>
+  Use <code>toolchain_config</code> attribute to configure the C++ toolchain.
+  See also this
+  <a href="https://bazel.build/docs/cc-toolchain-config-reference">
+    page
+  </a> for elaborate C++ toolchain configuration and toolchain selection documentation.
+</p>
+<p>
+  Use <code>tags = ["manual"]</code> in order to prevent toolchains from being built and configured
+  unnecessarily when invoking <code>bazel build //...</code>
+</p>""",
     attrs = {
         # buildifier: disable=attr-license
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         # buildifier: disable=attr-license
         "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-        "toolchain_identifier": attr.string(default = ""),
+        "toolchain_identifier": attr.string(
+            default = "",
+            doc = """
+The identifier used to match this cc_toolchain with the corresponding
+crosstool_config.toolchain.
+
+<p>
+  Until issue <a href="https://github.com/bazelbuild/bazel/issues/5380">#5380</a> is fixed
+  this is the recommended way of associating <code>cc_toolchain</code> with
+  <code>CROSSTOOL.toolchain</code>. It will be replaced by the <code>toolchain_config</code>
+  attribute (<a href="https://github.com/bazelbuild/bazel/issues/5380">#5380</a>).</p>""",
+        ),
         "all_files": attr.label(
             allow_files = True,
             mandatory = True,
+            doc = """
+Collection of all cc_toolchain artifacts. These artifacts will be added as inputs to all
+rules_cc related actions (with the exception of actions that are using more precise sets of
+artifacts from attributes below). Bazel assumes that <code>all_files</code> is a superset
+of all other artifact-providing attributes (e.g. linkstamp compilation needs both compile
+and link files, so it takes <code>all_files</code>).
+
+<p>
+This is what <code>cc_toolchain.files</code> contains, and this is used by all Starlark
+rules using C++ toolchain.</p>""",
         ),
         "compiler_files": attr.label(
             allow_files = True,
             mandatory = True,
+            doc = """
+Collection of all cc_toolchain artifacts required for compile actions.""",
         ),
         "compiler_files_without_includes": attr.label(
             allow_files = True,
+            doc = """
+Collection of all cc_toolchain artifacts required for compile actions in case when
+input discovery is supported (currently Google-only).""",
         ),
         "strip_files": attr.label(
             allow_files = True,
             mandatory = True,
+            doc = """
+Collection of all cc_toolchain artifacts required for strip actions.""",
         ),
         "objcopy_files": attr.label(
             allow_files = True,
             mandatory = True,
+            doc = """
+Collection of all cc_toolchain artifacts required for objcopy actions.""",
         ),
         "as_files": attr.label(
             allow_files = True,
+            doc = """
+Collection of all cc_toolchain artifacts required for assembly actions.""",
         ),
         "ar_files": attr.label(
             allow_files = True,
+            doc = """
+Collection of all cc_toolchain artifacts required for archiving actions.""",
         ),
         "linker_files": attr.label(
             allow_files = True,
             mandatory = True,
+            doc = """
+Collection of all cc_toolchain artifacts required for linking actions.""",
         ),
         "dwp_files": attr.label(
             allow_files = True,
             mandatory = True,
+            doc = """
+Collection of all cc_toolchain artifacts required for dwp actions.""",
         ),
         "coverage_files": attr.label(
             allow_files = True,
+            doc = """
+Collection of all cc_toolchain artifacts required for coverage actions. If not specified,
+all_files are used.""",
         ),
         "libc_top": attr.label(
+            # TODO(b/78578234): Make this the default and remove the late-bound versions.
             allow_files = False,
+            doc = """
+A collection of artifacts for libc passed as inputs to compile/linking actions.""",
         ),
         "static_runtime_lib": attr.label(
             allow_files = True,
+            doc = """
+Static library artifact for the C++ runtime library (e.g. libstdc++.a).
+
+<p>This will be used when 'static_link_cpp_runtimes' feature is enabled, and we're linking
+dependencies statically.</p>""",
         ),
         "dynamic_runtime_lib": attr.label(
             allow_files = True,
+            doc = """
+Dynamic library artifact for the C++ runtime library (e.g. libstdc++.so).
+
+<p>This will be used when 'static_link_cpp_runtimes' feature is enabled, and we're linking
+dependencies dynamically.</p>""",
         ),
         "module_map": attr.label(
             allow_files = True,
+            doc = """
+Module map artifact to be used for modular builds.""",
         ),
         "supports_param_files": attr.bool(
             default = True,
+            doc = """
+Set to True when cc_toolchain supports using param files for linking actions.""",
         ),
         "supports_header_parsing": attr.bool(
             default = False,
+            doc = """
+Set to True when cc_toolchain supports header parsing actions.""",
         ),
         "exec_transition_for_inputs": attr.bool(
             default = False,  # No-op.
+            doc = "Deprecated. No-op.",
         ),
         "toolchain_config": attr.label(
             allow_files = False,
             mandatory = True,
             providers = [CcToolchainConfigInfo],
+            doc = """
+The label of the rule providing <code>cc_toolchain_config_info</code>.""",
         ),
         "_libc_top": attr.label(
             default = configuration_field(fragment = "cpp", name = "libc_top"),
