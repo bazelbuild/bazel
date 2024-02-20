@@ -102,7 +102,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   @Override
   public void delete() {
-    SandboxStash.stashSandbox(sandboxPath, mnemonic, getEnvironment(), outputs);
+    SandboxStash.stashSandbox(sandboxPath, mnemonic, getEnvironment(), outputs, treeDeleter);
     super.delete();
   }
 
