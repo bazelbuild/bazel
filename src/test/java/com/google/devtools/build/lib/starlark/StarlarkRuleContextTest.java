@@ -3529,6 +3529,33 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testStopExportingBuildFilePath() throws Exception {
+    scratch.file("/foo/WORKSPACE");
+    scratch.file("/foo/bar/BUILD", "genrule(name = 'baz', cmd = 'dummy_cmd', outs = ['a.txt'])");
+
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='foo', path='/foo')")
+            .build());
+
+    invalidatePackages(false);
+    setBuildLanguageOptions("--incompatible_stop_exporting_build_file_path");
+
+    setRuleContext(createRuleContext("@foo//bar:baz"));
+
+    EvalException evalException =
+        assertThrows(EvalException.class, () -> ev.eval("ruleContext.build_file_path"));
+    assertThat(evalException)
+        .hasMessageThat()
+        .isEqualTo(
+            "Use ctx.label.package + '/BUILD' instead of ctx.build_file_path.\nUse"
+                + " --incompatible_stop_exporting_build_file_path=false to temporarily disable this"
+                + " check.");
+  }
+
+  @Test
   public void testNoToolchainContext() throws Exception {
     // Build setting rules do not have a toolchain context, as they are part of the configuration.
     scratch.file(
