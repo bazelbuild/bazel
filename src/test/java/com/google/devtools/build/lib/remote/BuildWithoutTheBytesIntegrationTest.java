@@ -676,4 +676,34 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     assertSymlink("foo-link", PathFragment.create("foo"));
     assertValidOutputFile("foo-link", "hello\n");
   }
+
+  @Test
+  public void remoteAction_inputTreeWithSymlinks() throws Exception {
+    setDownloadToplevel();
+    write(
+        "tree.bzl",
+        "def _impl(ctx):",
+        "  d = ctx.actions.declare_directory(ctx.label.name)",
+        "  ctx.actions.run_shell(",
+        "    outputs = [d],",
+        "    command = 'mkdir $1/dir && touch $1/file $1/dir/file && ln -s file $1/filesym && ln"
+            + " -s dir $1/dirsym',",
+        "    arguments = [d.path],",
+        "  )",
+        "  return DefaultInfo(files = depset([d]))",
+        "tree = rule(_impl)");
+    write(
+        "BUILD",
+        "load(':tree.bzl', 'tree')",
+        "tree(name = 'tree')",
+        "genrule(name = 'gen', srcs = [':tree'], outs = ['out'], cmd = 'touch $@')");
+
+    // Populate cache
+    buildTarget("//:gen");
+
+    // Delete output, replay from cache
+    getOutputPath("tree").deleteTree();
+    getOutputPath("out").delete();
+    buildTarget("//:gen");
+  }
 }
