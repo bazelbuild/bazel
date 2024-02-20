@@ -341,7 +341,8 @@ public class RemoteExecutionService {
   public boolean mayBeExecutedRemotely(Spawn spawn) {
     return remoteCache instanceof RemoteExecutionCache
         && remoteExecutor != null
-        && Spawns.mayBeExecutedRemotely(spawn);
+        && Spawns.mayBeExecutedRemotely(spawn)
+        && !isScrubbedSpawn(spawn, scrubber);
   }
 
   @VisibleForTesting
@@ -1594,6 +1595,10 @@ public class RemoteExecutionService {
       reportedErrors.add(evt.getMessage());
       reporter.handle(evt);
     }
+  }
+
+  private static boolean isScrubbedSpawn(Spawn spawn, @Nullable Scrubber scrubber) {
+    return scrubber != null && scrubber.forSpawn(spawn) != null;
   }
 
   /**
