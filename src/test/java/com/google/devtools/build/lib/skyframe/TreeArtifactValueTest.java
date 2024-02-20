@@ -574,21 +574,21 @@ public final class TreeArtifactValueTest {
     scratch.file("tree/file");
     scratch.dir("tree/a");
     scratch.resolve("tree/a/uplink").createSymbolicLink(PathFragment.create("../../non_existent"));
-    List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
+    List<VisitTreeArgs> children = new ArrayList<>();
 
     TreeArtifactValue.visitTree(
         treeDir,
-        (child, type) -> {
+        (child, type, traversedSymlink) -> {
           synchronized (children) {
-            children.add(Pair.of(child, type));
+            children.add(VisitTreeArgs.of(child, type, traversedSymlink));
           }
         });
 
     assertThat(children)
         .containsExactly(
-            Pair.of(PathFragment.create("file"), Dirent.Type.FILE),
-            Pair.of(PathFragment.create("a"), Dirent.Type.DIRECTORY),
-            Pair.of(PathFragment.create("a/uplink"), Dirent.Type.SYMLINK));
+            VisitTreeArgs.of(PathFragment.create("file"), Dirent.Type.FILE, false),
+            VisitTreeArgs.of(PathFragment.create("a"), Dirent.Type.DIRECTORY, false),
+            VisitTreeArgs.of(PathFragment.create("a/uplink"), Dirent.Type.SYMLINK, true));
   }
 
   @Test

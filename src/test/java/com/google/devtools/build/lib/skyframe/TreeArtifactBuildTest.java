@@ -562,6 +562,48 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
+  public void relativeSymlinkTraversingToDirOutsideOfTreeArtifact() throws Exception {
+    SpecialArtifact out = createTreeArtifact("output");
+
+    // Create a valid directory that can be referenced
+    scratch.dir(out.getRoot().getRoot().getRelative("some/dir").getPathString());
+
+    TestAction action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "../../some/dir");
+          }
+        };
+
+    registerAction(action);
+    buildArtifact(out);
+  }
+
+  @Test
+  public void relativeSymlinkTraversingOutsideOfTreeArtifact() throws Exception {
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "../../output/random/pointer");
+          }
+        };
+
+    registerAction(action);
+    buildArtifact(out);
+  }
+
+
+  @Test
   public void constructMetadataForDigest() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
     Action action =
