@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "c440045e7f8f6ff70a870646e1d3502afe2b63b4f51d794d0b6bfa6cc4b3c007",
+  "moduleFileHash": "bca9cd3cd122e30c880e8133807c924d2457f7f1c3c258ef5cb4d3f18027a857",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -147,7 +147,7 @@
                   "org.threeten:threeten-extra:1.5.0",
                   "org.tukaani:xz:1.9",
                   "org.yaml:snakeyaml:1.28",
-                  "tools.profiler:async-profiler:2.9",
+                  "tools.profiler:async-profiler:3.0",
                   "junit:junit:4.13.2",
                   "org.hamcrest:hamcrest-core:1.3"
                 ],
@@ -2742,7 +2742,7 @@
         "bzlTransitiveDigest": "r8gQnSLwon27gWD77J8mb3DIe4v3gtn7J/rsic53Qyw=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "90bec989ef7d229ef67c24ad140987a20c64343695a944fc04c7266815f89ade",
-          "@@//:MODULE.bazel": "c440045e7f8f6ff70a870646e1d3502afe2b63b4f51d794d0b6bfa6cc4b3c007"
+          "@@//:MODULE.bazel": "bca9cd3cd122e30c880e8133807c924d2457f7f1c3c258ef5cb4d3f18027a857"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -5354,7 +5354,7 @@
       "general": {
         "bzlTransitiveDigest": "ZfFFJr1eI3/nwAJgyEcYi9fjDDO/97v19BWbwVi0WeE=",
         "accumulatedFileDigests": {
-          "@@//:maven_install.json": "600f9d8ccad307e6c413a66a066844c6f6bb573c8178275de601e611a4cd3a82",
+          "@@//:maven_install.json": "f854ce3df7bf7a30b3a73c2ee0bab4152329135c6251bc844950d2c02e5a101c",
           "@@rules_jvm_external~6.0//:rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
           "@@//src/tools/android:maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f"
         },
@@ -6092,7 +6092,7 @@
                 "{ \"group\": \"org.threeten\", \"artifact\": \"threeten-extra\", \"version\": \"1.5.0\" }",
                 "{ \"group\": \"org.tukaani\", \"artifact\": \"xz\", \"version\": \"1.9\" }",
                 "{ \"group\": \"org.yaml\", \"artifact\": \"snakeyaml\", \"version\": \"1.28\" }",
-                "{ \"group\": \"tools.profiler\", \"artifact\": \"async-profiler\", \"version\": \"2.9\" }",
+                "{ \"group\": \"tools.profiler\", \"artifact\": \"async-profiler\", \"version\": \"3.0\" }",
                 "{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }",
                 "{ \"group\": \"org.hamcrest\", \"artifact\": \"hamcrest-core\", \"version\": \"1.3\" }",
                 "{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }",
@@ -7776,6 +7776,18 @@
               "downloaded_file_path": "v1/org/codehaus/mojo/animal-sniffer-annotations/1.23/animal-sniffer-annotations-1.23.jar"
             }
           },
+          "tools_profiler_async_profiler_3_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "rules_jvm_external~6.0~maven~tools_profiler_async_profiler_3_0",
+              "sha256": "8f798860049d01f4a2f853596d28c85d2983f0c098f165a32909b7da9c74209f",
+              "urls": [
+                "https://repo1.maven.org/maven2/tools/profiler/async-profiler/3.0/async-profiler-3.0.jar"
+              ],
+              "downloaded_file_path": "v1/tools/profiler/async-profiler/3.0/async-profiler-3.0.jar"
+            }
+          },
           "software_amazon_eventstream_eventstream_1_0_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -8856,7 +8868,7 @@
                 "{ \"group\": \"org.threeten\", \"artifact\": \"threeten-extra\", \"version\": \"1.5.0\" }",
                 "{ \"group\": \"org.tukaani\", \"artifact\": \"xz\", \"version\": \"1.9\" }",
                 "{ \"group\": \"org.yaml\", \"artifact\": \"snakeyaml\", \"version\": \"1.28\" }",
-                "{ \"group\": \"tools.profiler\", \"artifact\": \"async-profiler\", \"version\": \"2.9\" }",
+                "{ \"group\": \"tools.profiler\", \"artifact\": \"async-profiler\", \"version\": \"3.0\" }",
                 "{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }",
                 "{ \"group\": \"org.hamcrest\", \"artifact\": \"hamcrest-core\", \"version\": \"1.3\" }",
                 "{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }",
@@ -9233,18 +9245,6 @@
                 "https://repo1.maven.org/maven2/javax/inject/javax.inject/1/javax.inject-1.jar"
               ],
               "downloaded_file_path": "v1/javax/inject/javax.inject/1/javax.inject-1.jar"
-            }
-          },
-          "tools_profiler_async_profiler_2_9": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "rules_jvm_external~6.0~maven~tools_profiler_async_profiler_2_9",
-              "sha256": "6c4e993c28cf2882964cac82a0f96e81a325840043884526565017b2f62c5ba4",
-              "urls": [
-                "https://repo1.maven.org/maven2/tools/profiler/async-profiler/2.9/async-profiler-2.9.jar"
-              ],
-              "downloaded_file_path": "v1/tools/profiler/async-profiler/2.9/async-profiler-2.9.jar"
             }
           },
           "commons_codec_commons_codec_1_10": {
