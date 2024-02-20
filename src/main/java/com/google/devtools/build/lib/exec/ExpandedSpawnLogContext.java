@@ -174,7 +174,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
 
           Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
 
-          if (isInputDirectory(input, inputMetadataProvider)) {
+          if (isInputDirectory(input, contentPath, inputMetadataProvider)) {
             listDirectoryContents(
                 displayPath, contentPath, builder::addInputs, inputMetadataProvider, isTool);
             continue;
@@ -231,7 +231,8 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
                           xattrProvider,
                           digestHashFunction,
                           /* includeHashFunctionName= */ true));
-            } else if (output.isDirectory() && path.isDirectory()) {
+            } else if (!output.isSymlink() && path.isDirectory()) {
+              // TODO(tjgq): Tighten once --incompatible_disallow_unsound_directory_outputs is gone.
               listDirectoryContents(
                   output.getExecPath(),
                   path,
