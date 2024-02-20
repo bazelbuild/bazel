@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -191,7 +192,7 @@ public final class CompletionFunction<
 
     ActionExecutionException firstActionExecutionException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
-    ImmutableSet.Builder<Artifact> builtArtifactsBuilder = ImmutableSet.builder();
+    Set<Artifact> builtArtifacts = new HashSet<>();
     // Don't double-count files due to Skyframe restarts.
     FilesMetricConsumer currentConsumer = new FilesMetricConsumer();
     for (Artifact input : allArtifacts) {
@@ -209,7 +210,7 @@ public final class CompletionFunction<
                 value,
                 key);
           } else {
-            builtArtifactsBuilder.add(input);
+            builtArtifacts.add(input);
             ActionInputMapHelper.addToMap(
                 inputMap,
                 expandedArtifacts,
@@ -269,7 +270,6 @@ public final class CompletionFunction<
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
       RewindPlan rewindPlan = null;
-      ImmutableSet<Artifact> builtArtifacts = builtArtifactsBuilder.build();
       if (!builtArtifacts.isEmpty()) {
         rewindPlan =
             informImportantOutputHandler(
@@ -282,13 +282,11 @@ public final class CompletionFunction<
         if (rewindPlan != null) {
           // Filter out lost outputs from the set of built artifacts so that they are not reported.
           // If rewinding is successful, we'll report them later on.
-          builtArtifacts =
-              Sets.difference(builtArtifacts, new HashSet<>(rewindPlan.lostOutputs))
-                  .immutableCopy();
+          removeLostOutputs(builtArtifacts, rewindPlan.lostOutputs, rewindPlan.owners);
         }
       }
       ImmutableMap<String, ArtifactsInOutputGroup> builtOutputs =
-          new SuccessfulArtifactFilter(builtArtifacts)
+          new SuccessfulArtifactFilter(ImmutableSet.copyOf(builtArtifacts))
               .filterArtifactsInOutputGroup(artifactsToBuild.getAllArtifactsByOutputGroup());
       Postable event = completor.createFailed(key, value, rootCauses, ctx, builtOutputs, env);
       checkStored(event, key);
@@ -398,14 +396,21 @@ public final class CompletionFunction<
       return null;
     }
 
+    ActionInputDepOwners owners = ctx.getDepOwners(lostOutputs.values());
     Reset reset =
         actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
-            key,
-            ImmutableSet.copyOf(Artifact.keys(importantArtifacts)),
-            lostOutputs,
-            ctx.getDepOwners(lostOutputs.values()),
-            env);
-    return new RewindPlan(lostOutputs.values(), reset);
+            key, ImmutableSet.copyOf(Artifact.keys(importantArtifacts)), lostOutputs, owners, env);
+    return new RewindPlan(lostOutputs.values(), owners, reset);
+  }
+
+  private static void removeLostOutputs(
+      Set<Artifact> builtArtifacts,
+      Collection<ActionInput> lostOutputs,
+      ActionInputDepOwners owners) {
+    for (ActionInput lostOutput : lostOutputs) {
+      builtArtifacts.remove(lostOutput);
+      builtArtifacts.removeAll(owners.getDepOwners(lostOutput));
+    }
   }
 
   private static void checkStored(Postable event, TopLevelActionLookupKeyWrapper key) {
@@ -419,15 +424,18 @@ public final class CompletionFunction<
   }
 
   /**
-   * Wraps a collection of lost outputs and a {@link Reset} to initiate rewinding and regenerate
-   * them.
+   * Wraps a collection of lost outputs, their owners, and a {@link Reset} to initiate rewinding and
+   * regenerate them.
    */
   private static final class RewindPlan {
     private final ImmutableCollection<ActionInput> lostOutputs;
+    private final ActionInputDepOwners owners;
     private final Reset reset;
 
-    private RewindPlan(ImmutableCollection<ActionInput> lostOutputs, Reset reset) {
+    private RewindPlan(
+        ImmutableCollection<ActionInput> lostOutputs, ActionInputDepOwners owners, Reset reset) {
       this.lostOutputs = lostOutputs;
+      this.owners = owners;
       this.reset = reset;
     }
   }

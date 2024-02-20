@@ -2738,7 +2738,49 @@ public class RewindingTestsHelper {
         aspectCompleteEvents.get(fooLib), "bin/foo/lost.out", "bin/foo/found.out");
   }
 
-  public final void runTopLevelOutputRewound_partiallyBuiltTarget() throws Exception {
+  public final void runTopLevelOutputRewound_fileInTreeArtifact() throws Exception {
+    testCase.write(
+        "foo/defs.bzl",
+        "def _lost_and_found_trees_impl(ctx):",
+        "  lost_tree = ctx.actions.declare_directory('lost_tree')",
+        "  found_tree = ctx.actions.declare_directory('found_tree')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [lost_tree],",
+        "    command = 'echo lost > %s/lost_file' % lost_tree.path,",
+        "  )",
+        "  ctx.actions.run_shell(",
+        "    outputs = [found_tree],",
+        "    command = 'echo found > %s/found_file' % found_tree.path,",
+        "  )",
+        "  return DefaultInfo(files = depset([lost_tree, found_tree]))",
+        "",
+        "lost_and_found_trees = rule(implementation = _lost_and_found_trees_impl)");
+    testCase.write(
+        "foo/BUILD",
+        "load(':defs.bzl', 'lost_and_found_trees')",
+        "lost_and_found_trees(name = 'lost_and_found_trees')");
+    lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost_tree/lost_file"));
+    Label fooLostAndFoundTrees = Label.parseCanonical("//foo:lost_and_found_trees");
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
+    Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
+    listenForNoCompletionEventsBeforeRewinding(fooLostAndFoundTrees, targetCompleteEvents);
+
+    testCase.buildTarget("//foo:lost_and_found_trees");
+
+    lostOutputsModule.verifyAllLostOutputsConsumed();
+    assertTreeArtifactRewound(rewoundKeys, "foo/lost_tree");
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Action foo/lost_tree", 2);
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Action foo/found_tree", 1);
+    assertThat(targetCompleteEvents.keySet()).containsExactly(fooLostAndFoundTrees);
+    assertOutputsReported(
+        targetCompleteEvents.get(fooLostAndFoundTrees),
+        "bin/foo/lost_tree/lost_file",
+        "bin/foo/found_tree/found_file");
+  }
+
+  public final void runTopLevelOutputRewound_partiallyBuiltTarget_regularFile() throws Exception {
     testCase.write(
         "foo/defs.bzl",
         "def _lost_found_and_failed_impl(ctx):",
@@ -2791,46 +2833,57 @@ public class RewindingTestsHelper {
     }
   }
 
-  public final void runTopLevelOutputRewound_fileInTreeArtifact() throws Exception {
+  public final void runTopLevelOutputRewound_partiallyBuiltTarget_fileInTreeArtifact()
+      throws Exception {
     testCase.write(
         "foo/defs.bzl",
-        "def _lost_and_found_trees_impl(ctx):",
+        "def _lost_tree_found_and_failed_impl(ctx):",
         "  lost_tree = ctx.actions.declare_directory('lost_tree')",
-        "  found_tree = ctx.actions.declare_directory('found_tree')",
+        "  found = ctx.actions.declare_file('found.out')",
+        "  failed = ctx.actions.declare_file('failed.out')",
         "  ctx.actions.run_shell(",
-        "    outputs = [lost_tree],",
-        "    command = 'echo lost > %s/lost_file' % lost_tree.path,",
+        "    outputs = [lost_tree, found],",
+        "    command = 'echo lost > $1/lost_file && echo found > $2',",
+        "    arguments = [lost_tree.path, found.path],",
         "  )",
-        "  ctx.actions.run_shell(",
-        "    outputs = [found_tree],",
-        "    command = 'echo found > %s/found_file' % found_tree.path,",
-        "  )",
-        "  return DefaultInfo(files = depset([lost_tree, found_tree]))",
+        "  ctx.actions.run_shell(outputs = [failed], inputs = [found], command = 'false')",
+        "  return DefaultInfo(files = depset([lost_tree, found, failed]))",
         "",
-        "lost_and_found_trees = rule(implementation = _lost_and_found_trees_impl)");
+        "lost_tree_found_and_failed = rule(implementation = _lost_tree_found_and_failed_impl)");
     testCase.write(
         "foo/BUILD",
-        "load(':defs.bzl', 'lost_and_found_trees')",
-        "lost_and_found_trees(name = 'lost_and_found_trees')");
+        "load(':defs.bzl', 'lost_tree_found_and_failed')",
+        "lost_tree_found_and_failed(name = 'lost_tree_found_and_failed')");
     lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost_tree/lost_file"));
-    Label fooLostAndFoundTrees = Label.parseCanonical("//foo:lost_and_found_trees");
+    Label fooLostTreeFoundAndFailed = Label.parseCanonical("//foo:lost_tree_found_and_failed");
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
-    listenForNoCompletionEventsBeforeRewinding(fooLostAndFoundTrees, targetCompleteEvents);
+    listenForNoCompletionEventsBeforeRewinding(fooLostTreeFoundAndFailed, targetCompleteEvents);
 
-    testCase.buildTarget("//foo:lost_and_found_trees");
+    assertThrows(
+        BuildFailedException.class, () -> testCase.buildTarget("//foo:lost_tree_found_and_failed"));
 
     lostOutputsModule.verifyAllLostOutputsConsumed();
-    assertTreeArtifactRewound(rewoundKeys, "foo/lost_tree");
-    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
-        .hasCount("Action foo/lost_tree", 2);
-    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
-        .hasCount("Action foo/found_tree", 1);
-    assertThat(targetCompleteEvents.keySet()).containsExactly(fooLostAndFoundTrees);
-    assertOutputsReported(
-        targetCompleteEvents.get(fooLostAndFoundTrees),
-        "bin/foo/lost_tree/lost_file",
-        "bin/foo/found_tree/found_file");
+
+    assertThat(targetCompleteEvents.keySet()).containsExactly(fooLostTreeFoundAndFailed);
+    TargetCompleteEvent event = targetCompleteEvents.get(fooLostTreeFoundAndFailed);
+    assertThat(event.failed()).isTrue();
+
+    if (keepGoing()) {
+      assertTreeArtifactRewound(rewoundKeys, "foo/lost_tree");
+      assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+          .hasCount("Action foo/lost_tree", 2);
+      assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+          .hasCount("Action foo/failed.out", 1);
+      // The event is failed but still reports the built artifacts, including the one that was lost.
+      assertOutputsReported(event, "bin/foo/lost_tree/lost_file", "bin/foo/found.out");
+    } else {
+      assertThat(rewoundKeys).isEmpty();
+      assertThat(getExecutedSpawnDescriptions()).containsNoDuplicates();
+      // The event does not report the lost artifact because with --nokeep_going, we have no
+      // opportunity to rewind after an error is observed.
+      assertOutputsReported(event, "bin/foo/found.out");
+    }
   }
 
   final void listenForNoCompletionEventsBeforeRewinding(
