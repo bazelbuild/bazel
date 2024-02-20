@@ -68,33 +68,27 @@ public class CcToolchainTest extends BuildViewTestCase {
     invalidatePackages();
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
     assertThat(
             CppHelper.useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
-                toolchainProvider,
                 FeatureConfiguration.EMPTY))
         .isFalse();
 
     useConfiguration();
     invalidatePackages();
     target = getConfiguredTarget("//a:b");
-    toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
     assertThat(
             CppHelper.useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
-                toolchainProvider,
                 FeatureConfiguration.EMPTY))
         .isFalse();
 
     useConfiguration("--nointerface_shared_objects");
     invalidatePackages();
     target = getConfiguredTarget("//a:b");
-    toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
     assertThat(
             CppHelper.useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
-                toolchainProvider,
                 FeatureConfiguration.EMPTY))
         .isFalse();
   }
@@ -189,7 +183,7 @@ public class CcToolchainTest extends BuildViewTestCase {
             Language.CPP,
             toolchainProvider,
             cppConfiguration);
-    return CppHelper.usePicForBinaries(toolchainProvider, cppConfiguration, featureConfiguration);
+    return CppHelper.usePicForBinaries(cppConfiguration, featureConfiguration);
   }
 
   @Test

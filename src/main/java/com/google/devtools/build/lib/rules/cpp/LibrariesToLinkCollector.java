@@ -48,7 +48,6 @@ public class LibrariesToLinkCollector {
 
   private final boolean isNativeDeps;
   private final PathFragment toolchainLibrariesSolibDir;
-  private final CppConfiguration cppConfiguration;
   private final CcToolchainProvider ccToolchainProvider;
   private final boolean isLtoIndexing;
   private final PathFragment solibDir;
@@ -66,7 +65,6 @@ public class LibrariesToLinkCollector {
 
   public LibrariesToLinkCollector(
       boolean isNativeDeps,
-      CppConfiguration cppConfiguration,
       CcToolchainProvider toolchain,
       PathFragment toolchainLibrariesSolibDir,
       LinkTargetType linkType,
@@ -84,7 +82,6 @@ public class LibrariesToLinkCollector {
       String workspaceName,
       Artifact dynamicLibrarySolibSymlinkOutput) {
     this.isNativeDeps = isNativeDeps;
-    this.cppConfiguration = cppConfiguration;
     this.ccToolchainProvider = toolchain;
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
     this.solibDir = solibDir;
@@ -153,7 +150,7 @@ public class LibrariesToLinkCollector {
     }
 
     String toolchainLibrariesSolibName = toolchainLibrariesSolibDir.getBaseName();
-    if (!(isNativeDeps && cppConfiguration.shareNativeDeps())) {
+    if (!(isNativeDeps && ccToolchainProvider.getCppConfiguration().shareNativeDeps())) {
       for (String potentialExecRoot : findToolchainSolibParents(potentialSolibParents)) {
         runtimeLibrarySearchDirectories.add(potentialExecRoot + toolchainLibrariesSolibName + "/");
       }
@@ -420,7 +417,7 @@ public class LibrariesToLinkCollector {
     // Calculate the correct relative value for the "-rpath" link option (which sets
     // the search path for finding shared libraries).
     String solibDirPathString = ccToolchainProvider.getSolibDirectory();
-    if (isNativeDeps && cppConfiguration.shareNativeDeps()) {
+    if (isNativeDeps && ccToolchainProvider.getCppConfiguration().shareNativeDeps()) {
       // For shared native libraries, special symlinking is applied to ensure C++
       // toolchain libraries are available under $ORIGIN/_solib_[arch]. So we set the RPATH to find
       // them.
@@ -482,7 +479,8 @@ public class LibrariesToLinkCollector {
       NestedSetBuilder<String> librarySearchDirectories,
       ImmutableSet.Builder<String> rpathEntries,
       SequenceBuilder librariesToLink,
-      NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder) {
+      NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder)
+      throws EvalException {
     boolean includeSolibDir = false;
     boolean includeToolchainLibrariesSolibDir = false;
     Map<String, PathFragment> linkedLibrariesPaths = new HashMap<>();
@@ -547,13 +545,16 @@ public class LibrariesToLinkCollector {
       NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder,
       NestedSetBuilder<String> librarySearchDirectories,
       ImmutableList<String> rpathRoots,
-      ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps) {
+      ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps)
+      throws EvalException {
     Preconditions.checkState(
         input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
             || input.getArtifactCategory() == ArtifactCategory.INTERFACE_LIBRARY);
     Preconditions.checkState(
         !Link.useStartEndLib(
-            input, CppHelper.getArchiveType(cppConfiguration, featureConfiguration)));
+            input,
+            CppHelper.getArchiveType(
+                ccToolchainProvider.getCppConfiguration(), featureConfiguration)));
 
     expandedLinkerInputsBuilder.add(input);
     if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
@@ -635,7 +636,8 @@ public class LibrariesToLinkCollector {
       LinkerInput input,
       Map<Artifact, Artifact> ltoMap,
       SequenceBuilder librariesToLink,
-      NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder) {
+      NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder)
+      throws EvalException {
     ArtifactCategory artifactCategory = input.getArtifactCategory();
     Preconditions.checkArgument(
         artifactCategory.equals(ArtifactCategory.OBJECT_FILE)
@@ -665,7 +667,9 @@ public class LibrariesToLinkCollector {
 
     // start-lib/end-lib library: adds its input object files.
     if (Link.useStartEndLib(
-        input, CppHelper.getArchiveType(cppConfiguration, featureConfiguration))) {
+        input,
+        CppHelper.getArchiveType(
+            ccToolchainProvider.getCppConfiguration(), featureConfiguration))) {
       Iterable<Artifact> archiveMembers = input.getObjectFiles();
       if (!Iterables.isEmpty(archiveMembers)) {
         ImmutableList.Builder<Artifact> nonLtoArchiveMembersBuilder = ImmutableList.builder();
@@ -790,7 +794,7 @@ public class LibrariesToLinkCollector {
   }
 
   @Nullable
-  private Map<Artifact, Artifact> generateLtoMap() {
+  private Map<Artifact, Artifact> generateLtoMap() throws EvalException {
     if (isLtoIndexing || allLtoArtifacts == null) {
       return null;
     }
@@ -802,7 +806,8 @@ public class LibrariesToLinkCollector {
     // As a bonus, we can rephrase --nostart_end_lib as --features=-start_end_lib and get rid
     // of a command line option.
 
-    Preconditions.checkState(CppHelper.useStartEndLib(cppConfiguration, featureConfiguration));
+    Preconditions.checkState(
+        CppHelper.useStartEndLib(ccToolchainProvider.getCppConfiguration(), featureConfiguration));
     Map<Artifact, Artifact> ltoMap = new HashMap<>();
     for (LtoBackendArtifacts l : allLtoArtifacts) {
       ltoMap.put(l.getBitcodeFile(), l.getObjectFile());

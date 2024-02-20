@@ -85,7 +85,6 @@ public final class CcLinkingHelper {
 
   private final CppSemantics semantics;
   private final BuildConfigurationValue configuration;
-  private final CppConfiguration cppConfiguration;
 
   private final NestedSetBuilder<Artifact> additionalLinkerInputsBuilder =
       NestedSetBuilder.stableOrder();
@@ -155,7 +154,6 @@ public final class CcLinkingHelper {
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
       BuildConfigurationValue configuration,
-      CppConfiguration cppConfiguration,
       SymbolGenerator<?> symbolGenerator,
       ImmutableMap<String, String> executionInfo) {
     this.semantics = Preconditions.checkNotNull(semantics);
@@ -163,7 +161,6 @@ public final class CcLinkingHelper {
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
     this.configuration = Preconditions.checkNotNull(configuration);
-    this.cppConfiguration = cppConfiguration;
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.label = label;
     this.actionRegistry = actionRegistry;
@@ -359,7 +356,7 @@ public final class CcLinkingHelper {
 
   /** Create the C++ link actions, and the corresponding linking related providers. */
   public CcLinkingOutputs link(CcCompilationOutputs ccOutputs)
-      throws RuleErrorException, InterruptedException {
+      throws EvalException, RuleErrorException, InterruptedException {
     Preconditions.checkNotNull(ccOutputs);
 
     Preconditions.checkState(additionalLinkerInputs == null);
@@ -428,7 +425,7 @@ public final class CcLinkingHelper {
    * behavior.
    */
   private CcLinkingOutputs createCcLinkActions(CcCompilationOutputs ccOutputs)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, EvalException, InterruptedException {
     // For now only handle static links. Note that the dynamic library link below ignores
     // staticLinkType.
     // TODO(bazel-team): Either support non-static links or move this check to setStaticLinkType().
@@ -438,9 +435,10 @@ public final class CcLinkingHelper {
 
     LibraryToLink.Builder libraryToLinkBuilder = LibraryToLink.builder();
     boolean usePicForBinaries =
-        CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration);
+        CppHelper.usePicForBinaries(ccToolchain.getCppConfiguration(), featureConfiguration);
     boolean usePicForDynamicLibs =
-        CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
+        CcToolchainProvider.usePicForDynamicLibraries(
+            ccToolchain.getCppConfiguration(), featureConfiguration);
 
     PathFragment labelName = PathFragment.create(label.getName());
     String libraryIdentifier =
@@ -695,7 +693,8 @@ public final class CcLinkingHelper {
 
     List<String> sonameLinkopts = ImmutableList.of();
     Artifact soInterface = null;
-    if (CppHelper.useInterfaceSharedLibraries(cppConfiguration, ccToolchain, featureConfiguration)
+    if (CppHelper.useInterfaceSharedLibraries(
+            ccToolchain.getCppConfiguration(), featureConfiguration)
         && emitInterfaceSharedLibraries) {
       soInterface = getLinkedArtifact(LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
       // TODO(b/28946988): Remove this hard-coded flag.
@@ -894,7 +893,7 @@ public final class CcLinkingHelper {
               .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
               .setLinkType(linkType)
               .setLinkerFiles(
-                  (cppConfiguration.useSpecificToolFiles()
+                  (ccToolchain.getCppConfiguration().useSpecificToolFiles()
                           && linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER)
                       ? ccToolchain.getArFiles()
                       : ccToolchain.getLinkerFiles())

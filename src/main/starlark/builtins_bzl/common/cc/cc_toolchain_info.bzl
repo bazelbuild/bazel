@@ -21,8 +21,7 @@ load(":common/cc/cc_common.bzl", "cc_common")
 cc_internal = _builtins.internal.cc_internal
 
 def _needs_pic_for_dynamic_libraries(*, feature_configuration):
-    return cc_internal.cpp_config_from_feature_config(feature_configuration = feature_configuration).force_pic() or \
-           cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "supports_pic")
+    return cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "supports_pic")
 
 def _static_runtime_lib(static_runtime_lib):
     def static_runtime_lib_func(*, feature_configuration):
@@ -95,7 +94,7 @@ def _create_cc_toolchain_info(
         build_info_files,
         objcopy_files):
     cc_toolchain_info = dict(
-        needs_pic_for_dynamic_libraries = _needs_pic_for_dynamic_libraries,
+        needs_pic_for_dynamic_libraries = (lambda *, feature_configuration: True) if cpp_configuration.force_pic() else _needs_pic_for_dynamic_libraries,
         built_in_include_directories = built_in_include_directories,
         all_files = all_files,
         static_runtime_lib = _static_runtime_lib(static_runtime_lib_depset),

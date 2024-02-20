@@ -21,11 +21,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -34,7 +32,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 
 /** Handles creation of CppCompileAction used to compile linkstamp sources. */
 public final class CppLinkstampCompileHelper {
@@ -53,7 +50,6 @@ public final class CppLinkstampCompileHelper {
       Iterable<String> additionalLinkstampDefines,
       CcToolchainProvider ccToolchainProvider,
       boolean codeCoverageEnabled,
-      CppConfiguration cppConfiguration,
       String fdoBuildStamp,
       FeatureConfiguration featureConfiguration,
       boolean needsPic,
@@ -67,7 +63,6 @@ public final class CppLinkstampCompileHelper {
             .addMandatoryInputs(compilationInputs)
             .setVariables(
                 getVariables(
-                    ((RuleContext) actionConstructionContext).getStarlarkThread(),
                     ruleErrorConsumer,
                     sourceFile,
                     outputFile,
@@ -76,8 +71,6 @@ public final class CppLinkstampCompileHelper {
                     additionalLinkstampDefines,
                     buildInfoHeaderArtifacts,
                     featureConfiguration,
-                    configuration.getOptions(),
-                    cppConfiguration,
                     ccToolchainProvider,
                     needsPic,
                     fdoBuildStamp,
@@ -139,7 +132,6 @@ public final class CppLinkstampCompileHelper {
   }
 
   private static CcToolchainVariables getVariables(
-      StarlarkThread thread,
       RuleErrorConsumer ruleErrorConsumer,
       Artifact sourceFile,
       Artifact outputFile,
@@ -148,8 +140,6 @@ public final class CppLinkstampCompileHelper {
       Iterable<String> additionalLinkstampDefines,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
       FeatureConfiguration featureConfiguration,
-      BuildOptions buildOptions,
-      CppConfiguration cppConfiguration,
       CcToolchainProvider ccToolchainProvider,
       boolean needsPic,
       String fdoBuildStamp,
@@ -162,12 +152,9 @@ public final class CppLinkstampCompileHelper {
     try {
 
       return CompileBuildVariables.setupVariablesOrReportRuleError(
-          thread,
           ruleErrorConsumer,
           featureConfiguration,
           ccToolchainProvider,
-          buildOptions,
-          cppConfiguration,
           sourceFile.getExecPathString(),
           outputFile.getExecPathString(),
           /* gcnoFile= */ null,
@@ -178,7 +165,7 @@ public final class CppLinkstampCompileHelper {
               .map(Artifact::getExecPathString)
               .collect(toImmutableList()),
           CcCompilationHelper.getCoptsFromOptions(
-              cppConfiguration, semantics, sourceFile.getExecPathString()),
+              ccToolchainProvider.getCppConfiguration(), semantics, sourceFile.getExecPathString()),
           /* cppModuleMap= */ null,
           needsPic,
           fdoBuildStamp,

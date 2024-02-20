@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -192,7 +191,6 @@ public abstract class CcModule
         ImmutableSet.copyOf(
             Sequence.cast(unsupportedFeatures, String.class, "unsupported_features"));
     final CppConfiguration cppConfiguration;
-    final BuildOptions buildOptions;
     CcToolchainProvider toolchain =
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(toolchainInfo);
     if (ruleContext == null) {
@@ -207,11 +205,10 @@ public abstract class CcModule
             ruleContext.getRuleContext().getRuleClassNameForLogging(),
             CppConfiguration.class.getSimpleName());
       }
-      cppConfiguration = ruleContext.getRuleContext().getFragment(CppConfiguration.class);
+      cppConfiguration = toolchain.getCppConfiguration();
       // buildOptions are only used when --incompatible_enable_cc_toolchain_resolution is flipped,
       // and that will only be flipped when --incompatible_require_ctx_in_configure_features is
       // flipped.
-      buildOptions = ruleContext.getConfiguration().getOptions();
       getSemantics(language)
           .validateLayeringCheckFeatures(
               ruleContext.getRuleContext(),
@@ -221,9 +218,7 @@ public abstract class CcModule
     }
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(
-            requestedFeaturesSet, unsupportedFeaturesSet, language, toolchain, cppConfiguration),
-        cppConfiguration,
-        buildOptions);
+            requestedFeaturesSet, unsupportedFeaturesSet, language, toolchain, cppConfiguration));
   }
 
   @Override
@@ -412,8 +407,6 @@ public abstract class CcModule
         /* thinltoMergedObjectFile= */ null,
         mustKeepDebug,
         ccToolchainProvider,
-        featureConfiguration
-            .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
         featureConfiguration.getFeatureConfiguration(),
         useTestOnlyFlags,
         /* isLtoIndexing= */ false,
@@ -1020,10 +1013,7 @@ public abstract class CcModule
     LtoBackendArtifacts ltoBackendArtifacts;
     ltoBackendArtifacts =
         new LtoBackendArtifacts(
-            ruleContext.getStarlarkThread(),
             ruleContext,
-            ruleContext.getConfiguration().getOptions(),
-            ruleContext.getConfiguration().getFragment(CppConfiguration.class),
             ltoOutputRootPrefix,
             ltoObjRootPrefix,
             bitcodeFile,
@@ -1975,10 +1965,6 @@ public abstract class CcModule
                 ccToolchainProvider,
                 fdoContext,
                 actions.getActionConstructionContext().getConfiguration(),
-                actions
-                    .getActionConstructionContext()
-                    .getConfiguration()
-                    .getFragment(CppConfiguration.class),
                 BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
@@ -2744,7 +2730,6 @@ public abstract class CcModule
         featureConfiguration.getFeatureConfiguration();
     BuildConfigurationValue buildConfiguration =
         convertFromNoneable(buildConfig, actions.getActionConstructionContext().getConfiguration());
-    CppConfiguration cppConfiguration = buildConfiguration.getFragment(CppConfiguration.class);
     ImmutableList<Artifact> linkerOutputs = asClassImmutableList(linkerOutputsObject);
     CcLinkingHelper helper =
         new CcLinkingHelper(
@@ -2757,7 +2742,6 @@ public abstract class CcModule
                 ccToolchainProvider,
                 fdoContext,
                 buildConfiguration,
-                cppConfiguration,
                 BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
@@ -2783,7 +2767,7 @@ public abstract class CcModule
                 dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
                     && CppHelper.useInterfaceSharedLibraries(
-                        cppConfiguration, ccToolchainProvider, actualFeatureConfiguration))
+                        ccToolchainProvider.getCppConfiguration(), actualFeatureConfiguration))
             .setLinkerOutputArtifact(convertFromNoneable(mainOutput, null))
             .setUseTestOnlyFlags(convertFromNoneable(useTestOnlyFlags, false))
             .setPdbFile(convertFromNoneable(pdbFile, null))
@@ -2922,10 +2906,10 @@ public abstract class CcModule
       throws EvalException, InterruptedException, TypeException, RuleErrorException {
     isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
-    CppConfiguration cppConfiguration =
-        ruleContext.getConfiguration().getFragment(CppConfiguration.class);
+
     CcToolchainProvider ccToolchain =
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
+    CppConfiguration cppConfiguration = ccToolchain.getCppConfiguration();
     starlarkActionFactoryApi
         .getActionConstructionContext()
         .registerAction(
@@ -2950,7 +2934,6 @@ public abstract class CcModule
                 /* additionalLinkstampDefines= */ ImmutableList.of(),
                 ccToolchain,
                 ruleContext.getConfiguration().isCodeCoverageEnabled(),
-                cppConfiguration,
                 CppHelper.getFdoBuildStamp(
                     cppConfiguration,
                     ccToolchain.getFdoContext(),

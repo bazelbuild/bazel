@@ -531,4 +531,8 @@ public final class CcToolchainProvider {
   public OutputGroupInfo getCcBuildInfoTranslator() throws EvalException {
     return value.getValue("_build_info_files", OutputGroupInfo.class);
   }
+
+  public CppConfiguration getCppConfiguration() throws EvalException {
+    return value.getValue("_cpp_configuration", CppConfiguration.class);
+  }
 }

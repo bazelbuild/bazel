@@ -319,21 +319,22 @@ public final class CcCompilationHelper {
       FdoContext fdoContext,
       BuildConfigurationValue buildConfiguration,
       ImmutableMap<String, String> executionInfo,
-      boolean shouldProcessHeaders) {
+      boolean shouldProcessHeaders)
+      throws EvalException {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.sourceCategory = Preconditions.checkNotNull(sourceCategory);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
     this.actionConstructionContext = Preconditions.checkNotNull(actionConstructionContext);
-    this.configuration = buildConfiguration;
-    this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
+    this.configuration = Preconditions.checkNotNull(buildConfiguration);
+    this.cppConfiguration = ccToolchain.getCppConfiguration();
     setGenerateNoPicAction(
         !CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
-            || !CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration));
+            || !CppHelper.usePicForBinaries(cppConfiguration, featureConfiguration));
     setGeneratePicAction(
         CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
-            || CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration));
+            || CppHelper.usePicForBinaries(cppConfiguration, featureConfiguration));
     this.ruleErrorConsumer = actionConstructionContext.getRuleErrorConsumer();
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
     this.label = Preconditions.checkNotNull(label);
@@ -351,7 +352,8 @@ public final class CcCompilationHelper {
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
       ImmutableMap<String, String> executionInfo,
-      boolean shouldProcessHeaders) {
+      boolean shouldProcessHeaders)
+      throws EvalException {
     this(
         actionRegistry,
         actionConstructionContext,
@@ -782,9 +784,7 @@ public final class CcCompilationHelper {
                   /* system_include_dirs */ convertPathFragmentsToStarlarkList(systemIncludeDirs),
                   /* include_dirs */ convertPathFragmentsToStarlarkList(includeDirs),
                   /* feature_configuration */ FeatureConfigurationForStarlark.from(
-                      featureConfiguration,
-                      cppConfiguration,
-                      ruleContext.getConfiguration().getOptions()),
+                      featureConfiguration),
                   /* public_headers_artifacts */ StarlarkList.immutableCopyOf(publicHeaders),
                   /* include_prefix */ includePrefix == null ? Starlark.NONE : includePrefix,
                   /* strip_include_prefix */ stripIncludePrefix == null

@@ -258,7 +258,6 @@ public abstract class NativeDepsHelper {
               toolchain,
               fdoContext,
               configuration,
-              ruleContext.getFragment(CppConfiguration.class),
               ruleContext.getSymbolGenerator(),
               TargetUtils.getExecutionInfo(
                   ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))

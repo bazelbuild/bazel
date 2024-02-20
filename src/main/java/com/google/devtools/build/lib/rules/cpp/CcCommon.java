@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
@@ -385,24 +384,6 @@ public final class CcCommon implements StarlarkValue {
       Language language,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
-    return configureFeaturesOrReportRuleError(
-        ruleContext,
-        ruleContext.getConfiguration(),
-        requestedFeatures,
-        unsupportedFeatures,
-        language,
-        toolchain,
-        cppSemantics);
-  }
-
-  public static FeatureConfiguration configureFeaturesOrReportRuleError(
-      RuleContext ruleContext,
-      BuildConfigurationValue buildConfiguration,
-      ImmutableSet<String> requestedFeatures,
-      ImmutableSet<String> unsupportedFeatures,
-      Language language,
-      CcToolchainProvider toolchain,
-      CppSemantics cppSemantics) {
     try {
       cppSemantics.validateLayeringCheckFeatures(
           ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
@@ -411,7 +392,7 @@ public final class CcCommon implements StarlarkValue {
           unsupportedFeatures,
           language,
           toolchain,
-          buildConfiguration.getFragment(CppConfiguration.class));
+          toolchain.getCppConfiguration());
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;

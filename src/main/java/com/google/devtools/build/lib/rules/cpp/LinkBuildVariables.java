@@ -106,7 +106,6 @@ public enum LinkBuildVariables {
       String thinltoMergedObjectFile,
       boolean mustKeepDebug,
       CcToolchainProvider ccToolchainProvider,
-      CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration,
       boolean useTestOnlyFlags,
       boolean isLtoIndexing,
@@ -124,6 +123,7 @@ public enum LinkBuildVariables {
       throws EvalException, InterruptedException {
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(ccToolchainProvider.getBuildVars());
+    CppConfiguration cppConfiguration = ccToolchainProvider.getCppConfiguration();
 
     // pic
     if (cppConfiguration.forcePic()) {

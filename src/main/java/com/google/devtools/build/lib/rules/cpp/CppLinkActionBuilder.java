@@ -158,7 +158,7 @@ public class CppLinkActionBuilder {
       throws EvalException {
     this.output = Preconditions.checkNotNull(output);
     this.configuration = Preconditions.checkNotNull(configuration);
-    this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
+    this.cppConfiguration = toolchain.getCppConfiguration();
     this.toolchain = toolchain;
     this.fdoContext = fdoContext;
     if (featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)) {
@@ -328,10 +328,7 @@ public class CppLinkActionBuilder {
         createSharedNonLto ? CppLinkAction.SHAREABLE_LINK_ARTIFACT_FACTORY : linkArtifactFactory;
     BitcodeFiles bitcodeFiles = createSharedNonLto ? null : allBitcode;
     return new LtoBackendArtifacts(
-        ((RuleContext) actionConstructionContext).getStarlarkThread(),
         ruleErrorConsumer,
-        configuration.getOptions(),
-        cppConfiguration,
         ltoOutputRootPrefix,
         ltoObjRootPrefix,
         bitcodeFile,
@@ -779,7 +776,6 @@ public class CppLinkActionBuilder {
     LibrariesToLinkCollector librariesToLinkCollector =
         new LibrariesToLinkCollector(
             isNativeDeps,
-            cppConfiguration,
             toolchain,
             toolchainLibrariesSolibDir,
             linkType,
@@ -827,7 +823,6 @@ public class CppLinkActionBuilder {
               thinltoMergedObjectFile != null ? thinltoMergedObjectFile.getExecPathString() : null,
               mustKeepDebug,
               toolchain,
-              cppConfiguration,
               featureConfiguration,
               useTestOnlyFlags,
               isLtoIndexing,
@@ -958,13 +953,13 @@ public class CppLinkActionBuilder {
                 additionalLinkstampDefines,
                 toolchain,
                 configuration.isCodeCoverageEnabled(),
-                cppConfiguration,
-                CppHelper.getFdoBuildStamp(cppConfiguration, fdoContext, featureConfiguration),
+                CppHelper.getFdoBuildStamp(
+                    toolchain.getCppConfiguration(), fdoContext, featureConfiguration),
                 featureConfiguration,
                 cppConfiguration.forcePic()
                     || (linkType.isDynamicLibrary()
                         && CcToolchainProvider.usePicForDynamicLibraries(
-                            cppConfiguration, featureConfiguration)),
+                            toolchain.getCppConfiguration(), featureConfiguration)),
                 Matcher.quoteReplacement(
                     isNativeDeps && cppConfiguration.shareNativeDeps()
                         ? output.getExecPathString()

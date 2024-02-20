@@ -77,20 +77,6 @@ public class CppHelper {
     // prevents construction
   }
 
-  /** Returns the malloc implementation for the given target. */
-  public static TransitiveInfoCollection mallocForTarget(
-      RuleContext ruleContext, String mallocAttrName) {
-    if (ruleContext.getFragment(CppConfiguration.class).customMalloc() != null) {
-      return ruleContext.getPrerequisite(":default_malloc");
-    } else {
-      return ruleContext.getPrerequisite(mallocAttrName);
-    }
-  }
-
-  public static TransitiveInfoCollection mallocForTarget(RuleContext ruleContext) {
-    return mallocForTarget(ruleContext, "malloc");
-  }
-
   /** Tokenizes and expands make variables. */
   public static List<String> expandLinkopts(
       RuleContext ruleContext, String attrName, Iterable<String> values)
@@ -271,7 +257,6 @@ public class CppHelper {
 
   /** Returns whether binaries must be compiled with position independent code. */
   public static boolean usePicForBinaries(
-      CcToolchainProvider toolchain,
       CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
@@ -457,7 +442,6 @@ public class CppHelper {
    */
   public static boolean useInterfaceSharedLibraries(
       CppConfiguration cppConfiguration,
-      CcToolchainProvider toolchain,
       FeatureConfiguration featureConfiguration) {
     return CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)
         && cppConfiguration.getUseInterfaceSharedLibraries();

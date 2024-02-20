@@ -34,24 +34,13 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class FeatureConfigurationForStarlark implements FeatureConfigurationApi {
 
   private final FeatureConfiguration featureConfiguration;
-  private final CppConfiguration cppConfiguration;
-  private final BuildOptions buildOptions;
 
-  public static FeatureConfigurationForStarlark from(
-      FeatureConfiguration featureConfiguration,
-      CppConfiguration cppConfiguration,
-      BuildOptions buildOptions) {
-    return new FeatureConfigurationForStarlark(
-        featureConfiguration, cppConfiguration, buildOptions);
+  public static FeatureConfigurationForStarlark from(FeatureConfiguration featureConfiguration) {
+    return new FeatureConfigurationForStarlark(featureConfiguration);
   }
 
-  private FeatureConfigurationForStarlark(
-      FeatureConfiguration featureConfiguration,
-      CppConfiguration cppConfiguration,
-      BuildOptions buildOptions) {
+  private FeatureConfigurationForStarlark(FeatureConfiguration featureConfiguration) {
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
-    this.cppConfiguration = Preconditions.checkNotNull(cppConfiguration);
-    this.buildOptions = buildOptions;
   }
 
   public FeatureConfiguration getFeatureConfiguration() {
@@ -73,28 +62,5 @@ public class FeatureConfigurationForStarlark implements FeatureConfigurationApi 
     printer.append("<FeatureConfiguration(");
     printer.append(Joiner.on(", ").join(featureConfiguration.getEnabledFeatureNames()));
     printer.append(")>");
-  }
-
-  /**
-   * Get {@link CppConfiguration} that is threaded along with {@link FeatureConfiguration}. Do this
-   * only when you're completely aware of why this method was added and hlopko@ allowed you to.
-   *
-   * @deprecated will be removed soon by b/129045294.
-   */
-  @Deprecated
-  CppConfiguration
-      getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing() {
-    return cppConfiguration;
-  }
-
-  /**
-   * Get {@link BuildOptions} that is threaded along with {@link FeatureConfiguration}. Do this only
-   * when you're completely aware of why this method was added and hlopko@ allowed you to.
-   *
-   * @deprecated will be removed soon by b/129045294.
-   */
-  @Deprecated
-  BuildOptions getBuildOptionsFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing() {
-    return buildOptions;
   }
 }

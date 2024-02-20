@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -447,18 +446,6 @@ public class CcStarlarkInternal implements StarlarkValue {
                 withoutExternDependencies));
   }
 
-  @StarlarkMethod(
-      name = "apple_config_if_available",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      },
-      allowReturnNones = true)
-  @Nullable
-  public AppleConfiguration getAppleConfigIfAvailable(StarlarkRuleContext ruleContext) {
-    return ruleContext.getRuleContext().getConfiguration().getFragment(AppleConfiguration.class);
-  }
-
   private static final StarlarkProvider buildSettingInfo =
       StarlarkProvider.builder(Location.BUILTIN)
           .setExported(
@@ -504,18 +491,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     } else {
       return null;
     }
-  }
-
-  @StarlarkMethod(
-      name = "cpp_config_from_feature_config",
-      documented = false,
-      parameters = {
-        @Param(name = "feature_configuration", positional = false, named = true),
-      })
-  public CppConfiguration cppConfigFromFeatureConfig(
-      FeatureConfigurationForStarlark featureConfigurationForStarlark) {
-    return featureConfigurationForStarlark
-        .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing();
   }
 
   @StarlarkMethod(

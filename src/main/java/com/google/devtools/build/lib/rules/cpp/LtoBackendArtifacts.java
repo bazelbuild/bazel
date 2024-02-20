@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -89,10 +88,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
    * optimization, by not generating import and index files.
    */
   LtoBackendArtifacts(
-      StarlarkThread thread,
       RuleErrorConsumer ruleErrorConsumer,
-      BuildOptions buildOptions,
-      CppConfiguration cppConfiguration,
       PathFragment ltoOutputRootPrefix,
       PathFragment ltoObjRootPrefix,
       Artifact bitcodeFile,
@@ -132,7 +128,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         builder,
         buildVariablesBuilder,
         ccToolchain,
-        cppConfiguration,
         fdoContext,
         featureConfiguration,
         userCompileFlags,
@@ -250,7 +245,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       LtoBackendAction.Builder builder,
       CcToolchainVariables.Builder buildVariablesBuilder,
       CcToolchainProvider ccToolchain,
-      CppConfiguration cppConfiguration,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       List<String> userCompileFlags,
@@ -269,7 +263,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       buildVariablesBuilder.addStringSequenceVariable(
           CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
-      if (cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
+      if (ccToolchain.getCppConfiguration().useStandaloneLtoIndexingCommandLines()) {
         if (!featureConfiguration.actionIsConfigured(CppActionNames.LTO_BACKEND)) {
           throw ruleErrorConsumer.throwWithRuleError(
               "Thinlto build is requested, but the C++ toolchain doesn't define an action_config"
@@ -279,7 +273,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
             PathFragment.create(
                 featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
         builder.setExecutable(compiler);
-    } else {
+      } else {
       PathFragment compiler =
           PathFragment.create(
               CcToolchainProvider.getToolPathString(

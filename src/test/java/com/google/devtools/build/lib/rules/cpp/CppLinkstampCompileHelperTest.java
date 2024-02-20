@@ -233,7 +233,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
             Language.CPP,
             toolchain,
             cppConfiguration);
-    boolean usePic = CppHelper.usePicForBinaries(toolchain, cppConfiguration, featureConfiguration);
+    boolean usePic = CppHelper.usePicForBinaries(cppConfiguration, featureConfiguration);
 
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
 

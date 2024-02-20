@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 
 /** Enum covering all build variables we create for all various {@link CppCompileAction}. */
 public enum CompileBuildVariables {
@@ -139,12 +137,9 @@ public enum CompileBuildVariables {
   }
 
   public static CcToolchainVariables setupVariablesOrReportRuleError(
-      StarlarkThread thread,
       RuleErrorConsumer ruleErrorConsumer,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
-      BuildOptions buildOptions,
-      CppConfiguration cppConfiguration,
       String sourceFile,
       String outputFile,
       String gcnoFile,
