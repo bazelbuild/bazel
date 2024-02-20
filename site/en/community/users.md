@@ -356,8 +356,7 @@ details about their process, see their [engineering blog](https://eng.snap.com/b
 ### [Stripe](https://stripe.com){: .external}
 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/320px-Stripe_Logo%2C_revised_2016.svg.png" width="150" align="right">
 
-Stripe provides mobile payment solutions.  They are the main maintainers of the
-[Bazel Scala rules](https://github.com/bazelbuild/rules_scala){: .external}.
+Stripe provides mobile payment solutions.  They use Bazel in their build and test pipelines, as detailed in their [engineering blog](https://stripe.com/blog/fast-secure-builds-choose-two).
 
 ### [Tinder](https://tinder.com){: .external}
 <img src="https://policies.tinder.com/static/b0327365f4c0a31c4337157c10e9fadf/c1b63/tinder_full_color_watermark.png" width="150" align="right">
