@@ -125,6 +125,7 @@ java_library(
         ":diff_awareness_manager",
         ":directory_listing_function",
         ":directory_listing_state_value",
+        ":directory_tree_digest_function",
         ":exclusive_test_build_driver_value",
         ":execution_finished_event",
         ":file_function",
@@ -1256,6 +1257,33 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "directory_tree_digest_function",
+    srcs = ["DirectoryTreeDigestFunction.java"],
+    deps = [
+        ":directory_listing_value",
+        ":directory_tree_digest_value",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "directory_tree_digest_value",
+    srcs = ["DirectoryTreeDigestValue.java"],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
     ],
 )
 
