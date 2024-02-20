@@ -314,6 +314,11 @@ public final class SymlinkAction extends AbstractAction {
   }
 
   @Override
+  public String describeKey() {
+    return String.format("GUID: %s\ninputPath: %s\n", GUID, inputPath);
+  }
+
+  @Override
   public String getMnemonic() {
     return targetType == TargetType.EXECUTABLE ? "ExecutableSymlink" : "Symlink";
   }
