@@ -23,17 +23,17 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodePropertiesApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A tuple containing information about a version of xcode and its properties. */
 @Immutable
 public class XcodeVersionProperties extends NativeInfo implements XcodePropertiesApi {
+  /** Starlark identifier for XcodeVersionProperties provider. */
+  public static final Provider PROVIDER = new Provider();
 
   /** Starlark name for the XcodeVersionProperties provider. */
   public static final String STARLARK_NAME = "XcodeProperties";
-
-  /** Starlark constructor and identifier for XcodeVersionProperties provider. */
-  public static final BuiltinProvider<XcodeVersionProperties> STARLARK_CONSTRUCTOR =
-      new BuiltinProvider<XcodeVersionProperties>(STARLARK_NAME, XcodeVersionProperties.class) {};
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_VISIONOS_SDK_VERSION = "1.0";
@@ -103,8 +103,8 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   }
 
   @Override
-  public BuiltinProvider<XcodeVersionProperties> getProvider() {
-    return STARLARK_CONSTRUCTOR;
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /** Returns the xcode version, or null if the xcode version is unknown. */
@@ -208,5 +208,32 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
         defaultWatchosSdkVersion,
         defaultTvosSdkVersion,
         defaultMacosSdkVersion);
+  }
+
+  /** Provider class for {@link XcodeVersionProperties} objects. */
+  public static class Provider extends BuiltinProvider<XcodeVersionProperties>
+      implements XcodePropertiesApi.Provider {
+    private Provider() {
+      super(XcodePropertiesApi.NAME, XcodeVersionProperties.class);
+    }
+
+    @Override
+    public XcodePropertiesApi createInfo(
+        String starlarkVersion,
+        String starlarkDefaultIosSdkVersion,
+        String starlarkDefaultVisionosSdkVersion,
+        String starlarkDefaultWatchosSdkVersion,
+        String starlarkDefaultTvosSdkVersion,
+        String starlarkDefaultMacosSdkVersion,
+        StarlarkThread thread)
+        throws EvalException {
+      return new XcodeVersionProperties(
+          DottedVersion.fromStringUnchecked(starlarkVersion),
+          starlarkDefaultIosSdkVersion,
+          starlarkDefaultVisionosSdkVersion,
+          starlarkDefaultWatchosSdkVersion,
+          starlarkDefaultTvosSdkVersion,
+          starlarkDefaultMacosSdkVersion);
+    }
   }
 }

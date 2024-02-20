@@ -15,62 +15,47 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
- * A tuple containing the information in a single target of the {@code xcode_version} rule.
- * A single target of this rule contains an official version label decided by Apple, a number
- * of supported aliases one might use to reference this version, and various properties of
- * the xcode version (such as default SDK versions).
+ * A tuple containing the information in a single target of the {@code xcode_version} rule. A single
+ * target of this rule contains an official version label decided by Apple, a number of supported
+ * aliases one might use to reference this version, and various properties of the xcode version
+ * (such as default SDK versions).
  *
- * <p>For example, one may want to reference official xcode version 7.0.1 using the "7" or
- * "7.0" aliases. This official version of xcode may have a default supported iOS SDK of
- * 9.0.
+ * <p>For example, one may want to reference official xcode version 7.0.1 using the "7" or "7.0"
+ * aliases. This official version of xcode may have a default supported iOS SDK of 9.0.
  */
 @Immutable
-public class XcodeVersionRuleData implements TransitiveInfoProvider {
+public class XcodeVersionRuleData extends NativeInfo {
+  private static final String NAME = "XcodeVersionRuleData";
 
   private final Label label;
-  private final DottedVersion version;
   private final XcodeVersionProperties xcodeVersionProperties;
   private final ImmutableList<String> aliases;
+  public static final Provider PROVIDER = new Provider();
 
-  XcodeVersionRuleData(Label label, Rule rule) {
-    NonconfigurableAttributeMapper attrMapper =
-        NonconfigurableAttributeMapper.of(rule);
-
+  XcodeVersionRuleData(
+      Label label, XcodeVersionProperties xcodeVersionProperties, List<String> aliases) {
     this.label = label;
-    DottedVersion xcodeVersion =
-        DottedVersion.fromStringUnchecked(
-            attrMapper.get(XcodeVersionRule.VERSION_ATTR_NAME, Type.STRING));
-    String iosSdkVersionString =
-        attrMapper.get(XcodeVersionRule.DEFAULT_IOS_SDK_VERSION_ATTR_NAME, Type.STRING);
-    String visionosSdkVersionString =
-        attrMapper.get(XcodeVersionRule.DEFAULT_VISIONOS_SDK_VERSION_ATTR_NAME, Type.STRING);
-    String watchosSdkVersionString =
-        attrMapper.get(XcodeVersionRule.DEFAULT_WATCHOS_SDK_VERSION_ATTR_NAME, Type.STRING);
-    String tvosSdkVersionString =
-        attrMapper.get(XcodeVersionRule.DEFAULT_TVOS_SDK_VERSION_ATTR_NAME, Type.STRING);
-    String macosxSdkVersionString =
-        attrMapper.get(XcodeVersionRule.DEFAULT_MACOS_SDK_VERSION_ATTR_NAME, Type.STRING);
-    this.version = xcodeVersion;
-    this.xcodeVersionProperties =
-        new XcodeVersionProperties(
-            xcodeVersion,
-            iosSdkVersionString,
-            visionosSdkVersionString,
-            watchosSdkVersionString,
-            tvosSdkVersionString,
-            macosxSdkVersionString);
-    this.aliases = ImmutableList.copyOf(
-        attrMapper.get(XcodeVersionRule.ALIASES_ATTR_NAME, Type.STRING_LIST));
+    this.xcodeVersionProperties = xcodeVersionProperties;
+    this.aliases = ImmutableList.copyOf(aliases);
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /**
@@ -84,7 +69,7 @@ public class XcodeVersionRuleData implements TransitiveInfoProvider {
    * Returns the official xcode version the owning {@code xcode_version} target is referencing.
    */
   public DottedVersion getVersion() {
-    return version;
+    return xcodeVersionProperties.getXcodeVersion().get();
   }
 
   /**
@@ -110,7 +95,7 @@ public class XcodeVersionRuleData implements TransitiveInfoProvider {
       return false;
     }
     XcodeVersionRuleData otherData = (XcodeVersionRuleData) other;
-    return (version.equals(otherData.getVersion())
+    return (getVersion().equals(otherData.getVersion())
         && xcodeVersionProperties
             .getXcodeVersion()
             .equals(otherData.getXcodeVersionProperties().getXcodeVersion())
@@ -133,6 +118,34 @@ public class XcodeVersionRuleData implements TransitiveInfoProvider {
 
   @Override
   public int hashCode() {
-    return Objects.hash(version, xcodeVersionProperties);
+    return Objects.hash(getVersion(), xcodeVersionProperties);
+  }
+
+  /** Provider class for {@link XcodeVersionRuleData} objects. */
+  public static class Provider extends BuiltinProvider<XcodeVersionRuleData>
+      implements XcodeVersionProviderApi<Artifact> {
+    private Provider() {
+      super(XcodeVersionRuleData.NAME, XcodeVersionRuleData.class);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public XcodeVersionRuleData createInfo(
+        Object starlarkLabel,
+        Object starlarkXcodeProperties,
+        Object starlarkAliases,
+        StarlarkThread thread)
+        throws EvalException {
+      Sequence<String> aliases = nullIfNone(starlarkAliases, Sequence.class);
+      return new XcodeVersionRuleData(
+          nullIfNone(starlarkLabel, Label.class),
+          nullIfNone(starlarkXcodeProperties, XcodeVersionProperties.class),
+          Sequence.cast(aliases, String.class, "aliases"));
+    }
+
+    @Nullable
+    private static <T> T nullIfNone(Object object, Class<T> type) {
+      return object != Starlark.NONE ? type.cast(object) : null;
+    }
   }
 }

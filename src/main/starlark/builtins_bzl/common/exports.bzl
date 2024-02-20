@@ -25,6 +25,7 @@ load("@_builtins//:common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryH
 load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
 load("@_builtins//:common/cc/cc_toolchain.bzl", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
+load("@_builtins//:common/cc/xcode_version.bzl", "xcode_version")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
@@ -93,6 +94,7 @@ exported_rules = {
     "fdo_profile": fdo_profile,
     "memprof_profile": memprof_profile,
     "propeller_optimize": propeller_optimize,
+    "xcode_version": xcode_version,
 }
 
 # A list of Starlark functions callable from native rules implementation.

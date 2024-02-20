@@ -102,8 +102,7 @@ public final class XcodeVersionTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget nativeTarget = getConfiguredTarget("//examples/apple:my_xcode");
-    XcodeVersionProperties xcodeProperties =
-        nativeTarget.get(XcodeVersionProperties.STARLARK_CONSTRUCTOR);
+    XcodeVersionProperties xcodeProperties = nativeTarget.get(XcodeVersionProperties.PROVIDER);
     assertThat(xcodeProperties.getXcodeVersion().get().toString()).isEqualTo("8");
     assertThat(xcodeProperties.getDefaultIosSdkVersion().toString()).isEqualTo("9.0");
     assertThat(xcodeProperties.getDefaultWatchosSdkVersion().toString()).isEqualTo("9.1");

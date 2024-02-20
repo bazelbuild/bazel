@@ -91,7 +91,7 @@ public class AppleStarlarkCommon
 
   @Override
   public Provider getXcodeVersionPropertiesConstructor() {
-    return XcodeVersionProperties.STARLARK_CONSTRUCTOR;
+    return XcodeVersionProperties.PROVIDER;
   }
 
   @Override

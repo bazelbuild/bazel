@@ -33,12 +33,10 @@ public class AvailableXcodes implements RuleConfiguredTargetFactory {
 
     Iterable<XcodeVersionRuleData> availableVersions =
         ruleContext.getPrerequisites(
-            AvailableXcodesRule.VERSIONS_ATTR_NAME,
-            XcodeVersionRuleData.class);
+            AvailableXcodesRule.VERSIONS_ATTR_NAME, XcodeVersionRuleData.PROVIDER);
     XcodeVersionRuleData defaultVersion =
         ruleContext.getPrerequisite(
-            AvailableXcodesRule.DEFAULT_ATTR_NAME,
-            XcodeVersionRuleData.class);
+            AvailableXcodesRule.DEFAULT_ATTR_NAME, XcodeVersionRuleData.PROVIDER);
     AvailableXcodesInfo availableXcodes =
         new AvailableXcodesInfo(availableVersions, defaultVersion);
 
