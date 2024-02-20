@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "623f08c8c353f74d1ec41fc159d1e53d1f707b7dd5e77e97a6136bc6ed93fc85",
+  "moduleFileHash": "272b36d693f86e4c098d47e8753f8a73ec21d3d6fa3e4ee1a0cd2a74c1906342",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -2368,7 +2368,7 @@
         "bzlTransitiveDigest": "UXZtr8nHbEem6fD0J7z9WRC+UZoj0oBDELpiGC8Ldqg=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "2752af68cac5408918d138220bd3b8de1048117eabec83aa75c670d841cc1e34",
-          "@@//:MODULE.bazel": "623f08c8c353f74d1ec41fc159d1e53d1f707b7dd5e77e97a6136bc6ed93fc85"
+          "@@//:MODULE.bazel": "272b36d693f86e4c098d47e8753f8a73ec21d3d6fa3e4ee1a0cd2a74c1906342"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -8805,7 +8805,7 @@
         ]
       },
       "os:osx,arch:x86_64": {
-        "bzlTransitiveDigest": "a5tzIU8ui/JG1+hfqKNsm5DwhtSJ92Ik6fDbVsH+DLo=",
+        "bzlTransitiveDigest": "E9m/UFADncm3CKBrsnAfkVQxBz0IsqZ8jnkRQr/RO40=",
         "accumulatedFileDigests": {
           "@@//:requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
@@ -8865,7 +8865,7 @@
           [
             "rules_python~0.26.0",
             "bazel_skylib",
-            "bazel_skylib~1.4.1"
+            "bazel_skylib~1.5.0"
           ],
           [
             "rules_python~0.26.0",
