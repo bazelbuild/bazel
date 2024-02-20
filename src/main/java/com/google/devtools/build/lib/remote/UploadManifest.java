@@ -240,7 +240,7 @@ public class UploadManifest {
         continue;
       }
       if (statNoFollow.isFile() && !statNoFollow.isSpecialFile()) {
-        Digest digest = digestUtil.compute(file, statNoFollow.getSize());
+        Digest digest = digestUtil.compute(file, statNoFollow);
         addFile(digest, file);
         continue;
       }
@@ -264,7 +264,7 @@ public class UploadManifest {
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
           if (followSymlinks || target.isAbsolute()) {
             // Symlink to file uploaded as a file.
-            addFile(digestUtil.compute(file), file);
+            addFile(digestUtil.compute(file, statFollow), file);
           } else {
             // Symlink to file uploaded as a symlink.
             if (target.isAbsolute()) {
