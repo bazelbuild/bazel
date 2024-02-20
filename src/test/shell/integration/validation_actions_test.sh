@@ -569,6 +569,55 @@ EOF
   expect_log "aspect validation failed!"
 }
 
+function test_skip_validation_action_fails_without_allowlist() {
+  setup_test_project
+  setup_passing_validation_action
+  mkdir -p skip_validations
+  cat > skip_validations/defs.bzl <<'EOF'
+def _rule_with_attrs_that_skips_validation_impl(ctx):
+    return []
+
+rule_with_attrs_that_skips_validation = rule(
+    implementation = _rule_with_attrs_that_skips_validation_impl,
+    attrs = {
+        "skip_validations_label": attr.label(skip_validations = True),
+        "skip_validations_label_list": attr.label_list(skip_validations = True),
+    },
+)
+EOF
+  cat > skip_validations/BUILD <<'EOF'
+load( ":defs.bzl", "rule_with_attrs_that_skips_validation" )
+
+rule_with_attrs_that_skips_validation(
+    name = "target_with_attr_that_skips_validation",
+    skip_validations_label = "//validation_actions:foo0",
+    skip_validations_label_list =  ["//validation_actions:foo1"],
+)
+EOF
+
+  mkdir -p tools/allowlists/skip_validations_allowlist
+  cat > tools/allowlists/skip_validations_allowlist/BUILD <<'EOF'
+package_group(
+    name = "skip_validations_allowlist",
+    packages = [],
+)
+EOF
+
+  bazel build //skip_validations:target_with_attr_that_skips_validation \
+    >& $TEST_log && fail "Expected build to fail without allowlist"
+  expect_log "Non-allowlisted use of skip_validations"
+
+  cat > tools/allowlists/skip_validations_allowlist/BUILD <<'EOF'
+package_group(
+    name = "skip_validations_allowlist",
+    packages = ["//skip_validations/..."],
+)
+EOF
+
+  bazel build //skip_validations:target_with_attr_that_skips_validation || \
+    fail "Expected build to succeed"
+}
+
 function test_skip_validation_action_with_attribute_flag() {
   setup_test_project
   setup_passing_validation_action
@@ -596,6 +645,14 @@ rule_with_attrs_that_skips_validation(
     run_validations_label_list = ["//validation_actions:foo1"],
     skip_validations_label = "//validation_actions:foo2",
     skip_validations_label_list =  ["//validation_actions:foo3"],
+)
+EOF
+
+  mkdir -p tools/allowlists/skip_validations_allowlist
+  cat > tools/allowlists/skip_validations_allowlist/BUILD <<'EOF'
+package_group(
+    name = "skip_validations_allowlist",
+    packages = ["//skip_validations/..."],
 )
 EOF
 

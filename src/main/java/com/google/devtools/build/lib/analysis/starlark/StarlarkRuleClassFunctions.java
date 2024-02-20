@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
+import com.google.devtools.build.lib.packages.AllowlistChecker.LocationCheck;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -574,6 +575,22 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       StarlarkAttrModule.Descriptor descriptor = attribute.getSecond();
 
       Attribute attr = descriptor.build(name);
+
+      if (attr.skipValidations()) {
+        // This is mitigation for internal Blaze builds, and not planned to be a Bazel feature,
+        // and therefore has no extendable allowlists.
+        if (!builder.contains("$allowlist_skip_validations")) {
+          Attribute.Builder<Label> allowlistAttr =
+              attr("$allowlist_skip_validations", LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+                  .value(
+                      Label.parseCanonicalUnchecked(
+                          "//tools/allowlists/skip_validations_allowlist"));
+          builder.add(allowlistAttr);
+          builder.addAllowlistChecker(SKIP_VALIDATIONS_ALLOWLIST_CHECKER);
+        }
+      }
 
       hasStarlarkDefinedTransition |= attr.hasStarlarkDefinedTransition();
       if (attr.hasAnalysisTestTransition()) {
@@ -1420,6 +1437,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           .setAllowlistAttr("extend_rule")
           .setErrorMessage("Non-allowlisted attempt to extend a rule.")
           .setLocationCheck(AllowlistChecker.LocationCheck.DEFINITION)
+          .build();
+
+  @SerializationConstant
+  static final AllowlistChecker SKIP_VALIDATIONS_ALLOWLIST_CHECKER =
+      AllowlistChecker.builder()
+          .setAllowlistAttr("skip_validations")
+          .setErrorMessage("Non-allowlisted use of skip_validations")
+          .setLocationCheck(LocationCheck.DEFINITION)
           .build();
 
   @Override
