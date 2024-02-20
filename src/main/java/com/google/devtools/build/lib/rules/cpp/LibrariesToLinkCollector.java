@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -39,6 +38,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** Class that goes over linker inputs and produces {@link LibraryToLinkValue}s */
 public class LibrariesToLinkCollector {
@@ -58,7 +58,6 @@ public class LibrariesToLinkCollector {
   private final FeatureConfiguration featureConfiguration;
   private final boolean needWholeArchive;
   private final boolean needToolchainLibrariesRpath;
-  private final RuleErrorConsumer ruleErrorConsumer;
   private final Artifact output;
   private final String workspaceName;
   private final Artifact dynamicLibrarySolibSymlinkOutput;
@@ -78,7 +77,6 @@ public class LibrariesToLinkCollector {
       boolean allowLtoIndexing,
       Iterable<LinkerInput> linkerInputs,
       boolean needWholeArchive,
-      RuleErrorConsumer ruleErrorConsumer,
       String workspaceName,
       Artifact dynamicLibrarySolibSymlinkOutput) {
     this.isNativeDeps = isNativeDeps;
@@ -92,7 +90,6 @@ public class LibrariesToLinkCollector {
     this.allowLtoIndexing = allowLtoIndexing;
     this.linkerInputs = linkerInputs;
     this.needWholeArchive = needWholeArchive;
-    this.ruleErrorConsumer = ruleErrorConsumer;
     this.output = output;
     this.workspaceName = workspaceName;
     this.dynamicLibrarySolibSymlinkOutput = dynamicLibrarySolibSymlinkOutput;
@@ -497,12 +494,11 @@ public class LibrariesToLinkCollector {
         if (previousLibDir == null) {
           linkedLibrariesPaths.put(libraryIdentifier, originalLibDir);
         } else if (!previousLibDir.equals(originalLibDir)) {
-          ruleErrorConsumer.ruleError(
-              String.format(
-                  "You are trying to link the same dynamic library %s built in a different"
-                      + " configuration. Previously registered instance had path %s, current one"
-                      + " has path %s",
-                  libraryIdentifier, previousLibDir, originalLibDir));
+          throw Starlark.errorf(
+              "You are trying to link the same dynamic library %s built in a different"
+                  + " configuration. Previously registered instance had path %s, current one"
+                  + " has path %s",
+              libraryIdentifier, previousLibDir, originalLibDir);
         }
 
         PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();

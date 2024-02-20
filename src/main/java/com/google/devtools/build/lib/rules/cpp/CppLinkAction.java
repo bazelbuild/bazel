@@ -38,13 +38,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Action that represents a linking step. */
 @ThreadCompatible
@@ -156,7 +156,7 @@ public final class CppLinkAction extends SpawnAction {
       ActionEnvironment env,
       ImmutableMap<String, String> toolchainEnv,
       ImmutableMap<String, String> executionRequirements)
-      throws RuleErrorException {
+      throws EvalException {
     super(
         owner,
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),

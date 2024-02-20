@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -551,23 +550,20 @@ public class CcToolchainTest extends BuildViewTestCase {
     useConfiguration("--cpu=k8");
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    RuleContext ruleContext = getRuleContext(target);
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
     assertThat(
             CcToolchainProvider.getToolPathString(
                 toolchainProvider.getToolPaths(),
                 Tool.AR,
                 toolchainProvider.getCcToolchainLabel(),
-                toolchainProvider.getToolchainIdentifier(),
-                ruleContext))
+                toolchainProvider.getToolchainIdentifier()))
         .isEqualTo("/absolute/path");
     assertThat(
             CcToolchainProvider.getToolPathString(
                 toolchainProvider.getToolPaths(),
                 Tool.CPP,
                 toolchainProvider.getCcToolchainLabel(),
-                toolchainProvider.getToolchainIdentifier(),
-                ruleContext))
+                toolchainProvider.getToolchainIdentifier()))
         .isEqualTo("a/relative/path");
   }
 

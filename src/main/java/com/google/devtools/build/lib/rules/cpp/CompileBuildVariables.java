@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -137,7 +136,6 @@ public enum CompileBuildVariables {
   }
 
   public static CcToolchainVariables setupVariablesOrReportRuleError(
-      RuleErrorConsumer ruleErrorConsumer,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
       String sourceFile,
@@ -162,45 +160,40 @@ public enum CompileBuildVariables {
       NestedSet<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
       Iterable<String> localDefines)
-      throws InterruptedException {
-    try {
-      if (usePic
-          && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
-          && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
-        throw new EvalException(CcCommon.PIC_CONFIGURATION_ERROR);
-      }
-      return setupVariables(
-          featureConfiguration,
-          ccToolchainProvider.getBuildVars(),
-          sourceFile,
-          outputFile,
-          gcnoFile,
-          isUsingFission,
-          dwoFile,
-          ltoIndexingFile,
-          /* thinLtoIndex= */ null,
-          /* thinLtoInputBitcodeFile= */ null,
-          /* thinLtoOutputObjectFile= */ null,
-          includes,
-          userCompileFlags,
-          cppModuleMap,
-          usePic,
-          fdoStamp,
-          dotdFileExecPath,
-          diagnosticsFileExecPath,
-          variablesExtensions,
-          additionalBuildVariables,
-          directModuleMaps,
-          getSafePathStrings(includeDirs),
-          getSafePathStrings(quoteIncludeDirs),
-          getSafePathStrings(systemIncludeDirs),
-          getSafePathStrings(frameworkIncludeDirs),
-          defines,
-          localDefines);
-    } catch (EvalException e) {
-      ruleErrorConsumer.ruleError(e.getMessage());
-      return CcToolchainVariables.EMPTY;
+      throws EvalException {
+    if (usePic
+        && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
+        && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
+      throw new EvalException(CcCommon.PIC_CONFIGURATION_ERROR);
     }
+    return setupVariables(
+        featureConfiguration,
+        ccToolchainProvider.getBuildVars(),
+        sourceFile,
+        outputFile,
+        gcnoFile,
+        isUsingFission,
+        dwoFile,
+        ltoIndexingFile,
+        /* thinLtoIndex= */ null,
+        /* thinLtoInputBitcodeFile= */ null,
+        /* thinLtoOutputObjectFile= */ null,
+        includes,
+        userCompileFlags,
+        cppModuleMap,
+        usePic,
+        fdoStamp,
+        dotdFileExecPath,
+        diagnosticsFileExecPath,
+        variablesExtensions,
+        additionalBuildVariables,
+        directModuleMaps,
+        getSafePathStrings(includeDirs),
+        getSafePathStrings(quoteIncludeDirs),
+        getSafePathStrings(systemIncludeDirs),
+        getSafePathStrings(frameworkIncludeDirs),
+        defines,
+        localDefines);
   }
 
   public static CcToolchainVariables setupVariablesOrThrowEvalException(
@@ -231,7 +224,7 @@ public enum CompileBuildVariables {
       NestedSet<String> frameworkIncludeDirs,
       Iterable<String> defines,
       Iterable<String> localDefines)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     if (usePic
         && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
         && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {

@@ -1013,7 +1013,6 @@ public abstract class CcModule
     LtoBackendArtifacts ltoBackendArtifacts;
     ltoBackendArtifacts =
         new LtoBackendArtifacts(
-            ruleContext,
             ltoOutputRootPrefix,
             ltoObjRootPrefix,
             bitcodeFile,
@@ -1956,7 +1955,6 @@ public abstract class CcModule
         Sequence.cast(linkingContextsObjects, CcLinkingContext.class, "linking_contexts");
     CcLinkingHelper helper =
         new CcLinkingHelper(
-                actions.getActionConstructionContext().getRuleErrorConsumer(),
                 label,
                 actions.asActionRegistry(actions),
                 actions.getActionConstructionContext(),
@@ -2733,7 +2731,6 @@ public abstract class CcModule
     ImmutableList<Artifact> linkerOutputs = asClassImmutableList(linkerOutputsObject);
     CcLinkingHelper helper =
         new CcLinkingHelper(
-                actions.getActionConstructionContext().getRuleErrorConsumer(),
                 label,
                 actions.asActionRegistry(actions),
                 actions.getActionConstructionContext(),
@@ -2914,7 +2911,6 @@ public abstract class CcModule
         .getActionConstructionContext()
         .registerAction(
             CppLinkstampCompileHelper.createLinkstampCompileAction(
-                ruleContext,
                 ruleContext,
                 ruleContext.getConfiguration(),
                 sourceFile,

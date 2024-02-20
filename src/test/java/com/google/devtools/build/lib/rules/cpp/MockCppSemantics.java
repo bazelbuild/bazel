@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -53,8 +52,7 @@ public final class MockCppSemantics implements CppSemantics {
   public void finalizeCompileActionBuilder(
       BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder,
-      RuleErrorConsumer ruleErrorConsumer) {}
+      CppCompileActionBuilder actionBuilder) {}
 
   @Override
   public boolean allowIncludeScanning() {

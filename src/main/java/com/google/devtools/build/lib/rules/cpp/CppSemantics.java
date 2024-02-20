@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import net.starlark.java.eval.EvalException;
@@ -46,9 +44,8 @@ public interface CppSemantics extends StarlarkValue {
   void finalizeCompileActionBuilder(
       BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder,
-      RuleErrorConsumer ruleErrorConsumer)
-      throws RuleErrorException;
+      CppCompileActionBuilder actionBuilder)
+      throws EvalException;
 
   /**
    * Returns if include scanning is allowed.

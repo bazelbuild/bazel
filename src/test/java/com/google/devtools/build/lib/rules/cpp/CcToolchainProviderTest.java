@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -166,7 +165,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//toolchain");
-    RuleContext ruleContext = getRuleContext(target);
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
     assertThat(
@@ -174,8 +172,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 toolchainProvider.getToolPaths(),
                 CppConfiguration.Tool.CPP,
                 toolchainProvider.getCcToolchainLabel(),
-                toolchainProvider.getToolchainIdentifier(),
-                ruleContext))
+                toolchainProvider.getToolchainIdentifier()))
         .isEqualTo("toolchain/some/cpp");
   }
 

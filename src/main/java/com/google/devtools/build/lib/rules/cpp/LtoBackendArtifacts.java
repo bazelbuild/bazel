@@ -24,12 +24,10 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -41,6 +39,7 @@ import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -88,7 +87,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
    * optimization, by not generating import and index files.
    */
   LtoBackendArtifacts(
-      RuleErrorConsumer ruleErrorConsumer,
       PathFragment ltoOutputRootPrefix,
       PathFragment ltoObjRootPrefix,
       Artifact bitcodeFile,
@@ -103,7 +101,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       boolean usePic,
       boolean generateDwo,
       List<String> userCompileFlags)
-      throws RuleErrorException, InterruptedException {
+      throws EvalException, InterruptedException {
     boolean createSharedNonLto = allBitcodeFiles == null;
     this.bitcodeFile = bitcodeFile;
     PathFragment obj = ltoObjRootPrefix.getRelative(bitcodeFile.getExecPath());
@@ -115,11 +113,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
 
     CcToolchainVariables ccToolchainVariables;
 
-    try {
-      ccToolchainVariables = ccToolchain.getBuildVars();
-    } catch (EvalException e) {
-      throw new RuleErrorException(e.getMessage());
-    }
+    ccToolchainVariables = ccToolchain.getBuildVars();
 
     CcToolchainVariables.Builder buildVariablesBuilder =
         CcToolchainVariables.builder(ccToolchainVariables);
@@ -130,8 +124,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         ccToolchain,
         fdoContext,
         featureConfiguration,
-        userCompileFlags,
-        ruleErrorConsumer);
+        userCompileFlags);
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
     if (bitcodeFile.isTreeArtifact()) {
       objectFile =
@@ -247,45 +240,39 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
-      List<String> userCompileFlags,
-      RuleErrorConsumer ruleErrorConsumer)
-      throws RuleErrorException {
-    try {
-      builder.addTransitiveInputs(ccToolchain.getCompilerFiles());
-      builder.setMnemonic("CcLtoBackendCompile");
-      addProfileForLtoBackend(builder, fdoContext, featureConfiguration, buildVariablesBuilder);
-      // Add the context sensitive instrument path to the backend.
-      if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
-        buildVariablesBuilder.addStringVariable(
-            CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(),
-            ccToolchain.getCSFdoInstrument());
-      }
-      buildVariablesBuilder.addStringSequenceVariable(
-          CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
+      List<String> userCompileFlags)
+      throws EvalException {
+    builder.addTransitiveInputs(ccToolchain.getCompilerFiles());
+    builder.setMnemonic("CcLtoBackendCompile");
+    addProfileForLtoBackend(builder, fdoContext, featureConfiguration, buildVariablesBuilder);
+    // Add the context sensitive instrument path to the backend.
+    if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
+      buildVariablesBuilder.addStringVariable(
+          CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(),
+          ccToolchain.getCSFdoInstrument());
+    }
+    buildVariablesBuilder.addStringSequenceVariable(
+        CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
-      if (ccToolchain.getCppConfiguration().useStandaloneLtoIndexingCommandLines()) {
-        if (!featureConfiguration.actionIsConfigured(CppActionNames.LTO_BACKEND)) {
-          throw ruleErrorConsumer.throwWithRuleError(
-              "Thinlto build is requested, but the C++ toolchain doesn't define an action_config"
-                  + " for 'lto-backend' action.");
-        }
-        PathFragment compiler =
-            PathFragment.create(
-                featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
-        builder.setExecutable(compiler);
-      } else {
+    if (ccToolchain.getCppConfiguration().useStandaloneLtoIndexingCommandLines()) {
+      if (!featureConfiguration.actionIsConfigured(CppActionNames.LTO_BACKEND)) {
+        throw Starlark.errorf(
+            "Thinlto build is requested, but the C++ toolchain doesn't define an action_config"
+                + " for 'lto-backend' action.");
+      }
+      PathFragment compiler =
+          PathFragment.create(
+              featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
+      builder.setExecutable(compiler);
+    } else {
       PathFragment compiler =
           PathFragment.create(
               CcToolchainProvider.getToolPathString(
                   ccToolchain.getToolPaths(),
                   Tool.GCC,
                   ccToolchain.getCcToolchainLabel(),
-                  ccToolchain.getToolchainIdentifier(),
-                  ruleErrorConsumer));
-        builder.setExecutable(compiler);
-      }
-    } catch (EvalException e) {
-      throw new RuleErrorException(e.getMessage());
+                  ccToolchain.getToolchainIdentifier()));
+      builder.setExecutable(compiler);
     }
   }
 

@@ -35,11 +35,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -47,9 +45,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -233,25 +229,6 @@ public class CppHelper {
         name, config.getBinDirectory(label.getRepository()));
   }
 
-  /**
-   * Emits a warning on the rule if there are identical linkstamp artifacts with different {@code
-   * CcCompilationContext}s.
-   */
-  public static void checkLinkstampsUnique(
-      RuleErrorConsumer listener, Iterable<Linkstamp> linkstamps) {
-    Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();
-    for (Linkstamp pair : linkstamps) {
-      Artifact artifact = pair.getArtifact();
-      if (result.containsKey(artifact)) {
-        listener.ruleWarning(
-            "rule inherits the '"
-                + artifact.toDetailString()
-                + "' linkstamp file from more than one cc_library rule");
-      }
-      result.put(artifact, pair.getDeclaredIncludeSrcs());
-    }
-  }
-
   // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in
   // CcCommonConfiguredTarget.noCoptsMatches().
 
@@ -304,15 +281,12 @@ public class CppHelper {
   }
 
   public static ImmutableMap<String, String> getEnvironmentVariables(
-      RuleErrorConsumer ruleErrorConsumer,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainVariables variables,
-      String actionName)
-      throws RuleErrorException {
+      FeatureConfiguration featureConfiguration, CcToolchainVariables variables, String actionName)
+      throws EvalException {
     try {
       return featureConfiguration.getEnvironmentVariables(actionName, variables);
     } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e);
+      throw new EvalException(e);
     }
   }
 

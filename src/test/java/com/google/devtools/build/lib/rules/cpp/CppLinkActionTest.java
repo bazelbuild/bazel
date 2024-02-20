@@ -454,7 +454,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
               CppLinkActionBuilder builder =
                   new CppLinkActionBuilder(
                       ruleContext,
-                      ruleContext,
                       ruleContext.getLabel(),
                       attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
                           ? staticOutputFile
@@ -497,7 +496,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
             ruleContext,
-            ruleContext,
             ruleContext.getLabel(),
             output,
             ruleContext.getConfiguration(),
@@ -534,7 +532,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
             ruleContext,
-            ruleContext,
             ruleContext.getLabel(),
             output,
             ruleContext.getConfiguration(),
@@ -567,7 +564,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .getFeatureConfiguration(ImmutableSet.of());
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
-            ruleContext,
             ruleContext,
             ruleContext.getLabel(),
             output,
@@ -609,7 +605,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
             ruleContext,
-            ruleContext,
             ruleContext.getLabel(),
             output,
             ruleContext.getConfiguration(),
@@ -646,7 +641,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
             ruleContext,
-            ruleContext,
             ruleContext.getLabel(),
             output,
             ruleContext.getConfiguration(),
@@ -679,7 +673,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .getFeatureConfiguration(ImmutableSet.of("archive_param_file"));
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
-            ruleContext,
             ruleContext,
             ruleContext.getLabel(),
             output,
@@ -762,7 +755,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
       throws RuleErrorException, EvalException {
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     return new CppLinkActionBuilder(
-            ruleContext,
             ruleContext,
             ruleContext.getLabel(),
             ActionsTestUtil.createArtifact(ruleContext.getBinDirectory(), outputPath),

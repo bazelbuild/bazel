@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
@@ -184,7 +183,6 @@ public abstract class NativeDepsHelper {
     List<String> linkopts = new ArrayList<>(extraLinkOpts);
     linkopts.addAll(ccLinkingContext.getFlattenedUserLinkFlags());
 
-    CppHelper.checkLinkstampsUnique(ruleContext, ccLinkingContext.getLinkstamps().toList());
     ImmutableSet<Linkstamp> linkstamps = ccLinkingContext.getLinkstamps().toSet();
     try {
       List<Artifact> buildInfoArtifacts =
@@ -249,7 +247,6 @@ public abstract class NativeDepsHelper {
       FdoContext fdoContext = toolchain.getFdoContext();
 
       new CcLinkingHelper(
-              ruleContext,
               ruleContext.getLabel(),
               ruleContext,
               ruleContext,

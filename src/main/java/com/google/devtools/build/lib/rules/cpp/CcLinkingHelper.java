@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -48,6 +47,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * A class to create C/C++ link actions in a way that is consistent with cc_library. Rules that
@@ -123,7 +123,6 @@ public final class CcLinkingHelper {
   private final ActionConstructionContext actionConstructionContext;
   private final Label label;
   private final ActionRegistry actionRegistry;
-  private final RuleErrorConsumer ruleErrorConsumer;
   private final SymbolGenerator<?> symbolGenerator;
   private final ImmutableMap<String, String> executionInfo;
 
@@ -133,7 +132,6 @@ public final class CcLinkingHelper {
   /**
    * Creates a CcLinkingHelper that outputs artifacts in a given configuration.
    *
-   * @param ruleErrorConsumer the RuleErrorConsumer
    * @param label the Label of the rule being built
    * @param actionRegistry the ActionRegistry of the rule being built
    * @param actionConstructionContext the ActionConstructionContext of the rule being built
@@ -145,7 +143,6 @@ public final class CcLinkingHelper {
    * @param executionInfo the execution info data associated with a rule
    */
   public CcLinkingHelper(
-      RuleErrorConsumer ruleErrorConsumer,
       Label label,
       ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
@@ -161,7 +158,6 @@ public final class CcLinkingHelper {
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
     this.configuration = Preconditions.checkNotNull(configuration);
-    this.ruleErrorConsumer = ruleErrorConsumer;
     this.label = label;
     this.actionRegistry = actionRegistry;
     this.actionConstructionContext = actionConstructionContext;
@@ -478,9 +474,8 @@ public final class CcLinkingHelper {
     if (shouldCreateStaticLibraries
         && featureConfiguration.isEnabled(CppRuleClasses.DISABLE_WHOLE_ARCHIVE_FOR_STATIC_LIB)
         && (staticLinkType == LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY)) {
-      ruleErrorConsumer.throwWithAttributeError(
-          "alwayslink",
-          "alwayslink should not be True for a target with the"
+      throw Starlark.errorf(
+          "Attribute alwayslink: alwayslink should not be True for a target with the"
               + " disable_whole_archive_for_static_lib feature enabled.");
     }
 
@@ -773,8 +768,7 @@ public final class CcLinkingHelper {
           libraries,
           ccLinkingContext.getFlattenedUserLinkFlags(),
           linkstamps,
-          ccLinkingContext.getNonCodeInputs().toList(),
-          ruleErrorConsumer);
+          ccLinkingContext.getNonCodeInputs().toList());
     }
 
     if (pdbFile != null) {
@@ -795,7 +789,7 @@ public final class CcLinkingHelper {
           actionConstructionContext.registerAction(indexAction);
         }
       } else {
-        ruleErrorConsumer.ruleError(
+        throw Starlark.errorf(
             "When using LTO. The feature "
                 + CppRuleClasses.SUPPORTS_START_END_LIB
                 + " must be enabled.");
@@ -879,7 +873,6 @@ public final class CcLinkingHelper {
     try {
       CppLinkActionBuilder builder =
           new CppLinkActionBuilder(
-                  ruleErrorConsumer,
                   actionConstructionContext,
                   label,
                   outputArtifact,

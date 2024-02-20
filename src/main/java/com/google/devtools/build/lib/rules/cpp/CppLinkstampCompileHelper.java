@@ -21,13 +21,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
@@ -38,7 +36,6 @@ public final class CppLinkstampCompileHelper {
 
   /** Creates {@link CppCompileAction} to compile linkstamp source. */
   public static CppCompileAction createLinkstampCompileAction(
-      RuleErrorConsumer ruleErrorConsumer,
       ActionConstructionContext actionConstructionContext,
       BuildConfigurationValue configuration,
       Artifact sourceFile,
@@ -56,14 +53,13 @@ public final class CppLinkstampCompileHelper {
       String labelReplacement,
       String outputReplacement,
       CppSemantics semantics)
-      throws RuleErrorException, InterruptedException {
+      throws EvalException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
                 actionConstructionContext, ccToolchainProvider, configuration, semantics)
             .addMandatoryInputs(compilationInputs)
             .setVariables(
                 getVariables(
-                    ruleErrorConsumer,
                     sourceFile,
                     outputFile,
                     labelReplacement,
@@ -86,8 +82,7 @@ public final class CppLinkstampCompileHelper {
             .setShouldScanIncludes(false)
             .setActionName(CppActionNames.LINKSTAMP_COMPILE);
 
-    semantics.finalizeCompileActionBuilder(
-        configuration, featureConfiguration, builder, ruleErrorConsumer);
+    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
     return builder.buildOrThrowIllegalStateException();
   }
 
@@ -132,7 +127,6 @@ public final class CppLinkstampCompileHelper {
   }
 
   private static CcToolchainVariables getVariables(
-      RuleErrorConsumer ruleErrorConsumer,
       Artifact sourceFile,
       Artifact outputFile,
       String labelReplacement,
@@ -145,50 +139,45 @@ public final class CppLinkstampCompileHelper {
       String fdoBuildStamp,
       boolean codeCoverageEnabled,
       CppSemantics semantics)
-      throws RuleErrorException, InterruptedException {
+      throws EvalException {
     // TODO(b/34761650): Remove all this hardcoding by separating a full blown compile action.
     Preconditions.checkArgument(
         featureConfiguration.actionIsConfigured(CppActionNames.LINKSTAMP_COMPILE));
-    try {
 
-      return CompileBuildVariables.setupVariablesOrReportRuleError(
-          ruleErrorConsumer,
-          featureConfiguration,
-          ccToolchainProvider,
-          sourceFile.getExecPathString(),
-          outputFile.getExecPathString(),
-          /* gcnoFile= */ null,
-          /* isUsingFission= */ false,
-          /* dwoFile= */ null,
-          /* ltoIndexingFile= */ null,
-          buildInfoHeaderArtifacts.stream()
-              .map(Artifact::getExecPathString)
-              .collect(toImmutableList()),
-          CcCompilationHelper.getCoptsFromOptions(
-              ccToolchainProvider.getCppConfiguration(), semantics, sourceFile.getExecPathString()),
-          /* cppModuleMap= */ null,
-          needsPic,
-          fdoBuildStamp,
-          /* dotdFileExecPath= */ null,
-          /* diagnosticsFileExecPath= */ null,
-          /* variablesExtensions= */ ImmutableList.of(),
-          /* additionalBuildVariables= */ ImmutableMap.of(),
-          /* directModuleMaps= */ ImmutableList.of(),
-          /* includeDirs= */ NestedSetBuilder.create(Order.STABLE_ORDER, PathFragment.create(".")),
-          /* quoteIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* systemIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* frameworkIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          computeAllLinkstampDefines(
-              labelReplacement,
-              outputReplacement,
-              additionalLinkstampDefines,
-              ccToolchainProvider,
-              fdoBuildStamp,
-              codeCoverageEnabled),
-          /* localDefines= */ ImmutableList.of());
-    } catch (EvalException e) {
-      throw new RuleErrorException(e.getMessage());
-    }
+    return CompileBuildVariables.setupVariablesOrReportRuleError(
+        featureConfiguration,
+        ccToolchainProvider,
+        sourceFile.getExecPathString(),
+        outputFile.getExecPathString(),
+        /* gcnoFile= */ null,
+        /* isUsingFission= */ false,
+        /* dwoFile= */ null,
+        /* ltoIndexingFile= */ null,
+        buildInfoHeaderArtifacts.stream()
+            .map(Artifact::getExecPathString)
+            .collect(toImmutableList()),
+        CcCompilationHelper.getCoptsFromOptions(
+            ccToolchainProvider.getCppConfiguration(), semantics, sourceFile.getExecPathString()),
+        /* cppModuleMap= */ null,
+        needsPic,
+        fdoBuildStamp,
+        /* dotdFileExecPath= */ null,
+        /* diagnosticsFileExecPath= */ null,
+        /* variablesExtensions= */ ImmutableList.of(),
+        /* additionalBuildVariables= */ ImmutableMap.of(),
+        /* directModuleMaps= */ ImmutableList.of(),
+        /* includeDirs= */ NestedSetBuilder.create(Order.STABLE_ORDER, PathFragment.create(".")),
+        /* quoteIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* systemIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* frameworkIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        computeAllLinkstampDefines(
+            labelReplacement,
+            outputReplacement,
+            additionalLinkstampDefines,
+            ccToolchainProvider,
+            fdoBuildStamp,
+            codeCoverageEnabled),
+        /* localDefines= */ ImmutableList.of());
   }
 
   private CppLinkstampCompileHelper() {}
