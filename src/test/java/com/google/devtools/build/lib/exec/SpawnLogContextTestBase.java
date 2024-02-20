@@ -167,6 +167,47 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
+  public void testFileInputWithDirectoryContents(
+      @TestParameter InputsMode inputsMode, @TestParameter DirContents dirContents)
+      throws Exception {
+    Artifact fileInput = ActionsTestUtil.createArtifact(rootDir, "file");
+
+    fileInput.getPath().createDirectoryAndParents();
+    if (!dirContents.isEmpty()) {
+      writeFile(fileInput.getPath().getChild("file"), "abc");
+    }
+
+    SpawnBuilder spawn = defaultSpawnBuilder().withInputs(fileInput);
+    if (inputsMode.isTool()) {
+      spawn.withTools(fileInput);
+    }
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn.build(),
+        createInputMetadataProvider(fileInput),
+        createInputMap(fileInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addAllInputs(
+                dirContents.isEmpty()
+                    ? ImmutableList.of()
+                    : ImmutableList.of(
+                        File.newBuilder()
+                            .setPath("file/file")
+                            .setDigest(getDigest("abc"))
+                            .setIsTool(inputsMode.isTool())
+                            .build()))
+            .build());
+  }
+
+  @Test
   public void testDirectoryInput(
       @TestParameter InputsMode inputsMode, @TestParameter DirContents dirContents)
       throws Exception {
@@ -465,11 +506,12 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testFileOutputWithInvalidType(@TestParameter OutputsMode outputsMode)
+  public void testFileOutputWithDirectoryContents(@TestParameter OutputsMode outputsMode)
       throws Exception {
     Artifact fileOutput = ActionsTestUtil.createArtifact(outputDir, "file");
 
     fileOutput.getPath().createDirectoryAndParents();
+    writeFile(fileOutput.getPath().getChild("file"), "abc");
 
     SpawnBuilder spawn = defaultSpawnBuilder().withOutputs(fileOutput);
 
@@ -483,7 +525,13 @@ public abstract class SpawnLogContextTestBase {
         defaultTimeout(),
         defaultSpawnResult());
 
-    closeAndAssertLog(context, defaultSpawnExecBuilder().addListedOutputs("out/file").build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addListedOutputs("out/file")
+            .addActualOutputs(
+                File.newBuilder().setPath("out/file/file").setDigest(getDigest("abc")))
+            .build());
   }
 
   @Test
