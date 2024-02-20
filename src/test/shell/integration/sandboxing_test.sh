@@ -951,7 +951,7 @@ EOF
   bazel shutdown
 }
 
-function test_runfiles_from_tests_get_reused() {
+function test_runfiles_from_tests_get_reused_and_tmp_clean() {
   mkdir pkg
   touch pkg/file.txt
   cat >pkg/reusing_test.bzl <<'EOF'
@@ -1001,17 +1001,27 @@ reused_runfiles_test(
 EOF
 
   test_output="reuse_test_output.txt"
+  local out_directory
   if is_bazel; then
     bazel coverage --test_output=streamed \
       --experimental_split_coverage_postprocessing=1 \
       --experimental_fetch_all_coverage_outputs //pkg:a > ${test_output} \
       || fail "Expected build to succeed"
+    out_directory="bazel-out"
   else
     bazel test --test_output=streamed //pkg:a > ${test_output} \
       || fail "Expected build to succeed"
+    out_directory="blaze-out"
   fi
   dir_inode_a=$(awk '/The directory inode is/ {print $5}' ${test_output})
   file_inode_a=$(awk '/The file inode is/ {print $5}' ${test_output})
+
+  local output_base="$(bazel info output_base)"
+  local stashed_test_dir="${output_base}/sandbox/sandbox_stash/TestRunner/6/execroot/$WORKSPACE_NAME"
+  [[ -d "${stashed_test_dir}/$out_directory" ]] \
+    || fail "${stashed_test_dir}/$out_directory directory not present"
+  [[ -d "${stashed_test_dir}/_tmp" ]] \
+      && fail "${stashed_test_dir}/_tmp directory is present"
 
   if is_bazel; then
     bazel coverage --test_output=streamed //pkg:b \
