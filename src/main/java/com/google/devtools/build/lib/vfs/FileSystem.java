@@ -618,7 +618,7 @@ public abstract class FileSystem {
    */
   protected abstract Collection<String> getDirectoryEntries(PathFragment path) throws IOException;
 
-  protected static Dirent.Type direntFromStat(FileStatus stat) {
+  protected static Dirent.Type direntFromStat(@Nullable FileStatus stat) {
     if (stat == null) {
       return Dirent.Type.UNKNOWN;
     } else if (stat.isSpecialFile()) {

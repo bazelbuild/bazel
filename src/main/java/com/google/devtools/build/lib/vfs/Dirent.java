@@ -26,7 +26,8 @@ public final class Dirent implements Comparable<Dirent> {
     DIRECTORY,
     // A symlink.
     SYMLINK,
-    // Not one of the above. For example, a special file.
+    // None of the above.
+    // For example, a special file, or a path that could not be resolved while following symlinks.
     UNKNOWN;
   }
 
