@@ -196,6 +196,13 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
+  public String describeKey() {
+    return String.format(
+        "GUID: %s\nmakeExecutable: %s\ntemplate: %s\nsubstitutions: %s\n",
+        GUID, makeExecutable, template.getKey(), substitutions);
+  }
+
+  @Override
   public String getMnemonic() {
     return "TemplateExpand";
   }
