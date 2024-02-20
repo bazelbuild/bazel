@@ -180,6 +180,9 @@ public final class Attribute implements Comparable<Attribute> {
 
     /** Whether this attribute was defined using Starlark's {@code attrs} module. */
     STARLARK_DEFINED,
+
+    /** Whether to run the transitive validation actions from this attribute. */
+    SKIP_VALIDATIONS,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
@@ -1944,6 +1947,10 @@ public final class Attribute implements Comparable<Attribute> {
   /** Returns true if this label type parameter is checked by silent ruleclass filtering. */
   public boolean isSilentRuleClassFilter() {
     return getPropertyFlag(PropertyFlag.SILENT_RULECLASS_FILTER);
+  }
+
+  public boolean skipValidations() {
+    return getPropertyFlag(PropertyFlag.SKIP_VALIDATIONS);
   }
 
   /** Returns true if this label type parameter skips the analysis time filetype check. */

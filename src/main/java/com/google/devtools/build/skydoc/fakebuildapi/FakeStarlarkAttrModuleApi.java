@@ -70,6 +70,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Object allowFiles,
       Object allowSingleFile,
       Boolean mandatory,
+      Boolean skipValidations,
       Sequence<?> providers,
       Object allowRules,
       Object cfg,
@@ -119,6 +120,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Sequence<?> providers,
       Sequence<?> flags,
       Boolean mandatory,
+      Boolean skipValidations,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)

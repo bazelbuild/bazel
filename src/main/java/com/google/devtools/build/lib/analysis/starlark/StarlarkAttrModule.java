@@ -206,6 +206,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       builder.setPropertyFlag("MANDATORY");
     }
 
+    if (containsNonNoneKey(arguments, SKIP_VALIDATIONS_ARG)
+        && (Boolean) arguments.get(SKIP_VALIDATIONS_ARG)) {
+      builder.setPropertyFlag("SKIP_VALIDATIONS");
+    }
+
     if (containsNonNoneKey(arguments, ALLOW_EMPTY_ARG)
         && !(Boolean) arguments.get(ALLOW_EMPTY_ARG)) {
       builder.setPropertyFlag("NON_EMPTY");
@@ -509,6 +514,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Object allowFiles,
       Object allowSingleFile,
       Boolean mandatory,
+      Boolean skipValidations,
       Sequence<?> providers,
       Object allowRules,
       Object cfg,
@@ -542,6 +548,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
                 allowSingleFile,
                 MANDATORY_ARG,
                 mandatory,
+                SKIP_VALIDATIONS_ARG,
+                skipValidations,
                 PROVIDERS_ARG,
                 providers,
                 ALLOW_RULES_ARG,
@@ -597,6 +605,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Sequence<?> providers,
       Sequence<?> flags,
       Boolean mandatory,
+      Boolean skipValidations,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
@@ -621,7 +630,9 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             CONFIGURATION_ARG,
             cfg,
             ASPECTS_ARG,
-            aspects);
+            aspects,
+            SKIP_VALIDATIONS_ARG,
+            skipValidations);
     ImmutableAttributeFactory attribute =
         createAttributeFactory(
             BuildType.LABEL_LIST,

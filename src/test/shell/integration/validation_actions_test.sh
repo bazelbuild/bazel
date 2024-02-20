@@ -115,10 +115,10 @@ load(
     "rule_with_implicit_outs_and_validation",
     "rule_with_implicit_and_host_deps")
 
-rule_with_implicit_outs_and_validation(name = "foo0")
-rule_with_implicit_outs_and_validation(name = "foo1")
-rule_with_implicit_outs_and_validation(name = "foo2")
-rule_with_implicit_outs_and_validation(name = "foo3")
+rule_with_implicit_outs_and_validation(name = "foo0", visibility = ["//visibility:public"])
+rule_with_implicit_outs_and_validation(name = "foo1", visibility = ["//visibility:public"])
+rule_with_implicit_outs_and_validation(name = "foo2", visibility = ["//visibility:public"])
+rule_with_implicit_outs_and_validation(name = "foo3", visibility = ["//visibility:public"])
 
 filegroup(
   name = "foo2_filegroup",
@@ -226,6 +226,14 @@ function assert_exists() {
   [ -f "$path" ] && return 0
 
   fail "Expected file '$path' to exist, but it did not"
+  return 1
+}
+
+function assert_not_exists() {
+  path="$1"
+  [ ! -f "$path" ] && return 0
+
+  fail "Expected file '$path' to not exist, but it did"
   return 1
 }
 
@@ -559,6 +567,45 @@ EOF
   bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
       //validation_actions:foo0 >& "$TEST_log" && fail "Expected build to fail"
   expect_log "aspect validation failed!"
+}
+
+function test_skip_validation_action_with_attribute_flag() {
+  setup_test_project
+  setup_passing_validation_action
+  mkdir -p skip_validations
+  cat > skip_validations/defs.bzl <<'EOF'
+def _rule_with_attrs_that_skips_validation_impl(ctx):
+    return []
+
+rule_with_attrs_that_skips_validation = rule(
+    implementation = _rule_with_attrs_that_skips_validation_impl,
+    attrs = {
+        "run_validations_label": attr.label(),
+        "run_validations_label_list": attr.label_list(),
+        "skip_validations_label": attr.label(skip_validations = True),
+        "skip_validations_label_list": attr.label_list(skip_validations = True),
+    },
+)
+EOF
+  cat > skip_validations/BUILD <<'EOF'
+load( ":defs.bzl", "rule_with_attrs_that_skips_validation" )
+
+rule_with_attrs_that_skips_validation(
+    name = "target_with_attr_that_skips_validation",
+    run_validations_label = "//validation_actions:foo0",
+    run_validations_label_list = ["//validation_actions:foo1"],
+    skip_validations_label = "//validation_actions:foo2",
+    skip_validations_label_list =  ["//validation_actions:foo3"],
+)
+EOF
+
+  bazel build //skip_validations:target_with_attr_that_skips_validation \
+    >& $TEST_log || fail "Expected build to succeed"
+
+  assert_exists bazel-bin/validation_actions/foo0.validation
+  assert_exists bazel-bin/validation_actions/foo1.validation
+  assert_not_exists bazel-bin/validation_actions/foo2.validation
+  assert_not_exists bazel-bin/validation_actions/foo3.validation
 }
 
 run_suite "Validation actions integration tests"
