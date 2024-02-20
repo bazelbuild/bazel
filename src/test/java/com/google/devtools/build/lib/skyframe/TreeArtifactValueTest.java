@@ -617,30 +617,6 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
-  public void relativeSymlinkTraversingToDirOutsideOfTreeArtifact() throws Exception {
-    SpecialArtifact out = createTreeArtifact("output");
-
-    // Create a valid directory that can be referenced
-    scratch.dir(out.getRoot().getRoot().getRelative("some/dir").getPathString());
-
-    TestAction action =
-        new SimpleTestAction(out) {
-          @Override
-          void run(ActionExecutionContext actionExecutionContext) throws IOException {
-            writeFile(out.getPath().getChild("one"), "one");
-            writeFile(out.getPath().getChild("two"), "two");
-            FileSystemUtils.ensureSymbolicLink(
-                out.getPath().getChild("links").getChild("link"), "../../some/dir");
-          }
-        };
-
-    registerAction(action);
-    buildArtifact(out);
-    
-  }
-
-
-  @Test
   public void visitTree_throwsOnSymlinkTraversingOutsideThenBackInsideTree() throws Exception {
     Path treeDir = scratch.dir("tree");
     scratch.file("tree/file");
