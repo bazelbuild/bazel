@@ -220,15 +220,15 @@ public final class DefaultSyscallCache implements SyscallCache {
     // stat.
     Object result = readdirCache.getIfPresent(parent);
     if (result != null && !(result instanceof IOException)) {
+      String baseName = path.getBaseName();
       for (Dirent dirent : (Collection<Dirent>) result) { // unchecked cast
         // TODO(djasper): Dealing with filesystem case is a bit of a code smell. Figure out a better
         // way to store Dirents, e.g. with names normalized.
-        if (path.getFileSystem().isFilePathCaseSensitive()
-            && !dirent.getName().equals(path.getBaseName())) {
+        if (path.getFileSystem().isFilePathCaseSensitive() && !dirent.getName().equals(baseName)) {
           continue;
         }
         if (!path.getFileSystem().isFilePathCaseSensitive()
-            && !dirent.getName().equalsIgnoreCase(path.getBaseName())) {
+            && !dirent.getName().equalsIgnoreCase(baseName)) {
           continue;
         }
         if (dirent.getType() == Dirent.Type.SYMLINK && symlinks == Symlinks.FOLLOW) {
