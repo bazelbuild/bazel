@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
+import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -92,7 +93,9 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
   public static RepoRecordedInput parse(String s) {
     List<String> parts = Splitter.on(':').limit(2).splitToList(s);
     for (Parser parser :
-        new Parser[] {File.PARSER, Dirents.PARSER, EnvVar.PARSER, RecordedRepoMapping.PARSER}) {
+        new Parser[] {
+          File.PARSER, Dirents.PARSER, DirTree.PARSER, EnvVar.PARSER, RecordedRepoMapping.PARSER
+        }) {
       if (parts.get(0).equals(parser.getPrefix())) {
         return parser.parse(parts.get(1));
       }
@@ -112,7 +115,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       throws InterruptedException {
     env.getValuesAndExceptions(
         recordedInputValues.keySet().stream()
-            .map(rri -> rri.getSkyKey(directories))
+            .map(RepoRecordedInput::getSkyKey)
             .filter(Objects::nonNull)
             .collect(toImmutableSet()));
     if (env.valuesMissing()) {
@@ -159,13 +162,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
    * no SkyKey is needed.
    */
   @Nullable
-  public abstract SkyKey getSkyKey(BlazeDirectories directories);
+  public abstract SkyKey getSkyKey();
 
   /**
    * Returns whether the given {@code oldValue} is still up-to-date for this recorded input. This
-   * method can assume that {@link #getSkyKey(BlazeDirectories)} is already evaluated; it can
-   * request further Skyframe evaluations, and if any values are missing, this method can return any
-   * value (doesn't matter what) and will be reinvoked after a Skyframe restart.
+   * method can assume that {@link #getSkyKey()} is already evaluated; it can request further
+   * Skyframe evaluations, and if any values are missing, this method can return any value (doesn't
+   * matter what) and will be reinvoked after a Skyframe restart.
    */
   public abstract boolean isUpToDate(
       Environment env, BlazeDirectories directories, @Nullable String oldValue)
@@ -330,7 +333,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
     @Override
     @Nullable
-    public SkyKey getSkyKey(BlazeDirectories directories) {
+    public SkyKey getSkyKey() {
       return path.getRepoDirSkyKeyOrNull();
     }
 
@@ -405,7 +408,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
     @Nullable
     @Override
-    public SkyKey getSkyKey(BlazeDirectories directories) {
+    public SkyKey getSkyKey() {
       return path.getRepoDirSkyKeyOrNull();
     }
 
@@ -435,6 +438,81 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
               .sorted()
               .collect(toImmutableList()));
       return fp.hexDigestAndReset();
+    }
+  }
+
+  /**
+   * Represents an entire directory tree accessed during the fetch. Anything under the tree changing
+   * (including adding/removing/renaming files or directories and changing file contents) will cause
+   * it to go out of date.
+   */
+  public static final class DirTree extends RepoRecordedInput {
+    public static final Parser PARSER =
+        new Parser() {
+          @Override
+          public String getPrefix() {
+            return "DIRTREE";
+          }
+
+          @Override
+          public RepoRecordedInput parse(String s) {
+            return new DirTree(RepoCacheFriendlyPath.parse(s));
+          }
+        };
+
+    private final RepoCacheFriendlyPath path;
+
+    public DirTree(RepoCacheFriendlyPath path) {
+      this.path = path;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof DirTree)) {
+        return false;
+      }
+      DirTree that = (DirTree) o;
+      return Objects.equals(path, that.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return path.hashCode();
+    }
+
+    @Override
+    public String toStringInternal() {
+      return path.toString();
+    }
+
+    @Override
+    public Parser getParser() {
+      return PARSER;
+    }
+
+    @Nullable
+    @Override
+    public SkyKey getSkyKey() {
+      return path.getRepoDirSkyKeyOrNull();
+    }
+
+    @Override
+    public boolean isUpToDate(
+        Environment env, BlazeDirectories directories, @Nullable String oldValue)
+        throws InterruptedException {
+      RootedPath rootedPath = path.getRootedPath(env, directories);
+      if (rootedPath == null) {
+        return false;
+      }
+      DirectoryTreeDigestValue value =
+          (DirectoryTreeDigestValue) env.getValue(DirectoryTreeDigestValue.key(rootedPath));
+      if (value == null) {
+        return false;
+      }
+      return oldValue.equals(value.hexDigest());
     }
   }
 
@@ -487,7 +565,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     }
 
     @Override
-    public SkyKey getSkyKey(BlazeDirectories directories) {
+    public SkyKey getSkyKey() {
       return ActionEnvironmentFunction.key(name);
     }
 
@@ -497,7 +575,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
         throws InterruptedException {
       String v = PrecomputedValue.REPO_ENV.get(env).get(name);
       if (v == null) {
-        v = ((ClientEnvironmentValue) env.getValue(getSkyKey(directories))).getValue();
+        v = ((ClientEnvironmentValue) env.getValue(getSkyKey())).getValue();
       }
       // Note that `oldValue` can be null if the env var was not set.
       return Objects.equals(oldValue, v);
@@ -558,7 +636,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     }
 
     @Override
-    public SkyKey getSkyKey(BlazeDirectories directories) {
+    public SkyKey getSkyKey() {
       // Since we only record repo mapping entries for repos defined in Bzlmod, we can request the
       // WORKSPACE-less version of the main repo mapping (as no repos defined in Bzlmod can see
       // stuff from WORKSPACE).
@@ -571,8 +649,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     public boolean isUpToDate(
         Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
-      RepositoryMappingValue repoMappingValue =
-          (RepositoryMappingValue) env.getValue(getSkyKey(directories));
+      RepositoryMappingValue repoMappingValue = (RepositoryMappingValue) env.getValue(getSkyKey());
       return repoMappingValue != RepositoryMappingValue.NOT_FOUND_VALUE
           && RepositoryName.createUnvalidated(oldValue)
               .equals(repoMappingValue.getRepositoryMapping().get(apparentName));
