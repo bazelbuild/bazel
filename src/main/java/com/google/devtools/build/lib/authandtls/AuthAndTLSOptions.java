@@ -148,15 +148,17 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures a credential helper to use for retrieving authorization credentials for "
-              + " repository fetching, remote caching and execution, and the build event"
-              + " service.\n\n"
+          "Configures a credential helper conforming to the <a"
+              + " href=\"https://github.com/EngFlow/credential-helper-spec\">Credential Helper"
+              + " Specification</a> to use for retrieving authorization credentials for  repository"
+              + " fetching, remote caching and execution, and the build event service.\n\n"
               + "Credentials supplied by a helper take precedence over credentials supplied by"
-              + " --google_default_credentials, --google_credentials, a .netrc file, or the auth"
-              + " parameter to repository_ctx.download and repository_ctx.download_and_extract.\n\n"
+              + " `--google_default_credentials`, `--google_credentials`, a `.netrc` file, or the"
+              + " auth parameter to `repository_ctx.download()` and"
+              + " `repository_ctx.download_and_extract()`.\n\n"
               + "May be specified multiple times to set up multiple helpers.\n\n"
-              + "See https://github.com/bazelbuild/proposals/blob/main/designs/2022-06-07-bazel-credential-helpers.md"
-              + " for details.")
+              + "See https://blog.engflow.com/2023/10/09/configuring-bazels-credential-helper/ for"
+              + " instructions.")
   public List<CredentialHelperOption> credentialHelpers;
 
   @Option(
