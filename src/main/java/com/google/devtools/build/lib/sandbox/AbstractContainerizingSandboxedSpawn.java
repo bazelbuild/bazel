@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -45,7 +47,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   final SandboxInputs inputs;
   final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
-  private final TreeDeleter treeDeleter;
+  protected final TreeDeleter treeDeleter;
   @Nullable private final Path sandboxDebugPath;
   @Nullable private final Path statisticsPath;
   private final String mnemonic;
@@ -118,20 +120,28 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
             .filter(p -> p.startsWith(sandboxExecRoot))
             .map(p -> p.relativeTo(sandboxExecRoot))
             .collect(Collectors.toSet());
-    SandboxHelpers.populateInputsAndDirsToCreate(
-        writableSandboxDirs,
-        inputsToCreate,
-        dirsToCreate,
-        Iterables.concat(
-            ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
-        outputs);
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.populateInputsAndDirsToCreate")) {
+      SandboxHelpers.populateInputsAndDirsToCreate(
+          writableSandboxDirs,
+          inputsToCreate,
+          dirsToCreate,
+          Iterables.concat(
+              ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+          outputs);
+    }
 
-    // Allow subclasses to filter out inputs and dirs that don't need to be created.
-    filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.filterInputsAndDirsToCreate")) {
+      // Allow subclasses to filter out inputs and dirs that don't need to be created.
+      filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
+    }
 
     // Finally create what needs creating.
-    SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict=*/ true);
-    createInputs(inputsToCreate, inputs);
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.createDirectories")) {
+      SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict= */ true);
+    }
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.createInputs")) {
+      createInputs(inputsToCreate, inputs);
+    }
   }
 
   protected void filterInputsAndDirsToCreate(

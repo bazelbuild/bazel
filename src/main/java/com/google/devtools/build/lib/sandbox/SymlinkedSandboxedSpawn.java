@@ -75,7 +75,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   public void filterInputsAndDirsToCreate(
       Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate)
       throws IOException, InterruptedException {
-    boolean gotStash = SandboxStash.takeStashedSandbox(sandboxPath, mnemonic);
+    boolean gotStash =
+        SandboxStash.takeStashedSandbox(sandboxPath, mnemonic, getEnvironment(), outputs);
     sandboxExecRoot.createDirectoryAndParents();
     if (gotStash) {
       // When reusing an old sandbox, we do a full traversal of the parent directory of
@@ -89,7 +90,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
           inputs,
           inputsToCreate,
           dirsToCreate,
-          sandboxExecRoot);
+          sandboxExecRoot,
+          treeDeleter);
     }
   }
 
@@ -100,7 +102,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   @Override
   public void delete() {
-    SandboxStash.stashSandbox(sandboxPath, mnemonic);
+    SandboxStash.stashSandbox(sandboxPath, mnemonic, getEnvironment(), outputs, treeDeleter);
     super.delete();
   }
 

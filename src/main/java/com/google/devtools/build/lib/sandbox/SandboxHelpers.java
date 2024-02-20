@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
@@ -64,6 +65,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 
 /**
  * Helper methods that are shared by the different sandboxing strategies.
@@ -71,11 +73,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>All sandboxed strategies within a build should share the same instance of this object.
  */
 public final class SandboxHelpers {
+
+  public static final String INACCESSIBLE_HELPER_DIR = "inaccessibleHelperDir";
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
 
   private static final AtomicInteger tempFileUniquifierForVirtualInputWrites = new AtomicInteger();
+
   /**
    * Moves all given outputs from a root to another.
    *
@@ -135,6 +141,27 @@ public final class SandboxHelpers {
       Set<PathFragment> dirsToCreate,
       Path workDir)
       throws IOException, InterruptedException {
+    cleanExisting(root, inputs, inputsToCreate, dirsToCreate, workDir, /* treeDeleter= */ null);
+  }
+
+  public static void cleanExisting(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir,
+      @Nullable TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {
+    Path inaccessibleHelperDir = workDir.getRelative(INACCESSIBLE_HELPER_DIR);
+    // Setting the permissions is necessary when we are using an asynchronous tree deleter in order
+    // to move the directory first. This is not necessary for a synchronous tree deleter because the
+    // permissions are only needed in the parent directory in that case.
+    if (inaccessibleHelperDir.exists()) {
+      inaccessibleHelperDir.setExecutable(true);
+      inaccessibleHelperDir.setWritable(true);
+      inaccessibleHelperDir.setReadable(true);
+    }
+
     // To avoid excessive scanning of dirsToCreate for prefix dirs, we prepopulate this set of
     // prefixes.
     Set<PathFragment> prefixDirs = new HashSet<>();
@@ -148,7 +175,7 @@ public final class SandboxHelpers {
         parent = parent.getParentDirectory();
       }
     }
-    cleanRecursively(root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs);
+    cleanRecursively(root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
   }
 
   /**
@@ -161,7 +188,8 @@ public final class SandboxHelpers {
       Set<PathFragment> inputsToCreate,
       Set<PathFragment> dirsToCreate,
       Path workDir,
-      Set<PathFragment> prefixDirs)
+      Set<PathFragment> prefixDirs,
+      @Nullable TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
     Path execroot = workDir.getParentDirectory();
     for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
@@ -188,17 +216,28 @@ public final class SandboxHelpers {
             && absPath.readSymbolicLink().equals(destination.get())) {
           inputsToCreate.remove(pathRelativeToWorkDir);
         } else if (absPath.isDirectory()) {
-          absPath.deleteTree();
+          if (treeDeleter == null) {
+            // TODO(bazel-team): Use async tree deleter for workers too
+            absPath.deleteTree();
+          } else {
+            treeDeleter.deleteTree(absPath);
+          }
         } else {
           absPath.delete();
         }
       } else if (DIRECTORY.equals(dirent.getType())) {
         if (dirsToCreate.contains(pathRelativeToWorkDir)
             || prefixDirs.contains(pathRelativeToWorkDir)) {
-          cleanRecursively(absPath, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs);
+          cleanRecursively(
+              absPath, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
           dirsToCreate.remove(pathRelativeToWorkDir);
         } else {
-          absPath.deleteTree();
+          if (treeDeleter == null) {
+            // TODO(bazel-team): Use async tree deleter for workers too
+            absPath.deleteTree();
+          } else {
+            treeDeleter.deleteTree(absPath);
+          }
         }
       } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
         absPath.delete();
