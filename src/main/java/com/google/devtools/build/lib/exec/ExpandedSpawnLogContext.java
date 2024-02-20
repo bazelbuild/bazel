@@ -135,6 +135,12 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
   }
 
   @Override
+  public boolean shouldPublish() {
+    // The expanded log tends to be too large to be uploaded to a remote store.
+    return false;
+  }
+
+  @Override
   public void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,

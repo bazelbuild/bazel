@@ -186,6 +186,12 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   }
 
   @Override
+  public boolean shouldPublish() {
+    // The compact log is small enough to be uploaded to a remote store.
+    return true;
+  }
+
+  @Override
   public void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
