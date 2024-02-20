@@ -21,22 +21,17 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.skyframe.GlobDescriptor;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 
 /**
  * Serves as the entrance {@link StateMachine} to compute a single glob. There are two ways to
@@ -50,14 +45,8 @@ import javax.annotation.Nullable;
  *       com.google.devtools.build.lib.skyframe.GlobsFunction} creates {@link GlobsProducer}, which
  *       further creates {@link GlobComputationProducer} to compute each glob.
  * </ul>
- *
- * <p>Ignored package prefix (IPP) patterns can be optionally passed in. {@link
- * GlobComputationProducer} will query the IPP patterns in Skyframe if not provided. Then it starts
- * the {@link FragmentProducer}s chain which recursively process each glob pattern fragment. Accepts
- * and aggregates globbing matching {@link PathFragment}s result.
  */
-public class GlobComputationProducer
-    implements StateMachine, Consumer<SkyValue>, FragmentProducer.ResultSink {
+public class GlobComputationProducer implements StateMachine, FragmentProducer.ResultSink {
 
   /**
    * Propagates all glob matching {@link PathFragment}s or any {@link Exception}.
@@ -85,12 +74,12 @@ public class GlobComputationProducer
 
   // -------------------- Internal State --------------------
   private final ImmutableSet.Builder<PathFragment> pathFragmentsWithPackageFragment;
-  private ImmutableSet<PathFragment> ignoredPackagePrefixPatterns;
+  private final ImmutableSet<PathFragment> ignoredPackagePrefixPatterns;
   private final ConcurrentHashMap<String, Pattern> regexPatternCache;
 
   public GlobComputationProducer(
       GlobDescriptor globDescriptor,
-      @Nullable ImmutableSet<PathFragment> ignoredPackagePrefixPatterns,
+      ImmutableSet<PathFragment> ignoredPackagePrefixPatterns,
       ConcurrentHashMap<String, Pattern> regexPatternCache,
       ResultSink resultSink) {
     this.globDescriptor = globDescriptor;
@@ -101,21 +90,7 @@ public class GlobComputationProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks) throws InterruptedException {
-    if (ignoredPackagePrefixPatterns == null) {
-      // Query ignorePatterPrefixPatterns in Skyframe if not provided.
-      RepositoryName repositoryName = globDescriptor.getPackageId().getRepository();
-      tasks.lookUp(IgnoredPackagePrefixesValue.key(repositoryName), (Consumer<SkyValue>) this);
-    }
-    return this::createFragmentProducer;
-  }
-
-  @Override
-  public void accept(SkyValue skyValue) {
-    this.ignoredPackagePrefixPatterns = ((IgnoredPackagePrefixesValue) skyValue).getPatterns();
-  }
-
-  private StateMachine createFragmentProducer(Tasks tasks) {
+  public StateMachine step(Tasks tasks) {
     Preconditions.checkNotNull(ignoredPackagePrefixPatterns);
     ImmutableList<String> patterns =
         ImmutableList.copyOf(Splitter.on('/').split(globDescriptor.getPattern()));

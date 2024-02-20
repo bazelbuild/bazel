@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.producers.GlobComputationProducer;
 import com.google.devtools.build.lib.packages.producers.GlobError;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -48,6 +49,8 @@ public class GlobFunctionWithRecursionInSingleFunction extends GlobFunction {
     @Nullable // Non-null while in-flight.
     private Driver globComputationDriver;
 
+    @Nullable ImmutableSet<PathFragment> ignorePackagePrefixesPatterns;
+
     private ImmutableSet<PathFragment> globMatchingResult;
     private GlobError error;
 
@@ -77,11 +80,22 @@ public class GlobFunctionWithRecursionInSingleFunction extends GlobFunction {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
     State state = env.getState(State::new);
 
+    if (state.ignorePackagePrefixesPatterns == null) {
+      RepositoryName repositoryName = glob.getPackageId().getRepository();
+      IgnoredPackagePrefixesValue ignoredPackagePrefixes =
+          (IgnoredPackagePrefixesValue)
+              env.getValue(IgnoredPackagePrefixesValue.key(repositoryName));
+      if (env.valuesMissing()) {
+        return null;
+      }
+      state.ignorePackagePrefixesPatterns = ignoredPackagePrefixes.getPatterns();
+    }
+
     if (state.globComputationDriver == null) {
       state.globComputationDriver =
           new Driver(
               new GlobComputationProducer(
-                  glob, /* ignoredPackagePrefixPatterns= */ null, regexPatternCache, state));
+                  glob, state.ignorePackagePrefixesPatterns, regexPatternCache, state));
     }
 
     if (!state.globComputationDriver.drive(env)) {

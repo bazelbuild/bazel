@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.producers.GlobError;
 import com.google.devtools.build.lib.packages.producers.GlobsProducer;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -53,6 +54,7 @@ public class GlobsFunction implements SkyFunction {
 
   private static class State implements SkyKeyComputeState, GlobsProducer.ResultSink {
     @Nullable private Driver globsDriver;
+    @Nullable ImmutableSet<PathFragment> ignorePackagePrefixesPatterns;
 
     private ImmutableSet<PathFragment> globsMatchingResult;
     private GlobError error;
@@ -82,10 +84,25 @@ public class GlobsFunction implements SkyFunction {
     GlobsValue.Key globsKey = (GlobsValue.Key) skyKey;
     State state = env.getState(State::new);
 
+    if (state.ignorePackagePrefixesPatterns == null) {
+      RepositoryName repositoryName = globsKey.getPackageIdentifier().getRepository();
+      IgnoredPackagePrefixesValue ignoredPackagePrefixes =
+          (IgnoredPackagePrefixesValue)
+              env.getValue(IgnoredPackagePrefixesValue.key(repositoryName));
+      if (env.valuesMissing()) {
+        return null;
+      }
+      state.ignorePackagePrefixesPatterns = ignoredPackagePrefixes.getPatterns();
+    }
+
     if (state.globsDriver == null) {
       state.globsDriver =
           new Driver(
-              new GlobsProducer(globsKey, regexPatternCache, (GlobsProducer.ResultSink) state));
+              new GlobsProducer(
+                  globsKey,
+                  state.ignorePackagePrefixesPatterns,
+                  regexPatternCache,
+                  (GlobsProducer.ResultSink) state));
     }
 
     if (!state.globsDriver.drive(env)) {

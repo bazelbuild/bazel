@@ -1487,6 +1487,8 @@ java_library(
     deps = [
         ":glob_exception",
         ":globs_value",
+        ":ignored_package_prefixes_value",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages/producers",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
