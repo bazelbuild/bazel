@@ -9125,7 +9125,7 @@
         ]
       },
       "os:linux,arch:amd64": {
-        "bzlTransitiveDigest": "pVKyjaQclFqcXU75ZG356yob20MIl6uJwB2dKrAmw0U=",
+        "bzlTransitiveDigest": "aOMK5S3yh0GqKqizev0aeyRIiUVXUnJ9qs4MjoGIsmU=",
         "accumulatedFileDigests": {
           "@@//:requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
@@ -9185,7 +9185,7 @@
           [
             "rules_python~0.26.0",
             "bazel_skylib",
-            "bazel_skylib~1.4.1"
+            "bazel_skylib~1.5.0"
           ],
           [
             "rules_python~0.26.0",
