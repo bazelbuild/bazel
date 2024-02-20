@@ -195,7 +195,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     BuildConfigurationValue passthruDepConfig =
         getConfiguration((ConfiguredTarget) ((StructImpl) dep.get(key)).getValue("dep"));
 
-    // Action will be executed on '//platform:platform_1' plaform.
+    // Action will be executed on '//platform:platform_1' platform.
     assertThat(
             getGeneratingAction(target, "test/parent.out")
                 .getOwner()
