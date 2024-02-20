@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -93,7 +92,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
-  private static final int MARKER_FILE_VERSION = 4;
+  private static final int MARKER_FILE_VERSION = 7;
 
   // Mapping of rule class name to RepositoryFunction.
   private final ImmutableMap<String, RepositoryFunction> handlers;
@@ -165,7 +164,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
             String.format("'%s' is not a repository rule", repositoryName.getCanonicalForm()));
       }
 
-      DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule);
+      DigestWriter digestWriter =
+          new DigestWriter(directories, repositoryName, rule, starlarkSemantics);
       if (shouldUseVendorRepos(env, handler, rule)) {
         RepositoryDirectoryValue repositoryDirectoryValue =
             tryGettingValueUsingVendoredRepo(
@@ -202,7 +202,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         // only recreate it after fetching is done to prevent this scenario.
         DigestWriter.clearMarkerFile(directories, repositoryName);
         RepositoryDirectoryValue.Builder builder =
-            fetchRepository(skyKey, repoRoot, env, digestWriter.getMarkerData(), handler, rule);
+            fetchRepository(
+                skyKey, repoRoot, env, digestWriter.getRecordedInputValues(), handler, rule);
         if (builder == null) {
           return null;
         }
@@ -392,12 +393,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private boolean shouldExcludeRepoFromVendoring(RepositoryFunction handler, Rule rule) {
-    return handler.isLocal(rule) || handler.isConfigure(rule) || isWorkspaceRepo(rule);
-  }
-
-  private boolean isWorkspaceRepo(Rule rule) {
-    // All workspace repos are under //external, while bzlmod repo rules are not
-    return rule.getPackage().getPackageIdentifier().equals(EXTERNAL_PACKAGE_IDENTIFIER);
+    return handler.isLocal(rule)
+        || handler.isConfigure(rule)
+        || RepositoryFunction.isWorkspaceRepo(rule);
   }
 
   @Nullable
@@ -405,7 +403,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       SkyKey skyKey,
       Path repoRoot,
       Environment env,
-      Map<String, String> markerData,
+      Map<RepoRecordedInput, String> recordedInputValues,
       RepositoryFunction handler,
       Rule rule)
       throws InterruptedException, RepositoryFunctionException {
@@ -417,7 +415,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     RepositoryDirectoryValue.Builder repoBuilder;
     try {
-      repoBuilder = handler.fetch(rule, repoRoot, directories, env, markerData, skyKey);
+      repoBuilder = handler.fetch(rule, repoRoot, directories, env, recordedInputValues, skyKey);
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(RepositoryFetchProgress.finished(repoName));
@@ -584,25 +582,31 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private static class DigestWriter {
+    private final BlazeDirectories directories;
     private final Path markerPath;
     private final Rule rule;
     // not just Map<> to signal that iteration order must be deterministic
-    private final TreeMap<String, String> markerData;
+    private final TreeMap<RepoRecordedInput, String> recordedInputValues;
     private final String ruleKey;
 
-    DigestWriter(BlazeDirectories directories, RepositoryName repositoryName, Rule rule) {
-      ruleKey = computeRuleKey(rule);
+    DigestWriter(
+        BlazeDirectories directories,
+        RepositoryName repositoryName,
+        Rule rule,
+        StarlarkSemantics starlarkSemantics) {
+      this.directories = directories;
+      ruleKey = computeRuleKey(rule, starlarkSemantics);
       markerPath = getMarkerPath(directories, repositoryName.getName());
       this.rule = rule;
-      markerData = Maps.newTreeMap();
+      recordedInputValues = Maps.newTreeMap();
     }
 
     byte[] writeMarkerFile() throws RepositoryFunctionException {
       StringBuilder builder = new StringBuilder();
       builder.append(ruleKey).append("\n");
-      for (Map.Entry<String, String> data : markerData.entrySet()) {
-        String key = data.getKey();
-        String value = data.getValue();
+      for (Map.Entry<RepoRecordedInput, String> recordedInput : recordedInputValues.entrySet()) {
+        String key = recordedInput.getKey().toString();
+        String value = recordedInput.getValue();
         builder.append(escape(key)).append(" ").append(escape(value)).append("\n");
       }
       String content = builder.toString();
@@ -639,14 +643,14 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         return null;
       }
 
-      Map<String, String> markerData = new TreeMap<>();
+      Map<RepoRecordedInput, String> recordedInputValues = new TreeMap<>();
       String content;
       try {
         content = FileSystemUtils.readContent(markerPath, UTF_8);
-        String markerRuleKey = readMarkerFile(content, markerData);
+        String markerRuleKey = readMarkerFile(content, recordedInputValues);
         boolean verified = false;
         if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)) {
-          verified = handler.verifyMarkerData(rule, markerData, env);
+          verified = handler.verifyRecordedInputs(rule, directories, recordedInputValues, env);
           if (env.valuesMissing()) {
             return null;
           }
@@ -662,12 +666,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       }
     }
 
-    Map<String, String> getMarkerData() {
-      return markerData;
+    Map<RepoRecordedInput, String> getRecordedInputValues() {
+      return recordedInputValues;
     }
 
     @Nullable
-    private String readMarkerFile(String content, Map<String, String> markerData) {
+    private static String readMarkerFile(
+        String content, Map<RepoRecordedInput, String> recordedInputValues) {
       String markerRuleKey = null;
       Iterable<String> lines = Splitter.on('\n').split(content);
 
@@ -678,22 +683,26 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           firstLine = false;
         } else {
           int sChar = line.indexOf(' ');
-          String key = line;
-          String value = "";
           if (sChar > 0) {
-            key = unescape(line.substring(0, sChar));
-            value = unescape(line.substring(sChar + 1));
+            RepoRecordedInput input = RepoRecordedInput.parse(unescape(line.substring(0, sChar)));
+            if (input == null) {
+              // ignore invalid entries.
+              continue;
+            }
+            recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
           }
-          markerData.put(key, value);
         }
       }
       return markerRuleKey;
     }
 
-    private String computeRuleKey(Rule rule) {
+    private String computeRuleKey(Rule rule, StarlarkSemantics starlarkSemantics) {
       return new Fingerprint()
           .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
           .addInt(MARKER_FILE_VERSION)
+          // TODO: Using the hashCode() method for StarlarkSemantics here is suboptimal as
+          //   it doesn't include any default values.
+          .addInt(starlarkSemantics.hashCode())
           .hexDigestAndReset();
     }
 

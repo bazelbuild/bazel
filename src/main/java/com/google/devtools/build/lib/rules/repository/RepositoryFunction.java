@@ -15,20 +15,15 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -41,7 +36,6 @@ import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -52,12 +46,8 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -148,6 +138,11 @@ public abstract class RepositoryFunction {
     }
   }
 
+  public static boolean isWorkspaceRepo(Rule rule) {
+    // All workspace repos are under //external, while bzlmod repo rules are not
+    return rule.getPackage().getPackageIdentifier().equals(EXTERNAL_PACKAGE_IDENTIFIER);
+  }
+
   protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
     setupRepoRoot(repoRoot);
   }
@@ -178,8 +173,8 @@ public abstract class RepositoryFunction {
    * <p>The {@code markerData} argument can be mutated to augment the data to write to the
    * repository marker file. If any data in the {@code markerData} change between 2 execute of the
    * {@link RepositoryDelegatorFunction} then this should be a reason to invalidate the repository.
-   * The {@link #verifyMarkerData} method is responsible for checking the value added to that map
-   * when checking the content of a marker file.
+   * The {@link #verifyRecordedInputs} method is responsible for checking the value added to that
+   * map when checking the content of a marker file.
    */
   @ThreadSafe
   @Nullable
@@ -188,130 +183,22 @@ public abstract class RepositoryFunction {
       Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData,
+      Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException;
-
-  @SuppressWarnings("unchecked")
-  private static ImmutableSet<String> getEnviron(Rule rule) {
-    if (rule.isAttrDefined("$environ", Type.STRING_LIST)) {
-      return ImmutableSet.copyOf((Collection<String>) rule.getAttr("$environ"));
-    }
-    return ImmutableSet.of();
-  }
 
   /**
    * Verify the data provided by the marker file to check if a refetch is needed. Returns true if
    * the data is up to date and no refetch is needed and false if the data is obsolete and a refetch
    * is needed.
    */
-  public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
+  public boolean verifyRecordedInputs(
+      Rule rule,
+      BlazeDirectories directories,
+      Map<RepoRecordedInput, String> recordedInputValues,
+      Environment env)
       throws InterruptedException {
-    return verifyEnvironMarkerData(markerData, env, getEnviron(rule))
-        && verifySemanticsMarkerData(markerData, env)
-        && verifyRepoMappingMarkerData(markerData, env)
-        && verifyMarkerDataForFiles(rule, markerData, env);
-  }
-
-  protected boolean verifySemanticsMarkerData(Map<String, String> markerData, Environment env)
-      throws InterruptedException {
-    return true;
-  }
-
-  private static boolean verifyRepoMappingMarkerData(
-      Map<String, String> markerData, Environment env) throws InterruptedException {
-    ImmutableSet<SkyKey> skyKeys =
-        markerData.keySet().stream()
-            .filter(k -> k.startsWith("REPO_MAPPING:"))
-            // grab the part after the 'REPO_MAPPING:' and before the comma
-            .map(k -> k.substring("REPO_MAPPING:".length(), k.indexOf(',')))
-            .map(k -> RepositoryMappingValue.key(RepositoryName.createUnvalidated(k)))
-            .collect(toImmutableSet());
-    SkyframeLookupResult result = env.getValuesAndExceptions(skyKeys);
-    if (env.valuesMissing()) {
-      return false;
-    }
-    for (Map.Entry<String, String> entry : markerData.entrySet()) {
-      if (!entry.getKey().startsWith("REPO_MAPPING:")) {
-        continue;
-      }
-      int commaIndex = entry.getKey().indexOf(',');
-      RepositoryName fromRepo =
-          RepositoryName.createUnvalidated(
-              entry.getKey().substring("REPO_MAPPING:".length(), commaIndex));
-      String apparentRepoName = entry.getKey().substring(commaIndex + 1);
-      RepositoryMappingValue repoMappingValue =
-          (RepositoryMappingValue) result.get(RepositoryMappingValue.key(fromRepo));
-      if (repoMappingValue == RepositoryMappingValue.NOT_FOUND_VALUE
-          || !RepositoryName.createUnvalidated(entry.getValue())
-              .equals(repoMappingValue.getRepositoryMapping().get(apparentRepoName))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  private static boolean verifyLabelMarkerData(Rule rule, String key, String value, Environment env)
-      throws InterruptedException {
-    Preconditions.checkArgument(key.startsWith("FILE:"));
-    try {
-      RootedPath rootedPath;
-      String fileKey = key.substring(5);
-      if (LabelValidator.isAbsolute(fileKey)) {
-        rootedPath = getRootedPathFromLabel(Label.parseCanonical(fileKey), env);
-      } else {
-        // TODO(pcloudy): Removing checking absolute path, they should all be absolute label.
-        PathFragment filePathFragment = PathFragment.create(fileKey);
-        Path file = rule.getPackage().getPackageDirectory().getRelative(filePathFragment);
-        rootedPath =
-            RootedPath.toRootedPath(
-                Root.fromPath(file.getParentDirectory()), PathFragment.create(file.getBaseName()));
-      }
-
-      SkyKey fileSkyKey = FileValue.key(rootedPath);
-      FileValue fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
-
-      if (fileValue == null || !fileValue.isFile() || fileValue.isSpecialFile()) {
-        return false;
-      }
-
-      return Objects.equals(value, fileValueToMarkerValue(fileValue));
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(
-          "Key " + key + " is not a correct file key (should be in form FILE:label)", e);
-    } catch (IOException | EvalException e) {
-      // Consider those exception to be a cause for invalidation
-      return false;
-    }
-  }
-
-  /**
-   * Convert to a {@link com.google.devtools.build.lib.actions.FileValue} to a String appropriate
-   * for placing in a repository marker file.
-   *
-   * @param fileValue The value to convert. It must correspond to a regular file.
-   */
-  public static String fileValueToMarkerValue(FileValue fileValue) throws IOException {
-    Preconditions.checkArgument(fileValue.isFile() && !fileValue.isSpecialFile());
-    // Return the file content digest in hex. fileValue may or may not have the digest available.
-    byte[] digest = fileValue.realFileStateValue().getDigest();
-    if (digest == null) {
-      // Fast digest not available, or it would have been in the FileValue.
-      digest = fileValue.realRootedPath().asPath().getDigest();
-    }
-    return BaseEncoding.base16().lowerCase().encode(digest);
-  }
-
-  static boolean verifyMarkerDataForFiles(
-      Rule rule, Map<String, String> markerData, Environment env) throws InterruptedException {
-    for (Map.Entry<String, String> entry : markerData.entrySet()) {
-      if (entry.getKey().startsWith("FILE:")) {
-        if (!verifyLabelMarkerData(rule, entry.getKey(), entry.getValue(), env)) {
-          return false;
-        }
-      }
-    }
-    return true;
+    return RepoRecordedInput.areAllValuesUpToDate(env, directories, recordedInputValues);
   }
 
   public static RootedPath getRootedPathFromLabel(Label label, Environment env)
@@ -343,7 +230,7 @@ public abstract class RepositoryFunction {
    */
   @Nullable
   protected Map<String, String> declareEnvironmentDependencies(
-      Map<String, String> markerData, Environment env, Set<String> keys)
+      Map<RepoRecordedInput, String> recordedInputValues, Environment env, Set<String> keys)
       throws InterruptedException {
     if (keys.isEmpty()) {
       return ImmutableMap.of();
@@ -354,7 +241,9 @@ public abstract class RepositoryFunction {
       return null;
     }
     // Add the dependencies to the marker file
-    keys.forEach(key -> markerData.put("ENV:" + key, envDep.get(key)));
+    for (String key : keys) {
+      recordedInputValues.put(new RepoRecordedInput.EnvVar(key), envDep.get(key));
+    }
     return envDep;
   }
 
@@ -380,57 +269,6 @@ public abstract class RepositoryFunction {
       }
     }
     return repoEnv.buildKeepingLast();
-  }
-
-  /**
-   * Verify marker data previously saved by {@link #declareEnvironmentDependencies(Map, Environment,
-   * Iterable)}. This function is to be called from a {@link #verifyMarkerData(Rule, Map,
-   * Environment)} function to verify the values for environment variables.
-   */
-  protected boolean verifyEnvironMarkerData(
-      Map<String, String> markerData, Environment env, Set<String> keys)
-      throws InterruptedException {
-    if (keys.isEmpty()) {
-      return true;
-    }
-
-    ImmutableMap<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
-    if (env.valuesMissing()) {
-      return false; // Returns false so caller knows to return immediately
-    }
-
-    Map<String, String> repoEnvOverride = PrecomputedValue.REPO_ENV.get(env);
-    if (repoEnvOverride == null) {
-      return false;
-    }
-
-    // Only depend on --repo_env values that are specified in the "environ" attribute.
-    Map<String, String> repoEnv = new LinkedHashMap<>(environ);
-    for (String key : keys) {
-      String value = repoEnvOverride.get(key);
-      if (value != null) {
-        repoEnv.put(key, value);
-      }
-    }
-
-    // Verify that all environment variable in the marker file are also in keys
-    for (String key : markerData.keySet()) {
-      if (key.startsWith("ENV:") && !keys.contains(key.substring(4))) {
-        return false;
-      }
-    }
-
-    // Now verify the values of the marker data
-    for (String key : keys) {
-      if (!markerData.containsKey("ENV:" + key)) {
-        return false;
-      }
-      String markerValue = markerData.get("ENV:" + key);
-      if (!Objects.equals(markerValue, repoEnv.get(key))) {
-        return false;
-      }
-    }
-    return true;
   }
 
   /**

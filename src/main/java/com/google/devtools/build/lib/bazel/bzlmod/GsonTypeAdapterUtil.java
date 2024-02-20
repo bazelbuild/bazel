@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -444,6 +445,36 @@ public final class GsonTypeAdapterUtil {
     }
   }
 
+  private static final TypeAdapter<RepoRecordedInput.File> REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER =
+      new TypeAdapter<>() {
+        @Override
+        public void write(JsonWriter jsonWriter, RepoRecordedInput.File value) throws IOException {
+          jsonWriter.value(value.toStringInternal());
+        }
+
+        @Override
+        public RepoRecordedInput.File read(JsonReader jsonReader) throws IOException {
+          return (RepoRecordedInput.File)
+              RepoRecordedInput.File.PARSER.parse(jsonReader.nextString());
+        }
+      };
+
+  private static final TypeAdapter<RepoRecordedInput.Dirents>
+      REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER =
+          new TypeAdapter<>() {
+            @Override
+            public void write(JsonWriter jsonWriter, RepoRecordedInput.Dirents value)
+                throws IOException {
+              jsonWriter.value(value.toStringInternal());
+            }
+
+            @Override
+            public RepoRecordedInput.Dirents read(JsonReader jsonReader) throws IOException {
+              return (RepoRecordedInput.Dirents)
+                  RepoRecordedInput.Dirents.PARSER.parse(jsonReader.nextString());
+            }
+          };
+
   public static Gson createLockFileGson(Path moduleFilePath, Path workspaceRoot) {
     return new GsonBuilder()
         .setPrettyPrinting()
@@ -468,6 +499,9 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(ModuleExtensionId.IsolationKey.class, ISOLATION_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
+        .registerTypeAdapter(RepoRecordedInput.File.class, REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER)
+        .registerTypeAdapter(
+            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER)
         .create();
   }
 

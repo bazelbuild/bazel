@@ -60,10 +60,11 @@ public class NewRepositoryFileHandler {
     return true;
   }
 
-  public void finishFile(Rule rule, Path outputDirectory, Map<String, String> markerData)
+  public void finishFile(
+      Rule rule, Path outputDirectory, Map<RepoRecordedInput, String> recordedInputValues)
       throws RepositoryFunctionException {
-    this.workspaceFileHandler.finishFile(rule, outputDirectory, markerData);
-    this.buildFileHandler.finishFile(rule, outputDirectory, markerData);
+    this.workspaceFileHandler.finishFile(rule, outputDirectory, recordedInputValues);
+    this.buildFileHandler.finishFile(rule, outputDirectory, recordedInputValues);
   }
 
   /**
@@ -139,14 +140,19 @@ public class NewRepositoryFileHandler {
      * @throws IllegalStateException if {@link #prepareFile} was not called before this, or if
      *     {@link #prepareFile} failed and this was called.
      */
-    public void finishFile(Rule rule, Path outputDirectory, Map<String, String> markerData)
+    public void finishFile(
+        Rule rule, Path outputDirectory, Map<RepoRecordedInput, String> recordedInputValues)
         throws RepositoryFunctionException {
       if (fileValue != null) {
         // Link x/FILENAME to <build_root>/x.FILENAME.
         symlinkFile(fileValue, filename, outputDirectory);
-        String fileKey = getFileAttributeAsLabel(rule).toString();
         try {
-          markerData.put("FILE:" + fileKey, RepositoryFunction.fileValueToMarkerValue(fileValue));
+          Label label = getFileAttributeAsLabel(rule);
+          recordedInputValues.put(
+              new RepoRecordedInput.File(
+                  RepoRecordedInput.RepoCacheFriendlyPath.createInsideWorkspace(
+                      label.getRepository(), label.toPathFragment())),
+              RepoRecordedInput.File.fileValueToMarkerValue(fileValue));
         } catch (IOException e) {
           throw new RepositoryFunctionException(e, Transience.TRANSIENT);
         }

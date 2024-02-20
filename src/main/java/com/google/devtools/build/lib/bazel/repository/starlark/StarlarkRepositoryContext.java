@@ -18,6 +18,7 @@ import com.github.difflib.patch.PatchFailedException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
@@ -32,14 +33,18 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
+import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -47,6 +52,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -74,10 +80,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final Rule rule;
   private final RepositoryName repoName;
   private final PathPackageLocator packageLocator;
-  private final Path workspaceRoot;
   private final StructImpl attrObject;
   private final ImmutableSet<PathFragment> ignoredPatterns;
   private final SyscallCache syscallCache;
+  private final HashMap<RepoRecordedInput.DirTree, String> recordedDirTreeInputs = new HashMap<>();
 
   /**
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
@@ -96,23 +102,24 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       SyscallCache syscallCache,
-      Path workspaceRoot)
+      BlazeDirectories directories)
       throws EvalException {
     super(
         outputDirectory,
+        directories,
         environment,
         env,
         downloadManager,
         timeoutScaling,
         processWrapper,
         starlarkSemantics,
-        remoteExecutor);
+        remoteExecutor,
+        /* allowWatchingPathsOutsideWorkspace= */ true);
     this.rule = rule;
     this.repoName = RepositoryName.createUnvalidated(rule.getName());
     this.packageLocator = packageLocator;
     this.ignoredPatterns = ignoredPatterns;
     this.syscallCache = syscallCache;
-    this.workspaceRoot = workspaceRoot;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
@@ -130,6 +137,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     return RepositoryFetchProgress.repositoryFetchContextString(repoName);
   }
 
+  public ImmutableMap<RepoRecordedInput.DirTree, String> getRecordedDirTreeInputs() {
+    return ImmutableMap.copyOf(recordedDirTreeInputs);
+  }
+
   @StarlarkMethod(
       name = "name",
       structField = true,
@@ -143,7 +154,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       structField = true,
       doc = "The path to the root workspace of the bazel invocation.")
   public StarlarkPath getWorkspaceRoot() {
-    return new StarlarkPath(workspaceRoot);
+    return new StarlarkPath(this, directories.getWorkspace());
   }
 
   @StarlarkMethod(
@@ -197,9 +208,21 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "The path of the symlink to create, relative to the repository directory."),
+            doc = "The path of the symlink to create."),
+        @Param(
+            name = "watch_target",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the symlink target. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the path; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
       })
-  public void symlink(Object target, Object linkName, StarlarkThread thread)
+  public void symlink(Object target, Object linkName, String watchTarget, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath targetPath = getPath("symlink()", target);
     StarlarkPath linkPath = getPath("symlink()", linkName);
@@ -210,6 +233,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
+    maybeWatch(targetPath, ShouldWatch.fromString(watchTarget));
     try {
       checkInOutputDirectory("write", linkPath);
       makeDirectories(linkPath.getPath());
@@ -268,12 +292,25 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             defaultValue = "True",
             named = true,
             doc = "set the executable flag on the created file, true by default."),
+        @Param(
+            name = "watch_template",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the template file. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the file; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
       })
   public void createFileFromTemplate(
       Object path,
       Object template,
       Dict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
+      String watchTemplate,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath p = getPath("template()", path);
@@ -289,6 +326,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
+    if (t.isDir()) {
+      throw Starlark.errorf("attempting to use a directory as template: %s", t);
+    }
+    maybeWatch(t, ShouldWatch.fromString(watchTemplate));
     try {
       checkInOutputDirectory("write", p);
       makeDirectories(p.getPath());
@@ -384,8 +425,20 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             named = true,
             defaultValue = "0",
             doc = "strip the specified number of leading components from file names."),
+        @Param(
+            name = "watch_patch",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the patch file. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the file; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
       })
-  public void patch(Object patchFile, StarlarkInt stripI, StarlarkThread thread)
+  public void patch(Object patchFile, StarlarkInt stripI, String watchPatch, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     int strip = Starlark.toInt(stripI, "strip");
     StarlarkPath starlarkPath = getPath("patch()", patchFile);
@@ -396,6 +449,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
+    if (starlarkPath.isDir()) {
+      throw Starlark.errorf("attempting to use a directory as patch file: %s", starlarkPath);
+    }
+    maybeWatch(starlarkPath, ShouldWatch.fromString(watchPatch));
     try {
       PatchUtil.apply(starlarkPath.getPath(), strip, workingDirectory);
     } catch (PatchFailedException e) {
@@ -456,12 +513,25 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " any directory prefix adjustment. This can be used to extract archives that"
                     + " contain non-Unicode filenames, or which have files that would extract to"
                     + " the same path on case-insensitive filesystems."),
+        @Param(
+            name = "watch_archive",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the archive file. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the file; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
       })
   public void extract(
       Object archive,
       Object output,
       String stripPrefix,
       Dict<?, ?> renameFiles, // <String, String> expected
+      String watchArchive,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     StarlarkPath archivePath = getPath("extract()", archive);
@@ -470,6 +540,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       throw new RepositoryFunctionException(
           Starlark.errorf("Archive path '%s' does not exist.", archivePath), Transience.TRANSIENT);
     }
+    if (archivePath.isDir()) {
+      throw Starlark.errorf("attempting to extract a directory: %s", archivePath);
+    }
+    maybeWatch(archivePath, ShouldWatch.fromString(watchArchive));
 
     StarlarkPath outputPath = getPath("extract()", output);
     checkInOutputDirectory("write", outputPath);
@@ -500,6 +574,54 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             .setRenameFiles(renameFilesMap)
             .build());
     env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
+  }
+
+  @StarlarkMethod(
+      name = "watch_tree",
+      doc =
+          "Tells Bazel to watch for changes to any files or directories transitively under the "
+              + "given path. Any changes to the contents of files, the existence of files or "
+              + "directories, file names or directory names, will cause this repo to be "
+              + "refetched.<p>Note that attempting to watch paths inside the repo currently being "
+              + "fetched will result in an error. ",
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "path of the directory tree to watch."),
+      })
+  public void watchTree(Object path)
+      throws EvalException, InterruptedException, RepositoryFunctionException {
+    StarlarkPath p = getPath("watch_tree()", path);
+    if (!p.isDir()) {
+      throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
+    }
+    RepoCacheFriendlyPath repoCacheFriendlyPath =
+        toRepoCacheFriendlyPath(p.getPath(), ShouldWatch.YES);
+    if (repoCacheFriendlyPath == null) {
+      return;
+    }
+    RootedPath rootedPath = repoCacheFriendlyPath.getRootedPath(env, directories);
+    if (rootedPath == null) {
+      throw new NeedsSkyframeRestartException();
+    }
+    try {
+      DirectoryTreeDigestValue digestValue =
+          (DirectoryTreeDigestValue)
+              env.getValueOrThrow(DirectoryTreeDigestValue.key(rootedPath), IOException.class);
+      if (digestValue == null) {
+        throw new NeedsSkyframeRestartException();
+      }
+
+      recordedDirTreeInputs.put(
+          new RepoRecordedInput.DirTree(repoCacheFriendlyPath), digestValue.hexDigest());
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
   }
 
   @Override

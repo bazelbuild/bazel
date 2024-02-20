@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
@@ -177,13 +178,17 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
   }
 
   @Override
-  public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
+  public boolean verifyRecordedInputs(
+      Rule rule,
+      BlazeDirectories directories,
+      Map<RepoRecordedInput, String> recordedInputValues,
+      Environment env)
       throws InterruptedException {
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       return true;
     }
-    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_SET);
+    return super.verifyRecordedInputs(rule, directories, recordedInputValues, env);
   }
 
   @Override
@@ -193,11 +198,11 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       final Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData,
+      Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
     Map<String, String> environ =
-        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_SET);
+        declareEnvironmentDependencies(recordedInputValues, env, PATH_ENV_VAR_AS_SET);
     if (environ == null) {
       return null;
     }

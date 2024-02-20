@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
@@ -56,8 +57,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
@@ -70,8 +69,6 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** A repository function to delegate work done by Starlark remote repositories. */
 public final class StarlarkRepositoryFunction extends RepositoryFunction {
-  static final String SEMANTICS = "STARLARK_SEMANTICS";
-
   private final DownloadManager downloadManager;
   private double timeoutScaling = 1.0;
   @Nullable private ExecutorService workerExecutorService = null;
@@ -99,26 +96,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     this.workerExecutorService = workerExecutorService;
   }
 
-  static String describeSemantics(StarlarkSemantics semantics) {
-    // Here we use the hash code provided by AutoValue. This is unique, as long
-    // as the number of bits in the StarlarkSemantics is small enough. We will have to
-    // move to a longer description once the number of flags grows too large.
-    return "" + semantics.hashCode();
-  }
-
-  @Override
-  protected boolean verifySemanticsMarkerData(Map<String, String> markerData, Environment env)
-      throws InterruptedException {
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
-      // As it is a precomputed value, it should already be available. If not, returning
-      // false is the safe thing to do.
-      return false;
-    }
-
-    return describeSemantics(starlarkSemantics).equals(markerData.get(SEMANTICS));
-  }
-
   @Override
   protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
     // DON'T delete the repo root here if we're using a worker thread, since when this SkyFunction
@@ -144,7 +121,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData,
+      Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
     if (workerExecutorService == null
@@ -155,7 +132,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       // Fortunately, no Skyframe restarts should happen during error bubbling anyway, so this
       // shouldn't be a performance concern. See https://github.com/bazelbuild/bazel/issues/21238
       // for more context.
-      return fetchInternal(rule, outputDirectory, directories, env, markerData, key);
+      return fetchInternal(rule, outputDirectory, directories, env, recordedInputValues, key);
     }
     var state = env.getState(RepoFetchingSkyKeyComputeState::new);
     var workerFuture = state.workerFuture;
@@ -169,7 +146,12 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
               () -> {
                 try {
                   return fetchInternal(
-                      rule, outputDirectory, directories, workerEnv, state.markerData, key);
+                      rule,
+                      outputDirectory,
+                      directories,
+                      workerEnv,
+                      state.recordedInputValues,
+                      key);
                 } finally {
                   state.signalQueue.put(Signal.DONE);
                 }
@@ -186,7 +168,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       case DONE:
         try {
           RepositoryDirectoryValue.Builder result = workerFuture.get();
-          markerData.putAll(state.markerData);
+          recordedInputValues.putAll(state.recordedInputValues);
           return result;
         } catch (ExecutionException e) {
           Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
@@ -217,7 +199,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData,
+      Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
 
@@ -225,15 +207,13 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     env.getListener().post(new StarlarkRepositoryDefinitionLocationEvent(rule.getName(), defInfo));
 
     StarlarkCallable function = rule.getRuleClassObject().getConfiguredTargetFunction();
-    if (declareEnvironmentDependencies(markerData, env, getEnviron(rule)) == null) {
+    if (declareEnvironmentDependencies(recordedInputValues, env, getEnviron(rule)) == null) {
       return null;
     }
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (env.valuesMissing()) {
       return null;
     }
-    markerData.put(SEMANTICS, describeSemantics(starlarkSemantics));
-    markerData.put("ARCH:", CPU.getCurrent().getCanonicalName());
 
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {
@@ -274,7 +254,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
               starlarkSemantics,
               repositoryRemoteExecutor,
               syscallCache,
-              directories.getWorkspace());
+              directories);
 
       if (starlarkRepositoryContext.isRemotable()) {
         // If a rule is declared remotable then invalidate it if remote execution gets
@@ -330,26 +310,28 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         env.getListener().handle(Event.debug(defInfo));
       }
 
-      // Modify marker data to include the files used by the rule's implementation function.
-      for (Map.Entry<Label, String> entry :
-          starlarkRepositoryContext.getAccumulatedFileDigests().entrySet()) {
-        // A label does not contain spaces so it's safe to use as a key.
-        markerData.put("FILE:" + entry.getKey(), entry.getValue());
-      }
+      // Modify marker data to include the files/dirents used by the rule's implementation function.
+      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
+      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirentsInputs());
+      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirTreeInputs());
 
       // Ditto for environment variables accessed via `getenv`.
       for (String envKey : starlarkRepositoryContext.getAccumulatedEnvKeys()) {
-        markerData.put("ENV:" + envKey, clientEnvironment.get(envKey));
+        recordedInputValues.put(
+            new RepoRecordedInput.EnvVar(envKey), clientEnvironment.get(envKey));
       }
 
-      for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
-          repoMappingRecorder.recordedEntries().cellSet()) {
-        markerData.put(
-            "REPO_MAPPING:"
-                + repoMappings.getRowKey().getName()
-                + ","
-                + repoMappings.getColumnKey(),
-            repoMappings.getValue().getName());
+      // For repos defined in Bzlmod, record any used repo mappings in the marker file.
+      // Repos defined in WORKSPACE are impossible to verify given the chunked loading (we'd have to
+      // record which chunk the repo mapping was used in, and ain't nobody got time for that).
+      if (!isWorkspaceRepo(rule)) {
+        for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
+            repoMappingRecorder.recordedEntries().cellSet()) {
+          recordedInputValues.put(
+              new RepoRecordedInput.RecordedRepoMapping(
+                  repoMappings.getRowKey(), repoMappings.getColumnKey()),
+              repoMappings.getValue().getName());
+        }
       }
 
       env.getListener().post(resolved);
@@ -402,47 +384,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     return ImmutableSet.copyOf((Iterable<String>) rule.getAttr("$environ"));
   }
 
-  /**
-   * Verify marker data previously saved by {@link #declareEnvironmentDependencies(Map, Environment,
-   * Set)} and/or {@link #fetchInternal(Rule, Path, BlazeDirectories, Environment, Map, SkyKey)} (on
-   * behalf of {@link StarlarkBaseExternalContext#getEnvironmentValue(String, Object)}).
-   */
-  @Override
-  protected boolean verifyEnvironMarkerData(
-      Map<String, String> markerData, Environment env, Set<String> keys)
-      throws InterruptedException {
-    /*
-     * We can ignore `keys` and instead only verify what's recorded in the marker file, because
-     * any change to `keys` between builds would be caused by a change to a .bzl file, and that's
-     * covered by RepositoryDelegatorFunction.DigestWriter#areRepositoryAndMarkerFileConsistent.
-     */
-
-    ImmutableSet<String> markerKeys =
-        markerData.keySet().stream()
-            .filter(s -> s.startsWith("ENV:"))
-            .collect(ImmutableSet.toImmutableSet());
-
-    ImmutableMap<String, String> environ =
-        getEnvVarValues(
-            env,
-            markerKeys.stream()
-                .map(s -> s.substring(4)) // ENV:FOO -> FOO
-                .collect(ImmutableSet.toImmutableSet()));
-    if (environ == null) {
-      return false;
-    }
-
-    for (String key : markerKeys) {
-      String markerValue = markerData.get(key);
-      String envKey = key.substring(4); // ENV:FOO -> FOO
-      if (!Objects.equals(markerValue, environ.get(envKey))) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   @Override
   protected boolean isLocal(Rule rule) {
     return (Boolean) rule.getAttr("$local");
@@ -463,6 +404,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     return rule.getRuleClassObject().isStarlark() && ((Boolean) rule.getAttr("$configure"));
   }
 
+  @Nullable
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return null; // unused so safe to return null
