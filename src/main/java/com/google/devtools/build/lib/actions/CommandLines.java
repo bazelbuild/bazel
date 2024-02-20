@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -102,13 +101,11 @@ public abstract class CommandLines {
     for (CommandLineAndParamFileInfo pair : commandLines) {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
+      Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
       if (paramFileInfo == null) {
-        Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
         arguments.add(args);
         cmdLineLength += totalArgLen(args);
       } else {
-        checkNotNull(paramFileInfo); // If null, we would have just had a CommandLine
-        Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
         boolean useParamFile = true;
         if (!paramFileInfo.always()) {
           int tentativeCmdLineLength = cmdLineLength + totalArgLen(args);
