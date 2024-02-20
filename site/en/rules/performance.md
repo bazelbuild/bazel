@@ -206,6 +206,9 @@ symlink in your workspace directory.
 The [JSON trace profile](/advanced/performance/json-trace-profile) can be very
 useful to quickly understand what Bazel spent time on during the invocation.
 
+The [`--starlark_cpu_profile`](https://bazel.build/reference/command-line-reference#flag--starlark_cpu_profile)
+flag may be used to write a pprof profile of CPU usage by all Starlark threads.
+
 ## Memory profiling {:#memory-profiling}
 
 Bazel comes with a built-in memory profiler that can help you check your rule’s
