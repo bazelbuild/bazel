@@ -341,23 +341,21 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       structuredVariableCache = Maps.newConcurrentMap();
     }
 
-    Object variableOrError =
-        structuredVariableCache.computeIfAbsent(
-            name,
-            n -> {
-              try {
-                VariableValue variable = getStructureVariable(n, throwOnMissingVariable, expander);
-                return variable != null ? variable : NULL_MARKER;
-              } catch (ExpansionException e) {
-                if (throwOnMissingVariable) {
-                  return e.getMessage();
-                } else {
-                  throw new IllegalStateException(
-                      "Should not happen - call to getStructuredVariable threw when asked not to.",
-                      e);
-                }
-              }
-            });
+    Object variableOrError = structuredVariableCache.get(name);
+    if (variableOrError == null) {
+      try {
+        VariableValue variable = getStructureVariable(name, throwOnMissingVariable, expander);
+        variableOrError = variable != null ? variable : NULL_MARKER;
+      } catch (ExpansionException e) {
+        if (throwOnMissingVariable) {
+          variableOrError = e.getMessage();
+        } else {
+          throw new IllegalStateException(
+              "Should not happen - call to getStructuredVariable threw when asked not to.", e);
+        }
+      }
+      structuredVariableCache.putIfAbsent(name, variableOrError);
+    }
 
     if (variableOrError instanceof VariableValue) {
       return (VariableValue) variableOrError;
