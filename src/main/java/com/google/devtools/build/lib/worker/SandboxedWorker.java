@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuild
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
@@ -25,13 +26,15 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.sandbox.CgroupsInfo;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroupFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -39,6 +42,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
@@ -47,6 +51,7 @@ import javax.annotation.Nullable;
 final class SandboxedWorker extends SingleplexWorker {
 
   public static final String TMP_DIR_MOUNT_NAME = "_tmp";
+  private final VirtualCGroupFactory cgroupFactory;
 
   @AutoValue
   public abstract static class WorkerSandboxOptions {
@@ -63,8 +68,6 @@ final class SandboxedWorker extends SingleplexWorker {
 
     abstract Path sandboxBinary();
 
-    abstract int memoryLimit();
-
     abstract ImmutableSet<Path> inaccessiblePaths();
 
     abstract ImmutableList<Entry<String, String>> additionalMountPaths();
@@ -76,7 +79,6 @@ final class SandboxedWorker extends SingleplexWorker {
         boolean debugMode,
         ImmutableList<PathFragment> tmpfsPath,
         ImmutableList<String> writablePaths,
-        int memoryLimit,
         ImmutableSet<Path> inaccessiblePaths,
         ImmutableList<Entry<String, String>> sandboxAdditionalMounts) {
       return new AutoValue_SandboxedWorker_WorkerSandboxOptions(
@@ -86,7 +88,6 @@ final class SandboxedWorker extends SingleplexWorker {
           tmpfsPath,
           writablePaths,
           sandboxBinary,
-          memoryLimit,
           inaccessiblePaths,
           sandboxAdditionalMounts);
     }
@@ -109,8 +110,9 @@ final class SandboxedWorker extends SingleplexWorker {
       Path logFile,
       WorkerOptions workerOptions,
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
-      TreeDeleter treeDeleter) {
-    super(workerKey, workerId, workDir, logFile, workerOptions);
+      TreeDeleter treeDeleter,
+      VirtualCGroupFactory cgroupFactory) {
+    super(workerKey, workerId, workDir, logFile, workerOptions, cgroupFactory);
     this.workerExecRoot =
         new WorkerExecRoot(
             workDir,
@@ -119,6 +121,7 @@ final class SandboxedWorker extends SingleplexWorker {
                 : ImmutableList.of());
     this.hardenedSandboxOptions = hardenedSandboxOptions;
     this.treeDeleter = treeDeleter;
+    this.cgroupFactory = cgroupFactory;
   }
 
   @Override
@@ -177,16 +180,7 @@ final class SandboxedWorker extends SingleplexWorker {
   protected Subprocess createProcess() throws IOException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
 
-    // We put the sandbox inside a unique subdirectory using the worker's ID.
-    if (options.useCgroupsOnLinux || hardenedSandboxOptions != null) {
-      // In the event that the memory limit is 0, we defer to using Blaze's WorkerLifecycleManager
-      // to kill workers rather than cgroup's OOM killer.
-      cgroup =
-          CgroupsInfo.getBlazeSpawnsCgroup()
-              .createIndividualSpawnCgroup(
-                  "worker_sandbox_" + workerId,
-                  hardenedSandboxOptions != null ? hardenedSandboxOptions.memoryLimit() : 0);
-    }
+    Optional<VirtualCGroup> cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
 
     // TODO(larsrc): Check that execRoot and outputBase are not under /tmp
     if (hardenedSandboxOptions != null) {
@@ -206,9 +200,7 @@ final class SandboxedWorker extends SingleplexWorker {
               .setUseFakeHostname(this.hardenedSandboxOptions.fakeHostname())
               .setCreateNetworkNamespace(NETNS);
 
-      if (cgroup != null && cgroup.exists()) {
-        commandLineBuilder.setCgroupsDir(cgroup.getCgroupDir().toString());
-      }
+      cgroup.map(VirtualCGroup::paths).ifPresent(commandLineBuilder::setCgroupsDirs);
 
       if (this.hardenedSandboxOptions.fakeUsername()) {
         commandLineBuilder.setUseFakeUsername(true);
@@ -219,12 +211,13 @@ final class SandboxedWorker extends SingleplexWorker {
 
     Subprocess process = createProcessBuilder(args).start();
 
+
     // If using hardened sandbox (aka linux-sandbox), the linux-sandbox parent process moves the
     // sandboxed children processes (pid 1, 2) into the cgroup. But we still need to move the
     // linux-sandbox process into the worker cgroup. On the other hand, without linux-sandbox, Blaze
     // needs to do this itself for the spawned worker process.
-    if (cgroup != null && cgroup.exists()) {
-      cgroup.addProcess(process.getProcessId());
+    if (cgroup.isPresent()) {
+      cgroup.get().addProcess(process.getProcessId());
     }
     return process;
   }
@@ -256,10 +249,7 @@ final class SandboxedWorker extends SingleplexWorker {
       if (inaccessibleHelperDir != null) {
         inaccessibleHelperDir.delete();
       }
-      if (cgroup != null && cgroup.exists()) {
-        // This is only to not leave too much behind in the cgroups tree, can ignore errors.
-        cgroup.getCgroupDir().delete();
-      }
+      cgroupFactory.remove(workerId).ifPresent(VirtualCGroup::delete);
       workDir.deleteTree();
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Caught IOException while deleting workdir.");
