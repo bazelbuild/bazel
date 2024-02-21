@@ -27,6 +27,7 @@ public interface Controller {
         Memory child(String name) throws IOException;
         void setMaxBytes(long bytes) throws IOException;
         long getMaxBytes() throws IOException;
+        long getUsageInBytes() throws IOException;
     }
     interface Cpu extends Controller {
         Cpu child(String name) throws IOException;

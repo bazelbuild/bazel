@@ -84,9 +84,8 @@ class SingleplexWorker extends Worker {
   }
 
   @Override
-  public CgroupsInfo getCgroup() {
-    // TODO(apatti) - This is used for metrics collection. Make caller accept virtual cgroups.
-    return null;
+  public Optional<VirtualCGroup> getCgroup() {
+    return cgroupFactory.get(workerId);
   }
 
   protected Subprocess createProcess() throws IOException, InterruptedException, UserExecException {

@@ -22,30 +22,33 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
+import com.google.devtools.build.lib.sandbox.cgroups.controller.Controller;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.io.IOException;
 
 @RunWith(JUnit4.class)
 public class CgroupsInfoCollectorTest {
 
   @Test
-  public void testCollectResourceUsage_returnsValidCgroupMemoryUsage() {
+  public void testCollectResourceUsage_returnsValidCgroupMemoryUsage() throws IOException {
     Clock clock = BlazeClock.instance();
-    CgroupsInfo cgroupsInfo1 = mock(CgroupsInfo.class);
-    when(cgroupsInfo1.getMemoryUsageInKb()).thenReturn(1000);
-    when(cgroupsInfo1.exists()).thenReturn(true);
-    CgroupsInfo cgroupsInfo2 = mock(CgroupsInfo.class);
-    when(cgroupsInfo2.exists()).thenReturn(false);
-    when(cgroupsInfo2.getMemoryUsageInKb()).thenReturn(2000);
-    CgroupsInfo cgroupsInfo3 = mock(CgroupsInfo.class);
-    when(cgroupsInfo3.exists()).thenReturn(true);
-    when(cgroupsInfo3.getMemoryUsageInKb()).thenReturn(3000);
+    ImmutableMap.Builder<Long, VirtualCGroup> pidToCgroups = ImmutableMap.builder();
+    for (long i = 1; i < 4; i++) {
+      Controller.Memory m = mock(Controller.Memory.class);
+      when(m.getUsageInBytes()).thenReturn(i * 1000 * 1024);
+      when(m.exists()).thenReturn(i == 2 ? false : true);
+      VirtualCGroup cg = mock(VirtualCGroup.class);
+      when(cg.memory()).thenReturn(m);
+      pidToCgroups.put(i, cg);
+    }
 
     ResourceSnapshot snapshot =
         CgroupsInfoCollector.instance()
-            .collectResourceUsage(
-                ImmutableMap.of(1L, cgroupsInfo1, 2L, cgroupsInfo2, 3L, cgroupsInfo3), clock);
+            .collectResourceUsage(pidToCgroups.build(), clock);
 
     // Results from cgroups 2 should not be in the snapshot since it doesn't exist.
     assertThat(snapshot.getPidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);

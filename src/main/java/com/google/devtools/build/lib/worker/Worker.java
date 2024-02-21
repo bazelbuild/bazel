@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -27,7 +28,6 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
-import javax.annotation.Nullable;
 
 /**
  * An abstract superclass for persistent workers. Workers execute actions in long-running processes
@@ -75,8 +75,7 @@ public abstract class Worker {
     return status;
   }
 
-  @Nullable
-  abstract public CgroupsInfo getCgroup();
+  abstract public Optional<VirtualCGroup> getCgroup();
 
   HashCode getWorkerFilesCombinedHash() {
     return workerKey.getWorkerFilesCombinedHash();

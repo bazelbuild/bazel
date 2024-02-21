@@ -32,4 +32,9 @@ public class LegacyMemory extends LegacyController implements Controller.Memory 
     public long getMaxBytes() throws IOException {
         return Long.parseLong(Files.readString(path.resolve("memory.limit_in_bytes")).trim());
     }
+
+    @Override
+    public long getUsageInBytes() throws IOException {
+        return Long.parseLong(Files.readString(path.resolve("memory.usage_in_bytes")).trim());
+    }
 }
