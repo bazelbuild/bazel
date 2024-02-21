@@ -32,5 +32,6 @@ java_library(
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/sandbox:__subpackages__",
         "//src/main/java/com/google/devtools/build/lib/worker:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/worker:__subpackages__",
     ],
 )

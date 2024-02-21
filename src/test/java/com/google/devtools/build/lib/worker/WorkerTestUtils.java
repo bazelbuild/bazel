@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroupFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -221,7 +222,7 @@ public class WorkerTestUtils {
         Path logFile,
         FakeSubprocess fakeSubprocess,
         WorkerOptions options) {
-      super(workerKey, workerId, workDir, logFile, options);
+      super(workerKey, workerId, workDir, logFile, options, VirtualCGroupFactory.NOOP);
       this.fakeSubprocess = fakeSubprocess;
     }
 
