@@ -68,7 +68,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
       bazel {{ '<var>' }}--optional-flags{{ '</var>' }} build //{{ '<var>' }}your:target{{ '</var>' }} --execution_log_binary_file=/tmp/exec1.log
       ```
 
-   b. [Compare the execution logs](#compare-logs-the-execution-logs) between the
+   b. [Compare the execution logs](#compare-logs) between the
       two runs. Ensure that the actions are identical across the two log files.
       Discrepancies provide a clue about the changes that occurred between the
       runs. Update your build to eliminate those discrepancies.
