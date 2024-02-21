@@ -297,7 +297,7 @@ def _init_cc_compilation_context(
         if not module_map:
             module_map = cc_common.create_module_map(
                 file = actions.declare_file(label.name + ".cppmap"),
-                name = label.to_display_form(),
+                name = label.workspace_name + "//" + label.package + ":" + label.name,
             )
 
         # There are different modes for module compilation:
