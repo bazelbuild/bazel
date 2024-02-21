@@ -18,24 +18,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBase;
 import java.util.List;
 
 /** An implementation of genrule for Bazel. */
 public final class BazelGenRule extends GenRuleBase {
-
-  @Override
-  protected boolean isStampingEnabled(RuleContext ruleContext) {
-    if (!ruleContext.attributes().has("stamp", Type.BOOLEAN)) {
-      return false;
-    }
-    return ruleContext.attributes().get("stamp", Type.BOOLEAN);
-  }
 
   @Override
   protected ImmutableMap<Label, NestedSet<Artifact>> collectSources(
