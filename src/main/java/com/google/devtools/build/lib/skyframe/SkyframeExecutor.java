@@ -169,6 +169,7 @@ import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictExc
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
+import com.google.devtools.build.lib.skyframe.BuildDriverFunction.AdditionalPostAnalysisDepsRequestedAndAvailable;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TestTypeResolver;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
@@ -759,28 +760,32 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.ARTIFACT_NESTED_SET,
         new ArtifactNestedSetFunction(this::getConsumedArtifactsTracker));
-    BuildDriverFunction buildDriverFunction =
-        new BuildDriverFunction(
-            new TransitiveActionLookupValuesHelper() {
-              @Override
-              public ActionLookupValuesCollectionResult collect() {
-                return collectAccumulatedAlvs();
-              }
-
-              @Override
-              public boolean trackingStateForIncrementality() {
-                return tracksStateForIncrementality();
-              }
-            },
-            this::getIncrementalArtifactConflictFinder,
-            this::getRuleContextConstraintSemantics,
-            this::getExtraActionFilter,
-            this::getTestTypeResolver);
+    BuildDriverFunction buildDriverFunction = newBuildDriverFunction();
     map.put(SkyFunctions.BUILD_DRIVER, buildDriverFunction);
     this.buildDriverFunction = buildDriverFunction;
 
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
+  }
+
+  protected BuildDriverFunction newBuildDriverFunction() {
+    return new BuildDriverFunction(
+        new TransitiveActionLookupValuesHelper() {
+          @Override
+          public ActionLookupValuesCollectionResult collect() {
+            return collectAccumulatedAlvs();
+          }
+
+          @Override
+          public boolean trackingStateForIncrementality() {
+            return tracksStateForIncrementality();
+          }
+        },
+        this::getIncrementalArtifactConflictFinder,
+        this::getRuleContextConstraintSemantics,
+        this::getExtraActionFilter,
+        this::getTestTypeResolver,
+        AdditionalPostAnalysisDepsRequestedAndAvailable.NO_OP);
   }
 
   protected SkyFunction newFileStateFunction() {
@@ -2875,7 +2880,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @Nullable
-  private RuleContextConstraintSemantics getRuleContextConstraintSemantics() {
+  protected RuleContextConstraintSemantics getRuleContextConstraintSemantics() {
     return ruleContextConstraintSemantics;
   }
 
@@ -2884,11 +2889,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
   }
 
-  private RegexFilter getExtraActionFilter() {
+  protected RegexFilter getExtraActionFilter() {
     return checkNotNull(extraActionFilter);
   }
 
-  private TestTypeResolver getTestTypeResolver() {
+  protected TestTypeResolver getTestTypeResolver() {
     return checkNotNull(testTypeResolver);
   }
 
@@ -3188,7 +3193,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * No graph edges available when there's no incrementality. We get the ALVs collected since the
    * last time this method was called.
    */
-  private ActionLookupValuesCollectionResult collectAccumulatedAlvs() {
+  protected ActionLookupValuesCollectionResult collectAccumulatedAlvs() {
     try (SilentCloseable c =
         Profiler.instance().profile("SkyframeExecutor.collectAccumulatedAlvs")) {
       ImmutableMap<ActionLookupKey, SkyValue> batchOfActionLookupValues =

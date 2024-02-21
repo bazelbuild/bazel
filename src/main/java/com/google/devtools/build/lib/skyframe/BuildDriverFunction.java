@@ -89,8 +89,9 @@ public class BuildDriverFunction implements SkyFunction {
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
   private final Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics;
   private final Supplier<RegexFilter> extraActionFilterSupplier;
-
   private final Supplier<TestTypeResolver> testTypeResolver;
+  final AdditionalPostAnalysisDepsRequestedAndAvailable
+      additionalPostAnalysisDepsRequestedAndAvailable;
 
   @Nullable private Supplier<Boolean> shouldCheckForConflict;
 
@@ -117,17 +118,21 @@ public class BuildDriverFunction implements SkyFunction {
   private Map<BuildDriverKey, Set<TopLevelStatusEvents.Type>> keyToPostedEvents =
       Maps.newConcurrentMap();
 
-  BuildDriverFunction(
+  public BuildDriverFunction(
       TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper,
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
       Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics,
       Supplier<RegexFilter> extraActionFilterSupplier,
-      Supplier<TestTypeResolver> testTypeResolver) {
+      Supplier<TestTypeResolver> testTypeResolver,
+      AdditionalPostAnalysisDepsRequestedAndAvailable
+          additionalPostAnalysisDepsRequestedAndAvailable) {
     this.transitiveActionLookupValuesHelper = transitiveActionLookupValuesHelper;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
     this.extraActionFilterSupplier = extraActionFilterSupplier;
     this.testTypeResolver = testTypeResolver;
+    this.additionalPostAnalysisDepsRequestedAndAvailable =
+        additionalPostAnalysisDepsRequestedAndAvailable;
   }
 
   private static class State implements SkyKeyComputeState {
@@ -284,6 +289,10 @@ public class BuildDriverFunction implements SkyFunction {
         }
       }
 
+      if (!additionalPostAnalysisDepsRequestedAndAvailable.request(env, actionLookupKey)) {
+        return null;
+      }
+
       postEventIfNecessary(
           postedEventsTypes, env, TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
       postEventIfNecessary(
@@ -321,6 +330,10 @@ public class BuildDriverFunction implements SkyFunction {
               TopLevelTargetReadyForSymlinkPlanting.create(aspectValue.getTransitivePackages()));
         }
         aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
+      }
+
+      if (!additionalPostAnalysisDepsRequestedAndAvailable.request(env, actionLookupKey)) {
+        return null;
       }
 
       // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date
@@ -644,7 +657,8 @@ public class BuildDriverFunction implements SkyFunction {
     }
   }
 
-  interface TransitiveActionLookupValuesHelper {
+  /** Handles the collection of the evaluated ActionLookupValues for conflict checking. */
+  public interface TransitiveActionLookupValuesHelper {
 
     /**
      * Collect the evaluated ActionLookupValues accumulated since the last time this method was
@@ -656,14 +670,25 @@ public class BuildDriverFunction implements SkyFunction {
     boolean trackingStateForIncrementality();
   }
 
-  interface TestTypeResolver {
+  /** Helper to resolve the test type. */
+  public interface TestTypeResolver {
 
     /** Determines the appropriate test type given a ConfiguredTarget. */
     TestType determineTestType(ConfiguredTarget target);
   }
 
+  /** Helper to request additional post analysis deps, if required. */
+  @FunctionalInterface
+  public interface AdditionalPostAnalysisDepsRequestedAndAvailable {
+    AdditionalPostAnalysisDepsRequestedAndAvailable NO_OP = (env, key) -> true;
+
+    /** Returns whether the deps are requested and available. */
+    boolean request(Environment env, ActionLookupKey key) throws InterruptedException;
+  }
+
+  /** Contains the results of collecting ALVs. */
   @AutoValue
-  abstract static class ActionLookupValuesCollectionResult {
+  public abstract static class ActionLookupValuesCollectionResult {
     abstract ImmutableCollection<SkyValue> collectedValues();
 
     static ActionLookupValuesCollectionResult create(
