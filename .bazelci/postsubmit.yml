@@ -37,9 +37,6 @@ tasks:
       - "//tools/compliance/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
       # These tests are not compatible with the gcov version of CentOS 7.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
@@ -99,7 +96,6 @@ tasks:
       - "//tools/python/..."
       - "//tools/bash/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/import_deps_checker/..."
     include_json_profile:
       - build
       - test
@@ -158,8 +154,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/import_deps_checker/..."
     include_json_profile:
       - build
       - test
@@ -194,13 +188,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
-      # C++ coverage is not supported on macOS yet.
-      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      # MacOS does not have cgroups so it can't support hardened sandbox
-      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
       # https://github.com/bazelbuild/bazel/issues/16526
       - "-//src/test/shell/bazel:starlark_repository_test"
       # https://github.com/bazelbuild/bazel/issues/17407
@@ -209,10 +196,6 @@ tasks:
       - "-//src/test/shell/bazel/apple:bazel_objc_test"
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # https://github.com/bazelbuild/bazel/issues/17411
-      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
-      # https://github.com/bazelbuild/bazel/issues/17447
-      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:GitRepositoryBlackBoxTest"
       # https://github.com/bazelbuild/bazel/issues/17456
       - "-//src/test/shell/bazel:bazel_determinism_test"
       # https://github.com/bazelbuild/bazel/issues/17457
@@ -222,12 +205,6 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      # Disable recently regressed tests: https://github.com/bazelbuild/bazel/issues/20437
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CppSysrootTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcImportConfiguredTargetTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcToolchainTest"
     include_json_profile:
       - build
       - test
@@ -261,43 +238,12 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
-      # C++ coverage is not supported on macOS yet.
-      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      # MacOS does not have cgroups so it can't support hardened sandbox
-      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
-      # https://github.com/bazelbuild/bazel/issues/16525
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:KeepGoingTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:DanglingSymlinkTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:CompileOneDependencyIntegrationTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:SkymeldBuildIntegrationTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
-      - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:MiscAnalysisTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      # https://github.com/bazelbuild/bazel/issues/17007
+      # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # https://github.com/bazelbuild/bazel/issues/16521 & https://github.com/bazelbuild/bazel/issues/18776
       - "-//src/test/shell/bazel/android/..."
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
-      # Macs can't find python, so these fail: https://github.com/bazelbuild/bazel/issues/18776
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      # Disable recently regressed tests: https://github.com/bazelbuild/bazel/issues/20437
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CppSysrootTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcImportConfiguredTargetTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcToolchainTest"
-      # https://github.com/bazelbuild/bazel/issues/17411
-      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
-      # https://github.com/bazelbuild/bazel/issues/17447
-      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:GitRepositoryBlackBoxTest"
     include_json_profile:
       - build
       - test
@@ -414,9 +360,6 @@ tasks:
       - "-//src/test/shell/bazel:bazel_repository_cache_test"
       - "-//src/test/shell/integration:java_integration_test"
       - "-//src/test/java/com/google/devtools/build/lib/sandbox/..."
-      # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
       # We hit connection timeout error when downloading multiple URLs on RBE, see b/217865760
       - "-//src/test/py/bazel:bazel_module_test"
       - "-//src/test/py/bazel:bazel_lockfile_test"

@@ -113,7 +113,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
             "index 1f4c41e..9d548ff 100644",
             "--- a/foo.sh",
             "+++ b/foo.sh",
-            "@@ -1,3 +1,3 @@",
+            "@@ -1,4 +1,4 @@",
             " #!/usr/bin/env sh",
             "",
             "-echo Here be dragons...",
