@@ -44,13 +44,6 @@ public abstract class BazelModuleContext {
   /** The repository mapping applicable to the repo where the .bzl file is located in. */
   public abstract RepositoryMapping repoMapping();
 
-  /**
-   * The repository mapping applicable to the main repository, possibly without WORKSPACE repos or
-   * null. This is purely meant to support {@link Label#getDisplayFormForStarlark(StarlarkThread)}.
-   */
-  @Nullable
-  public abstract RepositoryMapping bestEffortMainRepoMapping();
-
   /** Returns the name of the module's .bzl file, as provided to the parser. */
   public abstract String filename();
 
@@ -167,12 +160,11 @@ public abstract class BazelModuleContext {
   public static BazelModuleContext create(
       Label label,
       RepositoryMapping repoMapping,
-      @Nullable RepositoryMapping bestEffortMainRepoMapping,
       String filename,
       ImmutableList<Module> loads,
       byte[] bzlTransitiveDigest) {
     return new AutoValue_BazelModuleContext(
-        label, repoMapping, bestEffortMainRepoMapping, filename, loads, bzlTransitiveDigest);
+        label, repoMapping, filename, loads, bzlTransitiveDigest);
   }
 
   public final Label.PackageContext packageContext() {
