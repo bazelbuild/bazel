@@ -53,8 +53,6 @@ public abstract class Worker {
 
   protected final WorkerProcessStatus status;
 
-  @Nullable protected CgroupsInfo cgroup = null;
-
   /**
    * Returns a unique id for this worker. This is used to distinguish different worker processes in
    * logs and messages.
@@ -78,9 +76,7 @@ public abstract class Worker {
   }
 
   @Nullable
-  public CgroupsInfo getCgroup() {
-    return cgroup;
-  }
+  abstract public CgroupsInfo getCgroup();
 
   HashCode getWorkerFilesCombinedHash() {
     return workerKey.getWorkerFilesCombinedHash();

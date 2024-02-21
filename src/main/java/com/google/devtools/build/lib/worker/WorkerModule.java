@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -36,6 +37,8 @@ import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroupFactory;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
 import com.google.devtools.common.options.OptionsBase;
@@ -97,8 +100,8 @@ public class WorkerModule extends BlazeModule {
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
     BlazeWorkspace workspace = env.getBlazeWorkspace();
     WorkerSandboxOptions workerSandboxOptions;
+    SandboxOptions sandboxOptions = event.request().getOptions(SandboxOptions.class);
     if (options.sandboxHardening) {
-      SandboxOptions sandboxOptions = event.request().getOptions(SandboxOptions.class);
       workerSandboxOptions =
           WorkerSandboxOptions.create(
               LinuxSandboxUtil.getLinuxSandbox(workspace),
@@ -107,7 +110,6 @@ public class WorkerModule extends BlazeModule {
               sandboxOptions.sandboxDebug,
               ImmutableList.copyOf(sandboxOptions.sandboxTmpfsPath),
               ImmutableList.copyOf(sandboxOptions.sandboxWritablePath),
-              sandboxOptions.memoryLimitMb,
               sandboxOptions.getInaccessiblePaths(env.getRuntime().getFileSystem()),
               ImmutableList.copyOf(sandboxOptions.sandboxAdditionalMounts));
     } else {
@@ -120,8 +122,19 @@ public class WorkerModule extends BlazeModule {
         removeStaleTrash(workerDir, trashBase);
       }
     }
+    VirtualCGroupFactory cgroupFactory = null;
+    try {
+      VirtualCGroup root = VirtualCGroup.getInstance(env.getReporter());
+      cgroupFactory = new VirtualCGroupFactory(
+          "worker_",
+          root,
+          options.sandboxHardening ? ImmutableMap.copyOf(sandboxOptions.limits) : ImmutableMap.of(),
+          options.useCgroupsOnLinux);
+    } catch (IOException e) {
+      env.getReporter().handle(Event.warn("Unable to create cgroup factory: " + e.getMessage()));
+    }
     WorkerFactory newWorkerFactory =
-        new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter);
+        new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter, cgroupFactory);
     if (!newWorkerFactory.equals(workerFactory)) {
       if (workerDir.exists()) {
         try {

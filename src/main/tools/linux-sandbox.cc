@@ -125,10 +125,10 @@ static void CloseFds() {
 }
 
 static void MaybeAddChildProcessToCgroup(const pid_t pid) {
-  if (!opt.cgroups_dir.empty()) {
+  for(const std::string &cgroups_dir : opt.cgroups_dirs) {
     PRINT_DEBUG("Adding process %d to cgroups dir %s", pid,
-                opt.cgroups_dir.c_str());
-    WriteFile(opt.cgroups_dir + "/cgroup.procs", "%d", pid);
+                cgroups_dir.c_str());
+    WriteFile(cgroups_dir + "/cgroup.procs", "%d", pid);
   }
 }
 
