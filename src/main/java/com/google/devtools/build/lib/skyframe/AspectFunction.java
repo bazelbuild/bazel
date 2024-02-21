@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -757,23 +756,12 @@ final class AspectFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    RepositoryMappingValue mainRepoMappingValue =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
-    if (mainRepoMappingValue == null) {
-      return null;
-    }
 
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
 
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment =
-        view.createAnalysisEnvironment(
-            key,
-            events,
-            env,
-            configuration,
-            starlarkBuiltinsValue,
-            mainRepoMappingValue.getRepositoryMapping());
+        view.createAnalysisEnvironment(key, events, env, configuration, starlarkBuiltinsValue);
 
     ConfiguredAspect configuredAspect;
     if (aspect.getDefinition().applyToGeneratingRules() && associatedTarget instanceof OutputFile) {

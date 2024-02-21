@@ -444,17 +444,6 @@ def _derive_output_file(ctx, base_file, *, name_suffix = "", extension = None, e
     new_basename = paths.replace_extension(base_file.basename, name_suffix + "." + extension + extension_suffix)
     return ctx.actions.declare_file(new_basename, sibling = base_file)
 
-def _map_to_display_form(label):
-    """`map_each` callback that formats a `Label` with `Label.to_display_form()`
-
-    Args:
-        label: (Label) the label of a target.
-
-    Returns:
-        (str) the display form representation of `label`
-    """
-    return label.to_display_form()
-
 helper = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
@@ -481,5 +470,4 @@ helper = struct(
     tokenize_javacopts = _tokenize_javacopts,
     detokenize_javacopts = _detokenize_javacopts,
     derive_output_file = _derive_output_file,
-    map_to_display_form = _map_to_display_form,
 )
