@@ -171,8 +171,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
     this.tools = tools;
     this.compilationType = compilationType;
-    // TODO(djasper): The only thing that is conveyed through the executionInfo is whether worker
-    // mode is enabled or not. Investigate whether we can store just that.
     this.executionInfo =
         configuration.modifiedExecutionInfo(executionInfo, compilationType.mnemonic);
     this.executableLine = executableLine;

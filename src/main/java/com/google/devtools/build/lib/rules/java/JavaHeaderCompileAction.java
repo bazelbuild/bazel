@@ -75,6 +75,8 @@ import javax.annotation.Nullable;
  */
 public final class JavaHeaderCompileAction extends SpawnAction {
 
+  private static final String DIRECT_CLASSPATH_MNEMONIC = "Turbine";
+
   private final boolean insertDependencies;
   private final NestedSet<Artifact> additionalArtifactsForPathMapping;
 
@@ -462,14 +464,22 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         }
       }
 
-      ImmutableMap<String, String> executionInfo =
-          TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
+      ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+      executionInfo.putAll(
+          ruleContext
+              .getConfiguration()
+              .modifiedExecutionInfo(
+                  ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "1"),
+                  JavaCompileActionBuilder.MNEMONIC));
+      executionInfo.putAll(
+          TargetUtils.getExecutionInfo(
+              ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
       if (javaConfiguration.inmemoryJdepsFiles()) {
-        executionInfo =
-            ImmutableMap.of(
-                ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                outputDepsProto.getExecPathString());
+        executionInfo.put(
+            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+            outputDepsProto.getExecPathString());
       }
+
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
         NestedSet<Artifact> additionalArtifactsForPathMapping;
@@ -509,9 +519,11 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                 /* env= */ actionEnvironment,
                 /* executionInfo= */ ruleContext
                     .getConfiguration()
-                    .modifiedExecutionInfo(executionInfo, "Turbine"),
+                    .modifiedExecutionInfo(
+                        executionInfo.buildKeepingLast(), DIRECT_CLASSPATH_MNEMONIC),
                 /* progressMessage= */ progressMessage,
-                /* mnemonic= */ "Turbine",
+
+                /* mnemonic= */ DIRECT_CLASSPATH_MNEMONIC,
                 /* outputPathsMode= */ PathMappers.getOutputPathsMode(
                     ruleContext.getConfiguration()),
                 // If classPathMode == BAZEL, also make sure to inject the dependencies to be
@@ -558,7 +570,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               /* transitiveInputs= */ classpathEntries,
               /* directJars= */ directJars,
               /* outputs= */ outputs.build(),
-              /* executionInfo= */ executionInfo,
+              /* executionInfo= */ executionInfo.buildKeepingLast(),
               /* extraActionInfoSupplier= */ null,
               /* executableLine= */ executableLine,
               /* flagLine= */ commandLine.build(),
