@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -25,9 +27,8 @@ import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -87,10 +88,15 @@ public final class StrippingPathMapper {
    * @param action the action to potentially strip paths from
    * @return a {@link StrippingPathMapper} if the action supports it, else {@link Optional#empty()}.
    */
-  static Optional<PathMapper> tryCreate(Action action) {
+  static Optional<PathMapper> tryCreate(AbstractAction action) {
     // This is expected to always be "bazel-out", but we don't want to hardcode it here.
     PathFragment outputRoot = action.getPrimaryOutput().getExecPath().subFragment(0, 1);
-    if (isPathStrippable(action.getInputs(), outputRoot)) {
+    // Additional artifacts to map are not part of the action's inputs, but may still lead to
+    // path collisions after stripping. It is thus important to include them in this check.
+    if (isPathStrippable(
+        Iterables.concat(
+            action.getInputs().toList(), action.getAdditionalArtifactsForPathMapping().toList()),
+        outputRoot)) {
       return Optional.of(
           create(action.getMnemonic(), action instanceof StarlarkAction, outputRoot));
     }
@@ -243,7 +249,7 @@ public final class StrippingPathMapper {
    * <p>This method checks b).
    */
   private static boolean isPathStrippable(
-      NestedSet<? extends ActionInput> actionInputs, PathFragment outputRoot) {
+      Iterable<? extends ActionInput> actionInputs, PathFragment outputRoot) {
     // For qualifying action types, check that no inputs or outputs would clash if paths were
     // removed, e.g. "bazel-out/k8-fastbuild/foo" and "bazel-out/host/foo".
     //
@@ -254,15 +260,15 @@ public final class StrippingPathMapper {
     // with configurations). While this would help more action instances qualify, it also blocks
     // caching the same action in host and target configurations. This could be mitigated by
     // stripping the host prefix *only* when the entire action is in the host configuration.
-    HashSet<PathFragment> rootRelativePaths = new HashSet<>();
-    for (ActionInput input : actionInputs.toList()) {
+    HashMap<PathFragment, ActionInput> rootRelativePaths = new HashMap<>();
+    for (ActionInput input : actionInputs) {
       if (!isOutputPath(input, outputRoot)) {
         continue;
       }
       // For "bazel-out/k8-fastbuild/foo/bar", get "foo/bar".
-      if (!rootRelativePaths.add(input.getExecPath().subFragment(2))) {
-        // TODO(bazel-team): don't fail on duplicate inputs, i.e. when the same exact exec path
-        // (including config prefix) is included twice.
+      if (!rootRelativePaths
+          .computeIfAbsent(input.getExecPath().subFragment(2), k -> input)
+          .equals(input)) {
         return false;
       }
     }

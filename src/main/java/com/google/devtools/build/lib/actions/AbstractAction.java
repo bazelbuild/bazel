@@ -666,4 +666,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   public PlatformInfo getExecutionPlatform() {
     return owner.getExecutionPlatform();
   }
+
+  /**
+   * Returns artifacts that should be subject to path mapping (see {@link Spawn#getPathMapper()},
+   * but aren't inputs of the action.
+   */
+  public NestedSet<Artifact> getAdditionalArtifactsForPathMapping() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
 }
