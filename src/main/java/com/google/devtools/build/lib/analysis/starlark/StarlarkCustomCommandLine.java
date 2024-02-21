@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -582,90 +584,43 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
-  @AutoCodec
-  static final class ScalarArg {
-    private static final Interner<ScalarArg> interner = BlazeInterners.newStrongInterner();
-    private static final UUID FORMAT_UUID = UUID.fromString("8cb96642-a235-4fe0-b3ed-ebfdae8a0bd9");
+  /** Handles a single formatted argument originating from {@code Args.add} */
+  private static final class SingleFormattedArg {
 
-    private final boolean hasFormat;
+    /** Denotes that the following two elements are an object and format string. */
+    private static final Object MARKER =
+        new Object() {
+          @Override
+          public String toString() {
+            return "SINGLE_FORMATTED_ARG_MARKER";
+          }
+        };
 
-    private ScalarArg(boolean hasFormat) {
-      this.hasFormat = hasFormat;
+    private static final UUID SINGLE_FORMATTED_ARG_UUID =
+        UUID.fromString("8cb96642-a235-4fe0-b3ed-ebfdae8a0bd9");
+
+    static void push(List<Object> arguments, Object object, String format) {
+      arguments.add(MARKER);
+      arguments.add(object);
+      arguments.add(format);
     }
 
-    private static ScalarArg create(boolean hasFormat) {
-      return interner.intern(new ScalarArg(hasFormat));
-    }
-
-    @VisibleForSerialization
-    @AutoCodec.Interner
-    static ScalarArg intern(ScalarArg scalarArg) {
-      return interner.intern(scalarArg);
-    }
-
-    private static void push(List<Object> arguments, Builder arg) {
-      ScalarArg scalarArg = ScalarArg.create(arg.format != null);
-      arguments.add(scalarArg);
-      arguments.add(arg.object);
-      if (scalarArg.hasFormat) {
-        arguments.add(arg.format);
-      }
-    }
-
-    private int eval(
-        List<Object> arguments, int argi, List<String> builder, PathMapper pathMapper) {
+    static int eval(List<Object> arguments, int argi, List<String> builder, PathMapper pathMapper) {
       Object object = arguments.get(argi++);
       String stringValue = StarlarkCustomCommandLine.expandToCommandLine(object, pathMapper);
-      if (hasFormat) {
-        String formatStr = (String) arguments.get(argi++);
-        stringValue = SingleStringArgFormatter.format(formatStr, stringValue);
-      }
-      builder.add(stringValue);
+      String formatStr = (String) arguments.get(argi++);
+      builder.add(SingleStringArgFormatter.format(formatStr, stringValue));
       return argi;
     }
 
-    private int addToFingerprint(List<Object> arguments, int argi, Fingerprint fingerprint) {
+    static int addToFingerprint(List<Object> arguments, int argi, Fingerprint fingerprint) {
       Object object = arguments.get(argi++);
       String stringValue = CommandLineItem.expandToCommandLine(object);
       fingerprint.addString(stringValue);
-      if (hasFormat) {
-        String formatStr = (String) arguments.get(argi++);
-        fingerprint.addUUID(FORMAT_UUID);
-        fingerprint.addString(formatStr);
-      }
+      String formatStr = (String) arguments.get(argi++);
+      fingerprint.addString(formatStr);
+      fingerprint.addUUID(SINGLE_FORMATTED_ARG_UUID);
       return argi;
-    }
-
-    static class Builder {
-      private final Object object;
-      private String format;
-
-      Builder(Object object) {
-        this.object = object;
-      }
-
-      @CanIgnoreReturnValue
-      Builder setFormat(String format) {
-        this.format = format;
-        return this;
-      }
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      ScalarArg scalarArg = (ScalarArg) o;
-      return hasFormat == scalarArg.hasFormat;
-    }
-
-    @Override
-    public int hashCode() {
-      return Boolean.hashCode(hasFormat);
     }
   }
 
@@ -698,8 +653,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @CanIgnoreReturnValue
-    Builder add(ScalarArg.Builder scalarArg) {
-      ScalarArg.push(arguments, scalarArg);
+    Builder addFormatted(Object object, String format) {
+      checkNotNull(object);
+      checkNotNull(format);
+      SingleFormattedArg.push(arguments, object, format);
       return this;
     }
 
@@ -742,9 +699,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       Object arg = arguments.get(argi++);
       if (arg instanceof VectorArg) {
         argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, pathMapper);
-
-      } else if (arg instanceof ScalarArg) {
-        argi = ((ScalarArg) arg).eval(arguments, argi, result, pathMapper);
+      } else if (arg == SingleFormattedArg.MARKER) {
+        argi = SingleFormattedArg.eval(arguments, argi, result, pathMapper);
       } else {
         result.add(expandToCommandLine(arg, pathMapper));
       }
@@ -785,7 +741,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       List<Object> arguments = ((StarlarkCustomCommandLine) this).rawArgsAsList();
 
       // If we're grouping arguments, keep track of the result indexes corresponding to the
-      // argStartIndexes, reflecting VectorArg and ScalarArg expansion.
+      // argStartIndexes, reflecting VectorArg and SingleFormattedArg expansion.
       List<Integer> resultGroupStarts =
           argStartIndexes.isEmpty() ? ImmutableList.of() : new ArrayList<>();
       Iterator<Integer> startIndexIterator = argStartIndexes.iterator();
@@ -802,8 +758,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         Object arg = arguments.get(argi++);
         if (arg instanceof VectorArg) {
           argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, pathMapper);
-        } else if (arg instanceof ScalarArg) {
-          argi = ((ScalarArg) arg).eval(arguments, argi, result, pathMapper);
+        } else if (arg == SingleFormattedArg.MARKER) {
+          argi = SingleFormattedArg.eval(arguments, argi, result, pathMapper);
         } else {
           result.add(StarlarkCustomCommandLine.expandToCommandLine(arg, pathMapper));
         }
@@ -847,8 +803,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         argi =
             ((VectorArg) arg)
                 .addToFingerprint(arguments, argi, actionKeyContext, fingerprint, artifactExpander);
-      } else if (arg instanceof ScalarArg) {
-        argi = ((ScalarArg) arg).addToFingerprint(arguments, argi, fingerprint);
+      } else if (arg == SingleFormattedArg.MARKER) {
+        argi = SingleFormattedArg.addToFingerprint(arguments, argi, fingerprint);
       } else {
         fingerprint.addString(CommandLineItem.expandToCommandLine(arg));
       }

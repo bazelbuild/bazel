@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.ScalarArg;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -308,7 +307,7 @@ public abstract class Args implements CommandLineArgsApi {
             "Args.add() doesn't accept vectorized arguments. Please use Args.add_all() or"
                 + " Args.add_joined() instead.");
       }
-      addScalarArg(value, format != Starlark.NONE ? (String) format : null);
+      addSingleArg(value, format != Starlark.NONE ? (String) format : null);
       return this;
     }
 
@@ -473,14 +472,14 @@ public abstract class Args implements CommandLineArgsApi {
       commandLine.add(vectorArg);
     }
 
-    private void validateArgName(Object argName) throws EvalException {
+    private static void validateArgName(Object argName) throws EvalException {
       if (!(argName instanceof String)) {
         throw Starlark.errorf(
             "expected value of type 'string' for arg name, got '%s'", Starlark.type(argName));
       }
     }
 
-    private void validateValues(Object values) throws EvalException {
+    private static void validateValues(Object values) throws EvalException {
       if (!(values instanceof Sequence || values instanceof Depset)) {
         throw Starlark.errorf(
             "expected value of type 'sequence or depset' for values, got '%s'",
@@ -488,27 +487,26 @@ public abstract class Args implements CommandLineArgsApi {
       }
     }
 
-    private void validateFormatString(String argumentName, @Nullable String formatStr)
+    private static void validateFormatString(String argumentName, @Nullable String formatStr)
         throws EvalException {
-      if (formatStr != null
-          && !SingleStringArgFormatter.isValid(formatStr)) {
+      if (formatStr != null && !SingleStringArgFormatter.isValid(formatStr)) {
         throw Starlark.errorf(
             "Invalid value for parameter \"%s\": Expected string with a single \"%%s\"",
             argumentName);
       }
     }
 
-    private void addScalarArg(Object value, String format) throws EvalException {
+    private void addSingleArg(Object value, @Nullable String format) throws EvalException {
       validateNoDirectory(value);
       validateFormatString("format", format);
       if (format == null) {
         commandLine.add(value);
       } else {
-        commandLine.add(new ScalarArg.Builder(value).setFormat(format));
+        commandLine.addFormatted(value, format);
       }
     }
 
-    private void validateNoDirectory(Object value) throws EvalException {
+    private static void validateNoDirectory(Object value) throws EvalException {
       if (isDirectory(value)) {
         throw Starlark.errorf(
             "Cannot add directories to Args#add since they may expand to multiple values. "
