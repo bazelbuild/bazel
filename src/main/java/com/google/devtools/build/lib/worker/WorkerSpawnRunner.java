@@ -24,6 +24,8 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -69,6 +72,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -178,8 +182,17 @@ final class WorkerSpawnRunner implements SpawnRunner {
                     "%s worker %s", spawn.getMnemonic(), spawn.getResourceOwner().describe()))) {
 
       try (var s = Profiler.instance().profile("updateRunfiles")) {
+        List<RunfilesTree> runfilesTrees = new ArrayList<>();
+        for (ActionInput toolFile : spawn.getToolFiles().toList()) {
+          if ((toolFile instanceof Artifact) && ((Artifact) toolFile).isMiddlemanArtifact()) {
+            runfilesTrees.add(
+                context.getInputMetadataProvider().getRunfilesMetadata(toolFile).getRunfilesTree());
+          }
+        }
         runfilesTreeUpdater.updateRunfiles(
-            spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
+            CompositeRunfilesSupplier.fromRunfilesTrees(runfilesTrees),
+            spawn.getEnvironment(),
+            context.getFileOutErr());
       }
 
       InputMetadataProvider inputFileCache = context.getInputMetadataProvider();
