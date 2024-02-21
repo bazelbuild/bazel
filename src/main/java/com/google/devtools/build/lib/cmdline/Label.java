@@ -446,6 +446,38 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     return packageIdentifier.getDisplayForm(mainRepositoryMapping) + ":" + name;
   }
 
+  @StarlarkBuiltin(name = "display_form_label", category = DocCategory.BUILTIN)
+  private static class DisplayFormLabel implements StarlarkValue, CommandLineItem {
+    private final Label label;
+    private final RepositoryMapping mainRepositoryMapping;
+
+    DisplayFormLabel(Label label, RepositoryMapping mainRepositoryMapping) {
+      this.label = label;
+      this.mainRepositoryMapping = mainRepositoryMapping;
+    }
+
+    @Override
+    public String expandToCommandLine() {
+      return label.getDisplayForm(mainRepositoryMapping);
+    }
+
+    @Override
+    public void str(Printer printer, StarlarkSemantics semantics) {
+      printer.append(expandToCommandLine());
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.repr(expandToCommandLine());
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          "DisplayFormLabel(%s, %s)", label.getUnambiguousCanonicalForm(), mainRepositoryMapping);
+    }
+  }
+
   @StarlarkMethod(
       name = "to_display_form",
       useStarlarkThread = true,
@@ -458,10 +490,15 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
               + " <code>l</code> references the main repository;</li> "
               + " <li><code>Label(l.to_display_form()) == l</code> if the call to"
               + " <code>Label</code> occurs in the main repository.</li></ul>")
-  public String getDisplayFormForStarlark(StarlarkThread starlarkThread) throws EvalException {
+  public StarlarkValue getDisplayFormForStarlark(StarlarkThread starlarkThread)
+      throws EvalException {
     checkRepoVisibilityForStarlark("to_display_form");
-    return getDisplayForm(
-        BazelModuleContext.ofInnermostBzlOrThrow(starlarkThread).bestEffortMainRepoMapping());
+    if (getRepository().isMain()) {
+      return this;
+    }
+    RepositoryMapping mainRepoMapping =
+        BazelModuleContext.ofInnermostBzlOrThrow(starlarkThread).bestEffortMainRepoMapping();
+    return new DisplayFormLabel(this, mainRepoMapping);
   }
 
   /**
