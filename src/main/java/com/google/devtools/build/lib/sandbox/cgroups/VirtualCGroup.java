@@ -53,11 +53,16 @@ public abstract class VirtualCGroup {
 
     private final Queue<VirtualCGroup> children = new ConcurrentLinkedQueue<>();
 
-    public static VirtualCGroup getInstance() throws IOException {
+    public static VirtualCGroup getInstance() {
         if (instance == null) {
             synchronized (VirtualCGroup.class) {
                 if (instance == null) {
-                    instance = create().child("bazel_" + ProcessHandle.current().pid() + ".slice");
+                    try {
+                        instance = create().child("bazel_" + ProcessHandle.current().pid() + ".slice");
+                    } catch (IOException e) {
+                        logger.atInfo().withCause(e).log("Failed to create root cgroup");
+                        instance = NULL;
+                    }
                     Runtime.getRuntime().addShutdownHook(new Thread(VirtualCGroup::deleteInstance));
                 }
             }

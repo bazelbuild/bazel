@@ -161,7 +161,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
       Duration timeoutKillDelay,
-      TreeDeleter treeDeleter) throws IOException {
+      TreeDeleter treeDeleter) {
     super(cmdEnv);
     this.cgroupFactory =
         new VirtualCGroupFactory(
