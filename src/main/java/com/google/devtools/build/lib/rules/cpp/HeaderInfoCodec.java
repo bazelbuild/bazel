@@ -24,9 +24,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.NestedSetStorageEndpoint;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -48,7 +48,7 @@ import java.util.concurrent.Executor;
  * serialized in memoized fashion to avoid quadratic storage costs.
  */
 public final class HeaderInfoCodec implements ObjectCodec<HeaderInfo> {
-  private final NestedSetStorageEndpoint storageEndpoint;
+  private final FingerprintValueStore fingerprintValueStore;
 
   /**
    * An executor that performs deserialization computations when bytes are fetched from storage.
@@ -80,10 +80,10 @@ public final class HeaderInfoCodec implements ObjectCodec<HeaderInfo> {
   private final boolean exerciseDeserializationForTesting;
 
   public HeaderInfoCodec(
-      NestedSetStorageEndpoint storageEndpoint,
+      FingerprintValueStore fingerprintValueStore,
       Executor executor,
       boolean exerciseDeserializationForTesting) {
-    this.storageEndpoint = storageEndpoint;
+    this.fingerprintValueStore = fingerprintValueStore;
     this.executor = executor;
     this.exerciseDeserializationForTesting = exerciseDeserializationForTesting;
   }
@@ -215,7 +215,7 @@ public final class HeaderInfoCodec implements ObjectCodec<HeaderInfo> {
     try {
       settableValue.setFuture(
           Futures.transformAsync(
-              storageEndpoint.get(fingerprint),
+              fingerprintValueStore.get(fingerprint),
               bytes -> deserializeBytes(context, fingerprint, bytes),
               executor));
       futureWasSet = true;
@@ -304,6 +304,6 @@ public final class HeaderInfoCodec implements ObjectCodec<HeaderInfo> {
       fingerprintToValue.putIfAbsent(fingerprint, immediateFuture(info));
     }
     return Futures.transform(
-        storageEndpoint.put(fingerprint, bytes), unusedVoid -> fingerprint, directExecutor());
+        fingerprintValueStore.put(fingerprint, bytes), unusedVoid -> fingerprint, directExecutor());
   }
 }

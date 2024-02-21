@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
 import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -408,16 +408,16 @@ public final class NestedSet<E> {
 
   /**
    * Returns an immutable list of all unique elements of this set, similar to {@link #toList}, but
-   * will propagate an {@code InterruptedException} or {@link MissingNestedSetException} if one is
-   * thrown.
+   * will propagate an {@code InterruptedException} or {@link MissingFingerprintValueException} if
+   * one is thrown.
    */
   public ImmutableList<E> toListInterruptibly()
-      throws InterruptedException, MissingNestedSetException {
+      throws InterruptedException, MissingFingerprintValueException {
     Object actualChildren;
     if (children instanceof ListenableFuture) {
       actualChildren =
           MoreFutures.waitForFutureAndGetWithCheckedException(
-              (ListenableFuture<Object[]>) children, MissingNestedSetException.class);
+              (ListenableFuture<Object[]>) children, MissingFingerprintValueException.class);
     } else {
       actualChildren = children;
     }
@@ -430,14 +430,14 @@ public final class NestedSet<E> {
    * TimeoutException} if this set is deserializing and does not become ready within the given
    * timeout.
    *
-   * <p>Additionally, throws {@link MissingNestedSetException} if this nested set {@link
+   * <p>Additionally, throws {@link MissingFingerprintValueException} if this nested set {@link
    * #isFromStorage} and could not be retrieved.
    *
    * <p>Note that the timeout only applies to blocking for the deserialization future to become
    * available. The actual list transformation is untimed.
    */
   public ImmutableList<E> toListWithTimeout(Duration timeout)
-      throws InterruptedException, TimeoutException, MissingNestedSetException {
+      throws InterruptedException, TimeoutException, MissingFingerprintValueException {
     Object actualChildren;
     if (children instanceof ListenableFuture) {
       try {
@@ -445,7 +445,7 @@ public final class NestedSet<E> {
             ((ListenableFuture<Object[]>) children).get(timeout.toNanos(), TimeUnit.NANOSECONDS);
       } catch (ExecutionException e) {
         Throwables.propagateIfPossible(
-            e.getCause(), InterruptedException.class, MissingNestedSetException.class);
+            e.getCause(), InterruptedException.class, MissingFingerprintValueException.class);
         throw new IllegalStateException(e);
       }
     } else {
