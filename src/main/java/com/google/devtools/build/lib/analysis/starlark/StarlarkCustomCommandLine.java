@@ -971,7 +971,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     public int maxInstancesAllowed() {
       // No limit to these, as this is just a wrapper for Starlark functions, which are
       // always static
-      return Integer.MAX_VALUE;
+      return 20;
     }
 
     /**
