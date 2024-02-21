@@ -629,7 +629,7 @@ bool ExportGtestVariables(const Path& test_tmpdir) {
 
 bool ExportMiscEnvvars(const Path& cwd) {
   // Add BAZEL_TEST environment variable.
-  if (!SetEnv("BAZEL_TEST", "1")) {
+  if (!SetEnv(L"BAZEL_TEST", L"1")) {
     return false;
   }
 
