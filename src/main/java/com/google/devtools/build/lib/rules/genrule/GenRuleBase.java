@@ -43,7 +43,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OnDemandString;
@@ -56,7 +58,7 @@ import javax.annotation.Nullable;
 
 /**
  * A base implementation of genrule, to be used by specific implementing rules which can change the
- * semantics of {@link #isStampingEnabled} and {@link #collectSources}.
+ * semantics of {@link #collectSources}.
  */
 public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
@@ -227,19 +229,19 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  /**
-   * Returns {@code true} if the rule should be stamped.
-   *
-   * <p>Genrule implementations can set this based on the rule context, including by defining their
-   * own attributes over and above what is present in {@link GenRuleBaseRule}.
-   */
-  @ForOverride
-  protected abstract boolean isStampingEnabled(RuleContext ruleContext);
-
   /** Collects sources from src attribute. */
   @ForOverride
   protected abstract ImmutableMap<Label, NestedSet<Artifact>> collectSources(
       List<? extends TransitiveInfoCollection> srcs) throws RuleErrorException;
+
+  private static boolean isStampingEnabled(RuleContext ruleContext) {
+    // This intentionally does not call AnalysisUtils.isStampingEnabled(). That method returns false
+    // in the exec configuration (regardless of the attribute value), which is the behavior for
+    // binaries, but not genrules.
+    TriState stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
+    return stamp == TriState.YES
+        || (stamp == TriState.AUTO && ruleContext.getConfiguration().stampBinaries());
+  }
 
   private enum CommandType {
     BASH,
