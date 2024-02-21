@@ -238,6 +238,8 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # https://github.com/bazelbuild/bazel/issues/17410
+      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # https://github.com/bazelbuild/bazel/issues/16521 & https://github.com/bazelbuild/bazel/issues/18776
       - "-//src/test/shell/bazel/android/..."
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
