@@ -552,8 +552,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         Path path = parentDir.getRelative(parentRelativePath);
 
         if (type == Dirent.Type.SYMLINK) {
-          checkSymlink(parentRelativePath.getParentDirectory(), path);
-
           traversedSymlink = true;
 
           FileStatus statFollow = path.statIfFound(Symlinks.FOLLOW);
@@ -619,33 +617,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       throws IOException, InterruptedException {
     Visitor visitor = new Visitor(parentDir, treeArtifactVisitor);
     visitor.run();
-  }
-
-  private static void checkSymlink(PathFragment subDir, Path path) throws IOException {
-    PathFragment linkTarget = path.readSymbolicLinkUnchecked();
-    if (linkTarget.isAbsolute()) {
-      // We tolerate absolute symlinks here. They will probably be dangling if any downstream
-      // consumer tries to read them, but let that be downstream's problem.
-      return;
-    }
-
-    // Visit each path segment of the link target to catch any path traversal outside of the
-    // TreeArtifact root directory. For example, for TreeArtifact a/b/c, it is possible to have a
-    // symlink, a/b/c/sym_link that points to ../outside_dir/../c/link_target. Although this symlink
-    // points to a file under the TreeArtifact, the link target traverses outside of the
-    // TreeArtifact into a/b/outside_dir.
-    PathFragment intermediatePath = subDir;
-    for (String pathSegment : linkTarget.segments()) {
-      intermediatePath = intermediatePath.getRelative(pathSegment);
-      if (intermediatePath.containsUplevelReferences()) {
-        String errorMessage =
-            String.format(
-                "A TreeArtifact may not contain relative symlinks whose target paths traverse "
-                    + "outside of the TreeArtifact, found %s pointing to %s.",
-                path, linkTarget);
-        throw new IOException(errorMessage);
-      }
-    }
   }
 
   /** Builder for a {@link TreeArtifactValue}. */
