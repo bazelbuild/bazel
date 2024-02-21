@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.metrics.CgroupsInfoCollector;
 import com.google.devtools.build.lib.metrics.PsInfoCollector;
 import com.google.devtools.build.lib.metrics.ResourceSnapshot;
-import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
 import com.google.devtools.build.lib.util.OS;
 import java.time.Instant;

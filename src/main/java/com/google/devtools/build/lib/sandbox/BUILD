@@ -201,7 +201,6 @@ java_library(
     data = ["//src/main/tools:linux-sandbox"],
     deps = [
         ":abstract_sandbox_spawn_runner",
-        ":cgroups_info",
         ":linux_sandbox_command_line_builder",
         ":linux_sandbox_util",
         ":sandbox_helpers",
@@ -226,21 +225,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "cgroups_info",
-    srcs = [
-        "CgroupsInfo.java",
-        "CgroupsInfoV1.java",
-        "CgroupsInfoV2.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

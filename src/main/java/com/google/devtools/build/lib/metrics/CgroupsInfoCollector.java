@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.metrics;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
 import java.io.IOException;
 import java.util.Map;
