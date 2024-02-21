@@ -34,6 +34,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/sandbox:__subpackages__",
         "//src/main/java/com/google/devtools/build/lib/worker:__subpackages__",
         "//src/test/java/com/google/devtools/build/lib/metrics:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/sandbox/cgroups:__subpackages__",
         "//src/test/java/com/google/devtools/build/lib/worker:__subpackages__",
     ],
 )

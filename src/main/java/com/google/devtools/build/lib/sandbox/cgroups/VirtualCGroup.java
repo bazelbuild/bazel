@@ -81,27 +81,30 @@ public abstract class VirtualCGroup {
         }
     }
 
+    static public VirtualCGroup NULL = new AutoValue_VirtualCGroup(null, null, ImmutableSet.of());
+
     public static VirtualCGroup create() throws IOException {
         return create(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH);
     }
 
-    static public VirtualCGroup NULL = new AutoValue_VirtualCGroup(null, null, ImmutableSet.of());
-
     public static VirtualCGroup create(File procMounts, File procCgroup) throws IOException {
-        final List<Mount> mounts = Mount.parse(procMounts);
-        final Map<String, Hierarchy> hierarchies = Hierarchy.parse(procCgroup)
-            .stream()
-            .flatMap(h -> h.controllers().stream().map(c -> Map.entry(c, h)))
-            // For cgroup v2, there are no controllers specified in the proc/pid/cgroup file
-            // So the keep will be empty and unique. For cgroup v1, there could potentially
-            // be multiple mounting points for the same controller, but they represent a
-            // "view of the same hierarchy" so it is ok to just keep one.
-            // Ref. https://man7.org/linux/man-pages/man7/cgroups.7.html
-            .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-        return create(mounts, hierarchies);
+        return create(Mount.parse(procMounts), Hierarchy.parse(procCgroup));
     }
 
-    public static VirtualCGroup create(List<Mount> mounts, Map<String, Hierarchy> hierarchies) throws IOException {
+    public static VirtualCGroup create(List<Mount> mounts, List<Hierarchy> hierarchies) throws IOException {
+        return create(
+            mounts,
+            hierarchies.stream()
+                .flatMap(h -> h.controllers().stream().map(c -> Map.entry(c, h)))
+                // For cgroup v2, there are no controllers specified in the proc/pid/cgroup file
+                // So the keep will be empty and unique. For cgroup v1, there could potentially
+                // be multiple mounting points for the same controller, but they represent a
+                // "view of the same hierarchy" so it is ok to just keep one.
+                // Ref. https://man7.org/linux/man-pages/man7/cgroups.7.html
+                .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+    }
+
+    private static VirtualCGroup create(List<Mount> mounts, Map<String, Hierarchy> hierarchies) throws IOException {
         Controller.Memory memory = null;
         Controller.Cpu cpu = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();

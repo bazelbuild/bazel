@@ -1,0 +1,51 @@
+package com.google.devtools.build.lib.sandbox.cgroups;
+
+import com.google.common.io.Files;
+import com.google.devtools.build.lib.sandbox.cgroups.controller.Controller.Cpu;
+import com.google.devtools.build.lib.sandbox.cgroups.controller.v1.LegacyCpu;
+import com.google.devtools.build.lib.sandbox.cgroups.controller.v2.UnifiedCpu;
+import com.google.devtools.build.lib.vfs.util.FsApparatus;
+import org.junit.Test;
+
+import java.io.File;
+import java.io.IOException;
+
+import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+public class CpuTest {
+
+    private final FsApparatus scratch = FsApparatus.newNative();
+
+    @Test
+    public void setCpuLimit_v1() throws IOException {
+        File quota = scratch.file("cgroup/cpu/cpu.cfs_quota_us", "-1").getPathFile();
+        File period = scratch.file("cgroup/cpu/cpu.cfs_period_us", "1000").getPathFile();
+        Cpu cpu = new LegacyCpu(scratch.path("cgroup/cpu").getPathFile().toPath());
+        cpu.setCpus(3);
+        assertThat(Files.asCharSource(quota, UTF_8).read()).isEqualTo("3000");
+    }
+
+    @Test
+    public void getCpuLimit_v1() throws IOException {
+        File quota = scratch.file("cgroup/cpu/cpu.cfs_quota_us", "4000").getPathFile();
+        File period = scratch.file("cgroup/cpu/cpu.cfs_period_us", "1000").getPathFile();
+        Cpu cpu = new LegacyCpu(scratch.path("cgroup/cpu").getPathFile().toPath());
+        assertThat(cpu.getCpus()).isEqualTo(4);
+    }
+
+    @Test
+    public void setCpuLimit_v2() throws IOException {
+        File limit = scratch.file("cgroup/cpu/cpu.max", "-1 100000").getPathFile();
+        Cpu cpu = new UnifiedCpu(scratch.path("cgroup/cpu").getPathFile().toPath());
+        cpu.setCpus(5);
+        assertThat(Files.asCharSource(limit, UTF_8).read()).isEqualTo("500000 100000");
+    }
+
+    @Test
+    public void getCpuLimit_v2() throws IOException {
+        scratch.file("cgroup/cpu/cpu.max", "6000 1000").getPathFile();
+        Cpu memory = new UnifiedCpu(scratch.path("cgroup/cpu").getPathFile().toPath());
+        assertThat(memory.getCpus()).isEqualTo(6);
+    }
+}
