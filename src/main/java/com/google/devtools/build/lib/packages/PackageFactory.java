@@ -563,18 +563,19 @@ public final class PackageFactory {
     StarlarkThread.setCallProfiler(
         new StarlarkThread.CallProfiler() {
           @Override
-          public Object start(StarlarkCallable fn) {
-            return Profiler.instance()
-                .profile(
+          public long start() {
+            return Profiler.nanoTimeMaybe();
+          }
+
+          @Override
+          public void end(long startTimeNanos, StarlarkCallable fn) {
+            Profiler.instance()
+                .completeTask(
+                    startTimeNanos,
                     fn instanceof StarlarkFunction
                         ? ProfilerTask.STARLARK_USER_FN
                         : ProfilerTask.STARLARK_BUILTIN_FN,
                     fn.getName());
-          }
-
-          @Override
-          public void end(Object span) {
-            ((SilentCloseable) span).close();
           }
         });
   }
