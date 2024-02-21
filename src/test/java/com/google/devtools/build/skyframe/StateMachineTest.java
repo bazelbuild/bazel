@@ -1422,7 +1422,8 @@ public final class StateMachineTest {
     private boolean drive(LookupEnvironment env) throws InterruptedException {
       ExecutorService executor = Executors.newFixedThreadPool(4);
       AtomicBoolean allCompletes = new AtomicBoolean(true);
-      ConcurrentLookupEnvironment concurrentEnvironment = new ConcurrentLookupEnvironment(env);
+      ConcurrentSkyFunctionEnvironment concurrentEnvironment =
+          new ConcurrentSkyFunctionEnvironment((SkyFunctionEnvironment) env);
       for (Driver driver : drivers) {
         var unused =
             executor.submit(
