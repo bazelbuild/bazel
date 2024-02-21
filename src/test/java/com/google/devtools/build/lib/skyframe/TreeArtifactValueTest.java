@@ -545,7 +545,7 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
-  public void visitTree_pemitsUpLevelSymlinkInsideTree() throws Exception {
+  public void visitTree_permitsUpLevelSymlinkInsideTree() throws Exception {
     Path treeDir = scratch.dir("tree");
     scratch.file("tree/file");
     scratch.dir("tree/a");
@@ -566,6 +566,33 @@ public final class TreeArtifactValueTest {
             VisitTreeArgs.of(PathFragment.create("file"), Dirent.Type.FILE, false),
             VisitTreeArgs.of(PathFragment.create("a"), Dirent.Type.DIRECTORY, false),
             VisitTreeArgs.of(PathFragment.create("a/up_link"), Dirent.Type.FILE, true));
+  }
+
+  @Test
+  public void visitTree_permitsUpLevelSymlinkOutsideTree() throws Exception {
+    Path treeDir = scratch.dir("tree");
+    scratch.file("tree/file");
+    scratch.dir("tree/a");
+    scratch.file("other_tree/file");
+    scratch
+        .resolve("tree/a/uplink")
+        .createSymbolicLink(PathFragment.create("../../other_tree/file"));
+    List<VisitTreeArgs> children = new ArrayList<>();
+
+    TreeArtifactValue.visitTree(
+        treeDir,
+        (child, type, traversedSymlink) -> {
+          synchronized (children) {
+            children.add(VisitTreeArgs.of(child, type, traversedSymlink));
+          }
+        });
+
+    assertThat(children)
+        .containsExactly(
+            VisitTreeArgs.of(PathFragment.create(""), Dirent.Type.DIRECTORY, false),
+            VisitTreeArgs.of(PathFragment.create("file"), Dirent.Type.FILE, false),
+            VisitTreeArgs.of(PathFragment.create("a"), Dirent.Type.DIRECTORY, false),
+            VisitTreeArgs.of(PathFragment.create("a/uplink"), Dirent.Type.FILE, true));
   }
 
   @Test
@@ -594,29 +621,27 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
-  public void visitTree_throwsOnSymlinkPointingOutsideTree() throws Exception {
-    Path treeDir = scratch.dir("tree");
-    scratch.file("outside");
-    scratch.resolve("tree/link").createSymbolicLink(PathFragment.create("../outside"));
-
-    Exception e =
-        assertThrows(
-            IOException.class,
-            () -> TreeArtifactValue.visitTree(treeDir, (child, type, traversedSymlink) -> {}));
-    assertThat(e).hasMessageThat().contains("/tree/link pointing to ../outside");
-  }
-
-  @Test
-  public void visitTree_throwsOnSymlinkTraversingOutsideThenBackInsideTree() throws Exception {
+  public void visitTree_permitsUplevelSymlinkTraversingOutsideThenBackInsideTree()
+      throws Exception {
     Path treeDir = scratch.dir("tree");
     scratch.file("tree/file");
     scratch.resolve("tree/link").createSymbolicLink(PathFragment.create("../tree/file"));
 
-    Exception e =
-        assertThrows(
-            IOException.class,
-            () -> TreeArtifactValue.visitTree(treeDir, (child, type, traversedSymlink) -> {}));
-    assertThat(e).hasMessageThat().contains("/tree/link pointing to ../tree/file");
+    List<VisitTreeArgs> children = new ArrayList<>();
+
+    TreeArtifactValue.visitTree(
+        treeDir,
+        (child, type, traversedSymlink) -> {
+          synchronized (children) {
+            children.add(VisitTreeArgs.of(child, type, traversedSymlink));
+          }
+        });
+
+    assertThat(children)
+        .containsExactly(
+            VisitTreeArgs.of(PathFragment.create(""), Dirent.Type.DIRECTORY, false),
+            VisitTreeArgs.of(PathFragment.create("file"), Dirent.Type.FILE, false),
+            VisitTreeArgs.of(PathFragment.create("link"), Dirent.Type.FILE, true));
   }
 
   @Test
