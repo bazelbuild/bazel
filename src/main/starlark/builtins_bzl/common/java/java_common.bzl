@@ -120,7 +120,7 @@ def _stamp_jar(actions, jar, java_toolchain, target_label):
     args.add(jar)
     args.add(output)
     args.add("--nostrip_jar")
-    args.add_all("--target_label", [target_label], map_each = helper.map_to_display_form)
+    args.add("--target_label", target_label)
     actions.run(
         mnemonic = "JavaIjar",
         inputs = [jar],

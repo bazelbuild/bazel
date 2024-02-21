@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,8 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -42,7 +38,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -55,7 +50,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider.JspecifyInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -68,33 +62,6 @@ import javax.annotation.Nullable;
  * <p>Also supports the creation of resource and source only Jars.
  */
 public final class JavaCompilationHelper {
-
-  /**
-   * Cache for the {@link com.google.devtools.build.lib.actions.CommandLineItem.MapFn} that turns a
-   * {@link Label} into its possibly @-prefixed display form, which requires the repository mapping
-   * of the main repo.
-   *
-   * <p>The capacity of this cache after weakly reachable object have been cleaned will always be 1
-   * as there is only a single main repo mapping in a given build.
-   */
-  static final LoadingCache<RepositoryMapping, CommandLineItem.ExceptionlessMapFn<Label>>
-      TARGET_LABEL_MAP_FN_CACHE =
-          Caffeine.newBuilder()
-              .initialCapacity(1)
-              .weakKeys()
-              .build(
-                  mainRepoMapping ->
-                      (ExceptionlessMapFn<Label> & Serializable)
-                          (label, args) -> {
-                            String displayForm = label.getDisplayForm(mainRepoMapping);
-                            if (displayForm.startsWith("@")) {
-                              // @-prefixed strings will be assumed to be filenames and expanded by
-                              // {@link JavaLibraryBuildRequest}, so add an extra &at; to escape it.
-                              args.accept("@" + displayForm);
-                            } else {
-                              args.accept(displayForm);
-                            }
-                          });
 
   private static final Interner<ImmutableList<String>> javacOptsInterner =
       BlazeInterners.newWeakInterner();

@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
@@ -440,12 +439,14 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       }
 
       if (targetLabel != null) {
-        commandLine.addAll(
-            "--target_label",
-            VectorArg.of(ImmutableList.of(targetLabel))
-                .mapped(
-                    JavaCompilationHelper.TARGET_LABEL_MAP_FN_CACHE.get(
-                        ruleContext.getMainRepoMapping())));
+        commandLine.add("--target_label");
+        if (targetLabel.getRepository().isMain()) {
+          commandLine.addLabel(targetLabel);
+        } else {
+          // @-prefixed strings will be assumed to be params filenames and expanded,
+          // so add an extra @ to escape it.
+          commandLine.addPrefixedLabel("@", targetLabel);
+        }
       }
 
       ImmutableMap<String, String> executionInfo =
