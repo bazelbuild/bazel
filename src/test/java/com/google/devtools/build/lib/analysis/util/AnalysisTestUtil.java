@@ -34,11 +34,11 @@ import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
@@ -526,9 +526,8 @@ public final class AnalysisTestUtil {
   }
 
   /** Creates a {@link RunfilesSupplier} for use in tests. */
-  public static SingleRunfilesSupplier createRunfilesSupplier(
-      PathFragment runfilesDir, Runfiles runfiles) {
-    return new SingleRunfilesSupplier(
+  public static RunfilesTree createRunfilesTree(PathFragment runfilesDir, Runfiles runfiles) {
+    return new FakeRunfilesTree(
         runfilesDir,
         runfiles,
         /* repoMappingManifest= */ null,

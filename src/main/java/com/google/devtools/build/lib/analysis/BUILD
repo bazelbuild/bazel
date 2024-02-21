@@ -202,7 +202,6 @@ java_library(
         "RunfilesSupport.java",
         "ShToolchain.java",
         "ShellConfiguration.java",
-        "SingleRunfilesSupplier.java",
         "SourceManifestAction.java",
         "StarlarkProviderValidationUtil.java",
         "TargetCompleteEvent.java",

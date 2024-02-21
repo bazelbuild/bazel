@@ -94,7 +94,7 @@ public final class SpawnInputExpanderTest {
             fs.getPath("/root/dir/file"));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
         runfilesTree,
@@ -113,7 +113,7 @@ public final class SpawnInputExpanderTest {
     Artifact fileset = createFilesetArtifact("foo/biz/fs_out");
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(fileset).build();
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     ArtifactExpander filesetExpander =
         new ArtifactExpander() {
@@ -150,7 +150,7 @@ public final class SpawnInputExpanderTest {
             fs.getPath("/root/dir/file"));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
         runfilesTree,
@@ -176,7 +176,7 @@ public final class SpawnInputExpanderTest {
     Runfiles runfiles =
         new Runfiles.Builder("workspace").addArtifact(artifact1).addArtifact(artifact2).build();
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
         runfilesTree,
@@ -205,7 +205,7 @@ public final class SpawnInputExpanderTest {
     Runfiles runfiles =
         new Runfiles.Builder("workspace").addArtifact(artifact1).addArtifact(artifact2).build();
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(
+        AnalysisTestUtil.createRunfilesTree(
             PathFragment.create("bazel-out/k8-opt/bin/foo.runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
@@ -238,7 +238,7 @@ public final class SpawnInputExpanderTest {
             .addSymlink(PathFragment.create("symlink"), artifact)
             .build();
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
         runfilesTree,
@@ -263,7 +263,7 @@ public final class SpawnInputExpanderTest {
             .addRootSymlink(PathFragment.create("symlink"), artifact)
             .build();
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
         runfilesTree,
@@ -299,7 +299,7 @@ public final class SpawnInputExpanderTest {
           }
         };
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
         runfilesTree, inputSink, artifactExpander, PathMapper.NOOP, PathFragment.EMPTY_FRAGMENT);
@@ -328,7 +328,7 @@ public final class SpawnInputExpanderTest {
           }
         };
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(
+        AnalysisTestUtil.createRunfilesTree(
             PathFragment.create("bazel-out/k8-opt/bin/foo.runfiles"), runfiles);
 
     PathMapper pathMapper =
@@ -383,7 +383,7 @@ public final class SpawnInputExpanderTest {
           }
         };
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander = new SpawnInputExpander(execRoot, IGNORE, /* expandArchivedTreeArtifacts= */ false);
     expander.addSingleRunfilesTreeToInputs(
@@ -415,7 +415,7 @@ public final class SpawnInputExpanderTest {
           }
         };
     RunfilesTree runfilesTree =
-        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+        AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
         runfilesTree, inputSink, artifactExpander, PathMapper.NOOP, PathFragment.EMPTY_FRAGMENT);

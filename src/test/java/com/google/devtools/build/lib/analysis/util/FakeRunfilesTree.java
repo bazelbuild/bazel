@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -28,9 +27,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** {@link RunfilesSupplier} implementation wrapping a single {@link Runfiles} directory mapping. */
+/** {@link RunfilesTree} implementation wrapping a single {@link Runfiles} directory mapping. */
 @AutoCodec
-public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesTree {
+public final class FakeRunfilesTree implements RunfilesTree {
 
   private final PathFragment runfilesDir;
   private final Runfiles runfiles;
@@ -47,7 +46,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesT
    * @param buildRunfileLinks whether runfile symlinks should be created during the build
    */
   @AutoCodec.Instantiator
-  public SingleRunfilesSupplier(
+  public FakeRunfilesTree(
       PathFragment runfilesDir,
       Runfiles runfiles,
       @Nullable Artifact repoMappingManifest,
@@ -59,11 +58,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesT
     this.repoMappingManifest = repoMappingManifest;
     this.runfileSymlinksMode = runfileSymlinksMode;
     this.buildRunfileLinks = buildRunfileLinks;
-  }
-
-  @Override
-  public ImmutableList<RunfilesTree> getRunfilesTrees() {
-    return ImmutableList.of(this);
   }
 
   @Override

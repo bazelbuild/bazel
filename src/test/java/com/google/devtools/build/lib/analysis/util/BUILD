@@ -112,6 +112,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageFactoryBuilderWithSkyframeForTesting",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:unloaded_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/util",
