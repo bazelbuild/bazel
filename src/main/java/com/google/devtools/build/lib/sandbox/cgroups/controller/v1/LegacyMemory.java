@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class LegacyMemory implements Controller.Memory {
+public class LegacyMemory extends LegacyController implements Controller.Memory {
     private final Path path;
 
     @Override
@@ -16,6 +16,11 @@ public class LegacyMemory implements Controller.Memory {
 
     public LegacyMemory(Path path) {
         this.path = path;
+    }
+
+    @Override
+    public Memory child(String name) throws IOException {
+        return new LegacyMemory(getChild(name));
     }
 
     @Override

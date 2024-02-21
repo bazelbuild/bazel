@@ -6,11 +6,16 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class LegacyCpu implements Controller.Cpu {
+public class LegacyCpu extends LegacyController implements Controller.Cpu {
     private final Path path;
 
     public LegacyCpu(Path path) {
         this.path = path;
+    }
+
+    @Override
+    public Cpu child(String name) throws IOException {
+        return new LegacyCpu(getChild(name));
     }
 
     @Override
