@@ -460,6 +460,58 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
+  public void validAbsoluteSymlinkAccepted() throws Exception {
+    scratch.overwriteFile("/random/pointer");
+
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "/random/pointer");
+          }
+        };
+
+    registerAction(action);
+    buildArtifact(out);
+  }
+
+  @Test
+  public void danglingAbsoluteSymlinkRejected() {
+    // Failure expected
+    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(eventCollector);
+
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "/random/pointer");
+          }
+        };
+
+    registerAction(action);
+    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
+
+    ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
+    assertThat(errors).hasSize(2);
+    assertThat(errors.get(0).getMessage())
+        .contains(
+            "Child links/link of tree artifact " + out.getPath() + " is a dangling symbolic link");
+    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
+  }
+
+  @Test
   public void validRelativeSymlinkAccepted() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
 
@@ -479,7 +531,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void invalidSymlinkRejected() {
+  public void danglingRelativeSymlinkRejected() {
     // Failure expected
     EventCollector eventCollector = new EventCollector(EventKind.ERROR);
     reporter.removeHandler(failFastHandler);
@@ -501,7 +553,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     registerAction(action);
     assertThrows(BuildFailedException.class, () -> buildArtifact(out));
 
-    List<Event> errors = ImmutableList.copyOf(eventCollector);
+    ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
     assertThat(errors).hasSize(2);
     assertThat(errors.get(0).getMessage())
         .contains(
@@ -510,100 +562,10 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void absoluteSymlinkBadTargetRejected() {
-    // Failure expected
-    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
-    reporter.removeHandler(failFastHandler);
-    reporter.addHandler(eventCollector);
-
+  public void validRelativeSymlinkToOutsideOfTreeArtifactAccepted() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
 
-    Action action =
-        new SimpleTestAction(out) {
-          @Override
-          void run(ActionExecutionContext actionExecutionContext) throws IOException {
-            writeFile(out.getPath().getChild("one"), "one");
-            writeFile(out.getPath().getChild("two"), "two");
-            FileSystemUtils.ensureSymbolicLink(
-                out.getPath().getChild("links").getChild("link"), "/random/pointer");
-          }
-        };
-
-    registerAction(action);
-    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
-
-    List<Event> errors = ImmutableList.copyOf(eventCollector);
-    assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage())
-        .contains(
-            "Child links/link of tree artifact " + out.getPath() + " is a dangling symbolic link");
-    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
-  }
-
-  @Test
-  public void absoluteSymlinkAccepted() throws Exception {
-    scratch.overwriteFile("/random/pointer");
-
-    SpecialArtifact out = createTreeArtifact("output");
-
-    Action action =
-        new SimpleTestAction(out) {
-          @Override
-          void run(ActionExecutionContext actionExecutionContext) throws IOException {
-            writeFile(out.getPath().getChild("one"), "one");
-            writeFile(out.getPath().getChild("two"), "two");
-            FileSystemUtils.ensureSymbolicLink(
-                out.getPath().getChild("links").getChild("link"), "/random/pointer");
-          }
-        };
-
-    registerAction(action);
-    buildArtifact(out);
-  }
-
-  @Test
-  public void relativeSymlinkTraversingOutsideOfTreeArtifactRejected() {
-    // Failure expected
-    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
-    reporter.removeHandler(failFastHandler);
-    reporter.addHandler(eventCollector);
-
-    SpecialArtifact out = createTreeArtifact("output");
-
-    Action action =
-        new SimpleTestAction(out) {
-          @Override
-          void run(ActionExecutionContext actionExecutionContext) throws IOException {
-            writeFile(out.getPath().getChild("one"), "one");
-            writeFile(out.getPath().getChild("two"), "two");
-            FileSystemUtils.ensureSymbolicLink(
-                out.getPath().getChild("links").getChild("link"), "../../output/random/pointer");
-          }
-        };
-
-    registerAction(action);
-
-    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
-    List<Event> errors = ImmutableList.copyOf(eventCollector);
-    assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage())
-        .contains(
-            "A TreeArtifact may not contain relative symlinks whose target paths traverse "
-                + "outside of the TreeArtifact");
-    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
-  }
-
-  @Test
-  public void relativeSymlinkTraversingToDirOutsideOfTreeArtifactRejected() throws Exception {
-    // Failure expected
-    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
-    reporter.removeHandler(failFastHandler);
-    reporter.addHandler(eventCollector);
-
-    SpecialArtifact out = createTreeArtifact("output");
-
-    // Create a valid directory that can be referenced
-    scratch.dir(out.getRoot().getRoot().getRelative("some/dir").getPathString());
+    scratch.file(out.getPath().getRelative("../some/file").getPathString());
 
     TestAction action =
         new SimpleTestAction(out) {
@@ -612,19 +574,42 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             writeFile(out.getPath().getChild("one"), "one");
             writeFile(out.getPath().getChild("two"), "two");
             FileSystemUtils.ensureSymbolicLink(
-                out.getPath().getChild("links").getChild("link"), "../../some/dir");
+                out.getPath().getChild("links").getChild("link"), "../../some/file");
           }
         };
 
     registerAction(action);
+    buildArtifact(out);
+  }
 
+  @Test
+  public void danglingRelativeSymlinkOutsideOfTreeArtifactRejected() throws Exception {
+    // Failure expected
+    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(eventCollector);
+
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "../../some/file");
+          }
+        };
+
+    registerAction(action);
     assertThrows(BuildFailedException.class, () -> buildArtifact(out));
-    List<Event> errors = ImmutableList.copyOf(eventCollector);
+
+    ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
     assertThat(errors).hasSize(2);
     assertThat(errors.get(0).getMessage())
         .contains(
-            "A TreeArtifact may not contain relative symlinks whose target paths traverse "
-                + "outside of the TreeArtifact");
+            "Child links/link of tree artifact " + out.getPath() + " is a dangling symbolic link");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
