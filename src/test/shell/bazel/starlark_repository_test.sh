@@ -3137,4 +3137,23 @@ EOF
   expect_log "I'm running!"
 }
 
+function test_unexported_rule() {
+  # alas, we still need to support this while WORKSPACE is around...
+  create_new_workspace
+  touch MODULE.bazel
+  touch BUILD
+  cat > r.bzl <<EOF
+def _impl(rctx):
+  rctx.file('BUILD', 'filegroup(name="r")')
+def r():
+  repository_rule(_impl)(name = "r")
+EOF
+  cat > WORKSPACE.bzlmod <<EOF
+load('//:r.bzl', 'r')
+r()
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+}
+
 run_suite "local repository tests"
