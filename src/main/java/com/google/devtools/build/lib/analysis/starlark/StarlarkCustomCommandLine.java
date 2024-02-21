@@ -75,19 +75,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
   static final class VectorArg {
     private static final Interner<VectorArg> interner = BlazeInterners.newStrongInterner();
 
-    private static final int HAS_LOCATION = 1;
-    // Deleted HAS_MAP_ALL = 1 << 1;
-    private static final int HAS_MAP_EACH = 1 << 2;
-    private static final int IS_NESTED_SET = 1 << 3;
-    private static final int EXPAND_DIRECTORIES = 1 << 4;
-    private static final int UNIQUIFY = 1 << 5;
-    private static final int OMIT_IF_EMPTY = 1 << 6;
-    private static final int HAS_ARG_NAME = 1 << 7;
-    private static final int HAS_FORMAT_EACH = 1 << 8;
-    private static final int HAS_BEFORE_EACH = 1 << 9;
-    private static final int HAS_JOIN_WITH = 1 << 10;
-    private static final int HAS_FORMAT_JOINED = 1 << 11;
-    private static final int HAS_TERMINATE_WITH = 1 << 12;
+    private static final int HAS_MAP_EACH = 1;
+    private static final int IS_NESTED_SET = 1 << 1;
+    private static final int EXPAND_DIRECTORIES = 1 << 2;
+    private static final int UNIQUIFY = 1 << 3;
+    private static final int OMIT_IF_EMPTY = 1 << 4;
+    private static final int HAS_ARG_NAME = 1 << 5;
+    private static final int HAS_FORMAT_EACH = 1 << 6;
+    private static final int HAS_BEFORE_EACH = 1 << 7;
+    private static final int HAS_JOIN_WITH = 1 << 8;
+    private static final int HAS_FORMAT_JOINED = 1 << 9;
+    private static final int HAS_TERMINATE_WITH = 1 << 10;
 
     private static final UUID EXPAND_DIRECTORIES_UUID =
         UUID.fromString("9d7520d2-a187-11e8-98d0-529269fb1459");
@@ -126,6 +124,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     private static void push(
         List<Object> arguments, Builder arg, StarlarkSemantics starlarkSemantics) {
+      // The location is really only needed if map_each is present, but it's easy enough to require
+      // it unconditionally.
+      checkNotNull(arg.location);
+
       int features = 0;
       features |= arg.mapEach != null ? HAS_MAP_EACH : 0;
       features |= arg.nestedSet != null ? IS_NESTED_SET : 0;
@@ -138,17 +140,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
       features |= arg.joinWith != null ? HAS_JOIN_WITH : 0;
       features |= arg.formatJoined != null ? HAS_FORMAT_JOINED : 0;
       features |= arg.terminateWith != null ? HAS_TERMINATE_WITH : 0;
-      boolean hasLocation =
-          arg.location != null
-              && (features & (HAS_FORMAT_EACH | HAS_FORMAT_JOINED | HAS_MAP_EACH)) != 0;
-      features |= hasLocation ? HAS_LOCATION : 0;
-      VectorArg vectorArg = VectorArg.create(features);
-      arguments.add(vectorArg);
-      if (hasLocation) {
-        arguments.add(arg.location);
-      }
+      arguments.add(VectorArg.create(features));
       if (arg.mapEach != null) {
         arguments.add(arg.mapEach);
+        arguments.add(arg.location);
         arguments.add(starlarkSemantics);
       }
       if (arg.nestedSet != null) {
@@ -188,13 +183,16 @@ public class StarlarkCustomCommandLine extends CommandLine {
         @Nullable ArtifactExpander artifactExpander,
         PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
-      final Location location =
-          ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
-      final List<Object> originalValues;
-      StarlarkCallable mapEach =
-          ((features & HAS_MAP_EACH) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
-      StarlarkSemantics starlarkSemantics =
-          ((features & HAS_MAP_EACH) != 0) ? (StarlarkSemantics) arguments.get(argi++) : null;
+      StarlarkCallable mapEach = null;
+      StarlarkSemantics starlarkSemantics = null;
+      Location location = null;
+      if ((features & HAS_MAP_EACH) != 0) {
+        mapEach = (StarlarkCallable) arguments.get(argi++);
+        location = (Location) arguments.get(argi++);
+        starlarkSemantics = (StarlarkSemantics) arguments.get(argi++);
+      }
+
+      List<Object> originalValues;
       if ((features & IS_NESTED_SET) != 0) {
         @SuppressWarnings("unchecked")
         NestedSet<Object> nestedSet = (NestedSet<Object>) arguments.get(argi++);
@@ -373,12 +371,15 @@ public class StarlarkCustomCommandLine extends CommandLine {
         Fingerprint fingerprint,
         @Nullable ArtifactExpander artifactExpander)
         throws CommandLineExpansionException, InterruptedException {
-      final Location location =
-          ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
-      StarlarkCallable mapEach =
-          ((features & HAS_MAP_EACH) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
-      StarlarkSemantics starlarkSemantics =
-          ((features & HAS_MAP_EACH) != 0) ? (StarlarkSemantics) arguments.get(argi++) : null;
+      StarlarkCallable mapEach = null;
+      Location location = null;
+      StarlarkSemantics starlarkSemantics = null;
+      if ((features & HAS_MAP_EACH) != 0) {
+        mapEach = (StarlarkCallable) arguments.get(argi++);
+        location = (Location) arguments.get(argi++);
+        starlarkSemantics = (StarlarkSemantics) arguments.get(argi++);
+      }
+
       if ((features & IS_NESTED_SET) != 0) {
         NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
@@ -474,11 +475,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return argi;
     }
 
-    static class Builder {
+    static final class Builder {
       @Nullable private final Sequence<?> list;
       @Nullable private final NestedSet<?> nestedSet;
       private Location location;
-      public String argName;
+      private String argName;
       private boolean expandDirectories;
       private StarlarkCallable mapEach;
       private String formatEach;
@@ -631,7 +632,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private final ImmutableList.Builder<Integer> argStartIndexes = ImmutableList.builder();
 
     public Builder(StarlarkSemantics starlarkSemantics) {
-      this.starlarkSemantics = starlarkSemantics;
+      this.starlarkSemantics = checkNotNull(starlarkSemantics);
     }
 
     @CanIgnoreReturnValue

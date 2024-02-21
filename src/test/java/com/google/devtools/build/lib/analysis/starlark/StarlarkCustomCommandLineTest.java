@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.util.Collection;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,7 +51,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link StarlarkCustomCommandLine} */
 @RunWith(JUnit4.class)
-public class StarlarkCustomCommandLineTest {
+public final class StarlarkCustomCommandLineTest {
 
   private static final ArtifactExpander EMPTY_EXPANDER = (artifact, output) -> {};
 
@@ -217,8 +218,8 @@ public class StarlarkCustomCommandLineTest {
   private static StarlarkCustomCommandLine createCustomCommandLine(
       VectorArg.Builder vectorArgBuilder) {
     return new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
-        .add(vectorArgBuilder)
-        .build(/*flagPerLine=*/ false);
+        .add(vectorArgBuilder.setLocation(Location.BUILTIN))
+        .build(/* flagPerLine= */ false);
   }
 
   private static ArtifactExpander createArtifactExpander(
