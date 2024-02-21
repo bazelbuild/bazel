@@ -418,24 +418,26 @@ public final class JavaCompilationHelper {
   }
 
   private ImmutableMap<String, String> getExecutionInfo() throws RuleErrorException {
-    ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
-    ImmutableMap.Builder<String, String> workerInfo = ImmutableMap.builder();
+    ImmutableMap.Builder<String, String> modifiableExecutionInfo = ImmutableMap.builder();
+    modifiableExecutionInfo.put(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "1");
     if (javaToolchain.getJavacSupportsWorkers()) {
-      workerInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
+      modifiableExecutionInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
     }
     if (javaToolchain.getJavacSupportsMultiplexWorkers()) {
-      workerInfo.put(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS, "1");
+      modifiableExecutionInfo.put(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS, "1");
     }
     if (javaToolchain.getJavacSupportsWorkerCancellation()) {
-      workerInfo.put(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1");
+      modifiableExecutionInfo.put(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1");
     }
+    ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
     executionInfo.putAll(
         getConfiguration()
-            .modifiedExecutionInfo(workerInfo.buildOrThrow(), JavaCompileActionBuilder.MNEMONIC));
+            .modifiedExecutionInfo(
+                modifiableExecutionInfo.buildOrThrow(), JavaCompileActionBuilder.MNEMONIC));
     executionInfo.putAll(
         TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
-    return executionInfo.buildOrThrow();
+    return executionInfo.buildKeepingLast();
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */
