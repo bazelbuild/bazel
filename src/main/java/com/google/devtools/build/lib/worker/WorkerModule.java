@@ -122,17 +122,12 @@ public class WorkerModule extends BlazeModule {
         removeStaleTrash(workerDir, trashBase);
       }
     }
-    VirtualCGroupFactory cgroupFactory = null;
-    try {
-      VirtualCGroup root = VirtualCGroup.getInstance();
-      cgroupFactory = new VirtualCGroupFactory(
-          "worker_",
-          root,
-          options.sandboxHardening ? ImmutableMap.copyOf(sandboxOptions.limits) : ImmutableMap.of(),
-          options.useCgroupsOnLinux);
-    } catch (IOException e) {
-      env.getReporter().handle(Event.warn("Unable to create cgroup factory: " + e.getMessage()));
-    }
+    VirtualCGroupFactory cgroupFactory = new VirtualCGroupFactory(
+        "worker_",
+        VirtualCGroup.getInstance(),
+        options.sandboxHardening ? ImmutableMap.copyOf(sandboxOptions.limits) : ImmutableMap.of(),
+        options.useCgroupsOnLinux);
+
     WorkerFactory newWorkerFactory =
         new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter, cgroupFactory);
     if (!newWorkerFactory.equals(workerFactory)) {
@@ -197,7 +192,7 @@ public class WorkerModule extends BlazeModule {
     }
 
     // Override the flag value if we can't actually use cgroups so that we at least fallback to ps.
-    boolean useCgroupsOnLinux = options.useCgroupsOnLinux && CgroupsInfo.isSupported();
+    boolean useCgroupsOnLinux = options.useCgroupsOnLinux && VirtualCGroup.getInstance().memory() != null;
     WorkerProcessMetricsCollector.instance().setUseCgroupsOnLinux(useCgroupsOnLinux);
 
     // Start collecting after a pool is defined
