@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.CommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
@@ -52,71 +51,20 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A base implementation of genrule, to be used by specific implementing rules which can change some
- * of the semantics around when the execution info and inputs are changed.
+ * A base implementation of genrule, to be used by specific implementing rules which can change the
+ * semantics of {@link #isStampingEnabled} and {@link #collectSources}.
  */
 public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
-  /**
-   * Returns {@code true} if the rule should be stamped.
-   *
-   * <p>Genrule implementations can set this based on the rule context, including by defining their
-   * own attributes over and above what is present in {@link GenRuleBaseRule}.
-   */
-  protected abstract boolean isStampingEnabled(RuleContext ruleContext);
-
-  /** Collects sources from src attribute. */
-  protected ImmutableMap<Label, NestedSet<Artifact>> collectSources(
-      List<? extends TransitiveInfoCollection> srcs) throws RuleErrorException {
-    ImmutableMap.Builder<Label, NestedSet<Artifact>> labelMap = ImmutableMap.builder();
-
-    for (TransitiveInfoCollection dep : srcs) {
-      NestedSet<Artifact> files = dep.getProvider(FileProvider.class).getFilesToBuild();
-      labelMap.put(AliasProvider.getDependencyLabel(dep), files);
-    }
-
-    return labelMap.build();
-  }
-
-  enum CommandType {
-    BASH,
-    WINDOWS_BATCH,
-    WINDOWS_POWERSHELL,
-  }
-
-  @Nullable
-  private static Pair<CommandType, String> determineCommandTypeAndAttribute(
-      RuleContext ruleContext) {
-    AttributeMap attributeMap = ruleContext.attributes();
-    if (ruleContext.isExecutedOnWindows()) {
-      if (attributeMap.isAttributeValueExplicitlySpecified("cmd_ps")) {
-        return Pair.of(CommandType.WINDOWS_POWERSHELL, "cmd_ps");
-      }
-      if (attributeMap.isAttributeValueExplicitlySpecified("cmd_bat")) {
-        return Pair.of(CommandType.WINDOWS_BATCH, "cmd_bat");
-      }
-    }
-    if (attributeMap.isAttributeValueExplicitlySpecified("cmd_bash")) {
-      return Pair.of(CommandType.BASH, "cmd_bash");
-    }
-    if (attributeMap.isAttributeValueExplicitlySpecified("cmd")) {
-      return Pair.of(CommandType.BASH, "cmd");
-    }
-    ruleContext.attributeError(
-        "cmd",
-        "missing value for `cmd` attribute, you can also set `cmd_ps` or `cmd_bat` on"
-            + " Windows and `cmd_bash` on other platforms.");
-    return null;
-  }
-
   @Override
   @Nullable
-  public ConfiguredTarget create(RuleContext ruleContext)
+  public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSet<Artifact> filesToBuild =
         NestedSetBuilder.wrap(Order.STABLE_ORDER, ruleContext.getOutputArtifacts());
@@ -145,7 +93,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     // The CommandHelper class makes an explicit copy of this in the constructor, so flattening
     // here should be benign.
     CommandHelper commandHelper =
-        commandHelperBuilder(ruleContext)
+        CommandHelper.builder(ruleContext)
+            .addToolDependencies("tools")
+            .addToolDependencies("toolchains")
             .addLabelMap(
                 labelMap.entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue().toList())))
@@ -167,7 +117,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             ruleContext,
             resolvedSrcs,
             filesToBuild,
-            /* makeVariableSuppliers = */ ImmutableList.of(),
+            /* makeVariableSuppliers= */ ImmutableList.of(),
             expandToWindowsPath);
     String command =
         ruleContext
@@ -281,10 +231,49 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  protected CommandHelper.Builder commandHelperBuilder(RuleContext ruleContext) {
-    return CommandHelper.builder(ruleContext)
-        .addToolDependencies("tools")
-        .addToolDependencies("toolchains");
+  /**
+   * Returns {@code true} if the rule should be stamped.
+   *
+   * <p>Genrule implementations can set this based on the rule context, including by defining their
+   * own attributes over and above what is present in {@link GenRuleBaseRule}.
+   */
+  @ForOverride
+  protected abstract boolean isStampingEnabled(RuleContext ruleContext);
+
+  /** Collects sources from src attribute. */
+  @ForOverride
+  protected abstract ImmutableMap<Label, NestedSet<Artifact>> collectSources(
+      List<? extends TransitiveInfoCollection> srcs) throws RuleErrorException;
+
+  private enum CommandType {
+    BASH,
+    WINDOWS_BATCH,
+    WINDOWS_POWERSHELL,
+  }
+
+  @Nullable
+  private static Pair<CommandType, String> determineCommandTypeAndAttribute(
+      RuleContext ruleContext) {
+    AttributeMap attributeMap = ruleContext.attributes();
+    if (ruleContext.isExecutedOnWindows()) {
+      if (attributeMap.isAttributeValueExplicitlySpecified("cmd_ps")) {
+        return Pair.of(CommandType.WINDOWS_POWERSHELL, "cmd_ps");
+      }
+      if (attributeMap.isAttributeValueExplicitlySpecified("cmd_bat")) {
+        return Pair.of(CommandType.WINDOWS_BATCH, "cmd_bat");
+      }
+    }
+    if (attributeMap.isAttributeValueExplicitlySpecified("cmd_bash")) {
+      return Pair.of(CommandType.BASH, "cmd_bash");
+    }
+    if (attributeMap.isAttributeValueExplicitlySpecified("cmd")) {
+      return Pair.of(CommandType.BASH, "cmd");
+    }
+    ruleContext.attributeError(
+        "cmd",
+        "missing value for `cmd` attribute, you can also set `cmd_ps` or `cmd_bat` on"
+            + " Windows and `cmd_bash` on other platforms.");
+    return null;
   }
 
   /**
@@ -303,14 +292,14 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
    * Implementation of {@link ConfigurationMakeVariableContext} used to expand variables in a
    * genrule command string.
    */
-  protected static class CommandResolverContext extends ConfigurationMakeVariableContext {
+  private static final class CommandResolverContext extends ConfigurationMakeVariableContext {
 
     private final RuleContext ruleContext;
     private final NestedSet<Artifact> resolvedSrcs;
     private final NestedSet<Artifact> filesToBuild;
     private final boolean windowsPath;
 
-    public CommandResolverContext(
+    CommandResolverContext(
         RuleContext ruleContext,
         NestedSet<Artifact> resolvedSrcs,
         NestedSet<Artifact> filesToBuild,
@@ -325,10 +314,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       this.resolvedSrcs = resolvedSrcs;
       this.filesToBuild = filesToBuild;
       this.windowsPath = windowsPath;
-    }
-
-    public RuleContext getRuleContext() {
-      return ruleContext;
     }
 
     @Override
@@ -397,15 +382,13 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
      * Returns the path of the sole element "artifacts", generating an exception with an informative
      * error message iff the set is not a singleton. Used to expand "$<", "$@".
      */
-    private static final String expandSingletonArtifact(
+    private static String expandSingletonArtifact(
         NestedSet<Artifact> artifacts, String variable, String artifactName)
         throws ExpansionException {
       if (artifacts.isEmpty()) {
-        throw new ExpansionException("variable '" + variable
-            + "' : no " + artifactName);
+        throw new ExpansionException("variable '" + variable + "' : no " + artifactName);
       } else if (!artifacts.isSingleton()) {
-        throw new ExpansionException("variable '" + variable
-            + "' : more than one " + artifactName);
+        throw new ExpansionException("variable '" + variable + "' : more than one " + artifactName);
       }
       return artifacts.getSingleton().getExecPathString();
     }
