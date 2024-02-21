@@ -57,7 +57,8 @@ public abstract class VirtualCGroup {
         if (instance == null) {
             synchronized (VirtualCGroup.class) {
                 if (instance == null) {
-                    instance = create();
+                    instance = create().child("bazel_" + ProcessHandle.current().pid() + ".slice");
+                    Runtime.getRuntime().addShutdownHook(new Thread(VirtualCGroup::deleteInstance));
                 }
             }
         }
@@ -76,23 +77,12 @@ public abstract class VirtualCGroup {
     }
 
     public static VirtualCGroup create() throws IOException {
-        return create(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH, ProcessHandle.current().pid());
-    }
-
-    private static void copyControllersToSubtree(Path cgroup) throws IOException {
-        File subtree = cgroup.resolve("cgroup.subtree_control").toFile();
-        File controllers = cgroup.resolve("cgroup.controllers").toFile();
-        if (subtree.canWrite() && controllers.canRead()) {
-            CharSink sink = Files.asCharSink(subtree, StandardCharsets.UTF_8);
-            try (Scanner scanner = new Scanner(controllers)) {
-                sink.writeLines(Streams.stream(scanner).map(c -> "+" + c), " ");
-            }
-        }
+        return create(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH);
     }
 
     static public VirtualCGroup NULL = new AutoValue_VirtualCGroup(null, null, ImmutableSet.of());
 
-    public static VirtualCGroup create(File procMounts, File procCgroup, long pid) throws IOException {
+    public static VirtualCGroup create(File procMounts, File procCgroup) throws IOException {
         final List<Mount> mounts = Mount.parse(procMounts);
         final Map<String, Hierarchy> hierarchies = Hierarchy.parse(procCgroup)
             .stream()
@@ -103,10 +93,10 @@ public abstract class VirtualCGroup {
             // "view of the same hierarchy" so it is ok to just keep one.
             // Ref. https://man7.org/linux/man-pages/man7/cgroups.7.html
             .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-        return create(mounts, hierarchies, pid);
+        return create(mounts, hierarchies);
     }
 
-    public static VirtualCGroup create(List<Mount> mounts, Map<String, Hierarchy> hierarchies, long pid) throws IOException {
+    public static VirtualCGroup create(List<Mount> mounts, Map<String, Hierarchy> hierarchies) throws IOException {
         Controller.Memory memory = null;
         Controller.Cpu cpu = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
@@ -128,8 +118,6 @@ public abstract class VirtualCGroup {
                     logger.atInfo().log("Found non-writable cgroup v2 at %s", cgroup);
                     continue;
                 }
-                cgroup = cgroup.resolve("bazel_" + pid + ".slice");
-                cgroup.toFile().mkdirs();
                 paths.add(cgroup);
 
                 try (Scanner scanner = new Scanner(cgroup.resolve("cgroup.controllers").toFile())) {
@@ -157,8 +145,6 @@ public abstract class VirtualCGroup {
                         logger.atInfo().log("Found non-writable cgroup v1 at %s", cgroup);
                         continue;
                     }
-                    cgroup = cgroup.resolve("bazel_" + pid + ".slice");
-                    cgroup.toFile().mkdirs();
                     paths.add(cgroup);
 
                     switch (opt) {
@@ -178,7 +164,6 @@ public abstract class VirtualCGroup {
         }
 
         VirtualCGroup vcgroup = new AutoValue_VirtualCGroup(cpu, memory, paths.build());
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> vcgroup.delete()));
         return vcgroup;
     }
 
@@ -191,19 +176,13 @@ public abstract class VirtualCGroup {
         Controller.Cpu cpu = null;
         Controller.Memory memory = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
-        if (memory() != null && memory().getPath() != null) {
-            copyControllersToSubtree(memory().getPath());
-            Path cgroup = memory().getPath().resolve(name);
-            cgroup.toFile().mkdirs();
-            memory = memory().isLegacy() ? new LegacyMemory(cgroup) : new UnifiedMemory(cgroup);
-            paths.add(cgroup);
+        if (memory() != null) {
+            memory = memory().child(name);
+            paths.add(memory.getPath());
         }
-        if (cpu() != null && cpu().getPath() != null) {
-            copyControllersToSubtree(cpu().getPath());
-            Path cgroup = cpu().getPath().resolve(name);
-            cgroup.toFile().mkdirs();
-            cpu = cpu().isLegacy() ? new LegacyCpu(cgroup) : new UnifiedCpu(cgroup);
-            paths.add(cgroup);
+        if (cpu() != null) {
+            cpu = cpu().child(name);
+            paths.add(cpu.getPath());
         }
         VirtualCGroup child = new AutoValue_VirtualCGroup(cpu, memory, paths.build());
         this.children.add(child);

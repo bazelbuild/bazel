@@ -14,11 +14,13 @@ filegroup(
 java_library(
     name = "v2",
     srcs = [
+        "UnifiedController.java",
         "UnifiedCpu.java",
         "UnifiedMemory.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller",
+        "//third_party:guava",
     ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups:__pkg__",

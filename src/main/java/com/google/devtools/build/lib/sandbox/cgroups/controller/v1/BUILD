@@ -11,6 +11,7 @@ filegroup(
 java_library(
     name = "v1",
     srcs = [
+        "LegacyController.java",
         "LegacyCpu.java",
         "LegacyMemory.java",
     ],

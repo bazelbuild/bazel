@@ -24,10 +24,12 @@ public interface Controller {
     Path getPath();
 
     interface Memory extends Controller {
+        Memory child(String name) throws IOException;
         void setMaxBytes(long bytes) throws IOException;
         long getMaxBytes() throws IOException;
     }
     interface Cpu extends Controller {
+        Cpu child(String name) throws IOException;
         void setCpus(double cpus) throws IOException;
         long getCpus() throws IOException;
     }

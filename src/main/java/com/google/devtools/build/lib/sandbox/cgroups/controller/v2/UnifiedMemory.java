@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class UnifiedMemory implements Controller.Memory {
+public class UnifiedMemory extends UnifiedController implements Controller.Memory {
     private final Path path;
     public UnifiedMemory(Path path) {
         this.path = path;
@@ -15,6 +15,11 @@ public class UnifiedMemory implements Controller.Memory {
     @Override
     public Path getPath() {
         return path;
+    }
+
+    @Override
+    public Memory child(String name) throws IOException {
+        return new UnifiedMemory(getChild(name));
     }
 
     @Override

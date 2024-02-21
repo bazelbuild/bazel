@@ -7,11 +7,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Scanner;
 
-public class UnifiedCpu implements Controller.Cpu {
+public class UnifiedCpu extends UnifiedController implements Controller.Cpu {
     private final Path path;
 
     public UnifiedCpu(Path path) {
         this.path = path;
+    }
+
+    @Override
+    public Cpu child(String name) throws IOException {
+        return new UnifiedCpu(getChild(name));
     }
 
     @Override
