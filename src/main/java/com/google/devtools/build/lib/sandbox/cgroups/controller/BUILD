@@ -23,5 +23,6 @@ java_library(
     ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/metrics:__subpackages__",
     ],
 )

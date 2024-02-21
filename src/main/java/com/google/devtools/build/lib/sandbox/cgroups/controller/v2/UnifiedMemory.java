@@ -31,4 +31,9 @@ public class UnifiedMemory extends UnifiedController implements Controller.Memor
     public long getMaxBytes() throws IOException {
         return Long.parseLong(Files.readString(path.resolve("memory.max")).trim());
     }
+
+    @Override
+    public long getUsageInBytes() throws IOException {
+        return Long.parseLong(Files.readString(path.resolve("memory.current")).trim());
+    }
 }

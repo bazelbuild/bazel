@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -49,10 +50,10 @@ class WorkerProxy extends Worker {
   }
 
   @Override
-  public CgroupsInfo getCgroup() {
+  public Optional<VirtualCGroup> getCgroup() {
     // WorkerProxy does not have a cgroup at the momemnt. Consider adding it to the
     // multiplexer and returning it here?
-    return null;
+    return Optional.empty();
   }
 
   @Override
