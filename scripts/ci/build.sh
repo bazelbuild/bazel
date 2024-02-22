@@ -147,6 +147,7 @@ function release_to_github() {
   local release_name=$(get_release_name)
   local rc=$(get_release_candidate)
   local full_release_name=$(get_full_release_name)
+  local release_branch=$(get_release_branch)
 
   if [ -n "${release_name}" ]; then
     local github_token="$(gsutil cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
@@ -154,7 +155,7 @@ function release_to_github() {
     if [ -z "${rc}" ]; then
       GITHUB_TOKEN="${github_token}" github-release "bazelbuild/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
     else
-      GITHUB_TOKEN="${github_token}" github-release -prerelease "bazelbuild/bazel" "${full_release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
+      GITHUB_TOKEN="${github_token}" github-release -prerelease "bazelbuild/bazel" "${full_release_name}" "${release_branch}" "$(get_release_page)" "${artifact_dir}/*"
     fi
   fi
 }
