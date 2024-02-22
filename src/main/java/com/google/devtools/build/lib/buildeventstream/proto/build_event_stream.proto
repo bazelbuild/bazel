@@ -1163,12 +1163,16 @@ message BuildMetrics {
 
     int64 actions_executed = 11;
 
+    int64 prior_actions_executed = 13;
+
     // Information collected from worker at some point.
     message WorkerStats {
       // Epoch unix time of collection of metrics.
       int64 collect_time_in_ms = 1;
-      // RSS size of worker process.
+      // Memory usage of worker process at the end of the build.
       int32 worker_memory_in_kb = 2;
+      // Memory usage of the worker process prior to the invocation.
+      int32 prior_worker_memory_in_kb = 4;
       // Epoch unix time of last action started on specific worker.
       int64 last_action_start_time_in_ms = 3;
     }
