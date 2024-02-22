@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder.ActionRewindEventAsserter;
@@ -130,7 +132,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * <ol>
  *   <li>Tests that check the rewinding strategy's behavior and how it interacts with build logic
  *       under varying circumstances, like {@link #runActionFromPreviousBuildReevaluated}, {@link
- *       #runMultiplyLosingInputsFails}, {@link #runInterruptedDuringRewindStopsNormally}.
+ *       #runIneffectiveRewindingResultsInLostInputTooManyTimes}, {@link
+ *       #runInterruptedDuringRewindStopsNormally}.
  *   <li>Tests that check the behavior of the execution strategy and Skyframe action execution
  *       machinery to make sure they collaborate to give the action rewinding strategy the
  *       information it needs to figure out what Skyframe nodes need to be rewound. Examples of
@@ -154,10 +157,6 @@ public class RewindingTestsHelper {
   public final BlazeModule getLostOutputsModule() {
     return lostOutputsModule;
   }
-
-  /** Disables remote caching if the execution strategy supports it. */
-  @ForOverride
-  void disableRemoteCaching() {}
 
   /**
    * Returns whether the execution strategy can handle rewinding happening concurrently with another
@@ -543,11 +542,11 @@ public class RewindingTestsHelper {
     assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//test:rule1");
   }
 
-  public final void runMultiplyLosingInputsFails() throws Exception {
+  public final void runIneffectiveRewindingResultsInLostInputTooManyTimes() throws Exception {
     // This test sets up two genrules, and makes the several execution attempts of rule2 fail,
     // saying that the file produced by rule1 is missing. The last time rule2 fails because of the
-    // same lost input, rewinding is not attempted, and the build fails with a crash because
-    // BugReport throws in tests.
+    // same lost input, rewinding is not attempted, and the build fails with a
+    // LOST_INPUT_TOO_MANY_TIMES detailed exit code.
     writeTwoGenrulePackage(testCase);
 
     // Store a reference to the input so that we can match the exception message. The output
@@ -2886,6 +2885,77 @@ public class RewindingTestsHelper {
       // opportunity to rewind after an error is observed.
       assertOutputsReported(event, "bin/foo/found.out");
     }
+  }
+
+  public final void runTopLevelOutputRewound_ineffectiveRewinding() throws Exception {
+    testCase.write(
+        "foo/defs.bzl",
+        "def _lost_and_found_impl(ctx):",
+        "  lost = ctx.actions.declare_file('lost.out')",
+        "  found = ctx.actions.declare_file('found.out')",
+        "  ctx.actions.run_shell(outputs = [lost], command = 'echo lost > %s' % lost.path)",
+        "  ctx.actions.run_shell(outputs = [found], command = 'echo found > %s' % found.path)",
+        "  return DefaultInfo(files = depset([lost, found]))",
+        "",
+        "lost_and_found = rule(implementation = _lost_and_found_impl)");
+    testCase.write(
+        "foo/BUILD",
+        "load(':defs.bzl', 'lost_and_found')",
+        "lost_and_found(name = 'lost_and_found')");
+    Label fooLostAndFound = Label.parseCanonical("//foo:lost_and_found");
+    String outputExecPath = getExecPath("bin/foo/lost.out");
+    RecordingBugReporter bugReporter = testCase.recordBugReportsAndReinitialize();
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
+    Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
+    listenForNoCompletionEventsBeforeRewinding(fooLostAndFound, targetCompleteEvents);
+
+    for (int i = 0; i <= ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS; i++) {
+      addSpawnShim(
+          "Action foo/lost.out",
+          (spawn, context) -> {
+            lostOutputsModule.addLostOutput(outputExecPath);
+            return ExecResult.delegate();
+          });
+    }
+
+    BuildFailedException e =
+        assertThrows(
+            BuildFailedException.class, () -> testCase.buildTarget("//foo:lost_and_found"));
+    assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
+        .isEqualTo(ActionRewinding.Code.LOST_OUTPUT_TOO_MANY_TIMES);
+
+    assertOnlyActionsRewound(rewoundKeys);
+    assertThat(rewoundArtifactOwnerLabels(rewoundKeys))
+        .containsExactlyElementsIn(
+            Collections.nCopies(
+                ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS, "//foo:lost_and_found"));
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Action foo/lost.out", ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1);
+
+    ActionExecutionValue actionExecutionValue =
+        (ActionExecutionValue)
+            testCase.getSkyframeExecutor().getEvaluator().getExistingValue(rewoundKeys.get(0));
+    byte[] lostDigest =
+        actionExecutionValue.getAllFileValues().entrySet().stream()
+            .filter(entry -> entry.getKey().getRootRelativePathString().equals("foo/lost.out"))
+            .map(entry -> entry.getValue().getDigest())
+            .collect(onlyElement());
+    String expectedError =
+        String.format(
+            "Lost output foo/lost.out (digest %s), and rewinding was ineffective after %d"
+                + " attempts.",
+            toHex(lostDigest), ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS);
+    testCase.assertContainsError(expectedError);
+    assertThat(e.getDetailedExitCode().getFailureDetail().getMessage()).contains(expectedError);
+    assertThat(Iterables.getOnlyElement(bugReporter.getExceptions()))
+        .hasMessageThat()
+        .contains(expectedError);
+
+    // TargetCompleteEvent is failed and reports only the found output and not the lost output.
+    assertThat(targetCompleteEvents.keySet()).containsExactly(fooLostAndFound);
+    TargetCompleteEvent event = targetCompleteEvents.get(fooLostAndFound);
+    assertThat(event.failed()).isTrue();
+    assertOutputsReported(event, "bin/foo/found.out");
   }
 
   final void listenForNoCompletionEventsBeforeRewinding(

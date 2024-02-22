@@ -104,6 +104,7 @@ java_library(
         "InputMetadataProvider.java",
         "LostInputsActionExecutionException.java",
         "LostInputsExecException.java",
+        "LostOutputsException.java",
         "MapBasedActionGraph.java",
         "MiddlemanAction.java",
         "MiddlemanFactory.java",

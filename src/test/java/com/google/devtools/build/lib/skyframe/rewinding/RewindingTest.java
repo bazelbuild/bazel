@@ -116,8 +116,8 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void multiplyLosingInputsFails() throws Exception {
-    helper.runMultiplyLosingInputsFails();
+  public void ineffectiveRewindingResultsInLostInputTooManyTimes() throws Exception {
+    helper.runIneffectiveRewindingResultsInLostInputTooManyTimes();
     assertOutputForRule2NotCreated();
   }
 
@@ -277,5 +277,10 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   @Test
   public void topLevelOutputRewound_partiallyBuiltTarget_fileInTreeArtifact() throws Exception {
     helper.runTopLevelOutputRewound_partiallyBuiltTarget_fileInTreeArtifact();
+  }
+
+  @Test
+  public void topLevelOutputRewound_ineffectiveRewinding() throws Exception {
+    helper.runTopLevelOutputRewound_ineffectiveRewinding();
   }
 }

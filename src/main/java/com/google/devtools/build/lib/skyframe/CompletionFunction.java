@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
+import com.google.devtools.build.lib.actions.LostOutputsException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -60,7 +62,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -269,35 +270,30 @@ public final class CompletionFunction<
 
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
-      RewindPlan rewindPlan = null;
+      Reset reset = null;
       if (!builtArtifacts.isEmpty()) {
-        rewindPlan =
+        reset =
             informImportantOutputHandler(
                 key,
+                value,
                 env,
-                allArtifactsAreImportant
-                    ? builtArtifacts
-                    : Sets.intersection(builtArtifacts, (Set<?>) importantArtifacts),
-                ctx);
-        if (rewindPlan != null) {
-          // Filter out lost outputs from the set of built artifacts so that they are not reported.
-          // If rewinding is successful, we'll report them later on.
-          removeLostOutputs(builtArtifacts, rewindPlan.lostOutputs, rewindPlan.owners);
-        }
+                ImmutableList.copyOf(
+                    allArtifactsAreImportant
+                        ? builtArtifacts
+                        : Iterables.filter(builtArtifacts, importantArtifacts::contains)),
+                rootCauses,
+                ctx,
+                artifactsToBuild,
+                builtArtifacts);
       }
-      ImmutableMap<String, ArtifactsInOutputGroup> builtOutputs =
-          new SuccessfulArtifactFilter(ImmutableSet.copyOf(builtArtifacts))
-              .filterArtifactsInOutputGroup(artifactsToBuild.getAllArtifactsByOutputGroup());
-      Postable event = completor.createFailed(key, value, rootCauses, ctx, builtOutputs, env);
-      checkStored(event, key);
-      env.getListener().post(event);
-      if (rewindPlan != null) {
+      postFailedEvent(key, value, rootCauses, ctx, artifactsToBuild, builtArtifacts, env);
+      if (reset != null) {
         // Only return a reset after posting the failed event. If we're in --nokeep_going mode, the
         // attempt to rewind will be ignored, so this is our only opportunity to post the event. If
         // we're in --keep_going mode, rewinding will take place, the event won't actually get
         // emitted (per the spec of SkyFunction.Environment#getListener for stored events), and
         // we'll get another opportunity to post an event after rewinding.
-        return rewindPlan.reset;
+        return reset;
       }
       if (firstActionExecutionException != null) {
         throw new CompletionFunctionException(firstActionExecutionException);
@@ -324,9 +320,11 @@ public final class CompletionFunction<
       return null;
     }
 
-    RewindPlan rewindPlan = informImportantOutputHandler(key, env, importantArtifacts, ctx);
-    if (rewindPlan != null) {
-      return rewindPlan.reset; // Initiate action rewinding to regenerate lost outputs.
+    Reset reset =
+        informImportantOutputHandler(
+            key, value, env, importantArtifacts, rootCauses, ctx, artifactsToBuild, builtArtifacts);
+    if (reset != null) {
+      return reset; // Initiate action rewinding to regenerate lost outputs.
     }
 
     Postable event = completor.createSucceeded(key, value, ctx, artifactsToBuild, env);
@@ -335,6 +333,23 @@ public final class CompletionFunction<
     topLevelArtifactsMetric.mergeIn(currentConsumer);
 
     return completor.getResult();
+  }
+
+  private void postFailedEvent(
+      KeyT key,
+      ValueT value,
+      NestedSet<Cause> rootCauses,
+      CompletionContext ctx,
+      ArtifactsToBuild artifactsToBuild,
+      Set<Artifact> builtArtifacts,
+      Environment env)
+      throws InterruptedException {
+    ImmutableMap<String, ArtifactsInOutputGroup> builtOutputs =
+        new SuccessfulArtifactFilter(ImmutableSet.copyOf(builtArtifacts))
+            .filterArtifactsInOutputGroup(artifactsToBuild.getAllArtifactsByOutputGroup());
+    Postable event = completor.createFailed(key, value, rootCauses, ctx, builtOutputs, env);
+    checkStored(event, key);
+    env.getListener().post(event);
   }
 
   private void handleSourceFileError(
@@ -372,13 +387,20 @@ public final class CompletionFunction<
   /**
    * Calls {@link ImportantOutputHandler#processAndGetLostArtifacts}.
    *
-   * <p>If any outputs are lost, returns a {@link RewindPlan} containing a {@link Reset} which used
-   * to initiate action rewinding and regenerate the lost outputs. Otherwise, returns {@code null}.
+   * <p>If any outputs are lost, returns a {@link Reset} which can be used to initiate action
+   * rewinding and regenerate the lost outputs. Otherwise, returns {@code null}.
    */
   @Nullable
-  private RewindPlan informImportantOutputHandler(
-      KeyT key, Environment env, Collection<Artifact> importantArtifacts, CompletionContext ctx)
-      throws InterruptedException {
+  private Reset informImportantOutputHandler(
+      KeyT key,
+      ValueT value,
+      Environment env,
+      ImmutableCollection<Artifact> importantArtifacts,
+      NestedSet<Cause> rootCauses,
+      CompletionContext ctx,
+      ArtifactsToBuild artifactsToBuild,
+      Set<Artifact> builtArtifacts)
+      throws CompletionFunctionException, InterruptedException {
     ImportantOutputHandler importantOutputHandler =
         skyframeActionExecutor.getActionContextRegistry().getContext(ImportantOutputHandler.class);
     if (importantOutputHandler == ImportantOutputHandler.NO_OP) {
@@ -397,19 +419,25 @@ public final class CompletionFunction<
     }
 
     ActionInputDepOwners owners = ctx.getDepOwners(lostOutputs.values());
-    Reset reset =
-        actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
-            key, ImmutableSet.copyOf(Artifact.keys(importantArtifacts)), lostOutputs, owners, env);
-    return new RewindPlan(lostOutputs.values(), owners, reset);
-  }
 
-  private static void removeLostOutputs(
-      Set<Artifact> builtArtifacts,
-      Collection<ActionInput> lostOutputs,
-      ActionInputDepOwners owners) {
-    for (ActionInput lostOutput : lostOutputs) {
+    // Filter out lost outputs from the set of built artifacts so that they are not reported. If
+    // rewinding is successful, we'll report them later on.
+    for (ActionInput lostOutput : lostOutputs.values()) {
       builtArtifacts.remove(lostOutput);
       builtArtifacts.removeAll(owners.getDepOwners(lostOutput));
+    }
+
+    try {
+      return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
+          key, ImmutableSet.copyOf(Artifact.keys(importantArtifacts)), lostOutputs, owners, env);
+    } catch (ActionRewindException e) {
+      LabelCause cause = new LabelCause(key.actionLookupKey().getLabel(), e.getDetailedExitCode());
+      rootCauses = NestedSetBuilder.fromNestedSet(rootCauses).add(cause).build();
+      env.getListener().handle(completor.getRootCauseError(key, value, cause, env));
+      skyframeActionExecutor.recordExecutionError();
+      postFailedEvent(key, value, rootCauses, ctx, artifactsToBuild, builtArtifacts, env);
+      throw new CompletionFunctionException(
+          new LostOutputsException(e.getMessage(), e.getDetailedExitCode()));
     }
   }
 
@@ -423,23 +451,6 @@ public final class CompletionFunction<
     return Label.print(((TopLevelActionLookupKeyWrapper) skyKey).actionLookupKey().getLabel());
   }
 
-  /**
-   * Wraps a collection of lost outputs, their owners, and a {@link Reset} to initiate rewinding and
-   * regenerate them.
-   */
-  private static final class RewindPlan {
-    private final ImmutableCollection<ActionInput> lostOutputs;
-    private final ActionInputDepOwners owners;
-    private final Reset reset;
-
-    private RewindPlan(
-        ImmutableCollection<ActionInput> lostOutputs, ActionInputDepOwners owners, Reset reset) {
-      this.lostOutputs = lostOutputs;
-      this.owners = owners;
-      this.reset = reset;
-    }
-  }
-
   private static final class CompletionFunctionException extends SkyFunctionException {
     private final ActionExecutionException actionException;
 
@@ -451,6 +462,11 @@ public final class CompletionFunction<
     CompletionFunctionException(InputFileErrorException e) {
       // Not transient from the point of view of this SkyFunction.
       super(e, Transience.PERSISTENT);
+      this.actionException = null;
+    }
+
+    CompletionFunctionException(LostOutputsException e) {
+      super(e, Transience.TRANSIENT);
       this.actionException = null;
     }
 

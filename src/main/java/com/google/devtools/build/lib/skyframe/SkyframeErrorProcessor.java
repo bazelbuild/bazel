@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
+import com.google.devtools.build.lib.actions.LostOutputsException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
@@ -596,7 +597,8 @@ public final class SkyframeErrorProcessor {
 
   private static boolean isExecutionCauseWorthLogging(Throwable cause) {
     return !(cause instanceof ActionExecutionException)
-        && !(cause instanceof InputFileErrorException);
+        && !(cause instanceof InputFileErrorException)
+        && !(cause instanceof LostOutputsException);
   }
 
   private static boolean isValidErrorKeyType(Object errorKey) {
@@ -787,7 +789,9 @@ public final class SkyframeErrorProcessor {
         || cause instanceof InputFileErrorException
         || cause instanceof TestExecException
         // Refer to UnusedInputsFailureIntegrationTest#incrementalFailureOnUnusedInput.
-        || cause instanceof ArtifactNestedSetEvalException;
+        || cause instanceof ArtifactNestedSetEvalException
+        // For lost top-level outputs and ineffective rewinding.
+        || cause instanceof LostOutputsException;
   }
 
   /**
@@ -902,11 +906,14 @@ public final class SkyframeErrorProcessor {
       throw new BuildFailedException(
           message,
           actionExecutionCause.isCatastrophe(),
-          /*errorAlreadyShown=*/ !actionExecutionCause.showError(),
+          /* errorAlreadyShown= */ !actionExecutionCause.showError(),
           actionExecutionCause.getDetailedExitCode());
     }
     if (cause instanceof InputFileErrorException) {
       throw (InputFileErrorException) cause;
+    }
+    if (cause instanceof LostOutputsException) {
+      throw (LostOutputsException) cause;
     }
 
     // We encountered an exception we don't think we should have encountered. This can indicate
