@@ -27,7 +27,6 @@ def _cc_library_impl(ctx):
 
     semantics.check_cc_shared_library_tags(ctx)
 
-    common = cc_internal.create_common(ctx = ctx)
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     cc_helper.report_invalid_options(cc_toolchain, ctx.fragments.cpp)
 
@@ -373,7 +372,6 @@ def _convert_precompiled_libraries_to_library_to_link(
         static_library = None
         pic_static_library = None
         dynamic_library = None
-        interface_library = None
 
         has_pic = identifier in pic_static_libraries
         has_always_pic = identifier in alwayslink_pic_static_libraries
@@ -944,6 +942,7 @@ See <a href="${link cc_binary.linkshared}"><code>cc_binary.linkshared</code></a>
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "_stl": semantics.get_stl(),
         "_def_parser": semantics.get_def_parser(),
+        # TODO(b/288421584): necessary because IDE aspect can't see toolchains
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_use_auto_exec_groups": attr.bool(default = True),
     } | semantics.get_distribs_attr() | semantics.get_implementation_deps_allowed_attr() | semantics.get_nocopts_attr(),
