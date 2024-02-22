@@ -502,7 +502,14 @@ class BazelWindowsTest(test_base.TestBase):
     self.ScratchFile(
         'foo.sh',
         [
-            'echo "BAZEL_TEST=$BAZEL_TEST"',
+            '''
+            if [[ "$BAZEL_TEST" == "1" ]]; then
+                exit 0
+            else
+                echo "BAZEL_TEST is not set to 1"
+                exit 1
+            fi
+            ''',
         ],
     )
 
@@ -513,7 +520,6 @@ class BazelWindowsTest(test_base.TestBase):
         ],
     )
     self.AssertExitCode(exit_code, 0, stderr, stdout)
-    self.assertIn('BAZEL_TEST=1', '\n'.join(stdout))
 
   def testTestShardStatusFile(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
