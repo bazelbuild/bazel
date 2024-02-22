@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -1511,7 +1510,6 @@ public class RemoteExecutionServiceTest {
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"),
-            /* runfilesSupplier= */ null,
             /* filesetMappings= */ ImmutableMap.of(),
             /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -2130,7 +2128,6 @@ public class RemoteExecutionServiceTest {
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(),
-            /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
             /* inputs= */ nodeRoot1,
             /* outputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
@@ -2141,7 +2138,6 @@ public class RemoteExecutionServiceTest {
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(),
-            /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
             /* inputs= */ nodeRoot2,
             /* outputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);

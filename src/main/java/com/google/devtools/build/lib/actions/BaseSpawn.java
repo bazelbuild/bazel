@@ -31,7 +31,6 @@ public class BaseSpawn implements Spawn {
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
-  private final RunfilesSupplier runfilesSupplier;
   private final ActionExecutionMetadata action;
   private final ResourceSetOrBuilder localResources;
   private ResourceSet localResourcesCached = null;
@@ -40,13 +39,11 @@ public class BaseSpawn implements Spawn {
       List<String> arguments,
       Map<String, String> environment,
       Map<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
       ActionExecutionMetadata action,
       ResourceSetOrBuilder localResources) {
     this.arguments = ImmutableList.copyOf(arguments);
     this.environment = ImmutableMap.copyOf(environment);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
-    this.runfilesSupplier = runfilesSupplier;
     this.action = action;
     this.localResources = localResources;
   }
@@ -54,11 +51,6 @@ public class BaseSpawn implements Spawn {
   @Override
   public final ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
-  }
-
-  @Override
-  public RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
   }
 
   @Override

@@ -37,7 +37,6 @@ public final class SimpleSpawn implements Spawn {
   private final ImmutableMap<String, String> executionInfo;
   private final NestedSet<? extends ActionInput> inputs;
   private final NestedSet<? extends ActionInput> tools;
-  private final RunfilesSupplier runfilesSupplier;
   private final ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
   private final ImmutableList<ActionInput> outputs;
   // If null, all outputs are mandatory.
@@ -50,7 +49,6 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       NestedSet<? extends ActionInput> inputs,
       NestedSet<? extends ActionInput> tools,
@@ -64,8 +62,6 @@ public final class SimpleSpawn implements Spawn {
     this.executionInfo = Preconditions.checkNotNull(executionInfo);
     this.inputs = Preconditions.checkNotNull(inputs);
     this.tools = Preconditions.checkNotNull(tools);
-    this.runfilesSupplier =
-        runfilesSupplier == null ? EmptyRunfilesSupplier.INSTANCE : runfilesSupplier;
     this.filesetMappings = filesetMappings;
     this.outputs = ImmutableList.copyOf(outputs);
     this.mandatoryOutputs = mandatoryOutputs;
@@ -88,7 +84,6 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       NestedSet<? extends ActionInput> inputs,
       NestedSet<? extends ActionInput> tools,
@@ -100,7 +95,6 @@ public final class SimpleSpawn implements Spawn {
         arguments,
         environment,
         executionInfo,
-        runfilesSupplier,
         filesetMappings,
         inputs,
         tools,
@@ -116,7 +110,6 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       NestedSet<? extends ActionInput> inputs,
       NestedSet<? extends ActionInput> tools,
@@ -128,7 +121,6 @@ public final class SimpleSpawn implements Spawn {
         arguments,
         environment,
         executionInfo,
-        runfilesSupplier,
         filesetMappings,
         inputs,
         tools,
@@ -136,30 +128,6 @@ public final class SimpleSpawn implements Spawn {
         mandatoryOutputs,
         /*localResources=*/ null,
         localResourcesSupplier);
-  }
-
-  public SimpleSpawn(
-      ActionExecutionMetadata owner,
-      ImmutableList<String> arguments,
-      ImmutableMap<String, String> environment,
-      ImmutableMap<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
-      NestedSet<? extends ActionInput> inputs,
-      Collection<? extends ActionInput> outputs,
-      ResourceSet localResources) {
-    this(
-        owner,
-        arguments,
-        environment,
-        executionInfo,
-        runfilesSupplier,
-        /* filesetMappings= */ ImmutableMap.of(),
-        inputs,
-        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        outputs,
-        /* mandatoryOutputs= */ null,
-        localResources,
-        /* localResourcesSupplier= */ null);
   }
 
   public SimpleSpawn(
@@ -175,7 +143,6 @@ public final class SimpleSpawn implements Spawn {
         arguments,
         environment,
         executionInfo,
-        /*runfilesSupplier=*/ null,
         /*filesetMappings=*/ ImmutableMap.of(),
         inputs,
         /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -197,7 +164,6 @@ public final class SimpleSpawn implements Spawn {
         arguments,
         environment,
         executionInfo,
-        null,
         ImmutableMap.of(),
         inputs,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -209,11 +175,6 @@ public final class SimpleSpawn implements Spawn {
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
-  }
-
-  @Override
-  public RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
   }
 
   @Override

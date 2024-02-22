@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -525,7 +524,7 @@ public final class AnalysisTestUtil {
     return files;
   }
 
-  /** Creates a {@link RunfilesSupplier} for use in tests. */
+  /** Creates a {@link RunfilesTree} for use in tests. */
   public static RunfilesTree createRunfilesTree(PathFragment runfilesDir, Runfiles runfiles) {
     return new FakeRunfilesTree(
         runfilesDir,

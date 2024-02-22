@@ -50,14 +50,11 @@ import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
-import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -309,7 +306,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         inputs,
         // SpawnInfo doesn't report the runfiles trees of the Spawn, so it's fine to just pass in
         // an empty list here.
-        /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
         /* additionalInputs= */ ImmutableList.of(),
         /* filesetMappings= */ ImmutableMap.of(),
         /* reportOutputs= */ true,
@@ -356,8 +352,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         env,
         envResolved,
         getInputs(),
-        CompositeRunfilesSupplier.fromRunfilesTrees(
-            actionExecutionContext.getInputMetadataProvider().getRunfilesTrees()),
         expandedCommandLines.getParamFiles(),
         actionExecutionContext.getTopLevelFilesets(),
         reportOutputs,
@@ -504,7 +498,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Map<String, String> env,
         boolean envResolved,
         NestedSet<Artifact> inputs,
-        RunfilesSupplier runfilesSupplier,
         Iterable<? extends ActionInput> additionalInputs,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
         boolean reportOutputs,
@@ -514,7 +507,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           arguments,
           ImmutableMap.of(),
           parent.getExecutionInfo(),
-          runfilesSupplier,
           parent,
           parent.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();

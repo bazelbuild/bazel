@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -50,7 +49,4 @@ public interface RunfilesSupplier {
     /** Returns the name of the workspace that the build is occurring in. */
     String getWorkspaceName();
   }
-
-  /** Returns the runfiles trees to be materialized on the inputs of the action. */
-  ImmutableList<RunfilesTree> getRunfilesTrees();
 }

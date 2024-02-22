@@ -50,9 +50,6 @@ public interface Spawn extends DescribableExecutionUnit {
    */
   ImmutableMap<String, String> getExecutionInfo();
 
-  /** Returns the {@link RunfilesSupplier} helper encapsulating the runfiles for this spawn. */
-  RunfilesSupplier getRunfilesSupplier();
-
   /** Returns the command (the first element) and its arguments. */
   @Override
   ImmutableList<String> getArguments();
