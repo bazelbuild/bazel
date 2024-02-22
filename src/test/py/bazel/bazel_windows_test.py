@@ -165,7 +165,7 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertNotIn('foo=bar1', result_in_lower_case)
     self.assertNotIn('foo=bar2', result_in_lower_case)
     self.assertIn('foo=bar3', result_in_lower_case)
-    seft.assertIn('bazel_test=1', result_in_lower_case)
+    self.assertIn('bazel_test=1', result_in_lower_case)
 
   def testRunPowershellInAction(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
