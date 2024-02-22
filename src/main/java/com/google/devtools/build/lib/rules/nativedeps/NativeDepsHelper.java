@@ -247,7 +247,7 @@ public abstract class NativeDepsHelper {
       FdoContext fdoContext = toolchain.getFdoContext();
 
       new CcLinkingHelper(
-              ruleContext.getLabel(),
+              ruleContext.getLabel().getName(),
               CppLinkActionBuilder.newActionConstruction(
                   ruleContext, configuration, /* shareableArtifacts= */ true),
               cppSemantics,

@@ -1932,7 +1932,6 @@ public abstract class CcModule
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(starlarkCcToolchainProvider);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(starlarkFeatureConfiguration, null);
-    Label label = getCallerLabel(actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     LinkTargetType staticLinkTargetType = null;
     if (alwayslink && !actions.getRuleContext().getRule().getRuleClass().equals("swift_library")) {
@@ -1946,7 +1945,7 @@ public abstract class CcModule
         Sequence.cast(linkingContextsObjects, CcLinkingContext.class, "linking_contexts");
     CcLinkingHelper helper =
         new CcLinkingHelper(
-                label,
+                name,
                 CppLinkActionBuilder.newActionConstruction(actions.getRuleContext()),
                 getSemantics(Language.CPP),
                 featureConfiguration.getFeatureConfiguration(),
@@ -2678,7 +2677,6 @@ public abstract class CcModule
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(starlarkFeatureConfiguration, null);
     Artifact mainOutput = convertFromNoneable(mainOutputObject, null);
-    Label label = getCallerLabel(actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     LinkTargetType dynamicLinkTargetType = null;
     LinkTargetType staticLinkTargetType = null;
@@ -2719,7 +2717,7 @@ public abstract class CcModule
 
     CcLinkingHelper helper =
         new CcLinkingHelper(
-                label,
+                name,
                 CppLinkActionBuilder.newActionConstruction(
                     actions.getRuleContext(), buildConfiguration, shareableArtifacts),
                 getSemantics(language),

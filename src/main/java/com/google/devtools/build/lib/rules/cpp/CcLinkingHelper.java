@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -114,7 +115,7 @@ public final class CcLinkingHelper {
   private String linkedDLLNameSuffix = "";
 
   private final LinkActionConstruction linkActionConstruction;
-  private final Label label;
+  private final String targetName;
   private final SymbolGenerator<?> symbolGenerator;
   private final ImmutableMap<String, String> executionInfo;
 
@@ -124,7 +125,7 @@ public final class CcLinkingHelper {
   /**
    * Creates a CcLinkingHelper that outputs artifacts in a given configuration.
    *
-   * @param label the Label of the rule being built
+   * @param targetName the name of the rule being built
    * @param linkActionConstruction the ActionConstructionContext of the rule being built
    * @param semantics CppSemantics for the build
    * @param featureConfiguration activated features and action configs for the build
@@ -133,7 +134,7 @@ public final class CcLinkingHelper {
    * @param executionInfo the execution info data associated with a rule
    */
   public CcLinkingHelper(
-      Label label,
+      String targetName,
       LinkActionConstruction linkActionConstruction,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
@@ -145,7 +146,7 @@ public final class CcLinkingHelper {
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
-    this.label = label;
+    this.targetName = targetName;
     this.linkActionConstruction = linkActionConstruction;
     this.symbolGenerator = symbolGenerator;
     this.executionInfo = executionInfo;
@@ -357,7 +358,7 @@ public final class CcLinkingHelper {
 
   public CcLinkingContext buildCcLinkingContextFromLibrariesToLink(
       List<LibraryToLink> librariesToLink, CcCompilationContext ccCompilationContext)
-      throws InterruptedException {
+      throws EvalException, InterruptedException {
     ImmutableList.Builder<Linkstamp> linkstampBuilder = ImmutableList.builder();
     for (Artifact linkstamp : linkstamps.build().toList()) {
       try {
@@ -374,20 +375,31 @@ public final class CcLinkingHelper {
     if (!neverlink) {
       // We want an empty set if there are no link options. We have to make sure we don't
       // create a LinkOptions instance that contains an empty list.
-      ccLinkingContext =
-          CcLinkingContext.builder()
-              .setOwner(label)
-              .addUserLinkFlags(
-                  linkopts.isEmpty()
-                      ? ImmutableList.of()
-                      : ImmutableList.of(
-                          CcLinkingContext.LinkOptions.of(
-                              ImmutableList.copyOf(linkopts), symbolGenerator)))
-              .addLibraries(librariesToLink)
-              // additionalLinkerInputsBuilder not expected to be a big list for now.
-              .addNonCodeInputs(additionalLinkerInputsBuilder.build().toList())
-              .addLinkstamps(linkstampBuilder.build())
-              .build();
+      try {
+        ccLinkingContext =
+            CcLinkingContext.builder()
+                .setOwner(
+                    Label.create(
+                        linkActionConstruction
+                            .getContext()
+                            .getActionOwner()
+                            .getLabel()
+                            .getPackageIdentifier(),
+                        targetName))
+                .addUserLinkFlags(
+                    linkopts.isEmpty()
+                        ? ImmutableList.of()
+                        : ImmutableList.of(
+                            CcLinkingContext.LinkOptions.of(
+                                ImmutableList.copyOf(linkopts), symbolGenerator)))
+                .addLibraries(librariesToLink)
+                // additionalLinkerInputsBuilder not expected to be a big list for now.
+                .addNonCodeInputs(additionalLinkerInputsBuilder.build().toList())
+                .addLinkstamps(linkstampBuilder.build())
+                .build();
+      } catch (LabelSyntaxException e) {
+        throw new EvalException(e);
+      }
     }
     ImmutableList.Builder<CcLinkingContext> mergedCcLinkingContexts = ImmutableList.builder();
     mergedCcLinkingContexts.add(ccLinkingContext);
@@ -422,7 +434,7 @@ public final class CcLinkingHelper {
         CcToolchainProvider.usePicForDynamicLibraries(
             ccToolchain.getCppConfiguration(), featureConfiguration);
 
-    PathFragment labelName = PathFragment.create(label.getName());
+    PathFragment labelName = PathFragment.create(targetName);
     String libraryIdentifier =
         linkActionConstruction
             .getContext()
@@ -888,7 +900,7 @@ public final class CcLinkingHelper {
    * not present. TODO(b/30393154): Assert that the given link action has an action_config.
    */
   private Artifact getLinkedArtifact(LinkTargetType linkTargetType) throws RuleErrorException {
-    String maybePicName = label.getName() + linkedArtifactNameSuffix;
+    String maybePicName = targetName + linkedArtifactNameSuffix;
     if (linkTargetType.picness() == Picness.PIC) {
       maybePicName =
           CppHelper.getArtifactNameForCategory(
@@ -915,7 +927,11 @@ public final class CcLinkingHelper {
     }
 
     return CppHelper.getLinkedArtifact(
-        label, linkActionConstruction, linkTargetType, linkedArtifactNameSuffix, artifactFragment);
+        targetName,
+        linkActionConstruction,
+        linkTargetType,
+        linkedArtifactNameSuffix,
+        artifactFragment);
   }
 
   private static List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLinkerInputList(

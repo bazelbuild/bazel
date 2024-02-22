@@ -179,7 +179,7 @@ public class CppHelper {
   }
 
   public static Artifact getLinkedArtifact(
-      Label label,
+      String targetName,
       LinkActionConstruction linkActionConstruction,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix,
@@ -193,7 +193,8 @@ public class CppHelper {
     // linux default to satisfy the requirements of any implicit outputs.
     // TODO(b/30132703): Remove the implicit outputs of cc_library.
     Artifact linuxDefault =
-        getLinuxLinkedArtifact(label, linkActionConstruction, linkType, linkedArtifactNameSuffix);
+        getLinuxLinkedArtifact(
+            targetName, linkActionConstruction, linkType, linkedArtifactNameSuffix);
     if (!result.equals(linuxDefault)) {
       linkActionConstruction
           .getContext()
@@ -211,11 +212,11 @@ public class CppHelper {
   }
 
   private static Artifact getLinuxLinkedArtifact(
-      Label label,
+      String targetName,
       LinkActionConstruction linkActionConstruction,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix) {
-    PathFragment name = PathFragment.create(label.getName());
+    PathFragment name = PathFragment.create(targetName);
     if (linkType != LinkTargetType.EXECUTABLE) {
       name =
           name.replaceName(
