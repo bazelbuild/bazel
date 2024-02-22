@@ -180,12 +180,12 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
       DependencyInfo dependencyInfo, Visibility visibility, String fieldName, String value) {
     Preconditions.checkArgument(value.startsWith("{ "), "Expected list starting with { ");
     Preconditions.checkArgument(value.endsWith(" }"), "Expected list ending with } ");
-    // Check for an empty list, which is "{ }".
-    if (value.length() < 4) {
+    String trimmedValue = value.substring(1, value.length() - 1).trim();
+    // Check for an empty list.
+    if (trimmedValue.isEmpty()) {
       return of(dependencyInfo, visibility, fieldName, ImmutableList.of());
     }
     ImmutableList.Builder<IntArrayValue> intValues = ImmutableList.builder();
-    String trimmedValue = value.substring(2, value.length() - 2);
     Iterable<String> valueStrings = Splitter.on(',').trimResults().split(trimmedValue);
     for (String valueString : valueStrings) {
       IntArrayValue elementValue;
