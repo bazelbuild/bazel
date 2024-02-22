@@ -189,18 +189,24 @@ public class WorkerProcessMetrics {
       statsBuilder.setLastActionStartTimeInMs(lastCallTime.get().toEpochMilli());
     }
 
-    return WorkerMetrics.newBuilder()
-        .addAllWorkerIds(workerIds)
-        .setProcessId((int) processId)
-        .setMnemonic(mnemonic)
-        .setIsSandbox(isSandbox)
-        .setIsMultiplex(isMultiplex)
-        .setIsMeasurable(isMeasurable)
-        .setWorkerKeyHash(workerKeyHash)
-        .setWorkerStatus(status.toWorkerStatus())
-        .setActionsExecuted(actionsExecuted.get())
-        .setPriorActionsExecuted(priorActionsExecuted)
-        .addWorkerStats(statsBuilder.build())
-        .build();
+    WorkerMetrics.Builder builder =
+        WorkerMetrics.newBuilder()
+            .addAllWorkerIds(workerIds)
+            .setProcessId((int) processId)
+            .setMnemonic(mnemonic)
+            .setIsSandbox(isSandbox)
+            .setIsMultiplex(isMultiplex)
+            .setIsMeasurable(isMeasurable)
+            .setWorkerKeyHash(workerKeyHash)
+            .setWorkerStatus(status.toWorkerStatus())
+            .setActionsExecuted(actionsExecuted.get())
+            .setPriorActionsExecuted(priorActionsExecuted)
+            .addWorkerStats(statsBuilder.build());
+
+    if (status.getWorkerCode().isPresent()) {
+      builder.setCode(status.getWorkerCode().get());
+    }
+
+    return builder.build();
   }
 }
