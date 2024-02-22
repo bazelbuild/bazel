@@ -476,25 +476,32 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void persistentErrorsShouldNotBeRetried_eventStream_invalidArgument() throws Exception {
-    testPersistentErrorNotRetried(Status.INVALID_ARGUMENT);
+    testPermanentErrorsCauseBlazeExit(
+        Status.INVALID_ARGUMENT,
+        ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+        BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE);
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void persistentErrorsShouldNotBeRetried_eventStream_failedPrecondition() throws Exception {
-    testPersistentErrorNotRetried(Status.FAILED_PRECONDITION);
+    testPermanentErrorsCauseBlazeExit(
+        Status.FAILED_PRECONDITION,
+        ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+        BuildProgress.Code.BES_UPLOAD_TIMEOUT_ERROR);
   }
 
-  private void testPersistentErrorNotRetried(Status status) throws Exception {
+  private void testPermanentErrorsCauseBlazeExit(
+      Status status, ExitCode exitCode, BuildProgress.Code buildProgressCode) throws Exception {
     Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(1000L));
     fakeBesServer.setStreamEventPredicateAndResponseStatus((req) -> true, status);
 
     BuildEventServiceTransport transport =
-        newBuildEventServiceTransport(/*publishLifecycleEvents=*/ false);
+        newBuildEventServiceTransport(/* publishLifecycleEvents= */ false);
     transport.sendBuildEvent(started);
 
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
-    assertPersistentError(exception, BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE);
+    assertExecutionException(exception, exitCode, buildProgressCode);
     assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
     assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
         .isEqualTo(status.getCode());
@@ -784,6 +791,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
   /**
    * Tests that sending ACKS out of order or for non-existing events fails the upload without
    * retries, as this signals a bug in the server code.
+   *
+   * <p>Note that we do not retry within the invocation, but we return a <em>transient</em> exit
+   * code. The {@code FAILED_PRECONDITION} error indicates the protocol has broken; retrying the
+   * entire Blaze invocation would construct a new instance of the protocol and might work.
    */
   @Test(timeout = TIMEOUT_MILLIS)
   public void testWrongAckShouldFailTheUpload() throws Exception {
@@ -795,7 +806,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
 
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
-    assertPersistentError(exception, BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE);
+    assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_TIMEOUT_ERROR);
     assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
     assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
         .isEqualTo(Status.FAILED_PRECONDITION.getCode());
