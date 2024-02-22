@@ -21,12 +21,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 import net.starlark.java.eval.EvalException;
@@ -36,8 +35,7 @@ public final class CppLinkstampCompileHelper {
 
   /** Creates {@link CppCompileAction} to compile linkstamp source. */
   public static CppCompileAction createLinkstampCompileAction(
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue configuration,
+      LinkActionConstruction linkActionConstruction,
       Artifact sourceFile,
       Artifact outputFile,
       NestedSet<Artifact> compilationInputs,
@@ -56,7 +54,10 @@ public final class CppLinkstampCompileHelper {
       throws EvalException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
-                actionConstructionContext, ccToolchainProvider, configuration, semantics)
+                linkActionConstruction.getContext(),
+                ccToolchainProvider,
+                linkActionConstruction.getConfig(),
+                semantics)
             .addMandatoryInputs(compilationInputs)
             .setVariables(
                 getVariables(
@@ -82,7 +83,8 @@ public final class CppLinkstampCompileHelper {
             .setShouldScanIncludes(false)
             .setActionName(CppActionNames.LINKSTAMP_COMPILE);
 
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+    semantics.finalizeCompileActionBuilder(
+        linkActionConstruction.getConfig(), featureConfiguration, builder);
     return builder.buildOrThrowIllegalStateException();
   }
 

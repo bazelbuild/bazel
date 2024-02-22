@@ -20,8 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -31,7 +29,7 @@ import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -81,7 +79,6 @@ public final class CcLinkingHelper {
   }
 
   private final CppSemantics semantics;
-  private final BuildConfigurationValue configuration;
 
   private final NestedSetBuilder<Artifact> additionalLinkerInputsBuilder =
       NestedSetBuilder.stableOrder();
@@ -108,7 +105,6 @@ public final class CcLinkingHelper {
   private LinkingMode linkingMode = LinkingMode.DYNAMIC;
   private boolean nativeDeps;
   private boolean wholeArchive;
-  private LinkArtifactFactory linkArtifactFactory = CppLinkAction.DEFAULT_ARTIFACT_FACTORY;
   private final ImmutableList.Builder<String> additionalLinkstampDefines = ImmutableList.builder();
 
   private final FeatureConfiguration featureConfiguration;
@@ -117,7 +113,7 @@ public final class CcLinkingHelper {
   private String linkedArtifactNameSuffix = "";
   private String linkedDLLNameSuffix = "";
 
-  private final ActionConstructionContext actionConstructionContext;
+  private final LinkActionConstruction linkActionConstruction;
   private final Label label;
   private final SymbolGenerator<?> symbolGenerator;
   private final ImmutableMap<String, String> executionInfo;
@@ -129,31 +125,28 @@ public final class CcLinkingHelper {
    * Creates a CcLinkingHelper that outputs artifacts in a given configuration.
    *
    * @param label the Label of the rule being built
-   * @param actionConstructionContext the ActionConstructionContext of the rule being built
+   * @param linkActionConstruction the ActionConstructionContext of the rule being built
    * @param semantics CppSemantics for the build
    * @param featureConfiguration activated features and action configs for the build
    * @param ccToolchain the C++ toolchain provider for the build
    * @param fdoContext the C++ FDO optimization support provider for the build
-   * @param configuration the configuration that gives the directory of output artifacts
    * @param executionInfo the execution info data associated with a rule
    */
   public CcLinkingHelper(
       Label label,
-      ActionConstructionContext actionConstructionContext,
+      LinkActionConstruction linkActionConstruction,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
-      BuildConfigurationValue configuration,
       SymbolGenerator<?> symbolGenerator,
       ImmutableMap<String, String> executionInfo) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
-    this.configuration = Preconditions.checkNotNull(configuration);
     this.label = label;
-    this.actionConstructionContext = actionConstructionContext;
+    this.linkActionConstruction = linkActionConstruction;
     this.symbolGenerator = symbolGenerator;
     this.executionInfo = executionInfo;
   }
@@ -372,7 +365,7 @@ public final class CcLinkingHelper {
             new Linkstamp( // throws InterruptedException
                 linkstamp,
                 ccCompilationContext.getDeclaredIncludeSrcs(),
-                actionConstructionContext.getActionKeyContext()));
+                linkActionConstruction.getContext().getActionKeyContext()));
       } catch (CommandLineExpansionException ex) {
         throw new AssertionError("unexpected failure of command line expansion", ex);
       }
@@ -431,7 +424,8 @@ public final class CcLinkingHelper {
 
     PathFragment labelName = PathFragment.create(label.getName());
     String libraryIdentifier =
-        actionConstructionContext
+        linkActionConstruction
+            .getContext()
             .getPackageDirectory()
             .getRelative(labelName.replaceName("lib" + labelName.getBaseName()))
             .getPathString();
@@ -530,14 +524,6 @@ public final class CcLinkingHelper {
   @CanIgnoreReturnValue
   public CcLinkingHelper setDefFile(Artifact defFile) {
     this.defFile = defFile;
-    return this;
-  }
-
-  /** Needed for NativeDepsHelper. It is unclear whether native deps will be in the Starlark API. */
-  @CanIgnoreReturnValue
-  @Deprecated
-  public CcLinkingHelper setLinkArtifactFactory(LinkArtifactFactory linkArtifactFactory) {
-    this.linkArtifactFactory = linkArtifactFactory;
     return this;
   }
 
@@ -646,7 +632,7 @@ public final class CcLinkingHelper {
       builder.addNonCodeInput(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
     }
     CppLinkAction action = builder.build();
-    actionConstructionContext.registerAction(action);
+      linkActionConstruction.getContext().registerAction(action);
       return builder.getOutputLibrary();
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
@@ -694,7 +680,7 @@ public final class CcLinkingHelper {
                         linkerOutput.getRootRelativePath(),
                         /* preserveName= */ dynamicLinkType
                             != LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
-                        actionConstructionContext.getConfiguration().getMnemonic()));
+                        linkActionConstruction.getContext().getConfiguration().getMnemonic()));
       }
     }
 
@@ -779,7 +765,7 @@ public final class CcLinkingHelper {
         dynamicLinkActionBuilder.setUsePicForLtoBackendActions(usePic);
         CppLinkAction indexAction = dynamicLinkActionBuilder.build();
         if (indexAction != null) {
-          actionConstructionContext.registerAction(indexAction);
+          linkActionConstruction.getContext().registerAction(indexAction);
         }
       } else {
         throw Starlark.errorf(
@@ -807,7 +793,7 @@ public final class CcLinkingHelper {
     if (dynamicLinkType.isExecutable()) {
       ccLinkingOutputs.setExecutable(linkerOutput);
     }
-    actionConstructionContext.registerAction(dynamicLinkAction);
+    linkActionConstruction.getContext().registerAction(dynamicLinkAction);
 
     LinkerInputs.LibraryToLink dynamicLibrary = dynamicLinkActionBuilder.getOutputLibrary();
     LinkerInputs.LibraryToLink interfaceLibrary =
@@ -832,7 +818,7 @@ public final class CcLinkingHelper {
         if (dynamicLinkType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
           implLibraryLinkArtifact =
               SolibSymlinkAction.getDynamicLibrarySymlink(
-                  /* actionConstructionContext= */ actionConstructionContext,
+                  /* actionConstructionContext= */ linkActionConstruction.getContext(),
                   ccToolchain.getSolibDirectory(),
                   dynamicLibrary.getArtifact(),
                   /* preserveName= */ false,
@@ -844,7 +830,7 @@ public final class CcLinkingHelper {
         if (interfaceLibrary != null) {
           Artifact libraryLinkArtifact =
               SolibSymlinkAction.getDynamicLibrarySymlink(
-                  /* actionConstructionContext= */ actionConstructionContext,
+                  /* actionConstructionContext= */ linkActionConstruction.getContext(),
                   ccToolchain.getSolibDirectory(),
                   interfaceLibrary.getArtifact(),
                   // Need to preserve name for transitive shared libraries that may be distributed.
@@ -864,10 +850,8 @@ public final class CcLinkingHelper {
     try {
       CppLinkActionBuilder builder =
           new CppLinkActionBuilder(
-                  actionConstructionContext,
-                  label,
+                  linkActionConstruction,
                   outputArtifact,
-                  configuration,
                   ccToolchain,
                   fdoContext,
                   featureConfiguration,
@@ -881,7 +865,6 @@ public final class CcLinkingHelper {
                           && linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER)
                       ? ccToolchain.getArFiles()
                       : ccToolchain.getLinkerFiles())
-              .setLinkArtifactFactory(linkArtifactFactory)
               .setUseTestOnlyFlags(useTestOnlyFlags)
               .addTransitiveActionInputs(additionalLinkerInputs)
               .addExecutionInfo(executionInfo);
@@ -932,12 +915,7 @@ public final class CcLinkingHelper {
     }
 
     return CppHelper.getLinkedArtifact(
-        label,
-        actionConstructionContext,
-        configuration,
-        linkTargetType,
-        linkedArtifactNameSuffix,
-        artifactFragment);
+        label, linkActionConstruction, linkTargetType, linkedArtifactNameSuffix, artifactFragment);
   }
 
   private static List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLinkerInputList(
@@ -1014,7 +992,7 @@ public final class CcLinkingHelper {
       return null;
     }
     return SolibSymlinkAction.getDynamicLibrarySymlink(
-        /* actionConstructionContext= */ actionConstructionContext,
+        /* actionConstructionContext= */ linkActionConstruction.getContext(),
         ccToolchain.getSolibDirectory(),
         linkerOutputArtifact,
         // For transitive shared libraries we want to preserve the name of the original library so

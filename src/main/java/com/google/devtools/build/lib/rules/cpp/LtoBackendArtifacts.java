@@ -25,13 +25,11 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LtoBackendArtifactsApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -91,10 +89,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       PathFragment ltoObjRootPrefix,
       Artifact bitcodeFile,
       @Nullable BitcodeFiles allBitcodeFiles,
-      ActionConstructionContext actionConstructionContext,
-      RepositoryName repositoryName,
-      BuildConfigurationValue configuration,
-      LinkArtifactFactory linkArtifactFactory,
+      LinkActionConstruction linkActionConstruction,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
@@ -127,16 +122,12 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         userCompileFlags);
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
     if (bitcodeFile.isTreeArtifact()) {
-      objectFile =
-          linkArtifactFactory.createTreeArtifact(
-              actionConstructionContext, repositoryName, configuration, obj);
+      objectFile = linkActionConstruction.createTreeArtifact(obj);
       if (createSharedNonLto) {
         imports = null;
         index = null;
       } else {
-        imports =
-            linkArtifactFactory.createTreeArtifact(
-                actionConstructionContext, repositoryName, configuration, indexObj);
+        imports = linkActionConstruction.createTreeArtifact(indexObj);
         index = imports;
       }
       if (generateDwo) {
@@ -146,15 +137,14 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         dwoFile = null;
       }
       createLtoBackendActionTemplate(
-          actionConstructionContext,
+          linkActionConstruction.getContext(),
           featureConfiguration,
           builder,
           buildVariables,
           usePic,
           allBitcodeFiles);
     } else {
-      objectFile =
-          linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
+      objectFile = linkActionConstruction.create(obj);
       if (createSharedNonLto) {
         imports = null;
         index = null;
@@ -163,32 +153,21 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         String indexExt =
             Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_ANALYSIS_FILE.getExtensions());
         imports =
-            linkArtifactFactory.create(
-                actionConstructionContext,
-                repositoryName,
-                configuration,
-                FileSystemUtils.appendExtension(indexObj, importsExt));
-        index =
-            linkArtifactFactory.create(
-                actionConstructionContext,
-                repositoryName,
-                configuration,
-                FileSystemUtils.appendExtension(indexObj, indexExt));
+            linkActionConstruction.create(FileSystemUtils.appendExtension(indexObj, importsExt));
+        index = linkActionConstruction.create(FileSystemUtils.appendExtension(indexObj, indexExt));
       }
       if (generateDwo) {
         dwoFile =
-            linkArtifactFactory.create(
-                actionConstructionContext,
-                repositoryName,
-                configuration,
+            linkActionConstruction.create(
                 FileSystemUtils.replaceExtension(
-                    objectFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()),
+                    objectFile.getOutputDirRelativePath(
+                        linkActionConstruction.getConfig().isSiblingRepositoryLayout()),
                     ".dwo"));
       }
       scheduleLtoBackendAction(
           builder,
           buildVariables,
-          actionConstructionContext,
+          linkActionConstruction.getContext(),
           featureConfiguration,
           usePic,
           allBitcodeFiles);

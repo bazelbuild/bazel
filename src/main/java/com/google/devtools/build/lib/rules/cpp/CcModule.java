@@ -1011,10 +1011,7 @@ public abstract class CcModule
             ltoObjRootPrefix,
             bitcodeFile,
             /* allBitcodeFiles= */ null,
-            starlarkRuleContext.actions().getRuleContext(),
-            ruleContext.getRepository(),
-            ruleContext.getConfiguration(),
-            CppLinkAction.DEFAULT_ARTIFACT_FACTORY,
+            CppLinkActionBuilder.newActionConstruction(ruleContext),
             featureConfigurationForStarlark.getFeatureConfiguration(),
             ccToolchain,
             fdoContext,
@@ -1950,12 +1947,11 @@ public abstract class CcModule
     CcLinkingHelper helper =
         new CcLinkingHelper(
                 label,
-                actions.getRuleContext(),
+                CppLinkActionBuilder.newActionConstruction(actions.getRuleContext()),
                 getSemantics(Language.CPP),
                 featureConfiguration.getFeatureConfiguration(),
                 ccToolchainProvider,
                 fdoContext,
-                actions.getRuleContext().getConfiguration(),
                 BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
@@ -2719,15 +2715,17 @@ public abstract class CcModule
     BuildConfigurationValue buildConfiguration =
         convertFromNoneable(buildConfig, actions.getRuleContext().getConfiguration());
     ImmutableList<Artifact> linkerOutputs = asClassImmutableList(linkerOutputsObject);
+    boolean shareableArtifacts = convertFromNoneable(useShareableArtifactFactory, false);
+
     CcLinkingHelper helper =
         new CcLinkingHelper(
                 label,
-                actions.getRuleContext(),
+                CppLinkActionBuilder.newActionConstruction(
+                    actions.getRuleContext(), buildConfiguration, shareableArtifacts),
                 getSemantics(language),
                 actualFeatureConfiguration,
                 ccToolchainProvider,
                 fdoContext,
-                buildConfiguration,
                 BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
@@ -2767,9 +2765,7 @@ public abstract class CcModule
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }
-    if (convertFromNoneable(useShareableArtifactFactory, false)) {
-      helper.setLinkArtifactFactory(CppLinkAction.SHAREABLE_LINK_ARTIFACT_FACTORY);
-    }
+
     CcCompilationOutputs compilationOutputs =
         convertFromNoneable(compilationOutputsObject, /* defaultValue= */ null);
     try {
@@ -2896,37 +2892,35 @@ public abstract class CcModule
     CcToolchainProvider ccToolchain =
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     CppConfiguration cppConfiguration = ccToolchain.getCppConfiguration();
-    starlarkActionFactoryApi
-        .registerAction(
-            CppLinkstampCompileHelper.createLinkstampCompileAction(
-                ruleContext,
-                ruleContext.getConfiguration(),
-                sourceFile,
-                outputFile,
-                compilationInputs.getSet(Artifact.class),
-                /* nonCodeInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-                inputsForValidation.getSet(Artifact.class),
-                AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration())
-                    ? ccToolchain
-                        .getCcBuildInfoTranslator()
-                        .getOutputGroup("non_redacted_build_info_files")
-                        .toList()
-                    : ccToolchain
-                        .getCcBuildInfoTranslator()
-                        .getOutputGroup("redacted_build_info_files")
-                        .toList(),
-                /* additionalLinkstampDefines= */ ImmutableList.of(),
-                ccToolchain,
-                ruleContext.getConfiguration().isCodeCoverageEnabled(),
-                CppHelper.getFdoBuildStamp(
-                    cppConfiguration,
-                    ccToolchain.getFdoContext(),
-                    featureConfigurationForStarlark.getFeatureConfiguration()),
-                featureConfigurationForStarlark.getFeatureConfiguration(),
-                /* needsPic= */ false,
-                labelReplacement,
-                outputReplacement,
-                getSemantics()));
+    starlarkActionFactoryApi.registerAction(
+        CppLinkstampCompileHelper.createLinkstampCompileAction(
+            CppLinkActionBuilder.newActionConstruction(ruleContext),
+            sourceFile,
+            outputFile,
+            compilationInputs.getSet(Artifact.class),
+            /* nonCodeInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            inputsForValidation.getSet(Artifact.class),
+            AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration())
+                ? ccToolchain
+                    .getCcBuildInfoTranslator()
+                    .getOutputGroup("non_redacted_build_info_files")
+                    .toList()
+                : ccToolchain
+                    .getCcBuildInfoTranslator()
+                    .getOutputGroup("redacted_build_info_files")
+                    .toList(),
+            /* additionalLinkstampDefines= */ ImmutableList.of(),
+            ccToolchain,
+            ruleContext.getConfiguration().isCodeCoverageEnabled(),
+            CppHelper.getFdoBuildStamp(
+                cppConfiguration,
+                ccToolchain.getFdoContext(),
+                featureConfigurationForStarlark.getFeatureConfiguration()),
+            featureConfigurationForStarlark.getFeatureConfiguration(),
+            /* needsPic= */ false,
+            labelReplacement,
+            outputReplacement,
+            getSemantics()));
   }
 
   @StarlarkMethod(

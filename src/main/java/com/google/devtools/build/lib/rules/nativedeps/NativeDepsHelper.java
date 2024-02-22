@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
@@ -248,12 +248,12 @@ public abstract class NativeDepsHelper {
 
       new CcLinkingHelper(
               ruleContext.getLabel(),
-              ruleContext,
+              CppLinkActionBuilder.newActionConstruction(
+                  ruleContext, configuration, /* shareableArtifacts= */ true),
               cppSemantics,
               featureConfiguration,
               toolchain,
               fdoContext,
-              configuration,
               ruleContext.getSymbolGenerator(),
               TargetUtils.getExecutionInfo(
                   ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
@@ -266,7 +266,6 @@ public abstract class NativeDepsHelper {
           .setNeverLink(true)
           .setShouldCreateStaticLibraries(false)
           .addCcLinkingContexts(ImmutableList.of(ccLinkingContext))
-          .setLinkArtifactFactory(CppLinkAction.SHAREABLE_LINK_ARTIFACT_FACTORY)
           .setDynamicLinkType(LinkTargetType.DYNAMIC_LIBRARY)
           .link(CcCompilationOutputs.EMPTY);
 

@@ -23,24 +23,19 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -49,89 +44,6 @@ import net.starlark.java.eval.EvalException;
 /** Action that represents a linking step. */
 @ThreadCompatible
 public final class CppLinkAction extends SpawnAction {
-  /**
-   * An abstraction for creating intermediate and output artifacts for C++ linking.
-   *
-   * <p>This is unfortunately necessary, because most of the time, these artifacts are well-behaved
-   * ones sitting under a package directory, but nativedeps link actions can be shared. In order to
-   * avoid creating every artifact here with {@code getShareableArtifact()}, we abstract the
-   * artifact creation away.
-   */
-  public interface LinkArtifactFactory {
-    /** Create an artifact at the specified root-relative path in the bin directory. */
-    Artifact create(
-        ActionConstructionContext actionConstructionContext,
-        RepositoryName repositoryName,
-        BuildConfigurationValue configuration,
-        PathFragment rootRelativePath);
-
-    /** Create a tree artifact at the specified root-relative path in the bin directory. */
-    SpecialArtifact createTreeArtifact(
-        ActionConstructionContext actionConstructionContext,
-        RepositoryName repositoryName,
-        BuildConfigurationValue configuration,
-        PathFragment rootRelativePath);
-  }
-
-  /**
-   * An implementation of {@link LinkArtifactFactory} that can only create artifacts in the package
-   * directory.
-   */
-  public static final LinkArtifactFactory DEFAULT_ARTIFACT_FACTORY =
-      new LinkArtifactFactory() {
-        @Override
-        public Artifact create(
-            ActionConstructionContext actionConstructionContext,
-            RepositoryName repositoryName,
-            BuildConfigurationValue configuration,
-            PathFragment rootRelativePath) {
-          return actionConstructionContext.getDerivedArtifact(
-              rootRelativePath, configuration.getBinDirectory(repositoryName));
-        }
-
-        @Override
-        public SpecialArtifact createTreeArtifact(
-            ActionConstructionContext actionConstructionContext,
-            RepositoryName repositoryName,
-            BuildConfigurationValue configuration,
-            PathFragment rootRelativePath) {
-          return actionConstructionContext.getTreeArtifact(
-              rootRelativePath, configuration.getBinDirectory(repositoryName));
-        }
-      };
-
-  /**
-   * An implementation of {@link LinkArtifactFactory} that can create artifacts anywhere.
-   *
-   * <p>Necessary when the LTO backend actions of libraries should be shareable, and thus cannot be
-   * under the package directory.
-   *
-   * <p>Necessary because the actions of nativedeps libraries should be shareable, and thus cannot
-   * be under the package directory.
-   */
-  public static final LinkArtifactFactory SHAREABLE_LINK_ARTIFACT_FACTORY =
-      new LinkArtifactFactory() {
-        @Override
-        public Artifact create(
-            ActionConstructionContext actionConstructionContext,
-            RepositoryName repositoryName,
-            BuildConfigurationValue configuration,
-            PathFragment rootRelativePath) {
-          return actionConstructionContext.getShareableArtifact(
-              rootRelativePath, configuration.getBinDirectory(repositoryName));
-        }
-
-        @Override
-        public SpecialArtifact createTreeArtifact(
-            ActionConstructionContext actionConstructionContext,
-            RepositoryName repositoryName,
-            BuildConfigurationValue configuration,
-            PathFragment rootRelativePath) {
-          return actionConstructionContext
-              .getAnalysisEnvironment()
-              .getTreeArtifact(rootRelativePath, configuration.getBinDirectory(repositoryName));
-        }
-      };
 
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
 

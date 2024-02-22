@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -179,30 +180,31 @@ public class CppHelper {
 
   public static Artifact getLinkedArtifact(
       Label label,
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue config,
+      LinkActionConstruction linkActionConstruction,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix,
       PathFragment name) {
     Artifact result =
-        actionConstructionContext.getPackageRelativeArtifact(
-            name, config.getBinDirectory(label.getRepository()));
+        linkActionConstruction
+            .getContext()
+            .getPackageRelativeArtifact(name, linkActionConstruction.getBinDirectory());
 
     // If the linked artifact is not the linux default, then a FailAction is generated for said
     // linux default to satisfy the requirements of any implicit outputs.
     // TODO(b/30132703): Remove the implicit outputs of cc_library.
     Artifact linuxDefault =
-        getLinuxLinkedArtifact(
-            label, actionConstructionContext, config, linkType, linkedArtifactNameSuffix);
+        getLinuxLinkedArtifact(label, linkActionConstruction, linkType, linkedArtifactNameSuffix);
     if (!result.equals(linuxDefault)) {
-      actionConstructionContext.registerAction(
-          new FailAction(
-              actionConstructionContext.getActionOwner(),
-              ImmutableList.of(linuxDefault),
-              String.format(
-                  "the given toolchain supports creation of %s instead of %s",
-                  result.getExecPathString(), linuxDefault.getExecPathString()),
-              Code.INCORRECT_TOOLCHAIN));
+      linkActionConstruction
+          .getContext()
+          .registerAction(
+              new FailAction(
+                  linkActionConstruction.getContext().getActionOwner(),
+                  ImmutableList.of(linuxDefault),
+                  String.format(
+                      "the given toolchain supports creation of %s instead of %s",
+                      result.getExecPathString(), linuxDefault.getExecPathString()),
+                  Code.INCORRECT_TOOLCHAIN));
     }
 
     return result;
@@ -210,8 +212,7 @@ public class CppHelper {
 
   private static Artifact getLinuxLinkedArtifact(
       Label label,
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue config,
+      LinkActionConstruction linkActionConstruction,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix) {
     PathFragment name = PathFragment.create(label.getName());
@@ -225,8 +226,9 @@ public class CppHelper {
                   + linkType.getDefaultExtension());
     }
 
-    return actionConstructionContext.getPackageRelativeArtifact(
-        name, config.getBinDirectory(label.getRepository()));
+    return linkActionConstruction
+        .getContext()
+        .getPackageRelativeArtifact(name, linkActionConstruction.getBinDirectory());
   }
 
   // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in
