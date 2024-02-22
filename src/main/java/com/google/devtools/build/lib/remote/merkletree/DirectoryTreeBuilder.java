@@ -243,9 +243,7 @@ class DirectoryTreeBuilder {
       PathFragment path = e.getKey();
       T input = e.getValue();
 
-      if (scrubber != null
-          && input instanceof ActionInput
-          && scrubber.shouldOmitInput((ActionInput) input)) {
+      if (scrubber != null && scrubber.shouldOmitInput(path)) {
         continue;
       }
 

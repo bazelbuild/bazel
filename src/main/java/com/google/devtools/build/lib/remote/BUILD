@@ -260,7 +260,7 @@ java_library(
     srcs = ["Scrubber.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:remote_scrubbing_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
