@@ -165,7 +165,6 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertNotIn('foo=bar1', result_in_lower_case)
     self.assertNotIn('foo=bar2', result_in_lower_case)
     self.assertIn('foo=bar3', result_in_lower_case)
-    self.assertIn('bazel_test=1', result_in_lower_case)
 
   def testRunPowershellInAction(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
@@ -487,6 +486,34 @@ class BazelWindowsTest(test_base.TestBase):
     )
     self.assertTrue(os.path.exists(output_file))
     self.assertFalse(os.path.exists(output_zip))
+
+  def testBazelForwardsRequiredEnvVariable(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            ')',
+            '',
+        ],
+    )
+    self.ScratchFile(
+        'foo.sh',
+        [
+            'echo "BAZEL_TEST=$BAZEL_TEST"',
+        ],
+    )
+
+    exit_code, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//:foo_test',
+        ],
+    )
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.assertIn('BAZEL_TEST=1', '\n'.join(stdout))
 
   def testTestShardStatusFile(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
