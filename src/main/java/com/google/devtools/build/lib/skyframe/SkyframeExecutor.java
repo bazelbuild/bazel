@@ -942,14 +942,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         @Override
         public boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
           // Do not propagate events from analysis phase nodes to execution phase nodes.
-          return isAnalysisPhaseKey(primaryKey)
-              || !isAnalysisPhaseKey(depKey)
+          return isAnalysisPhaseActionLookupKey(primaryKey)
+              || !isAnalysisPhaseActionLookupKey(depKey)
               // Skymeld only.
               || primaryKey instanceof BuildDriverKey;
         }
       };
 
-  private static boolean isAnalysisPhaseKey(SkyKey key) {
+  private static boolean isAnalysisPhaseActionLookupKey(SkyKey key) {
     return key instanceof ActionLookupKey && !(key instanceof ActionTemplateExpansionKey);
   }
 
@@ -3016,7 +3016,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (mergedSkyframeAnalysisExecutionSupplier != null
           && mergedSkyframeAnalysisExecutionSupplier.get()
           && !tracksStateForIncrementality()
-          && skyKey instanceof ActionLookupKey
+          && isAnalysisPhaseActionLookupKey(skyKey)
           && newValue != null) {
         synchronized (this) {
           batchedActionLookupValuesForConflictChecking.put((ActionLookupKey) skyKey, newValue);
