@@ -186,21 +186,6 @@ public class SubprocessBuilder {
   }
 
   /**
-   * Tells the object what to do with stderr: either stream as a {@code InputStream} or discard.
-   *
-   * <p>It can also be redirected to a file using {@link #setStderr(File)}.
-   */
-  @CanIgnoreReturnValue
-  public SubprocessBuilder setStderr(StreamAction action) {
-    if (action == StreamAction.REDIRECT) {
-      throw new IllegalStateException();
-    }
-    this.stderrAction = action;
-    this.stderrFile = null;
-    return this;
-  }
-
-  /**
    * Sets the file stderr is appended to. If null, the stderr will be available as an input stream
    * on the resulting object representing the process. When {@code redirectErrorStream} is set to
    * True, this method has no effect.

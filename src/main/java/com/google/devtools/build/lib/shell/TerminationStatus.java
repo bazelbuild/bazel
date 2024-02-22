@@ -286,13 +286,6 @@ public final class TerminationStatus {
       return this;
     }
 
-    /** Sets or clears the wall execution time. */
-    @CanIgnoreReturnValue
-    public Builder setWallExecutionTime(Optional<Duration> wallExecutionTime) {
-      this.wallExecutionTime = wallExecutionTime;
-      return this;
-    }
-
     /** Sets the user execution time. */
     @CanIgnoreReturnValue
     public Builder setUserExecutionTime(Duration userExecutionTime) {
@@ -300,24 +293,10 @@ public final class TerminationStatus {
       return this;
     }
 
-    /** Sets or clears the user execution time. */
-    @CanIgnoreReturnValue
-    public Builder setUserExecutionTime(Optional<Duration> userExecutionTime) {
-      this.userExecutionTime = userExecutionTime;
-      return this;
-    }
-
     /** Sets the system execution time. */
     @CanIgnoreReturnValue
     public Builder setSystemExecutionTime(Duration systemExecutionTime) {
       this.systemExecutionTime = Optional.of(systemExecutionTime);
-      return this;
-    }
-
-    /** Sets or clears the system execution time. */
-    @CanIgnoreReturnValue
-    public Builder setSystemExecutionTime(Optional<Duration> systemExecutionTime) {
-      this.systemExecutionTime = systemExecutionTime;
       return this;
     }
 
