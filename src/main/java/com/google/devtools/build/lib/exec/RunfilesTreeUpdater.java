@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -75,9 +74,9 @@ public class RunfilesTreeUpdater {
 
   /** Creates or updates input runfiles trees for a spawn. */
   public void updateRunfiles(
-      RunfilesSupplier runfilesSupplier, ImmutableMap<String, String> env, OutErr outErr)
+      Iterable<RunfilesTree> runfilesTrees, ImmutableMap<String, String> env, OutErr outErr)
       throws ExecException, IOException, InterruptedException {
-    for (RunfilesTree tree : runfilesSupplier.getRunfilesTrees()) {
+    for (RunfilesTree tree : runfilesTrees) {
       PathFragment runfilesDir = tree.getExecPath();
       if (tree.isBuildRunfileLinks()) {
         continue;

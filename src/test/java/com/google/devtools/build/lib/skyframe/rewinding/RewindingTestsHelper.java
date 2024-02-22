@@ -1590,16 +1590,16 @@ public class RewindingTestsHelper {
   private SpawnShim getGeneratedRunfilesRewoundSpawnFailedShim(ImmutableList<String> lostRunfiles) {
     return (spawn, context) -> {
       ImmutableList<ActionInput> lostRunfileArtifacts =
-          getGeneratedRunfilesRewoundLostRunfiles(lostRunfiles, spawn);
+          getGeneratedRunfilesRewoundLostRunfiles(lostRunfiles, spawn, context);
       return createLostInputsExecException(
           context, lostRunfileArtifacts, new ActionInputDepOwnerMap(lostRunfileArtifacts));
     };
   }
 
   static ImmutableList<ActionInput> getGeneratedRunfilesRewoundLostRunfiles(
-      ImmutableList<String> lostRunfiles, Spawn spawn) {
+      ImmutableList<String> lostRunfiles, Spawn spawn, ActionExecutionContext context) {
     return lostRunfiles.stream()
-        .map(n -> SpawnInputUtils.getRunfilesArtifactWithName(spawn, n))
+        .map(n -> SpawnInputUtils.getRunfilesArtifactWithName(spawn, context, n))
         .collect(toImmutableList());
   }
 
@@ -1706,7 +1706,8 @@ public class RewindingTestsHelper {
     AtomicReference<String> intermediate1FirstContent = new AtomicReference<>(null);
     SpawnShim shim =
         (spawn, context) -> {
-          ActionInput lostInput = getDupeDirectAndRunfilesDependencyRewoundLostInput(spawn);
+          ActionInput lostInput =
+              getDupeDirectAndRunfilesDependencyRewoundLostInput(spawn, context);
           intermediate1FirstContent.set(latin1StringFromActionInput(context, lostInput));
           ImmutableList<ActionInput> lostInputs = ImmutableList.of(lostInput);
           return createLostInputsExecException(
@@ -1715,8 +1716,9 @@ public class RewindingTestsHelper {
     runDupeDirectAndRunfilesDependencyRewound(intermediate1FirstContent, shim);
   }
 
-  static ActionInput getDupeDirectAndRunfilesDependencyRewoundLostInput(Spawn spawn) {
-    return SpawnInputUtils.getRunfilesArtifactWithName(spawn, "intermediate_1.inlined");
+  static ActionInput getDupeDirectAndRunfilesDependencyRewoundLostInput(
+      Spawn spawn, ActionExecutionContext context) {
+    return SpawnInputUtils.getRunfilesArtifactWithName(spawn, context, "intermediate_1.inlined");
   }
 
   /**
@@ -1771,7 +1773,7 @@ public class RewindingTestsHelper {
         "Executing genrule //test:rule2",
         (spawn, context) -> {
           Artifact intermediate1 =
-              SpawnInputUtils.getRunfilesArtifactWithName(spawn, "intermediate_1.inlined");
+              SpawnInputUtils.getRunfilesArtifactWithName(spawn, context, "intermediate_1.inlined");
           intermediate1SecondContent.set(latin1StringFromActionInput(context, intermediate1));
           return ExecResult.delegate();
         });
@@ -1867,7 +1869,7 @@ public class RewindingTestsHelper {
   public final void runTreeInRunfilesRewound_spawnFailed() throws Exception {
     SpawnShim shim =
         (spawn, context) -> {
-          Artifact treeArtifact = getTreeInRunfilesRewoundTree(spawn);
+          Artifact treeArtifact = getTreeInRunfilesRewoundTree(spawn, context);
           ImmutableList<ActionInput> lostInputs =
               getTreeInRunfilesRewoundLostInputs(spawn, context, treeArtifact);
           return createLostInputsExecException(
@@ -1881,8 +1883,8 @@ public class RewindingTestsHelper {
     runTreeInRunfilesRewound(shim);
   }
 
-  static Artifact getTreeInRunfilesRewoundTree(Spawn spawn) {
-    return SpawnInputUtils.getRunfilesArtifactWithName(spawn, "gen_tree");
+  static Artifact getTreeInRunfilesRewoundTree(Spawn spawn, ActionExecutionContext context) {
+    return SpawnInputUtils.getRunfilesArtifactWithName(spawn, context, "gen_tree");
   }
 
   static ImmutableList<ActionInput> getTreeInRunfilesRewoundLostInputs(

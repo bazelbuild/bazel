@@ -27,7 +27,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -376,9 +375,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
       try (var s = Profiler.instance().profile("updateRunfiles")) {
         runfilesTreeUpdater.updateRunfiles(
-            CompositeRunfilesSupplier.fromRunfilesTrees(runfilesTrees),
-            spawn.getEnvironment(),
-            context.getFileOutErr());
+            runfilesTrees, spawn.getEnvironment(), context.getFileOutErr());
       }
 
       stepLog(INFO, "running locally");

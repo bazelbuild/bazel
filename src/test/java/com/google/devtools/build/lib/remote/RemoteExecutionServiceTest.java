@@ -66,10 +66,10 @@ import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -2119,10 +2119,10 @@ public class RemoteExecutionServiceTest {
     Artifact toolDat = ActionsTestUtil.createArtifact(artifactRoot, "tool.dat");
     fakeFileCache.createScratchInput(toolDat, "tool.dat");
 
-    RunfilesSupplier runfilesSupplier =
-        createRunfilesSupplier("tools/tool.runfiles", ImmutableList.of(toolDat));
+    RunfilesTree runfilesTree =
+        createRunfilesTree("tools/tool.runfiles", ImmutableList.of(toolDat));
 
-    fakeFileCache.addRunfilesTree(runfilesMiddleman, runfilesSupplier.getRunfilesTrees().get(0));
+    fakeFileCache.addRunfilesTree(runfilesMiddleman, runfilesTree);
 
     Spawn spawn1 =
         new SimpleSpawn(
@@ -2130,7 +2130,7 @@ public class RemoteExecutionServiceTest {
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(),
-            /* runfilesSupplier= */ runfilesSupplier,
+            /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
             /* inputs= */ nodeRoot1,
             /* outputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
@@ -2141,7 +2141,7 @@ public class RemoteExecutionServiceTest {
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(),
-            /* runfilesSupplier= */ runfilesSupplier,
+            /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
             /* inputs= */ nodeRoot2,
             /* outputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
@@ -2527,43 +2527,36 @@ public class RemoteExecutionServiceTest {
         remoteOutputChecker);
   }
 
-  private RunfilesSupplier createRunfilesSupplier(String root, Collection<Artifact> artifacts) {
-    RunfilesTree tree =
-        new RunfilesTree() {
-          @Override
-          public PathFragment getExecPath() {
-            return PathFragment.create(root);
-          }
-
-          @Override
-          public Map<PathFragment, Artifact> getMapping() {
-            return artifacts.stream().collect(toImmutableMap(Artifact::getExecPath, a -> a));
-          }
-
-          @Override
-          public NestedSet<Artifact> getArtifacts() {
-            return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
-          }
-
-          @Override
-          public RunfileSymlinksMode getSymlinksMode() {
-            return RunfileSymlinksMode.SKIP;
-          }
-
-          @Override
-          public boolean isBuildRunfileLinks() {
-            return false;
-          }
-
-          @Override
-          public String getWorkspaceName() {
-            return "__main__";
-          }
-        };
-    return new RunfilesSupplier() {
+  private RunfilesTree createRunfilesTree(String root, Collection<Artifact> artifacts) {
+    return new RunfilesTree() {
       @Override
-      public ImmutableList<RunfilesTree> getRunfilesTrees() {
-        return ImmutableList.of(tree);
+      public PathFragment getExecPath() {
+        return PathFragment.create(root);
+      }
+
+      @Override
+      public Map<PathFragment, Artifact> getMapping() {
+        return artifacts.stream().collect(toImmutableMap(Artifact::getExecPath, a -> a));
+      }
+
+      @Override
+      public NestedSet<Artifact> getArtifacts() {
+        return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
+      }
+
+      @Override
+      public RunfileSymlinksMode getSymlinksMode() {
+        return RunfileSymlinksMode.SKIP;
+      }
+
+      @Override
+      public boolean isBuildRunfileLinks() {
+        return false;
+      }
+
+      @Override
+      public String getWorkspaceName() {
+        return "__main__";
       }
     };
   }
