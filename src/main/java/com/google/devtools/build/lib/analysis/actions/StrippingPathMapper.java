@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -140,7 +140,7 @@ public final class StrippingPathMapper {
       }
 
       @Override
-      public List<String> mapCustomStarlarkArgs(List<String> args) {
+      public Iterable<String> mapCustomStarlarkArgs(Iterable<String> args) {
         if (!isStarlarkAction) {
           return args;
         }
@@ -153,26 +153,8 @@ public final class StrippingPathMapper {
             && !mnemonic.equals("Desugar")) {
           return args;
         }
-        // Add your favorite arg to custom-process here. When Bazel finds one of these in the
-        // argument list (an argument name), it strips output path prefixes from the following
-        // argument (the argument value).
-        ImmutableList<String> starlarkArgsToStrip =
-            ImmutableList.of(
-                "--mainData",
-                "--primaryData",
-                "--directData",
-                "--data",
-                "--resources",
-                "--mergeeManifests",
-                "--library",
-                "-i",
-                "--input");
-        for (int i = 1; i < args.size(); i++) {
-          if (starlarkArgsToStrip.contains(args.get(i - 1))) {
-            args.set(i, argStripper.strip(args.get(i)));
-          }
-        }
-        return args;
+
+        return () -> new CustomStarlarkArgsIterator(args.iterator(), argStripper);
       }
 
       @Override
@@ -194,12 +176,53 @@ public final class StrippingPathMapper {
     };
   }
 
+  private static final class CustomStarlarkArgsIterator implements Iterator<String> {
+    // Add your favorite arg to custom-process here. When Bazel finds one of these in the argument
+    // list (an argument name), it strips output path prefixes from the following argument (the
+    // argument value).
+    private static final ImmutableSet<String> STARLARK_ARGS_TO_STRIP =
+        ImmutableSet.of(
+            "--mainData",
+            "--primaryData",
+            "--directData",
+            "--data",
+            "--resources",
+            "--mergeeManifests",
+            "--library",
+            "-i",
+            "--input");
+
+    private final Iterator<String> args;
+    private final StringStripper argStripper;
+    private boolean stripNext = false;
+
+    CustomStarlarkArgsIterator(Iterator<String> args, StringStripper argStripper) {
+      this.args = args;
+      this.argStripper = argStripper;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return args.hasNext();
+    }
+
+    @Override
+    public String next() {
+      String next = args.next();
+      if (stripNext) {
+        next = argStripper.strip(next);
+      }
+      stripNext = STARLARK_ARGS_TO_STRIP.contains(next);
+      return next;
+    }
+  }
+
   /** Utility class to strip output path configuration prefixes from arbitrary strings. */
   private static class StringStripper {
     private final Pattern pattern;
     private final String outputRoot;
 
-    public StringStripper(String outputRoot) {
+    StringStripper(String outputRoot) {
       this.outputRoot = outputRoot;
       this.pattern = stripPathsPattern(outputRoot);
     }
