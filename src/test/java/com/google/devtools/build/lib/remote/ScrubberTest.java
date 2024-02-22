@@ -16,12 +16,11 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteScrubbing.Config;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -216,7 +215,7 @@ public class ScrubberTest {
         new Scrubber(Config.newBuilder().addRules(Config.Rule.getDefaultInstance()).build())
             .forSpawn(createSpawn());
 
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar"))).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar"))).isFalse();
   }
 
   @Test
@@ -231,10 +230,9 @@ public class ScrubberTest {
                     .build())
             .forSpawn(createSpawn());
 
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar"))).isTrue();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar/baz"))).isFalse();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("bazel-out/foo/bar")))
-        .isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar"))).isTrue();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar/baz"))).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("bazel-out/foo/bar"))).isFalse();
   }
 
   @Test
@@ -249,10 +247,9 @@ public class ScrubberTest {
                     .build())
             .forSpawn(createSpawn());
 
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar"))).isTrue();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar/baz"))).isTrue();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("bazel-out/foo/bar")))
-        .isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar"))).isTrue();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar/baz"))).isTrue();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("bazel-out/foo/bar"))).isFalse();
   }
 
   @Test
@@ -269,29 +266,12 @@ public class ScrubberTest {
                     .build())
             .forSpawn(createSpawn());
 
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar"))).isTrue();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("spam/eggs"))).isTrue();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar/baz"))).isFalse();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("bazel-out/foo/bar")))
-        .isFalse();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("spam/eggs/bacon")))
-        .isFalse();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("bazel-out/spam/eggs")))
-        .isFalse();
-  }
-
-  @Test
-  public void doNotScrubEmptyMarker() {
-    var spawnScrubber =
-        new Scrubber(
-                Config.newBuilder()
-                    .addRules(
-                        Config.Rule.newBuilder()
-                            .setTransform(Config.Transform.newBuilder().addOmittedInputs(".*")))
-                    .build())
-            .forSpawn(createSpawn());
-
-    assertThat(spawnScrubber.shouldOmitInput(VirtualActionInput.EMPTY_MARKER)).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar"))).isTrue();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("spam/eggs"))).isTrue();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar/baz"))).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("bazel-out/foo/bar"))).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("spam/eggs/bacon"))).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("bazel-out/spam/eggs"))).isFalse();
   }
 
   @Test
