@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import javax.annotation.Nullable;

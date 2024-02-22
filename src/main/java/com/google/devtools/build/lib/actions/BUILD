@@ -159,7 +159,7 @@ java_library(
         ":middleman_type",
         ":package_roots",
         ":runfiles_metadata",
-        ":runfiles_supplier",
+        ":runfiles_tree",
         ":thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
@@ -395,7 +395,7 @@ java_library(
     deps = [
         ":artifacts",
         ":file_metadata",
-        ":runfiles_supplier",
+        ":runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -525,8 +525,8 @@ java_library(
 )
 
 java_library(
-    name = "runfiles_supplier",
-    srcs = ["RunfilesSupplier.java"],
+    name = "runfiles_tree",
+    srcs = ["RunfilesTree.java"],
     deps = [
         ":artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
