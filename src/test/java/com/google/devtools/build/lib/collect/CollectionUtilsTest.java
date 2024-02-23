@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.collect;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -49,23 +48,10 @@ public final class CollectionUtilsTest {
     assertThat(CollectionUtils.isImmutable(ImmutableList.of(1, 2, 3))).isTrue();
     assertThat(CollectionUtils.isImmutable(ImmutableSet.of(1, 2, 3))).isTrue();
 
-    Iterable<Integer> chain = IterablesChain.<Integer>builder().addElement(1).build();
-
-    assertThat(CollectionUtils.isImmutable(chain)).isTrue();
-
     assertThat(CollectionUtils.isImmutable(Lists.newArrayList())).isFalse();
     assertThat(CollectionUtils.isImmutable(Lists.newLinkedList())).isFalse();
     assertThat(CollectionUtils.isImmutable(Sets.newHashSet())).isFalse();
     assertThat(CollectionUtils.isImmutable(Sets.newLinkedHashSet())).isFalse();
-  }
-
-  @Test
-  public void testCheckImmutable() {
-    CollectionUtils.checkImmutable(ImmutableList.of(1, 2, 3));
-    CollectionUtils.checkImmutable(ImmutableSet.of(1, 2, 3));
-
-    List<Integer> mutableList = Lists.newArrayList(1, 2, 3);
-    assertThrows(IllegalStateException.class, () -> CollectionUtils.checkImmutable(mutableList));
   }
 
   @Test

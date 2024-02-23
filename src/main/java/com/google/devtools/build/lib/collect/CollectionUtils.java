@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.collect;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -68,12 +67,7 @@ public final class CollectionUtils {
    * <p>Note that if this method returns false, that does not mean that the iterable is mutable.
    */
   public static boolean isImmutable(Iterable<?> iterable) {
-    return iterable instanceof ImmutableCollection || iterable instanceof IterablesChain;
-  }
-
-  /** Throws a runtime exception if the given iterable can not be verified to be immutable. */
-  public static void checkImmutable(Iterable<?> iterable) {
-    Preconditions.checkState(isImmutable(iterable), iterable.getClass());
+    return iterable instanceof ImmutableCollection;
   }
 
   /** Given an iterable, returns an immutable iterable with the same contents. */

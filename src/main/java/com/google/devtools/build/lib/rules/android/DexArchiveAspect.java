@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -76,6 +75,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** Aspect to {@link DexArchiveProvider build .dex Archives} from Jars. */
@@ -287,9 +287,9 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       return result.addProvider(DexArchiveProvider.NEVERLINK).build();
     }
 
-    DexArchiveProvider.Builder dexArchives =
-        new DexArchiveProvider.Builder()
-            .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
+    DexArchiveProvider.Builder dexArchives = new DexArchiveProvider.Builder();
+    collectPrerequisites(
+        ruleContext, DexArchiveProvider.class, dexArchives::addTransitiveProviders);
     if (runtimeJars != null) {
       boolean basenameClash = checkBasenameClash(runtimeJars);
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
@@ -342,10 +342,9 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       result.addProvider(AndroidRuntimeJarProvider.NEVERLINK);
       return Functions.forMap(newlyDesugared);
     }
-    AndroidRuntimeJarProvider.Builder desugaredJars =
-        new AndroidRuntimeJarProvider.Builder()
-            .addTransitiveProviders(
-                collectPrerequisites(ruleContext, AndroidRuntimeJarProvider.class));
+    AndroidRuntimeJarProvider.Builder desugaredJars = new AndroidRuntimeJarProvider.Builder();
+    collectPrerequisites(
+        ruleContext, AndroidRuntimeJarProvider.class, desugaredJars::addTransitiveProviders);
     if (isProtoLibrary(ruleContext)) {
       // TODO(b/33557068): Desugar protos if needed instead of assuming they don't need desugaring
       result.addProvider(desugaredJars.build());
@@ -463,15 +462,13 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return false;
   }
 
-  private static <T extends TransitiveInfoProvider> Iterable<T> collectPrerequisites(
-      RuleContext ruleContext, Class<T> classType) {
-    IterablesChain.Builder<T> result = IterablesChain.builder();
+  private static <T extends TransitiveInfoProvider> void collectPrerequisites(
+      RuleContext ruleContext, Class<T> classType, Consumer<List<T>> sink) {
     for (String attr : TRANSITIVE_ATTRIBUTES) {
       if (ruleContext.attributes().getAttributeType(attr) != null) {
-        result.add(ruleContext.getPrerequisites(attr, classType));
+        sink.accept(ruleContext.getPrerequisites(attr, classType));
       }
     }
-    return result.build();
   }
 
   private NestedSet<Artifact> getBootclasspath(ConfiguredTarget base, RuleContext ruleContext)

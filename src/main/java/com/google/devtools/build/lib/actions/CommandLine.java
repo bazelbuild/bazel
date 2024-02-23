@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
@@ -96,14 +96,13 @@ public abstract class CommandLine {
 
     @Override
     public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
-      return IterablesChain.concat(commandLine.arguments(), executableArgs);
+      return Iterables.concat(commandLine.arguments(), executableArgs);
     }
 
     @Override
     public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
-      return IterablesChain.concat(
-          commandLine.arguments(artifactExpander, pathMapper), executableArgs);
+      return Iterables.concat(commandLine.arguments(artifactExpander, pathMapper), executableArgs);
     }
   }
 

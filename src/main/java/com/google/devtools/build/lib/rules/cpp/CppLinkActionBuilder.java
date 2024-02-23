@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -785,20 +785,18 @@ public class CppLinkActionBuilder {
     }
 
     // Linker inputs without any start/end lib expansions.
-    final Iterable<LinkerInput> nonExpandedLinkerInputs =
-        IterablesChain.<LinkerInput>builder()
-            .add(objectFileInputs)
-            .add(linkstampObjectFileInputs)
-            .add(uniqueLibraries.toList())
-            .add(
-                // Adding toolchain libraries without whole archive no-matter-what. People don't
-                // want to include whole libstdc++ in their binary ever.
-                ImmutableSet.copyOf(
-                    LinkerInputs.simpleLinkerInputs(
-                        toolchainLibrariesInputs.toList(),
-                        toolchainLibrariesType,
-                        /* disableWholeArchive= */ true)))
-            .build();
+    Iterable<LinkerInput> nonExpandedLinkerInputs =
+        Iterables.concat(
+            objectFileInputs,
+            linkstampObjectFileInputs,
+            uniqueLibraries.toList(),
+            // Adding toolchain libraries without whole archive no-matter-what. People don't want to
+            // include whole libstdc++ in their binary ever.
+            ImmutableSet.copyOf(
+                LinkerInputs.simpleLinkerInputs(
+                    toolchainLibrariesInputs.toList(),
+                    toolchainLibrariesType,
+                    /* disableWholeArchive= */ true)));
 
     // Add build variables necessary to template link args into the crosstool.
     CcToolchainVariables ccToolchainVariables;
