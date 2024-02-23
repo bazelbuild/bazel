@@ -10,14 +10,17 @@ to perform many optimizations not possible with a batch-oriented implementation,
 such as caching of BUILD files, dependency graphs, and other metadata from one
 build to the next. This improves the speed of incremental builds, and allows
 different commands, such as `build` and `query` to share the same cache of
-loaded packages, making queries very fast.
+loaded packages, making queries very fast. Each server can handle at most one
+invocation at a time; further concurrent invocations will either block or
+fail-fast (see `--block_for_lock`).
 
 When you run `bazel`, you're running the client. The client finds the server
-based on the output base, which by default is determined by the path of the base
-workspace directory and your userid, so if you build in multiple workspaces,
-you'll have multiple output bases and thus multiple Bazel server processes.
-Multiple users on the same workstation can build concurrently in the same
-workspace because their output bases will differ (different userids).
+based on the [output base](/run/scripts#output-base-option), which by default is
+determined by the path of the base workspace directory and your userid, so if
+you build in multiple workspaces, you'll have multiple output bases and thus
+multiple Bazel server processes. Multiple users on the same workstation can
+build concurrently in the same workspace because their output bases will differ
+(different userids).
 
 If the client cannot find a running server instance, it starts a new one. It
 does this by checking if the output base already exists, implying the blaze
