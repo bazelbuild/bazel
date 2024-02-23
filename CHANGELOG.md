@@ -8,6 +8,22 @@ Cherry picks:
    + 64644991518fdd9eea61f0620e10a831a8848455:
      Fixes _module_repo_name when building with Bazel@HEAD or Bazel
      7.1
+   + 0675b186e4c1959dc326ac01e877033b1abbb5bd:
+     Release 8.0.0-pre.20240213.1 (2024-02-23)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 8.0.0-pre.20240213.1 (2024-02-23)
+
+```
+Baseline: add245c52cdc9ef5b5988a0ca3f9cacac0d4542b
+
+Cherry picks:
+
+   + 64644991518fdd9eea61f0620e10a831a8848455:
+     Fixes _module_repo_name when building with Bazel@HEAD or Bazel
+     7.1
 ```
 
 Important changes:
