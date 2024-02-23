@@ -217,6 +217,7 @@ public class BazelLockFileModule extends BlazeModule {
     }
   }
 
+  @SuppressWarnings("unused")
   @Subscribe
   public void bazelModuleResolved(BazelModuleResolutionEvent moduleResolutionEvent) {
     // Latest event wins, which is relevant in the case of `bazel mod tidy`, where a new event is
@@ -224,6 +225,7 @@ public class BazelLockFileModule extends BlazeModule {
     this.moduleResolutionEvent = moduleResolutionEvent;
   }
 
+  @SuppressWarnings("unused")
   @Subscribe
   public void moduleExtensionResolved(ModuleExtensionResolutionEvent extensionResolutionEvent) {
     this.extensionResolutionEventsMap.put(
