@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
@@ -126,7 +125,7 @@ public class ExtraActionTest extends FoundationTestCase {
                     ActionsTestUtil.createArtifact(out, scratch.file("/out/test.out"))),
             new NullAction(),
             false,
-            CommandLine.of(Arrays.asList("one", "two", "thee")),
+            CommandLine.of(ImmutableList.of("one", "two", "thee")),
             ActionEnvironment.create(ImmutableMap.of("TEST", "TEST_VALUE")),
             ImmutableMap.of(),
             "Executing extra action bla bla",

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.util.Arrays.asList;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -84,8 +83,10 @@ public final class SpawnActionTest extends BuildViewTestCase {
 
   private SpawnAction createCopyFromWelcomeToDestination(Map<String, String> environmentVariables) {
     PathFragment cp = PathFragment.create("/bin/cp");
-    List<String> arguments = asList(welcomeArtifact.getExecPath().getPathString(),
-        destinationArtifact.getExecPath().getPathString());
+    ImmutableList<String> arguments =
+        ImmutableList.of(
+            welcomeArtifact.getExecPath().getPathString(),
+            destinationArtifact.getExecPath().getPathString());
 
     SpawnAction action =
         builder()

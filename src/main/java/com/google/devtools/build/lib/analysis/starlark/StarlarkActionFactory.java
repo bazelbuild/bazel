@@ -72,7 +72,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -119,11 +118,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     this.context = context;
   }
 
-  ArtifactRoot newFileRoot() {
+  private ArtifactRoot newFileRoot() {
     return context.newFileRoot();
   }
 
-  private void checkToolchainParameterIsSet(Object toolchainUnchecked) throws EvalException {
+  private static void checkToolchainParameterIsSet(Object toolchainUnchecked) throws EvalException {
     if (toolchainUnchecked == Starlark.UNBOUND) {
       throw Starlark.errorf(
           "Couldn't identify if tools are from implicit dependencies or a toolchain. Please"
@@ -512,26 +511,27 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     return context.getStarlarkSemantics();
   }
 
-  private void verifyExecGroupExists(String execGroup, RuleContext ctx) throws EvalException {
+  private static void verifyExecGroupExists(String execGroup, RuleContext ctx)
+      throws EvalException {
     if (!ctx.hasToolchainContext(execGroup)) {
       throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
     }
   }
 
-  private void verifyAutomaticExecGroupExists(String execGroup, RuleContext ruleContext)
+  private static void verifyAutomaticExecGroupExists(String execGroup, RuleContext ruleContext)
       throws EvalException {
     if (!ruleContext.hasToolchainContext(execGroup)) {
       throw Starlark.errorf("Action declared for non-existent toolchain '%s'.", execGroup);
     }
   }
 
-  private void checkValidGroupName(String execGroup) throws EvalException {
+  private static void checkValidGroupName(String execGroup) throws EvalException {
     if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)) {
       throw Starlark.errorf("Invalid name for exec group '%s'.", execGroup);
     }
   }
 
-  private PlatformInfo getExecutionPlatform(Object execGroupUnchecked, RuleContext ctx)
+  private static PlatformInfo getExecutionPlatform(Object execGroupUnchecked, RuleContext ctx)
       throws EvalException {
     if (execGroupUnchecked == Starlark.NONE) {
       return ctx.getExecutionPlatform(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
@@ -603,7 +603,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 + " is deprecated. To temporarily disable this check,"
                 + " set --incompatible_run_shell_command_string=false.");
       }
-      Sequence<?> commandList = (Sequence) commandUnchecked;
+      Sequence<?> commandList = (Sequence<?>) commandUnchecked;
       if (!arguments.isEmpty()) {
         throw Starlark.errorf("'arguments' must be empty if 'command' is a sequence of strings");
       }
@@ -633,14 +633,17 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   private static void buildCommandLine(SpawnAction.Builder builder, Sequence<?> argumentsList)
       throws EvalException {
-    List<String> stringArgs = new ArrayList<>();
+    ImmutableList.Builder<String> stringArgs = null;
     for (Object value : argumentsList) {
       if (value instanceof String) {
+        if (stringArgs == null) {
+          stringArgs = ImmutableList.builder();
+        }
         stringArgs.add((String) value);
       } else if (value instanceof Args) {
-        if (!stringArgs.isEmpty()) {
-          builder.addCommandLine(CommandLine.of(stringArgs));
-          stringArgs = new ArrayList<>();
+        if (stringArgs != null) {
+          builder.addCommandLine(CommandLine.of(stringArgs.build()));
+          stringArgs = null;
         }
         Args args = (Args) value;
         ParamFileInfo paramFileInfo = args.getParamFileInfo();
@@ -651,8 +654,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             Starlark.type(value));
       }
     }
-    if (!stringArgs.isEmpty()) {
-      builder.addCommandLine(CommandLine.of(stringArgs));
+    if (stringArgs != null) {
+      builder.addCommandLine(CommandLine.of(stringArgs.build()));
     }
   }
 
@@ -841,7 +844,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     private final String mnemonic;
     private final StarlarkSemantics semantics;
 
-    public StarlarkActionResourceSetBuilder(
+    StarlarkActionResourceSetBuilder(
         StarlarkCallable fn, String mnemonic, StarlarkSemantics semantics) {
       this.fn = fn;
       this.mnemonic = mnemonic;
@@ -877,9 +880,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 resourceSetMapRaw, ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage()),
             (int)
                 getNumericOrDefault(
-                    resourceSetMapRaw,
-                    "local_test",
-                    (double) DEFAULT_RESOURCE_SET.getLocalTestCount()));
+                    resourceSetMapRaw, "local_test", DEFAULT_RESOURCE_SET.getLocalTestCount()));
       } catch (EvalException e) {
         throw new UserExecException(
             FailureDetail.newBuilder()
@@ -921,7 +922,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
   }
 
-  private static StarlarkCallable validateResourceSetBuilder(Object fn) throws EvalException {
+  private static void validateResourceSetBuilder(Object fn) throws EvalException {
     if (!(fn instanceof StarlarkCallable)) {
       throw Starlark.errorf(
           "resource_set should be a Starlark-callable function, but got %s instead",
@@ -946,7 +947,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             sfn.getLocation());
       }
     }
-    return (StarlarkCallable) fn;
   }
 
   private String getMnemonic(Object mnemonicUnchecked) {

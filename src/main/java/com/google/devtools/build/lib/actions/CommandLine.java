@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
@@ -68,23 +67,22 @@ public abstract class CommandLine {
     }
   }
 
-  private static class SimpleCommandLine extends CommandLine {
-    private final Iterable<String> args;
+  private static final class SimpleCommandLine extends CommandLine {
+    private final ImmutableList<String> args;
 
-    SimpleCommandLine(Iterable<String> args) {
+    SimpleCommandLine(ImmutableList<String> args) {
       this.args = args;
     }
 
     @Override
-    public Iterable<String> arguments() throws CommandLineExpansionException {
+    public ImmutableList<String> arguments() {
       return args;
     }
   }
 
-  /** Returns a {@link CommandLine} backed by a copy of the given list of arguments. */
-  public static CommandLine of(Iterable<String> arguments) {
-    Iterable<String> immutableArguments = CollectionUtils.makeImmutable(arguments);
-    return new SimpleCommandLine(immutableArguments);
+  /** Returns a {@link CommandLine} backed by the given list of arguments. */
+  public static CommandLine of(ImmutableList<String> arguments) {
+    return new SimpleCommandLine(arguments);
   }
 
   private static final class SuffixedCommandLine extends CommandLine {
@@ -113,8 +111,7 @@ public abstract class CommandLine {
    * Returns a {@link CommandLine} that is constructed by appending the {@code args} to {@code
    * commandLine}.
    */
-  public static CommandLine concat(
-      final CommandLine commandLine, final ImmutableList<String> args) {
+  public static CommandLine concat(CommandLine commandLine, ImmutableList<String> args) {
     if (args.isEmpty()) {
       return commandLine;
     }

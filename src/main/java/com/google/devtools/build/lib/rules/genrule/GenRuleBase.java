@@ -187,7 +187,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             CommandHelper.buildBashCommandConstructor(
                 executionInfo, shExecutable, ".genrule_script.sh");
     }
-    List<String> argv = commandHelper.buildCommandLine(command, inputs, constructor);
+    ImmutableList<String> argv = commandHelper.buildCommandLine(command, inputs, constructor);
 
     if (isStampingEnabled(ruleContext)) {
       inputs.add(ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact());

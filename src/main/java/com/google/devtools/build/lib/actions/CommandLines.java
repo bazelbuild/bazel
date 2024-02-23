@@ -306,7 +306,7 @@ public abstract class CommandLines {
   }
 
   /** Returns an instance with a single trivial command line. */
-  public static CommandLines of(Iterable<String> args) {
+  public static CommandLines of(ImmutableList<String> args) {
     return new OnePartCommandLines(CommandLine.of(args));
   }
 
