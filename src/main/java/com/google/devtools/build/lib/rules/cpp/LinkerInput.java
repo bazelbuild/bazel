@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.actions.Artifact;
 
 /**
@@ -47,10 +48,10 @@ public interface LinkerInput {
   }
 
   /**
-   * Return the list of object files included in the input artifact, if there are any. It is
-   * legal to call this only when {@link #containsObjectFiles()} returns true.
+   * Return the list of object files included in the input artifact, if there are any. It is legal
+   * to call this only when {@link #containsObjectFiles()} returns true.
    */
-  Iterable<Artifact> getObjectFiles();
+  ImmutableCollection<Artifact> getObjectFiles();
 
   /**
    * Returns whether we must keep debug symbols for this input.

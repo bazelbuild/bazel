@@ -17,8 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import java.util.List;
 import java.util.Set;
 import org.junit.Test;
@@ -41,28 +39,6 @@ public final class CollectionUtilsTest {
 
   private static void assertDups(List<Integer> collection, Set<Integer> dups) {
     assertThat(CollectionUtils.duplicatedElementsOf(collection)).isEqualTo(dups);
-  }
-
-  @Test
-  public void testIsImmutable() {
-    assertThat(CollectionUtils.isImmutable(ImmutableList.of(1, 2, 3))).isTrue();
-    assertThat(CollectionUtils.isImmutable(ImmutableSet.of(1, 2, 3))).isTrue();
-
-    assertThat(CollectionUtils.isImmutable(Lists.newArrayList())).isFalse();
-    assertThat(CollectionUtils.isImmutable(Lists.newLinkedList())).isFalse();
-    assertThat(CollectionUtils.isImmutable(Sets.newHashSet())).isFalse();
-    assertThat(CollectionUtils.isImmutable(Sets.newLinkedHashSet())).isFalse();
-  }
-
-  @Test
-  public void testMakeImmutable() {
-    Iterable<Integer> immutableList = ImmutableList.of(1, 2, 3);
-    assertThat(CollectionUtils.makeImmutable(immutableList)).isSameInstanceAs(immutableList);
-
-    List<Integer> mutableList = Lists.newArrayList(1, 2, 3);
-    Iterable<Integer> converted = CollectionUtils.makeImmutable(mutableList);
-    assertThat(converted).isNotSameInstanceAs(mutableList);
-    assertThat(ImmutableList.copyOf(converted)).isEqualTo(mutableList);
   }
 
   @Test

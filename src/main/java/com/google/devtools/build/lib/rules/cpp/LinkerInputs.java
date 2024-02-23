@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 
 /** Factory for creating new {@link LinkerInput} objects. */
@@ -88,7 +87,7 @@ public abstract class LinkerInputs {
     }
 
     @Override
-    public Iterable<Artifact> getObjectFiles() {
+    public ImmutableCollection<Artifact> getObjectFiles() {
       throw new IllegalStateException();
     }
 
@@ -216,9 +215,8 @@ public abstract class LinkerInputs {
     }
 
     @Override
-    public Iterable<Artifact> getObjectFiles() {
-      throw new IllegalStateException(
-          "LinkerInputs: does not support getObjectFiles: " + toString());
+    public ImmutableCollection<Artifact> getObjectFiles() {
+      throw new IllegalStateException("LinkerInputs: does not support getObjectFiles: " + this);
     }
 
     @Override
@@ -269,7 +267,7 @@ public abstract class LinkerInputs {
     private final Artifact libraryArtifact;
     private final ArtifactCategory category;
     private final String libraryIdentifier;
-    private final Iterable<Artifact> objectFiles;
+    private final ImmutableCollection<Artifact> objectFiles;
     private final LtoCompilationContext ltoCompilationContext;
     private final ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends;
     private final boolean mustKeepDebug;
@@ -279,7 +277,7 @@ public abstract class LinkerInputs {
         Artifact libraryArtifact,
         ArtifactCategory category,
         String libraryIdentifier,
-        Iterable<Artifact> objectFiles,
+        ImmutableCollection<Artifact> objectFiles,
         LtoCompilationContext ltoCompilationContext,
         ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
         boolean allowArchiveTypeInAlwayslink,
@@ -309,7 +307,7 @@ public abstract class LinkerInputs {
       this.libraryArtifact = Preconditions.checkNotNull(libraryArtifact);
       this.category = category;
       this.libraryIdentifier = libraryIdentifier;
-      this.objectFiles = objectFiles == null ? null : CollectionUtils.makeImmutable(objectFiles);
+      this.objectFiles = objectFiles;
       this.ltoCompilationContext =
           (ltoCompilationContext == null) ? LtoCompilationContext.EMPTY : ltoCompilationContext;
       this.sharedNonLtoBackends = sharedNonLtoBackends;
@@ -353,9 +351,8 @@ public abstract class LinkerInputs {
     }
 
     @Override
-    public Iterable<Artifact> getObjectFiles() {
-      Preconditions.checkNotNull(objectFiles);
-      return objectFiles;
+    public ImmutableCollection<Artifact> getObjectFiles() {
+      return Preconditions.checkNotNull(objectFiles);
     }
 
     @Override
@@ -459,44 +456,12 @@ public abstract class LinkerInputs {
         /* disableWholeArchive= */ false);
   }
 
-  public static LibraryToLink opaqueLibraryToLink(
-      Artifact artifact, ArtifactCategory category, String libraryIdentifier) {
-    return new CompoundLibraryToLink(
-        artifact,
-        category,
-        libraryIdentifier,
-        /* objectFiles= */ null,
-        /* ltoCompilationContext= */ null,
-        /* sharedNonLtoBackends= */ null,
-        /* allowArchiveTypeInAlwayslink= */ category.equals(
-            ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY),
-        /* mustKeepDebug= */ false,
-        /* disableWholeArchive= */ false);
-  }
-
-  public static LibraryToLink opaqueLibraryToLink(
-      Artifact artifact,
-      ArtifactCategory category,
-      String libraryIdentifier,
-      CppConfiguration.StripMode stripMode) {
-    return new CompoundLibraryToLink(
-        artifact,
-        category,
-        libraryIdentifier,
-        /* objectFiles= */ null,
-        /* ltoCompilationContext= */ null,
-        /* sharedNonLtoBackends= */ null,
-        /* allowArchiveTypeInAlwayslink= */ false,
-        /* mustKeepDebug= */ stripMode == CppConfiguration.StripMode.NEVER,
-        /* disableWholeArchive= */ false);
-  }
-
   /** Creates a library to link with the specified object files. */
   public static LibraryToLink newInputLibrary(
       Artifact library,
       ArtifactCategory category,
       String libraryIdentifier,
-      Iterable<Artifact> objectFiles,
+      ImmutableCollection<Artifact> objectFiles,
       LtoCompilationContext ltoCompilationContext,
       ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
       boolean mustKeepDebug) {
@@ -512,12 +477,11 @@ public abstract class LinkerInputs {
   }
 
   /** Creates a library to link with the specified object files. */
-  @VisibleForTesting
-  public static LibraryToLink newInputLibrary(
+  static LibraryToLink newInputLibrary(
       Artifact library,
       ArtifactCategory category,
       String libraryIdentifier,
-      Iterable<Artifact> objectFiles,
+      ImmutableCollection<Artifact> objectFiles,
       LtoCompilationContext ltoCompilationContext,
       ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
       boolean mustKeepDebug,
@@ -532,10 +496,6 @@ public abstract class LinkerInputs {
         /* allowArchiveTypeInAlwayslink= */ true,
         mustKeepDebug,
         disableWholeArchive);
-  }
-
-  public static Iterable<Artifact> toNonSolibArtifacts(Iterable<LibraryToLink> libraries) {
-    return Iterables.transform(libraries, LibraryToLink::getOriginalLibraryArtifact);
   }
 
   /** Returns the linker input artifacts from a collection of {@link LinkerInput} objects. */
