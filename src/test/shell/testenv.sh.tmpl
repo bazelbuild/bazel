@@ -257,10 +257,23 @@ function try_with_timeout() {
 
 function setup_localjdk_javabase() {
   if [[ $PLATFORM =~ msys ]]; then
-    jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
+    jdk_binary=local_jdk/bin/java.exe
   else
-    jdk_dir="$(dirname $(dirname $(rlocation local_jdk/bin/java)))"
+    jdk_binary=local_jdk/bin/java
   fi
+
+  if ! jdk_rlocation=$(rlocation "$jdk_binary"); then
+    echo "error: failed to find $jdk_binary, make sure you have java \
+installed or pass --java_runtime_verison=XX with the correct version" >&2
+    exit 1
+  fi
+
+  if [[ $PLATFORM =~ msys ]]; then
+    jdk_dir="$(cygpath -m $(cd "$jdk_rlocation/../.."; pwd))"
+  else
+    jdk_dir="$(dirname $(dirname "$jdk_rlocation"))"
+  fi
+
   bazel_javabase="${jdk_dir}"
 }
 
