@@ -1,3 +1,67 @@
+## Release 8.0.0-pre.20240213.1 (2024-02-23)
+
+```
+Baseline: add245c52cdc9ef5b5988a0ca3f9cacac0d4542b
+
+Cherry picks:
+
+   + 64644991518fdd9eea61f0620e10a831a8848455:
+     Fixes _module_repo_name when building with Bazel@HEAD or Bazel
+     7.1
+```
+
+Important changes:
+
+  - The new `bazel mod tidy` subcommand automatically updates
+    `use_repo` calls in the `MODULE.bazel` file for extensions that
+    use `module_ctx.extension_metadata`.
+  - Introduce new flag --experimental_worker_use_cgroups_on_linux
+    that uses cgroups to track memory usage for singleplex workers
+    (on Linux).
+  - The scheme for generating canonical repository names has changed
+    to improve cacheability of actions across dependency version
+    updates. Note that canonical names are not considered to be
+    public API and can change at any time. See
+    https://bazel.build/external/module#repository_names_and_strict_de
+    ps for advice on how to avoid hardcoding canonical repository
+    names.
+  - The `to_display_form()` method on `Label` returns a string
+    representation of a label optimized for readability by humans.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Artem V. Navrotskiy, dependabot[bot], DocQuantum, Fabian Meumertzheim, Keith Smiley, Marc Redemske, Patrick Balestra, Sushain Cherivirala, Xdng Yng.
+
+## Release 8.0.0-pre.20240206.3 (2024-02-15)
+
+```
+Baseline: cc8be0ab496570eb155ba220012f52f6a6c7082d
+
+Cherry picks:
+
+   + cff79d0aa6f2d470b8648f2b89beeefd0867e177:
+     Do not build the runfiles tree when creating deploy jars.
+   + 959ab10559800eab6a3841f80cbc06f119e659b7:
+     Fix bug in GraphOutputWriter#partitionedFactored which caused
+     queue to grow to O(E), and now upper-bounding it to O(N).
+```
+
+Incompatible changes:
+
+  - The --host_jvm_profile command line argument is not supported
+    anymore.
+  - The "input_manifests" argument of ctx.actions.{run,run_shell} is
+    now a no-op. resolve_command and resolve_tools always return the
+    empty list as the input manifest list.
+
+Important changes:
+
+  - Bazel's Bash completion can now complete external repository
+    labels when using `--enable_bzlmod`.
+  - BEP's `execution_phase_time_in_ms` no longer includes the
+    analysis-only part at the beginning of the build. Artificial
+    downtrend in `execution_phase_time_in_ms` expected.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Xdng Yng, Zheng Wei Tan.
+
 ## Release 8.0.0-pre.20240128.3 (2024-02-09)
 
 ```
