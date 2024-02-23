@@ -195,20 +195,46 @@ public final class ProcessPackageDirectory {
       return false;
     }
 
-    PathFragment rootRelativePath = rootedPath.getRootRelativePath();
-    Root root = rootedPath.getRoot();
     PathFragment linkTarget = fileValue.getUnresolvedLinkTarget();
 
-    return linkTarget.startsWith(directories.getExecRootBase().asFragment())
-    || (rootRelativePath.getBaseName().endsWith("-bin") && isInExecRoot(linkTarget, root, 4, env))
-    || (rootRelativePath.getBaseName().endsWith("-genfiles") && isInExecRoot(linkTarget, root, 4, env))
-    || (rootRelativePath.getBaseName().endsWith("-out") && isInExecRoot(linkTarget, root, 2, env))
-    || (rootRelativePath.getBaseName().endsWith("-testlogs") && isInExecRoot(linkTarget, root, 4, env))
-    || (rootRelativePath.getBaseName().endsWith("-" + directories.getWorkingDirectory().getBaseName()) && isInExecRoot(linkTarget, root, 1, env));
+    if(linkTarget.startsWith(directories.getExecRootBase().asFragment())) {
+      return true;
+    }
+
+    PathFragment rootRelativePath = rootedPath.getRootRelativePath();
+    Root root = rootedPath.getRoot();
+
+    if(rootRelativePath.getBaseName().endsWith("-bin") && isInExecRoot(linkTarget, root, 4, env)) {
+      return true;
+    }
+
+    if(rootRelativePath.getBaseName().endsWith("-genfiles") && isInExecRoot(linkTarget, root, 4, env)) {
+      return true;
+    }
+
+    if(rootRelativePath.getBaseName().endsWith("-out") && isInExecRoot(linkTarget, root, 2, env)) {
+      return true;
+    }
+
+    if(rootRelativePath.getBaseName().endsWith("-testlogs") && isInExecRoot(linkTarget, root, 4, env)) {
+      return true;
+    }
+
+    if(rootRelativePath.getBaseName().endsWith("-" + directories.getWorkingDirectory().getBaseName()) && isInExecRoot(linkTarget, root, 1, env)) {
+      return true;
+    }
+
+    return false;
   }
 
   private boolean isInExecRoot(PathFragment path, Root root, int depth, SkyFunction.Environment env) throws InterruptedException {
-    PathFragment candidateExecRoot = path.subFragment(0, path.segmentCount() - depth);
+    int segmentCount = path.segmentCount();
+
+    if(segmentCount <= depth) {
+      return false;
+    }
+
+    PathFragment candidateExecRoot = path.subFragment(0, segmentCount - depth);
 
     if(!candidateExecRoot.getBaseName().equals("execroot")) {
       return false;
