@@ -263,8 +263,8 @@ public abstract class CommandLines {
       return paramFileExecPath;
     }
 
-    public ImmutableList<String> getArguments() {
-      return ImmutableList.copyOf(arguments);
+    public Iterable<String> getArguments() {
+      return arguments;
     }
   }
 
