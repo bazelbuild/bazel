@@ -199,7 +199,9 @@ public final class VendorCommand implements BlazeCommand {
     for (Entry<RepositoryName, RepositoryDirectoryValue> entry :
         repositoryNamesAndValues.entrySet()) {
       if (entry.getValue().repositoryExists()) {
-        reposToVendor.add(entry.getKey());
+        if (!entry.getValue().excludeFromVendoring()) {
+          reposToVendor.add(entry.getKey());
+        }
       } else {
         notFoundRepoErrors.add(entry.getValue().getErrorMsg());
       }
