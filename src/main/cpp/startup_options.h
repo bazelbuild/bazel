@@ -277,6 +277,8 @@ class StartupOptions {
   // developer mode to be enabled.
   bool windows_enable_symlinks;
 
+  std::string cgroup_parent;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// daemonize [-a] -l log_path -p pid_path -- binary_path binary_name [args]
+// daemonize [-a] -l log_path -p pid_path [-c cgroup] -- binary_path binary_name [args]
 //
 // daemonize spawns a program as a daemon, redirecting all of its output to the
 // given log_path and writing the daemon's PID to pid_path.  binary_path
@@ -47,6 +47,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 // Configures std{in,out,err} of the current process to serve as a daemon.
@@ -147,6 +148,79 @@ static void ExecAsDaemon(const char* log_path, bool log_append, int pid_done_fd,
   err(EXIT_FAILURE, "Failed to execute %s", exe);
 }
 
+static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
+  FILE* mounts_fp = fopen("/proc/self/mounts", "r");
+  if (mounts_fp != NULL) {
+    char* line = NULL;
+    size_t len = 0;
+    bool cpu_found = false;
+    bool memory_found = false;
+    while (getline(&line, &len, mounts_fp) != -1 && (!cpu_found || !memory_found)) {
+      strtok(line, " ");
+      char* fs_file = strtok(NULL, " ");
+      char* fs_vfstype = strtok(NULL, " ");
+      if (strcmp(fs_vfstype, "cgroup") == 0) {
+        char* fs_mntops = strtok(NULL, " ");
+        bool is_cpu, is_mem = false;
+        char* opt = strtok(fs_mntops, ", ");
+        while (opt != NULL && (!cpu_found || !memory_found)) {
+          if (strcmp(opt, "cpu") == 0) {
+             is_cpu = cpu_found = true;
+          } else if (strcmp(opt, "memory") == 0) {
+             is_mem = memory_found = true;
+          }
+          opt = strtok(NULL, ", ");
+        }
+        if (is_cpu || is_mem) {
+          char* procs_path = malloc(strlen(fs_file) + strlen(cgroup_path) + 14);
+          int len = sprintf(procs_path, "%s%s/cgroup.procs", fs_file, cgroup_path);
+          FILE* procs = fopen(procs_path, "w");
+          if (procs != NULL) {
+            fprintf(procs, "%d", pid);
+            fclose(procs);
+          }
+          free(procs_path);
+        }
+      } else if (strcmp(fs_vfstype, "cgroup2") == 0) {
+        char* controllers_path = malloc(strlen(fs_file) + strlen(cgroup_path) + 20);
+        sprintf(controllers_path, "%s%s/cgroup.controllers", fs_file, cgroup_path);
+        FILE* controllers_f = fopen(controllers_path, "r");
+        if (controllers_f != NULL) {
+          char* controllers = NULL;
+          size_t len = 0;
+          if (getline(&controllers, &len, controllers_f) != -1) {
+            bool is_cpu, is_mem = false;
+            char* controller = strtok(controllers, " ");
+            while (controller != NULL && (!cpu_found || !memory_found)) {
+              if (strcmp(controller, "cpu") == 0) {
+                 is_cpu = cpu_found = true;
+              } else if (strcmp(controller, "memory") == 0) {
+                 is_mem = memory_found = true;
+              }
+              controller = strtok(controllers, " ");
+            }
+            if (is_cpu || is_mem) {
+              char* procs_path = malloc(strlen(fs_file) + strlen(cgroup_path) + 14);
+              sprintf(procs_path, "%s%s/cgroup.procs", fs_file, cgroup_path);
+              FILE* procs = fopen(procs_path, "w");
+              if (procs != NULL) {
+                fprintf(procs, "%d", pid);
+                fclose(procs);
+              }
+              free(procs_path);
+            }
+          }
+          free(controllers);
+          fclose(controllers_f);
+        }
+        free(controllers_path);
+      }
+    }
+    free(line);
+    fclose(mounts_fp);
+  }
+}
+
 // Starts the given process as a daemon.
 //
 // This spawns a subprocess that will be configured to run the desired program
@@ -154,7 +228,8 @@ static void ExecAsDaemon(const char* log_path, bool log_append, int pid_done_fd,
 // are given in the NULL-terminated argv.  argv[0] must be present and
 // contain the program name (which may or may not match the basename of exe).
 static void Daemonize(const char* log_path, bool log_append,
-                      const char* pid_path, const char* exe, char** argv) {
+                      const char* pid_path, const char* cgroup_path,
+                      const char* exe, char** argv) {
   assert(argv[0] != NULL);
 
   int pid_done_fds[2];
@@ -167,6 +242,9 @@ static void Daemonize(const char* log_path, bool log_append,
     err(EXIT_FAILURE, "fork failed");
   } else if (pid == 0) {
     close(pid_done_fds[1]);
+    if (cgroup_path != NULL) {
+      MoveToCgroup(getpid(), cgroup_path);
+    }
     ExecAsDaemon(log_path, log_append, pid_done_fds[0], exe, argv);
     abort();  // NOLINT Unreachable.
   }
@@ -183,8 +261,9 @@ int main(int argc, char** argv) {
   bool log_append = false;
   const char* log_path = NULL;
   const char* pid_path = NULL;
+  const char* cgroup_path = NULL;
   int opt;
-  while ((opt = getopt(argc, argv, ":al:p:")) != -1) {
+  while ((opt = getopt(argc, argv, ":al:p:c:")) != -1) {
     switch (opt) {
       case 'a':
         log_append = true;
@@ -196,6 +275,10 @@ int main(int argc, char** argv) {
 
       case 'p':
         pid_path = optarg;
+        break;
+
+      case 'c':
+        cgroup_path = optarg;
         break;
 
       case ':':
@@ -219,6 +302,6 @@ int main(int argc, char** argv) {
   if (argc < 2) {
     errx(EXIT_FAILURE, "Must provide at least an executable name and arg0");
   }
-  Daemonize(log_path, log_append, pid_path, argv[0], argv + 1);
+  Daemonize(log_path, log_append, pid_path, cgroup_path, argv[0], argv + 1);
   return EXIT_SUCCESS;
 }
