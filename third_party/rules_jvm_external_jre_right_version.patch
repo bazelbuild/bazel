@@ -1,0 +1,69 @@
+diff --git a/private/rules/jvm_import.bzl b/private/rules/jvm_import.bzl
+index 26292ae..00ef163 100644
+--- a/private/rules/jvm_import.bzl
++++ b/private/rules/jvm_import.bzl
+@@ -23,17 +23,22 @@ def _jvm_import_impl(ctx):
+         workspace_name = visible_name,
+     )
+ 
++    java_runtime = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
++    add_jar_manifest_entry_jar = ctx.file._add_jar_manifest_entry
++
+     injar = ctx.files.jars[0]
+     if ctx.attr._stamp_manifest[StampManifestProvider].stamp_enabled:
+         outjar = ctx.actions.declare_file("processed_" + injar.basename, sibling = injar)
+         args = ctx.actions.args()
++        args.add_all(["-jar", add_jar_manifest_entry_jar])
+         args.add_all(["--source", injar, "--output", outjar])
+         args.add_all(["--manifest-entry", "Target-Label:{target_label}".format(target_label = label)])
+         ctx.actions.run(
+-            executable = ctx.executable._add_jar_manifest_entry,
++            executable = java_runtime.java_executable_exec_path,
+             arguments = [args],
+-            inputs = [injar],
++            inputs = [injar, add_jar_manifest_entry_jar],
+             outputs = [outjar],
++            tools = java_runtime.files,
+             mnemonic = "StampJarManifest",
+             progress_message = "Stamping the manifest of %s" % ctx.label,
+         )
+@@ -42,6 +47,7 @@ def _jvm_import_impl(ctx):
+ 
+     compilejar = ctx.actions.declare_file("header_" + injar.basename, sibling = injar)
+     args = ctx.actions.args()
++    args.add_all(["-jar", add_jar_manifest_entry_jar])
+     args.add_all(["--source", outjar, "--output", compilejar])
+ 
+     # We need to remove the `Class-Path` entry since bazel 4.0.0 forces `javac`
+@@ -56,10 +62,11 @@ def _jvm_import_impl(ctx):
+     args.add("--make-safe")
+ 
+     ctx.actions.run(
+-        executable = ctx.executable._add_jar_manifest_entry,
++        executable = java_runtime.java_executable_exec_path,
+         arguments = [args],
+-        inputs = [outjar],
++        inputs = [outjar, add_jar_manifest_entry_jar],
+         outputs = [compilejar],
++        tools = java_runtime.files,
+         mnemonic = "CreateCompileJar",
+         progress_message = "Creating compile jar for %s" % ctx.label,
+     )
+@@ -101,9 +108,9 @@ jvm_import = rule(
+             default = False,
+         ),
+         "_add_jar_manifest_entry": attr.label(
+-            executable = True,
++            allow_single_file = True,
+             cfg = "exec",
+-            default = "//private/tools/java/com/github/bazelbuild/rules_jvm_external/jar:AddJarManifestEntry",
++            default = "//private/tools/java/com/github/bazelbuild/rules_jvm_external/jar:AddJarManifestEntry_deploy.jar",
+         ),
+         "_stamp_manifest": attr.label(
+             default = "@rules_jvm_external//settings:stamp_manifest",
+@@ -111,4 +118,5 @@ jvm_import = rule(
+     },
+     implementation = _jvm_import_impl,
+     provides = [JavaInfo],
++    toolchains = ["@bazel_tools//tools/jdk:runtime_toolchain_type"],
+ )
