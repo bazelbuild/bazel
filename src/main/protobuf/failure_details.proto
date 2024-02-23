@@ -149,6 +149,7 @@ message FailureDetail {
     DiffAwareness diff_awareness = 182;
     ModCommand mod_command = 183;
     BuildReport build_report = 184;
+    Skyfocus skyfocus = 185;
   }
 
   reserved 102; // For internal use
@@ -362,6 +363,18 @@ message BuildReport {
   Code code = 1;
   // Additional data for partial failures might include the build report that
   // failed to be written.
+}
+
+// Failure details for errors produced when using Skyfocus
+message Skyfocus {
+  enum Code {
+    // The defined working set cannot be used for the focused targets. For
+    // example, this happens when the intersection of the working set and the
+    // transitive closure of the focused target is empty.
+    INVALID_WORKING_SET = 0 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
 }
 
 message PackageOptions {

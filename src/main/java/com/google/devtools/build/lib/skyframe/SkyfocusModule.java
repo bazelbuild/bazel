@@ -30,8 +30,12 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SkyfocusOptions;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
+import com.google.devtools.build.lib.server.FailureDetails.Skyfocus.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeFocuser.FocusResult;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -220,7 +224,8 @@ public class SkyfocusModule extends BlazeModule {
    */
   @SuppressWarnings("unused")
   @Subscribe
-  public void onBuildPrecomplete(BuildPrecompleteEvent event) throws InterruptedException {
+  public void onBuildPrecomplete(BuildPrecompleteEvent event)
+      throws InterruptedException, AbruptExitException {
     if (!commandActuallyBuilds(env.getCommand()) || !skyfocusOptions.skyfocusEnabled) {
       // Skyfocus not enabled, nothing to do here.
       return;
@@ -264,7 +269,7 @@ public class SkyfocusModule extends BlazeModule {
   }
 
   /** The main entry point of the Skyfocus optimizations agains the Skyframe graph. */
-  private FocusResult focus() throws InterruptedException {
+  private FocusResult focus() throws InterruptedException, AbruptExitException {
     // TODO: b/312819241 - add support for SerializationCheckingGraph for use in tests.
     InMemoryMemoizingEvaluator evaluator =
         (InMemoryMemoizingEvaluator) env.getSkyframeExecutor().getEvaluator();
@@ -274,11 +279,9 @@ public class SkyfocusModule extends BlazeModule {
 
     // Compute the roots and leafs.
     Set<SkyKey> roots = evaluator.getLatestTopLevelEvaluations();
-    if (roots == null || roots.isEmpty()) {
-      reporter.handle(Event.error("Unable to focus without roots. Run a build first."));
-      // TODO: b/312819241 - turn this into a FailureDetail and avoid crashing.
-      throw new IllegalStateException("Unable to get root SkyKeys of the previous build.");
-    }
+    // Skyfocus needs roots. If this fails, there's something wrong with the root-remembering
+    // logic in the evaluator.
+    Preconditions.checkState(roots != null && !roots.isEmpty());
 
     // TODO: b/312819241 - For simplicity's sake, use the first --package_path as the root.
     // This may be an issue with packages from a different package_path root.
@@ -300,10 +303,11 @@ public class SkyfocusModule extends BlazeModule {
           }
         });
     if (leafs.isEmpty()) {
-      // TODO: b/312819241 - turn this into a FailureDetail and avoid crashing.
-      throw new IllegalStateException(
-          "Failed to construct working set because none of the files in the working set are found"
-              + " in the transitive closure of the build.");
+      throw new AbruptExitException(
+          createDetailedExitCode(
+              "Failed to construct working set because none of the files in the working set are"
+                  + " found in the transitive closure of the build.",
+              Code.INVALID_WORKING_SET));
     }
     if (!workingSetRootedPaths.isEmpty()) {
       reporter.handle(
@@ -389,5 +393,13 @@ public class SkyfocusModule extends BlazeModule {
       pos.println("Summary of kept keys:");
       skyKeyCount.forEach((k, v) -> pos.println(k + " " + v));
     }
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Skyfocus.Code code) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setSkyfocus(Skyfocus.newBuilder().setCode(code).build())
+            .build());
   }
 }
