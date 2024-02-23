@@ -82,7 +82,7 @@ public abstract class CommandLine {
 
   /** Returns a {@link CommandLine} backed by the given list of arguments. */
   public static CommandLine of(ImmutableList<String> arguments) {
-    return new SimpleCommandLine(arguments);
+    return arguments.isEmpty() ? CommandLine.EMPTY : new SimpleCommandLine(arguments);
   }
 
   private static final class SuffixedCommandLine extends CommandLine {

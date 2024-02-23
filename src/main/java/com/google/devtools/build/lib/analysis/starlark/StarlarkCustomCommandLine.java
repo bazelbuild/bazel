@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
@@ -661,7 +661,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return this;
     }
 
-    StarlarkCustomCommandLine build(boolean flagPerLine) {
+    CommandLine build(boolean flagPerLine) {
+      if (arguments.isEmpty()) {
+        return CommandLine.EMPTY;
+      }
       Object[] args = arguments.toArray();
       return flagPerLine
           ? new StarlarkCustomCommandLineWithIndexes(args, argStartIndexes.build())
@@ -731,26 +734,25 @@ public class StarlarkCustomCommandLine extends CommandLine {
         Object[] arguments, ImmutableList<Integer> argStartIndexes) {
       super(arguments);
       this.argStartIndexes = argStartIndexes;
+      checkState(!argStartIndexes.isEmpty(), "Arg start indexes were not recorded");
     }
 
     @Override
     public Iterable<String> arguments(
         @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
-
       List<String> result = new ArrayList<>();
       List<Object> arguments = ((StarlarkCustomCommandLine) this).rawArgsAsList();
 
-      // If we're grouping arguments, keep track of the result indexes corresponding to the
-      // argStartIndexes, reflecting VectorArg and SingleFormattedArg expansion.
-      List<Integer> resultGroupStarts =
-          argStartIndexes.isEmpty() ? ImmutableList.of() : new ArrayList<>();
+      // Keep track of the result indexes corresponding to the argStartIndexes, reflecting VectorArg
+      // and SingleFormattedArg expansion.
+      List<Integer> resultGroupStarts = new ArrayList<>();
       Iterator<Integer> startIndexIterator = argStartIndexes.iterator();
       int nextStartIndex = startIndexIterator.hasNext() ? startIndexIterator.next() : -1;
 
       for (int argi = 0; argi < arguments.size(); ) {
 
-        // If we're grouping arguments, record the actual beginning of each group
+        // Record the actual beginning of each group.
         if (argi == nextStartIndex) {
           resultGroupStarts.add(result.size());
           nextStartIndex = startIndexIterator.hasNext() ? startIndexIterator.next() : -1;
@@ -766,12 +768,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         }
       }
 
-      if (argStartIndexes.isEmpty()) {
-        // Normal case, no further grouping
-        return ImmutableList.copyOf(result);
-      }
-
-      // Grouped case -- concatenate results.
+      // Concatenate results.
       ImmutableList.Builder<String> groupedBuilder = ImmutableList.builder();
       int numStarts = resultGroupStarts.size();
       resultGroupStarts.add(result.size());
@@ -930,7 +927,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Override
     public void expandToCommandLine(Object object, Consumer<String> args)
         throws CommandLineExpansionException, InterruptedException {
-      Preconditions.checkState(artifactExpander != null || !hasArtifactExpander);
+      checkState(artifactExpander != null || !hasArtifactExpander);
       applyMapEach(
           mapFn, maybeExpandDirectory(object), args, location, artifactExpander, starlarkSemantics);
     }

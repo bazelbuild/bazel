@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.HasDigest;
@@ -69,7 +70,7 @@ public final class StarlarkCustomCommandLineTest {
   public void vectorArgAddToFingerprint_treeArtifactMissingExpansion_returnsDigest()
       throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
-    StarlarkCustomCommandLine commandLine =
+    CommandLine commandLine =
         createCustomCommandLine(new VectorArg.Builder(Tuple.of(tree)).setExpandDirectories(true));
     ActionKeyContext actionKeyContext = new ActionKeyContext();
     Fingerprint fingerprint = new Fingerprint();
@@ -83,7 +84,7 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void vectorArgAddToFingerprint_expandFileset_includesInDigest() throws Exception {
     SpecialArtifact fileset = createFileset("fileset");
-    StarlarkCustomCommandLine commandLine =
+    CommandLine commandLine =
         createCustomCommandLine(
             new VectorArg.Builder(Tuple.of(fileset)).setExpandDirectories(true));
     FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
@@ -103,7 +104,7 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void vectorArgAddToFingerprint_expandTreeArtifact_includesInDigest() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
-    StarlarkCustomCommandLine commandLine =
+    CommandLine commandLine =
         createCustomCommandLine(new VectorArg.Builder(Tuple.of(tree)).setExpandDirectories(true));
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
     ActionKeyContext actionKeyContext = new ActionKeyContext();
@@ -121,7 +122,7 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void vectorArgAddToFingerprint_expandFilesetMissingExpansion_fails() {
     SpecialArtifact fileset = createFileset("fileset");
-    StarlarkCustomCommandLine commandLine =
+    CommandLine commandLine =
         createCustomCommandLine(
             new VectorArg.Builder(Tuple.of(fileset)).setExpandDirectories(true));
     ActionKeyContext actionKeyContext = new ActionKeyContext();
@@ -135,7 +136,7 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void vectorArgArguments_expandsTreeArtifact() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
-    StarlarkCustomCommandLine commandLine =
+    CommandLine commandLine =
         createCustomCommandLine(new VectorArg.Builder(Tuple.of(tree)).setExpandDirectories(true));
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
@@ -152,7 +153,7 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void vectorArgArguments_expandsFileset() throws Exception {
     SpecialArtifact fileset = createFileset("fileset");
-    StarlarkCustomCommandLine commandLine =
+    CommandLine commandLine =
         createCustomCommandLine(
             new VectorArg.Builder(Tuple.of(fileset)).setExpandDirectories(true));
     FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
@@ -170,17 +171,17 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void vectorArgArguments_treeArtifactMissingExpansion_returnsEmptyList() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
-    StarlarkCustomCommandLine customCommandLine =
+    CommandLine commandLine =
         createCustomCommandLine(new VectorArg.Builder(Tuple.of(tree)).setExpandDirectories(true));
 
     // TODO(b/167696101): Fail arguments computation when we are missing the directory from inputs.
-    assertThat(customCommandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP)).isEmpty();
+    assertThat(commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP)).isEmpty();
   }
 
   @Test
   public void vectorArgArguments_filesetMissingExpansion_fails() {
     SpecialArtifact fileset = createFileset("fileset");
-    StarlarkCustomCommandLine commandLine =
+    CommandLine commandLine =
         createCustomCommandLine(
             new VectorArg.Builder(Tuple.of(fileset)).setExpandDirectories(true));
 
@@ -215,8 +216,7 @@ public final class StarlarkCustomCommandLineTest {
         type);
   }
 
-  private static StarlarkCustomCommandLine createCustomCommandLine(
-      VectorArg.Builder vectorArgBuilder) {
+  private static CommandLine createCustomCommandLine(VectorArg.Builder vectorArgBuilder) {
     return new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
         .add(vectorArgBuilder.setLocation(Location.BUILTIN))
         .build(/* flagPerLine= */ false);
