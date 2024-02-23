@@ -347,7 +347,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
             pathMapper,
             getCommandLineLimits());
     return new ActionSpawn(
-        ImmutableList.copyOf(expandedCommandLines.arguments()),
+        expandedCommandLines.arguments(),
         this,
         env,
         envResolved,

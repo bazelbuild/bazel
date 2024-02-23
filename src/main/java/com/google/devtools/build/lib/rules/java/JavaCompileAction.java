@@ -593,7 +593,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         @Nullable Artifact onlyMandatoryOutput,
         PathMapper pathMapper) {
       super(
-          ImmutableList.copyOf(expandedCommandLines.arguments()),
+          expandedCommandLines.arguments(),
           environment,
           executionInfo,
           JavaCompileAction.this,

@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -92,7 +91,7 @@ public abstract class CommandLines {
       int paramFileArgLengthEstimate)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList<CommandLineAndParamFileInfo> commandLines = unpack();
-    IterablesChain.Builder<String> arguments = IterablesChain.builder();
+    ImmutableList.Builder<String> arguments = ImmutableList.builder();
     ArrayList<ParamFileActionInput> paramFiles = new ArrayList<>(commandLines.size());
     int conservativeMaxLength = limits.maxLength - commandLines.size() * paramFileArgLengthEstimate;
     int cmdLineLength = 0;
@@ -103,14 +102,14 @@ public abstract class CommandLines {
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
       Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
       if (paramFileInfo == null) {
-        arguments.add(args);
+        arguments.addAll(args);
         cmdLineLength += totalArgLen(args);
       } else {
         boolean useParamFile = true;
         if (!paramFileInfo.always()) {
           int tentativeCmdLineLength = cmdLineLength + totalArgLen(args);
           if (tentativeCmdLineLength <= conservativeMaxLength) {
-            arguments.add(args);
+            arguments.addAll(args);
             cmdLineLength = tentativeCmdLineLength;
             useParamFile = false;
           }
@@ -124,7 +123,7 @@ public abstract class CommandLines {
               SingleStringArgFormatter.format(
                   paramFileInfo.getFlagFormatString(),
                   pathMapper.map(paramFileExecPath).getPathString());
-          arguments.addElement(paramArg);
+          arguments.add(paramArg);
           cmdLineLength += paramArg.length() + 1;
 
           if (paramFileInfo.flagsOnly()) {
@@ -137,7 +136,7 @@ public abstract class CommandLines {
                     paramFileInfo.getFileType(),
                     paramFileInfo.getCharset()));
             for (String positionalArg : ParameterFile.nonFlags(args)) {
-              arguments.addElement(positionalArg);
+              arguments.add(positionalArg);
               cmdLineLength += positionalArg.length() + 1;
             }
           } else {
@@ -198,18 +197,16 @@ public abstract class CommandLines {
    * spawn is executed.
    */
   public static class ExpandedCommandLines {
-    private final Iterable<String> arguments;
+    private final ImmutableList<String> arguments;
     private final List<ParamFileActionInput> paramFiles;
 
-    ExpandedCommandLines(
-        Iterable<String> arguments,
-        List<ParamFileActionInput> paramFiles) {
+    ExpandedCommandLines(ImmutableList<String> arguments, List<ParamFileActionInput> paramFiles) {
       this.arguments = arguments;
       this.paramFiles = paramFiles;
     }
 
     /** Returns the primary command line of the command. */
-    public Iterable<String> arguments() {
+    public ImmutableList<String> arguments() {
       return arguments;
     }
 
