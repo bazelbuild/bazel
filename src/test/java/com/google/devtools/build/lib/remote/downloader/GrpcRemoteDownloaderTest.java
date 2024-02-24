@@ -351,7 +351,11 @@ public class GrpcRemoteDownloaderTest {
             Optional.<Checksum>of(
                 Checksum.fromSubresourceIntegrity(
                     "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
-            "canonical ID");
+            "canonical ID",
+            ImmutableMap.of(
+                "Authorization", ImmutableList.of("Basic Zm9vOmJhcg=="),
+                "X-Custom-Token", ImmutableList.of("foo", "bar")
+            ));
 
     assertThat(request)
         .isEqualTo(
@@ -366,6 +370,16 @@ public class GrpcRemoteDownloaderTest {
                         .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
                 .addQualifiers(
                     Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
+                .addQualifiers(
+                    Qualifier.newBuilder()
+                        .setName("http_header:Authorization")
+                        .setValue("Basic Zm9vOmJhcg==")
+                )
+                .addQualifiers(
+                    Qualifier.newBuilder()
+                        .setName("http_header:X-Custom-Token")
+                        .setValue("foo,bar")
+                )
                 .build());
   }
 }
