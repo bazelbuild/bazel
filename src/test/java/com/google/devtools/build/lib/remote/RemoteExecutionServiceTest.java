@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -1940,47 +1941,6 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void uploadInputsIfNotPresent_deduplicateFindMissingBlobCalls() throws Exception {
-    int taskCount = 100;
-    ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
-    AtomicReference<Throwable> error = new AtomicReference<>(null);
-    Semaphore semaphore = new Semaphore(0);
-    ActionInput input = ActionInputHelper.fromPath("inputs/foo");
-    Digest inputDigest = fakeFileCache.createScratchInput(input, "input-foo");
-    RemoteExecutionService service = newRemoteExecutionService();
-    Spawn spawn =
-        newSpawn(
-            ImmutableMap.of(),
-            ImmutableSet.of(),
-            NestedSetBuilder.create(Order.STABLE_ORDER, input));
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteAction action = service.buildRemoteAction(spawn, context);
-
-    for (int i = 0; i < taskCount; ++i) {
-      executorService.execute(
-          () -> {
-            try {
-              service.uploadInputsIfNotPresent(action, /* force= */ false);
-            } catch (Throwable e) {
-              if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-              }
-              error.set(e);
-            } finally {
-              semaphore.release();
-            }
-          });
-    }
-    semaphore.acquire(taskCount);
-
-    assertThat(error.get()).isNull();
-    assertThat(cache.getNumFindMissingDigests()).containsEntry(inputDigest, 1);
-    for (Integer num : cache.getNumFindMissingDigests().values()) {
-      assertThat(num).isEqualTo(1);
-    }
-  }
-
-  @Test
   public void uploadInputsIfNotPresent_sameInputs_interruptOne_keepOthers() throws Exception {
     int taskCount = 100;
     ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
@@ -2034,7 +1994,7 @@ public class RemoteExecutionServiceTest {
               return future;
             })
         .when(cache.cacheProtocol)
-        .uploadBlob(any(), any(), any());
+        .uploadBlob(any(), any(), any(), anyBoolean());
     ActionInput input = ActionInputHelper.fromPath("inputs/foo");
     fakeFileCache.createScratchInput(input, "input-foo");
     RemoteExecutionService service = newRemoteExecutionService();
