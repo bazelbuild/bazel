@@ -209,13 +209,4 @@ public class XmlWriter {
     }
     writer.write(XmlEscapers.xmlContentEscaper().escape(text));
   }
-
-  /**
-   * Gets the writer that this object uses for writing.
-   *
-   * VisibleForTesting
-   */
-  Writer getUnderlyingWriter() {
-    return writer;
-  }
 }
