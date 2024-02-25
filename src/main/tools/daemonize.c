@@ -148,6 +148,7 @@ static void ExecAsDaemon(const char* log_path, bool log_append, int pid_done_fd,
   err(EXIT_FAILURE, "Failed to execute %s", exe);
 }
 
+#ifdef __linux__
 static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
   FILE* mounts_fp = fopen("/proc/self/mounts", "r");
   if (mounts_fp != NULL) {
@@ -220,6 +221,7 @@ static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
     fclose(mounts_fp);
   }
 }
+#endif
 
 // Starts the given process as a daemon.
 //
@@ -242,9 +244,11 @@ static void Daemonize(const char* log_path, bool log_append,
     err(EXIT_FAILURE, "fork failed");
   } else if (pid == 0) {
     close(pid_done_fds[1]);
+#ifdef __linux__
     if (cgroup_path != NULL) {
       MoveToCgroup(getpid(), cgroup_path);
     }
+#endif
     ExecAsDaemon(log_path, log_append, pid_done_fds[0], exe, argv);
     abort();  // NOLINT Unreachable.
   }

@@ -97,7 +97,9 @@ StartupOptions::StartupOptions(const string &product_name,
       macos_qos_class(QOS_CLASS_UNSPECIFIED),
 #endif
       unlimit_coredumps(false),
+#if defined(__linux__)
       cgroup_parent(),
+#endif
       windows_enable_symlinks(false) {
   // To ensure predictable behavior from PathFragmentConverter in Java,
   // output_root must be an absolute path. In particular, if we were to return a
@@ -390,8 +392,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     }
   } else if ((value = GetUnaryOption(arg, next_arg, "--cgroup_parent")) !=
              nullptr) {
+#ifdef __linux__
     cgroup_parent = value;
     option_sources["cgroup_parent"] = rcfile;
+#endif
   } else {
     bool extra_argument_processed;
     blaze_exit_code::ExitCode process_extra_arg_exit_code = ProcessArgExtra(
