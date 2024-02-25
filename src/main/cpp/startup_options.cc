@@ -97,8 +97,10 @@ StartupOptions::StartupOptions(const string &product_name,
       macos_qos_class(QOS_CLASS_UNSPECIFIED),
 #endif
       unlimit_coredumps(false),
-      windows_enable_symlinks(false),
-      cgroup_parent() {
+#if defined(__linux__)
+      cgroup_parent(),
+#endif
+      windows_enable_symlinks(false) {
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
@@ -386,8 +388,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     }
   } else if ((value = GetUnaryOption(arg, next_arg, "--cgroup_parent")) !=
              nullptr) {
+#ifdef __linux__
     cgroup_parent = value;
     option_sources["cgroup_parent"] = rcfile;
+#endif
   } else {
     bool extra_argument_processed;
     blaze_exit_code::ExitCode process_extra_arg_exit_code = ProcessArgExtra(

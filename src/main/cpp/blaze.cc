@@ -502,9 +502,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
 
   result.push_back("--product_name=" + startup_options.product_name);
 
+#ifdef __linux__
   if (!startup_options.cgroup_parent.empty()) {
       result.push_back("--cgroup_parent=" + startup_options.cgroup_parent);
   }
+#endif
 
   startup_options.AddExtraOptions(&result);
 
