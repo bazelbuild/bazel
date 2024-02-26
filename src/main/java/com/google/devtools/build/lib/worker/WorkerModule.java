@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
-import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
@@ -46,10 +45,12 @@ import javax.annotation.Nullable;
 
 /** A module that adds the WorkerActionContextProvider to the available action context providers. */
 public class WorkerModule extends BlazeModule {
+
+  private static final String STALE_TRASH = "_stale_trash";
   private CommandEnvironment env;
 
   private WorkerFactory workerFactory;
-  private TreeDeleter treeDeleter;
+  private AsynchronousTreeDeleter treeDeleter;
   @VisibleForTesting WorkerPoolImpl workerPool;
   @Nullable private WorkerLifecycleManager workerLifecycleManager;
 
@@ -114,6 +115,9 @@ public class WorkerModule extends BlazeModule {
     Path trashBase = workerDir.getRelative(AsynchronousTreeDeleter.MOVED_TRASH_DIR);
     if (treeDeleter == null) {
       treeDeleter = new AsynchronousTreeDeleter(trashBase);
+      if (trashBase.exists()) {
+        removeStaleTrash(workerDir, trashBase);
+      }
     }
     WorkerFactory newWorkerFactory =
         new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter);
@@ -183,6 +187,28 @@ public class WorkerModule extends BlazeModule {
 
     // Reset the pool at the beginning of each build.
     workerPool.reset();
+  }
+
+  private void removeStaleTrash(Path workerDir, Path trashBase) {
+    try {
+      // The AsynchronousTreeDeleter relies on a counter for naming directories that will be
+      // moved out of the way before being deleted asynchronously.
+      // If there is trash on disk from a previous bazel server instance, the dirs will have
+      // names not synced with the counter, therefore we may run the risk of moving a directory
+      // in this server instance to a path of an existing directory. To solve this we rename
+      // the trash directory that was on disk, create a new empty trash directory and delete
+      // the old trash via the AsynchronousTreeDeleter. Before deletion the stale trash will be
+      // moved to a directory named `0` under MOVED_TRASH_DIR.
+      Path staleTrash = trashBase.getParentDirectory().getChild(STALE_TRASH);
+      trashBase.renameTo(staleTrash);
+      trashBase.createDirectory();
+      treeDeleter.deleteTree(staleTrash);
+    } catch (IOException e) {
+      env.getReporter()
+          .handle(
+              Event.error(
+                  String.format("Could not trash dir in '%s': %s", workerDir, e.getMessage())));
+    }
   }
 
   @Override
