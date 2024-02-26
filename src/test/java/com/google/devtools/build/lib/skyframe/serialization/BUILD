@@ -178,7 +178,6 @@ java_test(
     size = "small",
     srcs = ["ByteArrayCodecTest.java"],
     javacopts = [
-        "-XepOpt:CheckReturnValue:CheckAllConstructors=false",  # b/226969262
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",

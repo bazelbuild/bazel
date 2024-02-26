@@ -17,7 +17,6 @@ java_library(
         exclude = ["testbed/*.java"],
     ),
     javacopts = [
-        "-XepOpt:CheckReturnValue:CheckAllConstructors=false",  # b/226969262
     ],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",

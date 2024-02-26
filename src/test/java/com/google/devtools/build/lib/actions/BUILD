@@ -27,7 +27,6 @@ java_library(
         ],
     ),
     javacopts = [
-        "-XepOpt:CheckReturnValue:CheckAllConstructors=false",  # b/226969262
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
