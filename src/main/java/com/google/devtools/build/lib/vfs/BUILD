@@ -1,3 +1,4 @@
+load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -24,6 +25,10 @@ PATH_FRAGMENT_SOURCES = [
 
 OUTPUT_SERVICE_SOURCES = [
     "OutputService.java",
+]
+
+DIGEST_HASH_FUNCTION_SOURCES = [
+    "DigestHashFunction.java",
 ]
 
 java_library(
@@ -59,9 +64,13 @@ java_library(
         [
             "*.java",
         ],
-        exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES + OS_PATH_POLICY_SOURCES,
+        exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES + OS_PATH_POLICY_SOURCES + DIGEST_HASH_FUNCTION_SOURCES,
     ),
+    exports = [
+        ":digest_hash_function",
+    ],
     deps = [
+        ":digest_hash_function",
         ":ospathpolicy",
         ":pathfragment",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -72,12 +81,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/com/google/devtools/common/options",
         "//third_party:caffeine",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_11_library(
+    name = "digest_hash_function",
+    srcs = DIGEST_HASH_FUNCTION_SOURCES,
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
 
