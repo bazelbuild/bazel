@@ -628,6 +628,11 @@ bool ExportGtestVariables(const Path& test_tmpdir) {
 }
 
 bool ExportMiscEnvvars(const Path& cwd) {
+  // Add BAZEL_TEST environment variable.
+  if (!SetEnv(L"BAZEL_TEST", L"1")) {
+    return false;
+  }
+
   for (const wchar_t* name :
        {L"TEST_INFRASTRUCTURE_FAILURE_FILE", L"TEST_LOGSPLITTER_OUTPUT_FILE",
         L"TEST_PREMATURE_EXIT_FILE", L"TEST_UNUSED_RUNFILES_LOG_FILE",
