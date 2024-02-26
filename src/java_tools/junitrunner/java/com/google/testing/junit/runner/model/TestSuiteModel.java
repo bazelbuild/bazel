@@ -151,6 +151,23 @@ public class TestSuiteModel {
   }
 
   /**
+   * Indicate that the test case with the given key has requested that a property be written in the
+   * XML.
+   *
+   * <p>
+   *
+   * @param description key for a test case
+   * @param name The property name.
+   * @param value The property value.
+   */
+  public void testEmittedProperty(Description description, String name, String value) {
+    TestCaseNode testCase = getTestCase(description);
+    if (testCase != null) {
+      testCase.exportProperty(name, value);
+    }
+  }
+
+  /**
    * Adds a failure to the test with the given key. If the specified test is suite, the failure will
    * be added to all its children.
    *
