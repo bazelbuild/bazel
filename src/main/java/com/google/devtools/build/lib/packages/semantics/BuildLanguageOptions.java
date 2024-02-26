@@ -714,20 +714,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalRuleExtensionApi;
 
   @Option(
-      name = "separate_aspect_deps",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      help =
-          "If enabled, the dependencies of the main aspect in an aspect path will be"
-              + " separated from those of the target and the base aspects. ctx.attr.{attr_name}"
-              + " will always get the attribute value from the main aspect and"
-              + " ctx.rule.attr.{attr_name} will get the value from the rule if it has an attribute"
-              + " with that name or from the base aspects attributes (first one in"
-              + " the aspects path wins).")
-  public boolean separateAspectDeps;
-
-  @Option(
       name = "incompatible_enable_deprecated_label_apis",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -838,7 +824,6 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS,
                 incompatibleDisableTargetDefaultProviderFields)
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
-            .setBool(SEPARATE_ASPECT_DEPS, separateAspectDeps)
             .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH, incompatibleStopExportingBuildFilePath)
@@ -935,7 +920,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS =
       "-incompatible_disable_target_default_provider_fields";
   public static final String EXPERIMENTAL_RULE_EXTENSION_API = "-experimental_rule_extension_api";
-  public static final String SEPARATE_ASPECT_DEPS = "+separate_aspect_deps";
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =

@@ -2814,7 +2814,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "cc_library(",
         "     name = 'zzz',",
         ")");
-    useConfiguration("--separate_aspect_deps");
 
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -6633,7 +6632,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "  attrs = {'_attr': attr.label(default=':bin', executable=True, cfg='exec')},",
         ")");
     scratch.file("test/bin.sh").setExecutable(true);
-    useConfiguration("--separate_aspect_deps");
 
     AnalysisResult result =
         update(ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"), "//test:bin");

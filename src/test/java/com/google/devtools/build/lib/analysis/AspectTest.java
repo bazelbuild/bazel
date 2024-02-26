@@ -1048,7 +1048,6 @@ public class AspectTest extends AnalysisTestCase {
         ImmutableList.of(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE));
     scratch.file("extra/BUILD", "simple(name='extra')", "simple(name='extra2')");
     scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
-    useConfiguration("--separate_aspect_deps");
 
     AnalysisResult analysisResult =
         update(

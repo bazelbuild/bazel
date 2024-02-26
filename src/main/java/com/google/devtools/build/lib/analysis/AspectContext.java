@@ -26,10 +26,8 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -45,8 +43,6 @@ public final class AspectContext extends RuleContext {
 
   private final ImmutableList<AspectDescriptor> aspectDescriptors;
 
-  // If (separate_aspect_deps) flag is disabled, holds all merged prerequisites otherwise it will
-  // only have the main aspect's prerequisites.
   private final PrerequisitesCollection mainAspectPrerequisites;
 
   AspectContext(
@@ -91,71 +87,8 @@ public final class AspectContext extends RuleContext {
       AttributeMap ruleAttributes,
       ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetsMap,
       ExecGroupCollection execGroupCollection) {
-
-    if (builder.separateAspectDeps()) {
-      return createAspectContextWithSeparatedPrerequisites(
-          builder, ruleAttributes, targetsMap, execGroupCollection);
-    } else {
-      return createAspectContextWithMergedPrerequisites(
-          builder, ruleAttributes, targetsMap, execGroupCollection);
-    }
-  }
-
-  /**
-   * Merges the rule prerequisites with the aspects prerequisites giving precedence to aspects
-   * prerequisites if any.
-   *
-   * <p>TODO(b/293304543) merging prerequisites should be not needed after completing the solution
-   * to isolate main aspect dependencies from the underlying rule and aspects dependencies.
-   */
-  private static AspectContext createAspectContextWithMergedPrerequisites(
-      RuleContext.Builder builder,
-      AttributeMap ruleAttributes,
-      ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetsMap,
-      ExecGroupCollection execGroupCollection) {
-
-    ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData>
-        attributeNameToTargetsMap = ImmutableSortedKeyListMultimap.builder();
-    HashSet<String> processedAttributes = new HashSet<>();
-
-    // add aspects prerequisites
-    for (Aspect aspect : builder.getAspects()) {
-      for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-        DependencyKind key =
-            DependencyKind.AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass());
-        if (targetsMap.containsKey(key)) {
-          if (processedAttributes.add(attribute.getName())) {
-            attributeNameToTargetsMap.putAll(attribute.getName(), targetsMap.get(key));
-          }
-        }
-      }
-    }
-
-    // add rule prerequisites
-    for (var entry : targetsMap.asMap().entrySet()) {
-      if (entry.getKey().getOwningAspect() == null) {
-        if (!processedAttributes.contains(entry.getKey().getAttribute().getName())) {
-          attributeNameToTargetsMap.putAll(
-              entry.getKey().getAttribute().getName(), entry.getValue());
-        }
-      }
-    }
-    AspectAwareAttributeMapper ruleAndAspectsAttributes =
-        new AspectAwareAttributeMapper(
-            ruleAttributes, mergeAspectsAttributes(builder.getAspects()));
-    PrerequisitesCollection mergedPrerequisitesCollection =
-        new PrerequisitesCollection(
-            attributeNameToTargetsMap.build(),
-            ruleAndAspectsAttributes,
-            builder.getErrorConsumer(),
-            builder.getRule(),
-            builder.getRuleClassNameForLogging());
-    return new AspectContext(
-        builder,
-        ruleAndAspectsAttributes,
-        /* ruleAndBaseAspectsPrerequisites= */ mergedPrerequisitesCollection,
-        /* mainAspectPrerequisites= */ mergedPrerequisitesCollection,
-        execGroupCollection);
+    return createAspectContextWithSeparatedPrerequisites(
+        builder, ruleAttributes, targetsMap, execGroupCollection);
   }
 
   /**
@@ -263,16 +196,9 @@ public final class AspectContext extends RuleContext {
 
   @Override
   public ImmutableList<? extends TransitiveInfoCollection> getAllPrerequisites() {
-    boolean separateAspectDeps =
-        getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.SEPARATE_ASPECT_DEPS);
-    if (separateAspectDeps) {
-      return Streams.concat(
-              mainAspectPrerequisites.getAllPrerequisites().stream(),
-              getRulePrerequisitesCollection().getAllPrerequisites().stream())
-          .collect(toImmutableList());
-    }
-    return super.getAllPrerequisites();
+    return Streams.concat(
+            mainAspectPrerequisites.getAllPrerequisites().stream(),
+            getRulePrerequisitesCollection().getAllPrerequisites().stream())
+        .collect(toImmutableList());
   }
 }

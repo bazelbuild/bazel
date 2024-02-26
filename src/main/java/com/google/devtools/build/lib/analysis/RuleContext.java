@@ -1899,10 +1899,6 @@ public class RuleContext extends TargetContext
       return reporter;
     }
 
-    boolean separateAspectDeps() {
-      return env.getStarlarkSemantics().getBool(BuildLanguageOptions.SEPARATE_ASPECT_DEPS);
-    }
-
     public BuildConfigurationValue getConfiguration() {
       return configuration;
     }
