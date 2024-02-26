@@ -471,6 +471,40 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertTrue(os.path.exists(output_file))
     self.assertFalse(os.path.exists(output_zip))
 
+  def testBazelForwardsRequiredEnvVariable(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            ')',
+            '',
+        ],
+    )
+    self.ScratchFile(
+        'foo.sh',
+        [
+            """
+            if [[ "$BAZEL_TEST" == "1" ]]; then
+                exit 0
+            else
+                echo "BAZEL_TEST is not set to 1"
+                exit 1
+            fi
+            """,
+        ],
+    )
+
+    exit_code, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//:foo_test',
+        ],
+    )
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
   def testTestShardStatusFile(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
