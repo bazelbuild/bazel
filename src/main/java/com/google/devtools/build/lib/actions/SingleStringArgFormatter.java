@@ -36,13 +36,23 @@ public final class SingleStringArgFormatter {
   }
 
   /**
-   * Returns the would-be length of the result of calling {@link #format}, without actually applying
-   * any formatting.
+   * Calculates the format specifier's contribution to the length of a string created by calling
+   * {@link #format}, without actually applying any formatting.
+   *
+   * <p>For a typical format specifier with no escape characters, returns {@code formatStr.length()
+   * - 2}, since the {@code %s} gets replaced during formatting. The result may differ if the format
+   * specifier contains escape characters.
+   *
+   * <p>For all valid format specifiers, the following holds:
+   *
+   * <pre>{@code
+   * format(formatStr, subject).length() == formatSpecifierLength(formatStr) + subject.length()
+   * }</pre>
    *
    * @throws IllegalArgumentException if the format string is invalid.
    */
-  public static int formattedLength(String formatStr, String subject) {
-    return getLengthAndMaybeFormat(formatStr, subject, null);
+  public static int formattedLength(String formatStr) {
+    return getLengthAndMaybeFormat(formatStr, "", null);
   }
 
   /**

@@ -43,7 +43,7 @@ public final class SingleStringArgFormatterTest {
           String format) {
     assertThat(isValid(format)).isFalse();
     assertThrows(IllegalArgumentException.class, () -> format(format, "world"));
-    assertThrows(IllegalArgumentException.class, () -> formattedLength(format, "world"));
+    assertThrows(IllegalArgumentException.class, () -> formattedLength(format));
   }
 
   @Test
@@ -54,6 +54,6 @@ public final class SingleStringArgFormatterTest {
   public void valid(String format, String expected) {
     assertThat(isValid(format)).isTrue();
     assertThat(format(format, "world")).isEqualTo(expected);
-    assertThat(formattedLength(format, "world")).isEqualTo(expected.length());
+    assertThat(formattedLength(format)).isEqualTo(expected.length() - "world".length());
   }
 }
