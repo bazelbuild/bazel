@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -230,6 +231,32 @@ public class WorkerModuleTest {
     // But an actual worker cannot be created.
     WorkerKey key = TestUtils.createWorkerKey(fs, "Work", /* proxied=*/ false);
     assertThrows(IOException.class, () -> module.workerPool.borrowObject(key));
+  }
+
+  @Test
+  public void buildStarting_cleansStaleTrashDirCleanedOnFirstBuild() throws Exception {
+    WorkerModule module = new WorkerModule();
+    WorkerOptions options = WorkerOptions.DEFAULTS;
+
+    when(request.getOptions(WorkerOptions.class)).thenReturn(options);
+    setupEnvironment("/outputRoot");
+
+    module.beforeCommand(env);
+    Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
+    Path trashBase = workerDir.getChild(AsynchronousTreeDeleter.MOVED_TRASH_DIR);
+    trashBase.createDirectoryAndParents();
+
+    Path staleTrash = trashBase.getChild("random-trash");
+
+    staleTrash.createDirectoryAndParents();
+    module.buildStarting(BuildStartingEvent.create(env, request));
+    // Trash is cleaned upon first build.
+    assertThat(staleTrash.exists()).isFalse();
+
+    staleTrash.createDirectoryAndParents();
+    module.buildStarting(BuildStartingEvent.create(env, request));
+    // Trash is not cleaned upon subsequent builds.
+    assertThat(staleTrash.exists()).isTrue();
   }
 
   private void setupEnvironment(String rootDir) throws IOException, AbruptExitException {
