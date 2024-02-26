@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -107,7 +108,7 @@ public final class CompileCommandLine {
    * @param cppCompileAction - {@link CppCompileAction} owning this {@link CompileCommandLine}.
    */
   public CommandLine getFilteredFeatureConfigurationCommandLine(CppCompileAction cppCompileAction) {
-    return new CommandLine() {
+    return new AbstractCommandLine() {
 
       @Override
       public Iterable<String> arguments() throws CommandLineExpansionException {

@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -323,7 +324,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       CcToolchainVariables buildVariables,
       boolean usePic) {
     CommandLine ltoCommandLine =
-        new CommandLine() {
+        new AbstractCommandLine() {
 
           @Override
           public Iterable<String> arguments() throws CommandLineExpansionException {

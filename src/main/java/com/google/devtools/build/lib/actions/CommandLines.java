@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.CommandLine.ArgChunk;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -100,16 +101,16 @@ public abstract class CommandLines {
     for (CommandLineAndParamFileInfo pair : commandLines) {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
-      Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
+      ArgChunk chunk = commandLine.expand(artifactExpander, pathMapper);
       if (paramFileInfo == null) {
-        arguments.addAll(args);
-        cmdLineLength += totalArgLen(args);
+        arguments.addAll(chunk.arguments());
+        cmdLineLength += chunk.totalArgLength();
       } else {
         boolean useParamFile = true;
         if (!paramFileInfo.always()) {
-          int tentativeCmdLineLength = cmdLineLength + totalArgLen(args);
+          int tentativeCmdLineLength = cmdLineLength + chunk.totalArgLength();
           if (tentativeCmdLineLength <= conservativeMaxLength) {
-            arguments.addAll(args);
+            arguments.addAll(chunk.arguments());
             cmdLineLength = tentativeCmdLineLength;
             useParamFile = false;
           }
@@ -132,10 +133,10 @@ public abstract class CommandLines {
             paramFiles.add(
                 new ParamFileActionInput(
                     paramFileExecPath,
-                    ParameterFile.flagsOnly(args),
+                    ParameterFile.flagsOnly(chunk.arguments()),
                     paramFileInfo.getFileType(),
                     paramFileInfo.getCharset()));
-            for (String positionalArg : ParameterFile.nonFlags(args)) {
+            for (String positionalArg : ParameterFile.nonFlags(chunk.arguments())) {
               arguments.add(positionalArg);
               cmdLineLength += positionalArg.length() + 1;
             }
@@ -143,7 +144,7 @@ public abstract class CommandLines {
             paramFiles.add(
                 new ParamFileActionInput(
                     paramFileExecPath,
-                    args,
+                    chunk.arguments(),
                     paramFileInfo.getFileType(),
                     paramFileInfo.getCharset()));
           }
@@ -276,14 +277,6 @@ public abstract class CommandLines {
    * memory optimizations made by {@link CommandLines}.
    */
   public abstract ImmutableList<CommandLineAndParamFileInfo> unpack();
-
-  private static int totalArgLen(Iterable<String> args) {
-    int result = 0;
-    for (String s : args) {
-      result += s.length() + 1;
-    }
-    return result;
-  }
 
   private static void addParamFileInfoToFingerprint(
       ParamFileInfo paramFileInfo, Fingerprint fingerprint) {
@@ -521,7 +514,7 @@ public abstract class CommandLines {
     }
   }
 
-  private static class SingletonCommandLine extends CommandLine {
+  private static class SingletonCommandLine extends AbstractCommandLine {
     private final Object arg;
 
     SingletonCommandLine(Object arg) {

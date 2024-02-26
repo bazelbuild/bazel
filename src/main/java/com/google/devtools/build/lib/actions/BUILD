@@ -31,6 +31,7 @@ java_library(
     name = "actions",
     srcs = [
         "AbstractAction.java",
+        "AbstractCommandLine.java",
         "Action.java",
         "ActionAnalysisMetadata.java",
         "ActionCacheAwareAction.java",
@@ -169,7 +170,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

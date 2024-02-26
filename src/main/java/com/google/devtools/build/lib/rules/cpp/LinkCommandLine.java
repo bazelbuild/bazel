@@ -20,8 +20,8 @@ import static com.google.devtools.build.lib.rules.cpp.LinkBuildVariables.LINKER_
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
@@ -43,7 +43,7 @@ import net.starlark.java.eval.Starlark;
  * as well as static libraries.
  */
 @Immutable
-public final class LinkCommandLine extends CommandLine {
+public final class LinkCommandLine extends AbstractCommandLine {
   private final String actionName;
   private final String forcedToolPath;
   private final CcToolchainVariables variables;
