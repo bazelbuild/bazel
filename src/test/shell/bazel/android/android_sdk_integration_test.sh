@@ -85,12 +85,15 @@ function test_specifying_android_sdk_flag() {
   create_new_workspace
   setup_android_sdk_support
   create_android_binary
+  setup_android_platforms
+
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 android_sdk_repository(
     name = "a",
 )
 EOF
   ANDROID_HOME=$ANDROID_SDK bazel build --android_sdk=@a//:sdk-24 \
+    --android_platforms=//test_android_platforms:simple \
     //java/bazel:bin || fail "build with --android_sdk failed"
 }
 
