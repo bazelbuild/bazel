@@ -530,6 +530,7 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "u/BUILD",
         "genrule(name='foo_stamp', srcs=[], outs=['uu'], stamp=1, cmd='')",
         "genrule(name='foo_nostamp', srcs=[], outs=['vv'], stamp=0, cmd='')",
+        "genrule(name='foo_autostamp', srcs=[], outs=['aa'], stamp=-1, cmd='')",
         "genrule(name='foo_default', srcs=[], outs=['xx'], cmd='')");
   }
 
@@ -562,6 +563,8 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     assertStamped(getExecConfiguredTarget("//u:foo_stamp"));
     assertNotStamped("//u:foo_nostamp");
     assertNotStamped(getExecConfiguredTarget("//u:foo_nostamp"));
+    assertNotStamped("//u:foo_autostamp");
+    assertNotStamped(getExecConfiguredTarget("//u:foo_autostamp"));
     assertNotStamped("//u:foo_default");
   }
 
@@ -571,8 +574,10 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     createStampingTargets();
     assertStamped("//u:foo_stamp");
     assertStamped(getExecConfiguredTarget("//u:foo_stamp"));
-    // assertStamped("//u:foo_nostamp");
+    assertNotStamped("//u:foo_nostamp");
     assertNotStamped(getExecConfiguredTarget("//u:foo_nostamp"));
+    assertStamped("//u:foo_autostamp");
+    assertNotStamped(getExecConfiguredTarget("//u:foo_autostamp"));
     assertNotStamped("//u:foo_default");
   }
 
