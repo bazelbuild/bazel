@@ -36,14 +36,12 @@ import com.google.devtools.common.options.OptionsProvider;
  */
 public final class QuiescingExecutorsImpl implements QuiescingExecutors {
   private static final String SKYFRAME_EVALUATOR = "skyframe-evaluator";
-  private static final String SKYFRAME_EVALUATOR_GLOBS = "skyframe-evaluator-globs";
   private static final String SKYFRAME_EVALUATOR_CPU_HEAVY = "skyframe-evaluator-cpu-heavy";
   private static final String SKYFRAME_EVALUATOR_EXECUTION = "skyframe-evaluator-execution";
 
   private int analysisParallelism;
   private int executionParallelism;
   private int globbingParallelism;
-  private int skyframeGlobsParallelism;
 
   /**
    * The size of the thread pool for CPU-heavy tasks set by
@@ -60,7 +58,6 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
         /* analysisParallelism= */ 6,
         /* executionParallelism= */ 6,
         /* globbingParallelism= */ 6,
-        /* skyframeGlobsParallelism= */ 4,
         /* cpuHeavySkyKeysThreadPoolSize= */ 4);
   }
 
@@ -69,7 +66,6 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
         /* analysisParallelism= */ 0,
         /* executionParallelism= */ 0,
         /* globbingParallelism= */ 0,
-        /* skyframeGlobsParallelism= */ 0,
         /* cpuHeavySkyKeysThreadPoolSize= */ 0);
   }
 
@@ -77,12 +73,10 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
       int analysisParallelism,
       int executionParallelism,
       int globbingParallelism,
-      int skyframeGlobsParallelism,
       int cpuHeavySkyKeysThreadPoolSize) {
     this.analysisParallelism = analysisParallelism;
     this.executionParallelism = executionParallelism;
     this.globbingParallelism = globbingParallelism;
-    this.skyframeGlobsParallelism = skyframeGlobsParallelism;
     this.cpuHeavySkyKeysThreadPoolSize = cpuHeavySkyKeysThreadPoolSize;
   }
 
@@ -101,8 +95,6 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
     this.executionParallelism = buildRequestOptions != null ? buildRequestOptions.jobs : 0;
     var packageOptions = options.getOptions(PackageOptions.class);
     this.globbingParallelism = packageOptions != null ? packageOptions.globbingThreads : 0;
-    this.skyframeGlobsParallelism =
-        packageOptions != null ? packageOptions.skyframeGlobsThreads : 0;
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     this.cpuHeavySkyKeysThreadPoolSize =
         analysisOptions != null ? analysisOptions.cpuHeavySkyKeysThreadPoolSize : 0;
@@ -126,24 +118,16 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
   @Override
   public QuiescingExecutor getAnalysisExecutor() {
     checkState(analysisParallelism > 0, "expected analysisParallelism > 0 : %s", this);
-    if (skyframeGlobsParallelism > 0 || cpuHeavySkyKeysThreadPoolSize > 0) {
+    if (cpuHeavySkyKeysThreadPoolSize > 0) {
       return MultiExecutorQueueVisitor.createWithExecutorServices(
           newNamedPool(SKYFRAME_EVALUATOR, analysisParallelism),
-          skyframeGlobsParallelism > 0
-              ? AbstractQueueVisitor.createExecutorService(
-                  /* parallelism= */ skyframeGlobsParallelism, SKYFRAME_EVALUATOR_GLOBS)
-              : null,
-          cpuHeavySkyKeysThreadPoolSize > 0
-              ? AbstractQueueVisitor.createExecutorService(
-                  /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY)
-              : null,
-          /* executionPhaseExecutorService= */ null,
+          AbstractQueueVisitor.createExecutorService(
+              /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY),
           ExceptionHandlingMode.FAIL_FAST,
           ParallelEvaluatorErrorClassifier.instance());
-    } else {
-      return AbstractQueueVisitor.create(
-          SKYFRAME_EVALUATOR, analysisParallelism(), ParallelEvaluatorErrorClassifier.instance());
     }
+    return AbstractQueueVisitor.create(
+        SKYFRAME_EVALUATOR, analysisParallelism(), ParallelEvaluatorErrorClassifier.instance());
   }
 
   @Override
@@ -163,10 +147,6 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
         cpuHeavySkyKeysThreadPoolSize > 0, "expected cpuHeavySkyKeysThreadPoolSize > 0 : %s", this);
     return MultiExecutorQueueVisitor.createWithExecutorServices(
         newNamedPool(SKYFRAME_EVALUATOR, analysisParallelism),
-        skyframeGlobsParallelism > 0
-            ? AbstractQueueVisitor.createExecutorService(
-                /* parallelism= */ skyframeGlobsParallelism, SKYFRAME_EVALUATOR_GLOBS)
-            : null,
         AbstractQueueVisitor.createExecutorService(
             /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY),
         AbstractQueueVisitor.createExecutorService(

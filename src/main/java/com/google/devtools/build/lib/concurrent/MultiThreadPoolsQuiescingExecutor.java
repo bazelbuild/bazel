@@ -19,7 +19,6 @@ public interface MultiThreadPoolsQuiescingExecutor extends QuiescingExecutor {
   enum ThreadPoolType {
     // Suitable for CPU-heavy tasks. Ideally the number of threads is close to the machine's number
     // of cores.
-    SKYFRAME_GLOBS,
     CPU_HEAVY,
     // Reserved for execution-phase tasks.
     EXECUTION_PHASE,

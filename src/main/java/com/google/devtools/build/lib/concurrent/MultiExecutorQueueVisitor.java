@@ -38,8 +38,7 @@ import javax.annotation.concurrent.GuardedBy;
 public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     implements MultiThreadPoolsQuiescingExecutor {
   private final ExecutorService regularPoolExecutorService;
-  @Nullable private final ExecutorService cpuHeavyPoolExecutorService;
-  @Nullable private final ExecutorService skyframeGlobsExecutorService;
+  private final ExecutorService cpuHeavyPoolExecutorService;
   @Nullable private final ExecutorService executionPhaseExecutorService;
 
   // Whether execution phase tasks should be allowed to move forward.
@@ -51,8 +50,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
 
   private MultiExecutorQueueVisitor(
       ExecutorService regularPoolExecutorService,
-      @Nullable ExecutorService skyframeGlobsExecutorService,
-      @Nullable ExecutorService cpuHeavyPoolExecutorService,
+      ExecutorService cpuHeavyPoolExecutorService,
       @Nullable ExecutorService executionPhaseExecutorService,
       ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
@@ -62,8 +60,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
         exceptionHandlingMode,
         errorClassifier);
     this.regularPoolExecutorService = super.getExecutorService();
-    this.skyframeGlobsExecutorService = skyframeGlobsExecutorService;
-    this.cpuHeavyPoolExecutorService = cpuHeavyPoolExecutorService;
+    this.cpuHeavyPoolExecutorService = Preconditions.checkNotNull(cpuHeavyPoolExecutorService);
     this.executionPhaseExecutorService = executionPhaseExecutorService;
     this.executionPhaseTasksGoAhead = executionPhaseExecutorService == null;
 
@@ -74,14 +71,25 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
 
   public static MultiExecutorQueueVisitor createWithExecutorServices(
       ExecutorService regularPoolExecutorService,
-      @Nullable ExecutorService skyframeGlobsExecutorService,
-      @Nullable ExecutorService cpuHeavyPoolExecutorService,
-      @Nullable ExecutorService executionPhaseExecutorService,
+      ExecutorService cpuHeavyPoolExecutorService,
+      ExceptionHandlingMode exceptionHandlingMode,
+      ErrorClassifier errorClassifier) {
+    return createWithExecutorServices(
+        regularPoolExecutorService,
+        cpuHeavyPoolExecutorService,
+        /* executionPhaseExecutorService= */ null,
+        exceptionHandlingMode,
+        errorClassifier);
+  }
+
+  public static MultiExecutorQueueVisitor createWithExecutorServices(
+      ExecutorService regularPoolExecutorService,
+      ExecutorService cpuHeavyPoolExecutorService,
+      ExecutorService executionPhaseExecutorService,
       ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     return new MultiExecutorQueueVisitor(
         regularPoolExecutorService,
-        skyframeGlobsExecutorService,
         cpuHeavyPoolExecutorService,
         executionPhaseExecutorService,
         exceptionHandlingMode,
@@ -108,11 +116,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
       case REGULAR:
         return regularPoolExecutorService;
       case CPU_HEAVY:
-        Preconditions.checkNotNull(cpuHeavyPoolExecutorService);
         return cpuHeavyPoolExecutorService;
-      case SKYFRAME_GLOBS:
-        Preconditions.checkNotNull(skyframeGlobsExecutorService);
-        return skyframeGlobsExecutorService;
       case EXECUTION_PHASE:
         Preconditions.checkNotNull(executionPhaseExecutorService);
         return executionPhaseExecutorService;
@@ -126,12 +130,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
       Throwables.throwIfUnchecked(catastrophe);
     }
     internalShutdownExecutorService(regularPoolExecutorService);
-    if (skyframeGlobsExecutorService != null) {
-      internalShutdownExecutorService(skyframeGlobsExecutorService);
-    }
-    if (cpuHeavyPoolExecutorService != null) {
-      internalShutdownExecutorService(cpuHeavyPoolExecutorService);
-    }
+    internalShutdownExecutorService(cpuHeavyPoolExecutorService);
     if (executionPhaseExecutorService != null) {
       internalShutdownExecutorService(executionPhaseExecutorService);
     }

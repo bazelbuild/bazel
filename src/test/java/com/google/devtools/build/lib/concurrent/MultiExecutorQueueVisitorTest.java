@@ -31,55 +31,24 @@ public class MultiExecutorQueueVisitorTest {
   @Test
   public void testGetExecutorServiceByThreadPoolType_regular() {
     ExecutorService regular = mock(ExecutorService.class);
-    ExecutorService skyframeGlobs = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
 
     MultiExecutorQueueVisitor queueVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular,
-            skyframeGlobs,
-            cpuHeavy,
-            /* executionPhaseExecutorService= */ null,
-            ExceptionHandlingMode.KEEP_GOING,
-            ErrorClassifier.DEFAULT);
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
 
     assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.REGULAR))
         .isEqualTo(regular);
   }
 
   @Test
-  public void testGetExecutorServiceByThreadPoolType_skyframeGlobs() {
-    ExecutorService regular = mock(ExecutorService.class);
-    ExecutorService skyframeGlobs = mock(ExecutorService.class);
-    ExecutorService cpuHeavy = mock(ExecutorService.class);
-
-    MultiExecutorQueueVisitor queueVisitor =
-        MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular,
-            skyframeGlobs,
-            cpuHeavy,
-            /* executionPhaseExecutorService= */ null,
-            ExceptionHandlingMode.KEEP_GOING,
-            ErrorClassifier.DEFAULT);
-
-    assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.SKYFRAME_GLOBS))
-        .isEqualTo(skyframeGlobs);
-  }
-
-  @Test
   public void testGetExecutorServiceByThreadPoolType_cpuHeavy() {
     ExecutorService regular = mock(ExecutorService.class);
-    ExecutorService skyframeGlobs = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
 
     MultiExecutorQueueVisitor queueVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular,
-            skyframeGlobs,
-            cpuHeavy,
-            /* executionPhaseExecutorService= */ null,
-            ExceptionHandlingMode.KEEP_GOING,
-            ErrorClassifier.DEFAULT);
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
 
     assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.CPU_HEAVY))
         .isEqualTo(cpuHeavy);
@@ -88,58 +57,43 @@ public class MultiExecutorQueueVisitorTest {
   @Test
   public void testShutDownExecutorService_noThrowables() {
     ExecutorService regular = mock(ExecutorService.class);
-    ExecutorService skyframeGlobs = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
 
     MultiExecutorQueueVisitor queueVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular,
-            skyframeGlobs,
-            cpuHeavy,
-            /* executionPhaseExecutorService= */ null,
-            ExceptionHandlingMode.KEEP_GOING,
-            ErrorClassifier.DEFAULT);
-    queueVisitor.shutdownExecutorService(/* catastrophe= */ null);
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
+    queueVisitor.shutdownExecutorService(/*catastrophe=*/ null);
 
     verify(regular).shutdown();
-    verify(skyframeGlobs).shutdown();
     verify(cpuHeavy).shutdown();
   }
 
   @Test
   public void testShutDownExecutorService_withThrowable() {
     ExecutorService regular = mock(ExecutorService.class);
-    ExecutorService skyframeGlobs = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
 
     MultiExecutorQueueVisitor queueVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular,
-            skyframeGlobs,
-            cpuHeavy,
-            /* executionPhaseExecutorService= */ null,
-            ExceptionHandlingMode.KEEP_GOING,
-            ErrorClassifier.DEFAULT);
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
     RuntimeException toBeThrown = new RuntimeException();
 
     Throwable thrown =
         assertThrows(
             Throwable.class,
-            () -> queueVisitor.shutdownExecutorService(/* catastrophe= */ toBeThrown));
+            () -> queueVisitor.shutdownExecutorService(/*catastrophe=*/ toBeThrown));
     assertThat(thrown).isEqualTo(toBeThrown);
   }
 
   @Test
   public void testGetExecutorServiceByThreadPoolType_executionPhase() {
     ExecutorService regular = mock(ExecutorService.class);
-    ExecutorService skyframeGlobs = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
     ExecutorService executionPhase = mock(ExecutorService.class);
 
     MultiExecutorQueueVisitor queueVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
             regular,
-            skyframeGlobs,
             cpuHeavy,
             executionPhase,
             ExceptionHandlingMode.KEEP_GOING,
@@ -152,17 +106,11 @@ public class MultiExecutorQueueVisitorTest {
   @Test
   public void testGetExecutorServiceByThreadPoolType_executionPhaseWithoutExecutor_throwsNPE() {
     ExecutorService regular = mock(ExecutorService.class);
-    ExecutorService skyframeGlobs = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
 
     MultiExecutorQueueVisitor queueVisitorWithoutExecutionPhasePool =
         MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular,
-            skyframeGlobs,
-            cpuHeavy,
-            /* executionPhaseExecutorService= */ null,
-            ExceptionHandlingMode.KEEP_GOING,
-            ErrorClassifier.DEFAULT);
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
 
     assertThrows(
         NullPointerException.class,
