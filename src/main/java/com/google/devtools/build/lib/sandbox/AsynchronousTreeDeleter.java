@@ -110,4 +110,8 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
       service = null;
     }
   }
+
+  public Path getTrashBase() {
+    return trashBase;
+  }
 }
