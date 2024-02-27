@@ -1932,6 +1932,8 @@ function test_sandboxed_multiplexing() {
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
     javac_supports_worker_multiplex_sandboxing = True,
 )
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])
@@ -1946,6 +1948,7 @@ EOF
 
   bazel build //pkg:a \
     --experimental_worker_multiplex_sandboxing \
+    --java_language_version=17 \
     --extra_toolchains=//pkg:java_toolchain_definition \
     >& $TEST_log || fail "build failed"
 }
