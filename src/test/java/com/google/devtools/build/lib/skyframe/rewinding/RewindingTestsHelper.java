@@ -3046,11 +3046,11 @@ public class RewindingTestsHelper {
    * <p>Example: bin/pkg/file.out -> bazel-out/k8-fastbuild/bin/pkg/file.out
    */
   private String getExecPath(String rootRelativePath) throws Exception {
-    if (testCase.getConfiguration() == null) {
+    if (testCase.getTargetConfigurationFromLastBuildResult() == null) {
       testCase.buildTarget();
     }
     return testCase
-        .getConfiguration()
+        .getTargetConfigurationFromLastBuildResult()
         .getOutputDirectory(RepositoryName.MAIN)
         .getExecPath()
         .getRelative(rootRelativePath)
