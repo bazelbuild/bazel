@@ -66,9 +66,6 @@ _android_platform_data = rule(
             mandatory = True,
         ),
         "out": attr.output(),
-        "_allowlist_function_transition": attr.label(
-            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
     },
 )
 
