@@ -1929,6 +1929,11 @@ EOF
 function test_sandboxed_multiplexing() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+default_java_toolchain(
+    name = "java_toolchain",
+    javac_supports_worker_multiplex_sandboxing = True,
+)
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])
 java_library(name = "b", srcs = ["B.java"])
 EOF
@@ -1941,7 +1946,7 @@ EOF
 
   bazel build //pkg:a \
     --experimental_worker_multiplex_sandboxing \
-    --modify_execution_info=Javac=+supports-multiplex-sandboxing \
+    --extra_toolchains=//pkg:java_toolchain_definition \
     >& $TEST_log || fail "build failed"
 }
 

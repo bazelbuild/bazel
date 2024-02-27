@@ -63,6 +63,7 @@ JavaToolchainInfo, _new_javatoolchaininfo = provider(
         "_javac_supports_workers": _PRIVATE_API_DOC_STRING,
         "_javac_supports_multiplex_workers": _PRIVATE_API_DOC_STRING,
         "_javac_supports_worker_cancellation": _PRIVATE_API_DOC_STRING,
+        "_javac_supports_worker_multiplex_sandboxing": _PRIVATE_API_DOC_STRING,
         "_jspecify_info": _PRIVATE_API_DOC_STRING,
         "_local_java_optimization_config": _PRIVATE_API_DOC_STRING,
         "_one_version_tool": _PRIVATE_API_DOC_STRING,
@@ -119,6 +120,7 @@ def _java_toolchain_impl(ctx):
         _javac_supports_workers = ctx.attr.javac_supports_workers,
         _javac_supports_multiplex_workers = ctx.attr.javac_supports_multiplex_workers,
         _javac_supports_worker_cancellation = ctx.attr.javac_supports_worker_cancellation,
+        _javac_supports_worker_multiplex_sandboxing = ctx.attr.javac_supports_worker_multiplex_sandboxing,
         _jspecify_info = _get_jspecify_info(ctx),
         _local_java_optimization_config = ctx.files._local_java_optimization_configuration,
         _one_version_tool = ctx.attr.oneversion.files_to_run if ctx.attr.oneversion else None,
@@ -431,6 +433,12 @@ True if JavaBuilder supports running as a multiplex persistent worker, false if 
             default = True,
             doc = """
 True if JavaBuilder supports cancellation of persistent workers, false if it doesn't.
+            """,
+        ),
+        "javac_supports_worker_multiplex_sandboxing": attr.bool(
+            default = False,
+            doc = """
+True if JavaBuilder supports running as a multiplex persistent worker with sandboxing, false if it doesn't.
             """,
         ),
         "javacopts": attr.string_list(
