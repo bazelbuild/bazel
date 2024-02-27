@@ -97,7 +97,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
 
     @Option(
         name = "experimental_include_default_values",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
         help = "Whether Starlark options set to their default values are included in the output.")
