@@ -84,6 +84,16 @@ public class ObjectCodecs {
     return serialize(subject, serializationContext.getMemoizingAndBlockingOnWriteContext());
   }
 
+  public SerializationResult<ByteString> serializeMemoizedAndBlocking(
+      Object subject, ImmutableClassToInstanceMap<?> dependencyOverrides)
+      throws SerializationException {
+    return serialize(
+        subject,
+        serializationContext
+            .withDependencyOverrides(dependencyOverrides)
+            .getMemoizingAndBlockingOnWriteContext());
+  }
+
   private static ByteString serializeToByteString(Object subject, SerializationContext context)
       throws SerializationException {
     ByteString.Output resultOut = ByteString.newOutput();
@@ -138,6 +148,14 @@ public class ObjectCodecs {
 
   public Object deserializeMemoized(ByteString data) throws SerializationException {
     return deserializeMemoized(data.newCodedInput());
+  }
+
+  public Object deserializeMemoized(
+      ByteString data, ImmutableClassToInstanceMap<?> dependencyOverrides)
+      throws SerializationException {
+    return deserialize(
+        data.newCodedInput(),
+        deserializationContext.withDependencyOverrides(dependencyOverrides).getMemoizingContext());
   }
 
   public Object deserializeMemoized(CodedInputStream codedIn) throws SerializationException {
