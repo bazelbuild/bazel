@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.GccParamFileEscaper;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.WindowsParamFileEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -69,7 +70,13 @@ public class ParameterFile {
      * A parameter file where each parameter is correctly quoted for gcc or clang use, and separated
      * by white space (space, tab, newline).
      */
-    GCC_QUOTED
+    GCC_QUOTED,
+
+    /**
+     * A parameter file where each parameter is correctly quoted for windows use. Double-quotes are
+     * escaped, and each parameter that contains whitespace is surrounded in double-quotes.
+     */
+    WINDOWS,
   }
 
   public static final FileType PARAMETER_FILE = FileType.of(".params");
@@ -107,6 +114,9 @@ public class ParameterFile {
         break;
       case UNQUOTED:
         writeContent(bufferedOut, arguments, charset);
+        break;
+      case WINDOWS:
+        writeContent(bufferedOut, WindowsParamFileEscaper.escapeAll(arguments), charset);
         break;
     }
   }

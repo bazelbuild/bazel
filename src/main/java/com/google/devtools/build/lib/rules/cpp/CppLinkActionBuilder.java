@@ -913,7 +913,9 @@ public class CppLinkActionBuilder {
             .setParameterFileType(
                 featureConfiguration.isEnabled(CppRuleClasses.GCC_QUOTING_FOR_PARAM_FILES)
                     ? ParameterFile.ParameterFileType.GCC_QUOTED
-                    : ParameterFile.ParameterFileType.UNQUOTED)
+                    : featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_QUOTING_FOR_PARAM_FILES)
+                        ? ParameterFile.ParameterFileType.WINDOWS
+                        : ParameterFile.ParameterFileType.UNQUOTED)
             .setFeatureConfiguration(featureConfiguration);
 
     // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.

@@ -266,6 +266,7 @@ java_library(
     srcs = [
         "GccParamFileEscaper.java",
         "ShellEscaper.java",
+        "WindowsParamFileEscaper.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
