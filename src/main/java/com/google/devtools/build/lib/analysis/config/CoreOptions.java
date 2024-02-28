@@ -708,18 +708,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "Specifying -<feature> will disable the feature. "
               + "Negative features always override positive ones.")
   public List<String> hostFeatures;
-
-  @Option(
-      name = "incompatible_use_host_features",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, use --features only for the target configuration and --host_features for the"
-              + " exec configuration.")
-  public boolean incompatibleUseHostFeatures;
-
   @Option(
       name = "target_environment",
       converter = LabelListConverter.class,

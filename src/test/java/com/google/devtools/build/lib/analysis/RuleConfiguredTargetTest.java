@@ -71,20 +71,6 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     assertThat(features).contains("host_feature");
     assertThat(features).doesNotContain("feature");
   }
-
-  @Test
-  public void testHostFeaturesIncompatibleDisabled() throws Exception {
-    useConfiguration(
-        "--features=feature",
-        "--host_features=host_feature",
-        "--incompatible_use_host_features=false");
-    scratch.file("a/BUILD", "cc_library(name = 'a')");
-    ImmutableSet<String> features =
-        getRuleContext(getConfiguredTarget("//a", getExecConfiguration())).getFeatures();
-    assertThat(features).contains("feature");
-    assertThat(features).doesNotContain("host_feature");
-  }
-
   @Test
   public void testFeatureDisabledOnCommandLine() throws Exception {
     useConfiguration("--features=-feature");
