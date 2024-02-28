@@ -202,7 +202,6 @@ java_library(
         "RunfilesSupport.java",
         "ShToolchain.java",
         "ShellConfiguration.java",
-        "SingleRunfilesSupplier.java",
         "SourceManifestAction.java",
         "StarlarkProviderValidationUtil.java",
         "TargetCompleteEvent.java",
@@ -376,7 +375,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
-        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -1499,7 +1498,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
-        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -2754,14 +2752,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )
 
 java_library(
     name = "test/test_configuration",
-    srcs = ["test/TestConfiguration.java"],
+    srcs = [
+        "test/TestConfiguration.java",
+        "test/TestResourcesConverter.java",
+    ],
     deps = [
         ":config/build_options",
         ":config/core_option_converters",
@@ -2774,6 +2775,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],

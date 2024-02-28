@@ -6,173 +6,95 @@ Book: /_book.yaml
 {% include "_buttons.html" %}
 
 This tutorial uses an example scenario to describe how to configure C++
-toolchains for a project. It's based on an
-[example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)
-that builds error-free using `clang`.
+toolchains for a project.
 
-## What you'll learn
+## What you'll learn {: #what-you-learn }
 
 In this tutorial you learn how to:
 
 *  Set up the build environment
+*  Use `--toolchain_resolution_debug` to debug toolchain resolution
 *  Configure the C++ toolchain
 *  Create a Starlark rule that provides additional
 configuration for the `cc_toolchain` so that Bazel can build the application
 with `clang`
-*  Confirm expected outcome by running
-`bazel build --config=clang_config //main:hello-world` on a Linux machine
-*  Build the C++ application
+*  Build the C++ binary for by running
+`bazel build //main:hello-world` on a Linux machine
+* Cross-compile the binary for android by running `bazel build //main:hello-world --platforms=//:android_x86_64`
 
-## Before you begin
-
-### Set up the build environment
+## Before you begin {: #before-you-begin }
 
 This tutorial assumes you are on Linux and have successfully built
 C++ applications and installed the appropriate tooling and libraries.
-The tutorial uses `clang version 9.0.1`, which you can install on your system.
+The tutorial uses `clang version 16`, which you can install on your system.
+
+### Set up the build environment {: #setup-build-environment }
 
 Set up your build environment as follows:
 
 1.  If you have not already done so,
-   [download and install Bazel 0.23](/install/ubuntu) or later.
+   [download and install Bazel 7.0.2](https://bazel.build/install) or later.
 
-2.  Download the
-    [example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)
-    from GitHub and place it in an empty directory on your local machine.
-
+2. Add an empty `WORKSPACE` file at the root folder.
 
 3.  Add the following `cc_binary` target to the `main/BUILD` file:
 
     ```python
+    load("@rules_cc//cc:defs.bzl", "cc_binary")
+
     cc_binary(
         name = "hello-world",
         srcs = ["hello-world.cc"],
     )
     ```
 
-4.  Create a `.bazelrc` file at the root of the workspace directory with the
-    following contents to enable the use of the `--config` flag:
+    Because Bazel uses many internal tools written in C++ during the build, such
+    as `process-wrapper`, the pre-existing default C++ toolchain is specified for
+    the host platform. This enables these internal tools to build using that
+    toolchain of the one created in this tutorial. Hence, the `cc_binary` target
+    is also built with the default toolchain.
 
-    ```
-    # Use our custom-configured c++ toolchain.
+4.  Run the build with the following command:
 
-    build:clang_config --crosstool_top=//toolchain:clang_suite
-
-    # Use --cpu as a differentiator.
-
-    build:clang_config --cpu=k8
-
-    # Use the default Bazel C++ toolchain to build the tools used during the
-    # build.
-
-    build:clang_config --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+    ```bash
+    bazel build //main:hello-world
     ```
 
-For an entry `build:{config_name} --flag=value`, the command line flag
-`--config={config_name}` is associated with that particular flag. See
-documentation for the flags used:
-[`crosstool_top`](/docs/user-manual#crosstool-top),
-[`cpu`](/docs/user-manual#cpu) and
-[`host_crosstool_top`](/docs/user-manual#host-crosstool-top).
+    The build succeeds without any toolchain registered in the `WORKSPACE`.
 
-When you build your [target](/concepts/build-ref#targets)
-with `bazel build --config=clang_config //main:hello-world`, Bazel uses your
-custom toolchain from the
-[cc_toolchain_suite](/reference/be/c-cpp#cc_toolchain_suite)
-`//toolchain:clang_suite`. The suite may list different
-[toolchains](/reference/be/c-cpp#cc_toolchain) for different CPUs,
-and that's why it is differentiated with the flag `--cpu=k8`.
+    To further see what's under the hood, run:
+    ```bash
+    bazel build //main:hello-world --toolchain_resolution_debug='@bazel_tools//tools/cpp:toolchain_type'
 
-Because Bazel uses many internal tools written in C++ during the build, such as
-process-wrapper, the pre-existing default C++ toolchain is specified for
-the host platform, so that these tools are built using that toolchain instead of
-the one created in this tutorial.
+    INFO: ToolchainResolution: Target platform @@local_config_platform//:host: Selected execution platform @@local_config_platform//:host, type @@bazel_tools//tools/cpp:toolchain_type -> toolchain @@bazel_tools~cc_configure_extension~local_config_cc//:cc-compiler-k8
+    ```
 
-## Configuring the C++ toolchain
+    Without specifying `--platforms`, Bazel builds the target for
+    `@local_config_platform//:host` using
+    `@bazel_tools//cc_configure_extension/local_config_cc//:cc-compiler-k8`
+
+## Configure the C++ toolchain {: #configure-cc-toolchain }
 
 To configure the C++ toolchain, repeatedly build the application and eliminate
-each error one by one as described below.
+each error one by one as described as following.
 
-Note: This tutorial assumes you're using Bazel 0.23 or later. If you're
-using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
+Note: This tutorial assumes you're using Bazel 7.0.2 or later. If you're
+using an older release of Bazel, use
+`--incompatible_enable_cc_toolchain_resolution` flag to enable C++ toolchain
+resolution.
+
 It also assumes `clang version 9.0.1`, although the details should only change
 slightly between different versions of clang.
 
-1.  Run the build with the following command:
-
-    ```
-    bazel build --config=clang_config //main:hello-world
-    ```
-
-    Because you specified `--crosstool_top=//toolchain:clang_suite` in the
-    `.bazelrc` file, Bazel throws the following error:
-
-    ```
-    No such package `toolchain`: BUILD file not found on package path.
-    ```
-
-    In the workspace directory, create the `toolchain` directory for the package
-    and an empty `BUILD` file inside the `toolchain` directory.
-
-2.  Run the build again. Because the `toolchain` package does not yet define the
-    `clang_suite` target, Bazel throws the following error:
-
-    ```
-    No such target '//toolchain:clang_suite': target 'clang_suite' not declared
-    in package 'toolchain' defined by .../toolchain/BUILD
-    ```
-
-    In the `toolchain/BUILD` file, define an empty filegroup as follows:
-
-    ```python
-    package(default_visibility = ["//visibility:public"])
-
-    filegroup(name = "clang_suite")
-    ```
-
-3.  Run the build again. Bazel throws the following error:
-
-    ```
-    '//toolchain:clang_suite' does not have mandatory providers: 'ToolchainInfo'
-    ```
-
-    Bazel discovered that the `--crosstool_top` flag points to a rule that
-    doesn't provide the necessary [`ToolchainInfo`](/rules/lib/providers/ToolchainInfo)
-    provider. So you need to point `--crosstool_top` to a rule that does provide
-    `ToolchainInfo` - that is the `cc_toolchain_suite` rule. In the
-    `toolchain/BUILD` file, replace the empty filegroup with the following:
-
-    ```python
-    cc_toolchain_suite(
-        name = "clang_suite",
-        toolchains = {
-            "k8": ":k8_toolchain",
-        },
-    )
-    ```
-
-    The `toolchains` attribute automatically maps the `--cpu` (and also
-    `--compiler` when specified) values to  `cc_toolchain`. You have not yet
-    defined any `cc_toolchain` targets and Bazel will complain about that
-    shortly.
-
-4.  Run the build again. Bazel throws the following error:
-
-    ```
-    Rule '//toolchain:k8_toolchain' does not exist
-    ```
-
-    Now you need to define `cc_toolchain` targets for every value in the
-    `cc_toolchain_suite.toolchains` attribute. Add the following to the
-    `toolchain/BUILD` file:
+1. Add `toolchain/BUILD` with
 
     ```python
     filegroup(name = "empty")
 
     cc_toolchain(
-        name = "k8_toolchain",
-        toolchain_identifier = "k8-toolchain",
-        toolchain_config = ":k8_toolchain_config",
+        name = "linux_x86_64_toolchain",
+        toolchain_identifier = "linux_x86_64-toolchain",
+        toolchain_config = ":linux_x86_64_toolchain_config",
         all_files = ":empty",
         compiler_files = ":empty",
         dwp_files = ":empty",
@@ -181,25 +103,51 @@ slightly between different versions of clang.
         strip_files = ":empty",
         supports_param_files = 0,
     )
-    ```
 
-5.  Run the build again. Bazel throws the following error:
-
+    toolchain(
+        name = "cc_toolchain_for_linux_x86_64",
+        toolchain = ":linux_x86_64_toolchain",
+        toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+        exec_compatible_with = [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:linux",
+        ],
+        target_compatible_with = [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:linux",
+        ],
+    )
     ```
-    Rule '//toolchain:k8_toolchain_config' does not exist
-    ```
-
-    Next, add a ":k8_toolchain_config" target to the `toolchain/BUILD` file:
+    Then register the toolchain with the `WORKSPACE` with
 
     ```python
-    filegroup(name = "k8_toolchain_config")
+    register_toolchains(
+      "//toolchain:cc_toolchain_for_linux_x86_64"
+    )
     ```
 
-6.  Run the build again. Bazel throws the following error:
+    This step defines a `cc_toolchain` and binds it to a `toolchain` target for
+    the host configuration.
 
+2.  Run the build again. Because the `toolchain` package doesn't yet define the
+    `linux_x86_64_toolchain_config` target, Bazel throws the following error:
+
+    ```bash
+    ERROR: toolchain/BUILD:4:13: in toolchain_config attribute of cc_toolchain rule //toolchain:linux_x86_64_toolchain: rule '//toolchain:linux_x86_64_toolchain_config' does not exist.
     ```
-    '//toolchain:k8_toolchain_config' does not have mandatory providers:
-    'CcToolchainConfigInfo'
+
+3.  In the `toolchain/BUILD` file, define an empty filegroup as follows:
+
+    ```python
+    package(default_visibility = ["//visibility:public"])
+
+    filegroup(name = "linux_x86_64_toolchain_config")
+    ```
+
+4.  Run the build again. Bazel throws the following error:
+
+    ```bash
+    '//toolchain:linux_x86_64_toolchain_config' does not have mandatory providers: 'CcToolchainConfigInfo'.
     ```
 
     `CcToolchainConfigInfo` is a provider that you use to configure
@@ -236,16 +184,16 @@ slightly between different versions of clang.
     load(":cc_toolchain_config.bzl", "cc_toolchain_config")
     ```
 
-    And replace the "k8_toolchain_config" filegroup with a declaration of a
-    `cc_toolchain_config` rule:
+    And replace the "linux_x86_64_toolchain_config" filegroup with a declaration
+    of a `cc_toolchain_config` rule:
 
     ```python
-    cc_toolchain_config(name = "k8_toolchain_config")
+    cc_toolchain_config(name = "linux_x86_64_toolchain_config")
     ```
 
-7.  Run the build again. Bazel throws the following error:
+5.  Run the build again. Bazel throws the following error:
 
-    ```
+    ```bash
     .../BUILD:1:1: C++ compilation of rule '//:hello-world' failed (Exit 1)
     src/main/tools/linux-sandbox-pid1.cc:421:
     "execvp(toolchain/DUMMY_GCC_TOOL, 0x11f20e0)": No such file or directory
@@ -315,15 +263,15 @@ slightly between different versions of clang.
     Make sure that `/usr/bin/clang` and `/usr/bin/ld` are the correct paths
     for your system.
 
-8.  Run the build again. Bazel throws the following error:
+6.  Run the build again. Bazel throws the following error:
 
-     ```
-     ..../BUILD:3:1: undeclared inclusion(s) in rule '//main:hello-world':
-     this rule is missing dependency declarations for the following files included by 'main/hello-world.cc':
-     '/usr/include/c++/9/ctime'
-     '/usr/include/x86_64-linux-gnu/c++/9/bits/c++config.h'
-     '/usr/include/x86_64-linux-gnu/c++/9/bits/os_defines.h'
-     ....
+     ```bash
+    ERROR: main/BUILD:3:10: Compiling main/hello-world.cc failed: absolute path inclusion(s) found in rule '//main:hello-world':
+    the source file 'main/hello-world.cc' includes the following non-builtin files with absolute paths (if these are builtin files, make sure these paths are in your toolchain):
+      '/usr/include/c++/13/ctime'
+      '/usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h'
+      '/usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h'
+      ...
      ```
      Bazel needs to know where to search for included headers. There are
      multiple ways to solve this, such as using the `includes` attribute of
@@ -340,7 +288,7 @@ slightly between different versions of clang.
      return cc_common.create_cc_toolchain_config_info(
           ctx = ctx,
           cxx_builtin_include_directories = [ # NEW
-            "/usr/lib/llvm-9/lib/clang/9.0.1/include",
+            "/usr/lib/llvm-16/lib/clang/16/include",
             "/usr/include",
           ],
           toolchain_identifier = "local",
@@ -355,9 +303,9 @@ slightly between different versions of clang.
      )
      ```
 
-9. Run the build command again, you will see an error like:
+7. Run the build command again, you will see an error like:
 
-    ```
+    ```bash
     /usr/bin/ld: bazel-out/k8-fastbuild/bin/main/_objs/hello-world/hello-world.o: in function `print_localtime()':
     hello-world.cc:(.text+0x68): undefined reference to `std::cout'
     ```
@@ -466,32 +414,48 @@ slightly between different versions of clang.
           provides = [CcToolchainConfigInfo],
       )
      ```
-10. If you run `bazel build --config=clang_config //main:hello-world`, it should
-    finally build.
+8. Running `bazel build //main:hello-world`, it should finally build the binary successfully for host.
 
-## Review your work
+9. In `toolchain/BUILD`, copy the `cc_toolchain_config`, `cc_toolchain`, and
+  `toolchain` targets and replace `linux_x86_64` with `android_x86_64`in target
+  names.
+
+  In `WORKSPACE`, register the toolchain for android
+
+    ```python
+    register_toolchains(
+      "//toolchain:cc_toolchain_for_linux_x86_64",
+      "//toolchain:cc_toolchain_for_android_x86_64"
+    )
+    ```
+
+10. Run `bazel build //main:hello-world --platforms=android_x86_64` to build the binary for Android.
+
+In practice, Linux and Android should have different C++ toolchain configs. You
+can either modify the existing `cc_toolchain_config` for the differences or
+create a separate rules (i.e. `CcToolchainConfigInfo` provider) for separate
+platforms.
+
+## Review your work {: #review-your-work }
 
 In this tutorial you learned how to configure a basic C++ toolchain, but
 toolchains are more powerful than this simple example.
 
 The key take-aways are:
-- You need to specify a `--crosstool_top` flag in the command line which should
-  point to a `cc_toolchain_suite`
-- You can create a shortcut for a particular configuration using the `.bazelrc`
-  file
-- The cc_toolchain_suite may list `cc_toolchains` for different CPUs and
-  compilers. You can use command line flags like `--cpu` to differentiate.
+
+- You need to specify a `--platforms` flag in the command line for Bazel to
+  resolve to the toolchain for the same constraint values on the platform.
 - You have to let the toolchain know where the tools live. In this tutorial
   there is a simplified version where you access the tools from the system. If
   you are interested in a more self-contained approach, you can read about
-  workspaces [here](/reference/be/workspace). Your tools could come from a
+  [workspaces](/reference/be/workspace). Your tools could come from a
   different workspace and you would have to make their files available
   to the `cc_toolchain` with target dependencies on attributes, such as
   `compiler_files`. The `tool_paths` would need to be changed as well.
 - You can create features to customize which flags should be passed to
   different actions, be it linking or any other type of action.
 
-## Further reading
+## Further reading {: #further-reading }
 
 For more details, see
 [C++ toolchain configuration](/docs/cc-toolchain-config-reference)

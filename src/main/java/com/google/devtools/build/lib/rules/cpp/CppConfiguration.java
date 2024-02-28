@@ -312,6 +312,12 @@ public final class CppConfiguration extends Fragment
     return compilationMode;
   }
 
+  @StarlarkMethod(name = "compilation_mode", useStarlarkThread = true, documented = false)
+  public String getCompilationModeForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return compilationMode.toString();
+  }
+
   public boolean hasSharedLinkOption() {
     return linkopts.contains("-shared");
   }
@@ -794,10 +800,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalIncludeScanning;
   }
 
-  public boolean objcShouldScanIncludes() {
-    return cppOptions.objcScanIncludes;
-  }
-
   public boolean objcShouldGenerateDotdFiles() {
     return cppOptions.objcGenerateDotdFiles;
   }
@@ -808,6 +810,15 @@ public final class CppConfiguration extends Fragment
   }
 
   public boolean objcEnableBinaryStripping() {
+    return cppOptions.objcEnableBinaryStripping;
+  }
+
+  @StarlarkMethod(
+      name = "objc_enable_binary_stripping",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean objcEnableBinaryStrippingForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.objcEnableBinaryStripping;
   }
 

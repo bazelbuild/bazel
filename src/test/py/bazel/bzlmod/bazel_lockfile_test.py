@@ -16,6 +16,7 @@
 
 import json
 import os
+import pathlib
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
@@ -35,8 +36,6 @@ class BazelLockfileTest(test_base.TestBase):
         'aaa', '1.1'
     ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
         'bbb', '1.1', {'aaa': '1.1'}
-    ).createCcModule(
-        'ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'}
     )
     self.ScratchFile(
         '.bazelrc',
@@ -117,13 +116,7 @@ class BazelLockfileTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
-    self.RunBazel(
-        [
-            'build',
-            '--nobuild',
-            '//:all',
-        ],
-    )
+    self.RunBazel(['build', '--nobuild', '//:all'])
 
     # Change registry -> update 'sss' module file (corrupt it)
     module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
@@ -146,9 +139,7 @@ class BazelLockfileTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
-    self.RunBazel(
-        ['build', '--nobuild', '//:all'],
-    )
+    self.RunBazel(['build', '--nobuild', '//:all'])
 
     # Change registry -> update 'sss' module file (corrupt it)
     module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
@@ -1470,52 +1461,6 @@ class BazelLockfileTest(test_base.TestBase):
         ]['attributes']['value'],
     )
 
-  def testInnateModuleExtension(self):
-    # tests that the repo spec in the lockfile is invalidated when the attr type
-    # changes, even if the MODULE.bazel file hasn't changed
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'r=use_repo_rule("//:bzl.bzl","r")',
-            'r(name="hello",value="hello.txt")',
-        ],
-    )
-    self.ScratchFile('BUILD.bazel')
-    self.ScratchFile(
-        'bzl.bzl',
-        [
-            'def _impl(ctx):',
-            '    ctx.file("BUILD", "filegroup(name=\'lol\')")',
-            'r = repository_rule(_impl,attrs={"value":attr.string()})',
-        ],
-    )
-
-    self.RunBazel(['build', '@hello//:lol'])
-    with open('MODULE.bazel.lock', 'r') as json_file:
-      lockfile = json.load(json_file)
-      hello_attrs = lockfile['moduleExtensions']['//:MODULE.bazel%_repo_rules'][
-          'general']['generatedRepoSpecs']['hello']['attributes']
-      self.assertEqual(hello_attrs['value'], 'hello.txt')
-
-    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
-    self.RunBazel(['shutdown'])
-
-    self.ScratchFile(
-        'bzl.bzl',
-        [
-            'def _impl(ctx):',
-            '    ctx.file("BUILD", "filegroup(name=\'lol\')")',
-            'r = repository_rule(_impl,attrs={"value":attr.label()})',
-            # changed attr type to label in the line above!
-        ],
-    )
-    self.RunBazel(['build', '@hello//:lol'])
-    with open('MODULE.bazel.lock', 'r') as json_file:
-      lockfile = json.load(json_file)
-      hello_attrs = lockfile['moduleExtensions']['//:MODULE.bazel%_repo_rules'][
-          'general']['generatedRepoSpecs']['hello']['attributes']
-      self.assertEqual(hello_attrs['value'], '@@//:hello.txt')
-
   def testExtensionRepoMappingChange(self):
     # Regression test for #20721
     self.main_registry.createCcModule('foo', '1.0')
@@ -1864,6 +1809,302 @@ class BazelLockfileTest(test_base.TestBase):
     # Build again. This should _NOT_ trigger a failure!
     _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':lol'])
     self.assertNotIn('ran the extension!', '\n'.join(stderr))
+
+  def testReproducibleExtensionsIgnoredInLockfile(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext1 = use_extension("extension.bzl", "ext1")',
+            'ext2 = use_extension("extension.bzl", "ext2")',
+            'use_repo(ext1, "repo1")',
+            'use_repo(ext2, "repo2")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _should_lock_impl(ctx): repo_rule(name="repo1")',
+            'def _no_lock_impl(ctx):',
+            '    repo_rule(name="repo2")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=[],',
+            '        root_module_direct_dev_deps=[],',
+            '        reproducible=True',
+            '    )',
+            'ext1 = module_extension(implementation=_should_lock_impl)',
+            'ext2 = module_extension(implementation=_no_lock_impl)',
+        ],
+    )
+
+    self.RunBazel(['build', '@repo1//:all', '@repo2//:all'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertIn('//:extension.bzl%ext1', lockfile['moduleExtensions'])
+      self.assertNotIn('//:extension.bzl%ext2', lockfile['moduleExtensions'])
+
+    # Update extensions implementations to the opposite
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _should_lock_impl(ctx): repo_rule(name="repo2")',
+            'def _no_lock_impl(ctx):',
+            '    repo_rule(name="repo1")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=[],',
+            '        root_module_direct_dev_deps=[],',
+            '        reproducible=True',
+            '    )',
+            'ext1 = module_extension(implementation=_no_lock_impl)',
+            'ext2 = module_extension(implementation=_should_lock_impl)',
+        ],
+    )
+
+    # Assert updates in the lockfile
+    self.RunBazel(['build', '@repo1//:all', '@repo2//:all'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertNotIn('//:extension.bzl%ext1', lockfile['moduleExtensions'])
+      self.assertIn('//:extension.bzl%ext2', lockfile['moduleExtensions'])
+
+  def testReproducibleExtensionInLockfileErrorMode(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="repo")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=[],',
+            '        root_module_direct_dev_deps=[],',
+            '        reproducible=True',
+            '    )',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    self.RunBazel(['build', '@repo//:all'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertNotIn('//:extension.bzl%ext', lockfile['moduleExtensions'])
+
+    # Assert ext does NOT fail in error mode
+    self.RunBazel(['build', '@repo//:all', '--lockfile_mode=error'])
+
+    # Update extension to not be reproducible
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx): repo_rule(name="repo")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    # Assert ext does FAIL in error mode
+    _, _, stderr = self.RunBazel(
+        ['build', '@repo//:all', '--lockfile_mode=error'], allow_failure=True
+    )
+    self.assertIn(
+        'ERROR: The module extension '
+        "'ModuleExtensionId{bzlFileLabel=//:extension.bzl, "
+        "extensionName=ext, isolationKey=Optional.empty}' does "
+        'not exist in the lockfile',
+        stderr,
+    )
+
+  def testWatchingFileUnderWorkingDirectoryFails(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    ctx.file("hello", "repo")',
+            '    repo_rule(name=ctx.read("hello", watch="yes"))',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo'], allow_failure=True)
+    self.assertIn(
+        'attempted to watch path under working directory', '\n'.join(stderr)
+    )
+
+  def testWatchingFileOutsideWorkspaceFails(self):
+    outside_file = pathlib.Path(tempfile.mkdtemp(dir=self._temp)).joinpath(
+        'hello'
+    )
+    scratchFile(outside_file, ['repo'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name=ctx.read(%s, watch="yes"))'
+            % repr(str(outside_file)),
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo'], allow_failure=True)
+    self.assertIn(
+        'attempted to watch path outside workspace', '\n'.join(stderr)
+    )
+
+  def testPathReaddirWatchesDirents(self):
+    self.ScratchFile('some_dir/foo')
+    self.ScratchFile('some_dir/bar')
+    self.ScratchFile('some_dir/baz')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    print("I see: " + ",".join(sorted([e.basename for e in'
+            ' ctx.path(%s).readdir()])))'
+            % repr(self.Path('some_dir')),
+            '    repo_rule(name="repo")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo'])
+    self.assertIn('I see: bar,baz,foo', '\n'.join(stderr))
+
+    # adding and removing entries should cause a reevaluation.
+    os.remove(self.Path('some_dir/baz'))
+    self.ScratchFile('some_dir/quux')
+    _, _, stderr = self.RunBazel(['build', '@repo'])
+    self.assertIn('I see: bar,foo,quux', '\n'.join(stderr))
+
+    # but changing file contents shouldn't.
+    self.ScratchFile('some_dir/bar', ['hulloooo'])
+    _, _, stderr = self.RunBazel(['build', '@repo'])
+    self.assertNotIn('I see:', '\n'.join(stderr))
+
+  def testPathReaddirOutsideWorkspaceDoesNotWatchDirents(self):
+    outside_dir = pathlib.Path(tempfile.mkdtemp(dir=self._temp))
+    scratchFile(outside_dir.joinpath('whatever'), ['repo'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    print("I see: " + ",".join(sorted([e.basename for e in'
+            ' ctx.path(%s).readdir()])))'
+            % repr(str(outside_dir)),
+            '    repo_rule(name="repo")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo'])
+    self.assertIn('I see: whatever', '\n'.join(stderr))
+
+    # since the directory in question is outside the workspace, adding and
+    # removing entries shouldn't cause a reevaluation.
+    os.remove(outside_dir.joinpath('whatever'))
+    scratchFile(outside_dir.joinpath('anything'), ['kek'])
+    _, _, stderr = self.RunBazel(['build', '@repo'])
+    self.assertNotIn('I see:', '\n'.join(stderr))
+
+  def testForceWatchingDirentsOutsideWorkspaceFails(self):
+    outside_dir = pathlib.Path(tempfile.mkdtemp(dir=self._temp))
+    scratchFile(outside_dir.joinpath('whatever'), ['repo'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    print("I see: " + ",".join(sorted([e.basename for e in'
+            ' ctx.path(%s).readdir(watch="yes")])))'
+            % repr(str(outside_dir)),
+            '    repo_rule(name="repo")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo'], allow_failure=True)
+    self.assertIn(
+        'attempted to watch path outside workspace', '\n'.join(stderr)
+    )
 
 
 if __name__ == '__main__':

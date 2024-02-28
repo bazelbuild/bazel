@@ -1655,7 +1655,7 @@ public class ActionCacheCheckerTest {
       if (treeDir.exists()) {
         TreeArtifactValue.visitTree(
             treeDir,
-            (parentRelativePath, type) -> {
+            (parentRelativePath, type, traversedSymlink) -> {
               if (type == Dirent.Type.DIRECTORY) {
                 return;
               }

@@ -20,6 +20,7 @@ import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
@@ -359,15 +360,33 @@ public class JacocoCoverageRunner {
     return convertedMetadataFiles.build();
   }
 
-  private static URL[] getUrls(ClassLoader classLoader, boolean wasWrappedJar) {
+  private static URL[] getUrls(ClassLoader classLoader, boolean jarIsWrapped, String wrappedJar) {
+    // jarIsWrapped is a legacy parameter; it should be removed once we are sure Bazel will no
+    // longer set JACOCO_IS_JAR_WRAPPED in java_stub_template
     URL[] urls = getClassLoaderUrls(classLoader);
+    if (urls == null || urls.length == 0) {
+      return urls;
+    }
     // If the classpath was too long then a temporary top-level jar is created containing nothing
-    // but a manifest with
-    // the original classpath. Those are the URLs we are looking for.
-    if (wasWrappedJar && urls != null && urls.length == 1) {
+    // but a manifest with the original classpath. Those are the URLs we are looking for.
+    URL classPathUrl = null;
+    if (!Strings.isNullOrEmpty(wrappedJar)) {
+      for (URL url : urls) {
+        if (url.getPath().endsWith(wrappedJar)) {
+          classPathUrl = url;
+        }
+      }
+      if (classPathUrl == null) {
+        System.err.println("Classpath JAR " + wrappedJar + " not provided");
+        return null;
+      }
+    } else if (jarIsWrapped && urls.length == 1) {
+      classPathUrl = urls[0];
+    }
+    if (classPathUrl != null) {
       try {
         String jarClassPath =
-            new JarInputStream(urls[0].openStream())
+            new JarInputStream(classPathUrl.openStream())
                 .getManifest()
                 .getMainAttributes()
                 .getValue("Class-Path");
@@ -427,6 +446,7 @@ public class JacocoCoverageRunner {
   public static void main(String[] args) throws Exception {
     String metadataFile = System.getenv("JACOCO_METADATA_JAR");
     String jarWrappedValue = System.getenv("JACOCO_IS_JAR_WRAPPED");
+    String wrappedJarValue = System.getenv("CLASSPATH_JAR");
     boolean wasWrappedJar = jarWrappedValue != null ? !jarWrappedValue.equals("0") : false;
 
     File[] metadataFiles = null;
@@ -434,7 +454,7 @@ public class JacocoCoverageRunner {
     final HashMap<String, byte[]> uninstrumentedClasses = new HashMap<>();
     ImmutableSet.Builder<String> pathsForCoverageBuilder = new ImmutableSet.Builder<>();
     ClassLoader classLoader = ClassLoader.getSystemClassLoader();
-    URL[] urls = getUrls(classLoader, wasWrappedJar);
+    URL[] urls = getUrls(classLoader, wasWrappedJar, wrappedJarValue);
     if (urls != null) {
       metadataFiles = new File[urls.length];
       for (int i = 0; i < urls.length; i++) {

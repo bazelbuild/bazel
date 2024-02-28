@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +31,6 @@ public class BaseSpawn implements Spawn {
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
-  private final RunfilesSupplier runfilesSupplier;
   private final ActionExecutionMetadata action;
   private final ResourceSetOrBuilder localResources;
   private ResourceSet localResourcesCached = null;
@@ -41,13 +39,11 @@ public class BaseSpawn implements Spawn {
       List<String> arguments,
       Map<String, String> environment,
       Map<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
       ActionExecutionMetadata action,
       ResourceSetOrBuilder localResources) {
     this.arguments = ImmutableList.copyOf(arguments);
     this.environment = ImmutableMap.copyOf(environment);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
-    this.runfilesSupplier = runfilesSupplier;
     this.action = action;
     this.localResources = localResources;
   }
@@ -55,11 +51,6 @@ public class BaseSpawn implements Spawn {
   @Override
   public final ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
-  }
-
-  @Override
-  public RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
   }
 
   @Override
@@ -76,33 +67,7 @@ public class BaseSpawn implements Spawn {
 
   @Override
   public ImmutableMap<String, String> getEnvironment() {
-    PathFragment runfilesRoot = getRunfilesRoot();
-    if (runfilesRoot == null
-        || (environment.containsKey("JAVA_RUNFILES")
-            && environment.containsKey("PYTHON_RUNFILES"))) {
-      return environment;
-    } else {
-      ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
-      // TODO(bazel-team): Unify these into a single env variable.
-      String runfilesRootString = runfilesRoot.getPathString();
-      env.put("JAVA_RUNFILES", runfilesRootString);
-      env.put("PYTHON_RUNFILES", runfilesRootString);
-      env.putAll(environment);
-      return env.buildKeepingLast();
-    }
-  }
-
-  /**
-   * @return the runfiles directory if there is only one, otherwise null
-   */
-  @Nullable
-  private PathFragment getRunfilesRoot() {
-    if (runfilesSupplier.getRunfilesTrees().size() != 1) {
-      return null;
-    }
-
-    return RunfilesSupplier.getExecPathForTree(
-        runfilesSupplier, runfilesSupplier.getRunfilesTrees().get(0));
+    return environment;
   }
 
   @Override

@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
-import com.google.common.truth.Truth8;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -60,7 +59,7 @@ public class FileHandlerQuerierTest {
 
     Optional<Path> retrievedLogPath = handlerQuerier.getLoggerFilePath(logger);
 
-    Truth8.assertThat(retrievedLogPath).isPresent();
+    assertThat(retrievedLogPath).isPresent();
     assertThat(retrievedLogPath.get().toString()).isEqualTo(configuredLogPath.toString());
   }
 
@@ -75,7 +74,7 @@ public class FileHandlerQuerierTest {
     FileHandlerQuerier handlerQuerier = new FileHandlerQuerier(() -> mockLogManager);
     handler.close();
 
-    Truth8.assertThat(handlerQuerier.getLoggerFilePath(logger)).isEmpty();
+    assertThat(handlerQuerier.getLoggerFilePath(logger)).isEmpty();
   }
 
   @Test

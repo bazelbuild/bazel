@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -73,9 +72,10 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   @Override
   public void filterInputsAndDirsToCreate(
-      Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate)
+      Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate)
       throws IOException, InterruptedException {
-    boolean gotStash = SandboxStash.takeStashedSandbox(sandboxPath, mnemonic);
+    boolean gotStash =
+        SandboxStash.takeStashedSandbox(sandboxPath, mnemonic, getEnvironment(), outputs);
     sandboxExecRoot.createDirectoryAndParents();
     if (gotStash) {
       // When reusing an old sandbox, we do a full traversal of the parent directory of
@@ -101,7 +101,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   @Override
   public void delete() {
-    SandboxStash.stashSandbox(sandboxPath, mnemonic);
+    SandboxStash.stashSandbox(sandboxPath, mnemonic, getEnvironment(), outputs, treeDeleter);
     super.delete();
   }
 

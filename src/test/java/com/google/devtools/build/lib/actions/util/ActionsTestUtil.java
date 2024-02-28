@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;

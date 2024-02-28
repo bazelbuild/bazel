@@ -21,14 +21,33 @@ import java.io.IOException;
  *
  * <p>The {@link #deserialize} signatures are defined in such a way that the context may decide when
  * to make values available.
+ *
+ * <p>The semantics of {@link #deserialize} can be divided into two cases.
+ *
+ * <ul>
+ *   <li><b>Acyclic</b>: any asynchronous activity needed for deserialization is guaranteed to have
+ *       completed prior to setting the value. Since there are no cycles, this is straightforward to
+ *       implement by bottom-up futures-chaining. This works for any acyclic backreferences by
+ *       allowing those backreferences to be stored as futures.
+ *   <li><b>Cyclic</b>: when there are object graph cycles, it means that a node has a reference to
+ *       one of its ancestors. In this case, during deserialization, the node will observe a
+ *       partially formed ancestor value, defined by {@link #registerInitialValue}. It's impossible
+ *       to guarantee that the provided value is complete due to the cycle.
+ * </ul>
  */
-// TODO(b/297857068): There is no asynchronous implementation yet. Although it won't be in this
-// interface, intended for codecs, a new API method will be needed signal when deserialized values
-// are complete.
-//
-// Once all codecs are migrated, this should replace the existing DeserializationContext as the
-// interface to codecs.
-public interface AsyncDeserializationContext extends FlatDeserializationContext {
+// TODO(b/297857068): Once all codecs are migrated, this should replace the existing
+// DeserializationContext as the interface to codecs.
+public interface AsyncDeserializationContext extends SerializationDependencyProvider {
+  /** Defines a way to set a field in a given object. */
+  interface FieldSetter<T> {
+    /**
+     * Sets a field of {@code obj}.
+     *
+     * @param target the object that accepts the field value.
+     * @param fieldValue the non-null field value.
+     */
+    void set(T target, Object fieldValue) throws SerializationException;
+  }
 
   /**
    * Registers an initial value for the currently deserializing value, for use by child objects that

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -199,15 +198,13 @@ public final class CcToolchainProvider {
       ImmutableMap<String, String> toolPaths,
       CppConfiguration.Tool tool,
       Label ccToolchainLabel,
-      String toolchainIdentifier,
-      RuleErrorConsumer ruleErrorConsumer)
-      throws RuleErrorException {
+      String toolchainIdentifier)
+      throws EvalException {
     String toolPath = getToolPathStringOrNull(toolPaths, tool);
     if (toolPath == null) {
-      throw ruleErrorConsumer.throwWithRuleError(
-          String.format(
-              "cc_toolchain '%s' with identifier '%s' doesn't define a tool path for '%s'",
-              ccToolchainLabel, toolchainIdentifier, tool.getNamePart()));
+      throw Starlark.errorf(
+          "cc_toolchain '%s' with identifier '%s' doesn't define a tool path for '%s'",
+          ccToolchainLabel, toolchainIdentifier, tool.getNamePart());
     }
     return toolPath;
   }
@@ -236,29 +233,29 @@ public final class CcToolchainProvider {
   }
 
   /** Returns all the files in Crosstool. */
-  public NestedSet<Artifact> getAllFiles() throws RuleErrorException {
+  public NestedSet<Artifact> getAllFiles() throws EvalException {
     try {
       return value.getValue("all_files", Depset.class).getSet(Artifact.class);
-    } catch (TypeException | EvalException e) {
-      throw new RuleErrorException(e);
+    } catch (TypeException e) {
+      throw new EvalException(e);
     }
   }
 
   /** Returns all the files in Crosstool + libc. */
-  public NestedSet<Artifact> getAllFilesIncludingLibc() throws RuleErrorException {
+  public NestedSet<Artifact> getAllFilesIncludingLibc() throws EvalException {
     try {
       return value.getValue("_all_files_including_libc", Depset.class).getSet(Artifact.class);
-    } catch (TypeException | EvalException e) {
-      throw new RuleErrorException(e);
+    } catch (TypeException e) {
+      throw new EvalException(e);
     }
   }
 
   /** Returns the files necessary for compilation. */
-  public NestedSet<Artifact> getCompilerFiles() throws RuleErrorException {
+  public NestedSet<Artifact> getCompilerFiles() throws EvalException {
     try {
       return value.getValue("_compiler_files", Depset.class).getSet(Artifact.class);
-    } catch (TypeException | EvalException e) {
-      throw new RuleErrorException(e);
+    } catch (TypeException e) {
+      throw new EvalException(e);
     }
   }
 
@@ -266,13 +263,13 @@ public final class CcToolchainProvider {
    * Returns the files necessary for compilation excluding headers, assuming that included files
    * will be discovered by input discovery.
    */
-  public NestedSet<Artifact> getCompilerFilesWithoutIncludes() throws RuleErrorException {
+  public NestedSet<Artifact> getCompilerFilesWithoutIncludes() throws EvalException {
     try {
       return value
           .getValue("_compiler_files_without_includes", Depset.class)
           .getSet(Artifact.class);
-    } catch (TypeException | EvalException e) {
-      throw new RuleErrorException(e);
+    } catch (TypeException e) {
+      throw new EvalException(e);
     }
   }
 
@@ -290,11 +287,11 @@ public final class CcToolchainProvider {
    * Returns the files necessary for an 'as' invocation. May be empty if the CROSSTOOL file does not
    * define as_files.
    */
-  public NestedSet<Artifact> getAsFiles() throws RuleErrorException {
+  public NestedSet<Artifact> getAsFiles() throws EvalException {
     try {
       return value.getValue("_as_files", Depset.class).getSet(Artifact.class);
-    } catch (TypeException | EvalException e) {
-      throw new RuleErrorException(e);
+    } catch (TypeException e) {
+      throw new EvalException(e);
     }
   }
 
@@ -530,5 +527,9 @@ public final class CcToolchainProvider {
 
   public OutputGroupInfo getCcBuildInfoTranslator() throws EvalException {
     return value.getValue("_build_info_files", OutputGroupInfo.class);
+  }
+
+  public CppConfiguration getCppConfiguration() throws EvalException {
+    return value.getValue("_cpp_configuration", CppConfiguration.class);
   }
 }

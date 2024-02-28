@@ -46,11 +46,9 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Functions for Starlark to access internals of the apple rule implementations.")
 public interface AppleCommonApi<
-        FileApiT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcInfoApiT extends CcInfoApi<?>,
-        ObjcProviderApiT extends ObjcProviderApi<?>,
         XcodeConfigInfoApiT extends XcodeConfigInfoApi<?, ?>,
         ApplePlatformApiT extends ApplePlatformApi>
     extends StarlarkValue {
@@ -171,7 +169,10 @@ public interface AppleCommonApi<
               + "p = dep[apple_common.AppleDebugOutputs]\n"
               + "</pre>",
       structField = true)
-  ProviderApi getAppleDebugOutputsConstructor();
+  default void getAppleDebugOutputsConstructor() {
+    throw new UnsupportedOperationException();
+  }
+  ;
 
   @StarlarkMethod(
       name = "apple_host_system_env",
@@ -381,7 +382,7 @@ public interface AppleCommonApi<
       },
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
-  StructApi linkMultiArchBinary(
+  default StructApi linkMultiArchBinary(
       StarlarkRuleContextT starlarkRuleContext,
       Object avoidDeps, // Sequence<TransitiveInfoCollection> expected.
       Sequence<?> extraLinkopts, // <String> expected.
@@ -390,8 +391,9 @@ public interface AppleCommonApi<
       Sequence<?> extraDisabledFeatures, // <String> expected.
       StarlarkInt stamp,
       Object variablesExtension,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      StarlarkThread thread) {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "link_multi_arch_static_library",

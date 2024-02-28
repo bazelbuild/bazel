@@ -612,6 +612,14 @@ class TestBase(absltest.TestCase):
     # that by checking for TEST_TMPDIR.
     env['TEST_TMPDIR'] = TestBase.GetEnv('TEST_TMPDIR')
     env['TMP'] = self._temp
+
+    if TestBase.IsDarwin():
+      # Make sure rules_jvm_external works in ipv6 only environment
+      # https://github.com/bazelbuild/rules_jvm_external?tab=readme-ov-file#ipv6-support
+      env['COURSIER_OPTS'] = TestBase.GetEnv(
+          'COURSIER_OPTS', '-Djava.net.preferIPv6Addresses=true'
+      )
+
     if env_remove:
       for e in env_remove:
         if e in env:

@@ -132,7 +132,8 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     BashCommandConstructor constructor =
         CommandHelper.buildBashCommandConstructor(
             executionInfo, shExecutable, "." + actionUniquifier + ".extra_action_script.sh");
-    List<String> argv = commandHelper.buildCommandLine(command, extraActionInputs, constructor);
+    ImmutableList<String> argv =
+        commandHelper.buildCommandLine(command, extraActionInputs, constructor);
 
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(

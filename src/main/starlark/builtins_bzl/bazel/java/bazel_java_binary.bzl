@@ -13,7 +13,6 @@
 # limitations under the License.
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/android_lint.bzl", "android_lint_subrule")
 load(":common/java/java_binary.bzl", "BASE_TEST_ATTRIBUTES", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
 load(":common/java/java_helper.bzl", "helper")
@@ -270,9 +269,6 @@ def _short_path(file):
 def _compute_test_support(use_testrunner):
     return Label(semantics.JAVA_TEST_RUNNER_LABEL) if use_testrunner else None
 
-def _compute_launcher_attr(launcher):
-    return launcher
-
 def _make_binary_rule(implementation, *, doc, attrs, executable = False, test = False, initializer = None):
     return rule(
         implementation = implementation,
@@ -324,7 +320,6 @@ logic as the Java package of source files. For example, a source file at
             cfg = "exec",
             executable = True,
         ),
-        "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:optional_current_cc_toolchain"),
     },
 )
 

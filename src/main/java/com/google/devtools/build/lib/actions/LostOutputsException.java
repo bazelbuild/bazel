@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2024 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,23 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
-/** Empty implementation of RunfilesSupplier */
-public final class EmptyRunfilesSupplier implements RunfilesSupplier {
-
-  @SerializationConstant
-  public static final EmptyRunfilesSupplier INSTANCE = new EmptyRunfilesSupplier();
-
-  private EmptyRunfilesSupplier() {}
-
-  @Override
-  public ImmutableList<RunfilesTree> getRunfilesTrees() {
-    return ImmutableList.of();
+/**
+ * Thrown when an output provided by a top-level target is lost and action rewinding was
+ * ineffective.
+ *
+ * <p>It is the responsibility of the caller to report this error.
+ */
+public final class LostOutputsException extends BuildFailedException {
+  public LostOutputsException(String message, DetailedExitCode detailedExitCode) {
+    super(message, /* catastrophic= */ false, /* errorAlreadyShown= */ true, detailedExitCode);
   }
-
 }

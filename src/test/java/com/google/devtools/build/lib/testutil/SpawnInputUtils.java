@@ -69,7 +69,7 @@ public final class SpawnInputUtils {
 
   public static ActionInput getRunfilesFilesetInputWithName(
       Spawn spawn, ActionExecutionContext context, String artifactName, String inputName) {
-    Artifact filesetArtifact = getRunfilesArtifactWithName(spawn, artifactName);
+    Artifact filesetArtifact = getRunfilesArtifactWithName(spawn, context, artifactName);
     checkState(filesetArtifact.isFileset(), filesetArtifact);
 
     ImmutableList<FilesetOutputSymlink> filesetLinks;
@@ -109,8 +109,11 @@ public final class SpawnInputUtils {
             () -> noSuchInput("artifact expanded from " + expandableArtifact, name, spawn));
   }
 
-  public static Artifact getRunfilesArtifactWithName(Spawn spawn, String name) {
-    return spawn.getRunfilesSupplier().getRunfilesTrees().stream()
+  public static Artifact getRunfilesArtifactWithName(
+      Spawn spawn, ActionExecutionContext context, String name) {
+    return spawn.getInputFiles().toList().stream()
+        .filter(i -> i instanceof Artifact && ((Artifact) i).isMiddlemanArtifact())
+        .map(i -> context.getInputMetadataProvider().getRunfilesMetadata(i).getRunfilesTree())
         .flatMap(t -> t.getArtifacts().toList().stream())
         .filter(artifact -> artifact.getExecPathString().contains(name))
         .findFirst()

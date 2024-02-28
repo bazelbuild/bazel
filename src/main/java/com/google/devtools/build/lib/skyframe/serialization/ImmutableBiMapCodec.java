@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.function.Supplier;
 
 /**
  * Encodes an {@link ImmutableBiMap}. The iteration order of the deserialized map is the same as the
@@ -58,7 +57,7 @@ class ImmutableBiMapCodec extends DeferredObjectCodec<ImmutableBiMap> {
   }
 
   @Override
-  public Supplier<ImmutableBiMap> deserializeDeferred(
+  public DeferredValue<ImmutableBiMap> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int size = codedIn.readInt32();
@@ -71,12 +70,11 @@ class ImmutableBiMapCodec extends DeferredObjectCodec<ImmutableBiMap> {
     }
 
     EntryBuffer buffer = new EntryBuffer(size);
-    deserializeMapEntries(
-        context, codedIn, /* requiresFullValueDeserialization= */ true, buffer.keys, buffer.values);
+    deserializeMapEntries(context, codedIn, buffer.keys, buffer.values);
     return buffer;
   }
 
-  private static class EntryBuffer implements Supplier<ImmutableBiMap> {
+  private static class EntryBuffer implements DeferredValue<ImmutableBiMap> {
     final Object[] keys;
     final Object[] values;
 
@@ -90,7 +88,7 @@ class ImmutableBiMapCodec extends DeferredObjectCodec<ImmutableBiMap> {
     }
 
     @Override
-    public ImmutableBiMap get() {
+    public ImmutableBiMap call() {
       ImmutableBiMap.Builder builder = ImmutableBiMap.builderWithExpectedSize(size());
       for (int i = 0; i < size(); i++) {
         builder.put(keys[i], values[i]);

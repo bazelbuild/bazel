@@ -991,18 +991,6 @@ public class CppOptions extends FragmentOptions {
   public boolean experimentalIncludeScanning;
 
   @Option(
-      name = "experimental_objc_include_scanning",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.CHANGES_INPUTS
-      },
-      help = "Whether to perform include scanning for objective C/C++.")
-  public boolean objcScanIncludes;
-
-  @Option(
       name = "objc_use_dotd_pruning",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,

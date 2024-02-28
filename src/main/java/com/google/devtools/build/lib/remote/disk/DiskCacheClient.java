@@ -232,6 +232,9 @@ public class DiskCacheClient implements RemoteCacheClient {
     }
 
     return Futures.transformAsync(
+        // Update the mtime on the action result itself before any of the blobs it references.
+        // This ensures that the blobs are always newer than the action result, so that trimming the
+        // cache in LRU order cannot create dangling references.
         Utils.downloadAsActionResult(actionKey, (digest, out) -> download(digest, out, Store.AC)),
         actionResult -> {
           if (actionResult == null) {
@@ -248,11 +251,6 @@ public class DiskCacheClient implements RemoteCacheClient {
             // double pass over the blobs.
             return immediateFuture(null);
           }
-
-          // Update the mtime for the action result itself. This ensures that blobs are older than
-          // the action result, so that trimming the cache in LRU order will not create dangling
-          // references.
-          var unused = refresh(toPath(actionKey.getDigest(), Store.AC));
 
           return immediateFuture(CachedActionResult.disk(actionResult));
         },

@@ -373,7 +373,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
         inputMapping =
             spawnInputExpander.getInputMapping(
-                spawn, actionExecutionContext.getArtifactExpander(), baseDirectory);
+                spawn,
+                actionExecutionContext.getArtifactExpander(),
+                actionExecutionContext.getInputMetadataProvider(),
+                baseDirectory);
       }
 
       // Don't cache the input mapping if it is unlikely that it is used again.

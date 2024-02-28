@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBeha
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;

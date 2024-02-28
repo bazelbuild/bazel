@@ -38,6 +38,9 @@ import javax.annotation.Nullable;
  * finished, this number should be raised to quickly go through any pending deletions.
  */
 public class AsynchronousTreeDeleter implements TreeDeleter {
+
+  public static final String MOVED_TRASH_DIR = "_moved_trash_dir";
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final AtomicInteger trashCount = new AtomicInteger(0);
@@ -106,5 +109,9 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
       service.shutdown();
       service = null;
     }
+  }
+
+  public Path getTrashBase() {
+    return trashBase;
   }
 }

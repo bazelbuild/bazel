@@ -13,12 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.devtools.build.lib.exec.SpawnLogContext.computeDigest;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getEnvironmentVariables;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getPlatform;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getSpawnMetricsProto;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.isInputDirectory;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -62,7 +56,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** A {@link SpawnLogContext} implementation that produces a log in expanded format. */
-public class ExpandedSpawnLogContext implements SpawnLogContext {
+public class ExpandedSpawnLogContext extends SpawnLogContext {
 
   /** The log encoding. */
   public enum Encoding {
@@ -141,6 +135,12 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
   }
 
   @Override
+  public boolean shouldPublish() {
+    // The expanded log tends to be too large to be uploaded to a remote store.
+    return false;
+  }
+
+  @Override
   public void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
@@ -174,7 +174,7 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
 
           Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
 
-          if (isInputDirectory(input, inputMetadataProvider)) {
+          if (isInputDirectory(input, contentPath, inputMetadataProvider)) {
             listDirectoryContents(
                 displayPath, contentPath, builder::addInputs, inputMetadataProvider, isTool);
             continue;
@@ -231,7 +231,8 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
                           xattrProvider,
                           digestHashFunction,
                           /* includeHashFunctionName= */ true));
-            } else if (output.isDirectory() && path.isDirectory()) {
+            } else if (!output.isSymlink() && path.isDirectory()) {
+              // TODO(tjgq): Tighten once --incompatible_disallow_unsound_directory_outputs is gone.
               listDirectoryContents(
                   output.getExecPath(),
                   path,

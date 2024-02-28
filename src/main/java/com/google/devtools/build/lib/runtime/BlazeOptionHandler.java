@@ -180,15 +180,9 @@ public final class BlazeOptionHandler {
           workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
 
       if (doNotBuild.exists()) {
-        if (!commandAnnotation.canRunInOutputDirectory()) {
-          String message = getNotInRealWorkspaceError(doNotBuild);
-          eventHandler.handle(Event.error(message));
-          return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);
-        } else {
-          eventHandler.handle(
-              Event.warn(
-                  runtime.getProductName() + " is run from output directory. This is unsound."));
-        }
+        String message = getNotInRealWorkspaceError(doNotBuild);
+        eventHandler.handle(Event.error(message));
+        return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);
       }
     }
     return DetailedExitCode.success();

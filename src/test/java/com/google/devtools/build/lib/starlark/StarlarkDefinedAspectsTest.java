@@ -24,7 +24,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -354,8 +353,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
                 }));
 
     assertThat(names).containsAtLeast("xxx", "yyy");
-    // 3rd is the C++ toolchain; its name changes between Blaze and Bazel.
-    assertThat(names).hasSize(3);
   }
 
   @Test
@@ -2817,7 +2814,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "cc_library(",
         "     name = 'zzz',",
         ")");
-    useConfiguration("--separate_aspect_deps");
 
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -6636,7 +6632,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "  attrs = {'_attr': attr.label(default=':bin', executable=True, cfg='exec')},",
         ")");
     scratch.file("test/bin.sh").setExecutable(true);
-    useConfiguration("--separate_aspect_deps");
 
     AnalysisResult result =
         update(ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"), "//test:bin");
@@ -8571,7 +8566,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(keysForAspectAOnT3).hasSize(1);
 
     ImmutableList<AspectKey> baseKeys = keysForAspectAOnT3.get(0).getBaseKeys();
-    Truth8.assertThat(baseKeys.stream().map(k -> k.getAspectClass().getName()))
+    assertThat(baseKeys.stream().map(k -> k.getAspectClass().getName()))
         .containsExactly("//test:defs.bzl%b", "//test:defs.bzl%c")
         .inOrder();
   }

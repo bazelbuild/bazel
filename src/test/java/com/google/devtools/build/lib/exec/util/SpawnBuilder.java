@@ -24,11 +24,9 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DelegateSpawn;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -61,7 +59,6 @@ public final class SpawnBuilder {
       new HashMap<>();
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
-  private RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
   private ResourceSet resourceSet = ResourceSet.ZERO;
   private PathMapper pathMapper = PathMapper.NOOP;
   private boolean builtForToolConfiguration;
@@ -108,7 +105,6 @@ public final class SpawnBuilder {
             ImmutableList.copyOf(args),
             ImmutableMap.copyOf(environment),
             ImmutableMap.copyOf(executionInfo),
-            runfilesSupplier,
             ImmutableMap.copyOf(filesetMappings),
             inputs.build(),
             tools.build(),
@@ -243,12 +239,6 @@ public final class SpawnBuilder {
       Artifact fileset, ImmutableList<FilesetOutputSymlink> mappings) {
     Preconditions.checkArgument(fileset.isFileset(), "Artifact %s is not fileset", fileset);
     filesetMappings.put(fileset, mappings);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public SpawnBuilder withRunfilesSupplier(RunfilesSupplier runfilesSupplier) {
-    this.runfilesSupplier = runfilesSupplier;
     return this;
   }
 

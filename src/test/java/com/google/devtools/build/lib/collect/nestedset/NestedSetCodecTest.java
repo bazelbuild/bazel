@@ -36,14 +36,14 @@ import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.InMemoryNestedSetStorageEndpoint;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.NestedSetStorageEndpoint;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.PutOperation;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -92,9 +92,9 @@ public final class NestedSetCodecTest {
     NestedSet<String> top = NestedSetBuilder.fromNestedSet(base).add("c").build();
 
     AtomicInteger reads = new AtomicInteger();
-    NestedSetStorageEndpoint endpoint =
-        new NestedSetStorageEndpoint() {
-          final InMemoryNestedSetStorageEndpoint delegate = new InMemoryNestedSetStorageEndpoint();
+    FingerprintValueStore fingerprintValueStore =
+        new FingerprintValueStore() {
+          final FingerprintValueStore delegate = FingerprintValueStore.inMemoryStore();
 
           @Override
           public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
@@ -102,18 +102,18 @@ public final class NestedSetCodecTest {
           }
 
           @Override
-          public ListenableFuture<byte[]> get(ByteString fingerprint) {
+          public ListenableFuture<byte[]> get(ByteString fingerprint) throws IOException {
             reads.incrementAndGet();
             return delegate.get(fingerprint);
           }
         };
 
-    ObjectCodecs serializer = createCodecs(createStore(endpoint));
+    ObjectCodecs serializer = createCodecs(createStore(fingerprintValueStore));
     ByteString serializedBase = serializer.serializeMemoizedAndBlocking(base).getObject();
     ByteString serializedTop = serializer.serializeMemoizedAndBlocking(top).getObject();
 
     // When deserializing top, we should perform 2 reads, one for each array in [[a, b], c].
-    ObjectCodecs deserializer = createCodecs(createStore(endpoint));
+    ObjectCodecs deserializer = createCodecs(createStore(fingerprintValueStore));
     NestedSet<?> deserializedTop = (NestedSet<?>) deserializer.deserializeMemoized(serializedTop);
     assertThat(deserializedTop.toList()).containsExactly("a", "b", "c");
     assertThat(reads.get()).isEqualTo(2);
@@ -129,9 +129,9 @@ public final class NestedSetCodecTest {
   @Test
   public void missingNestedSetException_hiddenUntilNestedSetIsConsumed() throws Exception {
     Throwable missingNestedSetException =
-        new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"));
-    NestedSetStorageEndpoint storageEndpoint =
-        new NestedSetStorageEndpoint() {
+        new MissingFingerprintValueException(ByteString.copyFromUtf8("fingerprint"));
+    FingerprintValueStore fingerprintValueStore =
+        new FingerprintValueStore() {
           @Override
           public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
             return immediateVoidFuture();
@@ -143,9 +143,9 @@ public final class NestedSetCodecTest {
           }
         };
     BugReporter bugReporter = mock(BugReporter.class);
-    ObjectCodecs serializer = createCodecs(createStore(storageEndpoint));
+    ObjectCodecs serializer = createCodecs(createStore(fingerprintValueStore));
     ObjectCodecs deserializer =
-        createCodecs(createStoreWithBugReporter(storageEndpoint, bugReporter));
+        createCodecs(createStoreWithBugReporter(fingerprintValueStore, bugReporter));
 
     NestedSet<?> serialized = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
     SerializationResult<ByteString> result = serializer.serializeMemoizedAndBlocking(serialized);
@@ -153,15 +153,15 @@ public final class NestedSetCodecTest {
 
     assertThat(deserialized).isInstanceOf(NestedSet.class);
     assertThrows(
-        MissingNestedSetException.class, ((NestedSet<?>) deserialized)::toListInterruptibly);
+        MissingFingerprintValueException.class, ((NestedSet<?>) deserialized)::toListInterruptibly);
     verify(bugReporter).sendNonFatalBugReport(missingNestedSetException);
   }
 
   @Test
   public void exceptionOnPut_propagatedToFutureToBlockWritesOn() throws Exception {
     Exception e = new Exception("Something went wrong");
-    NestedSetStorageEndpoint storageEndpoint =
-        new NestedSetStorageEndpoint() {
+    FingerprintValueStore fingerprintValueStore =
+        new FingerprintValueStore() {
           @Override
           public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
             return immediateFailedFuture(e);
@@ -172,7 +172,7 @@ public final class NestedSetCodecTest {
             throw new UnsupportedOperationException();
           }
         };
-    ObjectCodecs serializer = createCodecs(createStore(storageEndpoint));
+    ObjectCodecs serializer = createCodecs(createStore(fingerprintValueStore));
 
     NestedSet<?> serialized = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
     SerializationResult<ByteString> result = serializer.serializeMemoizedAndBlocking(serialized);
@@ -184,8 +184,8 @@ public final class NestedSetCodecTest {
   @Test
   public void exceptionOnGet_hiddenUntilNestedSetIsConsumed() throws Exception {
     Exception e = new Exception("Something went wrong");
-    NestedSetStorageEndpoint storageEndpoint =
-        new NestedSetStorageEndpoint() {
+    FingerprintValueStore fingerprintValueStore =
+        new FingerprintValueStore() {
           @Override
           public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
             return immediateVoidFuture();
@@ -196,8 +196,8 @@ public final class NestedSetCodecTest {
             return immediateFailedFuture(e);
           }
         };
-    ObjectCodecs serializer = createCodecs(createStore(storageEndpoint));
-    ObjectCodecs deserializer = createCodecs(createStore(storageEndpoint));
+    ObjectCodecs serializer = createCodecs(createStore(fingerprintValueStore));
+    ObjectCodecs deserializer = createCodecs(createStore(fingerprintValueStore));
 
     NestedSet<?> serialized = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
     SerializationResult<ByteString> result = serializer.serializeMemoizedAndBlocking(serialized);
@@ -214,7 +214,7 @@ public final class NestedSetCodecTest {
    */
   @Test
   public void testNestedNestedSetSerialization() throws Exception {
-    NestedSetStorageEndpoint mockStorage = mock(NestedSetStorageEndpoint.class);
+    FingerprintValueStore mockStorage = mock(FingerprintValueStore.class);
     SettableFuture<Void> innerWrite = SettableFuture.create();
     SettableFuture<Void> outerWrite = SettableFuture.create();
     when(mockStorage.put(any(), any()))
@@ -242,7 +242,7 @@ public final class NestedSetCodecTest {
 
   @Test
   public void testNestedNestedSetsWithCommonDependencyWaitOnSameInnerFuture() throws Exception {
-    NestedSetStorageEndpoint mockStorage = mock(NestedSetStorageEndpoint.class);
+    FingerprintValueStore mockStorage = mock(FingerprintValueStore.class);
     SettableFuture<Void> sharedInnerWrite = SettableFuture.create();
     SettableFuture<Void> outerWrite = SettableFuture.create();
     when(mockStorage.put(any(), any()))
@@ -297,7 +297,7 @@ public final class NestedSetCodecTest {
     // Avoid NestedSetBuilder.wrap/create - they use their own cache which interferes with what
     // we're testing.
     NestedSet<?> nestedSet = NestedSetBuilder.stableOrder().add("a").add("b").build();
-    ObjectCodecs codecs = createCodecs(createStore(new InMemoryNestedSetStorageEndpoint()));
+    ObjectCodecs codecs = createCodecs(createStore(FingerprintValueStore.inMemoryStore()));
     codecs.serializeMemoizedAndBlocking(nestedSet);
     WeakReference<?> ref = new WeakReference<>(nestedSet);
     nestedSet = null;
@@ -306,10 +306,11 @@ public final class NestedSetCodecTest {
 
   @Test
   public void testDeserializationInParallel() throws Exception {
-    NestedSetStorageEndpoint nestedSetStorageEndpoint = spy(new InMemoryNestedSetStorageEndpoint());
+    FingerprintValueStore nestedSetFingerprintValueStore =
+        spy(FingerprintValueStore.inMemoryStore());
     NestedSetSerializationCache emptyNestedSetCache = mock(NestedSetSerializationCache.class);
     NestedSetStore nestedSetStore =
-        createStoreWithCache(nestedSetStorageEndpoint, emptyNestedSetCache);
+        createStoreWithCache(nestedSetFingerprintValueStore, emptyNestedSetCache);
 
     ObjectCodecs objectCodecs = createCodecs(nestedSetStore);
 
@@ -333,12 +334,12 @@ public final class NestedSetCodecTest {
             .computeFingerprintAndStore(
                 (Object[]) set.getChildren(), objectCodecs.getSerializationContext())
             .fingerprint();
-    verify(nestedSetStorageEndpoint, times(3)).put(fingerprintCaptor.capture(), any());
+    verify(nestedSetFingerprintValueStore, times(3)).put(fingerprintCaptor.capture(), any());
     doReturn(subset1Future)
-        .when(nestedSetStorageEndpoint)
+        .when(nestedSetFingerprintValueStore)
         .get(fingerprintCaptor.getAllValues().get(0));
     doReturn(subset2Future)
-        .when(nestedSetStorageEndpoint)
+        .when(nestedSetFingerprintValueStore)
         .get(fingerprintCaptor.getAllValues().get(1));
     when(emptyNestedSetCache.putFutureIfAbsent(any(), any(), any())).thenReturn(null);
 
@@ -350,7 +351,7 @@ public final class NestedSetCodecTest {
     // At this point, we expect deserializationFuture to be waiting on both of the underlying
     // fetches, which should have both been started.
     assertThat(deserializationFuture.isDone()).isFalse();
-    verify(nestedSetStorageEndpoint, times(3)).get(any());
+    verify(nestedSetFingerprintValueStore, times(3)).get(any());
 
     // Once the underlying fetches complete, we expect deserialization to complete.
     subset1Future.set(ByteString.copyFrom("mock bytes", Charset.defaultCharset()).toByteArray());
@@ -360,15 +361,16 @@ public final class NestedSetCodecTest {
 
   @Test
   public void racingDeserialization() throws Exception {
-    NestedSetStorageEndpoint nestedSetStorageEndpoint = mock(NestedSetStorageEndpoint.class);
+    FingerprintValueStore nestedSetFingerprintValueStore = mock(FingerprintValueStore.class);
     NestedSetSerializationCache nestedSetCache =
         spy(new NestedSetSerializationCache(BugReporter.defaultInstance()));
-    NestedSetStore nestedSetStore = createStoreWithCache(nestedSetStorageEndpoint, nestedSetCache);
+    NestedSetStore nestedSetStore =
+        createStoreWithCache(nestedSetFingerprintValueStore, nestedSetCache);
     DeserializationContext deserializationContext = mock(DeserializationContext.class);
     ByteString fingerprint = ByteString.copyFromUtf8("fingerprint");
     // Future never completes, so we don't have to exercise that code in NestedSetStore.
     SettableFuture<byte[]> storageFuture = SettableFuture.create();
-    when(nestedSetStorageEndpoint.get(fingerprint)).thenReturn(storageFuture);
+    when(nestedSetFingerprintValueStore.get(fingerprint)).thenReturn(storageFuture);
     CountDownLatch fingerprintRequested = new CountDownLatch(2);
     doAnswer(
             invocation -> {
@@ -402,36 +404,35 @@ public final class NestedSetCodecTest {
         (ListenableFuture<Object[]>)
             nestedSetStore.getContentsAndDeserialize(fingerprint, deserializationContext);
     asyncThread.join();
-    verify(nestedSetStorageEndpoint, times(1)).get(eq(fingerprint));
+    verify(nestedSetFingerprintValueStore).get(eq(fingerprint));
     assertThat(result).isSameInstanceAs(asyncResult.get());
     assertThat(result.isDone()).isFalse();
   }
 
   @Test
   public void racingSerialization() throws Exception {
-    NestedSetStorageEndpoint nestedSetStorageEndpoint = mock(NestedSetStorageEndpoint.class);
+    FingerprintValueStore nestedSetFingerprintValueStore = mock(FingerprintValueStore.class);
     NestedSetSerializationCache nestedSetCache =
         spy(new NestedSetSerializationCache(BugReporter.defaultInstance()));
-    NestedSetStore nestedSetStore = createStoreWithCache(nestedSetStorageEndpoint, nestedSetCache);
+    NestedSetStore nestedSetStore =
+        createStoreWithCache(nestedSetFingerprintValueStore, nestedSetCache);
     SerializationContext serializationContext = mock(SerializationContext.class);
     Object[] contents = {new Object()};
     when(serializationContext.getNewMemoizingContext()).thenReturn(serializationContext);
-    when(nestedSetStorageEndpoint.put(any(), any()))
+    when(nestedSetFingerprintValueStore.put(any(), any()))
         .thenAnswer(invocation -> SettableFuture.create());
     CountDownLatch fingerprintRequested = new CountDownLatch(2);
     doAnswer(
             invocation -> {
               fingerprintRequested.countDown();
-              NestedSetStore.FingerprintComputationResult result =
-                  (NestedSetStore.FingerprintComputationResult) invocation.callRealMethod();
+              PutOperation result = (PutOperation) invocation.callRealMethod();
               assertThat(result).isNull();
               fingerprintRequested.await();
               return null;
             })
         .when(nestedSetCache)
         .fingerprintForContents(contents);
-    AtomicReference<NestedSetStore.FingerprintComputationResult> asyncResult =
-        new AtomicReference<>();
+    AtomicReference<PutOperation> asyncResult = new AtomicReference<>();
     Thread asyncThread =
         new Thread(
             () -> {
@@ -443,17 +444,16 @@ public final class NestedSetCodecTest {
               }
             });
     asyncThread.start();
-    NestedSetStore.FingerprintComputationResult result =
-        nestedSetStore.computeFingerprintAndStore(contents, serializationContext);
+    PutOperation result = nestedSetStore.computeFingerprintAndStore(contents, serializationContext);
     asyncThread.join();
 
-    verify(nestedSetStorageEndpoint, times(1)).put(any(), any());
+    verify(nestedSetFingerprintValueStore).put(any(), any());
     assertThat(result).isSameInstanceAs(asyncResult.get());
   }
 
   @Test
   public void writeFuturesWaitForTransitiveWrites() throws Exception {
-    NestedSetStorageEndpoint mockWriter = mock(NestedSetStorageEndpoint.class);
+    FingerprintValueStore mockWriter = mock(FingerprintValueStore.class);
     NestedSetStore store = createStore(mockWriter);
     SerializationContext mockSerializationContext = mock(SerializationContext.class);
     when(mockSerializationContext.getNewMemoizingContext()).thenReturn(mockSerializationContext);
@@ -537,10 +537,11 @@ public final class NestedSetCodecTest {
       }
     }
 
+    FingerprintValueStore fingerprintValueStore = FingerprintValueStore.inMemoryStore();
     ObjectCodecs codecs =
         createCodecs(
             createStoreWithCacheContext(
-                new InMemoryNestedSetStorageEndpoint(), ctx -> ctx.getDependency(Color.class)),
+                fingerprintValueStore, ctx -> ctx.getDependency(Color.class)),
             new BlackAndWhiteCodec());
 
     List<String> stuff = ImmutableList.of("bird", "paint", "shoes");
@@ -602,25 +603,27 @@ public final class NestedSetCodecTest {
         .isEqualTo(Lists.transform(stuff, thing -> ColorfulThing.of(thing, Color.GREEN)));
   }
 
-  private static NestedSetStore createStore(NestedSetStorageEndpoint endpoint) {
-    return createStoreWithBugReporter(endpoint, BugReporter.defaultInstance());
+  private static NestedSetStore createStore(FingerprintValueStore fingerprintValueStore) {
+    return createStoreWithBugReporter(fingerprintValueStore, BugReporter.defaultInstance());
   }
 
   private static NestedSetStore createStoreWithBugReporter(
-      NestedSetStorageEndpoint endpoint, BugReporter bugReporter) {
-    return new NestedSetStore(endpoint, directExecutor(), bugReporter, NestedSetStore.NO_CONTEXT);
+      FingerprintValueStore fingerprintValueStore, BugReporter bugReporter) {
+    return new NestedSetStore(
+        fingerprintValueStore, directExecutor(), bugReporter, NestedSetStore.NO_CONTEXT);
   }
 
   private static NestedSetStore createStoreWithCache(
-      NestedSetStorageEndpoint endpoint, NestedSetSerializationCache cache) {
-    return new NestedSetStore(endpoint, directExecutor(), cache, NestedSetStore.NO_CONTEXT);
+      FingerprintValueStore fingerprintValueStore, NestedSetSerializationCache cache) {
+    return new NestedSetStore(
+        fingerprintValueStore, directExecutor(), cache, NestedSetStore.NO_CONTEXT);
   }
 
   private static NestedSetStore createStoreWithCacheContext(
-      NestedSetStorageEndpoint endpoint,
+      FingerprintValueStore fingerprintValueStore,
       Function<SerializationDependencyProvider, ?> cacheContextFn) {
     return new NestedSetStore(
-        endpoint, directExecutor(), BugReporter.defaultInstance(), cacheContextFn);
+        fingerprintValueStore, directExecutor(), BugReporter.defaultInstance(), cacheContextFn);
   }
 
   private static ObjectCodecs createCodecs(NestedSetStore store, ObjectCodec<?>... codecs) {

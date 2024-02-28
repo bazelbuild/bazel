@@ -16,12 +16,15 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -33,6 +36,10 @@ import javax.annotation.Nullable;
  * able to reuse things common for that mnemonic, e.g. standard libraries.
  */
 public class SandboxStash {
+
+  public static final String SANDBOX_STASH_BASE = "sandbox_stash";
+  private static final String TEST_RUNNER_MNEMONIC = "TestRunner";
+  private static final String TEST_SRCDIR = "TEST_SRCDIR";
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An incrementing count of stashes to avoid filename clashes. */
@@ -49,24 +56,28 @@ public class SandboxStash {
 
   private static SandboxStash instance;
   private final String workspaceName;
-  private final Path outputBase;
+  private final Path sandboxBase;
 
-  public SandboxStash(String workspaceName, Path outputBase) {
+  private final Map<Path, String> stashPathToRunfilesDir = new ConcurrentHashMap<>();
+
+  public SandboxStash(String workspaceName, Path sandboxBase) {
     this.workspaceName = workspaceName;
-    this.outputBase = outputBase;
+    this.sandboxBase = sandboxBase;
   }
 
-  static boolean takeStashedSandbox(Path sandboxPath, String mnemonic) {
+  static boolean takeStashedSandbox(
+      Path sandboxPath, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
     if (instance == null) {
       return false;
     }
-    return instance.takeStashedSandboxInternal(sandboxPath, mnemonic);
+    return instance.takeStashedSandboxInternal(sandboxPath, mnemonic, environment, outputs);
   }
 
-  private boolean takeStashedSandboxInternal(Path sandboxPath, String mnemonic) {
+  private boolean takeStashedSandboxInternal(
+      Path sandboxPath, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
     try {
       Path sandboxes = getSandboxStashDir(mnemonic, sandboxPath.getFileSystem());
-      if (sandboxes == null) {
+      if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
         return false;
       }
       Collection<Path> stashes = sandboxes.getDirectoryEntries();
@@ -83,6 +94,14 @@ public class SandboxStash {
           Path stashExecroot = stash.getChild("execroot");
           stashExecroot.renameTo(sandboxExecroot);
           stash.deleteTree();
+          if (isTestAction(mnemonic)) {
+            Path stashedRunfilesDir =
+                sandboxExecroot.getRelative(stashPathToRunfilesDir.get(stashExecroot));
+            Path currentRunfiles = sandboxExecroot.getRelative(getCurrentRunfilesDir(environment));
+            currentRunfiles.getParentDirectory().createDirectoryAndParents();
+            stashedRunfilesDir.renameTo(currentRunfiles);
+            stashPathToRunfilesDir.remove(stashExecroot);
+          }
           return true;
         } catch (FileNotFoundException e) {
           // Try the next one, somebody else took this one.
@@ -99,29 +118,47 @@ public class SandboxStash {
   }
 
   /** Atomically moves the sandboxPath directory aside for later reuse. */
-  static void stashSandbox(Path path, String mnemonic) {
+  static void stashSandbox(
+      Path path,
+      String mnemonic,
+      Map<String, String> environment,
+      SandboxOutputs outputs,
+      TreeDeleter treeDeleter) {
     if (instance == null) {
       return;
     }
-    instance.stashSandboxInternal(path, mnemonic);
+    instance.stashSandboxInternal(path, mnemonic, environment, outputs, treeDeleter);
   }
 
-  private void stashSandboxInternal(Path path, String mnemonic) {
+  private void stashSandboxInternal(
+      Path path,
+      String mnemonic,
+      Map<String, String> environment,
+      SandboxOutputs outputs,
+      TreeDeleter treeDeleter) {
     Path sandboxes = getSandboxStashDir(mnemonic, path.getFileSystem());
-    if (sandboxes == null) {
+    if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
       return;
     }
-    String stashName;
-    synchronized (stash) {
-      stashName = Integer.toString(stash.incrementAndGet());
-    }
+    String stashName = Integer.toString(stash.incrementAndGet());
     Path stashPath = sandboxes.getChild(stashName);
     if (!path.exists()) {
       return;
     }
     try {
       stashPath.createDirectory();
-      path.getChild("execroot").renameTo(stashPath.getChild("execroot"));
+      Path stashPathExecroot = stashPath.getChild("execroot");
+      if (isTestAction(mnemonic)) {
+        if (environment.get("TEST_TMPDIR").startsWith("_tmp")) {
+          treeDeleter.deleteTree(
+              path.getRelative("execroot/" + environment.get("TEST_WORKSPACE") + "/_tmp"));
+        }
+      }
+      path.getChild("execroot").renameTo(stashPathExecroot);
+      if (isTestAction(mnemonic)) {
+        // We only do this after the rename operation has succeeded
+        stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
+      }
     } catch (IOException e) {
       // Since stash names are unique, this IOException indicates some other problem with stashing,
       // so we turn it off.
@@ -140,7 +177,7 @@ public class SandboxStash {
    */
   @Nullable
   private Path getSandboxStashDir(String mnemonic, FileSystem fileSystem) {
-    Path stashDir = getStashBase(fileSystem.getPath(this.outputBase.getPathString()));
+    Path stashDir = getStashBase(fileSystem.getPath(this.sandboxBase.getPathString()));
     try {
       stashDir.createDirectory();
       if (!maybeClearExistingStash(stashDir)) {
@@ -162,8 +199,8 @@ public class SandboxStash {
     }
   }
 
-  private static Path getStashBase(Path outputBase1) {
-    return outputBase1.getChild("sandbox_stash");
+  private static Path getStashBase(Path sandboxBase) {
+    return sandboxBase.getChild(SANDBOX_STASH_BASE);
   }
 
   /**
@@ -201,7 +238,7 @@ public class SandboxStash {
       if (instance == null) {
         instance = new SandboxStash(workspaceName, sandboxBase);
       } else if (!Objects.equals(workspaceName, instance.workspaceName)) {
-        Path stashBase = getStashBase(instance.outputBase);
+        Path stashBase = getStashBase(instance.sandboxBase);
         try {
           for (Path directoryEntry : stashBase.getDirectoryEntries()) {
             directoryEntry.deleteTree();
@@ -218,8 +255,8 @@ public class SandboxStash {
   }
 
   /** Cleans up the entire current stash, if any. Cleaning may be asynchronous. */
-  static void clean(TreeDeleter treeDeleter, Path outputBase) {
-    Path stashDir = getStashBase(outputBase);
+  static void clean(TreeDeleter treeDeleter, Path sandboxBase) {
+    Path stashDir = getStashBase(sandboxBase);
     if (!stashDir.isDirectory()) {
       return;
     }
@@ -241,5 +278,36 @@ public class SandboxStash {
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to clean sandbox stash %s", stashDir);
     }
+  }
+
+  /**
+   * Test actions are guaranteed to have a runfiles directory with the test name as part of the
+   * name. The path to the directory is unique between tests. If two tests (foo and bar) have the
+   * directory <source-root>/pkg/my_runfiles as part of their runfiles and this directory contains
+   * 1000 files, we would be symlinking the 1000 files for each test since the paths do not
+   * coincide. To make sure we can reuse the runfiles directory we must rename the old runfiles
+   * directory for the action that was stashed to the path that is expected by the current test.
+   */
+  private static boolean isTestAction(String mnemonic) {
+    return mnemonic.equals(TEST_RUNNER_MNEMONIC);
+  }
+
+  /**
+   * Test actions are split in two spawns. The first one runs the test and the second generates the
+   * XML output from the test log. We do not want the second spawn to reuse the stash because it
+   * doesn't contain the inputs needed to run the test; if it reused it, it would be expensive in
+   * two ways: it would have to clean up all the inputs, and it would destroy a valid stash that a
+   * different test could potentially use. If we are running coverage, there might be a third spawn
+   * for coverage where we apply the same reasoning.
+   *
+   * <p>We identify the second and third spawn because they have a single output.
+   */
+  private static boolean isTestXmlGenerationOrCoverageSpawn(
+      String mnemonic, SandboxOutputs outputs) {
+    return isTestAction(mnemonic) && outputs.files().size() == 1;
+  }
+
+  private static String getCurrentRunfilesDir(Map<String, String> environment) {
+    return environment.get("TEST_WORKSPACE") + "/" + environment.get(TEST_SRCDIR);
   }
 }

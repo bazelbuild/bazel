@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKe
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
@@ -549,13 +548,14 @@ public final class PackageFactory {
     StarlarkFile.setParseProfiler(
         new StarlarkFile.ParseProfiler() {
           @Override
-          public Object start(String filename) {
-            return Profiler.instance().profile(ProfilerTask.STARLARK_PARSER, filename);
+          public long start() {
+            return Profiler.nanoTimeMaybe();
           }
 
           @Override
-          public void end(Object span) {
-            ((SilentCloseable) span).close();
+          public void end(long startTimeNanos, String filename) {
+            Profiler.instance()
+                .completeTask(startTimeNanos, ProfilerTask.STARLARK_PARSER, filename);
           }
         });
 
@@ -563,18 +563,19 @@ public final class PackageFactory {
     StarlarkThread.setCallProfiler(
         new StarlarkThread.CallProfiler() {
           @Override
-          public Object start(StarlarkCallable fn) {
-            return Profiler.instance()
-                .profile(
+          public long start() {
+            return Profiler.nanoTimeMaybe();
+          }
+
+          @Override
+          public void end(long startTimeNanos, StarlarkCallable fn) {
+            Profiler.instance()
+                .completeTask(
+                    startTimeNanos,
                     fn instanceof StarlarkFunction
                         ? ProfilerTask.STARLARK_USER_FN
                         : ProfilerTask.STARLARK_BUILTIN_FN,
                     fn.getName());
-          }
-
-          @Override
-          public void end(Object span) {
-            ((SilentCloseable) span).close();
           }
         });
   }

@@ -243,7 +243,9 @@ public class RClassGeneratorTest {
   public void emptyIntArrays() throws Exception {
     boolean finalFields = true;
     // Make sure we parse an empty array the way the R.txt writes it.
-    ResourceSymbols symbolValues = createSymbolFile("R.txt", "int[] styleable ActionMenuView { }");
+    ResourceSymbols symbolValues =
+        createSymbolFile(
+            "R.txt", "int[] styleable ActionMenuView { }", "int[] styleable ActionMenuView2 {  }");
     ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
@@ -259,7 +261,9 @@ public class RClassGeneratorTest {
         "com.testEmptyIntArray.R$styleable",
         outerClass,
         ImmutableMap.<String, Integer>of(),
-        ImmutableMap.<String, List<Integer>>of("ActionMenuView", ImmutableList.<Integer>of()),
+        ImmutableMap.<String, List<Integer>>of(
+            "ActionMenuView", ImmutableList.<Integer>of(),
+            "ActionMenuView2", ImmutableList.<Integer>of()),
         finalFields);
   }
 

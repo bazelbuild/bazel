@@ -17,7 +17,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -49,7 +49,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   protected final WorkerOptions workerOptions;
 
   private final Path workerBaseDir;
-  private final TreeDeleter treeDeleter;
+  private final AsynchronousTreeDeleter treeDeleter;
   private Reporter reporter;
 
   /**
@@ -66,7 +66,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
       Path workerBaseDir,
       WorkerOptions workerOptions,
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
-      @Nullable TreeDeleter treeDeleter) {
+      @Nullable AsynchronousTreeDeleter treeDeleter) {
     this.workerBaseDir = workerBaseDir;
     this.workerOptions = workerOptions;
     this.hardenedSandboxOptions = hardenedSandboxOptions;
@@ -83,6 +83,10 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     String workTypeName = key.getWorkerTypeName();
     if (!workerBaseDir.isDirectory()) {
       workerBaseDir.createDirectoryAndParents();
+      Path deleterTrashBase = treeDeleter == null ? null : treeDeleter.getTrashBase();
+      if (deleterTrashBase != null) {
+        deleterTrashBase.createDirectory();
+      }
     }
     Path logFile =
         workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");

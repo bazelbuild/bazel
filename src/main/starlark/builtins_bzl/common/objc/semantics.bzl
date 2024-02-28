@@ -57,15 +57,11 @@ def _get_licenses_attr():
     # TODO(b/182226065): Change to applicable_licenses
     return {}
 
-def _get_semantics():
-    return _builtins.internal.bazel_objc_internal.semantics
-
 def _get_repo():
     return "bazel_tools"
 
 semantics = struct(
     check_toolchain_supports_objc_compile = _check_toolchain_supports_objc_compile,
-    get_semantics = _get_semantics,
     get_repo = _get_repo,
     get_licenses_attr = _get_licenses_attr,
     cpu_to_platform = lambda cpu: _CPU_TO_PLATFORM[cpu],

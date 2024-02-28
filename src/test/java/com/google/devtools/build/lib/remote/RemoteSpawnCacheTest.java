@@ -194,12 +194,11 @@ public class RemoteSpawnCacheTest {
             PathFragment baseDirectory, boolean willAccessRepeatedly)
             throws ForbiddenActionInputException {
           return getSpawnInputExpander()
-              .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, baseDirectory);
+              .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, fakeFileCache, baseDirectory);
         }
 
         @Override
-        public void report(ProgressStatus progress) {
-        }
+        public void report(ProgressStatus progress) {}
 
         @Override
         public boolean isRewindingEnabled() {

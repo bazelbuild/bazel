@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -34,12 +34,18 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A fake implementation of the {@link InputMetadataProvider} interface. */
 final class FakeActionInputFileCache implements InputMetadataProvider {
   private final Path execRoot;
   private final BiMap<ActionInput, String> cas = HashBiMap.create();
+  private final Map<ActionInput, RunfilesArtifactValue> runfilesMap = new HashMap<>();
+  private final List<RunfilesTree> runfilesTrees = new ArrayList<>();
   private final DigestUtil digestUtil;
 
   FakeActionInputFileCache(Path execRoot) {
@@ -60,12 +66,12 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   @Override
   @Nullable
   public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
-    throw new UnsupportedOperationException();
+    return runfilesMap.get(input);
   }
 
   @Override
   public ImmutableList<RunfilesTree> getRunfilesTrees() {
-    throw new UnsupportedOperationException();
+    return ImmutableList.copyOf(runfilesTrees);
   }
 
   @Override
@@ -75,6 +81,19 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
 
   private void setDigest(ActionInput input, String digest) {
     cas.put(input, digest);
+  }
+
+  public void addRunfilesTree(ActionInput runfilesMiddleman, RunfilesTree runfilesTree) {
+    runfilesMap.put(
+        runfilesMiddleman,
+        new RunfilesArtifactValue(
+            FileArtifactValue.createForNormalFile(new byte[] {}, null, 0),
+            runfilesTree,
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of()));
+    runfilesTrees.add(runfilesTree);
   }
 
   public Digest createScratchInput(ActionInput input, String content) throws IOException {

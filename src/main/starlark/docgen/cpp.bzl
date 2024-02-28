@@ -35,4 +35,5 @@ other_rules = struct(
     fdo_profile = native.fdo_profile,
     memprof_profile = native.memprof_profile,
     propeller_optimize = native.propeller_optimize,
+    cc_toolchain = native.cc_toolchain,
 )

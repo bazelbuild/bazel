@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -93,7 +92,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
-  private static final int MARKER_FILE_VERSION = 4;
+  private static final int MARKER_FILE_VERSION = 7;
 
   // Mapping of rule class name to RepositoryFunction.
   private final ImmutableMap<String, RepositoryFunction> handlers;
@@ -190,9 +189,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               .setDigest(markerHash)
               .setExcludeFromVendoring(shouldExcludeRepoFromVendoring(handler, rule))
               .build();
-        } else {
-          // So that we are in a consistent state if something happens while fetching the repository
-          DigestWriter.clearMarkerFile(directories, repositoryName);
         }
       }
 
@@ -397,12 +393,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private boolean shouldExcludeRepoFromVendoring(RepositoryFunction handler, Rule rule) {
-    return handler.isLocal(rule) || handler.isConfigure(rule) || isWorkspaceRepo(rule);
-  }
-
-  private boolean isWorkspaceRepo(Rule rule) {
-    // All workspace repos are under //external, while bzlmod repo rules are not
-    return rule.getPackage().getPackageIdentifier().equals(EXTERNAL_PACKAGE_IDENTIFIER);
+    return handler.isLocal(rule)
+        || handler.isConfigure(rule)
+        || RepositoryFunction.isWorkspaceRepo(rule);
   }
 
   @Nullable
@@ -589,6 +582,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private static class DigestWriter {
+    private final BlazeDirectories directories;
     private final Path markerPath;
     private final Rule rule;
     // not just Map<> to signal that iteration order must be deterministic
@@ -600,6 +594,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         RepositoryName repositoryName,
         Rule rule,
         StarlarkSemantics starlarkSemantics) {
+      this.directories = directories;
       ruleKey = computeRuleKey(rule, starlarkSemantics);
       markerPath = getMarkerPath(directories, repositoryName.getName());
       this.rule = rule;
@@ -648,15 +643,14 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         return null;
       }
 
-      Path baseDirectory = rule.getPackage().getPackageDirectory();
       Map<RepoRecordedInput, String> recordedInputValues = new TreeMap<>();
       String content;
       try {
         content = FileSystemUtils.readContent(markerPath, UTF_8);
-        String markerRuleKey = readMarkerFile(content, baseDirectory, recordedInputValues);
+        String markerRuleKey = readMarkerFile(content, recordedInputValues);
         boolean verified = false;
         if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)) {
-          verified = handler.verifyRecordedInputs(rule, recordedInputValues, env);
+          verified = handler.verifyRecordedInputs(rule, directories, recordedInputValues, env);
           if (env.valuesMissing()) {
             return null;
           }
@@ -678,7 +672,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     @Nullable
     private static String readMarkerFile(
-        String content, Path baseDirectory, Map<RepoRecordedInput, String> recordedInputValues) {
+        String content, Map<RepoRecordedInput, String> recordedInputValues) {
       String markerRuleKey = null;
       Iterable<String> lines = Splitter.on('\n').split(content);
 
@@ -690,8 +684,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         } else {
           int sChar = line.indexOf(' ');
           if (sChar > 0) {
-            RepoRecordedInput input =
-                RepoRecordedInput.parse(unescape(line.substring(0, sChar)), baseDirectory);
+            RepoRecordedInput input = RepoRecordedInput.parse(unescape(line.substring(0, sChar)));
             if (input == null) {
               // ignore invalid entries.
               continue;

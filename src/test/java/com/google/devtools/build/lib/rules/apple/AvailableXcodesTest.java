@@ -56,11 +56,9 @@ public final class AvailableXcodesTest extends BuildViewTestCase {
     ConfiguredTarget nativeTarget = getConfiguredTarget("//examples/apple:my_xcodes");
     AvailableXcodesInfo availableXcodesInfo = nativeTarget.get(AvailableXcodesInfo.PROVIDER);
     ConfiguredTarget version8 = getConfiguredTarget("//examples/apple:xcode_8");
-    XcodeVersionProperties version8properties =
-        version8.get(XcodeVersionProperties.STARLARK_CONSTRUCTOR);
+    XcodeVersionProperties version8properties = version8.get(XcodeVersionProperties.PROVIDER);
     ConfiguredTarget version9 = getConfiguredTarget("//examples/apple:xcode_9");
-    XcodeVersionProperties version9properties =
-        version9.get(XcodeVersionProperties.STARLARK_CONSTRUCTOR);
+    XcodeVersionProperties version9properties = version9.get(XcodeVersionProperties.PROVIDER);
     assertThat(availableXcodesInfo.getAvailableVersions()).hasSize(2);
     assertThat(
             Iterables.get(availableXcodesInfo.getAvailableVersions(), 0)

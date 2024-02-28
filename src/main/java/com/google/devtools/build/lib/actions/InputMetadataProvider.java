@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import java.io.IOException;

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -35,21 +34,18 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -75,20 +71,6 @@ public class CppHelper {
 
   private CppHelper() {
     // prevents construction
-  }
-
-  /** Returns the malloc implementation for the given target. */
-  public static TransitiveInfoCollection mallocForTarget(
-      RuleContext ruleContext, String mallocAttrName) {
-    if (ruleContext.getFragment(CppConfiguration.class).customMalloc() != null) {
-      return ruleContext.getPrerequisite(":default_malloc");
-    } else {
-      return ruleContext.getPrerequisite(mallocAttrName);
-    }
-  }
-
-  public static TransitiveInfoCollection mallocForTarget(RuleContext ruleContext) {
-    return mallocForTarget(ruleContext, "malloc");
   }
 
   /** Tokenizes and expands make variables. */
@@ -197,42 +179,44 @@ public class CppHelper {
   }
 
   public static Artifact getLinkedArtifact(
-      Label label,
-      ActionConstructionContext actionConstructionContext,
-      ArtifactRoot artifactRoot,
-      BuildConfigurationValue config,
+      String targetName,
+      LinkActionConstruction linkActionConstruction,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix,
       PathFragment name) {
-    Artifact result = actionConstructionContext.getPackageRelativeArtifact(name, artifactRoot);
+    Artifact result =
+        linkActionConstruction
+            .getContext()
+            .getPackageRelativeArtifact(name, linkActionConstruction.getBinDirectory());
 
     // If the linked artifact is not the linux default, then a FailAction is generated for said
     // linux default to satisfy the requirements of any implicit outputs.
     // TODO(b/30132703): Remove the implicit outputs of cc_library.
     Artifact linuxDefault =
         getLinuxLinkedArtifact(
-            label, actionConstructionContext, config, linkType, linkedArtifactNameSuffix);
+            targetName, linkActionConstruction, linkType, linkedArtifactNameSuffix);
     if (!result.equals(linuxDefault)) {
-      actionConstructionContext.registerAction(
-          new FailAction(
-              actionConstructionContext.getActionOwner(),
-              ImmutableList.of(linuxDefault),
-              String.format(
-                  "the given toolchain supports creation of %s instead of %s",
-                  result.getExecPathString(), linuxDefault.getExecPathString()),
-              Code.INCORRECT_TOOLCHAIN));
+      linkActionConstruction
+          .getContext()
+          .registerAction(
+              new FailAction(
+                  linkActionConstruction.getContext().getActionOwner(),
+                  ImmutableList.of(linuxDefault),
+                  String.format(
+                      "the given toolchain supports creation of %s instead of %s",
+                      result.getExecPathString(), linuxDefault.getExecPathString()),
+                  Code.INCORRECT_TOOLCHAIN));
     }
 
     return result;
   }
 
   private static Artifact getLinuxLinkedArtifact(
-      Label label,
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue config,
+      String targetName,
+      LinkActionConstruction linkActionConstruction,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix) {
-    PathFragment name = PathFragment.create(label.getName());
+    PathFragment name = PathFragment.create(targetName);
     if (linkType != LinkTargetType.EXECUTABLE) {
       name =
           name.replaceName(
@@ -243,27 +227,9 @@ public class CppHelper {
                   + linkType.getDefaultExtension());
     }
 
-    return actionConstructionContext.getPackageRelativeArtifact(
-        name, config.getBinDirectory(label.getRepository()));
-  }
-
-  /**
-   * Emits a warning on the rule if there are identical linkstamp artifacts with different {@code
-   * CcCompilationContext}s.
-   */
-  public static void checkLinkstampsUnique(
-      RuleErrorConsumer listener, Iterable<Linkstamp> linkstamps) {
-    Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();
-    for (Linkstamp pair : linkstamps) {
-      Artifact artifact = pair.getArtifact();
-      if (result.containsKey(artifact)) {
-        listener.ruleWarning(
-            "rule inherits the '"
-                + artifact.toDetailString()
-                + "' linkstamp file from more than one cc_library rule");
-      }
-      result.put(artifact, pair.getDeclaredIncludeSrcs());
-    }
+    return linkActionConstruction
+        .getContext()
+        .getPackageRelativeArtifact(name, linkActionConstruction.getBinDirectory());
   }
 
   // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in
@@ -271,7 +237,6 @@ public class CppHelper {
 
   /** Returns whether binaries must be compiled with position independent code. */
   public static boolean usePicForBinaries(
-      CcToolchainProvider toolchain,
       CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
@@ -319,15 +284,12 @@ public class CppHelper {
   }
 
   public static ImmutableMap<String, String> getEnvironmentVariables(
-      RuleErrorConsumer ruleErrorConsumer,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainVariables variables,
-      String actionName)
-      throws RuleErrorException {
+      FeatureConfiguration featureConfiguration, CcToolchainVariables variables, String actionName)
+      throws EvalException {
     try {
       return featureConfiguration.getEnvironmentVariables(actionName, variables);
     } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e);
+      throw new EvalException(e);
     }
   }
 
@@ -457,7 +419,6 @@ public class CppHelper {
    */
   public static boolean useInterfaceSharedLibraries(
       CppConfiguration cppConfiguration,
-      CcToolchainProvider toolchain,
       FeatureConfiguration featureConfiguration) {
     return CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)
         && cppConfiguration.getUseInterfaceSharedLibraries();

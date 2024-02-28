@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -284,7 +283,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       return new Linkstamp( // throws InterruptedException
           linkstamp,
           ccCompilationContext.getDeclaredIncludeSrcs(),
-          starlarkActionFactoryApi.getActionConstructionContext().getActionKeyContext());
+          starlarkActionFactoryApi.getRuleContext().getActionKeyContext());
     } catch (CommandLineExpansionException | InterruptedException ex) {
       throw new EvalException(ex);
     }
@@ -355,7 +354,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public String binOrGenfilesRelativeToUniqueDirectory(
       StarlarkActionFactory actions, String uniqueDirectory) {
-    ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
+    ActionConstructionContext actionConstructionContext = actions.getRuleContext();
     return actionConstructionContext
         .getBinOrGenfilesDirectory()
         .getExecPath()
@@ -379,12 +378,11 @@ public class CcStarlarkInternal implements StarlarkValue {
       Sequence<?> publicHeaders,
       Sequence<?> additionalExportedHeaders)
       throws EvalException {
-    ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
     actions
-        .asActionRegistry(actions)
+        .getRuleContext()
         .registerAction(
             new UmbrellaHeaderAction(
-                actionConstructionContext.getActionOwner(),
+                actions.getRuleContext().getActionOwner(),
                 umbrellaHeader,
                 Sequence.cast(publicHeaders, Artifact.class, "public_headers"),
                 Sequence.cast(
@@ -425,38 +423,23 @@ public class CcStarlarkInternal implements StarlarkValue {
       Boolean generateSubmodules,
       Boolean withoutExternDependencies)
       throws EvalException {
-    ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
-    actions
-        .asActionRegistry(actions)
-        .registerAction(
-            new CppModuleMapAction(
-                actionConstructionContext.getActionOwner(),
-                moduleMap,
-                Sequence.cast(privateHeaders, Artifact.class, "private_headers"),
-                Sequence.cast(publicHeaders, Artifact.class, "public_headers"),
-                Sequence.cast(dependentModuleMaps, CppModuleMap.class, "dependent_module_maps"),
-                Sequence.cast(
-                        additionalExportedHeaders, String.class, "additional_exported_headers")
-                    .stream()
-                    .map(PathFragment::create)
-                    .collect(toImmutableList()),
-                Sequence.cast(separateModuleHeaders, Artifact.class, "separate_module_headers"),
-                compiledModule,
-                moduleMapHomeIsCwd,
-                generateSubmodules,
-                withoutExternDependencies));
-  }
-
-  @StarlarkMethod(
-      name = "apple_config_if_available",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      },
-      allowReturnNones = true)
-  @Nullable
-  public AppleConfiguration getAppleConfigIfAvailable(StarlarkRuleContext ruleContext) {
-    return ruleContext.getRuleContext().getConfiguration().getFragment(AppleConfiguration.class);
+    RuleContext ruleContext = actions.getRuleContext();
+    ruleContext.registerAction(
+        new CppModuleMapAction(
+            ruleContext.getActionOwner(),
+            moduleMap,
+            Sequence.cast(privateHeaders, Artifact.class, "private_headers"),
+            Sequence.cast(publicHeaders, Artifact.class, "public_headers"),
+            Sequence.cast(dependentModuleMaps, CppModuleMap.class, "dependent_module_maps"),
+            Sequence.cast(additionalExportedHeaders, String.class, "additional_exported_headers")
+                .stream()
+                .map(PathFragment::create)
+                .collect(toImmutableList()),
+            Sequence.cast(separateModuleHeaders, Artifact.class, "separate_module_headers"),
+            compiledModule,
+            moduleMapHomeIsCwd,
+            generateSubmodules,
+            withoutExternDependencies));
   }
 
   private static final StarlarkProvider buildSettingInfo =
@@ -504,18 +487,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     } else {
       return null;
     }
-  }
-
-  @StarlarkMethod(
-      name = "cpp_config_from_feature_config",
-      documented = false,
-      parameters = {
-        @Param(name = "feature_configuration", positional = false, named = true),
-      })
-  public CppConfiguration cppConfigFromFeatureConfig(
-      FeatureConfigurationForStarlark featureConfigurationForStarlark) {
-    return featureConfigurationForStarlark
-        .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing();
   }
 
   @StarlarkMethod(

@@ -642,7 +642,9 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   protected boolean shouldDeleteOnAnalysisInvalidatingChange(SkyKey k) {
     return k instanceof ArtifactNestedSetKey
         || k instanceof ActionLookupKey
-        || k instanceof BuildConfigurationKey
+        || (k instanceof BuildConfigurationKey
+            && getSkyframeBuildView().getBuildConfiguration() != null
+            && !k.equals(getSkyframeBuildView().getBuildConfiguration().getKey()))
         || k instanceof ActionLookupData;
   }
 

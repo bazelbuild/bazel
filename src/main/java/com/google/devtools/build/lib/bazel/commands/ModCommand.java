@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -82,8 +83,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.common.options.OptionPriority.PriorityCategory;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.gson.Gson;
@@ -120,20 +119,14 @@ public final class ModCommand implements BlazeCommand {
   public static final String NAME = "mod";
 
   @Override
-  public void editOptions(OptionsParser optionsParser) {
-    try {
-      optionsParser.parse(
-          PriorityCategory.SOFTWARE_REQUIREMENT,
-          "Option required by the mod command",
-          ImmutableList.of("--enable_bzlmod"));
-    } catch (OptionsParsingException e) {
-      // Should never happen.
-      throw new IllegalStateException("Unexpected exception", e);
-    }
-  }
-
-  @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    if (!options.getOptions(BuildLanguageOptions.class).enableBzlmod) {
+      return reportAndCreateFailureResult(
+          env,
+          "Bzlmod has to be enabled for mod command to work, run with --enable_bzlmod",
+          Code.MISSING_ARGUMENTS);
+    }
+
     env.getEventBus()
         .post(
             new NoBuildEvent(

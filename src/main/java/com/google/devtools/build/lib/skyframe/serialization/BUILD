@@ -34,10 +34,13 @@ java_library(
     ],
     deps = [
         ":codec-scanning-constants",
+        ":constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
+        "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:error_prone_annotations",
         "//third_party:fastutil",
         "//third_party:flogger",

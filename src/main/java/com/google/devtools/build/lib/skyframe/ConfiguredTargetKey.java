@@ -36,7 +36,6 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Objects;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -246,7 +245,8 @@ public class ConfiguredTargetKey implements ActionLookupKey {
   }
 
   /** A helper class to create instances of {@link ConfiguredTargetKey}. */
-  public static final class Builder implements Supplier<ConfiguredTargetKey> {
+  public static final class Builder
+      implements DeferredObjectCodec.DeferredValue<ConfiguredTargetKey> {
     private Label label = null;
     private BuildConfigurationKey configurationKey = null;
     private Label executionPlatformLabel = null;
@@ -312,9 +312,9 @@ public class ConfiguredTargetKey implements ActionLookupKey {
       return interner.intern(newKey);
     }
 
-    /** Implements the {@link Supplier} used for deserialization. */
+    /** Implements the {@link DeferredObjectCodec.DeferredValue} used for deserialization. */
     @Override
-    public ConfiguredTargetKey get() {
+    public ConfiguredTargetKey call() {
       return build();
     }
   }
@@ -357,13 +357,13 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     }
 
     @Override
-    public Supplier<ConfiguredTargetKey> deserializeDeferred(
+    public DeferredValue<ConfiguredTargetKey> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       Builder builder = builder();
-      context.deserializeFully(codedIn, builder, LABEL_OFFSET);
-      context.deserializeFully(codedIn, builder, CONFIGURATION_KEY_OFFSET);
-      context.deserializeFully(codedIn, builder, EXECUTION_PLATFORM_LABEL_OFFSET);
+      context.deserialize(codedIn, builder, LABEL_OFFSET);
+      context.deserialize(codedIn, builder, CONFIGURATION_KEY_OFFSET);
+      context.deserialize(codedIn, builder, EXECUTION_PLATFORM_LABEL_OFFSET);
       return builder.setShouldApplyRuleTransition(codedIn.readBool());
     }
   }

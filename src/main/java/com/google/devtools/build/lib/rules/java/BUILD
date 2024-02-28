@@ -102,7 +102,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/lazy_write_paths_file_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

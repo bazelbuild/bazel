@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -123,7 +122,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * (by essentially "collecting" as many shared libraries as possible in the single directory),
    * since we will be paying quadratic price for each additional entry on the -rpath.
    *
-   * @param actionRegistry action registry of rule requesting symlink.
    * @param actionConstructionContext action construction context of rule requesting symlink
    * @param solibDir String giving the solib directory
    * @param library Shared library artifact that needs to be mangled.
@@ -132,7 +130,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * @return mangled symlink artifact.
    */
   public static Artifact getDynamicLibrarySymlink(
-      ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       String solibDir,
       final Artifact library,
@@ -140,14 +137,13 @@ public final class SolibSymlinkAction extends AbstractAction {
       boolean prefixConsumer) {
     PathFragment mangledName =
         getMangledName(
-            actionRegistry.getOwner().getLabel(),
+            actionConstructionContext.getOwner().getLabel(),
             solibDir,
             actionConstructionContext.getConfiguration().getMnemonic(),
             library.getRootRelativePath(),
             preserveName,
             prefixConsumer);
-    return getDynamicLibrarySymlinkInternal(
-        actionRegistry, actionConstructionContext, library, mangledName);
+    return getDynamicLibrarySymlinkInternal(actionConstructionContext, library, mangledName);
   }
 
   /**
@@ -158,7 +154,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * (by essentially "collecting" as many shared libraries as possible in the single directory),
    * since we will be paying quadratic price for each additional entry on the -rpath.
    *
-   * @param actionRegistry action registry of rule requesting symlink.
    * @param actionConstructionContext action construction context of rule requesting symlink
    * @param solibDir String giving the solib directory
    * @param library Shared library artifact that needs to be linked.
@@ -166,7 +161,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * @return linked symlink artifact.
    */
   public static Artifact getDynamicLibrarySymlink(
-      ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       String solibDir,
       final Artifact library,
@@ -178,8 +172,7 @@ public final class SolibSymlinkAction extends AbstractAction {
 
     PathFragment solibDirPath = PathFragment.create(solibDir);
     PathFragment linkName = solibDirPath.getRelative(path);
-    return getDynamicLibrarySymlinkInternal(
-        actionRegistry, actionConstructionContext, library, linkName);
+    return getDynamicLibrarySymlinkInternal(actionConstructionContext, library, linkName);
   }
 
   /**
@@ -197,7 +190,6 @@ public final class SolibSymlinkAction extends AbstractAction {
             solibDirOverride != null ? solibDirOverride : toolchainProvidedSolibDir);
     PathFragment symlinkName = solibDir.getRelative(library.getRootRelativePath().getBaseName());
     return getDynamicLibrarySymlinkInternal(
-        /* actionRegistry= */ ruleContext,
         /* actionConstructionContext= */ ruleContext,
         library,
         symlinkName);
@@ -208,7 +200,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * {@link #getDynamicLibrarySymlink} and the specialized {@link #getCppRuntimeSymlink}.
    */
   private static Artifact getDynamicLibrarySymlinkInternal(
-      ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       Artifact library,
       PathFragment symlinkName) {
@@ -219,7 +210,7 @@ public final class SolibSymlinkAction extends AbstractAction {
     // Ignore libraries that are already represented by the symlinks.
     ArtifactRoot root = actionConstructionContext.getBinDirectory();
     Artifact symlink = actionConstructionContext.getShareableArtifact(symlinkName, root);
-    actionRegistry.registerAction(
+    actionConstructionContext.registerAction(
         new SolibSymlinkAction(actionConstructionContext.getActionOwner(), library, symlink));
     return symlink;
   }

@@ -55,6 +55,14 @@ import net.starlark.java.syntax.Location;
 @AutoValue
 @GenerateTypeAdapter
 public abstract class ModuleExtensionMetadata implements StarlarkValue {
+
+  static final ModuleExtensionMetadata REPRODUCIBLE =
+      create(
+          /* explicitRootModuleDirectDeps= */ null,
+          /* explicitRootModuleDirectDevDeps= */ null,
+          UseAllRepos.NO,
+          /* reproducible= */ true);
+
   @Nullable
   abstract ImmutableSet<String> getExplicitRootModuleDirectDeps();
 
@@ -63,10 +71,13 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
   abstract UseAllRepos getUseAllRepos();
 
+  abstract boolean getReproducible();
+
   private static ModuleExtensionMetadata create(
       @Nullable Set<String> explicitRootModuleDirectDeps,
       @Nullable Set<String> explicitRootModuleDirectDevDeps,
-      UseAllRepos useAllRepos) {
+      UseAllRepos useAllRepos,
+      boolean reproducible) {
     return new AutoValue_ModuleExtensionMetadata(
         explicitRootModuleDirectDeps != null
             ? ImmutableSet.copyOf(explicitRootModuleDirectDeps)
@@ -74,27 +85,30 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         explicitRootModuleDirectDevDeps != null
             ? ImmutableSet.copyOf(explicitRootModuleDirectDevDeps)
             : null,
-        useAllRepos);
+        useAllRepos,
+        reproducible);
   }
 
   static ModuleExtensionMetadata create(
-      Object rootModuleDirectDepsUnchecked, Object rootModuleDirectDevDepsUnchecked)
+      Object rootModuleDirectDepsUnchecked,
+      Object rootModuleDirectDevDepsUnchecked,
+      boolean reproducible)
       throws EvalException {
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
         && rootModuleDirectDevDepsUnchecked == Starlark.NONE) {
-      return create(null, null, UseAllRepos.NO);
+      return create(null, null, UseAllRepos.NO, reproducible);
     }
 
     // When root_module_direct_deps = "all", accept both root_module_direct_dev_deps = None and
     // root_module_direct_dev_deps = [], but not root_module_direct_dev_deps = ["some_repo"].
     if (rootModuleDirectDepsUnchecked.equals("all")
         && rootModuleDirectDevDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.REGULAR);
+      return create(null, null, UseAllRepos.REGULAR, reproducible);
     }
 
     if (rootModuleDirectDevDepsUnchecked.equals("all")
         && rootModuleDirectDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.DEV);
+      return create(null, null, UseAllRepos.DEV, reproducible);
     }
 
     if (rootModuleDirectDepsUnchecked.equals("all")
@@ -152,7 +166,11 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       }
     }
 
-    return create(explicitRootModuleDirectDeps, explicitRootModuleDirectDevDeps, UseAllRepos.NO);
+    return create(
+        explicitRootModuleDirectDeps,
+        explicitRootModuleDirectDevDeps,
+        UseAllRepos.NO,
+        reproducible);
   }
 
   public void evaluate(

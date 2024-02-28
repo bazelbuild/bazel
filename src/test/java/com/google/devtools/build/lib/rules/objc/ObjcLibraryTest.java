@@ -27,7 +27,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -89,7 +88,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    deps = [':objc'],",
         ")");
 
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--cpu=ios_x86_64",
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
 
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
     Artifact objcObject =
@@ -225,26 +227,23 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--apple_platform_type=ios",
         "--cpu=ios_i386",
-        "--ios_minimum_os=9.10.11",
         "--platforms=" + MockObjcSupport.IOS_I386);
     createLibraryTargetWriter("//objc:lib").setList("srcs", "a.mm").write();
     CommandAction compileAction = compileAction("//objc:lib", "a.o");
-    assertThat(compileAction.getArguments())
-        .containsAtLeast("-stdlib=libc++", "-std=gnu++11", "-mios-simulator-version-min=9.10.11");
+    assertThat(compileAction.getArguments()).containsAtLeast("-stdlib=libc++", "-std=gnu++11");
   }
 
   @Test
   public void testObjcPlusPlusCompileDarwin() throws Exception {
     useConfiguration(
         "--cpu=darwin_x86_64",
-        "--macos_minimum_os=9.10.11",
         // TODO(b/36126423): Darwin should imply macos, so the
         // following line should not be necessary.
-        "--apple_platform_type=macos");
+        "--apple_platform_type=macos",
+        "--platforms=" + MockObjcSupport.DARWIN_X86_64);
     createLibraryTargetWriter("//objc:lib").setList("srcs", "a.mm").write();
     CommandAction compileAction = compileAction("//objc:lib", "a.o");
-    assertThat(compileAction.getArguments())
-        .containsAtLeast("-stdlib=libc++", "-std=gnu++11", "-mmacosx-version-min=9.10.11");
+    assertThat(compileAction.getArguments()).containsAtLeast("-stdlib=libc++", "-std=gnu++11");
   }
 
   @Test
@@ -507,8 +506,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
         .inOrder();
     assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(AppleToolchain.DEFAULT_WARNINGS.values());
-    assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
@@ -516,8 +513,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
     assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
-    assertThat(compileActionA.getArguments())
-        .contains("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION);
     assertThat(compileActionA.getArguments()).contains("-arch i386");
   }
 
@@ -552,8 +547,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
         .inOrder();
     assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(AppleToolchain.DEFAULT_WARNINGS.values());
-    assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
     assertThat(compileActionA.getArguments())
         .containsNoneIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
@@ -563,8 +556,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
     assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
-    assertThat(compileActionA.getArguments())
-        .contains("-miphoneos-version-min=" + DEFAULT_IOS_SDK_VERSION);
     assertThat(compileActionA.getArguments()).contains("-arch armv7");
   }
 
@@ -603,7 +594,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithCopts() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386");
+    useConfiguration(
+        "--apple_platform_type=ios", "--cpu=ios_i386", "--platforms=" + MockObjcSupport.IOS_I386);
 
     scratch.file(
         "objc/defs.bzl",
@@ -780,7 +772,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testPropagatesDefinesToDependersTransitively() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--cpu=ios_x86_64",
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
     createLibraryTargetWriter("//lib1:lib1")
         .setAndCreateFiles("srcs", "a.m")
         .setAndCreateFiles("non_arc_srcs", "b.m")
@@ -984,6 +979,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testClangCoptsForDebugModeWithoutHardcoding() throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",
+        "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=dbg",
         "--incompatible_avoid_hardcoded_objc_compilation_flags");
     scratch.file("x/a.m");
@@ -996,6 +992,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testClangCoptsForDebugModeWithoutGlibOrHardcoding() throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",
+        "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=dbg",
         "--objc_debug_with_GLIBCXX=false",
         "--incompatible_avoid_hardcoded_objc_compilation_flags");
@@ -1015,6 +1012,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testClangCoptsForOptimizedWithoutHardcoding() throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",
+        "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=opt",
         "--incompatible_avoid_hardcoded_objc_compilation_flags");
     scratch.file("x/a.m");
@@ -1046,31 +1044,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testAllowVariousNonBlacklistedTypesInHeaders() throws Exception {
     checkAllowVariousNonBlacklistedTypesInHeaders(RULE_TYPE);
-  }
-
-  @Test
-  public void testAppleSdkVersionEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios");
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-    CommandAction action = compileAction("//objc:lib", "a.o");
-
-    assertAppleSdkVersionEnv(action);
-  }
-
-  @Test
-  public void testNonDefaultAppleSdkVersionEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--ios_sdk_version=8.1");
-
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-    CommandAction action = compileAction("//objc:lib", "a.o");
-
-    assertAppleSdkVersionEnv(action, "8.1");
   }
 
   @Test
@@ -1143,7 +1116,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithPch() throws Exception {
-    useConfiguration("--apple_platform_type=ios");
+    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1156,13 +1129,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(removeConfigFragment(compileActionA.getArguments()))
         .containsAtLeastElementsIn(
             new ImmutableList.Builder<String>()
-                .addAll(AppleToolchain.DEFAULT_WARNINGS.values())
                 .add("-fexceptions")
                 .add("-fasm-blocks")
                 .add("-fobjc-abi-version=2")
                 .add("-fobjc-legacy-dispatch")
                 .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
-                .add("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION)
                 .add("-arch x86_64")
                 .add("-isysroot", AppleToolchain.sdkDir())
                 .addAll(FASTBUILD_COPTS)
@@ -1445,7 +1416,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkDefaultPlatformEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios");
+    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -1457,7 +1428,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkDevicePlatformEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_arm64");
+    useConfiguration(
+        "--apple_platform_type=ios", "--cpu=ios_arm64", "--platforms=" + MockObjcSupport.IOS_ARM64);
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1466,41 +1438,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction action = compileAction("//objc:lib", "a.o");
 
     assertAppleSdkPlatformEnv(action, "iPhoneOS");
-  }
-
-  @Test
-  public void testApplePlatformEnvForCcLibraryDep() throws Exception {
-    useConfiguration("--cpu=ios_i386", "--platforms=" + MockObjcSupport.IOS_I386);
-    addAppleBinaryStarlarkRule(scratch);
-
-    scratch.file(
-        "package/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "cc_library(",
-        "    name = 'cc_lib',",
-        "    srcs = ['a.cc'],",
-        ")",
-        "",
-        "apple_binary_starlark(",
-        "    name = 'objc_bin',",
-        "    platform_type = 'ios',",
-        "    deps = [':main_lib'],",
-        ")",
-        "objc_library(",
-        "    name = 'main_lib',",
-        "    srcs = ['b.m'],",
-        "    deps = [':cc_lib'],",
-        ")");
-
-    Action binLinkAction = linkAction("//package:objc_bin");
-    Artifact artifact =
-        ActionsTestUtil.getFirstArtifactEndingWith(binLinkAction.getInputs(), "libcc_lib.a");
-    Action cppLibLinkAction = getGeneratingAction(artifact);
-    Artifact cppLibArtifact =
-        ActionsTestUtil.getFirstArtifactEndingWith(cppLibLinkAction.getInputs(), ".o");
-
-    CppCompileAction action = (CppCompileAction) getGeneratingAction(cppLibArtifact);
-    assertAppleSdkVersionEnv(action.getIncompleteEnvironmentForTesting());
   }
 
   private StructImpl getJ2ObjcInfoFromTarget(ConfiguredTarget configuredTarget, String providerName)
@@ -2198,7 +2135,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    srcs = ['cc.cc'],",
         ")");
 
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--cpu=ios_x86_64",
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
 
     ConfiguredTarget cc = getConfiguredTarget("//bin:objc");
 
@@ -2223,7 +2163,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    hdrs = ['header.h'],",
         ")");
 
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--cpu=ios_x86_64",
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
 
     CppCompileAction compileA = (CppCompileAction) compileAction("//bin:lib", "lib1.o");
     assertThat(compileA.compileCommandLine.getCopts())
@@ -2241,7 +2184,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    hdrs = ['header.h'],",
         ")");
 
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--cpu=ios_x86_64",
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
 
     assertThrows(AssertionError.class, () -> compileAction("//bin:lib", "lib1.o"));
   }

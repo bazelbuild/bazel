@@ -23,6 +23,7 @@ import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
@@ -227,17 +228,14 @@ public class MerkleTree {
       @Nullable SpawnScrubber spawnScrubber,
       DigestUtil digestUtil)
       throws IOException {
-    try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
-      DirectoryTree tree =
-          DirectoryTreeBuilder.fromActionInputs(
-              inputs,
-              inputMetadataProvider,
-              execRoot,
-              artifactPathResolver,
-              spawnScrubber,
-              digestUtil);
-      return build(tree, digestUtil);
-    }
+    return build(
+        inputs,
+        /* toolInputs= */ ImmutableSet.of(),
+        inputMetadataProvider,
+        execRoot,
+        artifactPathResolver,
+        spawnScrubber,
+        digestUtil);
   }
 
   /**

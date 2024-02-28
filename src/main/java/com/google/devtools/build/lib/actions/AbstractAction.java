@@ -368,13 +368,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   private String replaceProgressMessagePlaceholders(
       String progressMessage, @Nullable RepositoryMapping mainRepositoryMapping) {
     if (progressMessage.contains("%{label}") && owner.getLabel() != null) {
-      String labelString;
-      if (mainRepositoryMapping != null) {
-        labelString = owner.getLabel().getDisplayForm(mainRepositoryMapping);
-      } else {
-        labelString = owner.getLabel().toString();
-      }
-      progressMessage = progressMessage.replace("%{label}", labelString);
+      progressMessage =
+          progressMessage.replace(
+              "%{label}", owner.getLabel().getDisplayForm(mainRepositoryMapping));
     }
     if (progressMessage.contains("%{output}") && getPrimaryOutput() != null) {
       progressMessage =
@@ -656,5 +652,13 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @Nullable
   public PlatformInfo getExecutionPlatform() {
     return owner.getExecutionPlatform();
+  }
+
+  /**
+   * Returns artifacts that should be subject to path mapping (see {@link Spawn#getPathMapper()},
+   * but aren't inputs of the action.
+   */
+  public NestedSet<Artifact> getAdditionalArtifactsForPathMapping() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 }

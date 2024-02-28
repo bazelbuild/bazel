@@ -32,9 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -975,7 +973,7 @@ public class RunCommand implements BlazeCommand {
       BuildConfigurationValue configuration,
       RunfilesTreeUpdater runfilesTreeUpdater)
       throws RunfilesException, InterruptedException {
-    PathFragment runfilesDir = runfilesSupport.getRunfilesTree().getPossiblyIncorrectExecPath();
+    PathFragment runfilesDir = runfilesSupport.getRunfilesTree().getExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);
     // On Windows, runfiles tree is disabled.
     // Workspace name directory doesn't exist, so don't add it.
@@ -999,12 +997,11 @@ public class RunCommand implements BlazeCommand {
           e);
     }
 
-    RunfilesSupplier runfilesSupplier =
-        CompositeRunfilesSupplier.fromRunfilesTrees(
-            ImmutableList.of(runfilesSupport.getRunfilesTree()));
     try {
       runfilesTreeUpdater.updateRunfiles(
-          runfilesSupplier, /* env= */ ImmutableMap.of(), /* outErr= */ null);
+          ImmutableList.of(runfilesSupport.getRunfilesTree()),
+          /* env= */ ImmutableMap.of(),
+          /* outErr= */ null);
     } catch (ExecException | IOException e) {
       throw new RunfilesException(
           "Failed to create runfiles symlinks: " + e.getMessage(),

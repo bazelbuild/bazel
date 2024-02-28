@@ -15,9 +15,6 @@ package com.google.devtools.build.lib.collect;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -60,25 +57,6 @@ public final class CollectionUtils {
    */
   public static <T> ImmutableSet<T> asSetWithoutNulls(T... elements) {
     return Arrays.stream(elements).filter(Objects::nonNull).collect(toImmutableSet());
-  }
-
-  /**
-   * Returns true if the given iterable can be verified to be immutable.
-   *
-   * <p>Note that if this method returns false, that does not mean that the iterable is mutable.
-   */
-  public static boolean isImmutable(Iterable<?> iterable) {
-    return iterable instanceof ImmutableCollection || iterable instanceof IterablesChain;
-  }
-
-  /** Throws a runtime exception if the given iterable can not be verified to be immutable. */
-  public static void checkImmutable(Iterable<?> iterable) {
-    Preconditions.checkState(isImmutable(iterable), iterable.getClass());
-  }
-
-  /** Given an iterable, returns an immutable iterable with the same contents. */
-  public static <T> Iterable<T> makeImmutable(Iterable<T> iterable) {
-    return isImmutable(iterable) ? iterable : ImmutableList.copyOf(iterable);
   }
 
   /** Returns a copy of the Map of Maps parameter. */

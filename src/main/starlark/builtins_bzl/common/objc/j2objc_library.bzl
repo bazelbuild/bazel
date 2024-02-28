@@ -20,7 +20,6 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", "semantics")
-load(":common/objc/attrs.bzl", "common_attrs")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/j2objc_aspect.bzl", "j2objc_aspect")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
@@ -161,7 +160,7 @@ Unused classes will then be removed from the final ObjC app bundle."""),
 The list of additional JRE emulation libraries required by all Java code translated by this
 <code>j2objc_library</code> rule. Only core JRE functionality is linked by default.""",
         ),
-    } | common_attrs.CC_TOOLCHAIN_RULE,
+    },
     cfg = apple_crosstool_transition,
     fragments = ["apple", "cpp", "j2objc", "objc"] + semantics.additional_fragments(),
     toolchains = cc_helper.use_cpp_toolchain(),

@@ -19,8 +19,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
@@ -75,10 +74,10 @@ public class RunfilesTreeUpdater {
 
   /** Creates or updates input runfiles trees for a spawn. */
   public void updateRunfiles(
-      RunfilesSupplier runfilesSupplier, ImmutableMap<String, String> env, OutErr outErr)
+      Iterable<RunfilesTree> runfilesTrees, ImmutableMap<String, String> env, OutErr outErr)
       throws ExecException, IOException, InterruptedException {
-    for (RunfilesTree tree : runfilesSupplier.getRunfilesTrees()) {
-      PathFragment runfilesDir = RunfilesSupplier.getExecPathForTree(runfilesSupplier, tree);
+    for (RunfilesTree tree : runfilesTrees) {
+      PathFragment runfilesDir = tree.getExecPath();
       if (tree.isBuildRunfileLinks()) {
         continue;
       }
@@ -89,7 +88,7 @@ public class RunfilesTreeUpdater {
       if (priorFuture == null) {
         // We are the first attempt; update the runfiles tree and mark the future complete.
         try {
-          updateRunfilesTree(runfilesSupplier, tree, env, outErr);
+          updateRunfilesTree(tree, env, outErr);
           freshFuture.complete(null);
         } catch (Exception e) {
           freshFuture.completeExceptionally(e);
@@ -114,13 +113,11 @@ public class RunfilesTreeUpdater {
   }
 
   private void updateRunfilesTree(
-      RunfilesSupplier runfilesSupplier,
       RunfilesTree tree,
       ImmutableMap<String, String> env,
       OutErr outErr)
       throws IOException, ExecException, InterruptedException {
-    Path runfilesDirPath =
-        execRoot.getRelative(RunfilesSupplier.getExecPathForTree(runfilesSupplier, tree));
+    Path runfilesDirPath = execRoot.getRelative(tree.getExecPath());
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
     if (!inputManifest.exists()) {
       return;
@@ -140,8 +137,8 @@ public class RunfilesTreeUpdater {
       if (tree.getSymlinksMode() != SKIP
           && !outputManifest.isSymbolicLink()
           && Arrays.equals(
-              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(outputManifest, xattrProvider),
-              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(inputManifest, xattrProvider))
+              DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
+              DigestUtils.getDigestWithManualFallback(inputManifest, xattrProvider))
           && (OS.getCurrent() != OS.WINDOWS || isRunfilesDirectoryPopulated(runfilesDirPath))) {
         return;
       }

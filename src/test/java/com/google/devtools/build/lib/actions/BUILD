@@ -27,7 +27,6 @@ java_library(
         ],
     ),
     javacopts = [
-        "-XepOpt:CheckReturnValue:CheckAllConstructors=false",  # b/226969262
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -45,11 +44,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
-        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/symlink_action",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -83,7 +80,6 @@ java_library(
         "//src/main/protobuf:action_cache_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",

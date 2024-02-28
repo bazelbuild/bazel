@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStats;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,6 +45,10 @@ public class WorkerProcessMetrics {
 
   private int memoryInKb = 0;
 
+  // Memory usage prior to this invocation, useful to calculate memory deltas as a result of a
+  // particular invocations.
+  private int priorMemoryInKb = 0;
+
   private Optional<Instant> lastCallTime = Optional.empty();
 
   private Optional<Instant> lastCollectedTime = Optional.empty();
@@ -52,6 +57,8 @@ public class WorkerProcessMetrics {
 
   private boolean newlyCreated = true;
   private final AtomicInteger actionsExecuted = new AtomicInteger(0);
+
+  private int priorActionsExecuted = 0;
 
   public WorkerProcessMetrics(
       List<Integer> workerIds,
@@ -105,6 +112,8 @@ public class WorkerProcessMetrics {
   /** Reset relevant internal states before each command. */
   public void onBeforeCommand() {
     newlyCreated = false;
+    priorActionsExecuted = actionsExecuted.get();
+    priorMemoryInKb = memoryInKb;
   }
 
   /** Whether the worker process was created during the current invocation. */
@@ -169,8 +178,10 @@ public class WorkerProcessMetrics {
   }
 
   public WorkerMetrics toProto() {
-    WorkerMetrics.WorkerStats.Builder statsBuilder =
-        WorkerMetrics.WorkerStats.newBuilder().setWorkerMemoryInKb(memoryInKb);
+    WorkerStats.Builder statsBuilder =
+        WorkerStats.newBuilder()
+            .setWorkerMemoryInKb(memoryInKb)
+            .setPriorWorkerMemoryInKb(priorMemoryInKb);
     if (lastCollectedTime.isPresent()) {
       statsBuilder.setCollectTimeInMs(lastCollectedTime.get().toEpochMilli());
     }
@@ -178,17 +189,24 @@ public class WorkerProcessMetrics {
       statsBuilder.setLastActionStartTimeInMs(lastCallTime.get().toEpochMilli());
     }
 
-    return WorkerMetrics.newBuilder()
-        .addAllWorkerIds(workerIds)
-        .setProcessId((int) processId)
-        .setMnemonic(mnemonic)
-        .setIsSandbox(isSandbox)
-        .setIsMultiplex(isMultiplex)
-        .setIsMeasurable(isMeasurable)
-        .setWorkerKeyHash(workerKeyHash)
-        .setWorkerStatus(status.toWorkerStatus())
-        .setActionsExecuted(actionsExecuted.get())
-        .addWorkerStats(statsBuilder.build())
-        .build();
+    WorkerMetrics.Builder builder =
+        WorkerMetrics.newBuilder()
+            .addAllWorkerIds(workerIds)
+            .setProcessId((int) processId)
+            .setMnemonic(mnemonic)
+            .setIsSandbox(isSandbox)
+            .setIsMultiplex(isMultiplex)
+            .setIsMeasurable(isMeasurable)
+            .setWorkerKeyHash(workerKeyHash)
+            .setWorkerStatus(status.toWorkerStatus())
+            .setActionsExecuted(actionsExecuted.get())
+            .setPriorActionsExecuted(priorActionsExecuted)
+            .addWorkerStats(statsBuilder.build());
+
+    if (status.getWorkerCode().isPresent()) {
+      builder.setCode(status.getWorkerCode().get());
+    }
+
+    return builder.build();
   }
 }

@@ -74,6 +74,7 @@ import javax.annotation.Nullable;
  * @see ProfilerTask enum for recognized task types.
  */
 @ThreadSafe
+@SuppressWarnings("GoodTime") // This code is very performance sensitive.
 public final class Profiler {
   /** The profiler (a static singleton instance). Inactive by default. */
   private static final Profiler instance = new Profiler();
@@ -802,14 +803,17 @@ public final class Profiler {
         || (type == ProfilerTask.INFO && "discoverInputs".equals(taskData.description));
   }
 
+  public void completeTask(long startTimeNanos, ProfilerTask type, String description) {
+    completeTask(Thread.currentThread().getId(), startTimeNanos, type, description);
+  }
+
   /** Records the end of the task. */
   private void completeTask(
       long laneId, long startTimeNanos, ProfilerTask type, String description) {
     if (isActive()) {
       long endTimeNanos = clock.nanoTime();
       long duration = endTimeNanos - startTimeNanos;
-      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, duration);
-      if (shouldRecordTask) {
+      if (wasTaskSlowEnoughToRecord(type, duration)) {
         recordTask(new TaskData(laneId, startTimeNanos, duration, type, description));
       }
     }

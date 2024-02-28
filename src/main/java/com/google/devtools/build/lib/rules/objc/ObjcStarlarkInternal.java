@@ -16,20 +16,27 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Expander;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.objc.IntermediateArtifacts.AlwaysLink;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -309,5 +316,36 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         starlarkRuleContext
             .getRuleContext()
             .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR));
+  }
+
+  @StarlarkMethod(
+      name = "get_split_build_configs",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = true, named = true)})
+  public Dict<String, BuildConfigurationValue> getSplitBuildConfigs(
+      StarlarkRuleContext starlarkRuleContext) throws EvalException {
+    Map<Optional<String>, List<ConfiguredTargetAndData>> ctads =
+        starlarkRuleContext
+            .getRuleContext()
+            .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR);
+    Dict.Builder<String, BuildConfigurationValue> result = Dict.builder();
+    for (Optional<String> splitTransitionKey : ctads.keySet()) {
+      if (!splitTransitionKey.isPresent()) {
+        throw new EvalException("unexpected empty key in split transition");
+      }
+      result.put(
+          splitTransitionKey.get(),
+          Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
+    }
+    return result.buildImmutable();
+  }
+
+  @StarlarkMethod(
+      name = "get_target_platform",
+      documented = false,
+      parameters = {@Param(name = "build_config", positional = true, named = true)})
+  public ApplePlatform getTargetPlatform(BuildConfigurationValue buildConfiguration)
+      throws EvalException {
+    return buildConfiguration.getFragment(AppleConfiguration.class).getSingleArchPlatform();
   }
 }

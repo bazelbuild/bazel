@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.autocodec.Typ
 import static javax.lang.model.util.ElementFilter.fieldsIn;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.FlatDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.InterningObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
@@ -125,7 +125,7 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
         .addAnnotation(Override.class)
         .addException(SerializationException.class)
         .addException(IOException.class)
-        .addParameter(FlatDeserializationContext.class, "context")
+        .addParameter(AsyncDeserializationContext.class, "context")
         .addParameter(CodedInputStream.class, "codedIn")
         .addStatement("$T instance", typeName)
         .beginControlFlow("try")

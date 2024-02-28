@@ -142,7 +142,7 @@ public final class StarlarkThread {
     // values, or wrapped in StarlarkFunction.Cells if shared with a nested function.
     @Nullable Object[] locals;
 
-    @Nullable private Object profileSpan; // current span of walltime call profiler
+    private long profileStartTimeNanos; // start time nanos of walltime call profiler
 
     private Frame(StarlarkThread thread, StarlarkCallable fn) {
       this.thread = thread;
@@ -237,7 +237,7 @@ public final class StarlarkThread {
     // Start wall-time call profile span.
     CallProfiler callProfiler = StarlarkThread.callProfiler;
     if (callProfiler != null) {
-      fr.profileSpan = callProfiler.start(fn);
+      fr.profileStartTimeNanos = callProfiler.start();
     }
 
     // Poll for newly installed CPU profiler.
@@ -277,8 +277,8 @@ public final class StarlarkThread {
 
     // End wall-time profile span.
     CallProfiler callProfiler = StarlarkThread.callProfiler;
-    if (callProfiler != null && fr.profileSpan != null) {
-      callProfiler.end(fr.profileSpan);
+    if (callProfiler != null && fr.profileStartTimeNanos >= 0) {
+      callProfiler.end(fr.profileStartTimeNanos, fr.fn);
     }
 
     // Notify debug tools of the thread's last pop.
@@ -570,9 +570,10 @@ public final class StarlarkThread {
 
   /** CallProfiler records the start and end wall times of function calls. */
   public interface CallProfiler {
-    Object start(StarlarkCallable fn);
+    long start();
 
-    void end(Object span);
+    @SuppressWarnings("GoodTime") // This code is very performance sensitive.
+    void end(long startTimeNanos, StarlarkCallable fn);
   }
 
   /** Installs a global hook that will be notified of function calls. */

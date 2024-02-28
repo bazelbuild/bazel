@@ -14,7 +14,7 @@
 
 """Legacy apple_common module"""
 
-load(":common/objc/linking_support.bzl", "linking_support")
+load(":common/objc/linking_support.bzl", "AppleDebugOutputsInfo", "linking_support")
 
 native_apple_common = _builtins.internal.apple_common
 
@@ -27,13 +27,13 @@ apple_common = struct(
     Objc = native_apple_common.Objc,
     AppleDynamicFramework = native_apple_common.AppleDynamicFramework,
     AppleExecutableBinary = native_apple_common.AppleExecutableBinary,
-    AppleDebugOutputs = native_apple_common.AppleDebugOutputs,
+    AppleDebugOutputs = AppleDebugOutputsInfo,
     apple_host_system_env = lambda xcode_config: native_apple_common.apple_host_system_env(xcode_config),
     target_apple_env = lambda *args: native_apple_common.target_apple_env(*args),
     new_objc_provider = lambda **kwargs: native_apple_common.new_objc_provider(**kwargs),
     new_dynamic_framework_provider = lambda **kwargs: native_apple_common.new_dynamic_framework_provider(**kwargs),
     new_executable_binary_provider = lambda **kwargs: native_apple_common.new_executable_binary_provider(**kwargs),
-    link_multi_arch_binary = lambda **kwargs: native_apple_common.link_multi_arch_binary(**kwargs),
+    link_multi_arch_binary = linking_support.link_multi_arch_binary,
     link_multi_arch_static_library = linking_support.link_multi_arch_static_library,
     dotted_version = lambda version: native_apple_common.dotted_version(version),
 )

@@ -19,13 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AvailableXcodesRule;
-import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
+import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
+import com.google.devtools.build.lib.rules.apple.XcodeVersionRuleData;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.objc.AppleCcToolchainRule;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleToolchain;
 import com.google.devtools.build.lib.rules.objc.BazelXcodeConfig;
@@ -53,17 +52,18 @@ public class ObjcRules implements RuleSet {
     builder.addConfigurationFragment(J2ObjcConfiguration.class);
     builder.addRuleDefinition(new EmptyRule("j2objc_library") {});
 
-    builder.addRuleDefinition(new AppleCcToolchainRule());
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
     builder.addRuleDefinition(new EmptyRule("objc_import") {});
     builder.addRuleDefinition(new EmptyRule("objc_library") {});
     builder.addRuleDefinition(new XcodeConfigRule(BazelXcodeConfig.class));
     builder.addRuleDefinition(new XcodeConfigAliasRule());
     builder.addRuleDefinition(new AvailableXcodesRule());
-    builder.addRuleDefinition(new XcodeVersionRule());
+    builder.addRuleDefinition(new EmptyRule("xcode_version") {});
 
-    builder.addStarlarkBuiltinsInternal(
-        "apple_common", new AppleStarlarkCommon(BazelCppSemantics.OBJC));
+    builder.addStarlarkBuiltinsInternal("XcodeProperties", XcodeVersionProperties.PROVIDER);
+    builder.addStarlarkBuiltinsInternal("XcodeVersionRuleData", XcodeVersionRuleData.PROVIDER);
+
+    builder.addStarlarkBuiltinsInternal("apple_common", new AppleStarlarkCommon());
     builder.addStarlarkBootstrap(new AppleBootstrap());
   }
 

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -27,7 +28,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * and {@link #command}. Supports optionally padding the command line with an empty argument, which
  * can be useful to ensure that any subsequent arguments get assigned to {@code $1} etc.
  */
-final class ShellCommand extends CommandLine {
+final class ShellCommand extends AbstractCommandLine {
 
   private final PathFragment shExecutable;
   private final String command;

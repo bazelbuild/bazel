@@ -328,4 +328,55 @@ EOF
   assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/libbase_lib-hjar.jdeps"
 }
 
+function test_direct_classpath() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg/java/hello/" || fail "Expected success"
+  # When compiling C, the direct classpath optimization in Turbine embeds information about the
+  # dependency D into the header jar, which then results in the path to Ds header jar being included
+  # in the jdeps file for B. The full compilation action for A requires the header jar for D  and
+  # thus the path to it in the jdeps file of B has to be unmapped properly for the reduced classpath
+  # created for A to contain it.
+  cat > "$pkg/java/hello/A.java" <<'EOF'
+package hello;
+public class A extends B {}
+EOF
+  cat > "$pkg/java/hello/B.java" <<'EOF'
+package hello;
+public class B extends C {}
+EOF
+  cat > "$pkg/java/hello/C.java" <<'EOF'
+package hello;
+public class C extends D {}
+EOF
+  cat > "$pkg/java/hello/D.java" <<'EOF'
+package hello;
+public class D {}
+EOF
+  cat > "$pkg/java/hello/BUILD" <<'EOF'
+java_library(name='a', srcs=['A.java'], deps = [':b'])
+java_library(name='b', srcs=['B.java'], deps = [':c'])
+java_library(name='c', srcs=['C.java'], deps = [':d'])
+java_library(name='d', srcs=['D.java'])
+EOF
+
+  bazel build --experimental_java_classpath=bazel  \
+    --experimental_output_paths=strip \
+    //"$pkg"/java/hello:a -s 2>"$TEST_log" \
+    || fail "Expected success"
+
+  # java_library .jar compilation:
+  assert_paths_stripped "$TEST_log" "$pkg/java/hello/liba.jar-0.params"
+  # java_library header jar compilation:
+  assert_paths_stripped "$TEST_log" "bin/$pkg/java/hello/libb-hjar.jar"
+  # jdeps files should contain the original paths since they are read by downstream actions that may
+  # not use path mapping.
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/liba.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libb.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libb-hjar.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libc.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libc-hjar.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libd.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libd-hjar.jdeps"
+}
+
 run_suite "Tests stripping config prefixes from output paths for better action caching"

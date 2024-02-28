@@ -156,6 +156,28 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('ccc~', repos_vendored)
     self.assertNotIn('aaa~', repos_vendored)
 
+  def testVendorExistingRepo(self):
+    self.main_registry.createCcModule('aaa', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    # Test canonical/apparent repo names & multiple repos
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@my_repo'])
+    self.assertIn('aaa~', os.listdir(self._test_cwd + '/vendor'))
+
+    # Delete repo from external cache
+    self.RunBazel(['clean', '--expunge'])
+    # Vendoring again should find that it is already up-to-date and exclude it
+    # from vendoring not fail
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@my_repo'])
+
   def testVendorInvalidRepo(self):
     # Invalid repo name (not canonical or apparent)
     exit_code, _, stderr = self.RunBazel(

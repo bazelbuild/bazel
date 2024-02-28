@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.SharedActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;

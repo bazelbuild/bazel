@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.docgen.BuildDocCollector.DocumentationOrigin;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
@@ -145,7 +144,7 @@ public final class BuildDocCollectorTest {
         .containsAtLeastElementsIn(PredefinedAttributes.COMMON_ATTRIBUTES.values());
     assertThat(attributes)
         .containsAtLeastElementsIn(PredefinedAttributes.BINARY_ATTRIBUTES.values());
-    Truth8.assertThat(
+    assertThat(
             attributes.stream()
                 .map(RuleDocumentationAttribute::getAttributeName)
                 .filter(

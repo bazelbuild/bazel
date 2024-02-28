@@ -14,14 +14,13 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.CommandLine.ArgChunk;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -93,7 +92,7 @@ public abstract class CommandLines {
       int paramFileArgLengthEstimate)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList<CommandLineAndParamFileInfo> commandLines = unpack();
-    IterablesChain.Builder<String> arguments = IterablesChain.builder();
+    ImmutableList.Builder<String> arguments = ImmutableList.builder();
     ArrayList<ParamFileActionInput> paramFiles = new ArrayList<>(commandLines.size());
     int conservativeMaxLength = limits.maxLength - commandLines.size() * paramFileArgLengthEstimate;
     int cmdLineLength = 0;
@@ -102,18 +101,16 @@ public abstract class CommandLines {
     for (CommandLineAndParamFileInfo pair : commandLines) {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
+      ArgChunk chunk = commandLine.expand(artifactExpander, pathMapper);
       if (paramFileInfo == null) {
-        Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
-        arguments.add(args);
-        cmdLineLength += totalArgLen(args);
+        arguments.addAll(chunk.arguments());
+        cmdLineLength += chunk.totalArgLength();
       } else {
-        checkNotNull(paramFileInfo); // If null, we would have just had a CommandLine
-        Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
         boolean useParamFile = true;
         if (!paramFileInfo.always()) {
-          int tentativeCmdLineLength = cmdLineLength + totalArgLen(args);
+          int tentativeCmdLineLength = cmdLineLength + chunk.totalArgLength();
           if (tentativeCmdLineLength <= conservativeMaxLength) {
-            arguments.add(args);
+            arguments.addAll(chunk.arguments());
             cmdLineLength = tentativeCmdLineLength;
             useParamFile = false;
           }
@@ -127,7 +124,7 @@ public abstract class CommandLines {
               SingleStringArgFormatter.format(
                   paramFileInfo.getFlagFormatString(),
                   pathMapper.map(paramFileExecPath).getPathString());
-          arguments.addElement(paramArg);
+          arguments.add(paramArg);
           cmdLineLength += paramArg.length() + 1;
 
           if (paramFileInfo.flagsOnly()) {
@@ -136,18 +133,18 @@ public abstract class CommandLines {
             paramFiles.add(
                 new ParamFileActionInput(
                     paramFileExecPath,
-                    ParameterFile.flagsOnly(args),
+                    ParameterFile.flagsOnly(chunk.arguments()),
                     paramFileInfo.getFileType(),
                     paramFileInfo.getCharset()));
-            for (String positionalArg : ParameterFile.nonFlags(args)) {
-              arguments.addElement(positionalArg);
+            for (String positionalArg : ParameterFile.nonFlags(chunk.arguments())) {
+              arguments.add(positionalArg);
               cmdLineLength += positionalArg.length() + 1;
             }
           } else {
             paramFiles.add(
                 new ParamFileActionInput(
                     paramFileExecPath,
-                    args,
+                    chunk.arguments(),
                     paramFileInfo.getFileType(),
                     paramFileInfo.getCharset()));
           }
@@ -201,18 +198,16 @@ public abstract class CommandLines {
    * spawn is executed.
    */
   public static class ExpandedCommandLines {
-    private final Iterable<String> arguments;
+    private final ImmutableList<String> arguments;
     private final List<ParamFileActionInput> paramFiles;
 
-    ExpandedCommandLines(
-        Iterable<String> arguments,
-        List<ParamFileActionInput> paramFiles) {
+    ExpandedCommandLines(ImmutableList<String> arguments, List<ParamFileActionInput> paramFiles) {
       this.arguments = arguments;
       this.paramFiles = paramFiles;
     }
 
     /** Returns the primary command line of the command. */
-    public Iterable<String> arguments() {
+    public ImmutableList<String> arguments() {
       return arguments;
     }
 
@@ -269,8 +264,8 @@ public abstract class CommandLines {
       return paramFileExecPath;
     }
 
-    public ImmutableList<String> getArguments() {
-      return ImmutableList.copyOf(arguments);
+    public Iterable<String> getArguments() {
+      return arguments;
     }
   }
 
@@ -282,14 +277,6 @@ public abstract class CommandLines {
    * memory optimizations made by {@link CommandLines}.
    */
   public abstract ImmutableList<CommandLineAndParamFileInfo> unpack();
-
-  private static int totalArgLen(Iterable<String> args) {
-    int result = 0;
-    for (String s : args) {
-      result += s.length() + 1;
-    }
-    return result;
-  }
 
   private static void addParamFileInfoToFingerprint(
       ParamFileInfo paramFileInfo, Fingerprint fingerprint) {
@@ -309,7 +296,7 @@ public abstract class CommandLines {
   }
 
   /** Returns an instance with a single trivial command line. */
-  public static CommandLines of(Iterable<String> args) {
+  public static CommandLines of(ImmutableList<String> args) {
     return new OnePartCommandLines(CommandLine.of(args));
   }
 
@@ -527,7 +514,7 @@ public abstract class CommandLines {
     }
   }
 
-  private static class SingletonCommandLine extends CommandLine {
+  private static class SingletonCommandLine extends AbstractCommandLine {
     private final Object arg;
 
     SingletonCommandLine(Object arg) {

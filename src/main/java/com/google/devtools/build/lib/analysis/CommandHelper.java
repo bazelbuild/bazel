@@ -255,9 +255,9 @@ public final class CommandHelper {
     }
   }
 
-  private static Pair<List<String>, Artifact> buildCommandLineMaybeWithScriptFile(
+  private static Pair<ImmutableList<String>, Artifact> buildCommandLineMaybeWithScriptFile(
       RuleContext ruleContext, String command, CommandConstructor constructor) {
-    List<String> argv;
+    ImmutableList<String> argv;
     Artifact scriptFileArtifact = null;
     if (command.length() <= maxCommandLength) {
       argv = constructor.asExecArgv(command);
@@ -292,9 +292,9 @@ public final class CommandHelper {
    * if the command line is longer than the allowed maximum {@link #maxCommandLength}. Fixes up the
    * input artifact list with the created bash script when required.
    */
-  public List<String> buildCommandLine(
+  public ImmutableList<String> buildCommandLine(
       String command, NestedSetBuilder<Artifact> inputs, CommandConstructor constructor) {
-    Pair<List<String>, Artifact> argvAndScriptFile =
+    Pair<ImmutableList<String>, Artifact> argvAndScriptFile =
         buildCommandLineMaybeWithScriptFile(ruleContext, command, constructor);
     if (argvAndScriptFile.second != null) {
       inputs.add(argvAndScriptFile.second);
@@ -309,7 +309,7 @@ public final class CommandHelper {
    */
   public List<String> buildCommandLine(
       String command, List<Artifact> inputs, CommandConstructor constructor) {
-    Pair<List<String>, Artifact> argvAndScriptFile =
+    Pair<ImmutableList<String>, Artifact> argvAndScriptFile =
         buildCommandLineMaybeWithScriptFile(ruleContext, command, constructor);
     if (argvAndScriptFile.second != null) {
       inputs.add(argvAndScriptFile.second);

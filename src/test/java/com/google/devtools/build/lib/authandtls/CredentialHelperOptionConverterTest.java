@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.authandtls;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions.CredentialHelperOption;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions.CredentialHelperOptionConverter;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -34,7 +33,7 @@ public class CredentialHelperOptionConverterTest {
   public void exactScope() throws Exception {
     CredentialHelperOption helper1 =
         CredentialHelperOptionConverter.INSTANCE.convert("example.com=foo");
-    Truth8.assertThat(helper1.getScope()).hasValue("example.com");
+    assertThat(helper1.getScope()).hasValue("example.com");
     assertThat(helper1.getPath()).isEqualTo("foo");
   }
 
@@ -42,7 +41,7 @@ public class CredentialHelperOptionConverterTest {
   public void wildcardScope() throws Exception {
     CredentialHelperOption helper1 =
         CredentialHelperOptionConverter.INSTANCE.convert("*.example.com=foo");
-    Truth8.assertThat(helper1.getScope()).hasValue("*.example.com");
+    assertThat(helper1.getScope()).hasValue("*.example.com");
     assertThat(helper1.getPath()).isEqualTo("foo");
   }
 
@@ -50,12 +49,12 @@ public class CredentialHelperOptionConverterTest {
   public void punycodeScope() throws Exception {
     CredentialHelperOption helper1 =
         CredentialHelperOptionConverter.INSTANCE.convert("münchen.de=foo");
-    Truth8.assertThat(helper1.getScope()).hasValue("xn--mnchen-3ya.de");
+    assertThat(helper1.getScope()).hasValue("xn--mnchen-3ya.de");
     assertThat(helper1.getPath()).isEqualTo("foo");
 
     CredentialHelperOption helper2 =
         CredentialHelperOptionConverter.INSTANCE.convert("*.köln.de=foo");
-    Truth8.assertThat(helper2.getScope()).hasValue("*.xn--kln-sna.de");
+    assertThat(helper2.getScope()).hasValue("*.xn--kln-sna.de");
     assertThat(helper2.getPath()).isEqualTo("foo");
   }
 
@@ -63,7 +62,7 @@ public class CredentialHelperOptionConverterTest {
   public void absolutePath() throws Exception {
     CredentialHelperOption helper1 =
         CredentialHelperOptionConverter.INSTANCE.convert("/absolute/path");
-    Truth8.assertThat(helper1.getScope()).isEmpty();
+    assertThat(helper1.getScope()).isEmpty();
     assertThat(helper1.getPath()).isEqualTo("/absolute/path");
   }
 
@@ -71,14 +70,14 @@ public class CredentialHelperOptionConverterTest {
   public void rootRelativePath() throws Exception {
     CredentialHelperOption helper1 =
         CredentialHelperOptionConverter.INSTANCE.convert("%workspace%/path");
-    Truth8.assertThat(helper1.getScope()).isEmpty();
+    assertThat(helper1.getScope()).isEmpty();
     assertThat(helper1.getPath()).isEqualTo("%workspace%/path");
   }
 
   @Test
   public void pathLookup() throws Exception {
     CredentialHelperOption helper1 = CredentialHelperOptionConverter.INSTANCE.convert("foo");
-    Truth8.assertThat(helper1.getScope()).isEmpty();
+    assertThat(helper1.getScope()).isEmpty();
     assertThat(helper1.getPath()).isEqualTo("foo");
   }
 

@@ -640,7 +640,12 @@ public class GrpcCacheClientTest {
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/qux"), "abc");
     final Directory testDirMessage =
         Directory.newBuilder()
-            .addFiles(FileNode.newBuilder().setName("wobble").setDigest(wobbleDigest).build())
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("wobble")
+                    .setDigest(wobbleDigest)
+                    .setIsExecutable(true)
+                    .build())
             .build();
     final Digest testDigest = DIGEST_UTIL.compute(testDirMessage);
     final Tree barTree =
@@ -649,9 +654,9 @@ public class GrpcCacheClientTest {
                 Directory.newBuilder()
                     .addFiles(
                         FileNode.newBuilder()
-                            .setIsExecutable(true)
                             .setName("qux")
-                            .setDigest(quxDigest))
+                            .setDigest(quxDigest)
+                            .setIsExecutable(true))
                     .addDirectories(
                         DirectoryNode.newBuilder().setName("test").setDigest(testDigest)))
             .addChildren(testDirMessage)

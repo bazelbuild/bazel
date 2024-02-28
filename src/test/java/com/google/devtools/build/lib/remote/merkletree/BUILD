@@ -14,7 +14,7 @@ filegroup(
 )
 
 java_library(
-    name = "MerkletreeTests_lib",
+    name = "MerkleTreeTests_lib",
     srcs = glob(
         [
             "*.java",
@@ -32,7 +32,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/remote/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -41,10 +40,10 @@ java_library(
 )
 
 java_test(
-    name = "MerkletreeTests",
+    name = "MerkleTreeTests",
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        ":MerkletreeTests_lib",
+        ":MerkleTreeTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )

@@ -54,7 +54,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
-        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/binary_file_write_action",

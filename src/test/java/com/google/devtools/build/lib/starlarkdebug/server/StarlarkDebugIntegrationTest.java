@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
+import com.google.devtools.build.lib.remote.util.FreePortFinder;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.starlarkdebug.module.StarlarkDebuggerModule;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Breakpoint;
@@ -67,7 +67,7 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
 
   private static int getRandomPort() {
     try {
-      return IntegrationTestUtils.pickUnusedRandomPort();
+      return FreePortFinder.pickUnusedRandomPort();
     } catch (IOException | InterruptedException e) {
       throw new RuntimeException(e);
     }

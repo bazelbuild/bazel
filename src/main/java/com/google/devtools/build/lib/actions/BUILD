@@ -31,6 +31,7 @@ java_library(
     name = "actions",
     srcs = [
         "AbstractAction.java",
+        "AbstractCommandLine.java",
         "Action.java",
         "ActionAnalysisMetadata.java",
         "ActionCacheAwareAction.java",
@@ -83,14 +84,12 @@ java_library(
         "CommandLineLimits.java",
         "CommandLines.java",
         "CompletionContext.java",
-        "CompositeRunfilesSupplier.java",
         "DelegateSpawn.java",
         "DelegatingPairInputMetadataProvider.java",
         "DigestOfDirectoryException.java",
         "DiscoveredInputsEvent.java",
         "DiscoveredModulesPruner.java",
         "DynamicStrategyRegistry.java",
-        "EmptyRunfilesSupplier.java",
         "EnvironmentalExecException.java",
         "EventReportingArtifacts.java",
         "ExecException.java",
@@ -106,6 +105,7 @@ java_library(
         "InputMetadataProvider.java",
         "LostInputsActionExecutionException.java",
         "LostInputsExecException.java",
+        "LostOutputsException.java",
         "MapBasedActionGraph.java",
         "MiddlemanAction.java",
         "MiddlemanFactory.java",
@@ -147,6 +147,7 @@ java_library(
         "cache/VirtualActionInput.java",
     ],
     deps = [
+        ":action_input_helper",
         ":action_lookup_data",
         ":action_lookup_key",
         ":artifact_owner",
@@ -159,7 +160,7 @@ java_library(
         ":middleman_type",
         ":package_roots",
         ":runfiles_metadata",
-        ":runfiles_supplier",
+        ":runfiles_tree",
         ":thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
@@ -169,7 +170,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -395,7 +395,7 @@ java_library(
     deps = [
         ":artifacts",
         ":file_metadata",
-        ":runfiles_supplier",
+        ":runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -525,16 +525,13 @@ java_library(
 )
 
 java_library(
-    name = "runfiles_supplier",
-    srcs = ["RunfilesSupplier.java"],
+    name = "runfiles_tree",
+    srcs = ["RunfilesTree.java"],
     deps = [
         ":artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 

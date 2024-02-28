@@ -1,6 +1,5 @@
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//:workspace_deps.bzl", "gen_workspace_stanza")
-load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -221,7 +220,9 @@ sh_test(
 write_file(
     name = "gen_rules_java_repo_name",
     out = "RULES_JAVA_REPO_NAME",
-    content = [get_canonical_repo_name("@rules_java")],
+    # TODO: Revert to the following when building with Bazel 7.1.0.
+    # content = [get_canonical_repo_name("@rules_java")],
+    content = ["rules_java~"],
 )
 
 sh_test(
@@ -240,6 +241,16 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["local"],
+)
+
+sh_test(
+    name = "bazel_rules_java_override_test",
+    srcs = ["bazel_rules_java_override_test.sh"],
+    data = [
+        ":gen_rules_java_repo_name",
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -351,9 +362,10 @@ sh_test(
     ],
 )
 
+# TODO(b/324251617): downgrade test size to "large" once we no longer use Intel VMs
 sh_test(
     name = "bazel_proto_library_test",
-    size = "large",  # Downloads and compiles protobuf for *every* *test* *case*
+    size = "enormous",  # Downloads and compiles protobuf for *every* *test* *case*
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
     exec_compatible_with = ["//:highcpu_machine"],
@@ -605,6 +617,8 @@ sh_test(
     srcs = ["bazel_cc_code_coverage_test.sh"],
     data = [":test-deps"],
     tags = [
+        # C++ coverage is not supported on macOS yet.
+        "no_macos",
         "no_windows",
     ],
 )
@@ -634,6 +648,7 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
+        "requires-network",  # Allow this test to access the BCR
     ],
 )
 
@@ -1074,6 +1089,14 @@ sh_test(
     name = "client_test",
     size = "medium",
     srcs = ["client_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "command_profiler_test",
+    size = "medium",
+    srcs = ["command_profiler_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )

@@ -11,11 +11,15 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+INTEGRATION_TEST_UTILS_SRCS = ["IntegrationTestUtils.java"]
+
+FREE_PORT_FINDER_SRCS = ["FreePortFinder.java"]
+
 java_library(
     name = "util",
     srcs = glob(
         ["*.java"],
-        exclude = ["IntegrationTestUtils.java"],
+        exclude = INTEGRATION_TEST_UTILS_SRCS + FREE_PORT_FINDER_SRCS,
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -45,13 +49,19 @@ java_library(
 )
 
 java_library(
+    name = "free_port_finder",
+    srcs = FREE_PORT_FINDER_SRCS,
+)
+
+java_library(
     name = "integration_test_utils",
-    srcs = ["IntegrationTestUtils.java"],
+    srcs = INTEGRATION_TEST_UTILS_SRCS,
     data = [
         "//src/tools/remote:worker",
         "//src/tools/remote:worker_deploy.jar",
     ],
     deps = [
+        ":free_port_finder",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

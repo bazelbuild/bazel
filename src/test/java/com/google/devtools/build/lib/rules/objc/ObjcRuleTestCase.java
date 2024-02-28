@@ -22,7 +22,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -46,7 +45,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import org.junit.Before;
 
 /**
@@ -168,24 +166,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       execPaths.add(execPathEndingWith(originalAction.getInputs().toList(), inputArchive));
     }
     assertThat(paramFileArgsForAction(originalAction)).containsExactlyElementsIn(execPaths.build());
-  }
-
-  protected void assertAppleSdkVersionEnv(Map<String, String> env) throws Exception {
-    assertAppleSdkVersionEnv(env, DEFAULT_IOS_SDK_VERSION);
-  }
-
-  protected void assertAppleSdkVersionEnv(Map<String, String> env, DottedVersion versionNumber) {
-    assertThat(env).containsEntry("APPLE_SDK_VERSION_OVERRIDE", versionNumber.toString());
-  }
-
-  protected void assertAppleSdkVersionEnv(CommandAction action) throws Exception {
-    assertAppleSdkVersionEnv(action, DEFAULT_IOS_SDK_VERSION.toString());
-  }
-
-  protected void assertAppleSdkVersionEnv(CommandAction action, String versionString)
-      throws ActionExecutionException {
-    assertThat(action.getIncompleteEnvironmentForTesting())
-        .containsEntry("APPLE_SDK_VERSION_OVERRIDE", versionString);
   }
 
   protected void assertAppleSdkPlatformEnv(CommandAction action, String platformName)
@@ -462,7 +442,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    exec_groups = {",
         "        'j2objc': exec_group()",
         "    },",
-        "    fragments = ['apple', 'objc', 'cpp',],",
+        "    fragments = ['apple', 'objc', 'cpp', 'j2objc'],",
         ")");
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
@@ -518,7 +498,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       assertThat(declaredIncludeSrcs)
           .containsExactly(getSourceArtifact("x/a.h").getExecPathString());
     }
-    Truth8.assertThat(
+    assertThat(
             ccCompilationContext.getIncludeDirs().stream()
                 .map(x -> removeConfigFragment(x.toString())))
         .containsExactly(PathFragment.create("x/incdir").toString(), OUTPUTDIR + "/x/incdir");

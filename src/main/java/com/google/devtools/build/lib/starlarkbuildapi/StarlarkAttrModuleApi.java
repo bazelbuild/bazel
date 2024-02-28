@@ -89,6 +89,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       "Aspects that should be applied to the dependency or dependencies specified by this "
           + "attribute.";
 
+  String SKIP_VALIDATIONS_ARG = "skip_validations";
+  String SKIP_VALIDATIONS_ARG_DOC =
+      "If true, validation actions of transitive dependencies from "
+          + "this attribute will not run. This is a temporary mitigation and WILL be removed in "
+          + "the future.";
+
   String CONFIGURATION_ARG = "cfg";
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
@@ -310,6 +316,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc = MANDATORY_DOC),
         @Param(
+            name = SKIP_VALIDATIONS_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = SKIP_VALIDATIONS_ARG_DOC),
+        @Param(
             name = PROVIDERS_ARG,
             defaultValue = "[]",
             named = true,
@@ -361,6 +373,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Object allowFiles,
       Object allowSingleFile,
       Boolean mandatory,
+      Boolean skipValidations,
       Sequence<?> providers,
       Object allowRules,
       Object cfg,
@@ -503,6 +516,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc = MANDATORY_DOC),
         @Param(
+            name = SKIP_VALIDATIONS_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = SKIP_VALIDATIONS_ARG_DOC),
+        @Param(
             name = CONFIGURATION_ARG,
             defaultValue = "None",
             named = true,
@@ -526,6 +545,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Sequence<?> providers,
       Sequence<?> flags,
       Boolean mandatory,
+      Boolean skipValidations,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)

@@ -13,20 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import javax.annotation.Nullable;
 
 /**
- * Used when {@link SkyFunction#compute} needs to concurrently access {@link LookupEnvironment}.
+ * Used when multiple bazel State Machines' {@link com.google.devtools.build.skyframe.state.Driver}s
+ * need to concurrently access {@link LookupEnvironment} and {@link SkyframeLookupResult} to query
+ * and fetch dependency values.
  *
- * <p>A common use case can be {@link SkyFunction#compute} drives several in-parallel {@link
- * com.google.devtools.build.skyframe.state.StateMachine}s, which could concurrently query deps in
- * {@link LookupEnvironment}.
+ * <p>In the bazel State Machine logic, we assume that {@link LookupEnvironment} and {@link
+ * SkyframeLookupResult} refer to the same instance. So {@link ConcurrentSkyFunctionEnvironment}
+ * implements methods from both interfaces and all relevant operations are thread-safe.
  */
-final class ConcurrentLookupEnvironment implements LookupEnvironment {
-  private final LookupEnvironment delegate;
+public final class ConcurrentSkyFunctionEnvironment
+    implements LookupEnvironment, SkyframeLookupResult {
+  private final SkyFunctionEnvironment delegate;
 
-  ConcurrentLookupEnvironment(LookupEnvironment delegate) {
+  public ConcurrentSkyFunctionEnvironment(SkyFunctionEnvironment delegate) {
     this.delegate = delegate;
   }
 
@@ -81,11 +86,35 @@ final class ConcurrentLookupEnvironment implements LookupEnvironment {
   @Override
   public synchronized SkyframeLookupResult getValuesAndExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
-    return delegate.getValuesAndExceptions(depKeys);
+    // When calling `SkyFunctionEnvironment#getValuesAndExceptions`, `delegate` looks up deps in the
+    // dependency graph and returns itself as a `SkyframeLookupResult` instance. The `checkState`
+    // verifies the returned instance does not change.
+    //
+    // `getLookupHandleForPreviouslyRequestedDeps` below follows the same intuition.
+    checkState(delegate.getValuesAndExceptions(depKeys) == delegate);
+    return this;
   }
 
   @Override
   public synchronized SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
-    return delegate.getLookupHandleForPreviouslyRequestedDeps();
+    checkState(delegate.getLookupHandleForPreviouslyRequestedDeps() == delegate);
+    return this;
+  }
+
+  @Nullable
+  @Override
+  public synchronized <E1 extends Exception, E2 extends Exception, E3 extends Exception>
+      SkyValue getOrThrow(
+          SkyKey skyKey,
+          @Nullable Class<E1> exceptionClass1,
+          @Nullable Class<E2> exceptionClass2,
+          @Nullable Class<E3> exceptionClass3)
+          throws E1, E2, E3 {
+    return delegate.getOrThrow(skyKey, exceptionClass1, exceptionClass2, exceptionClass3);
+  }
+
+  @Override
+  public synchronized boolean queryDep(SkyKey key, QueryDepCallback resultCallback) {
+    return delegate.queryDep(key, resultCallback);
   }
 }

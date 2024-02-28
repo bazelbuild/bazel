@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -131,10 +132,6 @@ public class LocalSpawnRunner implements SpawnRunner {
     SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forLocalExec();
     Stopwatch totalTimeStopwatch = Stopwatch.createStarted();
     Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
-    try (var s = Profiler.instance().profile("updateRunfiles")) {
-      runfilesTreeUpdater.updateRunfiles(
-          spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
-    }
     if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
       context.prefetchInputsAndWait();
     }
@@ -226,8 +223,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       setState(State.PARSING);
     }
 
-    public SpawnResult run()
-        throws InterruptedException, IOException, ForbiddenActionInputException {
+    public SpawnResult run() throws InterruptedException, ExecException, IOException {
       if (localExecutionOptions.localRetriesOnCrash == 0) {
         return runOnce();
       } else {
@@ -256,8 +252,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
     }
 
-    private SpawnResult runOnce()
-        throws InterruptedException, IOException, ForbiddenActionInputException {
+    private SpawnResult runOnce() throws InterruptedException, ExecException, IOException {
       try {
         return start();
       } catch (InterruptedException | InterruptedIOException e) {
@@ -268,9 +263,6 @@ public class LocalSpawnRunner implements SpawnRunner {
         throw e;
       } catch (Error e) {
         stepLog(SEVERE, e, UNHANDLED_EXCEPTION_MSG);
-        throw e;
-      } catch (ForbiddenActionInputException e) {
-        stepLog(WARNING, e, "Bad input file");
         throw e;
       } catch (IOException e) {
         stepLog(SEVERE, e, "Local I/O error");
@@ -323,8 +315,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
 
     /** Parse the request and run it locally. */
-    private SpawnResult start()
-        throws InterruptedException, IOException, ForbiddenActionInputException {
+    private SpawnResult start() throws InterruptedException, ExecException, IOException {
       logger.atInfo().log("starting local subprocess #%d, argv: %s", id, debugCmdString());
 
       SpawnResult.Builder spawnResultBuilder =
@@ -360,6 +351,8 @@ public class LocalSpawnRunner implements SpawnRunner {
 
       spawnMetrics.setInputFiles(spawn.getInputFiles().memoizedFlattenAndGetSize());
       Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
+      List<RunfilesTree> runfilesTrees = new ArrayList<>();
+
       for (ActionInput input : spawn.getInputFiles().toList()) {
         if (input instanceof VirtualActionInput) {
           VirtualActionInput virtualActionInput = (VirtualActionInput) input;
@@ -374,7 +367,15 @@ public class LocalSpawnRunner implements SpawnRunner {
           // Some of the virtual inputs are tools run as part of the execution, hence we need to set
           // executable flag.
           outputPath.setExecutable(true);
+        } else if ((input instanceof Artifact) && ((Artifact) input).isMiddlemanArtifact()) {
+          runfilesTrees.add(
+              context.getInputMetadataProvider().getRunfilesMetadata(input).getRunfilesTree());
         }
+      }
+
+      try (var s = Profiler.instance().profile("updateRunfiles")) {
+        runfilesTreeUpdater.updateRunfiles(
+            runfilesTrees, spawn.getEnvironment(), context.getFileOutErr());
       }
 
       stepLog(INFO, "running locally");

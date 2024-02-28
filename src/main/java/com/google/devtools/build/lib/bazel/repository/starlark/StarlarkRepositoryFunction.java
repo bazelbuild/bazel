@@ -123,7 +123,14 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
-    if (workerExecutorService == null) {
+    if (workerExecutorService == null
+        || env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      // Don't use the worker thread if we're in Skyframe error bubbling. For some reason, using a
+      // worker thread during error bubbling very frequently causes deadlocks on Linux platforms.
+      // The deadlock is rather elusive and this is just the immediate thing that seems to help.
+      // Fortunately, no Skyframe restarts should happen during error bubbling anyway, so this
+      // shouldn't be a performance concern. See https://github.com/bazelbuild/bazel/issues/21238
+      // for more context.
       return fetchInternal(rule, outputDirectory, directories, env, recordedInputValues, key);
     }
     var state = env.getState(RepoFetchingSkyKeyComputeState::new);
@@ -223,9 +230,14 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       var repoMappingRecorder = new Label.RepoMappingRecorder();
-      repoMappingRecorder.mergeEntries(
-          rule.getRuleClassObject().getRuleDefinitionEnvironmentRepoMappingEntries());
-      thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
+      // For repos defined in Bzlmod, record any used repo mappings in the marker file.
+      // Repos defined in WORKSPACE are impossible to verify given the chunked loading (we'd have to
+      // record which chunk the repo mapping was used in, and ain't nobody got time for that).
+      if (!isWorkspaceRepo(rule)) {
+        repoMappingRecorder.mergeEntries(
+            rule.getRuleClassObject().getRuleDefinitionEnvironmentRepoMappingEntries());
+        thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
+      }
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
@@ -246,7 +258,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
               starlarkSemantics,
               repositoryRemoteExecutor,
               syscallCache,
-              directories.getWorkspace());
+              directories);
 
       if (starlarkRepositoryContext.isRemotable()) {
         // If a rule is declared remotable then invalidate it if remote execution gets
@@ -302,11 +314,10 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         env.getListener().handle(Event.debug(defInfo));
       }
 
-      // Modify marker data to include the files used by the rule's implementation function.
-      for (Map.Entry<Label, String> entry :
-          starlarkRepositoryContext.getAccumulatedFileDigests().entrySet()) {
-        recordedInputValues.put(new RepoRecordedInput.LabelFile(entry.getKey()), entry.getValue());
-      }
+      // Modify marker data to include the files/dirents used by the rule's implementation function.
+      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
+      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirentsInputs());
+      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirTreeInputs());
 
       // Ditto for environment variables accessed via `getenv`.
       for (String envKey : starlarkRepositoryContext.getAccumulatedEnvKeys()) {

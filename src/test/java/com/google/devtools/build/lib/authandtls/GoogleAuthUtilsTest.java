@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
 import com.google.devtools.build.lib.events.Reporter;
@@ -52,7 +51,7 @@ public class GoogleAuthUtilsTest {
     ImmutableMap<String, String> clientEnv = ImmutableMap.of();
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
-    Truth8.assertThat(GoogleAuthUtils.newCredentialsFromNetrc(clientEnv, fileSystem)).isEmpty();
+    assertThat(GoogleAuthUtils.newCredentialsFromNetrc(clientEnv, fileSystem)).isEmpty();
   }
 
   @Test
@@ -61,7 +60,7 @@ public class GoogleAuthUtilsTest {
     ImmutableMap<String, String> clientEnv = ImmutableMap.of("HOME", home);
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
-    Truth8.assertThat(GoogleAuthUtils.newCredentialsFromNetrc(clientEnv, fileSystem)).isEmpty();
+    assertThat(GoogleAuthUtils.newCredentialsFromNetrc(clientEnv, fileSystem)).isEmpty();
   }
 
   @Test
@@ -75,7 +74,7 @@ public class GoogleAuthUtilsTest {
     Optional<Credentials> credentials =
         GoogleAuthUtils.newCredentialsFromNetrc(clientEnv, fileSystem);
 
-    Truth8.assertThat(credentials).isPresent();
+    assertThat(credentials).isPresent();
     assertRequestMetadata(
         credentials.get().getRequestMetadata(URI.create("https://foo.example.org")),
         "foouser",
@@ -95,7 +94,7 @@ public class GoogleAuthUtilsTest {
     Optional<Credentials> credentials =
         GoogleAuthUtils.newCredentialsFromNetrc(clientEnv, fileSystem);
 
-    Truth8.assertThat(credentials).isPresent();
+    assertThat(credentials).isPresent();
     assertRequestMetadata(
         credentials.get().getRequestMetadata(URI.create("https://foo.example.org")),
         "baruser",
@@ -111,7 +110,7 @@ public class GoogleAuthUtilsTest {
     Scratch scratch = new Scratch(fileSystem);
     scratch.file(home + "/.netrc", "machine foo.example.org login foouser password foopass");
 
-    Truth8.assertThat(GoogleAuthUtils.newCredentialsFromNetrc(clientEnv, fileSystem)).isEmpty();
+    assertThat(GoogleAuthUtils.newCredentialsFromNetrc(clientEnv, fileSystem)).isEmpty();
   }
 
   @Test
@@ -145,10 +144,9 @@ public class GoogleAuthUtilsTest {
     CredentialHelperProvider credentialHelperProvider1 =
         newCredentialHelperProvider(
             credentialHelperEnvironment, commandLinePathFactory, ImmutableList.of());
-    Truth8.assertThat(
-            credentialHelperProvider1.findCredentialHelper(URI.create("https://example.com")))
+    assertThat(credentialHelperProvider1.findCredentialHelper(URI.create("https://example.com")))
         .isEmpty();
-    Truth8.assertThat(
+    assertThat(
             credentialHelperProvider1.findCredentialHelper(URI.create("https://foo.example.com")))
         .isEmpty();
 
@@ -203,7 +201,7 @@ public class GoogleAuthUtilsTest {
                 .get()
                 .getPath())
         .isEqualTo(exampleComHelper);
-    Truth8.assertThat(
+    assertThat(
             credentialHelperProvider4.findCredentialHelper(URI.create("https://foo.example.com")))
         .isEmpty();
 

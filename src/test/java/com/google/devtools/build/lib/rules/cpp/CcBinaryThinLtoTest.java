@@ -395,10 +395,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
 
   /** Helper method that checks that a .dwp has the expected generating action structure. */
   private void validateDwp(
-      RuleContext ruleContext,
-      Artifact dwpFile,
-      CcToolchainProvider toolchain,
-      List<String> expectedInputs)
+      Artifact dwpFile, CcToolchainProvider toolchain, List<String> expectedInputs)
       throws Exception {
     SpawnAction dwpAction = (SpawnAction) getGeneratingAction(dwpFile);
     String dwpToolPath =
@@ -406,8 +403,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
             toolchain.getToolPaths(),
             Tool.DWP,
             toolchain.getCcToolchainLabel(),
-            toolchain.getToolchainIdentifier(),
-            ruleContext);
+            toolchain.getToolchainIdentifier());
     assertThat(dwpAction.getMnemonic()).isEqualTo("CcGenerateDwp");
     assertThat(dwpToolPath).isEqualTo(dwpAction.getCommandFilename());
     List<String> commandArgs = dwpAction.getArguments();
@@ -456,7 +452,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(pkg);
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
-        ruleContext,
         dwpFile,
         toolchain,
         ImmutableList.of(
@@ -506,7 +501,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(pkg);
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
-        ruleContext,
         dwpFile,
         toolchain,
         ImmutableList.of(
@@ -562,7 +556,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(pkg);
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
-        ruleContext,
         dwpFile,
         toolchain,
         ImmutableList.of(

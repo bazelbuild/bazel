@@ -24,7 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;

@@ -464,7 +464,7 @@ public class FilesystemValueChecker {
     try {
       TreeArtifactValue.visitTree(
           path,
-          (child, type) -> {
+          (child, type, traversedSymlink) -> {
             if (type != Dirent.Type.DIRECTORY) {
               currentChildren.add(child);
             }

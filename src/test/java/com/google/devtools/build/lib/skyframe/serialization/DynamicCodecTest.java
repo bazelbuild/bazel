@@ -18,12 +18,16 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec.FieldHandler;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Objects;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -353,7 +357,7 @@ public final class DynamicCodecTest {
     @SuppressWarnings("EqualsHashCode") // Testing
     @Override
     public boolean equals(Object object) {
-      if (object == null) {
+      if (!(object instanceof PrimitiveExample)) {
         return false;
       }
       PrimitiveExample that = (PrimitiveExample) object;
@@ -478,5 +482,89 @@ public final class DynamicCodecTest {
     Object deserialized = codecs.deserializeMemoized(bytes);
     assertThat(deserialized).isInstanceOf(SpecificObjectWrapper.class);
     assertThat(((SpecificObjectWrapper) deserialized).field).isNull();
+  }
+
+  private static class CustomHandlerExample {
+    private final String text;
+    private Object tricky;
+
+    private CustomHandlerExample(String text, Object tricky) {
+      this.text = text;
+      this.tricky = tricky;
+    }
+
+    @SuppressWarnings("EqualsHashCode") // Testing
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof CustomHandlerExample)) {
+        return false;
+      }
+      CustomHandlerExample that = (CustomHandlerExample) other;
+      return Objects.equals(text, that.text) && Objects.equals(tricky, that.tricky);
+    }
+  }
+
+  /** An object for testing that can't be serialized. */
+  private static final Object NOT_SERIALIZABLE =
+      new Object() {
+        @Override
+        public String toString() {
+          return "not serializable";
+        }
+      };
+
+  @Test
+  public void customFieldHandler_counterfactual() throws Exception {
+    // Verifies that a naive DynamicCodec instance cannot serialize the `NOT_SERIALIZABLE` object.
+    ObjectCodecs codecs =
+        new ObjectCodecs(
+            ObjectCodecRegistry.newBuilder()
+                .add(new DynamicCodec(CustomHandlerExample.class))
+                .build());
+    SerializationException expected =
+        assertThrows(
+            SerializationException.class,
+            () -> codecs.serialize(new CustomHandlerExample("hello", NOT_SERIALIZABLE)));
+    assertThat(expected).hasMessageThat().contains("No default codec available");
+  }
+
+  @Test
+  public void customFieldHandler() throws Exception {
+    LinkedHashMap<Field, FieldHandler> fieldHandlers =
+        DynamicCodec.getFieldHandlerMap(CustomHandlerExample.class);
+    Field textField = CustomHandlerExample.class.getDeclaredField("text");
+    Field trickyField = CustomHandlerExample.class.getDeclaredField("tricky");
+    assertThat(fieldHandlers.keySet()).containsExactly(textField, trickyField);
+
+    // Creates and inserts a custom handler for the field "tricky".
+    fieldHandlers.put(
+        trickyField,
+        new FieldHandler() {
+          @Override
+          public void serialize(
+              SerializationContext context, CodedOutputStream codedOut, Object obj)
+              throws IOException {
+            CustomHandlerExample subject = (CustomHandlerExample) obj;
+            codedOut.writeBoolNoTag(subject.tricky != null);
+          }
+
+          @Override
+          public void deserialize(
+              AsyncDeserializationContext context, CodedInputStream codedIn, Object obj)
+              throws IOException {
+            if (codedIn.readBool()) {
+              ((CustomHandlerExample) obj).tricky = NOT_SERIALIZABLE;
+            }
+          }
+        });
+    DynamicCodec customizedCodec =
+        new DynamicCodec(
+            CustomHandlerExample.class, fieldHandlers.values().toArray(new FieldHandler[2]));
+
+    // The NOT_SERIALIZABLE object round-trips successfully with the custom handler.
+    new SerializationTester(
+            new CustomHandlerExample("a", null), new CustomHandlerExample("b ", NOT_SERIALIZABLE))
+        .addCodec(customizedCodec)
+        .runTests();
   }
 }

@@ -743,11 +743,11 @@ public abstract class BuildIntegrationTestCase {
   }
 
   @Nullable // Null if no build has been run.
-  public BuildConfigurationValue getConfiguration() {
+  public BuildConfigurationValue getTargetConfigurationFromLastBuildResult() {
     return runtimeWrapper.getConfiguration();
   }
 
-  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
+  protected final BuildConfigurationValue getConfigurationFromLastBuildResult(ConfiguredTarget ct) {
     return getSkyframeExecutor()
         .getConfiguration(NullEventHandler.INSTANCE, ct.getConfigurationKey());
   }
@@ -761,14 +761,14 @@ public abstract class BuildIntegrationTestCase {
    * falls back to the base top-level configuration.
    */
   protected BuildConfigurationValue getTargetConfiguration() {
-    BuildConfigurationValue baseConfiguration = getConfiguration();
+    BuildConfigurationValue baseConfiguration = getTargetConfigurationFromLastBuildResult();
     BuildResult result = getResult();
     if (result == null) {
       return baseConfiguration;
     }
     ImmutableSet<BuildConfigurationValue> topLevelTargetConfigurations =
         result.getActualTargets().stream()
-            .map(this::getConfiguration)
+            .map(this::getConfigurationFromLastBuildResult)
             .filter(Objects::nonNull)
             .collect(toImmutableSet());
     if (topLevelTargetConfigurations.size() != 1) {
@@ -974,7 +974,8 @@ public abstract class BuildIntegrationTestCase {
    * <p>The returned set preserves the order of the input.
    */
   protected Set<String> artifactsToStrings(NestedSet<Artifact> artifacts) {
-    return AnalysisTestUtil.artifactsToStrings(getConfiguration(), artifacts.toList());
+    return AnalysisTestUtil.artifactsToStrings(
+        getTargetConfigurationFromLastBuildResult(), artifacts.toList());
   }
 
   protected ActionsTestUtil actionsTestUtil() {

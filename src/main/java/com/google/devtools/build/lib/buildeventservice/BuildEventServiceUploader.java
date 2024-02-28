@@ -529,14 +529,15 @@ public final class BuildEventServiceUploader implements Runnable {
                     streamStatus.getDescription());
               }
 
-              if (!shouldRetryStatus(streamStatus)) {
+              if (!shouldRetryStatus(streamStatus) || shouldStartNewInvocation(streamStatus)) {
                 String message =
                     String.format("Not retrying publishBuildEvents: status='%s'", streamStatus);
                 logger.atInfo().log("%s", message);
-                throw withFailureDetail(
-                    streamStatus.asException(),
-                    BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE,
-                    message);
+                BuildProgress.Code detailedCode =
+                    shouldStartNewInvocation(streamStatus)
+                        ? BuildProgress.Code.BES_UPLOAD_TIMEOUT_ERROR
+                        : BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE;
+                throw withFailureDetail(streamStatus.asException(), detailedCode, message);
               }
               if (retryAttempt == buildEventProtocolOptions.besUploadMaxRetries) {
                 String message =
@@ -628,7 +629,7 @@ public final class BuildEventServiceUploader implements Runnable {
         besClient.publish(request);
         return;
       } catch (StatusException e) {
-        if (!shouldRetryStatus(e.getStatus())) {
+        if (!shouldRetryStatus(e.getStatus()) || shouldStartNewInvocation(e.getStatus())) {
           String message =
               String.format("Not retrying publishLifecycleEvent: status='%s'", e.getStatus());
           logger.atInfo().log("%s", message);
@@ -713,8 +714,11 @@ public final class BuildEventServiceUploader implements Runnable {
   }
 
   private static boolean shouldRetryStatus(Status status) {
-    return !status.getCode().equals(Code.INVALID_ARGUMENT)
-        && !status.getCode().equals(Code.FAILED_PRECONDITION);
+    return !status.getCode().equals(Code.INVALID_ARGUMENT);
+  }
+
+  private static boolean shouldStartNewInvocation(Status status) {
+    return status.getCode().equals(Code.FAILED_PRECONDITION);
   }
 
   private long retrySleepMillis(int attempt) {

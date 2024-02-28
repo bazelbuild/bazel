@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Optional;
 
@@ -41,7 +41,9 @@ public abstract class LockFileModuleExtension implements Postable {
   @SuppressWarnings("mutable")
   public abstract byte[] getBzlTransitiveDigest();
 
-  public abstract ImmutableMap<Label, String> getAccumulatedFileDigests();
+  public abstract ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs();
+
+  public abstract ImmutableMap<RepoRecordedInput.Dirents, String> getRecordedDirentsInputs();
 
   public abstract ImmutableMap<String, String> getEnvVariables();
 
@@ -54,13 +56,22 @@ public abstract class LockFileModuleExtension implements Postable {
 
   public abstract Builder toBuilder();
 
+  public boolean shouldLockExtension() {
+    return getModuleExtensionMetadata().isEmpty()
+        || !getModuleExtensionMetadata().get().getReproducible();
+  }
+
   /** Builder type for {@link LockFileModuleExtension}. */
   @AutoValue.Builder
   public abstract static class Builder {
 
     public abstract Builder setBzlTransitiveDigest(byte[] digest);
 
-    public abstract Builder setAccumulatedFileDigests(ImmutableMap<Label, String> value);
+    public abstract Builder setRecordedFileInputs(
+        ImmutableMap<RepoRecordedInput.File, String> value);
+
+    public abstract Builder setRecordedDirentsInputs(
+        ImmutableMap<RepoRecordedInput.Dirents, String> value);
 
     public abstract Builder setEnvVariables(ImmutableMap<String, String> value);
 

@@ -50,18 +50,12 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
-import javax.tools.JavaFileObject;
-import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardLocation;
 
 /**
@@ -108,6 +102,12 @@ public class BlazeJavacMain {
       return BlazeJavacResult.error(e.getMessage());
     }
 
+    Optional<WerrorCustomOption> maybeWerrorCustom =
+        arguments.blazeJavacOptions().stream()
+            .filter(arg -> arg.startsWith("-Werror:"))
+            .collect(toOptional())
+            .map(WerrorCustomOption::create);
+
     Context context = new Context();
     BlazeJavacStatistics.preRegister(context);
     CacheFSInfo.preRegister(context);
@@ -119,7 +119,7 @@ public class BlazeJavacMain {
     // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
     // it and handling exceptions directly in callers.
     PrintWriter errWriter = new PrintWriter(errOutput);
-    Listener diagnosticsBuilder = new Listener(arguments.failFast(), context);
+    Listener diagnosticsBuilder = new Listener(arguments.failFast(), maybeWerrorCustom, context);
     BlazeJavaCompiler compiler;
 
     // Initialize parts of context that the filemanager depends on
@@ -129,8 +129,7 @@ public class BlazeJavacMain {
     options.put("-Xlint:path", "path");
     options.put("expandJarClassPaths", "false");
 
-    try (ClassloaderMaskingFileManager fileManager =
-        new ClassloaderMaskingFileManager(context, getMatchingBootFileManager(arguments))) {
+    try (ClassloaderMaskingFileManager fileManager = new ClassloaderMaskingFileManager(context)) {
 
       setLocations(fileManager, arguments);
 
@@ -196,20 +195,10 @@ public class BlazeJavacMain {
 
     boolean werror =
         diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
-    if (status.equals(Status.OK)) {
-      Optional<WerrorCustomOption> maybeWerrorCustom =
-          arguments.blazeJavacOptions().stream()
-              .filter(arg -> arg.startsWith("-Werror:"))
-              .collect(toOptional())
-              .map(WerrorCustomOption::create);
-      if (maybeWerrorCustom.isPresent()) {
-        WerrorCustomOption werrorCustom = maybeWerrorCustom.get();
-        if (diagnostics.stream().anyMatch(d -> isWerror(werrorCustom, d))) {
-          errOutput.append("error: warnings found and -Werror specified\n");
-          status = Status.ERROR;
-          werror = true;
-        }
-      }
+    if (status.equals(Status.OK) && diagnosticsBuilder.werror()) {
+      errOutput.append("error: warnings found and -Werror specified\n");
+      status = Status.ERROR;
+      werror = true;
     }
 
     return BlazeJavacResult.createFullResult(
@@ -232,16 +221,6 @@ public class BlazeJavacMain {
         return Status.CRASH;
     }
     throw new AssertionError(result);
-  }
-
-  private static boolean isWerror(WerrorCustomOption werrorCustom, FormattedDiagnostic diagnostic) {
-    switch (diagnostic.getKind()) {
-      case WARNING:
-      case MANDATORY_WARNING:
-        return werrorCustom.isEnabled(diagnostic.getLintCategory());
-      default:
-        return false;
-    }
   }
 
   private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =
@@ -380,43 +359,6 @@ public class BlazeJavacMain {
     }
   }
 
-  private static final boolean BOOT_CLASSPATH_CACHE_ENABLED =
-      Boolean.parseBoolean(
-          System.getProperty(
-              "com.google.devtools.build.buildjar.javac.enable_boot_classpath_cache", "true"));
-
-  /**
-   * Multiple javac file manager instances each specific for a combination of bootClassPaths with
-   * their digest.
-   */
-  private static final Map<BootClassPathCachingFileManager.Key, BootClassPathCachingFileManager>
-      bootFileManagers = new HashMap<>();
-
-  /**
-   * Returns a BootClassPathCachingFileManager instance that matches the combination of
-   * bootClassPaths and their digest in the case of a worker with valid arguments.
-   */
-  @Nullable
-  private static synchronized BootClassPathCachingFileManager getMatchingBootFileManager(
-      BlazeJavacArguments arguments) {
-    if (!BOOT_CLASSPATH_CACHE_ENABLED) {
-      // Caching disabled by a feature switch.
-      return null;
-    }
-    if (!arguments.requestId().isPresent()) {
-      // worker mode is not enabled
-      return null;
-    }
-    if (!BootClassPathCachingFileManager.areArgumentsValid(arguments)) {
-      // arguments not valid
-      return null;
-    }
-
-    BootClassPathCachingFileManager.Key key = BootClassPathCachingFileManager.Key.create(arguments);
-    return bootFileManagers.computeIfAbsent(
-        key, x -> new BootClassPathCachingFileManager(new Context(), key));
-  }
-
   /**
    * Ensure that classes that appear in the API between JavaBuilder and plugins are consistently
    * loaded by the same classloader. 'Plugins' here means both annotation processors and Error Prone
@@ -430,23 +372,8 @@ public class BlazeJavacMain {
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
-    /** the BootClassPathCachingFileManager instance used for BootClassPaths only. */
-    private final BootClassPathCachingFileManager bootFileManger;
-
-    public ClassloaderMaskingFileManager(
-        Context context, BootClassPathCachingFileManager bootFileManager) {
+    public ClassloaderMaskingFileManager(Context context) {
       super(context, true, UTF_8);
-      this.bootFileManger = bootFileManager;
-    }
-
-    @Override
-    public Iterable<JavaFileObject> list(
-        Location location, String packageName, Set<Kind> kinds, boolean recurse)
-        throws IOException {
-      if (this.bootFileManger != null && location == StandardLocation.PLATFORM_CLASS_PATH) {
-        return this.bootFileManger.list(location, packageName, kinds, recurse);
-      }
-      return super.list(location, packageName, kinds, recurse);
     }
 
     @Override

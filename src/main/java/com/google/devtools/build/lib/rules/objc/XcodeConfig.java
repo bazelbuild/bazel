@@ -80,11 +80,12 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       infoBuilder.setXcodeVersionFlag(appleOptions.xcodeVersion);
     }
     XcodeVersionRuleData explicitDefaultVersion =
-        ruleContext.getPrerequisite(XcodeConfigRule.DEFAULT_ATTR_NAME, XcodeVersionRuleData.class);
+        ruleContext.getPrerequisite(
+            XcodeConfigRule.DEFAULT_ATTR_NAME, XcodeVersionRuleData.PROVIDER);
 
     List<XcodeVersionRuleData> explicitVersions =
         ruleContext.getPrerequisites(
-            XcodeConfigRule.VERSIONS_ATTR_NAME, XcodeVersionRuleData.class);
+            XcodeConfigRule.VERSIONS_ATTR_NAME, XcodeVersionRuleData.PROVIDER);
 
     AvailableXcodesInfo remoteVersions =
         ruleContext.getPrerequisite(

@@ -15,14 +15,12 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.util.Arrays.asList;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -85,8 +83,10 @@ public final class SpawnActionTest extends BuildViewTestCase {
 
   private SpawnAction createCopyFromWelcomeToDestination(Map<String, String> environmentVariables) {
     PathFragment cp = PathFragment.create("/bin/cp");
-    List<String> arguments = asList(welcomeArtifact.getExecPath().getPathString(),
-        destinationArtifact.getExecPath().getPathString());
+    ImmutableList<String> arguments =
+        ImmutableList.of(
+            welcomeArtifact.getExecPath().getPathString(),
+            destinationArtifact.getExecPath().getPathString());
 
     SpawnAction action =
         builder()
@@ -274,7 +274,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
         spawn.getInputFiles().toList().stream()
             .filter(i -> i instanceof VirtualActionInput)
             .findFirst();
-    Truth8.assertThat(input).isPresent();
+    assertThat(input).isPresent();
     VirtualActionInput paramFile = (VirtualActionInput) input.get();
     assertThat(paramFile.getBytes().toString(ISO_8859_1).trim()).isEqualTo("-X");
   }

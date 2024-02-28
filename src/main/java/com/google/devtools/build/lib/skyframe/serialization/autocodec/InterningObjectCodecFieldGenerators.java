@@ -116,7 +116,7 @@ abstract class InterningObjectCodecFieldGenerators {
         case TYPEVAR:
           // See comments of `ArrayProcessor.OBJECT_ARRAY_PROCESSOR` to understand how it works for
           // any type of object array.
-          this.processorName = "FLAT_OBJECT_ARRAY_PROCESSOR";
+          this.processorName = "OBJECT_ARRAY_PROCESSOR";
           this.isPrimitiveArray = false;
           break;
         default:
@@ -278,7 +278,7 @@ abstract class InterningObjectCodecFieldGenerators {
               getOffsetName(),
               arrName)
           .addStatement(
-              "$T.deserializeObjectArrayFully(context, codedIn, $L, $L)",
+              "$T.deserializeObjectArray(context, codedIn, $L, $L)",
               ArrayProcessor.class,
               arrName,
               lengthName)
@@ -481,7 +481,7 @@ abstract class InterningObjectCodecFieldGenerators {
 
     @Override
     void generateDeserializeCode(MethodSpec.Builder deserialize) {
-      deserialize.addStatement("context.deserializeFully(codedIn, instance, $L)", getOffsetName());
+      deserialize.addStatement("context.deserialize(codedIn, instance, $L)", getOffsetName());
     }
   }
 }

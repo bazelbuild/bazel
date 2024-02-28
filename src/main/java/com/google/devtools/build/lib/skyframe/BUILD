@@ -125,6 +125,7 @@ java_library(
         ":diff_awareness_manager",
         ":directory_listing_function",
         ":directory_listing_state_value",
+        ":directory_tree_digest_function",
         ":ephemeral_check_if_output_consumed",
         ":exclusive_test_build_driver_value",
         ":execution_finished_event",
@@ -515,7 +516,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -1249,6 +1250,33 @@ java_library(
 )
 
 java_library(
+    name = "directory_tree_digest_function",
+    srcs = ["DirectoryTreeDigestFunction.java"],
+    deps = [
+        ":directory_listing_value",
+        ":directory_tree_digest_value",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "directory_tree_digest_value",
+    srcs = ["DirectoryTreeDigestValue.java"],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
+    ],
+)
+
+java_library(
     name = "dirents",
     srcs = ["Dirents.java"],
     deps = [
@@ -1459,6 +1487,8 @@ java_library(
     deps = [
         ":glob_exception",
         ":globs_value",
+        ":ignored_package_prefixes_value",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages/producers",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -2368,6 +2398,7 @@ java_library(
     deps = [
         ":action_artifact_cycle_reporter",
         ":artifact_conflict_finder",
+        ":artifact_nested_set_function",
         ":aspect_key_creator",
         ":build_driver_key",
         ":configured_target_key",
@@ -2377,6 +2408,7 @@ java_library(
         ":sky_functions",
         ":test_completion_value",
         ":top_level_conflict_exception",
+        ":top_level_status_events",
         ":transitive_target_key",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
@@ -2392,8 +2424,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_nested_set_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -2456,11 +2486,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

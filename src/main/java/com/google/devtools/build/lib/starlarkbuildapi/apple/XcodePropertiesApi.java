@@ -15,10 +15,15 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A provider containing information about a version of Xcode and its properties. */
 @StarlarkBuiltin(
@@ -26,6 +31,7 @@ import net.starlark.java.annot.StarlarkMethod;
     category = DocCategory.PROVIDER,
     doc = "A provider containing information about a version of Xcode and its properties.")
 public interface XcodePropertiesApi extends StructApi {
+  String NAME = "XcodeProperties";
 
   @StarlarkMethod(
       name = "xcode_version",
@@ -84,4 +90,63 @@ public interface XcodePropertiesApi extends StructApi {
       allowReturnNones = true)
   @Nullable
   String getDefaultMacosSdkVersionString();
+
+  /** The provider implementing this can construct XcodeProperties objects. */
+  @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
+  interface Provider extends ProviderApi {
+
+    @StarlarkMethod(
+        name = NAME,
+        useStarlarkThread = true,
+        parameters = {
+          @Param(
+              name = "version",
+              doc = "",
+              positional = false,
+              named = true,
+              defaultValue = "None"),
+          @Param(
+              name = "default_ios_sdk_version",
+              doc = "",
+              positional = false,
+              named = true,
+              defaultValue = "None"),
+          @Param(
+              name = "default_visionos_sdk_version",
+              doc = "",
+              positional = false,
+              named = true,
+              defaultValue = "None"),
+          @Param(
+              name = "default_watchos_sdk_version",
+              doc = "",
+              positional = false,
+              named = true,
+              defaultValue = "None"),
+          @Param(
+              name = "default_tvos_sdk_version",
+              doc = "",
+              positional = false,
+              named = true,
+              defaultValue = "None"),
+          @Param(
+              name = "default_macos_sdk_version",
+              doc = "",
+              positional = false,
+              named = true,
+              defaultValue = "None"),
+        },
+        selfCall = true,
+        documented = false)
+    @StarlarkConstructor
+    XcodePropertiesApi createInfo(
+        String version,
+        String defaultIosSdkVersion,
+        String defaultVisionosSdkVersion,
+        String defaultWatchosSdkVersion,
+        String defaultTvosSdkVersion,
+        String defaultMacosSdkVersion,
+        StarlarkThread thread)
+        throws EvalException;
+  }
 }

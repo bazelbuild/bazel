@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.function.Supplier;
 
 /**
  * An instance of a given {@code AspectClass} with loaded definition and parameters.
@@ -163,28 +162,25 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
     }
 
     @Override
-    public Supplier<Aspect> deserializeDeferred(
+    public DeferredValue<Aspect> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       if (codedIn.readBool()) {
         var builder = new AspectDeserializationBuilderForNative();
-        context.deserializeFully(
-            codedIn, builder, AspectDeserializationBuilderForNative::setDescriptor);
+        context.deserialize(codedIn, builder, AspectDeserializationBuilderForNative::setDescriptor);
         return builder;
       }
       var builder = new AspectDeserializationBuilderForStarlark();
-      context.deserializeFully(
-          codedIn, builder, AspectDeserializationBuilderForStarlark::setDescriptor);
-      context.deserializeFully(
-          codedIn, builder, AspectDeserializationBuilderForStarlark::setDefinition);
+      context.deserialize(codedIn, builder, AspectDeserializationBuilderForStarlark::setDescriptor);
+      context.deserialize(codedIn, builder, AspectDeserializationBuilderForStarlark::setDefinition);
       return builder;
     }
 
-    private static class AspectDeserializationBuilderForNative implements Supplier<Aspect> {
+    private static class AspectDeserializationBuilderForNative implements DeferredValue<Aspect> {
       private AspectDescriptor descriptor;
 
       @Override
-      public Aspect get() {
+      public Aspect call() {
         return forNative(
             (NativeAspectClass) descriptor.getAspectClass(), descriptor.getParameters());
       }
@@ -195,12 +191,12 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
       }
     }
 
-    private static class AspectDeserializationBuilderForStarlark implements Supplier<Aspect> {
+    private static class AspectDeserializationBuilderForStarlark implements DeferredValue<Aspect> {
       private AspectDescriptor descriptor;
       private AspectDefinition definition;
 
       @Override
-      public Aspect get() {
+      public Aspect call() {
         return forStarlark(
             (StarlarkAspectClass) descriptor.getAspectClass(),
             definition,

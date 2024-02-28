@@ -159,6 +159,29 @@ def _get_artifact_name_pattern(category_name, prefix, extension):
         extension = extension,
     )
 
+def _sdk_name(platform_type, is_simulator):
+    if platform_type == apple_common.platform_type.ios and is_simulator:
+        return "iPhoneSimulator"
+    elif platform_type == apple_common.platform_type.ios:
+        return "iPhoneOS"
+    elif platform_type == getattr(apple_common.platform_type, "visionos", None) and is_simulator:
+        return "XRSimulator"
+    elif platform_type == getattr(apple_common.platform_type, "visionos", None):
+        return "XROS"
+    elif platform_type == apple_common.platform_type.watchos and is_simulator:
+        return "WatchSimulator"
+    elif platform_type == apple_common.platform_type.watchos:
+        return "WatchOS"
+    elif platform_type == apple_common.platform_type.tvos and is_simulator:
+        return "AppleTVSimulator"
+    elif platform_type == apple_common.platform_type.tvos:
+        return "AppleTVOS"
+    elif platform_type == apple_common.platform_type.macos:
+        return "MacOSX"
+
+    else:
+        fail("Unhandled platform type: {}".format(platform_type))
+
 def _impl(ctx):
     toolchain_identifier = ctx.attr.toolchain_identifier
     target_cpu = ctx.attr.cpu
@@ -171,6 +194,30 @@ def _impl(ctx):
     builtin_sysroot = ctx.attr.builtin_sysroot if ctx.attr.builtin_sysroot != "" else None
     cc_target_os = ctx.attr.cc_target_os if ctx.attr.cc_target_os != "" else None
 
+    if ctx.attr.cpu.startswith("darwin"):
+        platform_type = apple_common.platform_type.macos
+    elif ctx.attr.cpu.startswith("ios"):
+        platform_type = apple_common.platform_type.ios
+    elif ctx.attr.cpu.startswith("tvos"):
+        platform_type = apple_common.platform_type.tvos
+    elif ctx.attr.cpu.startswith("watchos"):
+        platform_type = apple_common.platform_type.watchos
+    elif ctx.attr.cpu.startswith("visionos"):
+        platform_type = apple_common.platform_type.visionos
+    else:
+        fail("Unknown CPU: {cpu}. ".format(cpu = ctx.attr.cpu))
+
+    is_simulator = (
+        ctx.attr.cpu == "ios_sim_arm64" or
+        ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "tvos_sim_arm64" or
+        ctx.attr.cpu == "tvos_x86_64" or
+        ctx.attr.cpu == "visionos_sim_arm64" or
+        ctx.attr.cpu == "watchos_arm64" or
+        ctx.attr.cpu == "watchos_x86_64"
+    )
+
+    sdk_name = _sdk_name(platform_type, is_simulator)
     xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
     xcode_execution_requirements = xcode_config.execution_info().keys()
     if (ctx.attr.cpu == "tvos_arm64"):
@@ -179,7 +226,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -203,7 +249,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -227,7 +272,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -251,7 +295,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -275,7 +318,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -298,7 +340,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -322,7 +363,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -346,7 +386,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -415,7 +454,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -475,7 +513,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -535,7 +572,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -595,7 +631,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -655,7 +690,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -715,7 +749,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -775,7 +808,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -835,7 +867,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -895,7 +926,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -955,7 +985,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -1015,7 +1044,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -1075,7 +1103,6 @@ def _impl(ctx):
             implies = [
                 "include_system_dirs",
                 "framework_paths",
-                "version_min",
                 "apple_env",
                 "apply_implicit_frameworks",
             ],
@@ -1100,7 +1127,6 @@ def _impl(ctx):
                 "force_pic_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -1124,7 +1150,6 @@ def _impl(ctx):
                 "force_pic_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -1148,7 +1173,6 @@ def _impl(ctx):
                 "force_pic_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -1171,7 +1195,6 @@ def _impl(ctx):
                 "force_pic_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -1194,7 +1217,6 @@ def _impl(ctx):
                 "force_pic_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -1217,7 +1239,6 @@ def _impl(ctx):
                 "force_pic_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -1241,7 +1262,6 @@ def _impl(ctx):
                 "force_pic_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -1265,7 +1285,6 @@ def _impl(ctx):
                 "force_pic_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -1292,11 +1311,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1325,11 +1342,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1358,11 +1373,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1391,11 +1404,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1424,11 +1435,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1457,11 +1466,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1490,11 +1497,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1524,11 +1529,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1558,11 +1561,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1592,11 +1593,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1626,11 +1625,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1660,11 +1657,9 @@ def _impl(ctx):
             implies = [
                 "objc_actions",
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1698,11 +1693,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1733,11 +1726,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1768,11 +1759,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1803,11 +1792,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1838,11 +1825,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1873,11 +1858,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1908,11 +1891,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1944,11 +1925,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -1980,11 +1959,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2016,11 +1993,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2052,11 +2027,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2088,11 +2061,9 @@ def _impl(ctx):
             ],
             implies = [
                 "apply_default_compiler_flags",
-                "apply_default_warnings",
                 "framework_paths",
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2118,7 +2089,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2142,7 +2112,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2166,7 +2135,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2190,7 +2158,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2214,7 +2181,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2237,7 +2203,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2261,7 +2226,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2285,7 +2249,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2494,7 +2457,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -2519,7 +2481,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -2544,7 +2505,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -2568,7 +2528,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -2592,7 +2551,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -2616,7 +2574,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -2641,7 +2598,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -2666,7 +2622,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -2692,7 +2647,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2720,7 +2674,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2749,7 +2702,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2777,7 +2729,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2805,7 +2756,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2833,7 +2783,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2861,7 +2810,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2889,7 +2837,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2917,7 +2864,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2945,7 +2891,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -2974,7 +2919,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3002,7 +2946,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3033,7 +2976,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3061,7 +3003,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3090,7 +3031,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3118,7 +3058,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3146,7 +3085,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3174,7 +3112,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3202,7 +3139,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3230,7 +3166,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3258,7 +3193,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3286,7 +3220,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3315,7 +3248,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3343,7 +3275,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3375,7 +3306,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3404,7 +3334,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3433,7 +3362,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3462,7 +3390,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3491,7 +3418,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3520,7 +3446,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3549,7 +3474,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3578,7 +3502,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3607,7 +3530,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3636,7 +3558,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3665,7 +3586,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3694,7 +3614,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3720,7 +3639,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3744,7 +3662,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3768,7 +3685,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3792,7 +3708,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3816,7 +3731,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3839,7 +3753,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3863,7 +3776,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3887,7 +3799,6 @@ def _impl(ctx):
             implies = [
                 "preprocessor_defines",
                 "include_system_dirs",
-                "version_min",
                 "objc_arc",
                 "no_objc_arc",
                 "apple_env",
@@ -3919,7 +3830,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -3944,7 +3854,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -3969,7 +3878,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -3993,7 +3901,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -4017,7 +3924,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -4041,7 +3947,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -4066,7 +3971,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -4091,7 +3995,6 @@ def _impl(ctx):
                 "input_param_flags",
                 "strip_debug_symbols",
                 "linker_param_file",
-                "version_min",
                 "apple_env",
                 "cpp_linker_flags",
                 "sysroot",
@@ -4261,7 +4164,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "<architecture>",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4301,7 +4204,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "arm64",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4341,7 +4244,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "arm64",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4381,7 +4284,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "armv7",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4421,7 +4324,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "armv7k",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4461,7 +4364,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "arm64_32",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4501,7 +4404,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "i386",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4541,7 +4444,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "i386",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4581,7 +4484,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "x86_64",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4621,7 +4524,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "x86_64",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4661,7 +4564,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "x86_64",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -4701,7 +4604,7 @@ def _impl(ctx):
                                 "-arch_only",
                                 "x86_64",
                                 "-syslibroot",
-                                "%{sdk_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
                                 "-o",
                                 "%{fully_linked_archive_path}",
                             ],
@@ -5330,215 +5233,6 @@ def _impl(ctx):
             ),
         ],
     )
-
-    if (ctx.attr.cpu == "x64_windows"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-m<platform_for_version_min>-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mios-simulator-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_armv7"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-miphoneos-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_x86_64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mtvos-simulator-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mwatchos-simulator-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_arm64_32"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mwatchos-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(flags = ["-mmacosx-version-min=%{version_min}"]),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_arm64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [flag_group(flags = ["-mtvos-version-min=%{version_min}"])],
-                ),
-            ],
-        )
-    else:
-        version_min_feature = None
 
     asan_feature = feature(
         name = "asan",
@@ -6667,15 +6361,11 @@ def _impl(ctx):
                 env_entries = [
                     env_entry(
                         key = "XCODE_VERSION_OVERRIDE",
-                        value = "%{xcode_version_override_value}",
-                    ),
-                    env_entry(
-                        key = "APPLE_SDK_VERSION_OVERRIDE",
-                        value = "%{apple_sdk_version_override_value}",
+                        value = str(xcode_config.xcode_version()),
                     ),
                     env_entry(
                         key = "APPLE_SDK_PLATFORM",
-                        value = "%{apple_sdk_platform_value}",
+                        value = sdk_name,
                     ),
                 ],
             ),
@@ -7419,34 +7109,6 @@ def _impl(ctx):
 
     no_generate_debug_symbols_feature = feature(name = "no_generate_debug_symbols")
 
-    apply_default_warnings_feature = feature(
-        name = "apply_default_warnings",
-        flag_sets = [
-            flag_set(
-                actions = [ACTION_NAMES.objc_compile, ACTION_NAMES.objcpp_compile],
-                flag_groups = [
-                    flag_group(
-                        flags = [
-                            "-Wshorten-64-to-32",
-                            "-Wbool-conversion",
-                            "-Wconstant-conversion",
-                            "-Wduplicate-method-match",
-                            "-Wempty-body",
-                            "-Wenum-conversion",
-                            "-Wint-conversion",
-                            "-Wunreachable-code",
-                            "-Wmismatched-return-types",
-                            "-Wundeclared-selector",
-                            "-Wuninitialized",
-                            "-Wunused-function",
-                            "-Wunused-variable",
-                        ],
-                    ),
-                ],
-            ),
-        ],
-    )
-
     preprocessor_defines_feature = feature(
         name = "preprocessor_defines",
         enabled = True,
@@ -7471,10 +7133,18 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "watchos_armv7k" or
+    if (ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_armv7" or
+        ctx.attr.cpu == "ios_i386" or
+        ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "tvos_arm64" or
+        ctx.attr.cpu == "tvos_x86_64" or
+        ctx.attr.cpu == "x64_windows" or
+        ctx.attr.cpu == "watchos_armv7k" or
         ctx.attr.cpu == "watchos_arm64_32" or
         ctx.attr.cpu == "watchos_i386" or
-        ctx.attr.cpu == "watchos_x86_64"):
+        ctx.attr.cpu == "watchos_x86_64" or
+        ctx.attr.cpu == "darwin_x86_64"):
         include_system_dirs_feature = feature(
             name = "include_system_dirs",
             flag_sets = [
@@ -7494,39 +7164,12 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-isysroot",
-                                "%{sdk_dir}",
-                                "-F%{sdk_framework_dir}",
-                                "-F%{platform_developer_framework_dir}",
+                                "__BAZEL_XCODE_SDKROOT__",
+                                "-F__BAZEL_XCODE_SDKROOT__/System/Library/Frameworks",
+                                "-F__BAZEL_XCODE_DEVELOPER_DIR__/Platforms/{}.platform/Developer/Library/Frameworks".format(sdk_name),
                             ],
                         ),
                     ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "x64_windows"):
-        include_system_dirs_feature = feature(
-            name = "include_system_dirs",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                        "objc-executable",
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                    ],
-                    flag_groups = [flag_group(flags = ["-isysroot", "%{sdk_dir}"])],
                 ),
             ],
         )
@@ -7560,7 +7203,6 @@ def _impl(ctx):
         force_pic_flags_feature,
         pch_feature,
         module_maps_feature,
-        apply_default_warnings_feature,
         preprocessor_defines_feature,
         framework_paths_feature,
         apply_default_compiler_flags_feature,
@@ -7569,7 +7211,6 @@ def _impl(ctx):
         no_objc_arc_feature,
         apple_env_feature,
         user_link_flags_feature,
-        version_min_feature,
         dead_strip_feature,
         dependency_file_feature,
         serialized_diagnostics_file_feature,

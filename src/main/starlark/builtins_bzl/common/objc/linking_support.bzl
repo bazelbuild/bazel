@@ -14,12 +14,26 @@
 
 """apple_common.link_multi_arch_static_library Starlark implementation"""
 
-load(":common/objc/compilation_support.bzl", "compilation_support")
-load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/compilation_support.bzl", "compilation_support")
 
 objc_internal = _builtins.internal.objc_internal
 ObjcInfo = _builtins.internal.apple_common.Objc
+
+AppleDynamicFrameworkInfo = _builtins.internal.apple_common.AppleDynamicFramework
+AppleExecutableBinaryInfo = _builtins.internal.apple_common.AppleExecutableBinary
+AppleDebugOutputsInfo = provider(
+    """
+Holds debug outputs of an Apple binary rule.
+
+The only field is `output_map`, which is a dictionary of:
+  `{ arch: { "dsym_binary": File, "linkmap": File }`
+
+Where `arch` is any Apple architecture such as "arm64" or "armv7".
+""",
+    fields = ["outputs_map"],
+)
 
 def _link_multi_arch_static_library(ctx):
     """Links a (potentially multi-architecture) static library targeting Apple platforms.
@@ -45,9 +59,6 @@ def _link_multi_arch_static_library(ctx):
     child_configs_and_toolchains = ctx.split_attr._child_configuration_dummy
 
     outputs = []
-    sdk_dylib = []
-    sdk_framework = []
-    weak_sdk_framework = []
 
     for split_transition_key, child_toolchain in child_configs_and_toolchains.items():
         cc_toolchain = child_toolchain[cc_common.CcToolchainInfo]
@@ -108,6 +119,190 @@ def _link_multi_arch_static_library(ctx):
         output_groups = OutputGroupInfo(**output_groups),
     )
 
+# TODO(hvd): use skylib shell.quote()
+def _shell_escape(s):
+    """Shell-escape a string
+
+    Quotes a word so that it can be used, without further quoting, as an argument
+    (or part of an argument) in a shell command.
+
+    Args:
+        s: (str) the string to escape
+
+    Returns:
+        (str) the shell-escaped string
+    """
+    if not s:
+        # Empty string is a special case: needs to be quoted to ensure that it
+        # gets treated as a separate argument.
+        return "''"
+    for c in s.elems():
+        # We do this positively so as to be sure we don't inadvertently forget
+        # any unsafe characters.
+        if not c.isalnum() and c not in "@%-_+:,./":
+            return "'" + s.replace("'", "'\\''") + "'"
+    return s
+
+def _link_multi_arch_binary(
+        *,
+        ctx,
+        avoid_deps = [],
+        extra_linkopts = [],
+        extra_link_inputs = [],
+        extra_requested_features = [],
+        extra_disabled_features = [],
+        stamp = -1,
+        variables_extension = {}):
+    """Links a (potentially multi-architecture) binary targeting Apple platforms.
+
+    This method comprises a bulk of the logic of the Starlark <code>apple_binary</code>
+    rule in the rules_apple domain and exists to aid in the migration of its
+    linking logic to Starlark in rules_apple.
+
+    This API is **highly experimental** and subject to change at any time. Do
+    not depend on the stability of this function at this time.
+    """
+    split_target_triplets = objc_internal.get_split_target_triplet(ctx)
+    split_build_configs = objc_internal.get_split_build_configs(ctx)
+    split_deps = ctx.split_attr.deps
+    child_configs_and_toolchains = ctx.split_attr._child_configuration_dummy
+
+    if split_deps and split_deps.keys() != child_configs_and_toolchains.keys():
+        fail(("Split transition keys are different between 'deps' [%s] and " +
+              "'_child_configuration_dummy' [%s]") % (
+            split_deps.keys(),
+            child_configs_and_toolchains.keys(),
+        ))
+
+    avoid_cc_infos = [
+        dep[AppleDynamicFrameworkInfo].cc_info
+        for dep in avoid_deps
+        if AppleDynamicFrameworkInfo in dep
+    ]
+    avoid_cc_infos.extend([
+        dep[AppleExecutableBinaryInfo].cc_info
+        for dep in avoid_deps
+        if AppleExecutableBinaryInfo in dep
+    ])
+    avoid_cc_infos.extend([dep[CcInfo] for dep in avoid_deps if CcInfo in dep])
+    avoid_cc_linking_contexts = [dep.linking_context for dep in avoid_cc_infos]
+
+    outputs = []
+    cc_infos = []
+    legacy_debug_outputs = {}
+
+    cc_infos.extend(avoid_cc_infos)
+
+    # $(location...) is only used in one test, and tokenize only affects linkopts in one target
+    additional_linker_inputs = getattr(ctx.attr, "additional_linker_inputs", [])
+    attr_linkopts = [
+        ctx.expand_location(opt, targets = additional_linker_inputs)
+        for opt in getattr(ctx.attr, "linkopts", [])
+    ]
+    attr_linkopts = [token for opt in attr_linkopts for token in ctx.tokenize(opt)]
+
+    for split_transition_key, child_toolchain in child_configs_and_toolchains.items():
+        cc_toolchain = child_toolchain[cc_common.CcToolchainInfo]
+        deps = split_deps.get(split_transition_key, [])
+        target_triplet = split_target_triplets.get(split_transition_key)
+
+        common_variables = compilation_support.build_common_variables(
+            ctx = ctx,
+            toolchain = cc_toolchain,
+            deps = deps,
+            extra_disabled_features = extra_disabled_features,
+            extra_enabled_features = extra_requested_features,
+            attr_linkopts = attr_linkopts,
+        )
+
+        cc_infos.append(CcInfo(
+            compilation_context = cc_common.merge_compilation_contexts(
+                compilation_contexts =
+                    common_variables.objc_compilation_context.cc_compilation_contexts,
+            ),
+            linking_context = cc_common.merge_linking_contexts(
+                linking_contexts = common_variables.objc_linking_context.cc_linking_contexts,
+            ),
+        ))
+
+        cc_linking_context = objc_internal.subtract_linking_contexts(
+            ctx = ctx,
+            linking_contexts = common_variables.objc_linking_context.cc_linking_contexts +
+                               avoid_cc_linking_contexts,
+            avoid_dep_linking_contexts = avoid_cc_linking_contexts,
+        )
+
+        child_config = split_build_configs.get(split_transition_key)
+
+        additional_outputs = []
+        extensions = {}
+
+        dsym_binary = None
+        if ctx.fragments.cpp.apple_generate_dsym:
+            if ctx.fragments.cpp.objc_should_strip_binary:
+                suffix = "_bin_unstripped.dwarf"
+            else:
+                suffix = "_bin.dwarf"
+            dsym_binary = ctx.actions.declare_shareable_artifact(
+                ctx.label.package + "/" + ctx.label.name + suffix,
+                child_config.bin_dir,
+            )
+            extensions["dsym_path"] = _shell_escape(dsym_binary.path)  # dsym symbol file
+            additional_outputs.append(dsym_binary)
+            legacy_debug_outputs.setdefault(target_triplet.architecture, {})["dsym_binary"] = dsym_binary
+
+        linkmap = None
+        if ctx.fragments.cpp.objc_generate_linkmap:
+            linkmap = ctx.actions.declare_shareable_artifact(
+                ctx.label.package + "/" + ctx.label.name + ".linkmap",
+                child_config.bin_dir,
+            )
+            extensions["linkmap_exec_path"] = linkmap.path  # linkmap file
+            additional_outputs.append(linkmap)
+            legacy_debug_outputs.setdefault(target_triplet.architecture, {})["linkmap"] = linkmap
+
+        name = ctx.label.name + "_bin"
+        executable = compilation_support.register_configuration_specific_link_actions(
+            name = name,
+            common_variables = common_variables,
+            cc_linking_context = cc_linking_context,
+            build_config = child_config,
+            extra_link_args = extra_linkopts,
+            stamp = stamp,
+            user_variable_extensions = variables_extension | extensions,
+            additional_outputs = additional_outputs,
+            deps = deps,
+            extra_link_inputs = extra_link_inputs,
+            attr_linkopts = attr_linkopts,
+        )
+
+        output = {
+            "binary": executable,
+            "platform": target_triplet.platform,
+            "architecture": target_triplet.architecture,
+            "environment": target_triplet.environment,
+            "dsym_binary": dsym_binary,
+            "linkmap": linkmap,
+        }
+
+        outputs.append(struct(**output))
+
+    header_tokens = []
+    for _, deps in split_deps.items():
+        for dep in deps:
+            if CcInfo in dep:
+                header_tokens.append(dep[CcInfo].compilation_context.validation_artifacts)
+
+    output_groups = {"_validation": depset(transitive = header_tokens)}
+
+    return struct(
+        cc_info = cc_common.merge_cc_infos(direct_cc_infos = cc_infos),
+        output_groups = output_groups,
+        outputs = outputs,
+        debug_outputs_provider = AppleDebugOutputsInfo(outputs_map = legacy_debug_outputs),
+    )
+
 linking_support = struct(
     link_multi_arch_static_library = _link_multi_arch_static_library,
+    link_multi_arch_binary = _link_multi_arch_binary,
 )

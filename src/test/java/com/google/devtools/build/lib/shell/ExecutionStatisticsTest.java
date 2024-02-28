@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -60,7 +59,7 @@ public final class ExecutionStatisticsTest {
 
     Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
         ExecutionStatistics.getResourceUsage(protoFilename);
-    Truth8.assertThat(resourceUsage).isEmpty();
+    assertThat(resourceUsage).isEmpty();
   }
 
   @Test
@@ -112,7 +111,7 @@ public final class ExecutionStatisticsTest {
 
     Optional<ExecutionStatistics.ResourceUsage> maybeResourceUsage =
         ExecutionStatistics.getResourceUsage(protoFilename);
-    Truth8.assertThat(maybeResourceUsage).isPresent();
+    assertThat(maybeResourceUsage).isPresent();
     ExecutionStatistics.ResourceUsage resourceUsage = maybeResourceUsage.get();
 
     assertThat(resourceUsage.getUserExecutionTime()).isEqualTo(riggedUserExecutionTime);

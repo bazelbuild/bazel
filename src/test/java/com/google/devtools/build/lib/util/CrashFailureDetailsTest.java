@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
@@ -119,7 +118,7 @@ public final class CrashFailureDetailsTest {
 
     List<FailureDetails.Throwable> causesList =
         CrashFailureDetails.forThrowable(outer).getCrash().getCausesList();
-    Truth8.assertThat(causesList.stream().map(FailureDetails.Throwable::getMessage))
+    assertThat(causesList.stream().map(FailureDetails.Throwable::getMessage))
         .containsExactly("outer", "inner1", "inner2")
         .inOrder();
   }

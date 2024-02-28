@@ -14,16 +14,24 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
+import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
+import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -33,7 +41,9 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -65,7 +75,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
      * Parses a recorded input from the post-colon substring that identifies the specific input: for
      * example, the {@code MY_ENV_VAR} part of {@code ENV:MY_ENV_VAR}.
      */
-    public abstract RepoRecordedInput parse(String s, Path baseDirectory);
+    public abstract RepoRecordedInput parse(String s);
   }
 
   private static final Comparator<RepoRecordedInput> COMPARATOR =
@@ -76,21 +86,57 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
    * Parses a recorded input from its string representation.
    *
    * @param s the string representation
-   * @param baseDirectory the path to a base directory that any filesystem paths should be resolved
-   *     relative to
    * @return The parsed recorded input object, or {@code null} if the string representation is
    *     invalid
    */
   @Nullable
-  public static RepoRecordedInput parse(String s, Path baseDirectory) {
+  public static RepoRecordedInput parse(String s) {
     List<String> parts = Splitter.on(':').limit(2).splitToList(s);
-    for (Parser parser : new Parser[] {File.PARSER, EnvVar.PARSER, RecordedRepoMapping.PARSER}) {
+    for (Parser parser :
+        new Parser[] {
+          File.PARSER, Dirents.PARSER, DirTree.PARSER, EnvVar.PARSER, RecordedRepoMapping.PARSER
+        }) {
       if (parts.get(0).equals(parser.getPrefix())) {
-        return parser.parse(parts.get(1), baseDirectory);
+        return parser.parse(parts.get(1));
       }
     }
     return null;
   }
+
+  /**
+   * Returns whether all values are still up-to-date for each recorded input. If Skyframe values are
+   * missing, the return value should be ignored; callers are responsible for checking {@code
+   * env.valuesMissing()} and triggering a Skyframe restart if needed.
+   */
+  public static boolean areAllValuesUpToDate(
+      Environment env,
+      BlazeDirectories directories,
+      Map<? extends RepoRecordedInput, String> recordedInputValues)
+      throws InterruptedException {
+    env.getValuesAndExceptions(
+        recordedInputValues.keySet().stream()
+            .map(RepoRecordedInput::getSkyKey)
+            .filter(Objects::nonNull)
+            .collect(toImmutableSet()));
+    if (env.valuesMissing()) {
+      return false;
+    }
+    for (Map.Entry<? extends RepoRecordedInput, String> recordedInputValue :
+        recordedInputValues.entrySet()) {
+      if (!recordedInputValue
+          .getKey()
+          .isUpToDate(env, directories, recordedInputValue.getValue())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @Override
+  public abstract boolean equals(Object obj);
+
+  @Override
+  public abstract int hashCode();
 
   @Override
   public final String toString() {
@@ -106,12 +152,16 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
    * Returns the post-colon substring that identifies the specific input: for example, the {@code
    * MY_ENV_VAR} part of {@code ENV:MY_ENV_VAR}.
    */
-  abstract String toStringInternal();
+  public abstract String toStringInternal();
 
   /** Returns the parser object for this type of recorded inputs. */
   public abstract Parser getParser();
 
-  /** Returns the {@link SkyKey} that is necessary to determine {@link #isUpToDate}. */
+  /**
+   * Returns the {@link SkyKey} that is necessary to determine {@link #isUpToDate}. Can be null if
+   * no SkyKey is needed.
+   */
+  @Nullable
   public abstract SkyKey getSkyKey();
 
   /**
@@ -120,12 +170,101 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
    * Skyframe evaluations, and if any values are missing, this method can return any value (doesn't
    * matter what) and will be reinvoked after a Skyframe restart.
    */
-  public abstract boolean isUpToDate(Environment env, @Nullable String oldValue)
+  public abstract boolean isUpToDate(
+      Environment env, BlazeDirectories directories, @Nullable String oldValue)
       throws InterruptedException;
 
-  /** Represents a file input accessed during the repo fetch. */
-  public abstract static class File extends RepoRecordedInput {
-    static final Parser PARSER =
+  /**
+   * Represents a filesystem path stored in a way that is repo-cache-friendly. That is, if the path
+   * happens to point inside the current Bazel workspace (in either the main repo or an external
+   * repo), we store the appropriate repo name and the path fragment relative to the repo root,
+   * instead of the entire absolute path.
+   *
+   * <p>This is <em>almost</em> like storing a label, but includes the extra corner case of files
+   * inside a repo but not within any package due to missing BUILD files. For example, the file
+   * {@code @@foo//:abc.bzl} is addressable by a label if the file {@code @@foo//:BUILD} exists. But
+   * if the BUILD file doesn't exist, the {@code abc.bzl} file should still be "watchable"; it's
+   * just that {@code @@foo//:abc.bzl} is technically not a valid label.
+   *
+   * <p>Of course, when the path is outside the current Bazel workspace, we just store the absolute
+   * path.
+   */
+  @AutoValue
+  public abstract static class RepoCacheFriendlyPath {
+    public abstract Optional<RepositoryName> repoName();
+
+    public abstract PathFragment path();
+
+    public static RepoCacheFriendlyPath createInsideWorkspace(
+        RepositoryName repoName, PathFragment path) {
+      Preconditions.checkArgument(
+          !path.isAbsolute(), "the provided path should be relative to the repo root");
+      return new AutoValue_RepoRecordedInput_RepoCacheFriendlyPath(Optional.of(repoName), path);
+    }
+
+    public static RepoCacheFriendlyPath createOutsideWorkspace(PathFragment path) {
+      Preconditions.checkArgument(
+          path.isAbsolute(), "the provided path should be absolute in the filesystem");
+      return new AutoValue_RepoRecordedInput_RepoCacheFriendlyPath(Optional.empty(), path);
+    }
+
+    @Override
+    public final String toString() {
+      // We store `@@foo//abc/def:ghi.bzl` as just `@@foo//abc/def/ghi.bzl`. See class javadoc for
+      // more context.
+      return repoName().map(repoName -> repoName + "//" + path()).orElse(path().toString());
+    }
+
+    public static RepoCacheFriendlyPath parse(String s) {
+      if (LabelValidator.isAbsolute(s)) {
+        int doubleSlash = s.indexOf("//");
+        int skipAts = s.startsWith("@@") ? 2 : s.startsWith("@") ? 1 : 0;
+        return createInsideWorkspace(
+            RepositoryName.createUnvalidated(s.substring(skipAts, doubleSlash)),
+            PathFragment.create(s.substring(doubleSlash + 2)));
+      }
+      return createOutsideWorkspace(PathFragment.create(s));
+    }
+
+    /**
+     * If resolving this path requires getting a {@link RepositoryDirectoryValue}, this method
+     * returns the appropriate key; otherwise it returns null.
+     */
+    @Nullable
+    public final RepositoryDirectoryValue.Key getRepoDirSkyKeyOrNull() {
+      if (repoName().isEmpty() || repoName().get().isMain()) {
+        return null;
+      }
+      return RepositoryDirectoryValue.key(repoName().get());
+    }
+
+    public final RootedPath getRootedPath(Environment env, BlazeDirectories directories)
+        throws InterruptedException {
+      Root root;
+      if (repoName().isEmpty()) {
+        root = Root.absoluteRoot(directories.getOutputBase().getFileSystem());
+      } else if (repoName().get().isMain()) {
+        root = Root.fromPath(directories.getWorkspace());
+      } else {
+        RepositoryDirectoryValue repoDirValue =
+            (RepositoryDirectoryValue) env.getValue(getRepoDirSkyKeyOrNull());
+        if (repoDirValue == null || !repoDirValue.repositoryExists()) {
+          return null;
+        }
+        root = Root.fromPath(repoDirValue.getPath());
+      }
+      return RootedPath.toRootedPath(root, path());
+    }
+  }
+
+  /**
+   * Represents a file input accessed during the repo fetch. Despite being named just "file", this
+   * can represent a file or a directory on the filesystem, and it does not need to exist. The value
+   * of the input contains whether this is a file or a directory or nonexistent, and if it's a file,
+   * the digest of its contents.
+   */
+  public static final class File extends RepoRecordedInput {
+    public static final Parser PARSER =
         new Parser() {
           @Override
           public String getPrefix() {
@@ -133,97 +272,247 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
           }
 
           @Override
-          public RepoRecordedInput parse(String s, Path baseDirectory) {
-            if (LabelValidator.isAbsolute(s)) {
-              return new LabelFile(Label.parseCanonicalUnchecked(s));
-            }
-            Path path = baseDirectory.getRelative(s);
-            return new AbsolutePathFile(
-                RootedPath.toRootedPath(
-                    Root.fromPath(path.getParentDirectory()),
-                    PathFragment.create(path.getBaseName())));
+          public RepoRecordedInput parse(String s) {
+            return new File(RepoCacheFriendlyPath.parse(s));
           }
         };
+
+    private final RepoCacheFriendlyPath path;
+
+    public File(RepoCacheFriendlyPath path) {
+      this.path = path;
+    }
 
     @Override
     public Parser getParser() {
       return PARSER;
     }
-  }
-
-  /** Represents a file input accessed during the repo fetch that is addressable by a label. */
-  public static final class LabelFile extends File {
-    final Label label;
-
-    public LabelFile(Label label) {
-      this.label = label;
-    }
 
     @Override
-    String toStringInternal() {
-      return label.toString();
-    }
-
-    @Override
-    public SkyKey getSkyKey() {
-      return PackageLookupValue.key(label.getPackageIdentifier());
-    }
-
-    @Override
-    public boolean isUpToDate(Environment env, @Nullable String oldValue)
-        throws InterruptedException {
-      PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(getSkyKey());
-      if (pkgLookupValue == null || !pkgLookupValue.packageExists()) {
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof File)) {
         return false;
       }
-      RootedPath rootedPath =
-          RootedPath.toRootedPath(pkgLookupValue.getRoot(), label.toPathFragment());
+      File that = (File) o;
+      return Objects.equals(path, that.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return path.hashCode();
+    }
+
+    @Override
+    public String toStringInternal() {
+      return path.toString();
+    }
+
+    /**
+     * Convert to a {@link com.google.devtools.build.lib.actions.FileValue} to a String appropriate
+     * for placing in a repository marker file. The file need not exist, and can be a file or a
+     * directory.
+     */
+    public static String fileValueToMarkerValue(FileValue fileValue) throws IOException {
+      if (fileValue.isDirectory()) {
+        return "DIR";
+      }
+      if (!fileValue.exists()) {
+        return "ENOENT";
+      }
+      // Return the file content digest in hex. fileValue may or may not have the digest available.
+      byte[] digest = fileValue.realFileStateValue().getDigest();
+      if (digest == null) {
+        // Fast digest not available, or it would have been in the FileValue.
+        digest = fileValue.realRootedPath().asPath().getDigest();
+      }
+      return BaseEncoding.base16().lowerCase().encode(digest);
+    }
+
+    @Override
+    @Nullable
+    public SkyKey getSkyKey() {
+      return path.getRepoDirSkyKeyOrNull();
+    }
+
+    @Override
+    public boolean isUpToDate(
+        Environment env, BlazeDirectories directories, @Nullable String oldValue)
+        throws InterruptedException {
+      RootedPath rootedPath = path.getRootedPath(env, directories);
+      if (rootedPath == null) {
+        return false;
+      }
       SkyKey fileKey = FileValue.key(rootedPath);
       try {
         FileValue fileValue = (FileValue) env.getValueOrThrow(fileKey, IOException.class);
-        if (fileValue == null || !fileValue.isFile() || fileValue.isSpecialFile()) {
+        if (fileValue == null) {
           return false;
         }
-        return oldValue.equals(RepositoryFunction.fileValueToMarkerValue(fileValue));
+        return oldValue.equals(fileValueToMarkerValue(fileValue));
       } catch (IOException e) {
         return false;
       }
     }
   }
 
-  /**
-   * Represents a file input accessed during the repo fetch that is <i>not</i> addressable by a
-   * label. This most likely means that it's outside any known Bazel workspace.
-   */
-  public static final class AbsolutePathFile extends File {
-    final RootedPath path;
+  /** Represents the list of entries under a directory accessed during the fetch. */
+  public static final class Dirents extends RepoRecordedInput {
+    public static final Parser PARSER =
+        new Parser() {
+          @Override
+          public String getPrefix() {
+            return "DIRENTS";
+          }
 
-    public AbsolutePathFile(RootedPath path) {
+          @Override
+          public RepoRecordedInput parse(String s) {
+            return new Dirents(RepoCacheFriendlyPath.parse(s));
+          }
+        };
+
+    private final RepoCacheFriendlyPath path;
+
+    public Dirents(RepoCacheFriendlyPath path) {
       this.path = path;
     }
 
     @Override
-    String toStringInternal() {
-      return path.asPath().getPathString();
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Dirents)) {
+        return false;
+      }
+      Dirents that = (Dirents) o;
+      return Objects.equals(path, that.path);
     }
 
+    @Override
+    public int hashCode() {
+      return path.hashCode();
+    }
+
+    @Override
+    public String toStringInternal() {
+      return path.toString();
+    }
+
+    @Override
+    public Parser getParser() {
+      return PARSER;
+    }
+
+    @Nullable
     @Override
     public SkyKey getSkyKey() {
-      return FileValue.key(path);
+      return path.getRepoDirSkyKeyOrNull();
     }
 
     @Override
-    public boolean isUpToDate(Environment env, @Nullable String oldValue)
+    public boolean isUpToDate(
+        Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
+      RootedPath rootedPath = path.getRootedPath(env, directories);
+      if (rootedPath == null) {
+        return false;
+      }
+      if (env.getValue(DirectoryListingValue.key(rootedPath)) == null) {
+        return false;
+      }
       try {
-        FileValue fileValue = (FileValue) env.getValueOrThrow(getSkyKey(), IOException.class);
-        if (fileValue == null || !fileValue.isFile() || fileValue.isSpecialFile()) {
-          return false;
-        }
-        return oldValue.equals(RepositoryFunction.fileValueToMarkerValue(fileValue));
+        return oldValue.equals(getDirentsMarkerValue(rootedPath.asPath()));
       } catch (IOException e) {
         return false;
       }
+    }
+
+    public static String getDirentsMarkerValue(Path path) throws IOException {
+      Fingerprint fp = new Fingerprint();
+      fp.addStrings(
+          path.getDirectoryEntries().stream()
+              .map(Path::getBaseName)
+              .sorted()
+              .collect(toImmutableList()));
+      return fp.hexDigestAndReset();
+    }
+  }
+
+  /**
+   * Represents an entire directory tree accessed during the fetch. Anything under the tree changing
+   * (including adding/removing/renaming files or directories and changing file contents) will cause
+   * it to go out of date.
+   */
+  public static final class DirTree extends RepoRecordedInput {
+    public static final Parser PARSER =
+        new Parser() {
+          @Override
+          public String getPrefix() {
+            return "DIRTREE";
+          }
+
+          @Override
+          public RepoRecordedInput parse(String s) {
+            return new DirTree(RepoCacheFriendlyPath.parse(s));
+          }
+        };
+
+    private final RepoCacheFriendlyPath path;
+
+    public DirTree(RepoCacheFriendlyPath path) {
+      this.path = path;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof DirTree)) {
+        return false;
+      }
+      DirTree that = (DirTree) o;
+      return Objects.equals(path, that.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return path.hashCode();
+    }
+
+    @Override
+    public String toStringInternal() {
+      return path.toString();
+    }
+
+    @Override
+    public Parser getParser() {
+      return PARSER;
+    }
+
+    @Nullable
+    @Override
+    public SkyKey getSkyKey() {
+      return path.getRepoDirSkyKeyOrNull();
+    }
+
+    @Override
+    public boolean isUpToDate(
+        Environment env, BlazeDirectories directories, @Nullable String oldValue)
+        throws InterruptedException {
+      RootedPath rootedPath = path.getRootedPath(env, directories);
+      if (rootedPath == null) {
+        return false;
+      }
+      DirectoryTreeDigestValue value =
+          (DirectoryTreeDigestValue) env.getValue(DirectoryTreeDigestValue.key(rootedPath));
+      if (value == null) {
+        return false;
+      }
+      return oldValue.equals(value.hexDigest());
     }
   }
 
@@ -237,7 +526,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
           }
 
           @Override
-          public RepoRecordedInput parse(String s, Path baseDirectory) {
+          public RepoRecordedInput parse(String s) {
             return new EnvVar(s);
           }
         };
@@ -249,12 +538,29 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     }
 
     @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof EnvVar)) {
+        return false;
+      }
+      EnvVar envVar = (EnvVar) o;
+      return Objects.equals(name, envVar.name);
+    }
+
+    @Override
+    public int hashCode() {
+      return name.hashCode();
+    }
+
+    @Override
     public Parser getParser() {
       return PARSER;
     }
 
     @Override
-    String toStringInternal() {
+    public String toStringInternal() {
       return name;
     }
 
@@ -264,7 +570,8 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     }
 
     @Override
-    public boolean isUpToDate(Environment env, @Nullable String oldValue)
+    public boolean isUpToDate(
+        Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
       String v = PrecomputedValue.REPO_ENV.get(env).get(name);
       if (v == null) {
@@ -285,7 +592,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
           }
 
           @Override
-          public RepoRecordedInput parse(String s, Path baseDirectory) {
+          public RepoRecordedInput parse(String s) {
             List<String> parts = Splitter.on(',').limit(2).splitToList(s);
             return new RecordedRepoMapping(
                 RepositoryName.createUnvalidated(parts.get(0)), parts.get(1));
@@ -301,22 +608,46 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     }
 
     @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof RecordedRepoMapping)) {
+        return false;
+      }
+      RecordedRepoMapping that = (RecordedRepoMapping) o;
+      return Objects.equals(sourceRepo, that.sourceRepo)
+          && Objects.equals(apparentName, that.apparentName);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(sourceRepo, apparentName);
+    }
+
+    @Override
     public Parser getParser() {
       return PARSER;
     }
 
     @Override
-    String toStringInternal() {
+    public String toStringInternal() {
       return sourceRepo.getName() + ',' + apparentName;
     }
 
     @Override
     public SkyKey getSkyKey() {
-      return RepositoryMappingValue.key(sourceRepo);
+      // Since we only record repo mapping entries for repos defined in Bzlmod, we can request the
+      // WORKSPACE-less version of the main repo mapping (as no repos defined in Bzlmod can see
+      // stuff from WORKSPACE).
+      return sourceRepo.isMain()
+          ? RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS
+          : RepositoryMappingValue.key(sourceRepo);
     }
 
     @Override
-    public boolean isUpToDate(Environment env, @Nullable String oldValue)
+    public boolean isUpToDate(
+        Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
       RepositoryMappingValue repoMappingValue = (RepositoryMappingValue) env.getValue(getSkyKey());
       return repoMappingValue != RepositoryMappingValue.NOT_FOUND_VALUE

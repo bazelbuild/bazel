@@ -39,11 +39,6 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
-  public RunfilesSupplier getRunfilesSupplier() {
-    return spawn.getRunfilesSupplier();
-  }
-
-  @Override
   public ImmutableList<String> getArguments() {
     return spawn.getArguments();
   }

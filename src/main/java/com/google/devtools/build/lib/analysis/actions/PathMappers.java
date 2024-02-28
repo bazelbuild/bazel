@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -35,7 +36,8 @@ import javax.annotation.Nullable;
  * PathMapper}).
  */
 public final class PathMappers {
-  // TODO: Replace with a command-line flag.
+  // TODO: Remove actions from this list by adding ExecutionRequirements.SUPPORTS_PATH_MAPPING to
+  //  their execution info instead.
   private static final ImmutableSet<String> SUPPORTED_MNEMONICS =
       ImmutableSet.of(
           "AndroidLint",
@@ -44,8 +46,6 @@ public final class PathMappers {
           "DejetifySrcs",
           "Desugar",
           "DexBuilder",
-          "Javac",
-          "JavacTurbine",
           "Jetify",
           "JetifySrcs",
           "LinkAndroidResources",
@@ -55,16 +55,14 @@ public final class PathMappers {
           "StarlarkAARGenerator",
           "StarlarkMergeCompiledAndroidResources",
           "StarlarkRClassGenerator",
-          "Turbine",
-          "JavaResourceJar",
           "Mock action");
 
   /**
    * Actions that support path mapping should call this method from {@link
    * Action#getKey(ActionKeyContext, ArtifactExpander)}.
    *
-   * <p>Compared to {@link #create(Action, OutputPathsMode)}, this method does not flatten nested
-   * sets and thus can't result in memory regressions.
+   * <p>Compared to {@link #create(AbstractAction, OutputPathsMode)}, this method does not flatten
+   * nested sets and thus can't result in memory regressions.
    *
    * @param mnemonic the mnemonic of the action
    * @param executionInfo the execution info of the action
@@ -103,22 +101,12 @@ public final class PathMappers {
    * OutputPathsMode, Fingerprint)} from {@link Action#getKey(ActionKeyContext, ArtifactExpander)}
    * to ensure correct incremental builds.
    *
-   * @param action the {@link Action} for which a {@link Spawn} is to be created
+   * @param action the {@link AbstractAction} for which a {@link Spawn} is to be created
    * @param outputPathsMode the value of {@link CoreOptions#outputPathsMode}
    * @return a {@link PathMapper} that maps paths of the action's inputs and outputs. May be {@link
    *     PathMapper#NOOP} if path mapping is not applicable to the action.
    */
-  public static PathMapper create(Action action, OutputPathsMode outputPathsMode) {
-    if (getEffectiveOutputPathsMode(
-            outputPathsMode, action.getMnemonic(), action.getExecutionInfo())
-        != OutputPathsMode.STRIP) {
-      return PathMapper.NOOP;
-    }
-    return StrippingPathMapper.tryCreate(action).orElse(PathMapper.NOOP);
-  }
-
-  public static PathMapper createPathMapperForTesting(
-      Action action, OutputPathsMode outputPathsMode) {
+  public static PathMapper create(AbstractAction action, OutputPathsMode outputPathsMode) {
     if (getEffectiveOutputPathsMode(
             outputPathsMode, action.getMnemonic(), action.getExecutionInfo())
         != OutputPathsMode.STRIP) {
@@ -128,8 +116,8 @@ public final class PathMappers {
   }
 
   /**
-   * Helper method to simplify calling {@link #create(Action, OutputPathsMode)} for actions that
-   * store the configuration directly.
+   * Helper method to simplify calling {@link #create(SpawnAction, OutputPathsMode)} for actions
+   * that store the configuration directly.
    *
    * @param configuration the configuration
    * @return the value of

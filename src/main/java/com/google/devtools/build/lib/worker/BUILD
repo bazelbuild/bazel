@@ -1,3 +1,4 @@
+load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -33,7 +34,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -63,6 +64,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
@@ -103,7 +105,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:runfiles_tree_updater",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
-        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
@@ -118,7 +119,7 @@ java_library(
     ],
 )
 
-java_library(
+java_11_library(
     name = "work_request_handlers",
     srcs = [
         "JsonWorkerMessageProcessor.java",
@@ -192,7 +193,7 @@ java_library(
         ":worker_options",
         ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",

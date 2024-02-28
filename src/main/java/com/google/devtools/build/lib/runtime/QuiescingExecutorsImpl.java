@@ -98,11 +98,6 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     this.cpuHeavySkyKeysThreadPoolSize =
         analysisOptions != null ? analysisOptions.cpuHeavySkyKeysThreadPoolSize : 0;
-    if (analysisOptions != null) {
-      this.cpuHeavySkyKeysThreadPoolSize = analysisOptions.cpuHeavySkyKeysThreadPoolSize;
-    } else {
-      this.cpuHeavySkyKeysThreadPoolSize = 0;
-    }
   }
 
   @Override

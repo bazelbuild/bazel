@@ -407,9 +407,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set to true, Bazel will represent symlinks in action outputs in the remote"
-              + " caching/execution protocol as such. Otherwise, symlinks will be followed and"
-              + " represented as files or directories. See #6631 for details.")
+          "If set to true, Bazel will always upload symlinks as such to a remote or disk cache."
+              + " Otherwise, non-dangling relative symlinks (and only those) will be uploaded as"
+              + " the file or directory they point to.")
   public boolean incompatibleRemoteSymlinks;
 
   @Option(
@@ -419,9 +419,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true and --incompatible_remote_symlinks is also true, symlinks in action"
-              + " outputs are allowed to dangle.")
+      help = "If set to true, symlinks uploaded to a remote or disk cache are allowed to dangle.")
   public boolean incompatibleRemoteDanglingSymlinks;
 
   @Option(
@@ -730,9 +728,11 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " cache entries and result in incorrect builds.\n\n"
               + "Scrubbing does not affect how an action is executed, only how its remote/disk"
               + " cache key is computed for the purpose of retrieving or storing an action result."
-              + " It cannot be used in conjunction with remote execution. Modifying the scrubbing"
-              + " configuration does not invalidate outputs present in the local filesystem or"
-              + " internal caches; a clean build is required to reexecute affected actions.\n\n"
+              + " Scrubbed actions are incompatible with remote execution, and will always be"
+              + " executed locally instead.\n\n"
+              + "Modifying the scrubbing configuration does not invalidate outputs present in the"
+              + " local filesystem or internal caches; a clean build is required to reexecute"
+              + " affected actions.\n\n"
               + "In order to successfully use this feature, you likely want to set a custom"
               + " --host_platform together with --experimental_platform_in_output_dir (to normalize"
               + " output prefixes) and --incompatible_strict_action_env (to normalize environment"

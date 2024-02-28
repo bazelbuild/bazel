@@ -40,6 +40,9 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   /**
    * A key in the remote action cache. The type wraps around a {@link Digest} of an {@link Action}.
    * Action keys are special in that they aren't content-addressable but refer to action results.
+   *
+   * <p>Terminology note: "action" is used here in the remote execution protocol sense, which is
+   * equivalent to a Bazel "spawn" (a Bazel "action" being a higher-level concept).
    */
   final class ActionKey {
 

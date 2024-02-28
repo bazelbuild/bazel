@@ -367,11 +367,17 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       SkyKey child, Iterable<SkyKey> rdeps) throws InterruptedException {
     // Most rdeps will not be delegating. Performs an optimistic pass that avoids copying.
     boolean foundDelegatingRdep = false;
-    for (SkyKey rdep : rdeps) {
-      if (!rdep.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+    for (SkyKey rdepKey : rdeps) {
+      if (!rdepKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
         continue;
       }
-      var actualParentKey = getConfiguredTargetKey(getValueFromKey(rdep));
+      T rdepValue = getValueFromKey(rdepKey);
+      if (rdepValue == null) {
+        // Cannot find the actual value, possibly because it failed during analysis.
+        // TODO: b/324419258 - Add a test for this case
+        continue;
+      }
+      var actualParentKey = getConfiguredTargetKey(rdepValue);
       if (actualParentKey.equals(child)) {
         // The parent has the same value as the child because it is delegating.
         foundDelegatingRdep = true;
@@ -390,18 +396,24 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       SkyKey child, Iterable<SkyKey> rdeps, Set<SkyKey> output) throws InterruptedException {
     // Checks the value of each rdep to see if it is delegating to `child`. If so, fetches its rdeps
     // and processes those, applying the same expansion as needed.
-    for (SkyKey rdep : rdeps) {
-      if (!rdep.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-        output.add(rdep);
+    for (SkyKey rdepKey : rdeps) {
+      if (!rdepKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+        output.add(rdepKey);
         continue;
       }
-      var actualParentKey = getConfiguredTargetKey(getValueFromKey(rdep));
+      T rdepValue = getValueFromKey(rdepKey);
+      if (rdepValue == null) {
+        // Cannot find the actual value, possibly because it failed during analysis.
+        // TODO: b/324419258 - Add a test for this case
+        continue;
+      }
+      var actualParentKey = getConfiguredTargetKey(rdepValue);
       if (!actualParentKey.equals(child)) {
-        output.add(rdep);
+        output.add(rdepKey);
         continue;
       }
-      // Otherwise `rdep` is delegating to child and needs to be unwound.
-      Iterable<SkyKey> rdepParents = graph.getReverseDeps(ImmutableList.of(rdep)).get(rdep);
+      // Otherwise `rdepKey` is delegating to child and needs to be unwound.
+      Iterable<SkyKey> rdepParents = graph.getReverseDeps(ImmutableList.of(rdepKey)).get(rdepKey);
       // Applies this recursively in case there are multiple layers of delegation.
       unwindReverseDependencyDelegationLayers(child, rdepParents, output);
     }

@@ -13,32 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.producers;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.GlobDescriptor;
 import com.google.devtools.build.lib.skyframe.GlobsValue;
 import com.google.devtools.build.lib.skyframe.GlobsValue.GlobRequest;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 /**
  * Serves as the entrance {@link StateMachine} for {@link
  * com.google.devtools.build.lib.skyframe.GlobsFunction}.
  *
- * <p>{@link GlobsValue.Key} which includes all globs within in a package is provided. {@link
- * GlobsProducer} queries the {@link #ignoredPackagePrefixPatterns} before creating {@link
- * GlobComputationProducer}s for each glob.
- *
  * <p>{@link GlobsProducer} is expected to make glob computations within a package have some
  * structured logical concurrency and reduce the number of Skyframe restarts.
  */
-public class GlobsProducer
-    implements StateMachine, Consumer<SkyValue>, GlobComputationProducer.ResultSink {
+public class GlobsProducer implements StateMachine, GlobComputationProducer.ResultSink {
 
   /**
    * Propagates all glob matching {@link PathFragment}s or any {@link Exception}.
@@ -58,35 +50,23 @@ public class GlobsProducer
   // -------------------- Internal State --------------------
   private final ImmutableSet.Builder<PathFragment> aggregateMatchingPathsBuilder =
       ImmutableSet.builder();
-  private ImmutableSet<PathFragment> ignoredPackagePrefixPatterns = null;
+  private final ImmutableSet<PathFragment> ignoredPackagePrefixPatterns;
   private final ConcurrentHashMap<String, Pattern> regexPatternCache;
 
   public GlobsProducer(
       GlobsValue.Key globsKey,
+      ImmutableSet<PathFragment> ignoredPackagePrefixPatterns,
       ConcurrentHashMap<String, Pattern> regexPatternCache,
       ResultSink resultSink) {
     this.globsKey = globsKey;
+    this.ignoredPackagePrefixPatterns = ignoredPackagePrefixPatterns;
     this.regexPatternCache = regexPatternCache;
     this.resultSink = resultSink;
   }
 
   @Override
-  public StateMachine step(Tasks tasks) throws InterruptedException {
-    RepositoryName repositoryName = globsKey.getPackageIdentifier().getRepository();
-    tasks.lookUp(IgnoredPackagePrefixesValue.key(repositoryName), (Consumer<SkyValue>) this);
-    return this::createGlobComputationProducers;
-  }
-
-  @Override
-  public void accept(SkyValue skyValue) {
-    this.ignoredPackagePrefixPatterns = ((IgnoredPackagePrefixesValue) skyValue).getPatterns();
-  }
-
-  public StateMachine createGlobComputationProducers(Tasks tasks) {
-    if (ignoredPackagePrefixPatterns == null) {
-      return DONE;
-    }
-
+  public StateMachine step(Tasks tasks) {
+    Preconditions.checkNotNull(ignoredPackagePrefixPatterns);
     for (GlobRequest globRequest : globsKey.getGlobRequests()) {
       GlobDescriptor globDescriptor =
           GlobDescriptor.create(

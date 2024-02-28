@@ -111,7 +111,7 @@ public final class LinuxSandboxUtil {
   public static Path getInaccessibleHelperDir(Path sandboxBase) throws IOException {
     // The order of the permissions settings calls matters, see
     // https://github.com/bazelbuild/bazel/issues/16364
-    Path inaccessibleHelperDir = sandboxBase.getRelative("inaccessibleHelperDir");
+    Path inaccessibleHelperDir = sandboxBase.getRelative(SandboxHelpers.INACCESSIBLE_HELPER_DIR);
     inaccessibleHelperDir.createDirectory();
     inaccessibleHelperDir.setExecutable(false);
     inaccessibleHelperDir.setWritable(false);

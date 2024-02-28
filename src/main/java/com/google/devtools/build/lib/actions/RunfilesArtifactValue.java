@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -60,6 +59,10 @@ public final class RunfilesArtifactValue implements SkyValue {
         files.size() == fileValues.size() && trees.size() == treeValues.size(),
         "Size mismatch: %s",
         this);
+  }
+
+  public RunfilesArtifactValue withOverriddenRunfilesTree(RunfilesTree overrideTree) {
+    return new RunfilesArtifactValue(metadata, overrideTree, files, fileValues, trees, treeValues);
   }
 
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */

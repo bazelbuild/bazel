@@ -140,7 +140,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
           }
         });
 
-    addOptions("--experimental_run_validations");
+    addOptions("--run_validations");
     BuildResult buildResult = buildTarget("//validation_actions:foo0");
 
     Collection<ConfiguredTarget> successfulTargets = buildResult.getSuccessfulTargets();

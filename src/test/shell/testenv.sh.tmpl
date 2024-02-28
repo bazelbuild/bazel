@@ -88,13 +88,6 @@ BAZEL_RUNFILES="$TEST_SRCDIR/_main"
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
 distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 
-# Java
-if [[ $PLATFORM =~ msys ]]; then
-  jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
-else
-  jdk_dir="$(dirname $(dirname $(rlocation local_jdk/bin/java)))"
-fi
-
 # Tools directory location
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 
@@ -238,8 +231,6 @@ fi
 rm -rf "${bazel_root}"
 mkdir -p "${bazel_root}"
 
-bazel_javabase="${jdk_dir}"
-
 log_info "bazel binary is at $PATH_TO_BAZEL_WRAPPER"
 
 # Here we unset variable that were set by the invoking Blaze instance
@@ -262,6 +253,15 @@ function try_with_timeout() {
     fi
     sleep 1
   done
+}
+
+function setup_localjdk_javabase() {
+  if [[ $PLATFORM =~ msys ]]; then
+    jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
+  else
+    jdk_dir="$(dirname $(dirname $(rlocation local_jdk/bin/java)))"
+  fi
+  bazel_javabase="${jdk_dir}"
 }
 
 function setup_bazelrc() {
@@ -983,4 +983,32 @@ def java_test(**attrs):
 EOF
   add_to_bazelrc "common --override_repository=rules_java=${rules_java_workspace}"
   add_to_bazelrc "common --override_repository=rules_java_builtin=${rules_java_workspace}"
+}
+
+# overrides remote_java_tools repositories if not using "released"
+function override_java_tools() {
+  RULES_JAVA_REPO_NAME="$1"; shift
+  JAVA_TOOLS_ZIP="$1"; shift
+  JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
+
+  JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}~toolchains~"
+
+  if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
+    JAVA_TOOLS_ZIP_FILE="$(rlocation "${JAVA_TOOLS_ZIP}")"
+    JAVA_TOOLS_DIR="$TEST_TMPDIR/_java_tools"
+    unzip -q "${JAVA_TOOLS_ZIP_FILE}" -d "$JAVA_TOOLS_DIR"
+    touch "$JAVA_TOOLS_DIR/WORKSPACE"
+    add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools=${JAVA_TOOLS_DIR}"
+  fi
+
+  if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
+    JAVA_TOOLS_PREBUILT_ZIP_FILE="$(rlocation "${JAVA_TOOLS_PREBUILT_ZIP}")"
+    JAVA_TOOLS_PREBUILT_DIR="$TEST_TMPDIR/_java_tools_prebuilt"
+    unzip -q "${JAVA_TOOLS_PREBUILT_ZIP_FILE}" -d "$JAVA_TOOLS_PREBUILT_DIR"
+    touch "$JAVA_TOOLS_PREBUILT_DIR/WORKSPACE"
+    add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux=${JAVA_TOOLS_PREBUILT_DIR}"
+    add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_windows=${JAVA_TOOLS_PREBUILT_DIR}"
+    add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_x86_64=${JAVA_TOOLS_PREBUILT_DIR}"
+    add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
+  fi
 }

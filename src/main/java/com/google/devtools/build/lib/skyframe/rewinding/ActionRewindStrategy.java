@@ -108,11 +108,12 @@ public final class ActionRewindStrategy {
       ImmutableMap<String, ActionInput> lostOutputsByDigest,
       ActionInputDepOwners depOwners,
       Environment env)
-      throws InterruptedException {
+      throws ActionRewindException, InterruptedException {
     checkState(
         skyframeActionExecutor.rewindingEnabled(),
         "Unexpected lost outputs: %s",
         lostOutputsByDigest);
+    checkIfTopLevelOutputLostTooManyTimes(failedKey, lostOutputsByDigest);
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
     Reset rewindPlan =
         prepareRewindPlan(
@@ -146,18 +147,14 @@ public final class ActionRewindStrategy {
         skyframeActionExecutor.rewindingEnabled(),
         "Unexpected lost inputs: %s",
         lostInputsException.getLostInputs());
+    ImmutableMap<String, ActionInput> lostInputsByDigest = lostInputsException.getLostInputs();
     ImmutableList<LostInputRecord> lostInputRecordsThisAction =
-        checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsException);
+        checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
     Reset rewindPlan =
         prepareRewindPlan(
-            failedKey,
-            failedActionDeps,
-            lostInputsException.getLostInputs(),
-            inputDepOwners,
-            env,
-            depsToRewind);
+            failedKey, failedActionDeps, lostInputsByDigest, inputDepOwners, env, depsToRewind);
 
     int lostInputRecordsCount = lostInputRecordsThisAction.size();
     rewindPlansStats.add(
@@ -299,15 +296,44 @@ public final class ActionRewindStrategy {
     rewindPlansStats = new ConcurrentLinkedQueue<>();
   }
 
+  private void checkIfTopLevelOutputLostTooManyTimes(
+      TopLevelActionLookupKeyWrapper failedKey,
+      ImmutableMap<String, ActionInput> lostOutputsByDigest)
+      throws ActionRewindException {
+    for (LostInputRecord lostInputRecord : createLostInputRecords(failedKey, lostOutputsByDigest)) {
+      String digest = lostInputRecord.lostInputDigest();
+      int losses = lostInputRecords.add(lostInputRecord, /* occurrences= */ 1) + 1;
+      if (losses > MAX_REPEATED_LOST_INPUTS) {
+        ActionInput output = lostOutputsByDigest.get(digest);
+        String prettyPrintedOutput =
+            output instanceof Artifact
+                ? ((Artifact) output).prettyPrint()
+                : output.getExecPathString();
+        ActionRewindException e =
+            new ActionRewindException(
+                String.format(
+                    "Lost output %s (digest %s), and rewinding was ineffective after %d attempts.",
+                    prettyPrintedOutput, digest, MAX_REPEATED_LOST_INPUTS),
+                ActionRewinding.Code.LOST_OUTPUT_TOO_MANY_TIMES);
+        bugReporter.sendBugReport(e);
+        throw e;
+      } else if (losses > 1) {
+        logger.atWarning().log(
+            "Lost output again (losses=%s, output=%s, digest=%s, failedKey=%s)",
+            losses, lostOutputsByDigest.get(digest), digest, failedKey);
+      }
+    }
+  }
+
   /** Returns all lost input records that will cause the failed action to rewind. */
   private ImmutableList<LostInputRecord> checkIfActionLostInputTooManyTimes(
       ActionLookupData failedKey,
       Action failedAction,
-      LostInputsActionExecutionException lostInputsException)
+      ImmutableMap<String, ActionInput> lostInputsByDigest)
       throws ActionRewindException {
-    ImmutableMap<String, ActionInput> lostInputsByDigest = lostInputsException.getLostInputs();
-    ImmutableList.Builder<LostInputRecord> lostInputRecordsThisAction = ImmutableList.builder();
-    for (Map.Entry<String, ActionInput> entry : lostInputsByDigest.entrySet()) {
+    ImmutableList<LostInputRecord> lostInputRecordsThisAction =
+        createLostInputRecords(failedKey, lostInputsByDigest);
+    for (LostInputRecord lostInputRecord : lostInputRecordsThisAction) {
       // The same action losing the same input more than once is unexpected [*]. The action should
       // have waited until the depended-on action which generates the lost input is (re)run before
       // trying again.
@@ -321,12 +347,9 @@ public final class ActionRewindStrategy {
       // [*], TODO(b/123993876): To mitigate a race condition (believed to be) caused by
       // non-topological Skyframe dirtying of depended-on nodes, this check fails the build only if
       // the same input is repeatedly lost.
-      String digest = entry.getKey();
-      LostInputRecord lostInputRecord =
-          LostInputRecord.create(failedKey, digest, entry.getValue().getExecPathString());
-      lostInputRecordsThisAction.add(lostInputRecord);
-      int priorLosses = lostInputRecords.add(lostInputRecord, /*occurrences=*/ 1);
-      if (MAX_REPEATED_LOST_INPUTS <= priorLosses) {
+      String digest = lostInputRecord.lostInputDigest();
+      int losses = lostInputRecords.add(lostInputRecord, /* occurrences= */ 1) + 1;
+      if (losses > MAX_REPEATED_LOST_INPUTS) {
         // This ensures coalesced shared actions aren't orphaned.
         skyframeActionExecutor.prepareForRewinding(
             failedKey, failedAction, /* depsToRewind= */ ImmutableList.of());
@@ -335,20 +358,26 @@ public final class ActionRewindStrategy {
             String.format(
                 "lost input too many times (#%s) for the same action. lostInput: %s, "
                     + "lostInput digest: %s, failedAction: %.10000s",
-                priorLosses + 1, lostInputsByDigest.get(digest), digest, failedAction);
+                losses, lostInputsByDigest.get(digest), digest, failedAction);
         ActionRewindException e =
-            new ActionRewindException(
-                message, lostInputsException, ActionRewinding.Code.LOST_INPUT_TOO_MANY_TIMES);
+            new ActionRewindException(message, ActionRewinding.Code.LOST_INPUT_TOO_MANY_TIMES);
         bugReporter.sendBugReport(e);
         throw e;
-      } else if (0 < priorLosses) {
+      } else if (losses > 1) {
         logger.atInfo().log(
             "lost input again (#%s) for the same action. lostInput: %s, "
                 + "lostInput digest: %s, failedAction: %.10000s",
-            priorLosses + 1, lostInputsByDigest.get(digest), digest, failedAction);
+            losses, lostInputsByDigest.get(digest), digest, failedAction);
       }
     }
-    return lostInputRecordsThisAction.build();
+    return lostInputRecordsThisAction;
+  }
+
+  private static ImmutableList<LostInputRecord> createLostInputRecords(
+      SkyKey failedKey, ImmutableMap<String, ActionInput> lostInputsByDigest) {
+    return lostInputsByDigest.entrySet().stream()
+        .map(e -> LostInputRecord.create(failedKey, e.getKey(), e.getValue().getExecPathString()))
+        .collect(toImmutableList());
   }
 
   private Set<DerivedArtifact> getLostInputOwningDirectDeps(
@@ -706,20 +735,19 @@ public final class ActionRewindStrategy {
   }
 
   /**
-   * A record indicating that a Skyframe action execution failed because it lost an input with the
-   * specified digest.
+   * A record indicating that {@link #failedKey} failed because it lost an input with the specified
+   * digest.
    */
   @AutoValue
   abstract static class LostInputRecord {
 
-    abstract ActionLookupData failedKey();
+    abstract SkyKey failedKey();
 
     abstract String lostInputDigest();
 
     abstract String lostInputPath();
 
-    static LostInputRecord create(
-        ActionLookupData failedKey, String lostInputDigest, String lostInputPath) {
+    static LostInputRecord create(SkyKey failedKey, String lostInputDigest, String lostInputPath) {
       return new AutoValue_ActionRewindStrategy_LostInputRecord(
           failedKey, lostInputDigest, lostInputPath);
     }

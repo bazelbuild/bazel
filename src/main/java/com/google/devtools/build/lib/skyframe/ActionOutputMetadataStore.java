@@ -283,36 +283,25 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       return TreeArtifactValue.MISSING_TREE_ARTIFACT;
     }
 
-    if (chmod) {
-      setPathPermissions(treeDir);
-    }
-
     AtomicBoolean anyRemote = new AtomicBoolean(false);
 
     TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
 
     TreeArtifactValue.visitTree(
         treeDir,
-        (parentRelativePath, type) -> {
-          if (chmod && type != Dirent.Type.SYMLINK) {
+        (parentRelativePath, type, traversedSymlink) -> {
+          checkState(type == Dirent.Type.FILE || type == Dirent.Type.DIRECTORY);
+          // Set the output permissions when the execution mode requires it, unless at least one
+          // symlink was traversed on the way to this entry, as it might have led outside of the
+          // root directory.
+          if (chmod && !traversedSymlink) {
             setPathPermissions(treeDir.getRelative(parentRelativePath));
           }
           if (type == Dirent.Type.DIRECTORY) {
             return; // The final TreeArtifactValue does not contain child directories.
           }
           TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
-          FileArtifactValue metadata;
-          try {
-            metadata = constructFileArtifactValueFromFilesystem(child);
-          } catch (FileNotFoundException e) {
-            String errorMessage =
-                String.format(
-                    "Failed to resolve relative path %s inside TreeArtifact %s. "
-                        + "The associated file is either missing or is an invalid symlink.",
-                    parentRelativePath, treeDir);
-            throw new IOException(errorMessage, e);
-          }
-
+          FileArtifactValue metadata = constructFileArtifactValueFromFilesystem(child);
           // visitTree() uses multiple threads and putChild() is not thread-safe
           synchronized (tree) {
             if (metadata.isRemote()) {
@@ -557,7 +546,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       // possible to hit the digest cache - we probably already computed the digest for the
       // target during previous action execution.
       Path pathToDigest = isResolvedSymlink ? statAndValue.realPath() : statAndValue.pathNoFollow();
-      actualDigest = DigestUtils.manuallyComputeDigest(pathToDigest, value.getSize());
+      actualDigest = DigestUtils.manuallyComputeDigest(pathToDigest);
     }
 
     if (!isResolvedSymlink) {

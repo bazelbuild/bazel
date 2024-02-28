@@ -22,7 +22,11 @@ factors. If you need to put the build outputs in a specific location, this will
 dictate the output base you need to use. If you are making a "read only" call to
 Bazel (such as `bazel query`), the locking factors will be more important. In
 particular, if you need to run multiple instances of your script concurrently,
-you will need to give each one a different (or random) output base.
+you should be mindful that each Blaze server process can handle at most one
+invocation [at a time](/run/client-server#clientserver-implementation).
+Depending on your situation it may make sense for each instance of your script
+to wait its turn, or it may make sense to use `--output_base` to run multiple
+Blaze servers and use those.
 
 If you use the default output base value, you will be contending for the same
 lock used by the user's interactive Bazel commands. If the user issues

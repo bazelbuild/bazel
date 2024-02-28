@@ -1790,7 +1790,6 @@ EOF
 
   bazel build "//${package}:t1" \
     --aspects="//${package}:defs.bzl%aspect_c,//${package}:defs.bzl%aspect_b,//${package}:defs.bzl%aspect_a" \
-    --separate_aspect_deps \
       &> $TEST_log || fail "Build failed"
 
   expect_log "aspect_c on target @@\?//test:t1: aspect_c _tool=@@\?//test:aspect_c_tool, rule _tool=@@\?//test:r1_tool"

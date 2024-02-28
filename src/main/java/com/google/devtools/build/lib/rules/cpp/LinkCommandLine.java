@@ -20,15 +20,14 @@ import static com.google.devtools.build.lib.rules.cpp.LinkBuildVariables.LINKER_
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -36,13 +35,15 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Represents the command line of a linker invocation. It supports executables and dynamic libraries
  * as well as static libraries.
  */
 @Immutable
-public final class LinkCommandLine extends CommandLine {
+public final class LinkCommandLine extends AbstractCommandLine {
   private final String actionName;
   private final String forcedToolPath;
   private final CcToolchainVariables variables;
@@ -76,13 +77,12 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   /** Returns the path to the linker. */
-  public String getLinkerPathString() throws RuleErrorException {
+  public String getLinkerPathString() throws EvalException {
     if (forcedToolPath != null) {
       return forcedToolPath;
     } else {
       if (!featureConfiguration.actionIsConfigured(actionName)) {
-        throw new RuleErrorException(
-            String.format("Expected action_config for '%s' to be configured", actionName));
+        throw Starlark.errorf("Expected action_config for '%s' to be configured", actionName);
       }
       return featureConfiguration.getToolPathForAction(linkTargetType.getActionName());
     }
@@ -117,7 +117,7 @@ public final class LinkCommandLine extends CommandLine {
     return argv.build();
   }
 
-  CommandLines getCommandLines() throws RuleErrorException {
+  CommandLines getCommandLines() throws EvalException {
     CommandLines.Builder builder = CommandLines.builder();
     builder.addSingleArgument(getLinkerPathString());
 
@@ -140,7 +140,7 @@ public final class LinkCommandLine extends CommandLine {
                   .build();
         }
       } catch (ExpansionException e) {
-        throw new RuleErrorException(e);
+        throw new EvalException(e);
       }
     }
 

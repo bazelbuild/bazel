@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 public final class ActionRewindException extends Exception implements DetailedException {
   private final ActionRewinding.Code code;
 
-  ActionRewindException(String message, Exception cause, ActionRewinding.Code code) {
-    super(message, cause);
+  ActionRewindException(String message, ActionRewinding.Code code) {
+    super(message);
     this.code = checkNotNull(code);
   }
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -21,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.test.InstrumentedFilesInfoApi;
-import com.google.devtools.build.lib.util.Pair;
 import net.starlark.java.eval.Tuple;
 
 /** An implementation class for the InstrumentedFilesProvider interface. */
@@ -37,7 +37,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
+          ImmutableMap.of(),
           NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<Artifact> instrumentedFiles;
@@ -45,7 +45,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
   private final NestedSet<Artifact> baselineCoverageFiles;
   private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final NestedSet<Artifact> coverageSupportFiles;
-  private final NestedSet<Pair<String, String>> coverageEnvironment;
+  private final ImmutableMap<String, String> coverageEnvironment;
   private final NestedSet<Tuple> reportedToActualSources;
 
   public InstrumentedFilesInfo(
@@ -54,7 +54,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
       NestedSet<Artifact> baselineCoverageFiles,
       NestedSet<Artifact> baselineCoverageArtifacts,
       NestedSet<Artifact> coverageSupportFiles,
-      NestedSet<Pair<String, String>> coverageEnvironment,
+      ImmutableMap<String, String> coverageEnvironment,
       NestedSet<Tuple> reportedToActualSources) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
@@ -122,7 +122,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
   }
 
   /** Environment variables that need to be set for tests collecting code coverage. */
-  public NestedSet<Pair<String, String>> getCoverageEnvironment() {
+  public ImmutableMap<String, String> getCoverageEnvironment() {
     return coverageEnvironment;
   }
 

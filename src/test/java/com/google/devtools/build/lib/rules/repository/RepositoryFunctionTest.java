@@ -127,7 +127,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     // Digest should be returned if the FileStateValue has it.
     FileStateValue fsv = new RegularFileStateValueWithDigest(3, new byte[] {1, 2, 3, 4});
     FileValue fv = new RegularFileValue(path, fsv);
-    assertThat(RepositoryFunction.fileValueToMarkerValue(fv)).isEqualTo("01020304");
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(fv)).isEqualTo("01020304");
 
     // Digest should also be returned if the FileStateValue doesn't have it.
     FileStatus status = Mockito.mock(FileStatus.class);
@@ -136,6 +136,6 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     fsv = new RegularFileStateValueWithContentsProxy(3, FileContentsProxy.create(status));
     fv = new RegularFileValue(path, fsv);
     String expectedDigest = BaseEncoding.base16().lowerCase().encode(path.asPath().getDigest());
-    assertThat(RepositoryFunction.fileValueToMarkerValue(fv)).isEqualTo(expectedDigest);
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(fv)).isEqualTo(expectedDigest);
   }
 }

@@ -994,8 +994,21 @@ public final class StarlarkRuleContext
   @Override
   public String getBuildFileRelativePath() throws EvalException {
     checkMutable("build_file_path");
+    checkDeprecated("ctx.label.package + '/BUILD'", "ctx.build_file_path", getStarlarkSemantics());
+
     Package pkg = ruleContext.getRule().getPackage();
     return pkg.getSourceRoot().get().relativize(pkg.getBuildFile().getPath()).getPathString();
+  }
+
+  private static void checkDeprecated(String newApi, String oldApi, StarlarkSemantics semantics)
+      throws EvalException {
+    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH)) {
+      throw Starlark.errorf(
+          "Use %s instead of %s.\n"
+              + "Use --incompatible_stop_exporting_build_file_path=false to temporarily disable"
+              + " this check.",
+          newApi, oldApi);
+    }
   }
 
   @Override

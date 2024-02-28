@@ -58,6 +58,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
     usesConfigurationOptions = true,
     shortDescription = "Analyzes the given targets and queries the action graph.",
     allowResidue = true,
+    binaryStdOut = true,
     completion = "label",
     help = "resource:aquery.txt")
 public final class AqueryCommand implements BlazeCommand {

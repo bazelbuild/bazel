@@ -15,106 +15,28 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
 /** A representation of a list of arguments. */
 public abstract class CommandLine {
-  private static class EmptyCommandLine extends CommandLine {
-    @Override
-    public Iterable<String> arguments() {
-      return ImmutableList.of();
-    }
-  }
 
   public static final CommandLine EMPTY = new EmptyCommandLine();
 
-  /** Returns the command line. */
-  public abstract Iterable<String> arguments()
-      throws CommandLineExpansionException, InterruptedException;
-
-  /**
-   * Returns the evaluated command line with enclosed artifacts expanded by {@code artifactExpander}
-   * at execution time.
-   *
-   * <p>By default, this method just delegates to {@link #arguments()}, without performing any
-   * artifact expansion. Subclasses should override this method if they contain TreeArtifacts and
-   * need to expand them for proper argument evaluation.
-   */
-  public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
-      throws CommandLineExpansionException, InterruptedException {
-    return arguments();
-  }
-
-  /**
-   * Adds the command line to the provided {@link Fingerprint}.
-   *
-   * <p>Some of the implementations may require the to expand provided directory in order to produce
-   * a unique key. Consequently, the result of calling this function can be different depending on
-   * whether the {@link ArtifactExpander} is provided. Moreover, without it, the produced key may
-   * not always be unique.
-   */
-  public void addToFingerprint(
-      ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint)
-      throws CommandLineExpansionException, InterruptedException {
-    for (String s : arguments()) {
-      fingerprint.addString(s);
-    }
-  }
-
-  private static class SimpleCommandLine extends CommandLine {
-    private final Iterable<String> args;
-
-    SimpleCommandLine(Iterable<String> args) {
-      this.args = args;
-    }
-
-    @Override
-    public Iterable<String> arguments() throws CommandLineExpansionException {
-      return args;
-    }
-  }
-
-  /** Returns a {@link CommandLine} backed by a copy of the given list of arguments. */
-  public static CommandLine of(Iterable<String> arguments) {
-    Iterable<String> immutableArguments = CollectionUtils.makeImmutable(arguments);
-    return new SimpleCommandLine(immutableArguments);
-  }
-
-  private static final class SuffixedCommandLine extends CommandLine {
-    private final ImmutableList<String> executableArgs;
-    private final CommandLine commandLine;
-
-    SuffixedCommandLine(ImmutableList<String> executableArgs, CommandLine commandLine) {
-      this.executableArgs = executableArgs;
-      this.commandLine = commandLine;
-    }
-
-    @Override
-    public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
-      return IterablesChain.concat(commandLine.arguments(), executableArgs);
-    }
-
-    @Override
-    public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
-        throws CommandLineExpansionException, InterruptedException {
-      return IterablesChain.concat(
-          commandLine.arguments(artifactExpander, pathMapper), executableArgs);
-    }
+  /** Returns a {@link CommandLine} backed by the given list of arguments. */
+  public static CommandLine of(ImmutableList<String> arguments) {
+    return arguments.isEmpty() ? CommandLine.EMPTY : new SimpleCommandLine(arguments);
   }
 
   /**
    * Returns a {@link CommandLine} that is constructed by appending the {@code args} to {@code
    * commandLine}.
    */
-  public static CommandLine concat(
-      final CommandLine commandLine, final ImmutableList<String> args) {
+  public static CommandLine concat(CommandLine commandLine, ImmutableList<String> args) {
     if (args.isEmpty()) {
       return commandLine;
     }
@@ -125,11 +47,131 @@ public abstract class CommandLine {
   }
 
   /**
+   * Post-expansion representation of command line arguments.
+   *
+   * <p>This differs from {@link CommandLine} in that consuming the arguments is guaranteed to be
+   * free of {@link CommandLineExpansionException} and {@link InterruptedException}.
+   */
+  public interface ArgChunk {
+
+    /**
+     * Returns the arguments.
+     *
+     * <p>The returned {@link Iterable} may lazily materialize strings during iteration, so
+     * consumers should attempt to avoid iterating more times than necessary.
+     */
+    Iterable<String> arguments();
+
+    /**
+     * Counts the total length of all arguments in this chunk.
+     *
+     * <p>Implementations that lazily materialize strings may be able to compute the total argument
+     * length without actually materializing the arguments.
+     */
+    int totalArgLength();
+  }
+
+  /** Implementation of {@link ArgChunk} that delegates to an {@link Iterable}. */
+  public static final class SimpleArgChunk implements ArgChunk {
+    private final Iterable<String> args;
+
+    public SimpleArgChunk(Iterable<String> args) {
+      this.args = args;
+    }
+
+    @Override
+    public Iterable<String> arguments() {
+      return args;
+    }
+
+    @Override
+    public int totalArgLength() {
+      int total = 0;
+      for (String arg : args) {
+        total += arg.length() + 1;
+      }
+      return total;
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("args", args).toString();
+    }
+  }
+
+  /** Returns the expanded command line. */
+  public abstract ArgChunk expand() throws CommandLineExpansionException, InterruptedException;
+
+  /**
+   * Returns the expanded command line with enclosed artifacts expanded by {@code artifactExpander}
+   * at execution time.
+   */
+  public abstract ArgChunk expand(ArtifactExpander artifactExpander, PathMapper pathMapper)
+      throws CommandLineExpansionException, InterruptedException;
+
+  /** Identical to calling {@code expand().arguments()}. */
+  public abstract Iterable<String> arguments()
+      throws CommandLineExpansionException, InterruptedException;
+
+  /** Identical to calling {@code expand(artifactExpander, pathMapper).arguments()}. */
+  public abstract Iterable<String> arguments(
+      ArtifactExpander artifactExpander, PathMapper pathMapper)
+      throws CommandLineExpansionException, InterruptedException;
+
+  /** Adds this command line to the provided {@link Fingerprint}. */
+  public abstract void addToFingerprint(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fingerprint)
+      throws CommandLineExpansionException, InterruptedException;
+
+  private static final class EmptyCommandLine extends AbstractCommandLine {
+    @Override
+    public ImmutableList<String> arguments() {
+      return ImmutableList.of();
+    }
+  }
+
+  private static final class SimpleCommandLine extends AbstractCommandLine {
+    private final ImmutableList<String> args;
+
+    SimpleCommandLine(ImmutableList<String> args) {
+      this.args = args;
+    }
+
+    @Override
+    public ImmutableList<String> arguments() {
+      return args;
+    }
+  }
+
+  private static final class SuffixedCommandLine extends AbstractCommandLine {
+    private final ImmutableList<String> executableArgs;
+    private final CommandLine commandLine;
+
+    SuffixedCommandLine(ImmutableList<String> executableArgs, CommandLine commandLine) {
+      this.executableArgs = executableArgs;
+      this.commandLine = commandLine;
+    }
+
+    @Override
+    public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
+      return Iterables.concat(commandLine.arguments(), executableArgs);
+    }
+
+    @Override
+    public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
+        throws CommandLineExpansionException, InterruptedException {
+      return Iterables.concat(commandLine.arguments(artifactExpander, pathMapper), executableArgs);
+    }
+  }
+
+  /**
    * This helps when debugging Blaze code that uses {@link CommandLine}s, as you can see their
    * content directly in the variable inspector.
    */
   @Override
-  public String toString() {
+  public final String toString() {
     try {
       return Joiner.on(' ').join(arguments());
     } catch (CommandLineExpansionException e) {

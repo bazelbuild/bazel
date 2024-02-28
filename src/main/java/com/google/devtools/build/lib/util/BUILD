@@ -193,7 +193,6 @@ java_library(
         "RegexFilter.java",
         "ResourceFileLoader.java",
         "Sleeper.java",
-        "StreamWriter.java",
         "StringIndexer.java",
         "ThreadUtils.java",
         "TimeUtilities.java",
@@ -202,6 +201,7 @@ java_library(
     exports = [
         # vfs depends on the profiler and creates a cycle since we use Pair in profiler
         ":pair",
+        ":stream_writer",
     ],
     deps = [
         ":os",
@@ -210,6 +210,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:digest_hash_function",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:error_prone_annotations",
@@ -217,6 +218,13 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_11_library(
+    name = "stream_writer",
+    srcs = [
+        "StreamWriter.java",
     ],
 )
 
@@ -258,6 +266,7 @@ java_library(
     srcs = [
         "GccParamFileEscaper.java",
         "ShellEscaper.java",
+        "WindowsParamFileEscaper.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",

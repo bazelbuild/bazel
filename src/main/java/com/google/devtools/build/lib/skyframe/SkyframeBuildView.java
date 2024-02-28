@@ -154,7 +154,8 @@ public final class SkyframeBuildView {
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
-  private BuildConfigurationValue configuration;
+  // Null until the build configuration is set.
+  @Nullable private BuildConfigurationValue configuration;
 
   /**
    * If the last build was executed with {@code Options#discard_analysis_cache} and we are not
@@ -294,9 +295,11 @@ public final class SkyframeBuildView {
               "--discard_analysis_cache was used in the previous build, "
                   + "discarding analysis cache."));
       logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
+      this.configuration = configuration;
       skyframeExecutor.handleAnalysisInvalidatingChange();
     } else {
       String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
+      this.configuration = configuration;
       if (diff != null) {
         if (!allowAnalysisCacheDiscards) {
           String message = String.format("%s, analysis cache would have been discarded.", diff);
@@ -322,11 +325,11 @@ public final class SkyframeBuildView {
     }
 
     skyframeAnalysisWasDiscarded = false;
-    this.configuration = configuration;
     skyframeExecutor.setTopLevelConfiguration(configuration);
   }
 
   @VisibleForTesting
+  @Nullable
   public BuildConfigurationValue getBuildConfiguration() {
     return configuration;
   }

@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -166,7 +165,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//toolchain");
-    RuleContext ruleContext = getRuleContext(target);
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
     assertThat(
@@ -174,8 +172,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 toolchainProvider.getToolPaths(),
                 CppConfiguration.Tool.CPP,
                 toolchainProvider.getCcToolchainLabel(),
-                toolchainProvider.getToolchainIdentifier(),
-                ruleContext))
+                toolchainProvider.getToolchainIdentifier()))
         .isEqualTo("toolchain/some/cpp");
   }
 
@@ -337,14 +334,9 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
     InstrumentedFilesInfo instrumentedFilesInfo =
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    String gcovPath = null;
-    for (Pair<String, String> pair : instrumentedFilesInfo.getCoverageEnvironment().toList()) {
-      if (pair.getFirst().equals("COVERAGE_GCOV_PATH")) {
-        gcovPath = pair.getSecond();
-        break;
-      }
-    }
-    assertThat(gcovPath).isEmpty();
+
+    assertThat(instrumentedFilesInfo.getCoverageEnvironment())
+        .containsEntry("COVERAGE_GCOV_PATH", "");
   }
 
   // regression test for b/319501294
@@ -431,22 +423,15 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
-    InstrumentedFilesInfo instrumentedFilesInfo =
-        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    String llvmCov = null;
-    String llvmProfdata = null;
-    for (Pair<String, String> pair : instrumentedFilesInfo.getCoverageEnvironment().toList()) {
-      if (pair.getFirst().equals("LLVM_COV")) {
-        llvmCov = pair.getSecond();
-      }
-      if (pair.getFirst().equals("LLVM_PROFDATA")) {
-        llvmProfdata = pair.getSecond();
-      }
-    }
-    assertThat(llvmCov).isNotNull();
-    assertThat(llvmCov).isNotEmpty();
-    assertThat(llvmProfdata).isNotNull();
-    assertThat(llvmProfdata).isNotEmpty();
+    ImmutableMap<String, String> coverageEnv =
+        getConfiguredTarget("//a:lib")
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
+            .getCoverageEnvironment();
+
+    assertThat(coverageEnv).containsKey("LLVM_COV");
+    assertThat(coverageEnv.get("LLVM_COV")).isNotEmpty();
+    assertThat(coverageEnv).containsKey("LLVM_PROFDATA");
+    assertThat(coverageEnv.get("LLVM_PROFDATA")).isNotEmpty();
   }
 
   @Test
@@ -493,23 +478,12 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
-    InstrumentedFilesInfo instrumentedFilesInfo =
-        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    String llvmCov = null;
-    String llvmProfdata = null;
-    for (Pair<String, String> pair : instrumentedFilesInfo.getCoverageEnvironment().toList()) {
-      if (pair.getFirst().equals("LLVM_COV")) {
-        llvmCov = pair.getSecond();
-      }
-      if (pair.getFirst().equals("LLVM_PROFDATA")) {
-        llvmProfdata = pair.getSecond();
-      }
-    }
+    ImmutableMap<String, String> coverageEnv =
+        getConfiguredTarget("//a:lib")
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
+            .getCoverageEnvironment();
 
-    assertThat(llvmCov).isNotNull();
-    assertThat(llvmCov).isEmpty();
-    assertThat(llvmProfdata).isNotNull();
-    assertThat(llvmProfdata).isEmpty();
+    assertThat(coverageEnv).containsAtLeast("LLVM_COV", "", "LLVM_PROFDATA", "");
   }
 
   @Test

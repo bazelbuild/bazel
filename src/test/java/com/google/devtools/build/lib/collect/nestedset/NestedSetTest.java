@@ -24,7 +24,7 @@ import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.protobuf.ByteString;
@@ -421,14 +421,15 @@ public final class NestedSetTest {
   }
 
   @Test
-  public void toListInterruptibly_propagatesMissingNestedSetException() {
+  public void toListInterruptibly_propagatesMissingFingerprintValueException() {
     NestedSet<String> deserializingNestedSet =
         NestedSet.withFuture(
             Order.STABLE_ORDER,
             UNKNOWN_DEPTH,
             immediateFailedFuture(
-                new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"))));
-    assertThrows(MissingNestedSetException.class, deserializingNestedSet::toListInterruptibly);
+                new MissingFingerprintValueException(ByteString.copyFromUtf8("fingerprint"))));
+    assertThrows(
+        MissingFingerprintValueException.class, deserializingNestedSet::toListInterruptibly);
   }
 
   @Test
@@ -442,15 +443,15 @@ public final class NestedSetTest {
   }
 
   @Test
-  public void toListWithTimeout_propagatesMissingNestedSetException() {
+  public void toListWithTimeout_propagatesMissingFingerprintValueException() {
     NestedSet<String> deserializingNestedSet =
         NestedSet.withFuture(
             Order.STABLE_ORDER,
             UNKNOWN_DEPTH,
             immediateFailedFuture(
-                new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"))));
+                new MissingFingerprintValueException(ByteString.copyFromUtf8("fingerprint"))));
     assertThrows(
-        MissingNestedSetException.class,
+        MissingFingerprintValueException.class,
         () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
   }
 
@@ -520,7 +521,7 @@ public final class NestedSetTest {
             Order.STABLE_ORDER,
             UNKNOWN_DEPTH,
             immediateFailedFuture(
-                new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"))));
+                new MissingFingerprintValueException(ByteString.copyFromUtf8("fingerprint"))));
     assertThat(deserializingNestedSet.isReady()).isFalse();
   }
 

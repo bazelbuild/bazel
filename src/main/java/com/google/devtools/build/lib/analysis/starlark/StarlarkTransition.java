@@ -32,13 +32,11 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 /** A marker class for configuration transitions that are defined in Starlark. */
 public abstract class StarlarkTransition implements ConfigurationTransition {
@@ -55,13 +53,13 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   // Get the inputs of the starlark transition as a list of canonicalized labels strings.
-  private ImmutableList<String> getInputs() {
-    return starlarkDefinedConfigTransition.getInputsCanonicalizedToGiven().keySet().asList();
+  private ImmutableSet<String> getInputs() {
+    return starlarkDefinedConfigTransition.getInputsCanonicalizedToGiven().keySet();
   }
 
   // Get the outputs of the starlark transition as a list of canonicalized labels strings.
-  private ImmutableList<String> getOutputs() {
-    return starlarkDefinedConfigTransition.getOutputsCanonicalizedToGiven().keySet().asList();
+  private ImmutableSet<String> getOutputs() {
+    return starlarkDefinedConfigTransition.getOutputsCanonicalizedToGiven().keySet();
   }
 
   @Override
@@ -362,24 +360,29 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
 
   private static ImmutableSet<Label> getRelevantStarlarkSettingsFromTransition(
       StarlarkTransition transition, Settings settings) {
-    Set<String> toGet = new HashSet<>();
+    ImmutableSet.Builder<Label> result = ImmutableSet.builder();
     switch (settings) {
       case INPUTS:
-        toGet.addAll(transition.getInputs());
+        addLabelIfRelevant(result, transition.getInputs());
         break;
       case OUTPUTS:
-        toGet.addAll(transition.getOutputs());
+        addLabelIfRelevant(result, transition.getOutputs());
         break;
       case INPUTS_AND_OUTPUTS:
-        toGet.addAll(transition.getInputs());
-        toGet.addAll(transition.getOutputs());
+        addLabelIfRelevant(result, transition.getInputs());
+        addLabelIfRelevant(result, transition.getOutputs());
         break;
     }
-    return ImmutableSet.copyOf(
-        toGet.stream()
-            .filter(setting -> !setting.startsWith(COMMAND_LINE_OPTION_PREFIX))
-            .map(absName -> Label.parseCanonicalUnchecked(absName))
-            .collect(Collectors.toSet()));
+    return result.build();
+  }
+
+  private static void addLabelIfRelevant(
+      ImmutableSet.Builder<Label> builder, Iterable<String> entries) {
+    for (String entry : entries) {
+      if (!entry.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+        builder.add(Label.parseCanonicalUnchecked(entry));
+      }
+    }
   }
 
   @Override

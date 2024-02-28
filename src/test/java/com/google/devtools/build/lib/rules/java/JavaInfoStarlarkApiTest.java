@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -213,8 +212,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     NestedSet<LibraryToLink> librariesForTopTarget =
         javaInfoProvider.getTransitiveNativeLibraries();
-    Truth8.assertThat(
-            librariesForTopTarget.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+    assertThat(librariesForTopTarget.toList().stream().map(LibraryToLink::getLibraryIdentifier))
         .contains("foo/libmy_cc_lib_direct");
   }
 

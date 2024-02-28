@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,7 +20,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -38,6 +35,7 @@ import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -50,7 +48,7 @@ import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** An {@link ActionContext} providing the ability to log executed spawns. */
-public interface SpawnLogContext extends ActionContext {
+public abstract class SpawnLogContext implements ActionContext {
   /**
    * Logs an executed spawn.
    *
@@ -64,20 +62,23 @@ public interface SpawnLogContext extends ActionContext {
    * @param timeout the timeout the spawn was run under
    * @param result the spawn result
    */
-  void logSpawn(
+  public abstract void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
       SortedMap<PathFragment, ActionInput> inputMap,
       FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)
-      throws IOException, ExecException;
+      throws IOException, InterruptedException, ExecException;
 
   /** Finishes writing the log and performs any required post-processing. */
-  void close() throws IOException;
+  public abstract void close() throws IOException;
+
+  /** Whether the log should be published to the build event protocol. */
+  public abstract boolean shouldPublish();
 
   /** Computes the environment variables. */
-  static ImmutableList<EnvironmentVariable> getEnvironmentVariables(Spawn spawn) {
+  protected ImmutableList<EnvironmentVariable> getEnvironmentVariables(Spawn spawn) {
     ImmutableMap<String, String> environment = spawn.getEnvironment();
     ImmutableList.Builder<EnvironmentVariable> builder =
         ImmutableList.builderWithExpectedSize(environment.size());
@@ -93,7 +94,8 @@ public interface SpawnLogContext extends ActionContext {
 
   /** Computes the execution platform. */
   @Nullable
-  static Platform getPlatform(Spawn spawn, RemoteOptions remoteOptions) throws UserExecException {
+  protected Platform getPlatform(Spawn spawn, RemoteOptions remoteOptions)
+      throws UserExecException {
     var execPlatform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
     if (execPlatform == null) {
       return null;
@@ -110,22 +112,26 @@ public interface SpawnLogContext extends ActionContext {
    *
    * <p>Do not call for action outputs.
    */
-  static boolean isInputDirectory(ActionInput input, InputMetadataProvider inputMetadataProvider)
+  protected boolean isInputDirectory(
+      ActionInput input, Path path, InputMetadataProvider inputMetadataProvider)
       throws IOException {
     if (input.isDirectory()) {
       return true;
     }
-    if (input.isSymlink() || !(input instanceof SourceArtifact)) {
+    if (input.isSymlink()) {
       return false;
     }
-    // A source artifact may be a directory in spite of claiming to be a file. Avoid unnecessary I/O
-    // by inspecting its metadata, which should have already been collected and cached.
-    FileArtifactValue metadata =
-        checkNotNull(
-            inputMetadataProvider.getInputMetadata(input),
-            "missing metadata for %s",
-            input.getExecPath());
-    return metadata.getType().isDirectory();
+    // There are two cases in which an input's declared type may disagree with the filesystem:
+    //   (1) a source artifact pointing to a directory;
+    //   (2) an output artifact declared as a file but materialized as a directory, when allowed by
+    //       --noincompatible_disallow_unsound_directory_outputs.
+    // Try to avoid unnecessary I/O by inspecting its metadata, which in most cases should have
+    // already been collected and cached.
+    FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
+    if (metadata != null) {
+      return metadata.getType().isDirectory();
+    }
+    return path.isDirectory();
   }
 
   /**
@@ -134,7 +140,7 @@ public interface SpawnLogContext extends ActionContext {
    * <p>Will try to obtain the digest from cached metadata first, falling back to digesting the
    * contents manually.
    */
-  static Digest computeDigest(
+  protected Digest computeDigest(
       @Nullable ActionInput input,
       Path path,
       InputMetadataProvider inputMetadataProvider,
@@ -171,19 +177,17 @@ public interface SpawnLogContext extends ActionContext {
       }
     }
 
-    long fileSize = path.getFileSize();
-
-    // Try to obtain a digest from the filesystem.
+    // Obtain a digest from the filesystem.
+    FileStatus status = path.stat();
     return builder
         .setHash(
-            HashCode.fromBytes(
-                    DigestUtils.getDigestWithManualFallback(path, fileSize, xattrProvider))
+            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, xattrProvider, status))
                 .toString())
-        .setSizeBytes(fileSize)
+        .setSizeBytes(status.getSize())
         .build();
   }
 
-  static Protos.SpawnMetrics getSpawnMetricsProto(SpawnResult result) {
+  protected static Protos.SpawnMetrics getSpawnMetricsProto(SpawnResult result) {
     SpawnMetrics metrics = result.getMetrics();
     Protos.SpawnMetrics.Builder builder = Protos.SpawnMetrics.newBuilder();
     if (metrics.totalTimeInMs() != 0L) {

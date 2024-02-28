@@ -17,10 +17,7 @@ filegroup(
 
 java_test(
     name = "ProfilerTests",
-    srcs = glob(
-        ["*.java"],
-        exclude = ["CommandProfilerModuleTest.java"],
-    ),
+    srcs = glob(["*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
@@ -41,23 +38,6 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "CommandProfilerModuleTest",
-    srcs = ["CommandProfilerModuleTest.java"],
-    tags = [
-        # Bazel-specific tests
-        "manual",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib/profiler:command_profiler_module",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:junit4",
         "//third_party:truth",
     ],
 )

@@ -25,7 +25,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
+import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -316,10 +316,12 @@ public final class RemoteModule extends BlazeModule {
 
     boolean enableScrubbing = remoteOptions.scrubber != null;
     if (enableScrubbing && enableRemoteExecution) {
-
-      throw createOptionsExitException(
-          "Cannot combine remote cache key scrubbing with remote execution",
-          FailureDetails.RemoteOptions.Code.EXECUTION_WITH_SCRUBBING);
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "Cache key scrubbing is incompatible with remote execution. Actions that are"
+                      + " scrubbed per the --experimental_remote_scrubbing_config configuration"
+                      + " file will be executed locally instead."));
     }
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
@@ -1100,7 +1102,7 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   static Credentials createCredentials(
       CredentialHelperEnvironment credentialHelperEnvironment,
-      Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache,
+      Cache<URI, GetCredentialsResponse> credentialCache,
       CommandLinePathFactory commandLinePathFactory,
       FileSystem fileSystem,
       AuthAndTLSOptions authAndTlsOptions,

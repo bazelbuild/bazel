@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
@@ -36,6 +37,8 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -47,12 +50,16 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.Dirents;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -62,7 +69,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -133,6 +139,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   private static final int MAX_PROFILE_ARGS_LEN = 512;
 
   protected final Path workingDirectory;
+  protected final BlazeDirectories directories;
   protected final Environment env;
   protected final ImmutableMap<String, String> envVariables;
   private final StarlarkOS osObject;
@@ -140,21 +147,26 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   protected final double timeoutScaling;
   @Nullable private final ProcessWrapper processWrapper;
   protected final StarlarkSemantics starlarkSemantics;
-  private final HashMap<Label, String> accumulatedFileDigests = new HashMap<>();
+  private final HashMap<RepoRecordedInput.File, String> recordedFileInputs = new HashMap<>();
+  private final HashMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs = new HashMap<>();
   private final HashSet<String> accumulatedEnvKeys = new HashSet<>();
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
+  private final boolean allowWatchingPathsOutsideWorkspace;
 
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
+      BlazeDirectories directories,
       Environment env,
       Map<String, String> envVariables,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
-      @Nullable RepositoryRemoteExecutor remoteExecutor) {
+      @Nullable RepositoryRemoteExecutor remoteExecutor,
+      boolean allowWatchingPathsOutsideWorkspace) {
     this.workingDirectory = workingDirectory;
+    this.directories = directories;
     this.env = env;
     this.envVariables = ImmutableMap.copyOf(envVariables);
     this.osObject = new StarlarkOS(this.envVariables);
@@ -164,6 +176,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     this.starlarkSemantics = starlarkSemantics;
     this.remoteExecutor = remoteExecutor;
     this.asyncTasks = new ArrayList<>();
+    this.allowWatchingPathsOutsideWorkspace = allowWatchingPathsOutsideWorkspace;
   }
 
   public boolean ensureNoPendingAsyncTasks(EventHandler eventHandler, boolean forSuccessfulFetch) {
@@ -194,8 +207,12 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   protected abstract String getIdentifyingStringForLogging();
 
   /** Returns the file digests used by this context object so far. */
-  public ImmutableMap<Label, String> getAccumulatedFileDigests() {
-    return ImmutableMap.copyOf(accumulatedFileDigests);
+  public ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
+    return ImmutableMap.copyOf(recordedFileInputs);
+  }
+
+  public ImmutableMap<Dirents, String> getRecordedDirentsInputs() {
+    return ImmutableMap.copyOf(recordedDirentsInputs);
   }
 
   /** Returns set of environment variable keys encountered so far. */
@@ -1131,17 +1148,14 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   protected StarlarkPath getPath(String method, Object path)
       throws EvalException, InterruptedException {
     if (path instanceof String) {
-      PathFragment pathFragment = PathFragment.create(path.toString());
-      return new StarlarkPath(
-          pathFragment.isAbsolute()
-              ? workingDirectory.getFileSystem().getPath(pathFragment)
-              : workingDirectory.getRelative(pathFragment));
+      return new StarlarkPath(this, workingDirectory.getRelative(path.toString()));
     } else if (path instanceof Label) {
       return getPathFromLabel((Label) path);
     } else if (path instanceof StarlarkPath) {
       return (StarlarkPath) path;
     } else {
-      throw Starlark.errorf("%s can only take a string or a label.", method);
+      // This can never happen because we check it in the Starlark interpreter.
+      throw new IllegalArgumentException("expected string or label for path");
     }
   }
 
@@ -1150,27 +1164,191 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       doc = "Reads the content of a file on the filesystem.",
       useStarlarkThread = true,
       parameters = {
-          @Param(
-              name = "path",
-              allowedTypes = {
-                  @ParamType(type = String.class),
-                  @ParamType(type = Label.class),
-                  @ParamType(type = StarlarkPath.class)
-              },
-              doc = "path of the file to read from."),
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "path of the file to read from."),
+        @Param(
+            name = "watch",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the file. Can be the string 'yes', 'no', "
+                    + "or 'auto'. Passing 'yes' is equivalent to immediately invoking the "
+                    + "<a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does not "
+                    + "attempt to watch the file; passing 'auto' will only attempt to watch the "
+                    + "file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information.")
       })
-  public String readFile(Object path, StarlarkThread thread)
+  public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath p = getPath("read()", path);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
             p.toString(), getIdentifyingStringForLogging(), thread.getCallerLocation());
     env.getListener().post(w);
+    maybeWatch(p, ShouldWatch.fromString(watch));
+    if (p.isDir()) {
+      throw Starlark.errorf("attempting to read() a directory: %s", p);
+    }
     try {
       return FileSystemUtils.readContent(p.getPath(), ISO_8859_1);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
+  }
+
+  /**
+   * Converts a regular {@link Path} to a {@link RepoCacheFriendlyPath} based on {@link
+   * ShouldWatch}. If the path shouldn't be watched for whatever reason, returns null. If it's
+   * illegal to watch the path in the current context, but the user still requested a watch, throws
+   * an exception.
+   */
+  @Nullable
+  protected RepoCacheFriendlyPath toRepoCacheFriendlyPath(Path path, ShouldWatch shouldWatch)
+      throws EvalException {
+    if (shouldWatch == ShouldWatch.NO) {
+      return null;
+    }
+    if (path.startsWith(workingDirectory)) {
+      // The path is under the working directory. Don't watch it, as it would cause a dependency
+      // cycle.
+      if (shouldWatch == ShouldWatch.AUTO) {
+        return null;
+      }
+      throw Starlark.errorf("attempted to watch path under working directory");
+    }
+    if (path.startsWith(directories.getWorkspace())) {
+      // The file is under the workspace root.
+      PathFragment relPath = path.relativeTo(directories.getWorkspace());
+      return RepoCacheFriendlyPath.createInsideWorkspace(RepositoryName.MAIN, relPath);
+    }
+    Path outputBaseExternal =
+        directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
+    if (path.startsWith(outputBaseExternal)) {
+      PathFragment relPath = path.relativeTo(outputBaseExternal);
+      if (!relPath.isEmpty()) {
+        // The file is under a repo root.
+        String repoName = relPath.getSegment(0);
+        PathFragment repoRelPath =
+            relPath.relativeTo(PathFragment.createAlreadyNormalized(repoName));
+        return RepoCacheFriendlyPath.createInsideWorkspace(
+            RepositoryName.createUnvalidated(repoName), repoRelPath);
+      }
+    }
+    // The file is just under a random absolute path.
+    if (!allowWatchingPathsOutsideWorkspace) {
+      if (shouldWatch == ShouldWatch.AUTO) {
+        return null;
+      }
+      throw Starlark.errorf(
+          "attempted to watch path outside workspace, but it's prohibited in the current context");
+    }
+    return RepoCacheFriendlyPath.createOutsideWorkspace(path.asFragment());
+  }
+
+  /** Whether to watch a path. See {@link #readFile} for semantics */
+  protected enum ShouldWatch {
+    YES,
+    NO,
+    AUTO;
+
+    static ShouldWatch fromString(String s) throws EvalException {
+      switch (s) {
+        case "yes":
+          return YES;
+        case "no":
+          return NO;
+        case "auto":
+          return AUTO;
+        default:
+          throw Starlark.errorf(
+              "bad value for 'watch' parameter; want 'yes', 'no', or 'auto', got %s", s);
+      }
+    }
+  }
+
+  protected void maybeWatch(StarlarkPath starlarkPath, ShouldWatch shouldWatch)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    RepoCacheFriendlyPath repoCacheFriendlyPath =
+        toRepoCacheFriendlyPath(starlarkPath.getPath(), shouldWatch);
+    if (repoCacheFriendlyPath == null) {
+      return;
+    }
+    RootedPath rootedPath = repoCacheFriendlyPath.getRootedPath(env, directories);
+    if (rootedPath == null) {
+      throw new NeedsSkyframeRestartException();
+    }
+    try {
+      FileValue fileValue =
+          (FileValue) env.getValueOrThrow(FileValue.key(rootedPath), IOException.class);
+      if (fileValue == null) {
+        throw new NeedsSkyframeRestartException();
+      }
+
+      recordedFileInputs.put(
+          new RepoRecordedInput.File(repoCacheFriendlyPath),
+          RepoRecordedInput.File.fileValueToMarkerValue(fileValue));
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  protected void maybeWatchDirents(Path path, ShouldWatch shouldWatch)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    RepoCacheFriendlyPath repoCacheFriendlyPath = toRepoCacheFriendlyPath(path, shouldWatch);
+    if (repoCacheFriendlyPath == null) {
+      return;
+    }
+    RootedPath rootedPath = repoCacheFriendlyPath.getRootedPath(env, directories);
+    if (env.valuesMissing()) {
+      throw new NeedsSkyframeRestartException();
+    }
+    if (env.getValue(DirectoryListingValue.key(rootedPath)) == null) {
+      throw new NeedsSkyframeRestartException();
+    }
+    try {
+      recordedDirentsInputs.put(
+          new RepoRecordedInput.Dirents(repoCacheFriendlyPath),
+          RepoRecordedInput.Dirents.getDirentsMarkerValue(path));
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  @StarlarkMethod(
+      name = "watch",
+      doc =
+          "Tells Bazel to watch for changes to the given path, whether or not it exists, or "
+              + "whether it's a file or a directory. Any changes to the file or directory will "
+              + "invalidate this repository or module extension, and cause it to be refetched or "
+              + "re-evaluated next time.<p>\"Changes\" include changes to the contents of the file "
+              + "(if the path is a file); if the path was a file but is now a directory, or vice "
+              + "versa; and if the path starts or stops existing. Notably, this does <em>not</em> "
+              + "include changes to any files under the directory if the path is a directory. For "
+              + "that, use <a href=\"path.html#readdir\"><code>path.readdir()</code></a> "
+              + "instead.<p>Note that attempting to watch paths inside the repo currently being "
+              + "fetched, or inside the working directory of the current module extension, will "
+              + "result in an error. A module extension attempting to watch a path outside the "
+              + "current Bazel workspace will also result in an error.",
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "path of the file to watch."),
+      })
+  public void watchForStarlark(Object path)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
+    maybeWatch(getPath("watch()", path), ShouldWatch.YES);
   }
 
   // Create parent directories for the given path
@@ -1520,7 +1698,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
         // root?).
         Path path = workingDirectory.getFileSystem().getPath(fragment).getChild(program.trim());
         if (path.exists() && path.isFile(Symlinks.FOLLOW) && path.isExecutable()) {
-          return new StarlarkPath(path);
+          return new StarlarkPath(this, path);
         }
       }
     }
@@ -1530,26 +1708,12 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   // Resolve the label given by value into a file path.
   protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryFunction.getRootedPathFromLabel(label, env);
-    SkyKey fileSkyKey = FileValue.key(rootedPath);
-    FileValue fileValue;
+    StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
     try {
-      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
-    } catch (IOException e) {
-      throw Starlark.errorf("%s", e.getMessage());
+      maybeWatch(starlarkPath, ShouldWatch.AUTO);
+    } catch (RepositoryFunctionException e) {
+      throw Starlark.errorf("%s", e.getCause().getMessage());
     }
-
-    if (fileValue == null) {
-      throw new NeedsSkyframeRestartException();
-    }
-    if (!fileValue.isFile() || fileValue.isSpecialFile()) {
-      throw Starlark.errorf("Not a regular file: %s", rootedPath.asPath().getPathString());
-    }
-
-    try {
-      accumulatedFileDigests.put(label, RepositoryFunction.fileValueToMarkerValue(fileValue));
-    } catch (IOException e) {
-      throw Starlark.errorf("%s", e.getMessage());
-    }
-    return new StarlarkPath(rootedPath.asPath());
+    return starlarkPath;
   }
 }

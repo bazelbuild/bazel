@@ -14,31 +14,4 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.testutil.Scratch;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 
-/**
- * This exists for convenience for any rule type requires the exact same attributes as
- * {@code objc_binary}. If some rule ever changes to require more or fewer attributes, it is OK
- * to stop using this class.
- */
-final class BinaryRuleType extends RuleType {
-  BinaryRuleType(String ruleTypeName) {
-    super(ruleTypeName);
-  }
-
-  @Override
-  Iterable<String> requiredAttributes(
-      Scratch scratch, String packageName, Set<String> alreadyAdded) throws IOException {
-    List<String> attributes = new ArrayList<>();
-    if (!alreadyAdded.contains("srcs") && !alreadyAdded.contains("non_arc_srcs")) {
-      scratch.file(packageName + "/a.m");
-      scratch.file(packageName + "/private.h");
-      attributes.add("srcs = ['a.m', 'private.h']");
-    }
-    return attributes;
-  }
-}

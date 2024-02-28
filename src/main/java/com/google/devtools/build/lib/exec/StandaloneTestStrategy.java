@@ -27,13 +27,9 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -125,19 +121,12 @@ public class StandaloneTestStrategy extends TestStrategy {
                 .getLocalResourceUsage(
                     action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
 
-    RunfilesTree testRunfilesTree =
-        actionExecutionContext
-            .getInputMetadataProvider()
-            .getRunfilesMetadata(action.getRunfilesMiddleman())
-            .getRunfilesTree();
-
     Spawn spawn =
         new SimpleSpawn(
             action,
             getArgs(action),
             ImmutableMap.copyOf(testEnvironment),
             ImmutableMap.copyOf(executionInfo),
-            CompositeRunfilesSupplier.fromRunfilesTrees(ImmutableList.of(testRunfilesTree)),
             ImmutableMap.of(),
             /* inputs= */ action.getInputs(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -473,7 +462,6 @@ public class StandaloneTestStrategy extends TestStrategy {
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
         ImmutableMap.copyOf(executionInfo),
-        null,
         ImmutableMap.of(),
         /*inputs=*/ NestedSetBuilder.create(
             Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
@@ -501,25 +489,11 @@ public class StandaloneTestStrategy extends TestStrategy {
     testEnvironment.put("TEST_NAME", action.getTestName());
     testEnvironment.put("IS_COVERAGE_SPAWN", "1");
 
-    RunfilesSupplier lcovMergerRunfilesSupplier;
-    if (action.getLcovMergerRunfilesMiddleman() != null) {
-      RunfilesTree lcovMergerRunfilesTree =
-          actionExecutionContext
-              .getInputMetadataProvider()
-              .getRunfilesMetadata(action.getLcovMergerRunfilesMiddleman())
-              .getRunfilesTree();
-      lcovMergerRunfilesSupplier =
-          CompositeRunfilesSupplier.fromRunfilesTrees(ImmutableList.of(lcovMergerRunfilesTree));
-    } else {
-      lcovMergerRunfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
-    }
-
     return new SimpleSpawn(
         action,
         args,
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),
-        lcovMergerRunfilesSupplier,
         /* filesetMappings= */ ImmutableMap.of(),
         /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
             .addTransitive(action.getInputs())

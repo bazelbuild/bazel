@@ -26,7 +26,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -676,7 +675,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    Truth8.assertThat(action.getUnusedInputsList()).isPresent();
+    assertThat(action.getUnusedInputsList()).isPresent();
     assertThat(action.getUnusedInputsList().get().getFilename()).isEqualTo("a.txt");
     assertThat(action.discoversInputs()).isTrue();
     assertThat(action.isShareable()).isFalse();
@@ -922,7 +921,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    Truth8.assertThat(action.getUnusedInputsList()).isEmpty();
+    assertThat(action.getUnusedInputsList()).isEmpty();
     assertThat(action.discoversInputs()).isFalse();
   }
 
@@ -3527,6 +3526,33 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     // The results are always the same as `ctx.label.package + '/BUILD'`
     result = ev.eval("ruleContext.label.package + '/BUILD'");
     assertThat(result).isEqualTo("bar/BUILD");
+  }
+
+  @Test
+  public void testStopExportingBuildFilePath() throws Exception {
+    scratch.file("/foo/WORKSPACE");
+    scratch.file("/foo/bar/BUILD", "genrule(name = 'baz', cmd = 'dummy_cmd', outs = ['a.txt'])");
+
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='foo', path='/foo')")
+            .build());
+
+    invalidatePackages(false);
+    setBuildLanguageOptions("--incompatible_stop_exporting_build_file_path");
+
+    setRuleContext(createRuleContext("@foo//bar:baz"));
+
+    EvalException evalException =
+        assertThrows(EvalException.class, () -> ev.eval("ruleContext.build_file_path"));
+    assertThat(evalException)
+        .hasMessageThat()
+        .isEqualTo(
+            "Use ctx.label.package + '/BUILD' instead of ctx.build_file_path.\nUse"
+                + " --incompatible_stop_exporting_build_file_path=false to temporarily disable this"
+                + " check.");
   }
 
   @Test

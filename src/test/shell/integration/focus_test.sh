@@ -89,7 +89,7 @@ EOF
   expect_log "Focusing on"
 }
 
-function test_correctly_rebuilds_after_using_focus() {
+function test_correctly_rebuilds_with_working_set_containing_files() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -115,6 +115,58 @@ EOF
   echo "second change" >> ${pkg}/in.txt
   bazel build //${pkg}:g
   assert_contains "second change" $out
+}
+
+function test_correctly_rebuilds_with_working_set_containing_directories() {
+  # Setting directories in the working set works, because the rdep edges look like:
+  #
+  # FILE_STATE:[dir] -> FILE:[dir] -> FILE:[dir/BUILD], FILE:[dir/file.txt]
+  #
+  # ...and the FILE SkyKeys directly depend on their respective FILE_STATE SkyKeys,
+  # which are the nodes that are invalidated by SkyframeExecutor#handleDiffs
+  # at the start of every build, and are also kept by Skyfocus.
+  #
+  # In other words, defining a working set of directories will automatically
+  # include all the files under those directories for focusing.
+
+  local -r pkg=${FUNCNAME[0]}
+  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
+  mkdir -p ${pkg}
+  echo "input" > ${pkg}/in.txt
+  cat > ${pkg}/BUILD <<EOF
+genrule(
+  name = "g",
+  srcs = ["in.txt"],
+  outs = ["out.txt"],
+  cmd = "cp \$< \$@",
+)
+EOF
+
+  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
+
+  # Define working set to be a directory, not file
+  bazel build //${pkg}:g --experimental_working_set=${pkg}
+  assert_contains "input" $out
+
+  # Incrementally builds ${pkg}/in.txt file
+  echo "first change" >> ${pkg}/in.txt
+  bazel build //${pkg}:g
+  assert_contains "first change" $out
+
+  echo "second change" >> ${pkg}/in.txt
+  bazel build //${pkg}:g
+  assert_contains "second change" $out
+
+  # Incrementally builds new target in ${pkg}/BUILD file
+  cat >> ${pkg}/BUILD <<EOF
+genrule(
+  name = "another_genrule",
+  srcs = ["in.txt"],
+  outs = ["out2.txt"],
+  cmd = "cp \$< \$@",
+)
+EOF
+  bazel build //${pkg}:another_genrule || fail "expected build success"
 }
 
 function test_focus_command_prints_info_about_graph() {

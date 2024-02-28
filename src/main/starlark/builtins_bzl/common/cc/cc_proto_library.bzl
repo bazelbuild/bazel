@@ -248,9 +248,7 @@ cc_proto_aspect = aspect(
     fragments = ["cpp", "proto"],
     required_providers = [ProtoInfo],
     provides = [CcInfo],
-    attrs = {
-        "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
-    } | toolchains.if_legacy_toolchain({"_aspect_cc_proto_toolchain": attr.label(
+    attrs = toolchains.if_legacy_toolchain({"_aspect_cc_proto_toolchain": attr.label(
         default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
     )}),
     toolchains = cc_helper.use_cpp_toolchain() + toolchains.use_toolchain(semantics.CC_PROTO_TOOLCHAIN),

@@ -4,7 +4,7 @@ java_library(
     name = "r8",
     srcs = glob(["*.java", "desugar/*.java"]),
     deps = [
-        "//external:android/d8_jar_import",
+        "@android_gmaven_r8//jar",
         "//src/tools/android/java/com/google/devtools/build/android:all_android_tools",
     ],
     plugins = ["auto_value_plugin"],

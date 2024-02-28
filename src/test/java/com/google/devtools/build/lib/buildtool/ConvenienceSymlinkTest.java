@@ -321,7 +321,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                     toImmutableMap(
                         (target) -> target.getLabel().toString(),
                         (target) ->
-                            getConfiguration(target)
+                            getConfigurationFromLastBuildResult(target)
                                 .getOutputDirectory(RepositoryName.MAIN)
                                 .getRoot()
                                 .asPath()

@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -112,30 +114,38 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     // First compute all the inputs and directories that we need. This is based only on
     // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
-    LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    Set<PathFragment> dirsToCreate = new LinkedHashSet<>();
     Set<PathFragment> writableSandboxDirs =
         writableDirs.stream()
             .filter(p -> p.startsWith(sandboxExecRoot))
             .map(p -> p.relativeTo(sandboxExecRoot))
             .collect(Collectors.toSet());
-    SandboxHelpers.populateInputsAndDirsToCreate(
-        writableSandboxDirs,
-        inputsToCreate,
-        dirsToCreate,
-        Iterables.concat(
-            ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
-        outputs);
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.populateInputsAndDirsToCreate")) {
+      SandboxHelpers.populateInputsAndDirsToCreate(
+          writableSandboxDirs,
+          inputsToCreate,
+          dirsToCreate,
+          Iterables.concat(
+              ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+          outputs);
+    }
 
-    // Allow subclasses to filter out inputs and dirs that don't need to be created.
-    filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.filterInputsAndDirsToCreate")) {
+      // Allow subclasses to filter out inputs and dirs that don't need to be created.
+      filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
+    }
 
     // Finally create what needs creating.
-    SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict=*/ true);
-    createInputs(inputsToCreate, inputs);
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.createDirectories")) {
+      SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict= */ true);
+    }
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.createInputs")) {
+      createInputs(inputsToCreate, inputs);
+    }
   }
 
   protected void filterInputsAndDirsToCreate(
-      Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate)
+      Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate)
       throws IOException, InterruptedException {}
 
   /**

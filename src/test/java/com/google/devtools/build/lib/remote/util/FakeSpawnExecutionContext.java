@@ -139,7 +139,8 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       PathFragment baseDirectory, boolean willAccessRepeatedly)
       throws ForbiddenActionInputException {
-    return getSpawnInputExpander().getInputMapping(spawn, this::artifactExpander, baseDirectory);
+    return getSpawnInputExpander()
+        .getInputMapping(spawn, this::artifactExpander, inputMetadataProvider, baseDirectory);
   }
 
   @Override

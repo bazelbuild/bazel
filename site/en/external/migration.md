@@ -562,13 +562,12 @@ away from this by:
         ```python
         ## third_party/BUILD
         alias(
-            name = "openssl,
+            name = "openssl",
             actual = "@my-ssl//src:openssl-lib",
         )
         ```
 
-    *   Replace all usages of `//external:openssl` with
-        `//third_party:openssl-lib`.
+    *   Replace all usages of `//external:openssl` with `//third_party:openssl`.
 
 ### Fetch versus Sync {:#fetch-sync}
 

@@ -19,11 +19,14 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -32,6 +35,7 @@ import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -43,6 +47,106 @@ import javax.annotation.Nullable;
 
 /** A class that groups services in the scope of the action. Like the FileOutErr object. */
 public class ActionExecutionContext implements Closeable, ActionContext.ActionContextRegistry {
+
+  /**
+   * A {@link RunfilesTree} implementation that wraps another one while overriding the path it
+   * should be materialized at.
+   */
+  private static class OverriddenPathRunfilesTree implements RunfilesTree {
+    private final PathFragment execPath;
+    private final RunfilesTree wrapped;
+
+    private OverriddenPathRunfilesTree(RunfilesTree wrapped, PathFragment execPath) {
+      this.wrapped = wrapped;
+      this.execPath = execPath;
+    }
+
+    @Override
+    public PathFragment getExecPath() {
+      return execPath;
+    }
+
+    @Override
+    public Map<PathFragment, Artifact> getMapping() {
+      return wrapped.getMapping();
+    }
+
+    @Override
+    public NestedSet<Artifact> getArtifacts() {
+      return wrapped.getArtifacts();
+    }
+
+    @Override
+    public RunfileSymlinksMode getSymlinksMode() {
+      return wrapped.getSymlinksMode();
+    }
+
+    @Override
+    public boolean isBuildRunfileLinks() {
+      return wrapped.isBuildRunfileLinks();
+    }
+
+    @Override
+    public String getWorkspaceName() {
+      return wrapped.getWorkspaceName();
+    }
+  }
+
+  /**
+   * An {@link InputMetadataProvider} wrapping another while overriding the materialization path of
+   * the single runfiles tree it contains.
+   *
+   * <p>The wrapped input metadata provider must contain exactly one runfiles tree.
+   */
+  private static class OverriddenRunfilesPathInputMetadataProvider
+      implements InputMetadataProvider {
+    private final InputMetadataProvider wrapped;
+    private final OverriddenPathRunfilesTree overriddenTree;
+
+    private OverriddenRunfilesPathInputMetadataProvider(
+        InputMetadataProvider wrapped, PathFragment execPath) {
+      this.wrapped = wrapped;
+      this.overriddenTree =
+          new OverriddenPathRunfilesTree(
+              Iterables.getOnlyElement(wrapped.getRunfilesTrees()), execPath);
+    }
+
+    @Nullable
+    @Override
+    public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+      return wrapped.getInputMetadata(input);
+    }
+
+    @Nullable
+    @Override
+    public ActionInput getInput(String execPath) {
+      return wrapped.getInput(execPath);
+    }
+
+    @Nullable
+    @Override
+    public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+      RunfilesArtifactValue original = wrapped.getRunfilesMetadata(input);
+      // There is only one runfiles tree in the wrapped metadata provider so we can be sure that
+      // we need to override this.
+      return original == null ? null : original.withOverriddenRunfilesTree(overriddenTree);
+    }
+
+    @Override
+    public ImmutableList<RunfilesTree> getRunfilesTrees() {
+      return ImmutableList.of(overriddenTree);
+    }
+
+    @Override
+    public FileSystem getFileSystemForInputResolution() {
+      return wrapped.getFileSystemForInputResolution();
+    }
+
+    @Override
+    public boolean mayGetGeneratingActionsFromSkyframe() {
+      return wrapped.mayGetGeneratingActionsFromSkyframe();
+    }
+  }
 
   /** Enum for --subcommands flag */
   public enum ShowSubcommands {
@@ -406,27 +510,11 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
   }
 
-  /**
-   * Creates a new {@link ActionExecutionContext} whose {@link InputMetadataProvider} has the given
-   * {@link ActionInput}s as inputs.
-   *
-   * <p>Each {@link ActionInput} must be an output of the current {@link ActionExecutionContext} and
-   * it must already have been built.
-   */
-  public ActionExecutionContext withOutputsAsInputs(
-      Iterable<? extends ActionInput> additionalInputs) throws IOException, InterruptedException {
-    ImmutableMap.Builder<ActionInput, FileArtifactValue> additionalInputMap =
-        ImmutableMap.builder();
-
-    for (ActionInput input : additionalInputs) {
-      additionalInputMap.put(input, getOutputMetadataStore().getOutputMetadata(input));
-    }
-    StaticInputMetadataProvider additionalInputMetadata =
-        new StaticInputMetadataProvider(additionalInputMap.buildOrThrow());
-
+  private ActionExecutionContext withInputMetadataProvider(
+      InputMetadataProvider newInputMetadataProvider) {
     return new ActionExecutionContext(
         executor,
-        new DelegatingPairInputMetadataProvider(additionalInputMetadata, inputMetadataProvider),
+        newInputMetadataProvider,
         actionInputPrefetcher,
         actionKeyContext,
         outputMetadataStore,
@@ -444,6 +532,36 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         syscallCache,
         threadStateReceiverForMetrics);
   }
+
+  /**
+   * Creates a new {@link ActionExecutionContext} whose {@link InputMetadataProvider} has the given
+   * {@link ActionInput}s as inputs.
+   *
+   * <p>Each {@link ActionInput} must be an output of the current {@link ActionExecutionContext} and
+   * it must already have been built.
+   */
+  public ActionExecutionContext withOutputsAsInputs(
+      Iterable<? extends ActionInput> additionalInputs) throws IOException, InterruptedException {
+    ImmutableMap.Builder<ActionInput, FileArtifactValue> additionalInputMap =
+        ImmutableMap.builder();
+
+    for (ActionInput input : additionalInputs) {
+      additionalInputMap.put(input, getOutputMetadataStore().getOutputMetadata(input));
+    }
+
+    StaticInputMetadataProvider additionalInputMetadata =
+        new StaticInputMetadataProvider(additionalInputMap.buildOrThrow());
+
+    return withInputMetadataProvider(
+        new DelegatingPairInputMetadataProvider(additionalInputMetadata, inputMetadataProvider));
+  }
+
+  public ActionExecutionContext withOverriddenRunfilesPath(PathFragment overrideRunfilesPath) {
+    return withInputMetadataProvider(
+        new OverriddenRunfilesPathInputMetadataProvider(
+            inputMetadataProvider, overrideRunfilesPath));
+  }
+
   /**
    * Allows us to create a new context that overrides the FileOutErr with another one. This is
    * useful for muting the output for example.

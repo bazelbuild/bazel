@@ -26,6 +26,7 @@ filegroup(
     srcs = glob(
         ["*"],
         exclude = [
+            "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
             "WORKSPACE.bzlmod",  # Needs to be filtered.
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
@@ -33,6 +34,7 @@ filegroup(
             ".*",  # mainly .git* files
         ],
     ) + [
+        "//:MODULE.bazel.lock.dist",
         "//:WORKSPACE.bzlmod.filtered",
         "//examples:srcs",
         "//scripts:srcs",
@@ -84,6 +86,32 @@ genrule(
         # Comment out the android repos if they exist.
         "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' -e 's/^android_ndk_repository/# android_ndk_repository/' $@",
     ]),
+)
+
+genrule(
+    name = "generate_dist_lockfile",
+    srcs = [
+        "MODULE.bazel",
+        "//third_party/googleapis:MODULE.bazel",
+        "//third_party/remoteapis:MODULE.bazel",
+    ],
+    outs = ["MODULE.bazel.lock.dist"],
+    cmd = " && ".join([
+        "ROOT=$$PWD",
+        "TMPDIR=$$(mktemp -d)",
+        "trap 'rm -rf $$TMPDIR' EXIT",
+        "mkdir -p $$TMPDIR/workspace",
+        "touch $$TMPDIR/workspace/BUILD.bazel",
+        "for i in $(SRCS); do dir=$$TMPDIR/workspace/$$(dirname $$i); mkdir -p $$dir; cp $$i $$dir; done",
+        "cd $$TMPDIR/workspace",
+        # Instead of `bazel mod deps`, we run a simpler command like `bazel query :all` here
+        # so that we only trigger module resolution, not extension eval.
+        # Also use `--batch` so that Bazel doesn't keep a server process alive.
+        "$$ROOT/$(location //src:bazel) --batch --host_jvm_args=-Djava.net.preferIPv6Addresses=true --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update :all",
+        "mv MODULE.bazel.lock $$ROOT/$@",
+    ]),
+    tags = ["requires-network"],
+    tools = ["//src:bazel"],
 )
 
 pkg_tar(
@@ -141,10 +169,8 @@ pkg_tar(
     ],
     # TODO(aiuto): Replace with pkg_filegroup when that is available.
     remap_paths = {
+        "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
         "WORKSPACE.bzlmod.filtered": "WORKSPACE.bzlmod",
-        # Rewrite paths coming from local repositories back into third_party.
-        "external/googleapis~override": "third_party/googleapis",
-        "external/remoteapis~override": "third_party/remoteapis",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
