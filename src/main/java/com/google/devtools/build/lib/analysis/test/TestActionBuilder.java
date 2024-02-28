@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
@@ -342,10 +341,7 @@ public final class TestActionBuilder {
               runsPerTest);
       inputsBuilder.add(instrumentedFileManifest);
       // TODO(ulfjack): Is this even ever set? If yes, does this cost us a lot of memory?
-      for (Pair<String, String> coverageEnvEntry :
-          instrumentedFiles.getCoverageEnvironment().toList()) {
-        extraTestEnv.put(coverageEnvEntry.getFirst(), coverageEnvEntry.getSecond());
-      }
+      extraTestEnv.putAll(instrumentedFiles.getCoverageEnvironment());
     } else {
       executionSettings =
           new TestTargetExecutionSettings(

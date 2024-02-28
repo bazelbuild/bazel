@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.Allowlist;
@@ -68,7 +69,6 @@ import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
@@ -362,7 +362,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
 
-    NestedSetBuilder<Pair<String, String>> coverageEnvironment = NestedSetBuilder.stableOrder();
+    ImmutableMap.Builder<String, String> coverageEnvironment = ImmutableMap.builder();
     NestedSetBuilder<Artifact> coverageSupportFiles = NestedSetBuilder.stableOrder();
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
 
@@ -391,9 +391,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
       // Pass the artifact through an environment variable in the coverage environment so it
       // can be read by the coverage collection script.
-      coverageEnvironment.add(
-          new Pair<>(
-              "JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE", runtimeClasspathArtifact.getExecPathString()));
+      coverageEnvironment.put(
+          "JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE", runtimeClasspathArtifact.getExecPathString());
       // Add the file to coverageSupportFiles so it ends up as an input for the test action
       // when coverage is enabled.
       coverageSupportFiles.add(runtimeClasspathArtifact);
@@ -401,8 +400,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       // Make single jar reachable from the coverage environment because it needs to be executed
       // by the coverage collection script.
       FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-      coverageEnvironment.add(
-          new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecutable().getExecPathString()));
+      coverageEnvironment.put("SINGLE_JAR_TOOL", singleJar.getExecutable().getExecPathString());
       coverageSupportFiles.add(singleJar.getExecutable());
     }
 

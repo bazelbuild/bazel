@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -530,7 +529,7 @@ public class JavaCommon {
         filesToBuild,
         classJar,
         JAVA_COLLECTION_SPEC,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        ImmutableMap.of(),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
@@ -547,7 +546,7 @@ public class JavaCommon {
         filesToBuild,
         classJar,
         instrumentationSpec,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        ImmutableMap.of(),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
@@ -556,7 +555,7 @@ public class JavaCommon {
       JavaInfo.Builder javaInfoBuilder,
       NestedSet<Artifact> filesToBuild,
       @Nullable Artifact classJar,
-      NestedSet<Pair<String, String>> coverageEnvironment,
+      ImmutableMap<String, String> coverageEnvironment,
       NestedSet<Artifact> coverageSupportFiles)
       throws RuleErrorException {
     addTransitiveInfoProviders(
@@ -575,7 +574,7 @@ public class JavaCommon {
       NestedSet<Artifact> filesToBuild,
       @Nullable Artifact classJar,
       InstrumentationSpec instrumentationSpec,
-      NestedSet<Pair<String, String>> coverageEnvironment,
+      ImmutableMap<String, String> coverageEnvironment,
       NestedSet<Artifact> coverageSupportFiles)
       throws RuleErrorException {
 
@@ -616,7 +615,7 @@ public class JavaCommon {
       RuleContext ruleContext,
       NestedSet<Artifact> filesToBuild,
       InstrumentationSpec instrumentationSpec,
-      NestedSet<Pair<String, String>> coverageEnvironment,
+      ImmutableMap<String, String> coverageEnvironment,
       NestedSet<Artifact> coverageSupportFiles) {
 
     return InstrumentedFilesCollector.collect(

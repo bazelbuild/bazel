@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
+import java.util.Map.Entry;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
@@ -334,14 +335,9 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
     InstrumentedFilesInfo instrumentedFilesInfo =
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    String gcovPath = null;
-    for (Pair<String, String> pair : instrumentedFilesInfo.getCoverageEnvironment().toList()) {
-      if (pair.getFirst().equals("COVERAGE_GCOV_PATH")) {
-        gcovPath = pair.getSecond();
-        break;
-      }
-    }
-    assertThat(gcovPath).isEmpty();
+
+    assertThat(instrumentedFilesInfo.getCoverageEnvironment())
+        .containsEntry("COVERAGE_GCOV_PATH", "");
   }
 
   // regression test for b/319501294
@@ -428,22 +424,15 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
-    InstrumentedFilesInfo instrumentedFilesInfo =
-        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    String llvmCov = null;
-    String llvmProfdata = null;
-    for (Pair<String, String> pair : instrumentedFilesInfo.getCoverageEnvironment().toList()) {
-      if (pair.getFirst().equals("LLVM_COV")) {
-        llvmCov = pair.getSecond();
-      }
-      if (pair.getFirst().equals("LLVM_PROFDATA")) {
-        llvmProfdata = pair.getSecond();
-      }
-    }
-    assertThat(llvmCov).isNotNull();
-    assertThat(llvmCov).isNotEmpty();
-    assertThat(llvmProfdata).isNotNull();
-    assertThat(llvmProfdata).isNotEmpty();
+    ImmutableMap<String, String> coverageEnv =
+        getConfiguredTarget("//a:lib")
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
+            .getCoverageEnvironment();
+
+    assertThat(coverageEnv).containsKey("LLVM_COV");
+    assertThat(coverageEnv.get("LLVM_COV")).isNotEmpty();
+    assertThat(coverageEnv).containsKey("LLVM_PROFDATA");
+    assertThat(coverageEnv.get("LLVM_PROFDATA")).isNotEmpty();
   }
 
   @Test
@@ -494,12 +483,12 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     String llvmCov = null;
     String llvmProfdata = null;
-    for (Pair<String, String> pair : instrumentedFilesInfo.getCoverageEnvironment().toList()) {
-      if (pair.getFirst().equals("LLVM_COV")) {
-        llvmCov = pair.getSecond();
+    for (Entry<String, String> entry : instrumentedFilesInfo.getCoverageEnvironment().entrySet()) {
+      if (entry.getKey().equals("LLVM_COV")) {
+        llvmCov = entry.getValue();
       }
-      if (pair.getFirst().equals("LLVM_PROFDATA")) {
-        llvmProfdata = pair.getSecond();
+      if (entry.getKey().equals("LLVM_PROFDATA")) {
+        llvmProfdata = entry.getValue();
       }
     }
 
