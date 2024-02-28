@@ -51,10 +51,8 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-    ] + select({
-        "//external:has_androidsdk": ["//external:android/d8_jar_import"],
-        "//conditions:default": [],
-    }),
+        "@android_gmaven_r8//jar",
+    ],
 )
 
 java_library(
