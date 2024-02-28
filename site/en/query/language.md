@@ -1032,7 +1032,7 @@ Warning: Bazel pretends each `.bzl` file produced by
 target `//a:b.bzl`), but this isn't necessarily the case. Therefore,
 `buildfiles` doesn't compose well with other query operators and its results can be
 misleading when formatted in a structured way, such as
-`[--output=xml](#output-xml)`.
+[`--output=xml`](#xml).
 
 ### Package definition files: rbuildfiles {:#rbuildfiles}
 
@@ -1081,7 +1081,7 @@ Warning: Bazel pretends each of these .bzl files has a corresponding target
 (for example, file `a/b.bzl` => target `//a:b.bzl`), but this isn't
 necessarily the case. Therefore, `loadfiles` doesn't compose well with other query
 operators and its results can be misleading when formatted in a structured way, such as
-`[--output=xml](#output-xml)`.
+[`--output=xml`](#xml).
 
 ## Output formats {:#output-formats}
 
