@@ -265,6 +265,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public RegexFilter instrumentationFilter;
 
   @Option(
+      name = "experimental_instrumentation_file_filter",
+      converter = RegexFilter.RegexFilterConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "When coverage is enabled, only source and class files matched by the "
+              + "specified regex-based filter will be instrumented. Patterns prefixed "
+              + "with '-' are excluded instead.")
+  public RegexFilter instrumentationFileFilter;
+
+  @Option(
       name = "instrument_test_targets",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,

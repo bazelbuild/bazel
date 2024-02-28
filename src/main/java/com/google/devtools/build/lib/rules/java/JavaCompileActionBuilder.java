@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -335,9 +336,12 @@ public final class JavaCompileActionBuilder {
     if (coverageArtifact != null) {
       result.add("--post_processor");
       result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, coverageArtifact);
-      result.addPath(ruleContext.getCoverageMetadataDirectory().getExecPath());
-      result.add("-*Test");
-      result.add("-*TestCase");
+
+      CoreOptions coreOptions = ruleContext.getConfiguration().getOptions().get(CoreOptions.class);
+      String inclusionRegex = coreOptions.instrumentationFileFilter.getInclusionRegex();
+      result.addDynamicString(inclusionRegex == null ? ".*" : inclusionRegex);
+      String exclusionRegex = coreOptions.instrumentationFileFilter.getExclusionRegex();
+      result.addDynamicString(exclusionRegex == null ? "^$" : exclusionRegex);
     }
     return result.build();
   }

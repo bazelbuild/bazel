@@ -31,6 +31,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.jacoco.core.instr.Instrumenter;
 import org.jacoco.core.runtime.OfflineInstrumentationAccessGenerator;
 
@@ -39,24 +40,29 @@ public final class JacocoInstrumentationProcessor {
 
   public static JacocoInstrumentationProcessor create(List<String> args)
       throws InvalidCommandLineException {
-    if (args.size() < 1) {
+    if (args.size() != 3) {
       throw new InvalidCommandLineException(
-          "Number of arguments for Jacoco instrumentation should be 1+ (given "
+          "Number of arguments for Jacoco instrumentation should be 3 (given "
               + args.size()
-              + ": metadataOutput [filters*].");
+              + ": metadataOutput inclusionRegex exclusionRegex");
     }
 
     // ignoring filters, they weren't used in the previous implementation
     // TODO(bazel-team): filters should be correctly handled
-    return new JacocoInstrumentationProcessor(args.get(0));
+    return new JacocoInstrumentationProcessor(args.get(0), args.get(1), args.get(2));
   }
 
   private Path instrumentedClassesDirectory;
   private final String coverageInformation;
   private final boolean isNewCoverageImplementation;
+  private final Pattern inclusionPattern;
+  private final Pattern exclusionPattern;
 
-  private JacocoInstrumentationProcessor(String coverageInfo) {
+  private JacocoInstrumentationProcessor(
+      String coverageInfo, String inclusionRegex, String exclusionRegex) {
     this.coverageInformation = coverageInfo;
+    this.inclusionPattern = Pattern.compile(inclusionRegex);
+    this.exclusionPattern = Pattern.compile(exclusionRegex);
     // This is part of the new Java coverage implementation where JacocoInstrumentationProcessor
     // receives a file that includes the relative paths of the uninstrumented Java files, instead
     // of the metadata jar.
@@ -65,6 +71,20 @@ public final class JacocoInstrumentationProcessor {
 
   public boolean isNewCoverageImplementation() {
     return isNewCoverageImplementation;
+  }
+
+  /**
+   * Checks if the given filename needs to be instrumented given the configured inclusion and
+   * exclusion patterns.
+   */
+  private boolean isIncluded(String path) {
+    if (exclusionPattern != null && exclusionPattern.matcher(path).find()) {
+      return false;
+    }
+    if (inclusionPattern == null) {
+      return true;
+    }
+    return inclusionPattern.matcher(path).find();
   }
 
   /**
@@ -117,9 +137,9 @@ public final class JacocoInstrumentationProcessor {
             if (!file.getFileName().toString().endsWith(".class")) {
               return FileVisitResult.CONTINUE;
             }
-            // TODO(bazel-team): filter with coverage_instrumentation_filter?
-            // It's not clear whether there is any advantage in not instrumenting *Test classes,
-            // apart from lowering the covered percentage in the aggregate statistics.
+            if (!isIncluded(file.toString())) {
+              return FileVisitResult.CONTINUE;
+            }
 
             // We first move the original .class file to our metadata directory, then instrument it
             // and output the instrumented version in the regular classes output directory.

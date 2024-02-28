@@ -146,6 +146,16 @@ public final class RegexFilter implements Predicate<String> {
     return isIncluded(value);
   }
 
+  @Nullable
+  public String getInclusionRegex() {
+    return inclusionPattern == null ? null : inclusionPattern.pattern();
+  }
+
+  @Nullable
+  public String getExclusionRegex() {
+    return exclusionPattern == null ? null : exclusionPattern.pattern();
+  }
+
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
