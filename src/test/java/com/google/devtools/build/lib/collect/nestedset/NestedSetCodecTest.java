@@ -172,10 +172,9 @@ public final class NestedSetCodecTest {
             throw new UnsupportedOperationException();
           }
         };
-    ObjectCodecs serializer = createCodecs(createStore(fingerprintValueStore));
-
+    ObjectCodecs codecs = createCodecs(createStore(fingerprintValueStore));
     NestedSet<?> serialized = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
-    SerializationResult<ByteString> result = serializer.serializeMemoizedAndBlocking(serialized);
+    SerializationResult<ByteString> result = codecs.serializeMemoizedAndBlocking(serialized);
     Future<Void> futureToBlockWritesOn = result.getFutureToBlockWritesOn();
     Exception thrown = assertThrows(ExecutionException.class, futureToBlockWritesOn::get);
     assertThat(thrown).hasCauseThat().isSameInstanceAs(e);
@@ -311,7 +310,6 @@ public final class NestedSetCodecTest {
     NestedSetSerializationCache emptyNestedSetCache = mock(NestedSetSerializationCache.class);
     NestedSetStore nestedSetStore =
         createStoreWithCache(nestedSetFingerprintValueStore, emptyNestedSetCache);
-
     ObjectCodecs objectCodecs = createCodecs(nestedSetStore);
 
     NestedSet<String> subset1 =
@@ -332,7 +330,8 @@ public final class NestedSetCodecTest {
     ByteString fingerprint =
         nestedSetStore
             .computeFingerprintAndStore(
-                (Object[]) set.getChildren(), objectCodecs.getSerializationContext())
+                (Object[]) set.getChildren(),
+                objectCodecs.getSharedValueSerializationContextForTesting())
             .fingerprint();
     verify(nestedSetFingerprintValueStore, times(3)).put(fingerprintCaptor.capture(), any());
     doReturn(subset1Future)
@@ -347,7 +346,7 @@ public final class NestedSetCodecTest {
     ListenableFuture<Object[]> deserializationFuture =
         (ListenableFuture<Object[]>)
             nestedSetStore.getContentsAndDeserialize(
-                fingerprint, objectCodecs.getDeserializationContext());
+                fingerprint, objectCodecs.getDeserializationContext().getMemoizingContext());
     // At this point, we expect deserializationFuture to be waiting on both of the underlying
     // fetches, which should have both been started.
     assertThat(deserializationFuture.isDone()).isFalse();
@@ -416,9 +415,9 @@ public final class NestedSetCodecTest {
         spy(new NestedSetSerializationCache(BugReporter.defaultInstance()));
     NestedSetStore nestedSetStore =
         createStoreWithCache(nestedSetFingerprintValueStore, nestedSetCache);
-    SerializationContext serializationContext = mock(SerializationContext.class);
-    Object[] contents = {new Object()};
-    when(serializationContext.getNewMemoizingContext()).thenReturn(serializationContext);
+    SerializationContext serializationContext =
+        createCodecs(nestedSetStore).getSharedValueSerializationContextForTesting();
+    Object[] contents = {"contents"};
     when(nestedSetFingerprintValueStore.put(any(), any()))
         .thenAnswer(invocation -> SettableFuture.create());
     CountDownLatch fingerprintRequested = new CountDownLatch(2);
@@ -455,8 +454,8 @@ public final class NestedSetCodecTest {
   public void writeFuturesWaitForTransitiveWrites() throws Exception {
     FingerprintValueStore mockWriter = mock(FingerprintValueStore.class);
     NestedSetStore store = createStore(mockWriter);
-    SerializationContext mockSerializationContext = mock(SerializationContext.class);
-    when(mockSerializationContext.getNewMemoizingContext()).thenReturn(mockSerializationContext);
+    SerializationContext serializationContext =
+        createCodecs(store).getSharedValueSerializationContextForTesting();
 
     SettableFuture<Void> bottomReadFuture = SettableFuture.create();
     SettableFuture<Void> middleReadFuture = SettableFuture.create();
@@ -480,11 +479,11 @@ public final class NestedSetCodecTest {
             .build();
 
     ListenableFuture<Void> bottomWriteFuture =
-        NestedSetCodecTestUtils.writeToStoreFuture(store, bottom, mockSerializationContext);
+        NestedSetCodecTestUtils.writeToStoreFuture(store, bottom, serializationContext);
     ListenableFuture<Void> middleWriteFuture =
-        NestedSetCodecTestUtils.writeToStoreFuture(store, middle, mockSerializationContext);
+        NestedSetCodecTestUtils.writeToStoreFuture(store, middle, serializationContext);
     ListenableFuture<Void> topWriteFuture =
-        NestedSetCodecTestUtils.writeToStoreFuture(store, top, mockSerializationContext);
+        NestedSetCodecTestUtils.writeToStoreFuture(store, top, serializationContext);
     assertThat(bottomWriteFuture.isDone()).isFalse();
     assertThat(middleWriteFuture.isDone()).isFalse();
     assertThat(topWriteFuture.isDone()).isFalse();
@@ -538,6 +537,7 @@ public final class NestedSetCodecTest {
     }
 
     FingerprintValueStore fingerprintValueStore = FingerprintValueStore.inMemoryStore();
+
     ObjectCodecs codecs =
         createCodecs(
             createStoreWithCacheContext(
@@ -554,23 +554,14 @@ public final class NestedSetCodecTest {
             Order.STABLE_ORDER,
             Lists.transform(stuff, thing -> ColorfulThing.of(thing, Color.BLUE)));
 
-    ByteString redSerialized =
-        ObjectCodecs.serialize(
-                redStuff,
-                codecs
-                    .getSerializationContext()
-                    .withDependencyOverrides(ImmutableClassToInstanceMap.of(Color.class, Color.RED))
-                    .getMemoizingAndBlockingOnWriteContext())
-            .getObject();
-    ByteString blueSerialized =
-        ObjectCodecs.serialize(
-                blueStuff,
-                codecs
-                    .getSerializationContext()
-                    .withDependencyOverrides(
-                        ImmutableClassToInstanceMap.of(Color.class, Color.BLUE))
-                    .getMemoizingAndBlockingOnWriteContext())
-            .getObject();
+    ObjectCodecs redCodecs =
+        codecs.withDependencyOverridesForTesting(
+            ImmutableClassToInstanceMap.of(Color.class, Color.RED));
+    ByteString redSerialized = redCodecs.serializeMemoizedAndBlocking(redStuff).getObject();
+    ObjectCodecs blueCodecs =
+        codecs.withDependencyOverridesForTesting(
+            ImmutableClassToInstanceMap.of(Color.class, Color.BLUE));
+    ByteString blueSerialized = blueCodecs.serializeMemoizedAndBlocking(blueStuff).getObject();
     assertThat(redSerialized).isEqualTo(blueSerialized);
 
     Object redDeserialized =

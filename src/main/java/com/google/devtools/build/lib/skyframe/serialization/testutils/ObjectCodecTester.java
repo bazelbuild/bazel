@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -207,12 +208,12 @@ public class ObjectCodecTester<T> {
      * individually.
      */
     ObjectCodecTester<T> build() {
-      ImmutableClassToInstanceMap<Object> dependencies = dependenciesBuilder.build();
+      ObjectCodecs codecs = new ObjectCodecs(dependenciesBuilder.build());
       return new ObjectCodecTester<>(
           underTest,
           subjectsBuilder.build(),
-          new SerializationContext(dependencies),
-          new DeserializationContext(dependencies),
+          codecs.getSerializationContextForTesting(),
+          codecs.getDeserializationContext(),
           skipBadDataTest,
           verificationFunction,
           repetitions);

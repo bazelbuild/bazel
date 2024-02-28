@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.packages.semantics;
 
@@ -20,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
@@ -90,9 +89,7 @@ public class ConsistencyTest {
                   new DeserializationContext(ImmutableClassToInstanceMap.of()),
                   codec,
                   TestUtils.toBytes(
-                      new SerializationContext(ImmutableClassToInstanceMap.of()),
-                      codec,
-                      semantics));
+                      new ObjectCodecs().getSerializationContextForTesting(), codec, semantics));
       assertThat(deserialized).isEqualTo(semantics);
     }
   }

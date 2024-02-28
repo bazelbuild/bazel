@@ -27,11 +27,9 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
 import java.util.AbstractMap;
@@ -144,33 +142,29 @@ public final class BuildOptionsTest {
           }
         };
     BuildOptions options = BuildOptions.of(BUILD_CONFIG_OPTIONS);
-    SerializationContext serializationContext =
-        new SerializationContext(
+    ObjectCodecs codecs =
+        new ObjectCodecs(
             ImmutableClassToInstanceMap.of(OptionsChecksumCache.class, failToPrimeCache));
-
-    assertThrows(
-        SerializationException.class, () -> TestUtils.toBytes(serializationContext, options));
+    assertThrows(SerializationException.class, () -> codecs.serialize(options));
   }
 
   @Test
   public void deserialize_unprimedCache_throws() throws Exception {
     BuildOptions options = BuildOptions.of(BUILD_CONFIG_OPTIONS);
 
-    SerializationContext serializationContext =
-        new SerializationContext(
+    ObjectCodecs codecs =
+        new ObjectCodecs(
             ImmutableClassToInstanceMap.of(
                 OptionsChecksumCache.class, new MapBackedChecksumCache()));
-    ByteString bytes = TestUtils.toBytes(serializationContext, options);
+    ByteString bytes = codecs.serialize(options);
     assertThat(bytes).isNotNull();
 
     // Different checksum cache than the one used for serialization, and it has not been primed.
-    DeserializationContext deserializationContext =
-        new DeserializationContext(
+    ObjectCodecs notPrimed =
+        new ObjectCodecs(
             ImmutableClassToInstanceMap.of(
                 OptionsChecksumCache.class, new MapBackedChecksumCache()));
-    Exception e =
-        assertThrows(
-            SerializationException.class, () -> TestUtils.fromBytes(deserializationContext, bytes));
+    Exception e = assertThrows(SerializationException.class, () -> notPrimed.deserialize(bytes));
     assertThat(e).hasMessageThat().contains(options.checksum());
   }
 
@@ -178,20 +172,19 @@ public final class BuildOptionsTest {
   public void deserialize_primedCache_returnsPrimedInstance() throws Exception {
     BuildOptions options = BuildOptions.of(BUILD_CONFIG_OPTIONS);
 
-    SerializationContext serializationContext =
-        new SerializationContext(
+    ObjectCodecs codecs =
+        new ObjectCodecs(
             ImmutableClassToInstanceMap.of(
                 OptionsChecksumCache.class, new MapBackedChecksumCache()));
-    ByteString bytes = TestUtils.toBytes(serializationContext, options);
+    ByteString bytes = codecs.serialize(options);
     assertThat(bytes).isNotNull();
 
     // Different checksum cache than the one used for serialization, but it has been primed.
     OptionsChecksumCache checksumCache = new MapBackedChecksumCache();
     assertThat(checksumCache.prime(options)).isTrue();
-    DeserializationContext deserializationContext =
-        new DeserializationContext(
-            ImmutableClassToInstanceMap.of(OptionsChecksumCache.class, checksumCache));
-    assertThat(TestUtils.fromBytes(deserializationContext, bytes)).isSameInstanceAs(options);
+    ObjectCodecs primed =
+        new ObjectCodecs(ImmutableClassToInstanceMap.of(OptionsChecksumCache.class, checksumCache));
+    assertThat(primed.deserialize(bytes)).isSameInstanceAs(options);
   }
 
   @Test

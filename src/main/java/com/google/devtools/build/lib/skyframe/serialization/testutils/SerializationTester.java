@@ -186,11 +186,10 @@ public class SerializationTester {
 
   private Object deserialize(ByteString serialized, ObjectCodecs codecs)
       throws SerializationException {
-    if (memoize) {
-      return codecs.deserializeMemoized(serialized);
-    } else {
+    if (!memoize) {
       return codecs.deserialize(serialized);
     }
+    return codecs.deserializeMemoized(serialized);
   }
 
   /** Runs serialization/deserialization tests. */
@@ -228,7 +227,7 @@ public class SerializationTester {
       byte[] junkData = new byte[rng.nextInt(JUNK_LENGTH_UPPER_BOUND)];
       rng.nextBytes(junkData);
       try {
-        deserialize(ByteString.copyFrom(junkData), codecs);
+        var unused = deserialize(ByteString.copyFrom(junkData), codecs);
         // OK. Junk string was coincidentally parsed.
       } catch (SerializationException e) {
         // OK. Deserialization of junk failed.

@@ -158,7 +158,7 @@ public class NestedSetStore {
     // fingerprinting but not in the other.  We expect this clearing of memoization state to be a
     // major source of extra work over the naive serialization approach.  The same value may have to
     // be serialized many times across separate fingerprintings.
-    SerializationContext newSerializationContext = serializationContext.getNewMemoizingContext();
+    SerializationContext newSerializationContext = serializationContext.getFreshContext();
     ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
     CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(byteArrayOutputStream);
 

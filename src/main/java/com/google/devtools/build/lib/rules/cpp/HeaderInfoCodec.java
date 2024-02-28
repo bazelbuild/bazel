@@ -145,7 +145,7 @@ public final class HeaderInfoCodec implements ObjectCodec<HeaderInfo> {
 
     // The context must be created fresh each time to reset the memoization state. The result should
     // be deserializable on its own, without additional context.
-    SerializationContext context = baseContext.getNewMemoizingContext();
+    SerializationContext context = baseContext.getFreshContext();
     // Care must be taken to ensure the SettableFuture is actually set to avoid hanging elsewhere.
     boolean futureWasSet = false;
     try {

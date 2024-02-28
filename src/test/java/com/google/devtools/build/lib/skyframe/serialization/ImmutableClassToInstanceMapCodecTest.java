@@ -77,16 +77,10 @@ public class ImmutableClassToInstanceMapCodecTest {
             .getBuilder()
             .add(new DummyThrowingCodec(/*throwsOnSerialization=*/ false))
             .build();
-    ByteString data =
-        TestUtils.toBytes(
-            new SerializationContext(registry, ImmutableClassToInstanceMap.of()),
-            ImmutableClassToInstanceMap.of(Dummy.class, new Dummy()));
+    ObjectCodecs codecs = new ObjectCodecs(registry);
+    ByteString data = codecs.serialize(ImmutableClassToInstanceMap.of(Dummy.class, new Dummy()));
     SerializationException expected =
-        assertThrows(
-            SerializationException.class,
-            () ->
-                TestUtils.fromBytes(
-                    new DeserializationContext(registry, ImmutableClassToInstanceMap.of()), data));
+        assertThrows(SerializationException.class, () -> codecs.deserialize(data));
     assertThat(expected)
         .hasMessageThat()
         .containsMatch("Exception while deserializing value for key 'class .*\\$Dummy'");

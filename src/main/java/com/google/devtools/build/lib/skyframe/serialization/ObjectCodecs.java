@@ -11,22 +11,32 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Wrapper for the minutiae of serializing and deserializing objects using {@link ObjectCodec}s,
  * serving as a layer between the streaming-oriented {@link ObjectCodec} interface and users.
  */
 public class ObjectCodecs {
-  private final ObjectCodecRegistry codecRegistry;
-  private final SerializationContext serializationContext;
+  /**
+   * Default initial capacity of the output byte stream.
+   *
+   * <p>The same value that ByteArrayOutputStream's default constructor uses.
+   */
+  private static final int DEFAULT_OUTPUT_CAPACITY = 32;
+
+  private final ImmutableSerializationContext serializationContext;
   private final DeserializationContext deserializationContext;
 
   /**
@@ -35,8 +45,7 @@ public class ObjectCodecs {
    */
   public ObjectCodecs(
       ObjectCodecRegistry codecRegistry, ImmutableClassToInstanceMap<Object> dependencies) {
-    this.codecRegistry = codecRegistry;
-    serializationContext = new SerializationContext(codecRegistry, dependencies);
+    serializationContext = new ImmutableSerializationContext(codecRegistry, dependencies);
     deserializationContext = new DeserializationContext(codecRegistry, dependencies);
   }
 
@@ -44,77 +53,108 @@ public class ObjectCodecs {
     this(codecRegistry, ImmutableClassToInstanceMap.of());
   }
 
-  public ObjectCodecRegistry getCodecRegistry() {
-    return codecRegistry;
+  public ObjectCodecs(ImmutableClassToInstanceMap<Object> dependencies) {
+    this(AutoRegistry.get(), dependencies);
   }
 
-  public SerializationContext getSerializationContext() {
+  public ObjectCodecs() {
+    this(AutoRegistry.get(), ImmutableClassToInstanceMap.of());
+  }
+
+  @Nullable
+  public byte[] getCodecRegistryChecksum() {
+    return getCodecRegistry().getChecksum();
+  }
+
+  @VisibleForTesting // private
+  public ImmutableSerializationContext getSerializationContextForTesting() {
     return serializationContext;
+  }
+
+  @VisibleForTesting // private
+  public MemoizingSerializationContext getMemoizingSerializationContextForTesting() {
+    return MemoizingSerializationContext.createForTesting(getCodecRegistry(), getDependencies());
+  }
+
+  @VisibleForTesting // private
+  public SharedValueSerializationContext getSharedValueSerializationContextForTesting() {
+    return SharedValueSerializationContext.createForTesting(getCodecRegistry(), getDependencies());
+  }
+
+  @VisibleForTesting // private
+  public ObjectCodecs withDependencyOverridesForTesting(ClassToInstanceMap<?> dependencyOverrides) {
+    return new ObjectCodecs(
+        getCodecRegistry(), overrideDependencies(getDependencies(), dependencyOverrides));
   }
 
   public DeserializationContext getDeserializationContext() {
     return deserializationContext;
   }
 
-  public static SerializationResult<ByteString> serialize(
-      Object subject, SerializationContext context) throws SerializationException {
-    ByteString bytes = serializeToByteString(subject, context);
-    return SerializationResult.create(bytes, context.createFutureToBlockWritingOn());
-  }
-
+  /**
+   * Serializes {@code obj} using a naive traversal.
+   *
+   * <p>This approach works well for simple, tree values. However, the naive traversal will stack
+   * overflow on cyclic structures and can exhibit exponential complexity for DAGs.
+   */
   public ByteString serialize(Object subject) throws SerializationException {
-    return serializeToByteString(subject, serializationContext);
+    ByteString.Output bytesOut = ByteString.newOutput();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
+    try {
+      serializationContext.serialize(subject, codedOut);
+      codedOut.flush();
+    } catch (IOException e) {
+      throw new SerializationException("Failed to serialize " + subject, e);
+    }
+    return bytesOut.toByteString();
   }
 
   public void serialize(Object subject, CodedOutputStream codedOut) throws SerializationException {
-    serializeImpl(subject, codedOut, serializationContext);
+    try {
+      serializationContext.serialize(subject, codedOut);
+    } catch (IOException e) {
+      throw new SerializationException("Failed to serialize " + subject, e);
+    }
   }
 
-  public ByteString serializeMemoized(Object subject) throws SerializationException {
-    return serializeToByteString(subject, serializationContext.getMemoizingContext());
+  /** Serializes {@code subject} using memoization. */
+  public ByteString serializeMemoized(@Nullable Object subject) throws SerializationException {
+    return MemoizingSerializationContext.serializeToByteString(
+        getCodecRegistry(),
+        getDependencies(),
+        subject,
+        DEFAULT_OUTPUT_CAPACITY,
+        CodedOutputStream.DEFAULT_BUFFER_SIZE);
   }
 
-  public void serializeMemoized(Object subject, CodedOutputStream codedOut)
-      throws SerializationException {
-    serializeImpl(subject, codedOut, serializationContext.getMemoizingContext());
+  /**
+   * Serializes {@code subject} using memoization, with {@code byte[]} output.
+   *
+   * @param outputCapacity the initial capacity of the {@link ByteArrayOutputStream}
+   * @param bufferSize size passed to {@link CodedOutputStream#newInstance}
+   */
+  public byte[] serializeMemoizedToBytes(
+      @Nullable Object subject, int outputCapacity, int bufferSize) throws SerializationException {
+    return MemoizingSerializationContext.serializeToBytes(
+        getCodecRegistry(), getDependencies(), subject, outputCapacity, bufferSize);
   }
 
+  /** Serializes {@code subject} using a {@link SharedValueSerializationContext}. */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(Object subject)
       throws SerializationException {
-    return serialize(subject, serializationContext.getMemoizingAndBlockingOnWriteContext());
+    return SharedValueSerializationContext.serializeToResult(
+        getCodecRegistry(), getDependencies(), subject);
   }
 
+  /**
+   * Serializes {@code subject} using a {@link SharedValueSerializationContext}.
+   *
+   * @param dependencyOverrides dependencies to override, see {@link #overrideDependencies}
+   */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(
-      Object subject, ImmutableClassToInstanceMap<?> dependencyOverrides)
-      throws SerializationException {
-    return serialize(
-        subject,
-        serializationContext
-            .withDependencyOverrides(dependencyOverrides)
-            .getMemoizingAndBlockingOnWriteContext());
-  }
-
-  private static ByteString serializeToByteString(Object subject, SerializationContext context)
-      throws SerializationException {
-    ByteString.Output resultOut = ByteString.newOutput();
-    CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
-    serializeImpl(subject, codedOut, context);
-    try {
-      codedOut.flush();
-      return resultOut.toByteString();
-    } catch (IOException e) {
-      throw new SerializationException("Failed to serialize " + subject, e);
-    }
-  }
-
-  private static void serializeImpl(
-      Object subject, CodedOutputStream codedOut, SerializationContext context)
-      throws SerializationException {
-    try {
-      context.serialize(subject, codedOut);
-    } catch (IOException e) {
-      throw new SerializationException("Failed to serialize " + subject, e);
-    }
+      Object subject, ClassToInstanceMap<?> dependencyOverrides) throws SerializationException {
+    return SharedValueSerializationContext.serializeToResult(
+        getCodecRegistry(), overrideDependencies(getDependencies(), dependencyOverrides), subject);
   }
 
   public static Object deserialize(CodedInputStream codedIn, DeserializationContext context)
@@ -160,5 +200,32 @@ public class ObjectCodecs {
 
   public Object deserializeMemoized(CodedInputStream codedIn) throws SerializationException {
     return deserialize(codedIn, deserializationContext.getMemoizingContext());
+  }
+
+  // It's awkward that values are read from `serializationContext` instead of
+  // `deserializationContext` and that they always have the same values. There's not much cohesion
+  // between these two, however, so introducing an extra layer of indirection to store a (codec
+  // registry, dependencies) tuple doesn't appear to be worth it.
+
+  private ObjectCodecRegistry getCodecRegistry() {
+    return serializationContext.getCodecRegistry();
+  }
+
+  private ImmutableClassToInstanceMap<Object> getDependencies() {
+    return serializationContext.getDependencies();
+  }
+
+  /**
+   * Returns a new dependency map composed by applying overrides to {@code dependencies}.
+   *
+   * <p>The given {@code dependencyOverrides} may contain keys already present (in which case the
+   * dependency will be replaced) or new keys (in which case the dependency will be added).
+   */
+  private static ImmutableClassToInstanceMap<Object> overrideDependencies(
+      ImmutableClassToInstanceMap<Object> dependencies, ClassToInstanceMap<?> dependencyOverrides) {
+    return ImmutableClassToInstanceMap.builder()
+        .putAll(Maps.filterKeys(dependencies, k -> !dependencyOverrides.containsKey(k)))
+        .putAll(dependencyOverrides)
+        .build();
   }
 }

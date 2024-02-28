@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
@@ -122,16 +121,10 @@ public class ImmutableMapCodecTest {
             .getBuilder()
             .add(new DummyThrowingCodec(/*throwsOnSerialization=*/ false))
             .build();
-    ByteString data =
-        TestUtils.toBytes(
-            new SerializationContext(registry, ImmutableClassToInstanceMap.of()),
-            ImmutableMap.of("a", new Dummy()));
+    ObjectCodecs codecs = new ObjectCodecs(registry);
+    ByteString data = codecs.serialize(ImmutableMap.of("a", new Dummy()));
     SerializationException expected =
-        assertThrows(
-            SerializationException.class,
-            () ->
-                TestUtils.fromBytes(
-                    new DeserializationContext(registry, ImmutableClassToInstanceMap.of()), data));
+        assertThrows(SerializationException.class, () -> codecs.deserialize(data));
     assertThat(expected)
         .hasMessageThat()
         .contains("Exception while deserializing value for key 'a'");

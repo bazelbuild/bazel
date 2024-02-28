@@ -68,26 +68,22 @@ public class TestUtils {
 
   public static <T> T roundTrip(T value, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
-    return new DeserializationContext(registry, ImmutableClassToInstanceMap.of())
-        .deserialize(
-            toBytes(new SerializationContext(registry, ImmutableClassToInstanceMap.of()), value)
-                .newCodedInput());
+    return roundTrip(value, new ObjectCodecs(registry));
   }
 
   public static <T> T roundTrip(T value, ImmutableClassToInstanceMap<Object> dependencies)
       throws IOException, SerializationException {
-    ObjectCodecRegistry.Builder builder = AutoRegistry.get().getBuilder();
-    for (Object constant : dependencies.values()) {
-      builder.addReferenceConstant(constant);
-    }
-    ObjectCodecRegistry registry = builder.build();
-    return new DeserializationContext(registry, dependencies)
-        .deserialize(
-            toBytes(new SerializationContext(registry, dependencies), value).newCodedInput());
+    return roundTrip(value, new ObjectCodecs(dependencies));
   }
 
   public static <T> T roundTrip(T value) throws IOException, SerializationException {
-    return TestUtils.roundTrip(value, ImmutableClassToInstanceMap.of());
+    return roundTrip(value, new ObjectCodecs());
+  }
+
+  private static <T> T roundTrip(T value, ObjectCodecs codecs) throws SerializationException {
+    @SuppressWarnings("unchecked")
+    T result = (T) codecs.deserialize(codecs.serialize(value));
+    return result;
   }
 
   /**
@@ -104,11 +100,7 @@ public class TestUtils {
 
   public static ByteString toBytesMemoized(Object original, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
-    ByteString.Output output = ByteString.newOutput();
-    CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
-    new ObjectCodecs(registry).serializeMemoized(original, codedOut);
-    codedOut.flush();
-    return output.toByteString();
+    return new ObjectCodecs(registry).serializeMemoized(original);
   }
 
   public static Object fromBytesMemoized(ByteString bytes, ObjectCodecRegistry registry)
@@ -119,9 +111,8 @@ public class TestUtils {
   @SuppressWarnings("unchecked")
   public static <T> T roundTripMemoized(T original, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
-    return (T)
-        new ObjectCodecs(registry)
-            .deserializeMemoized(toBytesMemoized(original, registry).newCodedInput());
+    ObjectCodecs codecs = new ObjectCodecs(registry);
+    return (T) codecs.deserializeMemoized(codecs.serializeMemoized(original));
   }
 
   public static <T> T roundTripMemoized(T original, ObjectCodec<?>... codecs)

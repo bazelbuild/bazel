@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
@@ -73,16 +72,10 @@ public class ImmutableBiMapCodecTest {
             .getBuilder()
             .add(new DummyThrowingCodec(/*throwsOnSerialization=*/ false))
             .build();
-    ByteString data =
-        TestUtils.toBytes(
-            new SerializationContext(registry, ImmutableClassToInstanceMap.of()),
-            ImmutableBiMap.of("a", new Dummy()));
+    ObjectCodecs codecs = new ObjectCodecs(registry);
+    ByteString data = codecs.serialize(ImmutableBiMap.of("a", new Dummy()));
     SerializationException expected =
-        assertThrows(
-            SerializationException.class,
-            () ->
-                TestUtils.fromBytes(
-                    new DeserializationContext(registry, ImmutableClassToInstanceMap.of()), data));
+        assertThrows(SerializationException.class, () -> codecs.deserialize(data));
     assertThat(expected)
         .hasMessageThat()
         .contains("Exception while deserializing value for key 'a'");
