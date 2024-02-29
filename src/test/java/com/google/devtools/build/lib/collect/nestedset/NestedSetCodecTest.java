@@ -410,22 +410,30 @@ public final class NestedSetCodecTest {
 
   @Test
   public void racingSerialization() throws Exception {
-    FingerprintValueStore nestedSetFingerprintValueStore = mock(FingerprintValueStore.class);
+    // Exercises calling serialization twice for the same contents, concurrently, in 2 threads.
+    FingerprintValueStore fingerprintValueStore = spy(FingerprintValueStore.inMemoryStore());
     NestedSetSerializationCache nestedSetCache =
         spy(new NestedSetSerializationCache(BugReporter.defaultInstance()));
-    NestedSetStore nestedSetStore =
-        createStoreWithCache(nestedSetFingerprintValueStore, nestedSetCache);
+    NestedSetStore nestedSetStore = createStoreWithCache(fingerprintValueStore, nestedSetCache);
     SerializationContext serializationContext =
         createCodecs(nestedSetStore).getSharedValueSerializationContextForTesting();
     Object[] contents = {"contents"};
-    when(nestedSetFingerprintValueStore.put(any(), any()))
-        .thenAnswer(invocation -> SettableFuture.create());
+    // NestedSet serialization of a `contents` Object[] performs the following steps in sequence.
+    // 1. Checks if the fingerprint is already available via
+    //    NestedSetSerializationCache.fingerprintForContents for `contents`.
+    //    (If the fingerprint is already available, the computation is short-circuited.)
+    // 2. Serializes to bytes and computes a fingerprint for those bytes.
+    // 3. Puts the fingerprint into the cache.
+    //
+    // The latch here ensures that both threads do not short circuit in step 1.
     CountDownLatch fingerprintRequested = new CountDownLatch(2);
     doAnswer(
             invocation -> {
-              fingerprintRequested.countDown();
               PutOperation result = (PutOperation) invocation.callRealMethod();
               assertThat(result).isNull();
+              // Allows the other thread to progress only after checking for the fingerprint.
+              fingerprintRequested.countDown();
+              // Waits for the other thread to finish checking the fingerprint before proceeding.
               fingerprintRequested.await();
               return null;
             })
@@ -446,7 +454,7 @@ public final class NestedSetCodecTest {
     PutOperation result = nestedSetStore.computeFingerprintAndStore(contents, serializationContext);
     asyncThread.join();
 
-    verify(nestedSetFingerprintValueStore).put(any(), any());
+    verify(fingerprintValueStore).put(any(), any());
     assertThat(result).isSameInstanceAs(asyncResult.get());
   }
 
