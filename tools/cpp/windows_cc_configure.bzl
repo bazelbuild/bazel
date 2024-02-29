@@ -470,10 +470,10 @@ def _find_missing_vc_tools(repository_ctx, vc_path, target_arch = "x64"):
 def _get_target_tools(target):
     """Return a list of required tools names and their filenames for a certain target."""
     tools = {
-        "x64": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "ML": "ml64.exe"},
-        "x86": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "ML": "ml.exe"},
-        "arm": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe"},
-        "arm64": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe"},
+        "x64": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "DUMPBIN": "dumpbin.exe", "ML": "ml64.exe"},
+        "x86": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "DUMPBIN": "dumpbin.exe", "ML": "ml.exe"},
+        "arm": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "DUMPBIN": "dumpbin.exe"},
+        "arm64": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "DUMPBIN": "dumpbin.exe"},
     }
     if tools.get(target) == None:
         auto_configure_fail("Target architecture %s is not recognized" % target)
@@ -719,6 +719,7 @@ Fix this by installing the English language pack for the Visual Studio installat
         "%{msvc_ml_path_" + target_arch + "}": build_tools.get("ML", "msvc_arm_toolchain_does_not_support_ml"),
         "%{msvc_link_path_" + target_arch + "}": build_tools["LINK"],
         "%{msvc_lib_path_" + target_arch + "}": build_tools["LIB"],
+        "%{msvc_dumpbin_path_" + target_arch + "}": build_tools["DUMPBIN"],
         "%{msvc_parse_showincludes_" + target_arch + "}": repr(support_parse_showincludes),
         "%{dbg_mode_debug_flag_" + target_arch + "}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
         "%{fastbuild_mode_debug_flag_" + target_arch + "}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",

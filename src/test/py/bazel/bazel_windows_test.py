@@ -556,6 +556,51 @@ class BazelWindowsTest(test_base.TestBase):
         ['test', '--incompatible_check_sharding_support', '//:foo_test']
     )
 
+  def testMakeVariableForDumpbinExecutable(self):
+    if not self.IsWindows():
+      return
+
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '    name = "test_dll",',
+            '    linkshared = 1,',
+            '    srcs = ["dllexport.c"],',
+            ')',
+            'genrule(',
+            '    name = "dumpbin",',
+            '    srcs = [":test_dll"],',
+            '    outs = ["dumpbin_out.txt"],',
+            # We have to use double quotes due to /S argument in cmd.exe call
+            (
+                '    cmd_bat = \'""$(DUMPBIN)"" /EXPORTS $(location :test_dll)'
+                " > $@',"
+            ),
+            (
+                '    toolchains ='
+                ' ["@bazel_tools//tools/cpp:current_cc_toolchain"],'
+            ),
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'dllexport.c',
+        [
+            '__declspec(dllexport) int windows_dllexport_test() { return 1; }',
+        ],
+    )
+
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
+    bazel_bin = stdout[0]
+
+    self.RunBazel(['build', ':dumpbin'])
+
+    dumpbin_out = os.path.join(bazel_bin, 'dumpbin_out.txt')
+    self.assertTrue(os.path.exists(dumpbin_out))
+    self.AssertFileContentContains(dumpbin_out, 'windows_dllexport_test')
+
 
 if __name__ == '__main__':
   absltest.main()
