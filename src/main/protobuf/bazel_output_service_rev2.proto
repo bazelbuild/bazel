@@ -51,12 +51,20 @@ message StartBuildArgs {
   build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 3;
 }
 
-
 message FileArtifactLocator {
   build.bazel.remote.execution.v2.Digest digest = 1;
 }
 
 message TreeArtifactLocator {
+  // The digest of the encoded [Tree][build.bazel.remote.execution.v2.Tree]
+  // proto containing the directory's contents.
   build.bazel.remote.execution.v2.Digest tree_digest = 1;
+
+  // The digest of the encoded
+  // [Directory][build.bazel.remote.execution.v2.Directory] proto containing the
+  // contents the directory's root.
+  //
+  // If both `tree_digest` and `root_directory_digest` are set, this field MUST
+  // match the digest of the root directory contained in the Tree message.
   build.bazel.remote.execution.v2.Digest root_directory_digest = 2;
 }

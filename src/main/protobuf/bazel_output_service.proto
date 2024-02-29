@@ -42,7 +42,7 @@ option go_package = "bazeloutputservice";
 service BazelOutputService {
   // Clean all data associated with a single output path, so that the
   // next invocation of StartBuild() yields an empty output path. This
-  // may be implemented in a way that's faster than removing all of the
+  // MAY be implemented in a way that's faster than removing all of the
   // files from the file system manually.
   rpc Clean(CleanRequest) returns (CleanResponse);
 
@@ -57,19 +57,30 @@ service BazelOutputService {
   // responsible for calling ContentAddressableStorage.FindMissingBlobs() for
   // all of the objects that are stored remotely. This ensures that these
   // objects don't disappear from the Content Addressable Storage while the
-  // build is running. Any files that are absent must be removed from the output
-  // path and reported through InitialOutputPathContents.modified_paths.
+  // build is running. Any files that are absent MUST be removed from the output
+  // path and reported through InitialOutputPathContents.modified_paths, unless
+  // the field has been omitted because it would have been too large.
   rpc StartBuild(StartBuildRequest) returns (StartBuildResponse);
 
   // Stage build artifacts at the given paths with digests that are known to the
-  // Content Addressable Storage. Contents of these files can be lazily staged.
+  // Content Addressable Storage. The file contents MAY be lazily downloaded
+  // when they're accessed in the future, and are not guaranteed to have already
+  // been downloaded upon return.
   rpc StageArtifacts(StageArtifactsRequest) returns (StageArtifactsResponse);
 
-  // Notifies server that a set of files will no longer be modified by Bazel or
-  // local build actions. Server should unset "dirty" bit for these files if it
-  // tracks file modifications under output path. If these paths are modified
-  // via FUSE operations later, they should be reported back to Bazel in the
-  // next InitialOutputPathContents.modified_paths for the same workspace.
+  // Notify the server that a set of paths are not expected to be modified
+  // further by Bazel or a local build action within the current build.
+  //
+  // For each of these paths, the server MAY decide to store a dirty bit,
+  // initially unset. Subsequent modifications to the contents, or deletion of,
+  // the file stored at that path, cause the dirty bit to be set. If the server
+  // chooses to implement the dirty bit, any paths with the dirty bit set MUST
+  // be reported back to Bazel in the next
+  // InitialOutputPathContents.modified_paths for the same workspace.
+  //
+  // As an alternative to tracking modifications via a dirty bit, a server MAY
+  // choose to freeze finalized paths, preventing further modifications to the
+  // files stored there.
   rpc FinalizeArtifacts(FinalizeArtifactsRequest) returns (FinalizeArtifactsResponse);
 
   // Signal that a build has been completed.
@@ -122,13 +133,17 @@ message StartBuildRequest {
 
   // A client-chosen value that uniquely identifies this build. This value must
   // be provided to most other methods to ensure that operations are targeted
-  // against the right output path.
+  // against the right output path. If the server receives a subsequent request
+  // with a non-matching build_id, it SHOULD send back an error response.
   //
   // Bazel sets this value to --invocation_id.
   string build_id = 3;
 
   // Additional arguments to pass depending on how Bazel communicate with the
   // Content Addressable Storage.
+  //
+  // In case of a REv2 CAS, the type is
+  // [StartBuildArgs][bazel_output_service_rev2.StartBuildArgs].
   google.protobuf.Any args = 4;
 
   // The absolute path at which the remote output service exposes its output
@@ -195,6 +210,10 @@ message StageArtifactsRequest {
     // path is relative to StartBuildResponse.output_path.
     string path = 1;
     // Describe how to stage the artifact.
+    //
+    // The concrete type of the locator depending on the CAS Bazel connects to.
+    // In case of a REv2 CAS, the type is
+    // [FileArtifactLocator][bazel_output_service_rev2.FileArtifactLocator].
     google.protobuf.Any locator = 2;
   }
 
@@ -208,7 +227,7 @@ message StageArtifactsRequest {
 message StageArtifactsResponse {
   message Response {
     // If the status has a code other than `OK`, it indicates that the artifact
-    // cannot be staged.
+    // could not be staged.
     //
     // Errors:
     // * `NOT_FOUND`: The requested Artifact is not in the CAS.
@@ -227,14 +246,13 @@ message FinalizeArtifactsRequest {
     string path = 1;
     // Expected digest for this file. This allows server to detect if the file
     // has been changed after Bazel finished creating the file and the
-    // corresponding FinalizeArtifactsRequest is processed. This field is
-    // optional for regular files, and should be omitted for directories and
-    // symlinks.
+    // corresponding FinalizeArtifactsRequest is processed. This field MAY be
+    // set for regular files, and MUST be omitted for directories and symlinks.
     //
-    // The concrete type of the digest depending on the CAS Bazel connects to.
+    // The concrete type of the locator depending on the CAS Bazel connects to.
     // In case of a REv2 CAS, the type is
-    // [Digest][build.bazel.remote.execution.v2.Digest].
-    google.protobuf.Any digest = 2;
+    // [FileArtifactLocator][bazel_output_service_rev2.FileArtifactLocator].
+    google.protobuf.Any locator = 2;
   }
 
   // The identifier of the build. Server uses this to determine which output
@@ -252,7 +270,7 @@ message FinalizeBuildRequest {
   // The identifier of the build that should be finalized.
   string build_id = 1;
 
-  // Whether the build completed successfully. The remote output service may,
+  // Whether the build completed successfully. The remote output service MAY,
   // for example, use this option to apply different retention policies that
   // take the outcome of the build into account.
   bool build_successful = 2;
@@ -267,9 +285,15 @@ message BatchStatRequest {
   // determine which output path needs to be inspected.
   string build_id = 1;
 
-  // Paths whose status needs to be obtained. The server MUST resolve the path
-  // using lstat semantic, i.e. components except the last one must be resolved
-  // if they are symlinks.
+  // Paths whose status needs to be obtained. The server MUST canonicalize the
+  // path using lstat semantics and StartBuildRequest.output_path_aliases, i.e.
+  // components except the last one must be resolved if they are symlinks. If
+  // the symlink pointing to a location outside of the output path, but is a
+  // StartBuildRequest.output_path_aliases, the server MAY use the alias to
+  // continue the canonicalization.
+  //
+  // Refer to Stat.type for how to handle a situation where canonicalization
+  // fails due to a symlink pointing to a location outside of the output path.
   //
   // Path is relative to StartBuildResponse.output_path.
   repeated string paths = 2;
@@ -277,12 +301,12 @@ message BatchStatRequest {
 
 message BatchStatResponse {
   message StatResponse {
-    // The status of the file. If the file corresponding with the requested path
-    // does not exist, this field will be null.
-    FileStat file_stat = 1;
+    // The status of the file. If no file exists at the requested path, this
+    // field MUST be unset.
+    Stat stat = 1;
   }
 
-  message FileStat {
+  message Stat {
     message File {
       // The digest of the file.
       //
@@ -301,11 +325,12 @@ message BatchStatResponse {
     }
 
     // If the path resolves to a location outside the output path where the
-    // server is unable to obtain its status, none of the file_type will be set.
+    // server is unable to obtain its status, the server MUST NOT set any of the
+    // type fields.
     //
-    // If the path resolves to a special file, none of the file_type will be
-    // set.
-    oneof file_type {
+    // If the path resolves to a special file, the server MUST NOT set any of
+    // the type fields.
+    oneof type {
       // The path resolves to a regular file.
       File file = 1;
 
