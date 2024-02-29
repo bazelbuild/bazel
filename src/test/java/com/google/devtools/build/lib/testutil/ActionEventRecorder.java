@@ -244,10 +244,9 @@ public final class ActionEventRecorder {
 
     assertRewindActionStats(actionRewindingPostLostInputCounts, lostInputAndActionsPosts);
 
-    // No middlemen, no worries
-    // for (Predicate<ActionMiddlemanEvent> check : exactlyOneMiddlemanEventChecks) {
-    //   assertThat(actionMiddlemanEvents.stream().filter(check).count()).isEqualTo(1);
-    // }
+    for (Predicate<ActionMiddlemanEvent> check : exactlyOneMiddlemanEventChecks) {
+      assertThat(actionMiddlemanEvents.stream().filter(check)).hasSize(1);
+    }
     assertThat(cachedActionEvents).isEmpty();
   }
 
