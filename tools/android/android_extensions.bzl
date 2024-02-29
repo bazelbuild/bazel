@@ -31,3 +31,82 @@ def _remote_android_tools_extensions_impl(_ctx):
 remote_android_tools_extensions = module_extension(
     implementation = _remote_android_tools_extensions_impl,
 )
+
+def _android_external_repository_impl(repo_ctx):
+    repo_ctx.file(
+        "BUILD",
+        """
+alias(
+  name  = "has_androidsdk",
+  actual = "%s",
+  visibility = ["//visibility:public"],
+)
+alias(
+  name  = "dx_jar_import",
+  actual = "%s",
+  visibility = ["//visibility:public"],
+)
+alias(
+  name = "android_sdk_for_testing",
+  actual = "%s",
+  visibility = ["//visibility:public"],
+)
+alias(
+  name = "android_ndk_for_testing",
+  actual = "%s",
+  visibility = ["//visibility:public"],
+)
+""" % (
+            repo_ctx.attr.has_androidsdk,
+            repo_ctx.attr.dx_jar_import,
+            repo_ctx.attr.android_sdk_for_testing,
+            repo_ctx.attr.android_ndk_for_testing,
+        ),
+    )
+
+    pass
+
+android_external_repository = repository_rule(
+    implementation = _android_external_repository_impl,
+    attrs = {
+        "has_androidsdk": attr.label(default = "@bazel_tools//tools/android:always_false"),
+        "dx_jar_import": attr.label(default = "@bazel_tools//tools/android:no_android_sdk_repository_error"),
+        "android_sdk_for_testing": attr.label(default = "@bazel_tools//tools/android:empty"),
+        "android_ndk_for_testing": attr.label(default = "@bazel_tools//tools/android:empty"),
+    },
+    local = True,
+)
+
+def _android_sdk_proxy_extensions_impl(module_ctx):
+    root_modules = [m for m in module_ctx.modules if m.is_root]
+    if len(root_modules) > 1:
+        fail("Expected at most one root module, found {}".format(", ".join([x.name for x in root_modules])))
+
+    if root_modules:
+        module = root_modules[0]
+    else:
+        module = module_ctx.modules[0]
+
+    kwargs = {}
+    if module.tags.configure:
+        kwargs["has_androidsdk"] = module.tags.configure[0].has_androidsdk
+        kwargs["dx_jar_import"] = module.tags.configure[0].dx_jar_import
+        kwargs["android_sdk_for_testing"] = module.tags.configure[0].android_sdk_for_testing
+        kwargs["android_ndk_for_testing"] = module.tags.configure[0].android_ndk_for_testing
+
+    android_external_repository(
+        name = "android_external",
+        **kwargs
+    )
+
+android_sdk_proxy_extensions = module_extension(
+    implementation = _android_sdk_proxy_extensions_impl,
+    tag_classes = {
+        "configure": tag_class(attrs = {
+            "has_androidsdk": attr.label(default = "@bazel_tools//tools/android:always_false"),
+            "dx_jar_import": attr.label(default = "@bazel_tools//tools/android:no_android_sdk_repository_error"),
+            "android_sdk_for_testing": attr.label(default = "@bazel_tools//tools/android:empty"),
+            "android_ndk_for_testing": attr.label(default = "@bazel_tools//tools/android:empty"),
+        }),
+    },
+)

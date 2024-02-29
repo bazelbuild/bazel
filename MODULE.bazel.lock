@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "979421da58e7667e2ced1ec085f90699cbd25925dae2bc3f83269c62c7be36c0",
+  "moduleFileHash": "ea0b5bfb8ce9d22dd6a775d23311d99ad1655deb9ce68dd4e4e07edf75bfd717",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -602,6 +602,23 @@
           "imports": {
             "android_gmaven_r8": "android_gmaven_r8",
             "android_tools": "android_tools"
+          },
+          "devImports": [],
+          "tags": [],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
+          "extensionBzlFile": "@io_bazel//tools/android:android_extensions.bzl",
+          "extensionName": "android_sdk_proxy_extensions",
+          "usingModule": "<root>",
+          "location": {
+            "file": "@@//:MODULE.bazel",
+            "line": 366,
+            "column": 45
+          },
+          "imports": {
+            "android_external": "android_external"
           },
           "devImports": [],
           "tags": [],
@@ -2748,8 +2765,8 @@
       "general": {
         "bzlTransitiveDigest": "r8gQnSLwon27gWD77J8mb3DIe4v3gtn7J/rsic53Qyw=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "0b68adc1bedee1509b9d94dcb750cfc233deb2bb02276dab07c2b8ccf7b9213e",
-          "@@//:MODULE.bazel": "979421da58e7667e2ced1ec085f90699cbd25925dae2bc3f83269c62c7be36c0"
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "757d0a347552181528c083af9e8851fe4a0ca87ef21794f843fbfc2742cbfed1",
+          "@@//:MODULE.bazel": "ea0b5bfb8ce9d22dd6a775d23311d99ad1655deb9ce68dd4e4e07edf75bfd717"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -3300,9 +3317,26 @@
         "recordedRepoMappingEntries": []
       }
     },
+    "//tools/android:android_extensions.bzl%android_sdk_proxy_extensions": {
+      "general": {
+        "bzlTransitiveDigest": "2AZ7StOD4EzjLI/J5lC8j+ezjzb6hAcRySycgrwBFRk=",
+        "accumulatedFileDigests": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "android_external": {
+            "bzlFile": "@@//tools/android:android_extensions.bzl",
+            "ruleClassName": "android_external_repository",
+            "attributes": {
+              "name": "_main~android_sdk_proxy_extensions~android_external"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
     "//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "vsrPPBNf8OgywAYLMcIL1oNm2R8WtbCIL9wgQBUecpA=",
+        "bzlTransitiveDigest": "2AZ7StOD4EzjLI/J5lC8j+ezjzb6hAcRySycgrwBFRk=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {

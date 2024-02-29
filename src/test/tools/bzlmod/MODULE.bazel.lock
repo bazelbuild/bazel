@@ -13,7 +13,7 @@
     "compatibilityMode": "ERROR"
   },
   "localOverrideHashes": {
-    "bazel_tools": "1ae69322ac3823527337acf02016e8ee95813d8d356f47060255b8956fa642f0"
+    "bazel_tools": "e82a6b9d2289bd561deefe937f051155137c26d22da6fc1b01c1bdd59f3b393f"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -150,12 +150,29 @@
           "hasNonDevUseExtension": true
         },
         {
+          "extensionBzlFile": "@bazel_tools//tools/android:android_extensions.bzl",
+          "extensionName": "android_sdk_proxy_extensions",
+          "usingModule": "bazel_tools@_",
+          "location": {
+            "file": "@@bazel_tools//:MODULE.bazel",
+            "line": 46,
+            "column": 45
+          },
+          "imports": {
+            "android_external": "android_external"
+          },
+          "devImports": [],
+          "tags": [],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
           "extensionBzlFile": "@buildozer//:buildozer_binary.bzl",
           "extensionName": "buildozer_binary",
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 47,
+            "line": 50,
             "column": 33
           },
           "imports": {
@@ -1061,9 +1078,25 @@
         ]
       }
     },
+    "@@bazel_tools//tools/android:android_extensions.bzl%android_sdk_proxy_extensions": {
+      "general": {
+        "bzlTransitiveDigest": "2AZ7StOD4EzjLI/J5lC8j+ezjzb6hAcRySycgrwBFRk=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "android_external": {
+            "bzlFile": "@@bazel_tools//tools/android:android_extensions.bzl",
+            "ruleClassName": "android_external_repository",
+            "attributes": {}
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
     "@@bazel_tools//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "vsrPPBNf8OgywAYLMcIL1oNm2R8WtbCIL9wgQBUecpA=",
+        "bzlTransitiveDigest": "2AZ7StOD4EzjLI/J5lC8j+ezjzb6hAcRySycgrwBFRk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
