@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -38,17 +39,18 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -56,12 +58,16 @@ import javax.annotation.Nullable;
 /** Fetches external repositories. Which is so fetch. */
 @Command(
     name = FetchCommand.NAME,
+    builds = true,
+    inherits = {TestCommand.class},
     options = {
       FetchOptions.class,
+      CqueryOptions.class,
       PackageOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class
     },
+    usesConfigurationOptions = true,
     help = "resource:fetch.txt",
     shortDescription = "Fetches external repositories that are prerequisites to the targets.",
     allowResidue = true,
@@ -69,6 +75,14 @@ import javax.annotation.Nullable;
 public final class FetchCommand implements BlazeCommand {
 
   public static final String NAME = "fetch";
+
+  @Override
+  public void editOptions(OptionsParser optionsParser) {
+    // We only need to inject these options with fetch target (when there is a residue)
+    if (!optionsParser.getResidue().isEmpty()) {
+      TargetFetcher.injectOptionsToFetchTarget(optionsParser);
+    }
+  }
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
@@ -100,7 +114,6 @@ public final class FetchCommand implements BlazeCommand {
     BlazeCommandResult result;
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     try {
-      env.syncPackageLoading(options);
       if (!options.getResidue().isEmpty()) {
         result = fetchTarget(env, options, options.getResidue());
       } else if (!fetchOptions.repos.isEmpty()) {
@@ -108,9 +121,6 @@ public final class FetchCommand implements BlazeCommand {
       } else { // --all, --configure, or just 'fetch'
         result = fetchAll(env, threadsOption, fetchOptions.configure);
       }
-    } catch (AbruptExitException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), e.getMessage(), e.getDetailedExitCode());
     } catch (InterruptedException e) {
       return createFailedBlazeCommandResult(
           env.getReporter(), "Fetch interrupted: " + e.getMessage());

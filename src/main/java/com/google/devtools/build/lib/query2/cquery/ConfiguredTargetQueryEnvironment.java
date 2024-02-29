@@ -61,6 +61,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -88,6 +89,12 @@ public class ConfiguredTargetQueryEnvironment
   private final KeyExtractor<ConfiguredTarget, ConfiguredTargetKey> configuredTargetKeyExtractor;
 
   private final ConfiguredTargetAccessor accessor;
+
+  /**
+   * Only passed when this is a call from a non query command like Fetch or Vendor, where we don't
+   * need the output printed
+   */
+  private Optional<NamedThreadSafeOutputFormatterCallback<CqueryNode>> noOutputFormatter;
 
   /**
    * Stores every configuration in the transitive closure of the build graph as a map from its
@@ -152,7 +159,8 @@ public class ConfiguredTargetQueryEnvironment
       Supplier<WalkableGraph> walkableGraphSupplier,
       CqueryOptions cqueryOptions,
       TopLevelArtifactContext topLevelArtifactContext,
-      LabelPrinter labelPrinter)
+      LabelPrinter labelPrinter,
+      Optional<NamedThreadSafeOutputFormatterCallback<CqueryNode>> noOutputFormatter)
       throws InterruptedException {
     this(
         keepGoing,
@@ -167,6 +175,7 @@ public class ConfiguredTargetQueryEnvironment
         topLevelArtifactContext,
         labelPrinter);
     this.cqueryOptions = cqueryOptions;
+    this.noOutputFormatter = noOutputFormatter;
   }
 
   private static ImmutableList<QueryFunction> populateFunctions() {
@@ -204,78 +213,112 @@ public class ConfiguredTargetQueryEnvironment
           throws QueryException, InterruptedException {
     AspectResolver aspectResolver =
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
-    return ImmutableList.of(
-        new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true, getLabelPrinter()),
-        new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, false, getLabelPrinter()),
-        new TransitionsOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            ruleClassProvider,
-            getLabelPrinter()),
-        new ProtoOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            aspectResolver,
-            OutputType.BINARY,
-            ruleClassProvider,
-            getLabelPrinter()),
-        new ProtoOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            aspectResolver,
-            OutputType.DELIMITED_BINARY,
-            ruleClassProvider,
-            labelPrinter),
-        new ProtoOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            aspectResolver,
-            OutputType.TEXT,
-            ruleClassProvider,
-            getLabelPrinter()),
-        new ProtoOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            aspectResolver,
-            OutputType.JSON,
-            ruleClassProvider,
-            getLabelPrinter()),
-        new BuildOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, getLabelPrinter()),
-        new GraphOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            kct -> getFwdDeps(ImmutableList.of(kct)),
-            getLabelPrinter()),
-        new StarlarkOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, starlarkSemantics),
-        new FilesOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, topLevelArtifactContext));
+    ImmutableList.Builder<NamedThreadSafeOutputFormatterCallback<CqueryNode>> formatters =
+        ImmutableList.<NamedThreadSafeOutputFormatterCallback<CqueryNode>>builder()
+            .add(
+                new LabelAndConfigurationOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    true,
+                    getLabelPrinter()),
+                new LabelAndConfigurationOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    false,
+                    getLabelPrinter()),
+                new TransitionsOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    ruleClassProvider,
+                    getLabelPrinter()),
+                new ProtoOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    aspectResolver,
+                    OutputType.BINARY,
+                    ruleClassProvider,
+                    getLabelPrinter()),
+                new ProtoOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    aspectResolver,
+                    OutputType.DELIMITED_BINARY,
+                    ruleClassProvider,
+                    labelPrinter),
+                new ProtoOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    aspectResolver,
+                    OutputType.TEXT,
+                    ruleClassProvider,
+                    getLabelPrinter()),
+                new ProtoOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    aspectResolver,
+                    OutputType.JSON,
+                    ruleClassProvider,
+                    getLabelPrinter()),
+                new BuildOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    getLabelPrinter()),
+                new GraphOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    kct -> getFwdDeps(ImmutableList.of(kct)),
+                    getLabelPrinter()),
+                new StarlarkOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    starlarkSemantics),
+                new FilesOutputFormatterCallback(
+                    eventHandler,
+                    cqueryOptions,
+                    out,
+                    skyframeExecutor,
+                    accessor,
+                    topLevelArtifactContext));
+
+    if (noOutputFormatter.isPresent()) {
+      formatters.add(noOutputFormatter.get());
+    }
+    return formatters.build();
   }
 
   @Override
   public String getOutputFormat() {
-    return cqueryOptions.outputFormat;
+    return noOutputFormatter.isPresent() ? "no_output" : cqueryOptions.outputFormat;
   }
 
   @Override
