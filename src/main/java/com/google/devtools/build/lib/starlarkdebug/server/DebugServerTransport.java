@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkdebug.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.DebugEvent;
@@ -23,6 +24,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -31,12 +33,19 @@ import javax.annotation.Nullable;
  */
 final class DebugServerTransport {
 
+  @SuppressWarnings("NonFinalStaticField")
+  @VisibleForTesting
+  static Consumer<Integer> onListenPortCallbackForTests = null;
+
   /** Sets up the server transport and blocks while waiting for an incoming connection. */
   static DebugServerTransport createAndWaitForClient(
       EventHandler eventHandler, ServerSocket serverSocket, boolean verboseLogging)
       throws IOException {
     // TODO(bazel-team): reject all connections after the first
     eventHandler.handle(Event.progress("Waiting for debugger..."));
+    if (onListenPortCallbackForTests != null) {
+      onListenPortCallbackForTests.accept(serverSocket.getLocalPort());
+    }
     Socket clientSocket = serverSocket.accept();
     eventHandler.handle(Event.info("Debugger connection successfully established."));
     return new DebugServerTransport(

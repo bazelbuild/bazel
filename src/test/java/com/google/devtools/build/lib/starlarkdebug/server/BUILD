@@ -77,7 +77,6 @@ java_test(
     size = "medium",
     srcs = ["StarlarkDebugIntegrationTest.java"],
     jvm_flags = ["-Djava.net.preferIPv6Addresses=true"],  # https://github.com/bazelbuild/bazel/issues/5206
-    shard_count = 4,
     deps = [
         ":utils",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -85,10 +84,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/remote/util:free_port_finder",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
         "//third_party:junit4",
