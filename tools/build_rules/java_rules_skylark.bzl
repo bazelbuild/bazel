@@ -216,6 +216,7 @@ java_library_attrs = {
     "_jdk": attr.label(
         default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
         providers = [java_common.JavaRuntimeInfo],
+        cfg = "exec",
     ),
     "data": attr.label_list(allow_files = True),
     "resources": attr.label_list(allow_files = True),
