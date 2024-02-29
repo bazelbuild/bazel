@@ -117,7 +117,7 @@ genrule(
         # Instead of `bazel mod deps`, we run a simpler command like `bazel query :all` here
         # so that we only trigger module resolution, not extension eval.
         # Also use `--batch` so that Bazel doesn't keep a server process alive.
-        "$$ROOT/$(location //src:bazel) --batch --host_jvm_args=-Djava.net.preferIPv6Addresses=true --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update :all",
+        "$$ROOT/$(location //src:bazel) --batch --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update :all",
         "mv MODULE.bazel.lock $$ROOT/$@",
     ]),
     tags = ["requires-network"],
