@@ -71,8 +71,11 @@ class ThreadMetadata implements TraceData {
    */
   private static final long SKYFRAME_EVALUATOR_SHIFT = 10_000;
 
-  private static final long DYNAMIC_EXECUTION_SHIFT = 20_000;
-  private static final long INCLUDE_SCANNER_SHIFT = 30_000;
+  private static final long SKYFRAME_EVALUATOR_CPU_HEAVY_SHIFT = 20_000;
+  private static final long SKYFRAME_EVALUATOR_EXECUTION_SHIFT = 30_000;
+
+  private static final long DYNAMIC_EXECUTION_SHIFT = 40_000;
+  private static final long INCLUDE_SCANNER_SHIFT = 50_000;
 
   private static final long CRITICAL_PATH_SORT_INDEX = 0;
   private static final long MAIN_THREAD_SORT_INDEX = 1;
@@ -105,6 +108,12 @@ class ThreadMetadata implements TraceData {
     }
 
     if (threadName.startsWith("skyframe-evaluator")) {
+      if (threadName.startsWith("skyframe-evaluator-cpu-heavy")) {
+        return SKYFRAME_EVALUATOR_CPU_HEAVY_SHIFT + extractedNumber;
+      }
+      if (threadName.startsWith("skyframe-evaluator-execution")) {
+        return SKYFRAME_EVALUATOR_EXECUTION_SHIFT + extractedNumber;
+      }
       return SKYFRAME_EVALUATOR_SHIFT + extractedNumber;
     }
 
