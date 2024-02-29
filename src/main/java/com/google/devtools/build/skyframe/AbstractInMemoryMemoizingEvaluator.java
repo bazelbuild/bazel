@@ -215,6 +215,11 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
+  public boolean getSkyfocusEnabled() {
+    return skyfocusEnabled;
+  }
+
+  @Override
   public void setSkyfocusEnabled(boolean enabled) {
     this.skyfocusEnabled = enabled;
   }

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -65,6 +66,16 @@ import javax.annotation.Nullable;
  * is implemented in {@link SkyframeFocuser}.
  */
 public class SkyfocusModule extends BlazeModule {
+
+  // Leaf keys to be kept regardless of the working set.
+  public static final ImmutableSet<SkyKey> INCLUDE_KEYS_IF_EXIST =
+      ImmutableSet.of(
+          // Necessary for build correctness of repos that are force-fetched between builds.
+          // Only found in the Bazel graph, not Blaze's.
+          //
+          // TODO: b/312819241 - is there a better way to keep external repos in the graph?
+          RepositoryDelegatorFunction.FORCE_FETCH.getKey(),
+          RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE.getKey());
 
   private enum PendingSkyfocusState {
     // Blaze has to reset the evaluator state and restart analysis before running Skyfocus. This is
@@ -127,7 +138,7 @@ public class SkyfocusModule extends BlazeModule {
       env.getReporter()
           .handle(
               Event.warn(
-                  "Skyfocus: Changes not in the active working set are currently ignored."
+                  "Skyfocus: Changes not in the active working set will cause a build error."
                       + " Run '"
                       + env.getRuntime().getProductName()
                       + " info working_set' to print the set."));
@@ -158,6 +169,10 @@ public class SkyfocusModule extends BlazeModule {
         // Do not replace the active working set.
         break;
     }
+  }
+
+  private boolean skyfocusEnabled() {
+    return commandActuallyBuilds(env.getCommand()) && skyfocusOptions.skyfocusEnabled;
   }
 
   /**
@@ -226,8 +241,7 @@ public class SkyfocusModule extends BlazeModule {
   @Subscribe
   public void onBuildPrecomplete(BuildPrecompleteEvent event)
       throws InterruptedException, AbruptExitException {
-    if (!commandActuallyBuilds(env.getCommand()) || !skyfocusOptions.skyfocusEnabled) {
-      // Skyfocus not enabled, nothing to do here.
+    if (!skyfocusEnabled()) {
       return;
     }
 
@@ -248,6 +262,8 @@ public class SkyfocusModule extends BlazeModule {
     // Shouldn't result in an empty graph.
     Preconditions.checkState(!focusResult.getDeps().isEmpty());
     Preconditions.checkState(!focusResult.getRdeps().isEmpty());
+
+    env.getSkyframeExecutor().setSkyfocusVerificationSet(focusResult.getVerificationSet());
 
     if (skyfocusOptions.dumpKeys) {
       dumpKeys(env.getReporter(), focusResult);
@@ -324,6 +340,13 @@ public class SkyfocusModule extends BlazeModule {
     // stamping, but retains a lot of memory (100MB of retained heap for a 9+GB build).
     leafs.add(PrecomputedValue.BUILD_ID.getKey()); // needed to invalidate linkstamped targets.
 
+    INCLUDE_KEYS_IF_EXIST.forEach(
+        k -> {
+          if (graph.getIfPresent(k) != null) {
+            leafs.add(k);
+          }
+        });
+
     reporter.handle(
         Event.info(
             String.format(
@@ -376,15 +399,19 @@ public class SkyfocusModule extends BlazeModule {
           .getLeafs()
           .forEach(k -> reporter.handle(Event.info("leaf: " + k.getCanonicalName())));
 
-      pos.printf("Rdeps kept:\n");
-      for (SkyKey key : focusResult.getRdeps()) {
-        pos.printf("%s", key.getCanonicalName());
-      }
+      pos.println("Rdeps kept:\n");
+      focusResult.getRdeps().forEach(k -> pos.println(k.getCanonicalName()));
+
       pos.println();
+
       pos.println("Deps kept:");
-      for (SkyKey key : focusResult.getDeps()) {
-        pos.printf("%s", key.getCanonicalName());
-      }
+      focusResult.getDeps().forEach(k -> pos.println(k.getCanonicalName()));
+
+      pos.println();
+
+      pos.println("Verification set:");
+      focusResult.getVerificationSet().forEach(k -> pos.println(k.getCanonicalName()));
+
       Map<SkyFunctionName, Long> skyKeyCount =
           Sets.union(focusResult.getRdeps(), focusResult.getDeps()).stream()
               .collect(Collectors.groupingBy(SkyKey::functionName, Collectors.counting()));

@@ -163,6 +163,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
@@ -257,6 +258,7 @@ import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
+import java.nio.file.FileSystems;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -268,6 +270,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -462,6 +465,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private boolean clearNestedSetAfterActionExecution = false;
 
   private ImmutableSet<String> activeWorkingSet = ImmutableSet.of();
+
+  protected ImmutableSet<RootedPath> skyfocusVerificationSet = ImmutableSet.of();
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -1361,6 +1366,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public void setWorkingSet(ImmutableSet<String> workingSet) {
     activeWorkingSet = workingSet;
+  }
+
+  public void setSkyfocusVerificationSet(ImmutableSet<RootedPath> skyfocusVerificationSet) {
+    this.skyfocusVerificationSet = skyfocusVerificationSet;
   }
 
   protected Differencer.Diff getDiff(
@@ -3374,7 +3383,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       boolean checkOutputFiles,
       boolean checkExternalRepositoryFiles,
       int fsvcThreads)
-      throws InterruptedException {
+      throws InterruptedException, AbruptExitException {
 
     ExternalFilesKnowledge externalFilesKnowledge = externalFilesHelper.getExternalFilesKnowledge();
     if (!pathEntriesWithoutDiffInformation.isEmpty()
@@ -3514,7 +3523,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected void handleChangedFiles(
       Collection<Root> diffPackageRootsUnderWhichToCheck,
       Differencer.Diff diff,
-      int numSourceFilesCheckedIfDiffWasMissing) {
+      int numSourceFilesCheckedIfDiffWasMissing)
+      throws AbruptExitException {
     int numWithoutNewValues = diff.changedKeysWithoutNewValues().size();
     Iterable<SkyKey> keysToBeChangedLaterInThisBuild = diff.changedKeysWithoutNewValues();
     Map<SkyKey, Delta> changedKeysWithNewValues = diff.changedKeysWithNewValues();
@@ -3525,6 +3535,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         numWithoutNewValues,
         changedKeysWithNewValues.keySet());
 
+    handleSkyfocusVerificationSet(diff);
+
     recordingDiffer.invalidate(keysToBeChangedLaterInThisBuild);
     recordingDiffer.inject(changedKeysWithNewValues);
     modifiedFiles.addAndGet(
@@ -3533,6 +3545,75 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     numSourceFilesCheckedBecauseOfMissingDiffs += numSourceFilesCheckedIfDiffWasMissing;
     incrementalBuildMonitor.accrue(keysToBeChangedLaterInThisBuild);
     incrementalBuildMonitor.accrue(changedKeysWithNewValues.keySet());
+  }
+
+  /**
+   * Given a set of {@link SkyKey}s that were deemed to have changed, check their intersection with
+   * the {@link SkyframeFocuser} is non-empty.
+   *
+   * <p>If it's non-empty, it means that there were changed files outside the working set, but
+   * within the transitive closure of the focused targets. The build cannot proceed normally because
+   * Skyfocus has removed the nodes and edges from the backing graph to build those files
+   * incrementally
+   *
+   * <p>The only ways forward are to:
+   *
+   * <ol>
+   *   <li>1) Present an error to the user on the files that have changed, and ask the user to
+   *       expand their working set to include these files.
+   *   <li>2) Automatically expand the working set and reset the analysis cache to rebuild the
+   *       Skyframe graph. (i.e. new build).
+   * </ol>
+   *
+   * This function currently implements only option 1).
+   *
+   * <p>Only runs when Skyfocus is enabled (--experimental_enable_skyfocus).
+   */
+  private void handleSkyfocusVerificationSet(Differencer.Diff diff) throws AbruptExitException {
+    if (!getEvaluator().getSkyfocusEnabled()) {
+      return;
+    }
+
+    if (diff.isEmpty() || skyfocusVerificationSet.isEmpty()) {
+      return;
+    }
+
+    Set<RootedPath> intersection = new TreeSet<>();
+    for (SkyKey k : diff.changedKeysWithoutNewValues()) {
+      if (skyfocusVerificationSet.contains(k)) {
+        intersection.add((RootedPath) k);
+      }
+    }
+    for (SkyKey k : diff.changedKeysWithNewValues().keySet()) {
+      if (skyfocusVerificationSet.contains(k)) {
+        intersection.add((RootedPath) k);
+      }
+    }
+    if (intersection.isEmpty()) {
+      return;
+    }
+
+    StringBuilder message = new StringBuilder();
+    message.append(
+        "Skyfocus detected changes outside of the working set. These files/directories must be"
+            + " added to the working set.");
+    message.append("\n");
+    for (RootedPath rp : intersection) {
+      // RootedPath#toString() prints square brackets around the components, but we don't want
+      // that.
+      message.append(rp.getRoot());
+      message.append(FileSystems.getDefault().getSeparator());
+      message.append(rp.getRootRelativePath());
+      message.append("\n");
+    }
+
+    throw new AbruptExitException(
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message.toString())
+                .setSkyfocus(
+                    Skyfocus.newBuilder().setCode(Skyfocus.Code.NON_WORKING_SET_CHANGE).build())
+                .build()));
   }
 
   private static final int MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG = 10;

@@ -154,6 +154,8 @@ public interface MemoizingEvaluator {
    */
   void injectGraphTransformerForTesting(GraphTransformerForTesting transformer);
 
+  boolean getSkyfocusEnabled();
+
   /** Transforms a graph, possibly injecting other functionality. */
   interface GraphTransformerForTesting {
     InMemoryGraph transform(InMemoryGraph graph);
