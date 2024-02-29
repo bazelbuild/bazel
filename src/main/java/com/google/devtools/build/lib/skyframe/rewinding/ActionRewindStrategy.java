@@ -17,9 +17,8 @@ package com.google.devtools.build.lib.skyframe.rewinding;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Comparators.greatest;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Comparator.comparing;
+import static java.lang.Math.min;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -61,11 +60,12 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -83,11 +83,11 @@ public final class ActionRewindStrategy {
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BugReporter bugReporter;
 
-  // Note that these references are mutated only outside of Skyframe evaluations, and accessed only
-  // inside of them. Their visibility piggybacks on Skyframe evaluation synchronizations.
   private ConcurrentHashMultiset<LostInputRecord> lostInputRecords =
       ConcurrentHashMultiset.create();
-  private ConcurrentLinkedQueue<RewindPlanStats> rewindPlansStats = new ConcurrentLinkedQueue<>();
+  private final List<RewindPlanStats> rewindPlansStats =
+      Collections.synchronizedList(new ArrayList<>(MAX_ACTION_REWIND_EVENTS));
+  private final AtomicInteger rewindPlanStatsCounter = new AtomicInteger(0);
 
   public ActionRewindStrategy(
       SkyframeActionExecutor skyframeActionExecutor, BugReporter bugReporter) {
@@ -156,14 +156,16 @@ public final class ActionRewindStrategy {
         prepareRewindPlan(
             failedKey, failedActionDeps, lostInputsByDigest, inputDepOwners, env, depsToRewind);
 
-    int lostInputRecordsCount = lostInputRecordsThisAction.size();
-    rewindPlansStats.add(
-        RewindPlanStats.create(
-            failedAction,
-            rewindPlan.rewindGraph().nodes().size(),
-            lostInputRecordsCount,
-            lostInputRecordsThisAction.subList(
-                0, Math.min(lostInputRecordsCount, MAX_LOST_INPUTS_RECORDED))));
+    if (rewindPlanStatsCounter.getAndIncrement() < MAX_ACTION_REWIND_EVENTS) {
+      int lostInputRecordsCount = lostInputRecordsThisAction.size();
+      rewindPlansStats.add(
+          RewindPlanStats.create(
+              failedAction,
+              rewindPlan.rewindGraph().nodes().size(),
+              lostInputRecordsCount,
+              lostInputRecordsThisAction.subList(
+                  0, min(lostInputRecordsCount, MAX_LOST_INPUTS_RECORDED))));
+    }
 
     if (lostInputsException.isActionStartedEventAlreadyEmitted()) {
       env.getListener()
@@ -277,23 +279,20 @@ public final class ActionRewindStrategy {
   }
 
   /**
-   * Log the top N action rewind events and clear the history of failed actions' lost inputs and
+   * Logs the first N action rewind events and clears the history of failed actions' lost inputs and
    * rewind plans.
    */
   public void reset(ExtendedEventHandler eventHandler) {
     ImmutableList<ActionRewindEvent> topActionRewindEvents =
         rewindPlansStats.stream()
-            .collect(
-                greatest(
-                    MAX_ACTION_REWIND_EVENTS, comparing(RewindPlanStats::invalidatedNodesCount)))
-            .stream()
             .map(ActionRewindingStats::toActionRewindEventProto)
             .collect(toImmutableList());
     ActionRewindingStats rewindingStats =
         new ActionRewindingStats(lostInputRecords.size(), topActionRewindEvents);
     eventHandler.post(rewindingStats);
     lostInputRecords = ConcurrentHashMultiset.create();
-    rewindPlansStats = new ConcurrentLinkedQueue<>();
+    rewindPlansStats.clear();
+    rewindPlanStatsCounter.set(0);
   }
 
   private void checkIfTopLevelOutputLostTooManyTimes(
@@ -707,12 +706,7 @@ public final class ActionRewindStrategy {
     }
   }
 
-  /**
-   * Lite statistics about graph computed by {@link #prepareRewindPlan}.
-   *
-   * <p>This object persists across the build. It is more memory efficient than saving the entire
-   * rewind graph for each rewind plan.
-   */
+  /** Lite statistics about graph computed by {@link #prepareRewindPlan}. */
   @AutoValue
   abstract static class RewindPlanStats {
 

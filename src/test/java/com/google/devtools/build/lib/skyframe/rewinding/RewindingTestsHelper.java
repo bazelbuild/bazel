@@ -70,7 +70,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
-import com.google.devtools.build.lib.testutil.ActionEventRecorder.ActionRewindEventAsserter;
 import com.google.devtools.build.lib.testutil.ControllableActionStrategyModule;
 import com.google.devtools.build.lib.testutil.SpawnController;
 import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
@@ -598,16 +597,7 @@ public class RewindingTestsHelper {
         /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* expectResultReceivedForFailedRewound= */ false,
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(
-            ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1),
-        /* lostInputAndActionsPosts= */ ImmutableList.of(
-            ImmutableList.copyOf(
-                Collections.nCopies(
-                    // 3 invalidated nodes:
-                    //  1. The failed action itself.
-                    //  2. The ArtifactNestedSet node for [srcs] in
-                    //     action.getInputs() = {genrule-setup.sh, [srcs]}.
-                    //  3. The lost input's generating action.
-                    5, ActionRewindEventAsserter.create("Genrule", "//test:rule2", 1, 3)))));
+            ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1));
 
     assertOnlyActionsRewound(rewoundKeys);
     assertThat(Iterables.frequency(rewoundArtifactOwnerLabels(rewoundKeys), "//test:rule1"))
@@ -701,18 +691,7 @@ public class RewindingTestsHelper {
         "//test:consume_6");
     assertOnlyActionsRewound(rewoundKeys);
     verifyAllSpawnShimsConsumed();
-    recorder.assertRewindActionStats(
-        /* totalLostInputCounts= */ ImmutableList.of(21),
-        /* lostInputAndActionsPosts= */ ImmutableList.of(
-            ImmutableList.of(
-                // All invalidated node counts are len(srcs) + 2 (+1 for the failed action itself,
-                // and +1 for the ArtifactNestedSet node for [srcs] in
-                // action.getInputs() = {genrule-setup.sh, [srcs]}.
-                ActionRewindEventAsserter.create("Genrule", "//test:consume_6", 6, 8),
-                ActionRewindEventAsserter.create("Genrule", "//test:consume_5", 5, 7),
-                ActionRewindEventAsserter.create("Genrule", "//test:consume_4", 4, 6),
-                ActionRewindEventAsserter.create("Genrule", "//test:consume_3", 3, 5),
-                ActionRewindEventAsserter.create("Genrule", "//test:consume_2", 2, 4))));
+    recorder.assertTotalLostInputCountsFromStats(ImmutableList.of(21));
   }
 
   public final void runInterruptedDuringRewindStopsNormally() throws Exception {
