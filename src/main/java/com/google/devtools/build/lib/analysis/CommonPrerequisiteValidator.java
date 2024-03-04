@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -79,13 +80,6 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
     checkVisibilityAttributeContents(context, prerequisite, attribute, attrName, rule);
 
-    if (isSameLogicalPackage(
-        rule.getLabel().getPackageIdentifier(),
-        AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget())
-            .getPackageIdentifier())) {
-      return;
-    }
-
     // We don't check the visibility of late-bound attributes, because it would break some
     // features.
     if (Attribute.isLateBound(attrName)) {
@@ -113,7 +107,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
         || !context.isStarlarkRuleOrAspect()) {
       // Default check: The attribute must be visible from the target.
-      if (!context.isVisible(prerequisite.getConfiguredTarget())) {
+      if (!isVisible(rule.getLabel(), prerequisite)) {
         handleVisibilityConflict(context, prerequisite, rule.getLabel());
       }
     } else {
@@ -134,13 +128,35 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       // prerequisite is visible from the target so that adopting this new style of checking
       // visibility is not a breaking change.
       if (implicitDefinition != null
-          && !RuleContext.isVisible(implicitDefinition, prerequisite.getConfiguredTarget())
-          && !context.isVisible(prerequisite.getConfiguredTarget())) {
+          && !isVisible(implicitDefinition, prerequisite)
+          && !isVisible(rule.getLabel(), prerequisite)) {
         // In the error message, always suggest making the prerequisite visible from the definition,
         // not the target.
         handleVisibilityConflict(context, prerequisite, implicitDefinition);
       }
     }
+  }
+
+  private boolean isVisible(Label target, ConfiguredTargetAndData prerequisite) {
+    if (isSameLogicalPackage(
+        target.getPackageIdentifier(),
+        AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget())
+            .getPackageIdentifier())) {
+      return true;
+    }
+    // Check visibility attribute
+    for (PackageGroupContents specification :
+        prerequisite
+            .getConfiguredTarget()
+            .getProvider(VisibilityProvider.class)
+            .getVisibility()
+            .toList()) {
+      if (specification.containsPackage(target.getPackageIdentifier())) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private void checkVisibilityAttributeContents(
