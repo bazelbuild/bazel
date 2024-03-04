@@ -748,6 +748,14 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       Set<Label> selectOnlyDepsForThisAttribute =
           getDepsOnlyInSelects(ruleContext, attr, attributes.getAttributeType(attr));
       for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attr)) {
+        // For normal configured targets the target's label is the same label appearing in the
+        // select(). But for AliasConfiguredTargets the label in the select() refers to the alias,
+        // while dep.getLabel() refers to the target the alias points to. So add this quick check
+        // to make sure we're comparing the same labels.
+        Label depLabelInSelect =
+            (dep instanceof ConfiguredTarget)
+                ? ((ConfiguredTarget) dep).getOriginalLabel()
+                : dep.getLabel();
         // Output files inherit the environment spec of their generating rule.
         if (dep instanceof OutputFileConfiguredTarget) {
           // Note this reassignment means constraint violation errors reference the generating
@@ -758,14 +766,6 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
         // checking, but for now just pass them by.
         if (dep.getProvider(SupportedEnvironmentsProvider.class) != null) {
           depsToCheck.add(dep);
-          // For normal configured targets the target's label is the same label appearing in the
-          // select(). But for AliasConfiguredTargets the label in the select() refers to the alias,
-          // while dep.getLabel() refers to the target the alias points to. So add this quick check
-          // to make sure we're comparing the same labels.
-          Label depLabelInSelect =
-              (dep instanceof ConfiguredTarget)
-                  ? ((ConfiguredTarget) dep).getOriginalLabel()
-                  : dep.getLabel();
           if (!selectOnlyDepsForThisAttribute.contains(depLabelInSelect)) {
             depsOutsideSelects.add(dep);
           }

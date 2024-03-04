@@ -1042,6 +1042,28 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   }
 
   @Test
+  public void selectableOutputFileDepsTreatedLikeOtherDeps() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
+    writeDepsForSelectTests();
+    scratch.file(
+        "hello/BUILD",
+        "genrule(",
+        "    name = 'src_a',",
+        "    outs = ['src_a.c'],",
+        "    cmd = 'touch $@',",
+        "    restricted_to = ['//buildenv/foo:a'])",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = select({",
+        "        '//config:a': [':src_a.c'],",
+        "        '//config:b': [],",
+        "    }),",
+        "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])");
+    useConfiguration("--define", "mode=a");
+    assertThat(getConfiguredTarget("//hello:lib")).isNotNull();
+  }
+
+  @Test
   public void staticCheckingOnSelectsTemporarilyDisabled() throws Exception {
     // TODO(bazel-team): update this test once static checking on selects is implemented. When
     // that happens, the union of all deps in the select must support the environments in the
