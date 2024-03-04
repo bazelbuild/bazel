@@ -238,7 +238,7 @@ public final class HeaderInfoCodec implements ObjectCodec<HeaderInfo> {
       DeserializationContext baseContext, ByteString fingerprint, byte[] bytes)
       throws SerializationException, IOException {
     var codedIn = CodedInputStream.newInstance(bytes);
-    var context = baseContext.getNewMemoizingContext();
+    var context = baseContext.getFreshContext();
 
     DerivedArtifact headerModule = context.deserialize(codedIn);
     DerivedArtifact picHeaderModule = context.deserialize(codedIn);

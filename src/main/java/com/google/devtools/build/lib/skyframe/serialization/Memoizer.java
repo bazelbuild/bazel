@@ -237,7 +237,7 @@ class Memoizer {
      * @throws IOException on {@link IOException} during deserialization
      */
     <T> T deserialize(
-        DeserializationContext context,
+        MemoizingDeserializationContext context,
         ObjectCodec<? extends T> codec,
         CodedInputStream codedIn)
         throws SerializationException, IOException {
@@ -292,12 +292,13 @@ class Memoizer {
     }
 
     private static <T> T castedDeserialize(
-        DeserializationContext context, ObjectCodec<T> codec, CodedInputStream codedIn)
+        MemoizingDeserializationContext context, ObjectCodec<T> codec, CodedInputStream codedIn)
         throws IOException, SerializationException {
-      return safeCast(codec.deserialize(context, codedIn), codec);
+      // TODO: b/297857068 - this does not yet handle DeferredValue but will need to in the future.
+      return safeCast(context.deserializeAndMaybeHandleDeferredValues(codec, codedIn), codec);
     }
 
-    <T> void registerInitialValue(T initialValue) {
+    void registerInitialValue(Object initialValue) {
       Preconditions.checkState(
           tagForMemoizedBefore != -1, "Not called with memoize before: %s", initialValue);
       int tag = tagForMemoizedBefore;
@@ -308,7 +309,7 @@ class Memoizer {
 
     // Corresponds to MemoBeforeContent in the abstract grammar.
     private <T> T deserializeMemoBeforeContent(
-        DeserializationContext context, ObjectCodec<T> codec, CodedInputStream codedIn)
+        MemoizingDeserializationContext context, ObjectCodec<T> codec, CodedInputStream codedIn)
         throws SerializationException, IOException {
       this.tagForMemoizedBefore = codedIn.readInt32();
       T value = castedDeserialize(context, codec, codedIn);
@@ -325,7 +326,7 @@ class Memoizer {
 
     // Corresponds to MemoAfterContent in the abstract grammar.
     private <T> T deserializeMemoAfterContent(
-        DeserializationContext context, ObjectCodec<T> codec, CodedInputStream codedIn)
+        MemoizingDeserializationContext context, ObjectCodec<T> codec, CodedInputStream codedIn)
         throws SerializationException, IOException {
       T value = castedDeserialize(context, codec, codedIn);
       int id = codedIn.readInt32();
@@ -336,19 +337,16 @@ class Memoizer {
       Object cyclicallyCreatedObject = memo.lookup(id);
       if (cyclicallyCreatedObject != null) {
         return safeCast(cyclicallyCreatedObject, codec);
-      } else {
-        memo.memoize(id, value);
-        return value;
       }
+      memo.memoize(id, value);
+      return value;
     }
 
     private static class DeserializingMemoTable {
 
       private final Int2ObjectOpenHashMap<Object> table = new Int2ObjectOpenHashMap<>();
 
-      /**
-       * Adds a new id -> object maplet to the memo table. The value must not already be present.
-       */
+      /** Adds a new id → object maplet to the memo table. The value must not already be present. */
       private void memoize(int id, Object value) {
         Preconditions.checkNotNull(value);
         Object prev = table.put(id, value);

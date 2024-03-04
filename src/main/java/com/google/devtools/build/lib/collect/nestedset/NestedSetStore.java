@@ -263,7 +263,7 @@ public class NestedSetStore {
               CodedInputStream codedIn = CodedInputStream.newInstance(bytes);
               int numberOfElements = codedIn.readInt32();
               DeserializationContext newDeserializationContext =
-                  deserializationContext.getNewMemoizingContext();
+                  deserializationContext.getFreshContext();
 
               // The elements of this list are futures for the deserialized values of these
               // NestedSet contents. For direct members, the futures complete immediately and yield

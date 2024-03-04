@@ -346,7 +346,7 @@ public final class NestedSetCodecTest {
     ListenableFuture<Object[]> deserializationFuture =
         (ListenableFuture<Object[]>)
             nestedSetStore.getContentsAndDeserialize(
-                fingerprint, objectCodecs.getDeserializationContext().getMemoizingContext());
+                fingerprint, objectCodecs.getSharedValueDeserializationContextForTesting());
     // At this point, we expect deserializationFuture to be waiting on both of the underlying
     // fetches, which should have both been started.
     assertThat(deserializationFuture.isDone()).isFalse();
@@ -572,31 +572,16 @@ public final class NestedSetCodecTest {
     ByteString blueSerialized = blueCodecs.serializeMemoizedAndBlocking(blueStuff).getObject();
     assertThat(redSerialized).isEqualTo(blueSerialized);
 
-    Object redDeserialized =
-        ObjectCodecs.deserialize(
-            redSerialized.newCodedInput(),
-            codecs
-                .getDeserializationContext()
-                .withDependencyOverrides(ImmutableClassToInstanceMap.of(Color.class, Color.RED))
-                .getMemoizingContext());
-    Object blueDeserialized =
-        ObjectCodecs.deserialize(
-            blueSerialized.newCodedInput(),
-            codecs
-                .getDeserializationContext()
-                .withDependencyOverrides(ImmutableClassToInstanceMap.of(Color.class, Color.BLUE))
-                .getMemoizingContext());
+    Object redDeserialized = redCodecs.deserializeMemoizedAndBlocking(redSerialized);
+    Object blueDeserialized = blueCodecs.deserializeMemoizedAndBlocking(blueSerialized);
     assertThat(redDeserialized).isSameInstanceAs(redStuff);
     assertThat(blueDeserialized).isSameInstanceAs(blueStuff);
 
     // Test that we can deserialize in a context that was not previously serialized.
-    Object greenDeserialized =
-        ObjectCodecs.deserialize(
-            redSerialized.newCodedInput(),
-            codecs
-                .getDeserializationContext()
-                .withDependencyOverrides(ImmutableClassToInstanceMap.of(Color.class, Color.GREEN))
-                .getMemoizingContext());
+    ObjectCodecs greenCodecs =
+        codecs.withDependencyOverridesForTesting(
+            ImmutableClassToInstanceMap.of(Color.class, Color.GREEN));
+    Object greenDeserialized = greenCodecs.deserializeMemoizedAndBlocking(redSerialized);
     assertThat(greenDeserialized).isInstanceOf(NestedSet.class);
     assertThat(((NestedSet<?>) greenDeserialized).toList())
         .isEqualTo(Lists.transform(stuff, thing -> ColorfulThing.of(thing, Color.GREEN)));

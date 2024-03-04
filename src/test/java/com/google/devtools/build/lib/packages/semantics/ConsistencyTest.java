@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.packages.semantics;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ImmutableDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.Options;
@@ -86,7 +85,7 @@ public class ConsistencyTest {
       StarlarkSemantics deserialized =
           (StarlarkSemantics)
               TestUtils.fromBytes(
-                  new DeserializationContext(ImmutableClassToInstanceMap.of()),
+                  new ImmutableDeserializationContext(),
                   codec,
                   TestUtils.toBytes(
                       new ObjectCodecs().getSerializationContextForTesting(), codec, semantics));

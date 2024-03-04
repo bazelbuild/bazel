@@ -213,7 +213,7 @@ public class ObjectCodecTester<T> {
           underTest,
           subjectsBuilder.build(),
           codecs.getSerializationContextForTesting(),
-          codecs.getDeserializationContext(),
+          codecs.getDeserializationContextForTesting(),
           skipBadDataTest,
           verificationFunction,
           repetitions);

@@ -105,7 +105,7 @@ public class TestUtils {
 
   public static Object fromBytesMemoized(ByteString bytes, ObjectCodecRegistry registry)
       throws SerializationException {
-    return new ObjectCodecs(registry).deserializeMemoized(bytes.newCodedInput());
+    return new ObjectCodecs(registry).deserializeMemoized(bytes);
   }
 
   @SuppressWarnings("unchecked")
