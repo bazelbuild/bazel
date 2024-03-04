@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.RemoteCache;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -31,13 +32,18 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** A {@link RemoteCache} backed by an {@link DiskCacheClient}. */
 class OnDiskBlobStoreCache extends RemoteCache {
+  private static final ExecutorService executorService =
+      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
+
   public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil)
       throws IOException {
     super(
-        new DiskCacheClient(cacheDir, /* verifyDownloads= */ true, digestUtil),
+        new DiskCacheClient(cacheDir, digestUtil, executorService, /* verifyDownloads= */ true),
         options,
         digestUtil);
   }

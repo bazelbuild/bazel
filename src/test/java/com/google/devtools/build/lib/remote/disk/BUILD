@@ -26,6 +26,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
