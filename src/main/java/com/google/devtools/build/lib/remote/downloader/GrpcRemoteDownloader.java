@@ -77,6 +77,11 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private static final String QUALIFIER_CHECKSUM_SRI = "checksum.sri";
   private static final String QUALIFIER_CANONICAL_ID = "bazel.canonical_id";
 
+  // The `:` character is not permitted in an HTTP header name. So, we use it to
+  // delimit the qualifier prefix which denotes an HTTP header qualifer from the
+  // header name itself.
+  private static final String QUALIFIER_HTTP_HEADER_PREFIX = "http_header:";
+
   public GrpcRemoteDownloader(
       String buildRequestId,
       String commandId,
@@ -125,7 +130,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         RemoteActionExecutionContext.create(metadata);
 
     final FetchBlobRequest request =
-        newFetchBlobRequest(options.remoteInstanceName, urls, checksum, canonicalId);
+        newFetchBlobRequest(options.remoteInstanceName, urls, checksum, canonicalId, headers);
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -169,12 +174,17 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
   @VisibleForTesting
   static FetchBlobRequest newFetchBlobRequest(
-      String instanceName, List<URL> urls, Optional<Checksum> checksum, String canonicalId) {
+      String instanceName,
+      List<URL> urls,
+      Optional<Checksum> checksum,
+      String canonicalId,
+      Map<String, List<String>> headers) {
     FetchBlobRequest.Builder requestBuilder =
         FetchBlobRequest.newBuilder().setInstanceName(instanceName);
     for (URL url : urls) {
       requestBuilder.addUris(url.toString());
     }
+
     if (checksum.isPresent()) {
       requestBuilder.addQualifiers(
           Qualifier.newBuilder()
@@ -182,9 +192,20 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
               .setValue(checksum.get().toSubresourceIntegrity())
               .build());
     }
+
     if (!Strings.isNullOrEmpty(canonicalId)) {
       requestBuilder.addQualifiers(
           Qualifier.newBuilder().setName(QUALIFIER_CANONICAL_ID).setValue(canonicalId).build());
+    }
+
+    for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      // https://www.rfc-editor.org/rfc/rfc9110.html#name-field-order permits
+      // merging the field-values with a comma.
+      requestBuilder.addQualifiers(
+          Qualifier.newBuilder()
+              .setName(QUALIFIER_HTTP_HEADER_PREFIX + entry.getKey())
+              .setValue(String.join(",", entry.getValue()))
+              .build());
     }
 
     return requestBuilder.build();

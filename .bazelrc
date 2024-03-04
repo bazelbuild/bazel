@@ -41,12 +41,11 @@ build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_win
 # with the target.
 build:windows_arm64 --java_runtime_version=remotejdk_11
 
-# Enable Bzlmod
-common:bzlmod --enable_bzlmod
-common:bzlmod --check_direct_dependencies=error
-common:bzlmod --experimental_downloader_config=bazel_downloader.cfg
-common --config=bzlmod
-common --lockfile_mode=update
+# Check direct Bazel module dependencies are up-to-date
+common --check_direct_dependencies=error
+
+# Add mirrors for certain download URLs
+common --experimental_downloader_config=bazel_downloader.cfg
 
 # Enable modern C++ features
 build:linux --cxxopt=-std=c++17
