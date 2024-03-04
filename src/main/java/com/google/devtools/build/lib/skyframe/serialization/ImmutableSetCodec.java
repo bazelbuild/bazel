@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -60,8 +59,8 @@ final class ImmutableSetCodec extends DeferredObjectCodec<Set> {
   }
 
   @Override
-  public ImmutableList<Class<? extends Set>> additionalEncodedClasses() {
-    return ImmutableList.of(MULTIMAP_VALUE_SET_CLASS, SINGLETON_SET_CLASS, SUBSET_CLASS);
+  public ImmutableSet<Class<? extends Set>> additionalEncodedClasses() {
+    return ImmutableSet.of(MULTIMAP_VALUE_SET_CLASS, SINGLETON_SET_CLASS, SUBSET_CLASS);
   }
 
   @Override

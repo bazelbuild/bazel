@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
@@ -98,7 +99,8 @@ public final class DeserializationContextTest {
     ObjectCodec<Object> codec = mock(ObjectCodec.class);
     when(codec.getStrategy()).thenReturn(MemoizationStrategy.MEMOIZE_AFTER);
     when(codec.getEncodedClass()).thenAnswer(unused -> Object.class);
-    when(codec.additionalEncodedClasses()).thenReturn(ImmutableList.of());
+    when(codec.additionalEncodedClasses()).thenReturn(ImmutableSet.of());
+    when(codec.safeCast(any())).thenAnswer(invocation -> invocation.getArgument(0));
     ObjectCodecRegistry.CodecDescriptor codecDescriptor =
         new ObjectCodecRegistry.CodecDescriptor(/* tag= */ 1, codec);
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);

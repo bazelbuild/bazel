@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -259,43 +258,11 @@ class Memoizer {
       return Preconditions.checkNotNull(memo.lookup(memoIndex), memoIndex);
     }
 
-    private static <T> T safeCast(Object obj, ObjectCodec<T> codec) throws SerializationException {
-      if (obj == null) {
-        return null;
-      }
-      ImmutableSet<Class<? extends T>> expectedTypes =
-          codec.additionalEncodedClasses().isEmpty()
-              ? ImmutableSet.of(codec.getEncodedClass())
-              : ImmutableSet.<Class<? extends T>>builderWithExpectedSize(
-                      codec.additionalEncodedClasses().size() + 1)
-                  .add(codec.getEncodedClass())
-                  .addAll(codec.additionalEncodedClasses())
-                  .build();
-      Class<?> objectClass = obj.getClass();
-      if (expectedTypes.contains(objectClass)) {
-        @SuppressWarnings("unchecked")
-        T checkedResult = (T) obj;
-        return checkedResult;
-      }
-      for (Class<? extends T> expectedType : expectedTypes) {
-        if (expectedType.isAssignableFrom(objectClass)) {
-          return expectedType.cast(obj);
-        }
-      }
-      throw new SerializationException(
-          "Object "
-              + obj
-              + ") has type "
-              + objectClass.getName()
-              + " but expected type one of "
-              + expectedTypes);
-    }
-
     private static <T> T castedDeserialize(
         MemoizingDeserializationContext context, ObjectCodec<T> codec, CodedInputStream codedIn)
         throws IOException, SerializationException {
       // TODO: b/297857068 - this does not yet handle DeferredValue but will need to in the future.
-      return safeCast(context.deserializeAndMaybeHandleDeferredValues(codec, codedIn), codec);
+      return codec.safeCast(context.deserializeAndMaybeHandleDeferredValues(codec, codedIn));
     }
 
     void registerInitialValue(Object initialValue) {
@@ -336,7 +303,7 @@ class Memoizer {
       // the object graph.
       Object cyclicallyCreatedObject = memo.lookup(id);
       if (cyclicallyCreatedObject != null) {
-        return safeCast(cyclicallyCreatedObject, codec);
+        return codec.safeCast(cyclicallyCreatedObject);
       }
       memo.memoize(id, value);
       return value;
