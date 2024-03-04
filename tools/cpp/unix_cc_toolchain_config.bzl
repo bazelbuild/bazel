@@ -96,6 +96,47 @@ def layering_check_features(compiler):
         ),
     ]
 
+def parse_headers_support(parse_headers_tool_path):
+    if not parse_headers_tool_path:
+        return [], []
+    action_configs = [
+        action_config(
+            action_name = ACTION_NAMES.cpp_header_parsing,
+            tools = [
+                tool(path = parse_headers_tool_path),
+            ],
+            flag_sets = [
+                flag_set(
+                    flag_groups = [
+                        flag_group(
+                            flags = [
+                                # Note: This treats all headers as C++ headers, which may lead to
+                                # parsing failures for C headers that are not valid C++.
+                                # For such headers, use features = ["-parse_headers"] to selectively
+                                # disable parsing.
+                                "-xc++-header",
+                                "-fsyntax-only",
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+            implies = [
+                # Copied from the legacy feature definition in CppActionConfigs.java.
+                "legacy_compile_flags",
+                "user_compile_flags",
+                "sysroot",
+                "unfiltered_compile_flags",
+                "compiler_input_flags",
+                "compiler_output_flags",
+            ],
+        ),
+    ]
+    features = [
+        feature(name = "parse_headers"),
+    ]
+    return action_configs, features
+
 all_compile_actions = [
     ACTION_NAMES.c_compile,
     ACTION_NAMES.cpp_compile,
@@ -1487,6 +1528,12 @@ def _impl(ctx):
             archive_param_file_feature,
             generate_linkmap_feature,
         ]
+
+    parse_headers_action_configs, parse_headers_features = parse_headers_support(
+        parse_headers_tool_path = ctx.attr.tool_paths.get("parse_headers"),
+    )
+    action_configs += parse_headers_action_configs
+    features += parse_headers_features
 
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
