@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.LazyFileInputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
@@ -725,18 +726,12 @@ public final class HttpCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     return retrier.executeAsync(
-        () -> {
-          try {
-            return uploadAsync(
+        () ->
+            uploadAsync(
                 digest.getHash(),
                 digest.getSizeBytes(),
-                file.getInputStream(),
-                /* casUpload= */ true);
-          } catch (IOException e) {
-            // Can be thrown from file.getInputStream.
-            return Futures.immediateFailedFuture(e);
-          }
-        });
+                new LazyFileInputStream(file),
+                /* casUpload= */ true));
   }
 
   @Override
