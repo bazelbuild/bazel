@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -1069,6 +1070,17 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
   boolean wasNewlyRequestedDepNullForPartialReevaluation(SkyKey newlyRequestedDep) {
     return false;
+  }
+
+  /**
+   * In the case when user intends to add a new parallelism, one approach is to aggregate the
+   * existing skyframe-evaluator one and a new type of thread pool in a {@link
+   * com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor} object, and inject
+   * it into {@link ParallelEvaluatorContext}.
+   */
+  @Override
+  public final QuiescingExecutor getParallelEvaluationExecutor() {
+    return evaluatorContext.getExecutor();
   }
 
   /** Thrown during environment construction if a previously requested dep is no longer done. */

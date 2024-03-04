@@ -53,6 +53,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -77,10 +78,13 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -4049,5 +4053,128 @@ public class ParallelEvaluatorTest {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(errorKey.toString());
+  }
+
+  private void evalParallelSkyFunctionAndVerifyResults(
+      SkyFunction testFunction,
+      QuiescingExecutor testExecutor,
+      AtomicInteger actualRunnableCount,
+      int expectRunnableCount)
+      throws InterruptedException {
+    SkyKey parentKey = skyKey("parentKey");
+    tester.getOrCreate(parentKey).setBuilder(testFunction);
+
+    graph = new InMemoryGraphImpl();
+    ParallelEvaluator parallelEvaluator =
+        new ParallelEvaluator(
+            graph,
+            graphVersion,
+            Version.minimal(),
+            tester.getSkyFunctionMap(),
+            reportedEvents,
+            new EmittedEventState(),
+            EventFilter.FULL_STORAGE,
+            ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
+            // Doesn't matter for this test case.
+            /* keepGoing= */ false,
+            revalidationReceiver,
+            GraphInconsistencyReceiver.THROWING,
+            // We ought not need more than 1 thread for this test case.
+            testExecutor,
+            new SimpleCycleDetector(),
+            UnnecessaryTemporaryStateDropperReceiver.NULL);
+
+    EvaluationResult<StringValue> result = parallelEvaluator.eval(ImmutableList.of(parentKey));
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(parentKey)).isEqualTo(new StringValue("parentValue"));
+    assertThat(actualRunnableCount.get()).isEqualTo(expectRunnableCount);
+  }
+
+  @Test
+  public void testParallelSkyFunctionComputation_runnablesOnBothCurrentAndExternalThreads()
+      throws InterruptedException {
+    QuiescingExecutor testExecutor =
+        AbstractQueueVisitor.create("test-pool", 10, ParallelEvaluatorErrorClassifier.instance());
+    AtomicInteger actualRunnableCount = new AtomicInteger(0);
+
+    // Let's arbitrarily set the expected size of Runnables as a random number between 10 and 30.
+    int expectRunnableCount = 10 + new Random().nextInt(20);
+
+    SkyFunction testFunction =
+        (key, env) -> {
+          CountDownLatch countDownLatch = new CountDownLatch(expectRunnableCount);
+          BlockingQueue<Runnable> runnablesQueue = new LinkedBlockingQueue<>();
+          for (int i = 0; i < expectRunnableCount; ++i) {
+            runnablesQueue.put(
+                () -> {
+                  actualRunnableCount.incrementAndGet();
+                  countDownLatch.countDown();
+                });
+          }
+
+          Runnable drainQueue =
+              () -> {
+                Runnable next;
+                while ((next = runnablesQueue.poll()) != null) {
+                  next.run();
+                }
+              };
+
+          QuiescingExecutor executor = env.getParallelEvaluationExecutor();
+          assertThat(executor).isSameInstanceAs(testExecutor);
+          for (int i = 0; i < expectRunnableCount; ++i) {
+            executor.execute(drainQueue);
+          }
+
+          // After dispatching Runnables to threads on the executor, it is preferred that
+          // current thread also participates in executing some (or even all) runnables. It is
+          // possible that other threads on the executor are all busy and will not be available
+          // for a fairly long time. So having the current thread participate will prevent
+          // current thread from being completely idle while waiting for the runnableQueue to be
+          // fully drained.
+          drainQueue.run();
+
+          // It is possible that the last runnable executed on the current thread ends earlier
+          // than what are executed on the other threads. So we need to wait for all necessary
+          // computations to complete before returning.
+          countDownLatch.await();
+          return new StringValue("parentValue");
+        };
+
+    evalParallelSkyFunctionAndVerifyResults(
+        testFunction, testExecutor, actualRunnableCount, expectRunnableCount);
+  }
+
+  @Test
+  public void testParallelSkyFunctionComputation_runnablesOnExternalThreadsOnly()
+      throws InterruptedException {
+    QuiescingExecutor testExecutor =
+        AbstractQueueVisitor.create("test-pool", 10, ParallelEvaluatorErrorClassifier.instance());
+    AtomicInteger actualRunnableCount = new AtomicInteger(0);
+
+    // Let's arbitrarily set the expected size of Runnables as a random number between 10 and 30.
+    int expectRunnableCount = 10 + new Random().nextInt(20);
+
+    SkyFunction testFunction =
+        (key, env) -> {
+          CountDownLatch countDownLatch = new CountDownLatch(expectRunnableCount);
+          QuiescingExecutor executor = env.getParallelEvaluationExecutor();
+          assertThat(executor).isSameInstanceAs(testExecutor);
+          for (int i = 0; i < expectRunnableCount; ++i) {
+            executor.execute(
+                () -> {
+                  actualRunnableCount.incrementAndGet();
+                  countDownLatch.countDown();
+                });
+          }
+
+          // We have to wait for all execution dispatched to external threads to complete before
+          // returning.
+          countDownLatch.await();
+          return new StringValue("parentValue");
+        };
+
+    evalParallelSkyFunctionAndVerifyResults(
+        testFunction, testExecutor, actualRunnableCount, expectRunnableCount);
   }
 }

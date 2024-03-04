@@ -21,6 +21,7 @@ import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.MutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
@@ -405,6 +406,72 @@ public interface SkyFunction {
      * thread pool without blocking the current Skyframe thread.
      */
     void dependOnFuture(ListenableFuture<?> future);
+
+    /**
+     * Returns a {@link QuiescingExecutor} object so that {@link SkyFunction#compute} can dispatch
+     * some work to other parallel threads.
+     *
+     * <p>If some {@link SkyFunction} intends to take advantage of this executor, user should first
+     * judge between using the existing "skyframe-evaluator" thread pool and introducing a new type
+     * of parallelism.
+     *
+     * <p>Using the existing "skyframe-evaluator" one carries significant risks. It is possible that
+     * the extra computation added to the existing executor will slow down or even block existing
+     * computation, causing performance regression. In order to mitigate this risk, users should
+     * also schedule work on the {@link SkyFunction#compute} thread along with the external ones.
+     * For example,
+     *
+     * <pre>{@code
+     * class MyFunction implements SkyFunction {
+     *   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+     *     CountDownLatch countDownLatch = new CountDownLatch(expectRunnableCount);
+     *     BlockingQueue<Runnable> runnablesQueue = new LinkedBlockingQueue<>();
+     *
+     *     for (int i = 0; i < expectRunnableCount; ++i) {
+     *       runnablesQueue.put(() -> {
+     *         try {
+     *           // ...
+     *         } finally {
+     *           countDownLatch.countDown();
+     *         }
+     *       });
+     *     }
+     *
+     *     Runnable drainQueue = () -> {
+     *           Runnable next;
+     *           while ((next = runnablesQueue.poll()) != null) {
+     *             next.run();
+     *           }
+     *         };
+     *
+     *     // Dispatch the work to external threads
+     *     QuiescingExecutor executor = env.getParallelEvaluationExecutor();
+     *     for (int i = 0; i < PARALLELISM; ++i) {
+     *       executor.execute(drainQueue);
+     *     }
+     *
+     *     // Current thread should also help to execute some Runnables in the queue.
+     *     drainQueue.run();
+     *
+     *     // Wait for all runnables in the queue to complete before returning.
+     *     countDownLatch.await();
+     *     return new MySkyValue();
+     *   }
+     * }
+     * }</pre>
+     *
+     * <p>On the other hand, abusively creating new parallelism is also strongly discouraged unless
+     * the benefits can be reasonably justified. {@link
+     * SkyFunctionEnvironment#getParallelEvaluationExecutor()} discusses an approach to introduce
+     * new parallelism.
+     *
+     * <p>In summary, it is generally discouraged to use this method to introduce either existing or
+     * new parallelism to SkyFunction computation, unless comprehensive research has been conducted.
+     */
+    @Nullable
+    default QuiescingExecutor getParallelEvaluationExecutor() {
+      return null;
+    }
 
     /**
      * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.

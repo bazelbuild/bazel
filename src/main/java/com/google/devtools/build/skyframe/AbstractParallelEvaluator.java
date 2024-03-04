@@ -136,6 +136,7 @@ abstract class AbstractParallelEvaluator {
             storedEventFilter,
             errorInfoManager,
             graphInconsistencyReceiver,
+            executor,
             () -> new NodeEntryVisitor(executor, progressReceiver, Evaluate::new, stateCache),
             stateCache);
   }
