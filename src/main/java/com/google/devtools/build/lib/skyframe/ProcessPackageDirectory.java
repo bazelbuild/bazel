@@ -123,17 +123,12 @@ public final class ProcessPackageDirectory {
 
     PackageIdentifier packageId = PackageIdentifier.create(repositoryName, rootRelativePath);
 
-    if (packageId.getRepository().isMain()
-        && fileValue.isSymlink()
-        && fileValue
-            .getUnresolvedLinkTarget()
-            .startsWith(directories.getExecRootBase().asFragment())) {
-      // Symlinks back to the execroot are not traversed so that we avoid convenience symlinks.
-      // Note that it's not enough to just check for the convenience symlinks themselves,
-      // because if the value of --symlink_prefix changes, the old symlinks are left in place. This
-      // algorithm also covers more creative use cases where people create convenience symlinks
-      // somewhere in the directory tree manually.
+    if (packageId.getRepository().isMain() && isConvenienceSymlink(fileValue, rootedPath, env)) {
       return ProcessPackageDirectoryResult.EMPTY_RESULT;
+    }
+
+    if (env.valuesMissing()) {
+      return null;
     }
 
     SkyKey pkgLookupKey = PackageLookupValue.key(packageId);
@@ -185,6 +180,83 @@ public final class ProcessPackageDirectory {
             excludedPaths,
             starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
         /*additionalValuesToAggregate=*/ ImmutableMap.of());
+  }
+
+  // Note that it's not enough to just check for the convenience symlinks themselves,
+  // because if the value of --symlink_prefix changes, the old symlinks are left in place. It
+  // is also not sufficient to check whether the symlink points to a directory in the current
+  // exec root, since this can change between bazel invocations. Therefore we check if the
+  // suffix of the symlink source suggests it is a convenience symlink, then see if the symlink
+  // target is in a directory that looks like an execroot. This algorithm also covers more
+  // creative use cases where people create convenience symlinks somewhere in the directory
+  // tree manually.
+  private boolean isConvenienceSymlink(
+      FileValue fileValue, RootedPath rootedPath, SkyFunction.Environment env)
+      throws InterruptedException {
+    if (!fileValue.isSymlink()) {
+      return false;
+    }
+
+    PathFragment linkTarget = fileValue.getUnresolvedLinkTarget();
+
+    if (linkTarget.startsWith(directories.getExecRootBase().asFragment())) {
+      return true;
+    }
+
+    PathFragment rootRelativePath = rootedPath.getRootRelativePath();
+    Root root = rootedPath.getRoot();
+
+    if (rootRelativePath.getBaseName().endsWith("-bin") && isInExecRoot(linkTarget, root, 4, env)) {
+      return true;
+    }
+
+    if (rootRelativePath.getBaseName().endsWith("-genfiles")
+        && isInExecRoot(linkTarget, root, 4, env)) {
+      return true;
+    }
+
+    if (rootRelativePath.getBaseName().endsWith("-out") && isInExecRoot(linkTarget, root, 2, env)) {
+      return true;
+    }
+
+    if (rootRelativePath.getBaseName().endsWith("-testlogs")
+        && isInExecRoot(linkTarget, root, 4, env)) {
+      return true;
+    }
+
+    if (rootRelativePath
+            .getBaseName()
+            .endsWith("-" + directories.getWorkingDirectory().getBaseName())
+        && isInExecRoot(linkTarget, root, 1, env)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private boolean isInExecRoot(PathFragment path, Root root, int depth, SkyFunction.Environment env)
+      throws InterruptedException {
+    int segmentCount = path.segmentCount();
+
+    if (segmentCount <= depth) {
+      return false;
+    }
+
+    PathFragment candidateExecRoot = path.subFragment(0, segmentCount - depth);
+
+    if (!candidateExecRoot.getBaseName().equals("execroot")) {
+      return false;
+    }
+
+    Root absoluteRoot = Root.absoluteRoot(root.getFileSystem());
+    RootedPath doNotBuildPath =
+        RootedPath.toRootedPath(absoluteRoot, candidateExecRoot.getChild("DO_NOT_BUILD_HERE"));
+    FileValue doNotBuildValue = (FileValue) env.getValue(FileValue.key(doNotBuildPath));
+    if (doNotBuildValue == null) {
+      return false;
+    }
+
+    return doNotBuildValue.exists();
   }
 
   private Iterable<SkyKey> getSubdirDeps(
