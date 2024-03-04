@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,8 +34,11 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.java.ImportDepsCheckActionBuilder;
@@ -54,6 +58,7 @@ import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -466,7 +471,48 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   private static SpawnAction createAarNativeLibsFilterActions(
-      RuleContext ruleContext, Artifact aar, Artifact outputZip) {
+      RuleContext ruleContext, Artifact aar, Artifact outputZip) throws RuleErrorException {
+
+    BuildConfigurationValue configuration = ruleContext.getConfiguration();
+
+    String cpu = null;
+    AndroidConfiguration androidConfiguration =
+        configuration.getFragment(AndroidConfiguration.class);
+
+    if (androidConfiguration.incompatibleUseToolchainResolution()) {
+
+      // Maps a CPU name as used in an AAR to the corresponding CPU constraint.
+      ImmutableMap<String, ConstraintValueInfo> aarCpuToConstraint =
+          ImmutableMap.of(
+              "arm64-v8a",
+                  ruleContext.getPrerequisite("$constraint_arm64", ConstraintValueInfo.PROVIDER),
+              "armeabi-v7a",
+                  ruleContext.getPrerequisite("$constraint_armv7", ConstraintValueInfo.PROVIDER),
+              "x86", ruleContext.getPrerequisite("$constraint_x86", ConstraintValueInfo.PROVIDER),
+              "x86_64",
+                  ruleContext.getPrerequisite("$constraint_x86_64", ConstraintValueInfo.PROVIDER));
+
+      for (Map.Entry<String, ConstraintValueInfo> e : aarCpuToConstraint.entrySet()) {
+        if (ruleContext.targetPlatformHasConstraint(e.getValue())) {
+          cpu = e.getKey();
+          break;
+        }
+      }
+
+      if (cpu == null) {
+        throw ruleContext.throwWithRuleError(
+            String.format(
+                "Target platform %s does not match one of the applicable CPU constraints for"
+                    + " aar_import %s. Applicable CPU constraints are listed in"
+                    + " https://blog.bazel.build/2023/11/15/android-platforms.html",
+                ruleContext.getToolchainContexts().getTargetPlatform().label(),
+                ruleContext.getLabel()));
+      }
+
+    } else {
+      cpu = configuration.getCpu();
+    }
+
     SpawnAction.Builder actionBuilder = new SpawnAction.Builder();
     ParamFileInfo paramFileInfo = getParamFileInfo(ruleContext);
     modifyExecutionInfo(ruleContext, actionBuilder);
@@ -481,7 +527,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addCommandLine(
             CustomCommandLine.builder()
                 .addExecPath("--input_aar", aar)
-                .add("--cpu", ruleContext.getConfiguration().getCpu())
+                .add("--cpu", cpu)
                 .addExecPath("--output_zip", outputZip)
                 .build(),
             paramFileInfo)
