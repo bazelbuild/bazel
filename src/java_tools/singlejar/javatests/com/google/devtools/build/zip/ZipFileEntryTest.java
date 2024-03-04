@@ -109,9 +109,9 @@ public class ZipFileEntryTest {
   @Test public void testMinVersion_Zip64Updated() {
     ZipFileEntry foo = new ZipFileEntry("foo");
     assertThat(foo.getVersion()).isEqualTo(Feature.DEFAULT.getMinVersion());
-    foo.setSize(0xffffffffL);
+    foo.setSize(0xfffffffeL);
     assertThat(foo.getVersion()).isEqualTo(Feature.DEFAULT.getMinVersion());
-    foo.setSize(0xfffffffffL);
+    foo.setSize(0xffffffffL);
     assertThat(foo.getVersion()).isEqualTo(Feature.ZIP64_SIZE.getMinVersion());
   }
 
@@ -141,9 +141,9 @@ public class ZipFileEntryTest {
   @Test public void testMinVersionNeeded_Zip64Updated() {
     ZipFileEntry foo = new ZipFileEntry("foo");
     assertThat(foo.getVersionNeeded()).isEqualTo(Feature.DEFAULT.getMinVersion());
-    foo.setSize(0xffffffffL);
+    foo.setSize(0xfffffffeL);
     assertThat(foo.getVersionNeeded()).isEqualTo(Feature.DEFAULT.getMinVersion());
-    foo.setSize(0xfffffffffL);
+    foo.setSize(0xffffffffL);
     assertThat(foo.getVersionNeeded()).isEqualTo(Feature.ZIP64_SIZE.getMinVersion());
   }
 
