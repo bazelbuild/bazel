@@ -156,9 +156,6 @@ public final class ActionExecutionFunction implements SkyFunction {
   private final BugReporter bugReporter;
   private final Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier;
 
-  // TODO(b/314282963): Remove this after the rollout.
-  private final Supplier<Boolean> clearNestedSetAfterActionExecution;
-
   public ActionExecutionFunction(
       ActionRewindStrategy actionRewindStrategy,
       SkyframeActionExecutor skyframeActionExecutor,
@@ -166,15 +163,13 @@ public final class ActionExecutionFunction implements SkyFunction {
       BlazeDirectories directories,
       Supplier<TimestampGranularityMonitor> tsgm,
       BugReporter bugReporter,
-      Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier,
-      Supplier<Boolean> clearNestedSetAfterActionExecution) {
+      Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier) {
     this.actionRewindStrategy = checkNotNull(actionRewindStrategy);
     this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
     this.evaluator = checkNotNull(evaluator);
     this.directories = checkNotNull(directories);
     this.tsgm = checkNotNull(tsgm);
     this.bugReporter = checkNotNull(bugReporter);
-    this.clearNestedSetAfterActionExecution = clearNestedSetAfterActionExecution;
     this.consumedArtifactsTrackerSupplier = consumedArtifactsTrackerSupplier;
   }
 
@@ -386,10 +381,9 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     // We're done with the action. Clear the memo fields of the NestedSets to save some memory.
-    if (clearNestedSetAfterActionExecution.get()) {
-      action.getInputs().clearMemo();
-      allInputs.clearMemo();
-    }
+    action.getInputs().clearMemo();
+    allInputs.clearMemo();
+
     // After the action execution is finalized, unregister the outputs from the consumed set to save
     // memory.
     // Note: This can theoretically lead to infinite action rewinding if we're unlucky enough.

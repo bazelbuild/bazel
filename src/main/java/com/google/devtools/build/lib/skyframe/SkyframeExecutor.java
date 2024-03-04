@@ -462,7 +462,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private ImmutableSet<Path> ignoredPaths = ImmutableSet.of();
 
   Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
-  private boolean clearNestedSetAfterActionExecution = false;
 
   private ImmutableSet<String> activeWorkingSet = ImmutableSet.of();
 
@@ -809,8 +808,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         directories,
         tsgm::get,
         bugReporter,
-        this::getConsumedArtifactsTracker,
-        this::clearingNestedSetAfterActionExecution);
+        this::getConsumedArtifactsTracker);
   }
 
   protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
@@ -1085,14 +1083,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return tracksStateForIncrementality()
         ? GlobbingStrategy.SKYFRAME_HYBRID
         : GlobbingStrategy.NON_SKYFRAME;
-  }
-
-  private boolean clearingNestedSetAfterActionExecution() {
-    return clearNestedSetAfterActionExecution;
-  }
-
-  public void setClearNestedSetAfterActionExecution(boolean value) {
-    this.clearNestedSetAfterActionExecution = value;
   }
 
   /**

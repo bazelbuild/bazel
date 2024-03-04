@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -832,10 +831,6 @@ public class CommandEnvironment {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.setOutputService(outputService);
     skyframeExecutor.noteCommandStart();
-
-    var executionOptions = options.getOptions(ExecutionOptions.class);
-    skyframeExecutor.setClearNestedSetAfterActionExecution(
-        executionOptions != null && executionOptions.clearNestedSetAfterActionExecution);
 
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, commonOptions);

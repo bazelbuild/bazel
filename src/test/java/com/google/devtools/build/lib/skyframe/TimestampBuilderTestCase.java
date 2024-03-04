@@ -258,8 +258,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         directories,
                         () -> tsgm,
                         BugReporter.defaultInstance(),
-                        () -> null,
-                        () -> false))
+                        () -> null))
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,

@@ -530,17 +530,6 @@ public class ExecutionOptions extends OptionsBase {
               + " code 39.")
   public int remoteRetryOnCacheEviction;
 
-  // TODO(b/314282963) remove this after rollout.
-  @Option(
-      name = "experimental_clear_nested_sets_after_action_execution",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Clears the memoization in the input NestedSet of an action after its execution"
-              + " concludes in order to reclaim memory.")
-  public boolean clearNestedSetAfterActionExecution;
-
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
     SUMMARY, // Provide summary output only.
