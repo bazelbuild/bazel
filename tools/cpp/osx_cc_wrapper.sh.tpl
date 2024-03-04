@@ -71,6 +71,11 @@ done
 # Call the C++ compiler
 %{cc} "$@"
 
+# Generate an empty file if header processing succeeded.
+if [[ "${OUTPUT}" == *.h.processed ]]; then
+  echo -n > "${OUTPUT}"
+fi
+
 function get_library_path() {
     for libdir in ${LIB_DIRS}; do
         if [ -f ${libdir}/lib$1.so ]; then
