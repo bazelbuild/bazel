@@ -273,16 +273,6 @@ public final class CcToolchainProvider {
     }
   }
 
-  /** Returns the files necessary for a 'strip' invocation. */
-  public NestedSet<Artifact> getStripFiles() throws EvalException, TypeException {
-    return value.getValue("_strip_files", Depset.class).getSet(Artifact.class);
-  }
-
-  /** Returns the files necessary for an 'objcopy' invocation. */
-  public NestedSet<Artifact> getObjcopyFiles() throws EvalException, TypeException {
-    return value.getValue("_objcopy_files", Depset.class).getSet(Artifact.class);
-  }
-
   /**
    * Returns the files necessary for an 'as' invocation. May be empty if the CROSSTOOL file does not
    * define as_files.

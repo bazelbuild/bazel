@@ -835,15 +835,15 @@ def _create_cc_launcher_info(*, cc_info, compilation_outputs):
 
 def _objcopy(*, ctx, cc_toolchain):
     cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
-    return cc_common_internal.objcopy(ctx = ctx, cc_toolchain = cc_toolchain)
+    return cc_toolchain._objcopy_files
 
 def _objcopy_tool_path(*, ctx, cc_toolchain):
     cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
-    return cc_common_internal.objcopy_tool_path(ctx = ctx, cc_toolchain = cc_toolchain)
+    return cc_toolchain._tool_paths.get("objcopy", None)
 
 def _ld_tool_path(*, ctx, cc_toolchain):
     cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
-    return cc_common_internal.ld_tool_path(ctx = ctx, cc_toolchain = cc_toolchain)
+    return cc_toolchain._tool_paths.get("ld", None)
 
 def _cc_target_os_do_not_use(toolchain):
     return cc_common_internal.cc_target_os_do_not_use(toolchain)
