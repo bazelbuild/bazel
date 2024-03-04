@@ -66,9 +66,14 @@ public final class CommandLinePathFactory {
     ImmutableMap.Builder<String, Path> wellKnownRoots = ImmutableMap.builder();
 
     // This is necessary because some tests don't have a workspace set.
-    Path workspace = directories.getWorkspace();
+    var workspace = directories.getWorkspace();
     if (workspace != null) {
       wellKnownRoots.put("workspace", workspace);
+    }
+
+    var installBase = directories.getInstallBase();
+    if (installBase != null) {
+      wellKnownRoots.put("install_base", installBase);
     }
 
     return new CommandLinePathFactory(fileSystem, wellKnownRoots.buildOrThrow());
