@@ -501,7 +501,7 @@ function test_starlark_repository_environ() {
 def _impl(repository_ctx):
   print(repository_ctx.os.environ["FOO"])
   # Symlink so a repository is created
-  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""), watch_target="no")
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
 repo = repository_rule(implementation=_impl, local=False)
 EOF
 
@@ -544,7 +544,7 @@ EOF
 def _impl(repository_ctx):
   print(repository_ctx.os.environ["BAR"])
   # Symlink so a repository is created
-  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""), watch_target="no")
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
 repo = repository_rule(implementation=_impl, local=True)
 EOF
   BAR=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
@@ -556,7 +556,7 @@ EOF
 def _impl(repository_ctx):
   print(repository_ctx.os.environ["BAZ"])
   # Symlink so a repository is created
-  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""), watch_target="no")
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
 repo = repository_rule(implementation=_impl, local=True)
 EOF
   BAZ=BOZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
@@ -2865,6 +2865,46 @@ bar(name = "bar", data = "something")
 EOF
   bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I see: something"
+}
+
+function test_file_watching_in_undefined_repo() {
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+foo = use_repo_rule("//:foo.bzl", "foo")
+foo(name = "foo")
+EOF
+  touch BUILD
+  cat > foo.bzl <<EOF
+def _foo(rctx):
+  rctx.file("BUILD", "filegroup(name='foo')")
+  # this repo might not have been defined yet
+  rctx.watch("../_main~_repo_rules~bar/BUILD")
+  print("I see something!")
+foo=repository_rule(_foo)
+EOF
+
+  bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see something!"
+
+  # Defining @@_main~_repo_rules~bar should now cause @foo to refetch.
+  cat >> MODULE.bazel <<EOF
+bar = use_repo_rule("//:bar.bzl", "bar")
+bar(name = "bar")
+EOF
+  cat > bar.bzl <<EOF
+def _bar(rctx):
+  rctx.file("BUILD", "filegroup(name='bar')")
+bar=repository_rule(_bar)
+EOF
+  bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see something!"
+
+  # However, just adding a random other repo shouldn't alert @foo.
+  cat >> MODULE.bazel <<EOF
+bar(name = "baz")
+EOF
+  bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see something!"
 }
 
 function test_file_watching_in_other_repo_cycle() {

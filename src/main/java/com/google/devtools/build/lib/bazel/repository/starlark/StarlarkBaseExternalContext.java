@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
-import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1280,20 +1279,16 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    RootedPath rootedPath = repoCacheFriendlyPath.getRootedPath(env, directories);
-    if (rootedPath == null) {
-      throw new NeedsSkyframeRestartException();
-    }
     try {
+      var recordedInput = new RepoRecordedInput.File(repoCacheFriendlyPath);
       FileValue fileValue =
-          (FileValue) env.getValueOrThrow(FileValue.key(rootedPath), IOException.class);
+          (FileValue) env.getValueOrThrow(recordedInput.getSkyKey(directories), IOException.class);
       if (fileValue == null) {
         throw new NeedsSkyframeRestartException();
       }
 
       recordedFileInputs.put(
-          new RepoRecordedInput.File(repoCacheFriendlyPath),
-          RepoRecordedInput.File.fileValueToMarkerValue(fileValue));
+          recordedInput, RepoRecordedInput.File.fileValueToMarkerValue(fileValue));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -1305,17 +1300,13 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    RootedPath rootedPath = repoCacheFriendlyPath.getRootedPath(env, directories);
-    if (env.valuesMissing()) {
-      throw new NeedsSkyframeRestartException();
-    }
-    if (env.getValue(DirectoryListingValue.key(rootedPath)) == null) {
+    var recordedInput = new RepoRecordedInput.Dirents(repoCacheFriendlyPath);
+    if (env.getValue(recordedInput.getSkyKey(directories)) == null) {
       throw new NeedsSkyframeRestartException();
     }
     try {
       recordedDirentsInputs.put(
-          new RepoRecordedInput.Dirents(repoCacheFriendlyPath),
-          RepoRecordedInput.Dirents.getDirentsMarkerValue(path));
+          recordedInput, RepoRecordedInput.Dirents.getDirentsMarkerValue(path));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
