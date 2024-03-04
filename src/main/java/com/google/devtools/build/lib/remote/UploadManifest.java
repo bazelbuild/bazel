@@ -40,10 +40,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SortedSetMultimap;
 import com.google.common.collect.TreeMultimap;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
@@ -53,6 +55,8 @@ import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
@@ -94,6 +98,8 @@ import javax.annotation.Nullable;
 
 /** UploadManifest adds output metadata to a {@link ActionResult}. */
 public class UploadManifest {
+  private static final Profiler profiler = Profiler.instance();
+
   private final DigestUtil digestUtil;
   private final RemotePathResolver remotePathResolver;
   private final ActionResult.Builder result;
@@ -679,7 +685,7 @@ public class UploadManifest {
     ActionExecutionMetadata action = context.getSpawnOwner();
 
     Flowable<RxUtils.TransferResult> bulkTransfers =
-        toSingle(() -> remoteCache.findMissingDigests(context, digests), directExecutor())
+        toSingle(() -> findMissingDigests(context, remoteCache, digests), directExecutor())
             .doOnSubscribe(d -> reportUploadStarted(reporter, action, Store.CAS, digests))
             .doOnError(error -> reportUploadFinished(reporter, action, Store.CAS, digests))
             .doOnDispose(() -> reportUploadFinished(reporter, action, Store.CAS, digests))
@@ -719,5 +725,20 @@ public class UploadManifest {
     }
 
     return Completable.concatArray(uploadOutputs, uploadActionResult).toSingleDefault(actionResult);
+  }
+
+  private ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
+      RemoteActionExecutionContext context, RemoteCache remoteCache, Collection<Digest> digests) {
+    long startTime = Profiler.nanoTimeMaybe();
+
+    var future = remoteCache.findMissingDigests(context, digests);
+
+    if (profiler.isActive()) {
+      future.addListener(
+          () -> profiler.logSimpleTask(startTime, ProfilerTask.INFO, "findMissingDigests"),
+          directExecutor());
+    }
+
+    return future;
   }
 }
