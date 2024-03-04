@@ -20,7 +20,7 @@ from src.test.py.bazel import test_base
 class QueryTest(test_base.TestBase):
 
   def testSimpleQuery(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'exports_files(["exported.txt"])',
         'filegroup(name = "top-rule", srcs = [":dep-rule"])',
@@ -39,13 +39,14 @@ class QueryTest(test_base.TestBase):
                             '//foo:dep-rule')
 
   def testQueryFilesUsedByRepositoryRules(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self._AssertQueryOutputContains(
         "kind('source file', deps(//external:*))",
         '@bazel_tools//tools/genrule:genrule-setup.sh',
     )
 
   def testBuildFilesForExternalRepos_Simple(self):
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',
         'repos()',
@@ -64,6 +65,7 @@ class QueryTest(test_base.TestBase):
                                     '//:BUILD.bazel')
 
   def testBuildFilesForExternalRepos_IndirectLoads(self):
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',
         'repos()',
@@ -94,6 +96,7 @@ class QueryTest(test_base.TestBase):
         '//:deps.bzl', '//:private_deps.bzl', '//:BUILD.bazel')
 
   def testBuildFilesForExternalRepos_NoDuplicates(self):
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',
         'repos()',

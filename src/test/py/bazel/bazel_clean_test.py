@@ -22,7 +22,7 @@ from src.test.py.bazel import test_base
 class BazelCleanTest(test_base.TestBase):
 
   def testBazelClean(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
         '  name = "x",',
@@ -60,7 +60,7 @@ class BazelCleanTest(test_base.TestBase):
   @absltest.skipIf(not test_base.TestBase.IsLinux(),
                    'Async clean only supported on Linux')
   def testBazelAsyncClean(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     _, _, stderr = self.RunBazel(['clean', '--async'])
     matcher = self._findMatch(' moved to (.*) for deletion', stderr)
     self.assertTrue(matcher, stderr)
@@ -79,7 +79,7 @@ class BazelCleanTest(test_base.TestBase):
   @absltest.skipIf(not test_base.TestBase.IsLinux(),
                    'Async clean only supported on Linux')
   def testBazelAsyncCleanWithReadonlyDirectories(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.RunBazel(['build'])
     _, stdout, _ = self.RunBazel(['info', 'execution_root'])
     execroot = stdout[0]

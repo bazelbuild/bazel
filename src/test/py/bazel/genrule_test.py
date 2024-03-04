@@ -20,7 +20,7 @@ from src.test.py.bazel import test_base
 class GenRuleTest(test_base.TestBase):
 
   def testCopyWithBashAndBatch(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
         '  name = "x",',
@@ -42,7 +42,7 @@ class GenRuleTest(test_base.TestBase):
     self.AssertFileContentContains(copied, 'hello world')
 
   def testCopyWithBashAndPowershell(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
         '  name = "x",',
@@ -64,7 +64,7 @@ class GenRuleTest(test_base.TestBase):
     self.AssertFileContentContains(copied, 'hello world')
 
   def testShOptionOverridesDefault(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
         '  name = "x",',
@@ -85,7 +85,7 @@ class GenRuleTest(test_base.TestBase):
   def testScriptFileIsUsedWithBatch(self):
     if not self.IsWindows():
       return
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
         '  name = "x",',
@@ -110,7 +110,7 @@ class GenRuleTest(test_base.TestBase):
   def testScriptFileIsUsedWithPowershell(self):
     if not self.IsWindows():
       return
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
         '  name = "x",',
@@ -135,7 +135,7 @@ class GenRuleTest(test_base.TestBase):
   def testCommandFailsEagerlyInPowershell(self):
     if not self.IsWindows():
       return
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
         '  name = "x",',
@@ -155,7 +155,7 @@ class GenRuleTest(test_base.TestBase):
   def testCopyWithSpacesWithBatch(self):
     if not self.IsWindows():
       return
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
         '  name = "x",',
@@ -178,7 +178,7 @@ class GenRuleTest(test_base.TestBase):
   def testCopyWithSpacesWithPowershell(self):
     if not self.IsWindows():
       return
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'genrule(',
         '  name = "x",',
