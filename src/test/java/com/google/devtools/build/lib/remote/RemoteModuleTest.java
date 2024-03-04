@@ -250,6 +250,12 @@ public final class RemoteModuleTest {
       // Remote downloader uses Remote Asset API, and Bazel doesn't have any capability requirement
       // on the endpoint. Expecting the request count is 0.
       assertThat(cacheCapabilitiesImpl.getRequestCount()).isEqualTo(0);
+
+      // Retrieve the execution capabilities so that the asynchronous task that eagerly requests
+      // them doesn't leak and accidentally interfere with other test cases.
+      assertThat(remoteModule.getActionContextProvider().getRemoteCache().getCacheCapabilities())
+          .isEqualTo(EXEC_AND_CACHE_CAPS.getCacheCapabilities());
+
       assertCircuitBreakerInstance();
     } finally {
       executionServer.shutdownNow();
