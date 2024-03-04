@@ -20,8 +20,10 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.AbstractCommandLine;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -30,6 +32,9 @@ import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
+import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -52,6 +57,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -66,12 +72,64 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
-/** Supports ctx.actions.args() from Starlark. */
-public class StarlarkCustomCommandLine extends AbstractCommandLine {
+/**
+ * Supports {@code ctx.actions.args()} from Starlark.
+ *
+ * <p>To be as memory-friendly as possible, expansion happens in three stages. First, when a
+ * Starlark rule is analyzed, its {@code Args} are built into a {@code StarlarkCustomCommandLine}.
+ * This is retained in Skyframe, so care is taken to be as compact as possible. At this point, the
+ * {@linkplain #arguments representation} is just a "recipe" to compute the full command line later
+ * on. Additionally, {@link #addToFingerprint} supports computing a fingerprint without actually
+ * constructing the expanded command line.
+ *
+ * <p>Second, right before an action executes, {@link #expand(ArtifactExpander, PathMapper)} is
+ * called to "preprocess" the recipe into a {@link PreprocessedCommandLine}. This step includes
+ * flattening nested sets and applying any operations that can throw an exception, such as expanding
+ * directories and invoking {@code map_each} functions. At this point, the representation stores a
+ * string for each individual argument, but string formatting (including {@code format}, {@code
+ * format_each}, {@code before_each}, {@code join_with}, {@code format_joined}, and {@code
+ * flag_per_line}), is not yet applied. This means that in the common case of an {@link Artifact}
+ * with no {@code map_each} function, the string representation is still its {@link
+ * Artifact#getExecPathString}, which is not a novel string instance - it is already stored in the
+ * {@link Artifact}. This is crucial because for param files (the longest command lines), the
+ * preprocessed representation is retained throughout the action's execution.
+ *
+ * <p>Finally, string formatting is applied lazily during iteration over a {@link
+ * PreprocessedCommandLine}. When there is no param file, this happens up front during {@link
+ * CommandLines#expand(ArtifactExpander, PathFragment, PathMapper, CommandLineLimits)}. When a param
+ * file is used, the lazy {@link PreprocessedCommandLine#arguments} is stored in a {@link
+ * ParamFileActionInput}, which is processed by the action execution strategy. Strategies should
+ * respect the laziness of {@link ParamFileActionInput#getArguments} by iterating as few times as
+ * possible and not retaining elements longer than necessary.
+ *
+ * <p>As an example, consider this common usage pattern, where {@code inputs} is a {@code depset} of
+ * artifacts:
+ *
+ * <pre>{@code
+ * args = ctx.actions.args()
+ * args.use_param_file("--flagfile=%s")
+ * args.add_all(inputs, format_each = "--input=%s")
+ * }</pre>
+ *
+ * During analysis, the nested set is stored without flattening. During preprocessing, the nested
+ * set is flattened and {@link Artifact#expandToCommandLine} is called for each element, but this
+ * returns an exec path string instance already stored inside the artifact. {@code format_each} is
+ * not yet applied, so no new strings are created. {@link SingleStringArgFormatter#format} is only
+ * called during iteration over the {@link PreprocessedCommandLine#arguments}.
+ */
+// TODO: b/327187486 - PathMapper is currently invoked during the preprocessing step. If path
+//  stripping is enabled, this means that the lazy approach to string formatted described above is
+//  defeated. Ideally, PathMapper should be invoked lazily during iteration over a
+//  PreprocessedCommandLine.
+public class StarlarkCustomCommandLine extends CommandLine {
 
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
   private static final Joiner FIELD_JOINER = Joiner.on(": ").skipNulls();
 
+  /**
+   * Representation of a sequence of arguments originating from {@code Args.add_all} or {@code
+   * Args.add_joined}.
+   */
   @AutoCodec
   static final class VectorArg {
     private static final Interner<VectorArg> interner = BlazeInterners.newStrongInterner();
@@ -164,12 +222,16 @@ public class StarlarkCustomCommandLine extends AbstractCommandLine {
         arguments.add(arg.formatEach);
       }
       if (arg.beforeEach != null) {
+        checkState(arg.joinWith == null, "before_each and join_with are mutually exclusive");
+        checkState(
+            arg.formatJoined == null, "before_each and format_joined are mutually exclusive");
         arguments.add(arg.beforeEach);
       }
       if (arg.joinWith != null) {
         arguments.add(arg.joinWith);
       }
       if (arg.formatJoined != null) {
+        checkNotNull(arg.joinWith, "format_joined requires join_with");
         arguments.add(arg.formatJoined);
       }
       if (arg.terminateWith != null) {
@@ -177,10 +239,22 @@ public class StarlarkCustomCommandLine extends AbstractCommandLine {
       }
     }
 
-    private int eval(
+    /**
+     * Adds this {@link VectorArg} to the given {@link PreprocessedCommandLine.Builder}.
+     *
+     * @param arguments result of {@link #rawArgsAsList}
+     * @param argi index in {@code arguments} at which this {@link VectorArg} begins; should be
+     *     directly preceded by {@code this}
+     * @param builder the {@link PreprocessedCommandLine.Builder} in which to add a preprocessed
+     *     representation of this arg
+     * @param pathMapper mapper for exec paths
+     * @return index in {@code arguments} where the next arg begins, or {@code arguments.size()} if
+     *     this is the last argument
+     */
+    private int preprocess(
         List<Object> arguments,
         int argi,
-        List<String> builder,
+        PreprocessedCommandLine.Builder builder,
         @Nullable ArtifactExpander artifactExpander,
         PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
@@ -236,45 +310,45 @@ public class StarlarkCustomCommandLine extends AbstractCommandLine {
         }
         stringValues = stringValues.subList(0, addIndex);
       }
-      boolean isEmptyAndShouldOmit = stringValues.isEmpty() && (features & OMIT_IF_EMPTY) != 0;
+      boolean omitIfEmpty = (features & OMIT_IF_EMPTY) != 0;
+      boolean isEmptyAndShouldOmit = omitIfEmpty && stringValues.isEmpty();
       if ((features & HAS_ARG_NAME) != 0) {
         String argName = (String) arguments.get(argi++);
         if (!isEmptyAndShouldOmit) {
-          builder.add(argName);
+          builder.addString(argName);
         }
       }
+
+      String formatEach = null;
+      String beforeEach = null;
+      String joinWith = null;
+      String formatJoined = null;
       if ((features & HAS_FORMAT_EACH) != 0) {
-        String formatStr = (String) arguments.get(argi++);
-        int count = stringValues.size();
-        for (int i = 0; i < count; ++i) {
-          stringValues.set(i, SingleStringArgFormatter.format(formatStr, stringValues.get(i)));
-        }
+        formatEach = (String) arguments.get(argi++);
       }
       if ((features & HAS_BEFORE_EACH) != 0) {
-        String beforeEach = (String) arguments.get(argi++);
-        int count = stringValues.size();
-        for (int i = 0; i < count; ++i) {
-          builder.add(beforeEach);
-          builder.add(stringValues.get(i));
-        }
+        beforeEach = (String) arguments.get(argi++);
       } else if ((features & HAS_JOIN_WITH) != 0) {
-        String joinWith = (String) arguments.get(argi++);
-        String formatJoined =
-            ((features & HAS_FORMAT_JOINED) != 0) ? (String) arguments.get(argi++) : null;
-        if (!isEmptyAndShouldOmit) {
-          String result = Joiner.on(joinWith).join(stringValues);
-          if (formatJoined != null) {
-            result = SingleStringArgFormatter.format(formatJoined, result);
-          }
-          builder.add(result);
+        joinWith = (String) arguments.get(argi++);
+        if ((features & HAS_FORMAT_JOINED) != 0) {
+          formatJoined = (String) arguments.get(argi++);
         }
-      } else {
-        builder.addAll(stringValues);
       }
+
+      // If !omitIfEmpty, joining yields a single argument even if stringValues is empty. Note that
+      // the argument may still be non-empty if format_joined is used.
+      if (!stringValues.isEmpty() || (!omitIfEmpty && joinWith != null)) {
+        PreprocessedArg arg =
+            joinWith != null
+                ? new JoinedPreprocessedVectorArg(stringValues, formatEach, joinWith, formatJoined)
+                : new UnjoinedPreprocessedVectorArg(stringValues, formatEach, beforeEach);
+        builder.addPreprocessedArg(arg);
+      }
+
       if ((features & HAS_TERMINATE_WITH) != 0) {
         String terminateWith = (String) arguments.get(argi++);
         if (!isEmptyAndShouldOmit) {
-          builder.add(terminateWith);
+          builder.addString(terminateWith);
         }
       }
       return argi;
@@ -586,7 +660,7 @@ public class StarlarkCustomCommandLine extends AbstractCommandLine {
     }
   }
 
-  /** Handles a single formatted argument originating from {@code Args.add} */
+  /** Representation of a single formatted argument originating from {@code Args.add} */
   private static final class SingleFormattedArg {
 
     /** Denotes that the following two elements are an object and format string. */
@@ -607,11 +681,27 @@ public class StarlarkCustomCommandLine extends AbstractCommandLine {
       arguments.add(format);
     }
 
-    static int eval(List<Object> arguments, int argi, List<String> builder, PathMapper pathMapper) {
+    /**
+     * Adds a {@link SingleFormattedArg} to the given {@link PreprocessedCommandLine.Builder}.
+     *
+     * @param arguments result of {@link #rawArgsAsList}
+     * @param argi index in {@code arguments} at which the {@link SingleFormattedArg} begins; should
+     *     be directly preceded by {@link #MARKER}
+     * @param builder the {@link PreprocessedCommandLine.Builder} in which to add a preprocessed
+     *     representation of this arg
+     * @param pathMapper mapper for exec paths
+     * @return index in {@code arguments} where the next arg begins, or {@code arguments.size()} if
+     *     there are no more arguments
+     */
+    static int preprocess(
+        List<Object> arguments,
+        int argi,
+        PreprocessedCommandLine.Builder builder,
+        PathMapper pathMapper) {
       Object object = arguments.get(argi++);
-      String stringValue = StarlarkCustomCommandLine.expandToCommandLine(object, pathMapper);
       String formatStr = (String) arguments.get(argi++);
-      builder.add(SingleStringArgFormatter.format(formatStr, stringValue));
+      String stringValue = StarlarkCustomCommandLine.expandToCommandLine(object, pathMapper);
+      builder.addPreprocessedArg(new PreprocessedSingleFormattedArg(formatStr, stringValue));
       return argi;
     }
 
@@ -638,7 +728,9 @@ public class StarlarkCustomCommandLine extends AbstractCommandLine {
 
     @CanIgnoreReturnValue
     Builder recordArgStart() {
-      argStartIndexes.add(arguments.size());
+      if (!arguments.isEmpty()) {
+        argStartIndexes.add(arguments.size());
+      }
       return this;
     }
 
@@ -689,28 +781,39 @@ public class StarlarkCustomCommandLine extends AbstractCommandLine {
   }
 
   @Override
-  public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
-    return arguments(null, PathMapper.NOOP);
+  public final ArgChunk expand() throws CommandLineExpansionException, InterruptedException {
+    return expand(null, PathMapper.NOOP);
   }
 
   @Override
-  public Iterable<String> arguments(
-      @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public ArgChunk expand(@Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
-    List<String> result = new ArrayList<>();
+    PreprocessedCommandLine.Builder builder = new PreprocessedCommandLine.Builder();
     List<Object> arguments = rawArgsAsList();
 
     for (int argi = 0; argi < arguments.size(); ) {
       Object arg = arguments.get(argi++);
       if (arg instanceof VectorArg) {
-        argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, pathMapper);
+        argi = ((VectorArg) arg).preprocess(arguments, argi, builder, artifactExpander, pathMapper);
       } else if (arg == SingleFormattedArg.MARKER) {
-        argi = SingleFormattedArg.eval(arguments, argi, result, pathMapper);
+        argi = SingleFormattedArg.preprocess(arguments, argi, builder, pathMapper);
       } else {
-        result.add(expandToCommandLine(arg, pathMapper));
+        builder.addString(expandToCommandLine(arg, pathMapper));
       }
     }
-    return ImmutableList.copyOf(pathMapper.mapCustomStarlarkArgs(result));
+    return pathMapper.mapCustomStarlarkArgs(builder.build());
+  }
+
+  @Override
+  public final Iterable<String> arguments()
+      throws CommandLineExpansionException, InterruptedException {
+    return expand().arguments();
+  }
+
+  @Override
+  public final Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
+      throws CommandLineExpansionException, InterruptedException {
+    return expand(artifactExpander, pathMapper).arguments();
   }
 
   private static String expandToCommandLine(Object object, PathMapper pathMapper) {
@@ -724,10 +827,11 @@ public class StarlarkCustomCommandLine extends AbstractCommandLine {
 
   private static class StarlarkCustomCommandLineWithIndexes extends StarlarkCustomCommandLine {
     /**
-     * If non-empty, an extra level of grouping on top of the 'arguments' list. Each element is the
-     * beginning of a group of args. For example, if this contains 0 and 3, then arguments 0, 1 and
+     * An extra level of grouping on top of the 'arguments' list. Each element is the start of a
+     * group of args, with index 0 omitted. For example, if this contains 3, then arguments 0, 1 and
      * 2 constitute the first group, and arguments 3 to the end constitute the next. The expanded
-     * version of these arguments will be concatenated together to support flag_per_line format.
+     * version of these arguments will be concatenated together to support {@code flag_per_line}
+     * format.
      */
     private final ImmutableList<Integer> argStartIndexes;
 
@@ -735,57 +839,36 @@ public class StarlarkCustomCommandLine extends AbstractCommandLine {
         Object[] arguments, ImmutableList<Integer> argStartIndexes) {
       super(arguments);
       this.argStartIndexes = argStartIndexes;
-      checkState(!argStartIndexes.isEmpty(), "Arg start indexes were not recorded");
     }
 
     @Override
-    public Iterable<String> arguments(
-        @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
+    public ArgChunk expand(@Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
-      List<String> result = new ArrayList<>();
+      PreprocessedCommandLine.Builder builder = new PreprocessedCommandLine.Builder();
       List<Object> arguments = ((StarlarkCustomCommandLine) this).rawArgsAsList();
-
-      // Keep track of the result indexes corresponding to the argStartIndexes, reflecting VectorArg
-      // and SingleFormattedArg expansion.
-      List<Integer> resultGroupStarts = new ArrayList<>();
       Iterator<Integer> startIndexIterator = argStartIndexes.iterator();
-      int nextStartIndex = startIndexIterator.hasNext() ? startIndexIterator.next() : -1;
 
       for (int argi = 0; argi < arguments.size(); ) {
+        int nextStartIndex =
+            startIndexIterator.hasNext() ? startIndexIterator.next() : arguments.size();
+        PreprocessedCommandLine.Builder line = new PreprocessedCommandLine.Builder();
 
-        // Record the actual beginning of each group.
-        if (argi == nextStartIndex) {
-          resultGroupStarts.add(result.size());
-          nextStartIndex = startIndexIterator.hasNext() ? startIndexIterator.next() : -1;
+        while (argi < nextStartIndex) {
+          Object arg = arguments.get(argi++);
+          if (arg instanceof VectorArg) {
+            argi =
+                ((VectorArg) arg).preprocess(arguments, argi, line, artifactExpander, pathMapper);
+          } else if (arg == SingleFormattedArg.MARKER) {
+            argi = SingleFormattedArg.preprocess(arguments, argi, line, pathMapper);
+          } else {
+            line.addString(expandToCommandLine(arg, pathMapper));
+          }
         }
 
-        Object arg = arguments.get(argi++);
-        if (arg instanceof VectorArg) {
-          argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, pathMapper);
-        } else if (arg == SingleFormattedArg.MARKER) {
-          argi = SingleFormattedArg.eval(arguments, argi, result, pathMapper);
-        } else {
-          result.add(StarlarkCustomCommandLine.expandToCommandLine(arg, pathMapper));
-        }
+        builder.addLineForFlagPerLine(line);
       }
 
-      // Concatenate results.
-      ImmutableList.Builder<String> groupedBuilder = ImmutableList.builder();
-      int numStarts = resultGroupStarts.size();
-      resultGroupStarts.add(result.size());
-      for (int i = 0; i < numStarts; i++) {
-        // Arguments that constitute a single group
-        List<String> group = result.subList(resultGroupStarts.get(i), resultGroupStarts.get(i + 1));
-        if (group.size() < 2) {
-          groupedBuilder.addAll(group);
-        } else {
-          // "--x=y z", or just "y z"
-          String first = group.get(0);
-          String rest = String.join(" ", group.subList(1, group.size()));
-          groupedBuilder.add(first.isEmpty() ? rest : (first + '=' + rest));
-        }
-      }
-      return groupedBuilder.build();
+      return pathMapper.mapCustomStarlarkArgs(builder.build());
     }
   }
 
@@ -1090,6 +1173,290 @@ public class StarlarkCustomCommandLine extends AbstractCommandLine {
       } else {
         printer.append("<generated file " + getRunfilesPathString() + ">");
       }
+    }
+  }
+
+  /** An element in a {@link PreprocessedCommandLine}. */
+  private interface PreprocessedArg extends Iterable<String> {
+    int numArgs();
+
+    int totalArgLength();
+  }
+
+  /**
+   * Intermediate command line representation with directory expansion and {@code map_each} already
+   * applied, but with string formatting not yet applied. See {@link StarlarkCustomCommandLine}
+   * class-level documentation for details.
+   *
+   * <p>Implements {@link #totalArgLength} without applying string formatting so that the total
+   * command line length can be efficiently tested against {@link CommandLineLimits} and param file
+   * thresholds.
+   */
+  private static final class PreprocessedCommandLine implements ArgChunk {
+    private final ImmutableList<PreprocessedArg> preprocessedArgs;
+
+    PreprocessedCommandLine(ImmutableList<PreprocessedArg> preprocessedArgs) {
+      this.preprocessedArgs = preprocessedArgs;
+    }
+
+    @Override
+    public Iterable<String> arguments() {
+      return Iterables.concat(preprocessedArgs);
+    }
+
+    @Override
+    public int totalArgLength() {
+      int total = 0;
+      for (PreprocessedArg arg : preprocessedArgs) {
+        total += arg.totalArgLength();
+      }
+      return total;
+    }
+
+    static final class Builder {
+      private final ImmutableList.Builder<PreprocessedArg> preprocessedArgs =
+          ImmutableList.builder();
+      private int numArgs = 0;
+
+      void addPreprocessedArg(PreprocessedArg arg) {
+        preprocessedArgs.add(arg);
+        numArgs += arg.numArgs();
+      }
+
+      void addString(String arg) {
+        addPreprocessedArg(new PreprocessedStringArg(arg));
+      }
+
+      void addLineForFlagPerLine(PreprocessedCommandLine.Builder line) {
+        ImmutableList<PreprocessedArg> group = line.preprocessedArgs.build();
+        if (line.numArgs < 2) {
+          for (PreprocessedArg arg : group) {
+            addPreprocessedArg(arg);
+          }
+        } else {
+          addPreprocessedArg(new GroupedPreprocessedArgs(group));
+        }
+      }
+
+      PreprocessedCommandLine build() {
+        return new PreprocessedCommandLine(preprocessedArgs.build());
+      }
+    }
+  }
+
+  /** Preprocessed version a single string argument. */
+  private static final class PreprocessedStringArg implements PreprocessedArg {
+    private final String arg;
+
+    PreprocessedStringArg(String arg) {
+      this.arg = arg;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      return Iterators.singletonIterator(arg);
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength() {
+      return arg.length() + 1;
+    }
+  }
+
+  /** Preprocessed version of a {@link SingleFormattedArg}. */
+  private static final class PreprocessedSingleFormattedArg implements PreprocessedArg {
+    private final String format;
+    private final String stringValue;
+
+    PreprocessedSingleFormattedArg(String format, String stringValue) {
+      this.format = format;
+      this.stringValue = stringValue;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      return Iterators.singletonIterator(SingleStringArgFormatter.format(format, stringValue));
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength() {
+      return SingleStringArgFormatter.formattedLength(format) + stringValue.length() + 1;
+    }
+  }
+
+  /** Preprocessed version of a {@link VectorArg} originating from {@code Args.add_all}. */
+  private static final class UnjoinedPreprocessedVectorArg implements PreprocessedArg {
+    private final List<String> stringValues;
+    @Nullable private final String formatEach;
+    @Nullable private final String beforeEach;
+
+    UnjoinedPreprocessedVectorArg(
+        List<String> stringValues, @Nullable String formatEach, @Nullable String beforeEach) {
+      this.stringValues = stringValues;
+      this.formatEach = formatEach;
+      this.beforeEach = beforeEach;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      Iterator<String> it = stringValues.iterator();
+      if (formatEach != null) {
+        it = Iterators.transform(it, s -> SingleStringArgFormatter.format(formatEach, s));
+      }
+      if (beforeEach != null) {
+        it = new BeforeEachIterator(it, beforeEach);
+      }
+      return it;
+    }
+
+    @Override
+    public int numArgs() {
+      return (beforeEach != null ? 2 : 1) * stringValues.size();
+    }
+
+    @Override
+    public int totalArgLength() {
+      int total = 0;
+      for (String arg : stringValues) {
+        total += arg.length();
+      }
+      if (formatEach != null) {
+        total += SingleStringArgFormatter.formattedLength(formatEach) * stringValues.size();
+      }
+      if (beforeEach != null) {
+        total += beforeEach.length() * stringValues.size();
+      }
+      return total + numArgs();
+    }
+  }
+
+  /** Preprocessed version of a {@link VectorArg} originating from {@code Args.add_joined}. */
+  private static final class JoinedPreprocessedVectorArg implements PreprocessedArg {
+    private final List<String> stringValues;
+    @Nullable private final String formatEach;
+    private final String joinWith;
+    @Nullable private final String formatJoined;
+
+    JoinedPreprocessedVectorArg(
+        List<String> stringValues,
+        @Nullable String formatEach,
+        String joinWith,
+        @Nullable String formatJoined) {
+      this.stringValues = stringValues;
+      this.formatEach = formatEach;
+      this.joinWith = joinWith;
+      this.formatJoined = formatJoined;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      Iterator<String> it = stringValues.iterator();
+      if (formatEach != null) {
+        it = Iterators.transform(it, s -> SingleStringArgFormatter.format(formatEach, s));
+      }
+      String result = Joiner.on(joinWith).join(it);
+      if (formatJoined != null) {
+        result = SingleStringArgFormatter.format(formatJoined, result);
+      }
+      return Iterators.singletonIterator(result);
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength() {
+      int total = 0;
+      for (String arg : stringValues) {
+        total += arg.length();
+      }
+      if (formatEach != null) {
+        total += SingleStringArgFormatter.formattedLength(formatEach) * stringValues.size();
+      }
+      if (stringValues.size() > 1) {
+        total += joinWith.length() * (stringValues.size() - 1);
+      }
+      if (formatJoined != null) {
+        total += SingleStringArgFormatter.formattedLength(formatJoined);
+      }
+      return total + 1;
+    }
+  }
+
+  /** Preprocessed representation of a single line in {@code flag_per_line} format. */
+  private static final class GroupedPreprocessedArgs implements PreprocessedArg {
+    private static final Joiner SPACE_JOINER = Joiner.on(' ');
+
+    private final ImmutableList<PreprocessedArg> args;
+
+    GroupedPreprocessedArgs(ImmutableList<PreprocessedArg> args) {
+      this.args = args;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      Iterator<String> it = Iterables.concat(args).iterator();
+      String first = it.next();
+      String rest = SPACE_JOINER.join(it);
+      String line = first.isEmpty() ? rest : first + '=' + rest;
+      return Iterators.singletonIterator(line);
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength() {
+      int total = 0;
+      for (PreprocessedArg arg : args) {
+        total += arg.totalArgLength();
+      }
+      String first = Iterables.concat(args).iterator().next();
+      if (first.isEmpty()) {
+        total--;
+      }
+      return total;
+    }
+  }
+
+  /** Implements the {@code before_each} behavior of {@code Args.add_all}. */
+  private static final class BeforeEachIterator extends UnmodifiableIterator<String> {
+    private final Iterator<String> strings;
+    private final String beforeEach;
+    private boolean before = true;
+
+    BeforeEachIterator(Iterator<String> strings, String beforeEach) {
+      this.strings = strings;
+      this.beforeEach = beforeEach;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return strings.hasNext();
+    }
+
+    @Override
+    public String next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      String next = before ? beforeEach : strings.next();
+      before = !before;
+      return next;
     }
   }
 }
