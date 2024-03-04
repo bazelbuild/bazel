@@ -217,7 +217,8 @@ public final class RemoteModule extends BlazeModule {
       Credentials credentials,
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      ExecutorService executorService) {
     RemoteCacheClient cacheClient;
     try {
       cacheClient =
@@ -227,6 +228,7 @@ public final class RemoteModule extends BlazeModule {
               authAndTlsOptions,
               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
               digestUtil,
+              executorService,
               new RemoteRetrier(
                   remoteOptions, RETRIABLE_HTTP_ERRORS, retryScheduler, Retrier.ALLOW_ALL_CALLS));
     } catch (IOException e) {
@@ -391,7 +393,8 @@ public final class RemoteModule extends BlazeModule {
     }
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
-      initHttpAndDiskCache(env, credentials, authAndTlsOptions, remoteOptions, digestUtil);
+      initHttpAndDiskCache(
+          env, credentials, authAndTlsOptions, remoteOptions, digestUtil, executorService);
       return;
     }
 
@@ -524,8 +527,9 @@ public final class RemoteModule extends BlazeModule {
               RemoteCacheClientFactory.createDiskAndRemoteClient(
                   env.getWorkingDirectory(),
                   remoteOptions.diskCache,
-                  remoteOptions.remoteVerifyDownloads,
                   digestUtil,
+                  executorService,
+                  remoteOptions.remoteVerifyDownloads,
                   cacheClient);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
@@ -583,8 +587,9 @@ public final class RemoteModule extends BlazeModule {
               RemoteCacheClientFactory.createDiskAndRemoteClient(
                   env.getWorkingDirectory(),
                   remoteOptions.diskCache,
-                  remoteOptions.remoteVerifyDownloads,
                   digestUtil,
+                  executorService,
+                  remoteOptions.remoteVerifyDownloads,
                   cacheClient);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
