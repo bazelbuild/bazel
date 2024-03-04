@@ -205,6 +205,54 @@ public class VisibilityTest extends AnalysisTestCase {
   }
 
   @Test
+  public void testImplicitDependency_samePackageAsDefinition_visible() throws Exception {
+    scratch.file(
+        "aspect_def/BUILD",
+        "sh_binary(",
+        "  name = 'aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//visibility:private'])");
+    scratch.file(
+        "aspect_def/lib.bzl",
+        "def _impl_my_aspect(ctx, target):",
+        "  return []",
+        "my_aspect = aspect(",
+        "  _impl_my_aspect,",
+        "  attrs = { '_aspect_tool': attr.label(default = '//aspect_def:aspect_tool') },",
+        ")");
+    scratch.file(
+        "rule_def/BUILD",
+        "sh_binary(",
+        "  name = 'rule_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//visibility:private'])");
+    scratch.file(
+        "rule_def/lib.bzl",
+        "load('//aspect_def:lib.bzl', 'my_aspect')",
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [my_aspect]),",
+        "    '_rule_tool': attr.label(default = '//rule_def:rule_tool'),",
+        "  },",
+        ")",
+        "simple_starlark_rule = rule(",
+        "  _impl,",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//rule_def:lib.bzl','my_rule', 'simple_starlark_rule')",
+        "simple_starlark_rule(name = 'simple_dep')",
+        "my_rule(name = 'my_target', dep = ':simple_dep')");
+
+    update("//foo:my_target");
+
+    assertThat(hasErrors(getConfiguredTarget("//foo:my_target"))).isFalse();
+  }
+
+  @Test
   public void testAspectImplicitDependencyCheckedAtDefinition_visible() throws Exception {
     scratch.file("inner_aspect/BUILD");
     scratch.file(
