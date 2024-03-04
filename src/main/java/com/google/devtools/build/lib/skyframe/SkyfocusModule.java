@@ -377,7 +377,7 @@ public class SkyfocusModule extends BlazeModule {
     reporter.handle(
         Event.info(
             String.format(
-                "Heap: %s -> %s (%.2f%% reduction), ",
+                "Heap: %s -> %s (%.2f%% reduction)",
                 StringUtilities.prettyPrintBytes(beforeHeap),
                 StringUtilities.prettyPrintBytes(afterHeap),
                 (double) (beforeHeap - afterHeap) / beforeHeap * 100)));

@@ -422,9 +422,13 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
       awaitQuiescence(true); // and shut down the ExecutorService.
     }
 
+    long rdepBefore = rdepEdgesBefore.get();
+    long rdepAfter = rdepEdgesAfter.get();
     eventHandler.handle(
         Event.info(
-            String.format("Rdep edges: %s -> %s", rdepEdgesBefore.get(), rdepEdgesAfter.get())));
+            String.format(
+                "Rdep edges: %s -> %s (%.2f%% reduction)",
+                rdepBefore, rdepAfter, (double) (rdepBefore - rdepAfter) / rdepBefore * 100)));
 
     return new FocusResult(
         ImmutableSet.copyOf(roots),
