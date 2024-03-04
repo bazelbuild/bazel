@@ -695,6 +695,7 @@ public final class RemoteModule extends BlazeModule {
                 requirement),
             maxConnections);
     // Eagerly start creating the channel and verifying the capabilities in the background.
+    // TODO(tjgq): Make sure this task doesn't linger beyond afterCommand().
     var unused =
         executorService.submit(
             () -> {
