@@ -168,7 +168,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                     .orElseGet(
                         () ->
                             AbstractQueueVisitor.create(
-                                "skyframe-evaluator",
+                                "skyframe-evaluator-memoizing",
                                 evaluationContext.getParallelism(),
                                 ParallelEvaluatorErrorClassifier.instance())),
                 new SimpleCycleDetector(),
