@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRequestEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.RunBuildCompleteEvent;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -78,9 +79,10 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.CommandProtos;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
-import com.google.devtools.build.lib.server.CommandProtos.ScriptPath;
+import com.google.devtools.build.lib.server.CommandProtos.PathToReplace;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
@@ -160,6 +162,16 @@ public class RunCommand implements BlazeCommand {
             "If false, skip running the command line constructed for the built target. Note that"
                 + " this flag is ignored for all --script_path builds.")
     public boolean runBuiltTarget;
+
+    @Option(
+        name = "portable_paths",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "If true, includes paths to replace in ExecRequest to make the resulting paths"
+                + " portable.")
+    public boolean portablePaths;
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -276,6 +288,17 @@ public class RunCommand implements BlazeCommand {
     ExecRequest.Builder execRequest;
     try {
       boolean shouldRunTarget = runOptions.scriptPath == null && runOptions.runBuiltTarget;
+      ImmutableList<PathToReplace> pathsToReplace =
+          runOptions.portablePaths
+              ? getPathsToReplace(
+                  env,
+                  /* testLogDir= */ builtTargets
+                      .configuration
+                      .getTestLogsDirectory(RepositoryName.MAIN)
+                      .getExecPathString(),
+                  runCommandLine.isTestTarget)
+              : ImmutableList.of();
+
       execRequest =
           execRequestBuilder(
               env,
@@ -285,7 +308,8 @@ public class RunCommand implements BlazeCommand {
               ENV_VARIABLES_TO_CLEAR,
               builtTargets.configuration,
               builtTargets.stopTime,
-              shouldRunTarget);
+              shouldRunTarget,
+              pathsToReplace);
     } catch (RunCommandException e) {
       return e.result;
     }
@@ -507,7 +531,8 @@ public class RunCommand implements BlazeCommand {
       ImmutableList<String> runEnvToClear,
       BuildConfigurationValue configuration,
       long stopTime,
-      boolean shouldRunTarget)
+      boolean shouldRunTarget,
+      ImmutableList<PathToReplace> pathsToReplace)
       throws RunCommandException {
     ExecRequest.Builder execDescription =
         ExecRequest.newBuilder()
@@ -526,7 +551,39 @@ public class RunCommand implements BlazeCommand {
             .map(s -> ByteString.copyFrom(s, ISO_8859_1))
             .collect(toImmutableList()));
     execDescription.setShouldExec(shouldRunTarget);
+    execDescription.addAllPathToReplace(pathsToReplace);
     return execDescription;
+  }
+
+  private static ImmutableList<PathToReplace> getPathsToReplace(
+      CommandEnvironment env, String testLogDir, boolean isTestTarget) {
+    ImmutableList.Builder<PathToReplace> pathsToReplace =
+        ImmutableList.<PathToReplace>builder()
+            .add(
+                CommandProtos.PathToReplace.newBuilder()
+                    .setType(PathToReplace.Type.OUTPUT_BASE)
+                    .setValue(ByteString.copyFrom(env.getOutputBase().getPathString(), ISO_8859_1))
+                    .build())
+            .add(
+                CommandProtos.PathToReplace.newBuilder()
+                    .setType(PathToReplace.Type.BUILD_WORKING_DIRECTORY)
+                    .setValue(
+                        ByteString.copyFrom(env.getWorkingDirectory().getPathString(), ISO_8859_1))
+                    .build())
+            .add(
+                CommandProtos.PathToReplace.newBuilder()
+                    .setType(PathToReplace.Type.BUILD_WORKSPACE_DIRECTORY)
+                    .setValue(
+                        ByteString.copyFrom(env.getWorkingDirectory().getPathString(), ISO_8859_1))
+                    .build());
+    if (isTestTarget) {
+      pathsToReplace.add(
+          CommandProtos.PathToReplace.newBuilder()
+              .setType(PathToReplace.Type.TEST_LOG_SUBDIR)
+              .setValue(ByteString.copyFrom(testLogDir, ISO_8859_1))
+              .build());
+    }
+    return pathsToReplace.build();
   }
 
   private static ImmutableList<ByteString> transformArgvsForExecRequest(
@@ -605,7 +662,7 @@ public class RunCommand implements BlazeCommand {
     String scriptContents = getScriptContents(shExecutable, unisolatedCommand);
     if (runOptions.emitScriptPathInExecRequest) {
       execRequest.setScriptPath(
-          ScriptPath.newBuilder()
+          CommandProtos.ScriptPath.newBuilder()
               .setScriptPath(ByteString.copyFrom(runOptions.scriptPath.toString(), ISO_8859_1))
               .setScriptContents(ByteString.copyFrom(scriptContents, ISO_8859_1))
               .build());
@@ -629,17 +686,21 @@ public class RunCommand implements BlazeCommand {
     private final ImmutableSortedMap<String, String> runEnvironment;
     private final Path workingDir;
 
+    private final boolean isTestTarget;
+
     private RunCommandLine(
         ImmutableList<String> args,
         ImmutableList<String> prettyPrintArgs,
         ImmutableList<String> argsWithoutResidue,
         ImmutableSortedMap<String, String> runEnvironment,
-        Path workingDir) {
+        Path workingDir,
+        boolean isTestTarget) {
       this.args = args;
       this.prettyPrintArgs = prettyPrintArgs;
       this.argsWithoutResidue = argsWithoutResidue;
       this.runEnvironment = runEnvironment;
       this.workingDir = workingDir;
+      this.isTestTarget = isTestTarget;
     }
   }
 
@@ -659,7 +720,9 @@ public class RunCommand implements BlazeCommand {
     runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
     runEnvironment.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
 
+    boolean isTestTarget = false;
     if (builtTargets.targetToRun.getProvider(TestProvider.class) != null) {
+      isTestTarget = true;
       // This is a test. Provide it with a reasonable approximation of the actual test environment
       ImmutableList<Artifact.DerivedArtifact> statusArtifacts =
           TestProvider.getTestStatusArtifacts(builtTargets.targetToRun);
@@ -799,7 +862,8 @@ public class RunCommand implements BlazeCommand {
         ImmutableList.copyOf(prettyCmdLine),
         ImmutableList.copyOf(redactedCmdLine),
         ImmutableSortedMap.copyOf(runEnvironment),
-        workingDir);
+        workingDir,
+        isTestTarget);
   }
 
   private static void constructCommandLine(

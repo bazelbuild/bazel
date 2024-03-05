@@ -95,6 +95,7 @@ message ExecRequest {
   repeated bytes environment_variable_to_clear = 4;
   bool should_exec = 5;
   optional ScriptPath script_path = 6;
+  repeated PathToReplace path_to_replace = 7;
 }
 
 // Represents the --script_path value and the run script contents for
@@ -102,6 +103,21 @@ message ExecRequest {
 message ScriptPath {
   bytes script_path = 1;
   bytes script_contents = 2;
+}
+
+// Represents paths to replace to allow localization of an ExecRequest when the
+// build takes place on a different filesystem from where executing the
+// ExecRequest would occur.
+message PathToReplace {
+  enum Type {
+    UNSPECIFIED = 0;
+    OUTPUT_BASE = 1;
+    BUILD_WORKING_DIRECTORY = 2;
+    BUILD_WORKSPACE_DIRECTORY = 3;
+    TEST_LOG_SUBDIR = 4;
+  }
+  Type type = 1;
+  bytes value = 2;
 }
 
 // Contains metadata and result data for a command execution.

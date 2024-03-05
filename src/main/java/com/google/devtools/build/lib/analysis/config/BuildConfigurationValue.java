@@ -436,9 +436,8 @@ public class BuildConfigurationValue
   /**
    * Returns the testlogs directory for this build configuration.
    *
-   * @deprecated Use {@code RuleContext#getTestLogsDirectory} instead whenever possible.
+   * <p>Use {@code RuleContext#getTestLogsDirectory} instead whenever possible.
    */
-  @Deprecated
   public ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
     return outputDirectories.getTestLogsDirectory(repositoryName);
   }
