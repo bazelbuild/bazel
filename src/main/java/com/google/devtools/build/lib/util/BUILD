@@ -152,6 +152,17 @@ java_library(
 )
 
 java_library(
+    name = "object_graph_traverser",
+    srcs = ["ObjectGraphTraverser.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "ram_resource_converter",
     srcs = [
         "RamResourceConverter.java",
