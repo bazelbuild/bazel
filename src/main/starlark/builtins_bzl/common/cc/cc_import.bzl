@@ -21,7 +21,7 @@ rely on this. Pass the flag --experimental_starlark_cc_import
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/objc/semantics.bzl", "semantics")
+load(":common/cc/semantics.bzl", "semantics")
 
 CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
 
@@ -153,10 +153,13 @@ def _cc_import_impl(ctx):
             linker_inputs = depset([linker_input]),
         )
 
+    runtimes_deps = semantics.get_cc_runtimes(ctx, True)
+    compilation_contexts = cc_helper.get_compilation_contexts_from_deps(runtimes_deps)
     (compilation_context, _) = cc_common.compile(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
+        compilation_contexts = compilation_contexts,
         public_hdrs = ctx.files.hdrs,
         includes = ctx.attr.includes,
         name = ctx.label.name,
@@ -416,6 +419,6 @@ most build rules</a>."""),
         "_use_auto_exec_groups": attr.bool(default = True),
     },
     provides = [CcInfo],
-    toolchains = cc_helper.use_cpp_toolchain(),
+    toolchains = cc_helper.use_cpp_toolchain() + semantics.get_runtimes_toolchain(),
     fragments = ["cpp"],
 )
