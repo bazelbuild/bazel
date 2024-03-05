@@ -31,16 +31,6 @@ import org.junit.runners.JUnit4;
  * <p>This only provides the first-level of testing: that <code>--platforms</code> settings directly
  * impact toolchain selection in expected ways. Devs can lean on this test for quick interactive
  * feedback on their changes.
- *
- * <p>More broadly, we also need to ensure a) all other Android tests continue to pass and b) CI
- * continues working.
- *
- * <p>For a), we need to split any tests that set legacy flags (<code>--android_sdk</code>, <code>
- * --android_cpu</code>, <code>--fat_apk_cpu</code>, <code>--android_crosstool_top</code>, etc.) to
- * also run with the equivalent <code>--platforms</code> settings.
- *
- * <p>For b), we similarly need to split CI projects that build with legacy flags to run with
- * equivalent platform settings.
  */
 @RunWith(JUnit4.class)
 public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
@@ -66,12 +56,7 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
 
     analysisMock.setupMockClient(mockToolsConfig);
     // This line is necessary so an ARM C++ toolchain is available for dependencies under an Android
-    // split transition. BazelMockAndroidSupport.setupNdk(mockToolsConfig) isn't sufficient for this
-    // because that sets up the NDK in a special package //android/crosstool that tests then have to
-    // manually trigger with --android_crosstool_top=//android/crosstool:everything. Since the point
-    // of this test is to test that --platforms sets the correct NDK toolchain, we don't want these
-    // tests to have to explicitly set --android_crosstool_top. Until --platforms correctly does
-    // that, NDKs default to the default C++ toolchain. That's what this line configures.
+    // split transition.
     analysisMock.ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
   }
 
@@ -112,8 +97,6 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
         "    deps = [':cclib'],",
         "    manifest = 'AndroidManifest.xml')");
 
-    // See BazelMockAndroidSupport for the NDK toolchain this should imply. This replaces
-    // "--fat_apk_cpu=x86", "--android_crosstool_top=//android/crosstool:everything".
     useConfiguration(EXTRA_SDK_TOOLCHAINS_FLAG, "--platforms=//android_platforms:x86_platform");
     ConfiguredTarget x86Binary = getConfiguredTarget("//java/a:a");
     CppLinkAction x86Link =
@@ -123,8 +106,6 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
     // assertThat(cppLinkAction.getLinkCommandLine().getLinkerPathString())
     //    .isEqualTo("android/crosstool/x86/bin/i686-linux-android-ar");
 
-    // See BazelMockAndroidSupport for the NDK toolchain this should imply. This replaces
-    // "--fat_apk_cpu=armeabi-v7a", "--android_crosstool_top=//android/crosstool:everything".
     useConfiguration(EXTRA_SDK_TOOLCHAINS_FLAG, "--platforms=//android_platforms:arm_platform");
     ConfiguredTarget armBinary = getConfiguredTarget("//java/a:a");
     CppLinkAction armLink =
