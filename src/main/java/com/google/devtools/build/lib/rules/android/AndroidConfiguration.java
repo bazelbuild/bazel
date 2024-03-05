@@ -87,9 +87,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
    * influences the output directory name: if it didn't, an Android and a non-Android configuration
    * would conflict if they had the same toolchain identifier.
    *
-   * <p>Note that this is not just a theoretical concern: even if {@code --crosstool_top} and {@code
-   * --android_crosstool_top} point to different labels, they may end up being redirected to the
-   * same thing, and this is exactly what happens on OSX X.
+   * <p>Note that this is not just a theoretical concern: even if the CC toolchains point to
+   * different labels, they may end up being redirected to the same thing, and this is exactly what
+   * happens on OSX X.
    */
   public enum ConfigurationDistinguisher implements StarlarkValue {
     MAIN(null),

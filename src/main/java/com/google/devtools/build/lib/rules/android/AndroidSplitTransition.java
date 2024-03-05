@@ -82,7 +82,6 @@ public final class AndroidSplitTransition implements SplitTransition, AndroidSpl
     AndroidConfiguration.Options androidOptions =
         buildOptions.get(AndroidConfiguration.Options.class);
 
-    CppOptions cppOptions = buildOptions.get(CppOptions.class);
     /*
      * The intended order of checks is:
      *  - When --incompatible_enable_android_toolchain_resolution is set:
@@ -117,9 +116,7 @@ public final class AndroidSplitTransition implements SplitTransition, AndroidSpl
     // Fall back to the legacy flags.
     if (!androidOptions.fatApkCpus.isEmpty()) {
       return handleFatApkCpus(buildOptions, androidOptions);
-    } else if (!androidOptions.cpu.isEmpty()
-        && androidOptions.androidCrosstoolTop != null
-        && !androidOptions.androidCrosstoolTop.equals(cppOptions.crosstoolTop)) {
+    } else if (!androidOptions.cpu.isEmpty()) {
       return handleAndroidCpu(buildOptions, androidOptions);
     } else {
       return handleDefaultSplit(buildOptions, buildOptions.get(CoreOptions.class).cpu);
@@ -238,10 +235,6 @@ public final class AndroidSplitTransition implements SplitTransition, AndroidSpl
     newCppOptions.cppCompiler = androidOptions.cppCompiler;
     newCppOptions.libcTopLabel = androidOptions.androidLibcTopLabel;
     newCppOptions.dynamicMode = androidOptions.dynamicMode;
-
-    if (androidOptions.androidCrosstoolTop != null) {
-      newCppOptions.crosstoolTop = androidOptions.androidCrosstoolTop;
-    }
 
     newOptions.get(AndroidConfiguration.Options.class).configurationDistinguisher =
         ConfigurationDistinguisher.ANDROID;

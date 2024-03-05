@@ -110,7 +110,6 @@ def _exec_transition_impl(fragments):
 
 bazel_fragments["AndroidConfiguration.Options"] = fragment(
     propagate = [
-        "//command_line_option:android_crosstool_top",
         "//command_line_option:android_sdk",
         "//command_line_option:incompatible_enable_android_toolchain_resolution",
         "//command_line_option:incompatible_android_platforms_transition_updated_affected",

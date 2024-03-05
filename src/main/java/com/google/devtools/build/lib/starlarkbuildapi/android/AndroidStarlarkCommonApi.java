@@ -77,7 +77,7 @@ public interface AndroidStarlarkCommonApi<
       name = "multi_cpu_configuration",
       doc =
           "A configuration for rule attributes that compiles native code according to "
-              + "the --fat_apk_cpu and --android_crosstool_top flags.",
+              + "the --android_platforms flag.",
       documented = false,
       structField = true)
   AndroidSplitTransitionApi getAndroidSplitTransition();
