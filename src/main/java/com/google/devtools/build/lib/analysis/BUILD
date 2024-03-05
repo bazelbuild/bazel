@@ -658,6 +658,7 @@ java_library(
         ":visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//third_party:guava",
     ],
