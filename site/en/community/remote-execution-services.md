@@ -22,7 +22,7 @@ Use the following services to run Bazel with remote execution:
 *   Commercial
 
     * [EngFlow Remote Execution](https://www.engflow.com){: .external} - Remote execution
-      and remote caching service. Can be self-hosted or hosted.
+      and remote caching service with Build and Test UI. Can be self-hosted or hosted.
     * [BuildBuddy](https://www.buildbuddy.io){: .external} - Remote build execution,
       caching, and results UI.
     * [Bitrise](https://bitrise.io/why/features/mobile-build-caching-for-better-build-test-performance){: .external} - Providing the world's leading mobile-first CI/CD and remote build caching platform.
