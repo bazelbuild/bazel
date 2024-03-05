@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Math.min;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -53,7 +52,9 @@ import com.google.devtools.build.lib.skyframe.ArtifactFunction.ArtifactDependenc
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.skyframe.TopLevelActionLookupKeyWrapper;
+import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionDescription;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
+import com.google.devtools.build.lib.skyframe.proto.ActionRewind.LostInput;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -85,9 +86,9 @@ public final class ActionRewindStrategy {
 
   private ConcurrentHashMultiset<LostInputRecord> lostInputRecords =
       ConcurrentHashMultiset.create();
-  private final List<RewindPlanStats> rewindPlansStats =
+  private final List<ActionRewindEvent> rewindEventSamples =
       Collections.synchronizedList(new ArrayList<>(MAX_ACTION_REWIND_EVENTS));
-  private final AtomicInteger rewindPlanStatsCounter = new AtomicInteger(0);
+  private final AtomicInteger rewindEventSampleCounter = new AtomicInteger(0);
 
   public ActionRewindStrategy(
       SkyframeActionExecutor skyframeActionExecutor, BugReporter bugReporter) {
@@ -156,15 +157,9 @@ public final class ActionRewindStrategy {
         prepareRewindPlan(
             failedKey, failedActionDeps, lostInputsByDigest, inputDepOwners, env, depsToRewind);
 
-    if (rewindPlanStatsCounter.getAndIncrement() < MAX_ACTION_REWIND_EVENTS) {
-      int lostInputRecordsCount = lostInputRecordsThisAction.size();
-      rewindPlansStats.add(
-          RewindPlanStats.create(
-              failedAction,
-              rewindPlan.rewindGraph().nodes().size(),
-              lostInputRecordsCount,
-              lostInputRecordsThisAction.subList(
-                  0, min(lostInputRecordsCount, MAX_LOST_INPUTS_RECORDED))));
+    if (shouldRecordRewindEventSample()) {
+      rewindEventSamples.add(
+          createRewindEvent(failedAction, rewindPlan, lostInputRecordsThisAction));
     }
 
     if (lostInputsException.isActionStartedEventAlreadyEmitted()) {
@@ -283,16 +278,12 @@ public final class ActionRewindStrategy {
    * rewind plans.
    */
   public void reset(ExtendedEventHandler eventHandler) {
-    ImmutableList<ActionRewindEvent> topActionRewindEvents =
-        rewindPlansStats.stream()
-            .map(ActionRewindingStats::toActionRewindEventProto)
-            .collect(toImmutableList());
     ActionRewindingStats rewindingStats =
-        new ActionRewindingStats(lostInputRecords.size(), topActionRewindEvents);
+        new ActionRewindingStats(lostInputRecords.size(), ImmutableList.copyOf(rewindEventSamples));
     eventHandler.post(rewindingStats);
     lostInputRecords = ConcurrentHashMultiset.create();
-    rewindPlansStats.clear();
-    rewindPlanStatsCounter.set(0);
+    rewindEventSamples.clear();
+    rewindEventSampleCounter.set(0);
   }
 
   private void checkIfTopLevelOutputLostTooManyTimes(
@@ -706,26 +697,30 @@ public final class ActionRewindStrategy {
     }
   }
 
-  /** Lite statistics about graph computed by {@link #prepareRewindPlan}. */
-  @AutoValue
-  abstract static class RewindPlanStats {
+  private boolean shouldRecordRewindEventSample() {
+    return rewindEventSampleCounter.getAndIncrement() < MAX_ACTION_REWIND_EVENTS;
+  }
 
-    abstract Action failedAction();
-
-    abstract int invalidatedNodesCount();
-
-    abstract int lostInputRecordsCount();
-
-    abstract ImmutableList<LostInputRecord> sampleLostInputRecords();
-
-    static RewindPlanStats create(
-        Action failedAction,
-        int invalidatedNodesCount,
-        int lostInputRecordsCount,
-        ImmutableList<LostInputRecord> sampleLostInputRecords) {
-      return new AutoValue_ActionRewindStrategy_RewindPlanStats(
-          failedAction, invalidatedNodesCount, lostInputRecordsCount, sampleLostInputRecords);
-    }
+  private static ActionRewindEvent createRewindEvent(
+      Action failedAction, Reset rewindPlan, ImmutableList<LostInputRecord> lostInputRecords) {
+    return ActionRewindEvent.newBuilder()
+        .setActionDescription(
+            ActionDescription.newBuilder()
+                .setType(failedAction.getMnemonic())
+                .setRuleLabel(failedAction.getOwner().getLabel().toString()))
+        .addAllLostInputs(
+            lostInputRecords.stream()
+                .limit(MAX_LOST_INPUTS_RECORDED)
+                .map(
+                    lostInputRecord ->
+                        LostInput.newBuilder()
+                            .setPath(lostInputRecord.lostInputPath())
+                            .setDigest(lostInputRecord.lostInputDigest())
+                            .build())
+                .collect(toImmutableList()))
+        .setTotalLostInputsCount(lostInputRecords.size())
+        .setInvalidatedNodesCount(rewindPlan.rewindGraph().nodes().size())
+        .build();
   }
 
   /**
