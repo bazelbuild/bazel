@@ -146,6 +146,12 @@ java_library(
 )
 
 java_library(
+    name = "shallow_object_size_computer",
+    srcs = ["ShallowObjectSizeComputer.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider"],
+)
+
+java_library(
     name = "ram_resource_converter",
     srcs = [
         "RamResourceConverter.java",

@@ -56,6 +56,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
+        "//src/main/java/com/google/devtools/build/lib/util:shallow_object_size_computer",
         "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",
