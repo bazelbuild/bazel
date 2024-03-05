@@ -14,10 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -28,44 +24,8 @@ public class ObjcRuleClasses {
   private ObjcRuleClasses() {
     throw new UnsupportedOperationException("static-only");
   }
-
-  /** A string constant for feature to link a bundle. */
-  static final String LINK_BUNDLE_FEATURE = "link_bundle";
-
-  /** A string constant for feature to link a dylib. */
-  static final String LINK_DYLIB_FEATURE = "link_dylib";
-
   /** Attribute name for a dummy target in a child configuration. */
   static final String CHILD_CONFIG_ATTR = "$child_configuration_dummy";
-
-  /**
-   * Creates a new spawn action builder with apple environment variables set that are typically
-   * needed by the apple toolchain. This should be used to start to build spawn actions that, in
-   * order to run, require both a darwin architecture and a collection of environment variables
-   * which contain information about the target and exec architectures.
-   */
-  static SpawnAction.Builder spawnAppleEnvActionBuilder(
-      XcodeConfigInfo xcodeConfigInfo, ApplePlatform targetPlatform) {
-    return spawnOnDarwinActionBuilder(xcodeConfigInfo)
-        .setEnvironment(appleToolchainEnvironment(xcodeConfigInfo, targetPlatform));
-  }
-
-  /** Returns apple environment variables that are typically needed by the apple toolchain. */
-  private static ImmutableMap<String, String> appleToolchainEnvironment(
-      XcodeConfigInfo xcodeConfigInfo, ApplePlatform targetPlatform) {
-    return ImmutableMap.<String, String>builder()
-        .putAll(
-            AppleConfiguration.appleTargetPlatformEnv(
-                targetPlatform, xcodeConfigInfo.getSdkVersionForPlatform(targetPlatform)))
-        .putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfigInfo.getXcodeVersion()))
-        .buildOrThrow();
-  }
-
-  /** Creates a new spawn action builder that requires a darwin architecture to run. */
-  private static SpawnAction.Builder spawnOnDarwinActionBuilder(XcodeConfigInfo xcodeConfigInfo) {
-    return new SpawnAction.Builder().setExecutionInfo(xcodeConfigInfo.getExecutionRequirements());
-  }
-
 
 
   /** Iff a file matches this type, it is considered to use C++. */
