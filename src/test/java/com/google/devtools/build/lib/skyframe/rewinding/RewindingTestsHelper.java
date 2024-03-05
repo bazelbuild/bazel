@@ -2681,6 +2681,7 @@ public class RewindingTestsHelper {
     assertThat(targetCompleteEvents.keySet()).containsExactly(fooLostAndFound);
     assertOutputsReported(
         targetCompleteEvents.get(fooLostAndFound), "bin/foo/lost.out", "bin/foo/found.out");
+    recorder.assertTotalLostOutputCountsFromStats(ImmutableList.of(1));
   }
 
   public final void runTopLevelOutputRewound_aspectOwned() throws Exception {
@@ -2716,6 +2717,7 @@ public class RewindingTestsHelper {
     assertThat(aspectCompleteEvents.keySet()).containsExactly(fooLib);
     assertOutputsReported(
         aspectCompleteEvents.get(fooLib), "bin/foo/lost.out", "bin/foo/found.out");
+    recorder.assertTotalLostOutputCountsFromStats(ImmutableList.of(1));
   }
 
   public final void runTopLevelOutputRewound_fileInTreeArtifact() throws Exception {
@@ -2758,6 +2760,7 @@ public class RewindingTestsHelper {
         targetCompleteEvents.get(fooLostAndFoundTrees),
         "bin/foo/lost_tree/lost_file",
         "bin/foo/found_tree/found_file");
+    recorder.assertTotalLostOutputCountsFromStats(ImmutableList.of(1));
   }
 
   public final void runTopLevelOutputRewound_partiallyBuiltTarget_regularFile() throws Exception {
@@ -2811,6 +2814,7 @@ public class RewindingTestsHelper {
       // opportunity to rewind after an error is observed.
       assertOutputsReported(event, "bin/foo/found.out");
     }
+    recorder.assertTotalLostOutputCountsFromStats(ImmutableList.of(1));
   }
 
   public final void runTopLevelOutputRewound_partiallyBuiltTarget_fileInTreeArtifact()
@@ -2864,6 +2868,7 @@ public class RewindingTestsHelper {
       // opportunity to rewind after an error is observed.
       assertOutputsReported(event, "bin/foo/found.out");
     }
+    recorder.assertTotalLostOutputCountsFromStats(ImmutableList.of(1));
   }
 
   public final void runTopLevelOutputRewound_ineffectiveRewinding() throws Exception {
@@ -2935,6 +2940,9 @@ public class RewindingTestsHelper {
     TargetCompleteEvent event = targetCompleteEvents.get(fooLostAndFound);
     assertThat(event.failed()).isTrue();
     assertOutputsReported(event, "bin/foo/found.out");
+
+    recorder.assertTotalLostOutputCountsFromStats(
+        ImmutableList.of(ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1));
   }
 
   final void listenForNoCompletionEventsBeforeRewinding(
@@ -3026,7 +3034,9 @@ public class RewindingTestsHelper {
    */
   private String getExecPath(String rootRelativePath) throws Exception {
     if (testCase.getTargetConfigurationFromLastBuildResult() == null) {
+      // Need at least one build to get the configuration, so run a null build.
       testCase.buildTarget();
+      recorder.clear(); // Don't record stats for the null build.
     }
     return testCase
         .getTargetConfigurationFromLastBuildResult()

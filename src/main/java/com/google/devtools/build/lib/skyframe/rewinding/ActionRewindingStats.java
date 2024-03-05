@@ -24,15 +24,24 @@ import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEve
 public final class ActionRewindingStats implements ExtendedEventHandler.Postable {
 
   private final int lostInputsCount;
+  private final int lostOutputsCount;
   private final ImmutableList<ActionRewindEvent> actionRewindEvents;
 
-  ActionRewindingStats(int lostInputsCount, ImmutableList<ActionRewindEvent> actionRewindEvents) {
+  ActionRewindingStats(
+      int lostInputsCount,
+      int lostOutputsCount,
+      ImmutableList<ActionRewindEvent> actionRewindEvents) {
     this.lostInputsCount = lostInputsCount;
+    this.lostOutputsCount = lostOutputsCount;
     this.actionRewindEvents = checkNotNull(actionRewindEvents);
   }
 
   public int lostInputsCount() {
     return lostInputsCount;
+  }
+
+  public int lostOutputsCount() {
+    return lostOutputsCount;
   }
 
   public ImmutableList<ActionRewindEvent> actionRewindEvents() {

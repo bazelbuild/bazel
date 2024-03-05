@@ -250,8 +250,8 @@ public final class ActionEventRecorder {
    * Asserts that the total lost input counts from posted {@link ActionRewindingStats} matches
    * expected results.
    *
-   * @param totalLostInputCounts - The list of the counts of all lost inputs logged with each
-   *     ActionRewindingStats post.
+   * @param totalLostInputCounts - The list of the counts of all lost inputs logged with each {@link
+   *     ActionRewindingStats} post.
    */
   public void assertTotalLostInputCountsFromStats(ImmutableList<Integer> totalLostInputCounts) {
     assertThat(actionRewindingStatsPosts).hasSize(totalLostInputCounts.size());
@@ -259,6 +259,22 @@ public final class ActionEventRecorder {
       ActionRewindingStats actionRewindingStats = actionRewindingStatsPosts.get(postIndex);
       assertThat(actionRewindingStats.lostInputsCount())
           .isEqualTo(totalLostInputCounts.get(postIndex));
+    }
+  }
+
+  /**
+   * Asserts that the total lost output counts from posted {@link ActionRewindingStats} matches
+   * expected results.
+   *
+   * @param totalLostOutputCounts - The list of the counts of all lost outputs logged with each
+   *     {@link ActionRewindingStats} post.
+   */
+  public void assertTotalLostOutputCountsFromStats(ImmutableList<Integer> totalLostOutputCounts) {
+    assertThat(actionRewindingStatsPosts).hasSize(totalLostOutputCounts.size());
+    for (int postIndex = 0; postIndex < totalLostOutputCounts.size(); postIndex++) {
+      ActionRewindingStats actionRewindingStats = actionRewindingStatsPosts.get(postIndex);
+      assertThat(actionRewindingStats.lostOutputsCount())
+          .isEqualTo(totalLostOutputCounts.get(postIndex));
     }
   }
 
