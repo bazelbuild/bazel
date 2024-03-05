@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.devtools.build.lib.unsafe.UnsafeProvider;
+import com.sun.management.HotSpotDiagnosticMXBean;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -37,15 +38,6 @@ public class ShallowObjectSizeComputer {
   private static final Layout LAYOUT = Layout.getCurrentLayout();
 
   private ShallowObjectSizeComputer() {}
-
-  /** A class with two reference fields to determine whether compressed OOPs are in effect. */
-  private static class LayoutCanary {
-    @SuppressWarnings("unused")
-    private Object referenceField1;
-
-    @SuppressWarnings("unused")
-    private Object referenceField2;
-  }
 
   private static class Layout {
     private final long objectHeaderBytes;
@@ -76,32 +68,12 @@ public class ShallowObjectSizeComputer {
         throw new IllegalStateException("Only 64-bit JVMs are supported");
       }
 
-      long offset1;
-      long offset2;
-      try {
-        // TODO(lberki): Find another way to determine whether compressed OOPs are in effect.
-        // objectFieldOffset() seems to be deprecated [1], although it's a P4, so it doesn't seem to
-        // be very urgent.
-        // 1: https://bugs.openjdk.org/browse/JDK-8278223
-        offset1 =
-            UnsafeProvider.unsafe()
-                .objectFieldOffset(LayoutCanary.class.getDeclaredField("referenceField1"));
-        offset2 =
-            UnsafeProvider.unsafe()
-                .objectFieldOffset(LayoutCanary.class.getDeclaredField("referenceField2"));
-      } catch (NoSuchFieldException e) {
-        throw new IllegalStateException(e);
-      }
+      HotSpotDiagnosticMXBean diagnosticBean =
+          ManagementFactory.getPlatformMXBean(HotSpotDiagnosticMXBean.class);
+      boolean compressedOops =
+          Boolean.parseBoolean(diagnosticBean.getVMOption("UseCompressedOops").getValue());
 
-      int delta = (int) Math.abs(offset2 - offset1); // switch doesn't support long (wat)
-      switch (delta) {
-        case 4:
-          return COMPRESSED_OOPS;
-        case 8:
-          return NO_COMPRESSED_OOPS;
-        default:
-          throw new IllegalStateException("unexpected object layout");
-      }
+      return compressedOops ? COMPRESSED_OOPS : NO_COMPRESSED_OOPS;
     }
   }
 
