@@ -1,3 +1,43 @@
+## Release 8.0.0-pre.20240226.1 (2024-03-05)
+
+```
+Baseline: 9d34f8ab0f1ffb18900feaeb23cb16c93f4e0139
+
+Cherry picks:
+
+   + 702118bc527d25c6a82625f2cce02a350ec18239:
+     Remove --host_jvm_args=-Djava.net.preferIPv6Addresses=true
+```
+
+Incompatible changes:
+
+  - Coverage report generators don't get anymore the JAVA_RUNFILES
+    and PYTHON_RUNFILES environment variables.
+  - apple_cc_toolchain rule was removed, use regular cc_toolchain
+  - "bazel query" and "bazel print_action" can't run under the output
+    base anymore.
+  - The Starlark methods copts, generate_linkmap, should_strip_binary
+    in objc fragment have been deleted.  Please use the equivalent
+    methods
+    objccopts, objc_generate_linkmap, objc_should_strip_binary in cpp
+    fragments
+    instead.
+
+New features:
+
+  - Bazel now respects `expires` from Credential Helpers.
+
+Important changes:
+
+  - Added a new method, `repository_ctx.watch()`, which asks Bazel to
+    watch for changes to an arbitrary file. When said file changes,
+    Bazel will refetch the repo.
+  - `genrule` now supports setting `stamp = -1` to request
+    conditional stamping (based on the value of the build's `--stamp`
+    flag).
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Alex Eagle, Artem V. Navrotskiy, Fabian Meumertzheim, George Gensure, Josh Chorlton, Letu Ren, ouguoc2-stripe, Romain Chossart, thesayyn, Xdng Yng, Xùdōng Yáng, Yannic Bonenberger, Yannic.
+
 ## Release 8.0.0-pre.20240213.1 (2024-02-23)
 
 ```
