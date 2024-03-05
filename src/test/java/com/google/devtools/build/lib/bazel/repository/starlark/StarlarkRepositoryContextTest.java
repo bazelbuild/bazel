@@ -456,7 +456,7 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule("test");
     context.createFile(context.path("foo"), "foobar", true, true, thread);
 
-    context.symlink(context.path("foo"), context.path("bar"), "auto", thread);
+    context.symlink(context.path("foo"), context.path("bar"), thread);
     testOutputFile(outputDirectory.getChild("bar"), "foobar");
 
     assertThat(context.path("bar").realpath()).isEqualTo(context.path("foo"));

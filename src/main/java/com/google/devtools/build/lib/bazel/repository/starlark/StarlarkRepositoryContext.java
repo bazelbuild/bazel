@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -209,20 +208,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
               @ParamType(type = StarlarkPath.class)
             },
             doc = "The path of the symlink to create."),
-        @Param(
-            name = "watch_target",
-            defaultValue = "'auto'",
-            positional = false,
-            named = true,
-            doc =
-                "whether to <a href=\"#watch\">watch</a> the symlink target. Can be the string "
-                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
-                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
-                    + "not attempt to watch the path; passing 'auto' will only attempt to watch "
-                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
-                    + "information."),
       })
-  public void symlink(Object target, Object linkName, String watchTarget, StarlarkThread thread)
+  public void symlink(Object target, Object linkName, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath targetPath = getPath("symlink()", target);
     StarlarkPath linkPath = getPath("symlink()", linkName);
@@ -233,7 +220,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
-    maybeWatch(targetPath, ShouldWatch.fromString(watchTarget));
     try {
       checkInOutputDirectory("write", linkPath);
       makeDirectories(linkPath.getPath());
@@ -605,20 +591,16 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    RootedPath rootedPath = repoCacheFriendlyPath.getRootedPath(env, directories);
-    if (rootedPath == null) {
-      throw new NeedsSkyframeRestartException();
-    }
     try {
+      var recordedInput = new RepoRecordedInput.DirTree(repoCacheFriendlyPath);
       DirectoryTreeDigestValue digestValue =
           (DirectoryTreeDigestValue)
-              env.getValueOrThrow(DirectoryTreeDigestValue.key(rootedPath), IOException.class);
+              env.getValueOrThrow(recordedInput.getSkyKey(directories), IOException.class);
       if (digestValue == null) {
         throw new NeedsSkyframeRestartException();
       }
 
-      recordedDirTreeInputs.put(
-          new RepoRecordedInput.DirTree(repoCacheFriendlyPath), digestValue.hexDigest());
+      recordedDirTreeInputs.put(recordedInput, digestValue.hexDigest());
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
