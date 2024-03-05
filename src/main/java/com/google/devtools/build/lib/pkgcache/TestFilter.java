@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.HashSet;
 import java.util.List;
@@ -54,7 +55,7 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
   private final ImmutableList<String> testLangFilterList;
   private final Predicate<Target> impl;
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   TestFilter(
       ImmutableSet<TestSize> testSizeFilterSet,
       ImmutableSet<TestTimeout> testTimeoutFilterSet,

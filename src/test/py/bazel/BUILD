@@ -305,6 +305,10 @@ py_test(
     size = "medium",
     srcs = ["bzlmod/bazel_fetch_test.py"],
     data = ["//tools/build_defs/repo:http_src"],
+    shard_count = 5,
+    tags = [
+        "requires-network",
+    ],
     deps = [
         ":bzlmod_test_utils",
         ":test_base",

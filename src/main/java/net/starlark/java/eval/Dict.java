@@ -453,13 +453,13 @@ public class Dict<K, V>
               Starlark.checkValid(v);
             });
         @SuppressWarnings("unchecked")
-        var immutableMap = (ImmutableMap<K, V>) m;
+        ImmutableMap<K, V> immutableMap = (ImmutableMap<K, V>) m;
         return new Dict<>(immutableMap);
       }
 
       if (m instanceof Dict && ((Dict<?, ?>) m).isImmutable()) {
         @SuppressWarnings("unchecked")
-        var dict = (Dict<K, V>) m;
+        Dict<K, V> dict = (Dict<K, V>) m;
         return dict;
       }
 
