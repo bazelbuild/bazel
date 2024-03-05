@@ -289,14 +289,11 @@ eof
 
   cat >"$ws/rule.bzl" <<'eof'
 def _impl(ctx):
-    tool_inputs, tool_input_mfs = ctx.resolve_tools(tools = [ctx.attr.tool])
     ctx.actions.run(
         outputs = [ctx.outputs.out],
-        tools = tool_inputs,
         executable = ctx.executable.tool,
         arguments = [ctx.outputs.out.path, "a", "", "\"b \\\"c", "z"],
         use_default_shell_env = True,
-        input_manifests = tool_input_mfs,
     )
     return DefaultInfo(files = depset(direct = [ctx.outputs.out]))
 
