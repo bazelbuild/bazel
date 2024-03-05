@@ -255,7 +255,7 @@ class MetricsCollector {
 
   @SuppressWarnings("unused")
   @Subscribe
-  public void onBuildComplete(BuildPrecompleteEvent event) {
+  public void onBuildPrecompleteEvent(BuildPrecompleteEvent event) {
     postBuildMetricsEvent();
   }
 

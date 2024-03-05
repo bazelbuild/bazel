@@ -583,4 +583,20 @@ EOF
   assert_contains "a change" $out
 }
 
+function test_does_not_run_if_build_fails() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
+  mkdir -p ${pkg}
+  echo "input" > ${pkg}/in.txt
+  cat > ${pkg}/BUILD <<EOF
+genrule() # error
+EOF
+
+  bazel build //${pkg}:g \
+    --experimental_working_set=${pkg}/in.txt &>$TEST_log \
+    && "expected build to fail"
+  expect_log "Error in genrule"
+  expect_log "Skyfocus did not run due to an unsuccessful build."
+}
+
 run_suite "Tests for Skyfocus"

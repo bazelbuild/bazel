@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
+import com.google.devtools.build.lib.buildtool.BuildToolFinalizingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -46,6 +47,7 @@ import com.google.devtools.build.skyframe.InMemoryGraphImpl;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.errorprone.annotations.Keep;
 import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -231,15 +233,15 @@ public class SkyfocusModule extends BlazeModule {
   }
 
   /**
-   * Subscriber trigger for Skyfocus using {@link BuildPrecompleteEvent}.
+   * Subscriber trigger for Skyfocus using {@link BuildToolFinalizingEvent}.
    *
    * <p>This fires just before the build completes, which is the perfect time for applying Skyfocus.
    * Skyfocus events should be profiled as part of the build command, so it should happen before the
    * build completes or BuildTool request finishes.
    */
-  @SuppressWarnings("unused")
+  @Keep
   @Subscribe
-  public void onBuildPrecomplete(BuildPrecompleteEvent event)
+  public void onBuildToolFinalizingEvent(BuildToolFinalizingEvent event)
       throws InterruptedException, AbruptExitException {
     if (!skyfocusEnabled()) {
       return;
@@ -247,6 +249,11 @@ public class SkyfocusModule extends BlazeModule {
 
     if (pendingSkyfocusState == PendingSkyfocusState.DO_NOTHING) {
       // Skyfocus doesn't need to run, nothing to do here.
+      return;
+    }
+
+    if (!event.getDetailedExitCode().isSuccess()) {
+      env.getReporter().handle(Event.warn("Skyfocus did not run due to an unsuccessful build."));
       return;
     }
 

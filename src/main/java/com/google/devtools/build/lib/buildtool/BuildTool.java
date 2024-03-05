@@ -659,6 +659,11 @@ public class BuildTool {
       env.getReporter().handle(Event.error("Build interrupted during command completion"));
       ie = e;
     }
+    // Handle subscribers that need to run between the end of the command, and the end of the
+    // invocation proper. Tasks here will count to the overall time in profiles/metrics, unlike
+    // BuildPrecompleteEvent below.
+    env.getEventBus().post(new BuildToolFinalizingEvent(result.getDetailedExitCode()));
+
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
 
@@ -671,6 +676,8 @@ public class BuildTool {
         env.getReporter().handle(Event.error("Build interrupted during command completion"));
         ie = e;
       }
+      // Ensure deterministic ordering of doing the metrics upload before everything else that
+      // happens when BuildCompleteEvent is posted.
       env.getEventBus().post(new BuildPrecompleteEvent());
       env.getEventBus()
           .post(
