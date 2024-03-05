@@ -1527,34 +1527,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns true if {@code label} is visible from {@code prerequisite}.
-   *
-   * <p>This only computes the logic as implemented by the visibility system. The final decision
-   * whether a dependency is allowed is made by {@link PrerequisiteValidator}.
-   */
-  public static boolean isVisible(Label label, TransitiveInfoCollection prerequisite) {
-    // Check visibility attribute
-    for (PackageGroupContents specification :
-        prerequisite.getProvider(VisibilityProvider.class).getVisibility().toList()) {
-      if (specification.containsPackage(label.getPackageIdentifier())) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * Returns true if {@code rule} is visible from {@code prerequisite}.
-   *
-   * <p>This only computes the logic as implemented by the visibility system. The final decision
-   * whether a dependency is allowed is made by {@link PrerequisiteValidator}.
-   */
-  public static boolean isVisible(Rule rule, TransitiveInfoCollection prerequisite) {
-    return isVisible(rule.getLabel(), prerequisite);
-  }
-
-  /**
    * @return the set of features applicable for the current rule.
    */
   public ImmutableSet<String> getFeatures() {
@@ -1975,17 +1947,6 @@ public final class RuleContext extends TargetContext
 
     public BuildConfigurationValue getConfiguration() {
       return configuration;
-    }
-
-    /**
-     * @return true if {@code rule} is visible from {@code prerequisite}.
-     *     <p>This only computes the logic as implemented by the visibility system. The final
-     *     decision whether a dependency is allowed is made by {@link PrerequisiteValidator}, who is
-     *     supposed to call this method to determine whether a dependency is allowed as per
-     *     visibility rules.
-     */
-    public boolean isVisible(TransitiveInfoCollection prerequisite) {
-      return RuleContext.isVisible(target.getAssociatedRule(), prerequisite);
     }
 
     @Nullable
