@@ -41,12 +41,13 @@ import java.util.regex.Pattern;
  *   <li>When each glob within a package is represented as an individual GLOB node, {@link
  *       com.google.devtools.build.lib.skyframe.GlobFunctionWithRecursionInSingleFunction} creates
  *       {@link GlobComputationProducer} to start the computation of each GLOB node.
- *   <li>Glob computations within in a package are aggregated into a single GLOBS node. {@link
- *       com.google.devtools.build.lib.skyframe.GlobsFunction} creates {@link GlobsProducer}, which
- *       further creates {@link GlobComputationProducer} to compute each glob.
+ *   <li>All globs within a package are held by a single GLOBS node. When a package's depending
+ *       {@link com.google.devtools.build.lib.skyframe.GlobsFunction#compute} is called for the
+ *       first time, multiple {@link GlobComputationProducer}s are created for each individual
+ *       package glob, and they shall be driven in-parallel.
  * </ul>
  */
-public class GlobComputationProducer implements StateMachine, FragmentProducer.ResultSink {
+public final class GlobComputationProducer implements StateMachine, FragmentProducer.ResultSink {
 
   /**
    * Propagates all glob matching {@link PathFragment}s or any {@link Exception}.

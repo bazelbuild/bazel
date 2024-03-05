@@ -57,7 +57,7 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
-class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
+public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     implements SkyframeLookupResult, ExtendedEventHandler {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
