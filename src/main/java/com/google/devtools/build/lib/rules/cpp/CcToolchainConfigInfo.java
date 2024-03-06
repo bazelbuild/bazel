@@ -69,7 +69,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final ImmutableList<Pair<String, String>> toolPaths;
   private final ImmutableList<Pair<String, String>> makeVariables;
   private final String builtinSysroot;
-  private final String ccTargetOs;
 
   CcToolchainConfigInfo(
       ImmutableList<ActionConfig> actionConfigs,
@@ -86,8 +85,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       String abiLibcVersion,
       ImmutableList<Pair<String, String>> toolPaths,
       ImmutableList<Pair<String, String>> makeVariables,
-      String builtinSysroot,
-      String ccTargetOs) {
+      String builtinSysroot) {
     this.actionConfigs = actionConfigs;
     this.features = features;
     this.artifactNamePatterns = artifactNamePatterns;
@@ -103,7 +101,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.toolPaths = toolPaths;
     this.makeVariables = makeVariables;
     this.builtinSysroot = builtinSysroot;
-    this.ccTargetOs = ccTargetOs;
   }
 
   @Override
@@ -165,8 +162,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         toolchain.getMakeVariableList().stream()
             .map(makeVariable -> Pair.of(makeVariable.getName(), makeVariable.getValue()))
             .collect(ImmutableList.toImmutableList()),
-        toolchain.getBuiltinSysroot(),
-        toolchain.getCcTargetOs());
+        toolchain.getBuiltinSysroot());
   }
 
   public ImmutableList<ActionConfig> getActionConfigs() {
@@ -302,16 +298,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return builtinSysroot;
   }
 
-  @StarlarkMethod(name = "target_os", documented = false, useStarlarkThread = true)
-  public String getCcTargetOsForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getCcTargetOs();
-  }
-
-  public String getCcTargetOs() {
-    return ccTargetOs;
-  }
-
   @Override
   public String getProto() {
     CToolchain.Builder cToolchain = CToolchain.newBuilder();
@@ -361,9 +347,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         .setCompiler(compiler)
         .setAbiVersion(abiVersion)
         .setAbiLibcVersion(abiLibcVersion);
-    if (!ccTargetOs.isEmpty()) {
-      cToolchain.setCcTargetOs(ccTargetOs);
-    }
     if (!builtinSysroot.isEmpty()) {
       cToolchain.setBuiltinSysroot(builtinSysroot);
     }

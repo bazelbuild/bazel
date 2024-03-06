@@ -4966,7 +4966,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "                tool_paths = [tool_path(name = 'name1', path = 'path1')],",
         "                make_variables = [make_variable(name = 'variable', value = '--a -b -c')],",
         "                builtin_sysroot = 'sysroot',",
-        "                cc_target_os = 'os',",
         "        )",
         "cc_toolchain_config_rule = rule(",
         "    implementation = _impl,",
@@ -5006,7 +5005,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(makeVariable.getName()).isEqualTo("variable");
     assertThat(makeVariable.getValue()).isEqualTo("--a -b -c");
     assertThat(toolchain.getBuiltinSysroot()).isEqualTo("sysroot");
-    assertThat(toolchain.getCcTargetOs()).isEqualTo("os");
     assertThat(
             toolchain.getFeatureList().stream()
                 .map(CToolchain.Feature::getName)

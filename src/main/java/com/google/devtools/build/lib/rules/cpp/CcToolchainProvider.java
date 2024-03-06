@@ -484,16 +484,6 @@ public final class CcToolchainProvider {
     return value.getValue("_fdo_context", FdoContext.class);
   }
 
-  /**
-   * Unused, for compatibility with things internal to Google.
-   *
-   * @deprecated use platforms
-   */
-  @Deprecated
-  public String getTargetOS() throws EvalException {
-    return value.getValue("_target_os", String.class);
-  }
-
   // Not all of CcToolchainProvider is exposed to Starlark, which makes implementing deep equality
   // impossible: if Java-only parts are considered, the behavior is surprising in Starlark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.

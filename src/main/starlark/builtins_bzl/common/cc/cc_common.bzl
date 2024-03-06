@@ -565,7 +565,6 @@ def _create_cc_toolchain_config_info(
         tool_paths = tool_paths,
         make_variables = make_variables,
         builtin_sysroot = builtin_sysroot,
-        cc_target_os = cc_target_os,
     )
 
 def _create_linking_context_from_compilation_outputs(
@@ -845,9 +844,6 @@ def _ld_tool_path(*, ctx, cc_toolchain):
     cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
     return cc_toolchain._tool_paths.get("ld", None)
 
-def _cc_target_os_do_not_use(toolchain):
-    return cc_common_internal.cc_target_os_do_not_use(toolchain)
-
 def _create_compile_action(
         *,
         actions,
@@ -924,7 +920,6 @@ cc_common = struct(
     objcopy = _objcopy,
     objcopy_tool_path = _objcopy_tool_path,
     ld_tool_path = _ld_tool_path,
-    cc_target_os_do_not_use = _cc_target_os_do_not_use,
     create_compile_action = _create_compile_action,
     implementation_deps_allowed_by_allowlist = _implementation_deps_allowed_by_allowlist,
     CcSharedLibraryHintInfo = CcSharedLibraryHintInfo,

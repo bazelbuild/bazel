@@ -1905,13 +1905,6 @@ public interface CcModuleApi<
             doc =
                 "The built-in sysroot. If this attribute is not present, Bazel does not "
                     + "allow using a different sysroot, i.e. through the --grte_top option."),
-        @Param(
-            name = "cc_target_os",
-            positional = false,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true,
-            doc = "Internal purpose only, do not use."),
       })
   CcToolchainConfigInfoT ccToolchainConfigInfoFromStarlark(
       StarlarkRuleContextT starlarkRuleContext,
@@ -1930,7 +1923,6 @@ public interface CcModuleApi<
       Sequence<?> toolPaths, // <StructApi> expected
       Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
-      Object ccTargetOs,
       StarlarkThread thread)
       throws EvalException;
 

@@ -1206,7 +1206,6 @@ public abstract class CcModule
       Sequence<?> toolPaths, // <StarlarkInfo> expected
       Sequence<?> makeVariables, // <StarlarkInfo> expected
       Object builtinSysroot,
-      Object ccTargetOs,
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
@@ -1368,8 +1367,7 @@ public abstract class CcModule
         convertFromNoneable(abiLibcVersion, /* defaultValue= */ ""),
         toolPathList,
         makeVariablePairs.build(),
-        convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
-        convertFromNoneable(ccTargetOs, /* defaultValue= */ ""));
+        convertFromNoneable(builtinSysroot, /* defaultValue= */ ""));
   }
 
   private static void checkRightStarlarkInfoProvider(
