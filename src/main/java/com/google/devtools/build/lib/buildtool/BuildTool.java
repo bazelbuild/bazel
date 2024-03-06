@@ -651,6 +651,10 @@ public class BuildTool {
     Preconditions.checkState((crash == null) || !detailedExitCode.isSuccess());
     result.setUnhandledThrowable(crash);
     result.setDetailedExitCode(detailedExitCode);
+    if (!detailedExitCode.isSuccess()) {
+      logger.atInfo().log(
+          "Unsuccessful command ended with FailureDetail: %s", detailedExitCode.getFailureDetail());
+    }
 
     InterruptedException ie = null;
     try {
