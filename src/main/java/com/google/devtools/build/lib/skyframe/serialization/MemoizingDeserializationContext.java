@@ -13,15 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
+import com.google.errorprone.annotations.ForOverride;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
-/** Implementation that performs memoization. */
+/**
+ * {@link DeserializationContext} that performs memoization, see {@link
+ * MemoizingSerializationContext} for the protocol description.
+ */
 abstract class MemoizingDeserializationContext extends DeserializationContext {
-  private final Memoizer.Deserializer deserializer = new Memoizer.Deserializer();
+  private final Int2ObjectOpenHashMap<Object> memoTable = new Int2ObjectOpenHashMap<>();
+  private int tagForMemoizedBefore = -1;
+  private final Deque<Object> memoizedBeforeStackForSanityChecking = new ArrayDeque<>();
 
   @VisibleForTesting // private
   static MemoizingDeserializationContext createForTesting(
@@ -56,18 +69,34 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
 
   @Override
   public final void registerInitialValue(Object initialValue) {
-    deserializer.registerInitialValue(initialValue);
+    Preconditions.checkState(
+        tagForMemoizedBefore != -1, "Not called with memoize before: %s", initialValue);
+    int tag = tagForMemoizedBefore;
+    tagForMemoizedBefore = -1;
+    memoize(tag, initialValue);
+    memoizedBeforeStackForSanityChecking.addLast(initialValue);
   }
 
   @Override
   final Object getMemoizedBackReference(int memoIndex) {
-    return deserializer.getMemoized(memoIndex);
+    return checkNotNull(memoTable.get(memoIndex), memoIndex);
   }
 
   @Override
   final Object deserializeAndMaybeMemoize(ObjectCodec<?> codec, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    return deserializer.deserialize(this, codec, codedIn);
+    Preconditions.checkState(
+        tagForMemoizedBefore == -1,
+        "non-null memoized-before tag %s (%s)",
+        tagForMemoizedBefore,
+        codec);
+    switch (codec.getStrategy()) {
+      case MEMOIZE_BEFORE:
+        return deserializeMemoBeforeContent(codec, codedIn);
+      case MEMOIZE_AFTER:
+        return deserializeMemoAfterContent(codec, codedIn);
+    }
+    throw new AssertionError("Unreachable (strategy=" + codec.getStrategy() + ")");
   }
 
   /**
@@ -79,8 +108,60 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
    * <p>This can return either a deserialized value or a {@link DeferredValue}. A {@link
    * DeferredValue} is only possible for {@link SharedValueDeserializationContext}.
    */
+  @ForOverride
   abstract Object deserializeAndMaybeHandleDeferredValues(
       ObjectCodec<?> codec, CodedInputStream codedIn) throws SerializationException, IOException;
+
+  /** Corresponds to MemoBeforeContent in the abstract grammar. */
+  private final Object deserializeMemoBeforeContent(ObjectCodec<?> codec, CodedInputStream codedIn)
+      throws SerializationException, IOException {
+    int tag = codedIn.readInt32();
+    this.tagForMemoizedBefore = tag;
+    // `codec` is never a `DeferredObjectCodec` because those are `MEMOIZE_AFTER`.
+    Object value = codec.safeCast(deserializeAndMaybeHandleDeferredValues(codec, codedIn));
+    Object initial = memoizedBeforeStackForSanityChecking.removeLast();
+    if (value != initial) {
+      // This indicates a bug in the particular codec subclass.
+      throw new SerializationException(
+          String.format(
+              "codec did not return the initial instance: %s but was %s with codec %s",
+              value, initial, codec));
+    }
+    return value;
+  }
+
+  /** Corresponds to MemoAfterContent in the abstract grammar. */
+  private final Object deserializeMemoAfterContent(ObjectCodec<?> codec, CodedInputStream codedIn)
+      throws SerializationException, IOException {
+    Object value = deserializeAndMaybeHandleDeferredValues(codec, codedIn);
+    int tag = codedIn.readInt32();
+    // If deserializing the children caused the parent object itself to be deserialized due to
+    // a cycle, then there's now a memo entry for the parent. Reuse that object, discarding
+    // the one we were trying to construct here, so as to avoid creating duplicate objects in
+    // the object graph.
+    Object cyclicallyCreatedObject = memoTable.get(tag);
+    if (cyclicallyCreatedObject != null) {
+      return cyclicallyCreatedObject;
+    }
+    memoize(tag, value);
+    return value;
+  }
+
+  /**
+   * Adds a new id → object maplet to the memo table.
+   *
+   * <p>It is an error if the value is already be present.
+   */
+  private final void memoize(int id, Object value) {
+    Object prev = memoTable.put(id, checkNotNull(value));
+    if (prev != null) { // Avoid boxing int with checkArgument.
+      throw new IllegalArgumentException(
+          String.format(
+              "Tried to memoize id %s to object '%s', when it is already memoized to object"
+                  + " '%s'",
+              id, value, prev));
+    }
+  }
 
   private static final class MemoizingDeserializationContextImpl
       extends MemoizingDeserializationContext {
