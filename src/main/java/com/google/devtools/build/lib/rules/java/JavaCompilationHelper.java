@@ -427,6 +427,9 @@ public final class JavaCompilationHelper {
     if (javaToolchain.getJavacSupportsWorkerCancellation()) {
       modifiableExecutionInfo.put(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1");
     }
+    if (javaToolchain.getJavacSupportsWorkerMultiplexSandboxing()) {
+      modifiableExecutionInfo.put(ExecutionRequirements.SUPPORTS_MULTIPLEX_SANDBOXING, "1");
+    }
     ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
     executionInfo.putAll(
         getConfiguration()

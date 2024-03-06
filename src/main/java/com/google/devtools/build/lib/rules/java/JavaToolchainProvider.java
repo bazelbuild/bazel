@@ -304,6 +304,11 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
     return getUnderlyingValue("_javac_supports_worker_cancellation", Boolean.class);
   }
 
+  /** Returns whether JavaBuilders supports running multiplex persistent workers in sandbox mode */
+  public boolean getJavacSupportsWorkerMultiplexSandboxing() throws RuleErrorException {
+    return getUnderlyingValue("_javac_supports_worker_multiplex_sandboxing", Boolean.class);
+  }
+
   /** Returns the global {@code java_package_configuration} data. */
   public ImmutableList<JavaPackageConfigurationProvider> packageConfiguration()
       throws RuleErrorException {

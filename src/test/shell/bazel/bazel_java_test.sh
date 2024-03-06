@@ -1926,4 +1926,36 @@ EOF
   bazel build //pkg:a >& $TEST_log || fail "build failed"
 }
 
+function test_sandboxed_multiplexing() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+    # TODO: Enable test after the next java_tools release.
+    return 0
+  fi
+
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    javac_supports_worker_multiplex_sandboxing = True,
+)
+java_library(name = "a", srcs = ["A.java"], deps = [":b"])
+java_library(name = "b", srcs = ["B.java"])
+EOF
+  cat << 'EOF' > pkg/A.java
+public class A extends B {}
+EOF
+  cat << 'EOF' > pkg/B.java
+public class B {}
+EOF
+
+  bazel build //pkg:a \
+    --experimental_worker_multiplex_sandboxing \
+    --java_language_version=17 \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    >& $TEST_log || fail "build failed"
+}
+
 run_suite "Java integration tests"
