@@ -1,0 +1,349 @@
+// Copyright 2024 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// This file contains the protocol buffer representation of a list of supported
+// flags for Bazel commands.
+syntax = "proto3";
+
+package bazel_output_service;
+
+import "google/protobuf/any.proto";
+import "google/rpc/status.proto";
+
+option java_package = "com.google.devtools.build.lib.remote";
+option java_outer_classname = "BazelOutputServiceProto";
+option go_package = "bazeloutputservice";
+
+// The Bazel Output Service may be used by users of the Remote Execution API to
+// construct a directory on the local system that contains all output files of a
+// build.
+//
+// Primitive implementations of this API may simply download files from the
+// Content Addressable Storage (CAS) and store them at their designated
+// location. Complex implementations may use a pseudo file system (e.g., FUSE)
+// to support deduplication, lazy loading and snapshotting.
+//
+// Details:
+// https://github.com/bazelbuild/proposals/blob/master/designs/2021-02-09-remote-output-service.md
+// https://groups.google.com/g/remote-execution-apis/c/qOSWWwBLPzo
+// https://groups.google.com/g/bazel-dev/c/lKzENsNd1Do
+// https://docs.google.com/document/d/1W6Tqq8cndssnDI0yzFSoj95oezRKcIhU57nwLHaN1qk/edit
+service BazelOutputService {
+  // Clean all data associated with a single output path, so that the
+  // next invocation of StartBuild() yields an empty output path. This
+  // MAY be implemented in a way that's faster than removing all of the
+  // files from the file system manually.
+  rpc Clean(CleanRequest) returns (CleanResponse);
+
+  // Signal that a new build is about to start.
+  //
+  // Bazel uses this call to obtain a directory where outputs of the build may
+  // be stored, called the output path. Based on the parameters provided, server
+  // may provide an empty output path, or one that has contents from a previous
+  // build of the same workspace.
+  //
+  // In case the output path contains data from a previous build, server is
+  // responsible for calling ContentAddressableStorage.FindMissingBlobs() for
+  // all of the objects that are stored remotely. This ensures that these
+  // objects don't disappear from the Content Addressable Storage while the
+  // build is running. Any files that are absent MUST be removed from the output
+  // path and reported through InitialOutputPathContents.modified_path_prefixes,
+  // unless the field has been omitted because it would have been too large.
+  rpc StartBuild(StartBuildRequest) returns (StartBuildResponse);
+
+  // Stage build artifacts at the given paths with digests that are known to the
+  // Content Addressable Storage. The file contents MAY be lazily downloaded
+  // when they're accessed in the future, and are not guaranteed to have already
+  // been downloaded upon return.
+  rpc StageArtifacts(StageArtifactsRequest) returns (StageArtifactsResponse);
+
+  // Notify the server that a set of paths are not expected to be modified
+  // further by Bazel or a local build action within the current build.
+  //
+  // For each of these paths, the server MAY decide to store a dirty bit,
+  // initially unset. Subsequent modifications to the contents, or deletion of,
+  // the file stored at that path, cause the dirty bit to be set. If the server
+  // chooses to implement the dirty bit, any paths with the dirty bit set MUST
+  // be reported back to Bazel in the next
+  // InitialOutputPathContents.modified_path_prefixes for the same workspace.
+  //
+  // As an alternative to tracking modifications via a dirty bit, a server MAY
+  // choose to freeze finalized paths, preventing further modifications to the
+  // files stored there.
+  rpc FinalizeArtifacts(FinalizeArtifactsRequest)
+      returns (FinalizeArtifactsResponse);
+
+  // Signal that a build has been completed.
+  rpc FinalizeBuild(FinalizeBuildRequest) returns (FinalizeBuildResponse);
+
+  // Obtain the status of one or more files, directories or symbolic
+  // links that are stored in the output path.
+  rpc BatchStat(BatchStatRequest) returns (BatchStatResponse);
+}
+
+message CleanRequest {
+  // The workspace identifier that was provided to
+  // StartBuildRequest.output_base_id whose data needs to be removed.
+  string output_base_id = 1;
+}
+
+message CleanResponse {
+  // Intentionally empty for future extensibility.
+}
+
+message StartBuildRequest {
+  // The version of the protocol Bazel currently uses. The service MUST return
+  // an error if it doesn't recognize the version.
+  //
+  // A future Bazel version may introduce incompatible changes and increment
+  // this version number. The incompatible change will be first made in the
+  // development tree for the next major Bazel release, and the new version thus
+  // introduced should be considered unstable until that major Bazel release
+  // occurs. At that time, the new version becomes stable, and the old one is
+  // immediately retired.
+  //
+  // In particular, version 1 must not be considered stable until Bazel 8.0.0 is
+  // released.
+  //
+  // Current version: 1 (experimental).
+  int32 version = 1;
+
+  // A client-chosen value for the output service to uniquely identify the
+  // workspace the build is being started. This value must be set to ensure that
+  // the remote output service is capable of managing builds for distinct
+  // workspaces concurrently.
+  //
+  // Bazel sets this value to the MD5 sum of the absolute path of the output
+  // base.
+  //
+  // Starting a build finalizes any previous build with the same output_base_id
+  // that has not been finalized yet as if a FinalizeBuildRequest had been sent
+  // with build_successful set to false.
+  string output_base_id = 2;
+
+  // A client-chosen value that uniquely identifies this build. This value must
+  // be provided to most other methods to ensure that operations are targeted
+  // against the right output path. If the server receives a subsequent request
+  // with a non-matching build_id, it SHOULD send back an error response.
+  //
+  // Bazel sets this value to --invocation_id.
+  string build_id = 3;
+
+  // Additional arguments to pass depending on how Bazel communicate with the
+  // Content Addressable Storage.
+  //
+  // In case of a REv2 CAS, the type is
+  // [StartBuildArgs][bazel_output_service_rev2.StartBuildArgs].
+  google.protobuf.Any args = 4;
+
+  // The absolute path at which the remote output service exposes its output
+  // paths, as seen from the perspective of the client.
+  //
+  // This value needs to be provided by the client, because file system
+  // namespace virtualization may cause this directory to appear at a location
+  // that differs from the one used by the service.
+  //
+  // The purpose of this field is to ensure that the remote output service is
+  // capable of expanding symbolic links containing absolute paths.
+  //
+  // If this is not set, or an empty string, the service must determine where to
+  // expose its output path and return an absolute path in
+  // StartBuildResponse.output_path_suffix.
+  string output_path_prefix = 5;
+
+  // A map of paths on the system that will become symbolic links pointing to
+  // locations inside the output path. Similar to output_path_prefix, this
+  // option is used to ensure the remote output service is capable of expanding
+  // symbolic links.
+  //
+  // Map keys are absolute paths, while map values are paths that are
+  // relative to the output path.
+  map<string, string> output_path_aliases = 6;
+}
+
+message StartBuildResponse {
+  // If set, the contents of the output path are almost entirely identical on
+  // the results of a previous build. This information may be used by Bazel to
+  // prevent unnecessary scanning of the file system.
+  //
+  // The server MUST leave this field unset in case the contents of the output
+  // path are empty, not based on a previous build, if no tracking of this
+  // information is performed, or if the number of changes made to the output
+  // path is too large to be expressed.
+  InitialOutputPathContents initial_output_path_contents = 1;
+
+  // A path that the client must append to StartBuildRequest.output_path_prefix
+  // to obtain the full path at which outputs of the build are stored.
+  //
+  // Bazel replaces bazel-out/ with a symlink targeting this path.
+  string output_path_suffix = 2;
+}
+
+message InitialOutputPathContents {
+  // The identifier of a previously finalized build whose results are stored in
+  // the output path.
+  string build_id = 1;
+
+  // Output path prefixes that have been deleted or modified since they were
+  // finalized. Any path exactly matching or starting with one of these prefixes
+  // may be assumed to have been modified or deleted.
+  //
+  // In the interest of performance, the server SHOULD only include path
+  // prefixes that contain at least one of the paths that were finalized by the
+  // previous build.
+  repeated string modified_path_prefixes = 2;
+}
+
+message StageArtifactsRequest {
+  message Artifact {
+    // path is relative to StartBuildResponse.output_path.
+    string path = 1;
+    // Describe how to stage the artifact.
+    //
+    // The concrete type of the locator depending on the CAS Bazel connects to.
+    // In case of a REv2 CAS, the type is
+    // [FileArtifactLocator][bazel_output_service_rev2.FileArtifactLocator].
+    google.protobuf.Any locator = 2;
+  }
+
+  // The identifier of the build. Server uses this to determine which output
+  // path needs to be modified.
+  string build_id = 1;
+
+  repeated Artifact artifacts = 2;
+}
+
+message StageArtifactsResponse {
+  message Response {
+    // If the status has a code other than `OK`, it indicates that the artifact
+    // could not be staged.
+    //
+    // Errors:
+    // * `NOT_FOUND`: The requested Artifact is not in the CAS.
+    google.rpc.Status status = 1;
+  }
+
+  // The response for each of the requested artifacts, using the same order as
+  // requested. This means that this list has the same length as
+  // StageArtifactsRequest.artifacts.
+  repeated Response responses = 1;
+}
+
+message FinalizeArtifactsRequest {
+  message Artifact {
+    // path is relative to StartBuildResponse.output_path.
+    string path = 1;
+    // Expected digest for this path. This allows server to detect if the path
+    // has been changed after Bazel finished creating the path and the
+    // corresponding FinalizeArtifactsRequest is processed.
+    //
+    // The concrete type of the locator depending on the CAS Bazel connects to.
+    // In case of a REv2 CAS, the type is
+    // [FileArtifactLocator][bazel_output_service_rev2.FileArtifactLocator].
+    google.protobuf.Any locator = 2;
+  }
+
+  // The identifier of the build. Server uses this to determine which output
+  // path needs to be modified.
+  string build_id = 1;
+
+  repeated Artifact artifacts = 2;
+}
+
+message FinalizeArtifactsResponse {
+  // Intentionally empty for future extensibility.
+}
+
+message FinalizeBuildRequest {
+  // The identifier of the build that should be finalized.
+  string build_id = 1;
+
+  // Whether the build completed successfully. The remote output service MAY,
+  // for example, use this option to apply different retention policies that
+  // take the outcome of the build into account.
+  bool build_successful = 2;
+}
+
+message FinalizeBuildResponse {
+  // Intentionally empty for future extensibility.
+}
+
+message BatchStatRequest {
+  // The identifier of the build. The remote output service uses this to
+  // determine which output path needs to be inspected.
+  string build_id = 1;
+
+  // Paths whose status is to be obtained. The server MUST canonicalize each
+  // path using lstat semantics, i.e., all components except the last must be
+  // resolved if they are symlinks. If a symlink pointing to a location outside
+  // of the output path is encountered at any point during the canonicalization
+  // process, the server MAY use the information in
+  // StartBuildRequest.output_path_aliases map to continue the canonicalization.
+  //
+  // Refer to Stat.type for how to handle a situation where canonicalization
+  // fails due to a symlink pointing to a location outside of the output path.
+  //
+  // Path is relative to StartBuildResponse.output_path.
+  repeated string paths = 2;
+}
+
+message BatchStatResponse {
+  message StatResponse {
+    // The status of the path. If the path does not exist, this field MUST be
+    // unset.
+    Stat stat = 1;
+  }
+
+  message Stat {
+    message File {
+      // The digest of the file.
+      //
+      // The server MAY leave this field unset if it is unable to compute the
+      // digest.
+      //
+      // The concrete type of the digest depending on the CAS Bazel connects to.
+      // In case of a REv2 CAS, the type is
+      // [FileArtifactLocator][bazel_output_service_rev2.FileArtifactLocator].
+      google.protobuf.Any locator = 1;
+    }
+
+    message Symlink {
+      // The target of the symbolic link.
+      string target = 1;
+    }
+
+    message Directory {}
+
+    // If the path cannot be canonicalized, the server MUST NOT set any of the
+    // type fields.
+    //
+    // If the path resolves to a special file, the server MUST NOT set any of
+    // the type fields.
+    oneof type {
+      // The path resolves to a regular file.
+      File file = 1;
+
+      // The path resolves to a symbolic link.
+      Symlink symlink = 2;
+
+      // The path resolves to a directory.
+      Directory directory = 3;
+    }
+  }
+
+  // The status response for each of the requested paths, using the same
+  // order as requested. This means that this list has the same length
+  // as BatchStatRequest.paths.
+  repeated StatResponse responses = 1;
+}
