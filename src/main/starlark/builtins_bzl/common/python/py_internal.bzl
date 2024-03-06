@@ -62,6 +62,9 @@ def _compilation_outputs(cc_launcher_info):
 def _compilation_outputs_gcno_files(compilation_outputs, *args, **kwargs):
     return compilation_outputs.gcno_files(*args, **kwargs)
 
+def _compilation_outputs_pic_gcno_files(compilation_outputs, *args, **kwargs):
+    return compilation_outputs.pic_gcno_files(*args, **kwargs)
+
 def _compile(*args, **kwargs):
     return cc_common.compile(*args, **kwargs)
 
@@ -168,6 +171,7 @@ py_internal = struct(
     cc_toolchain_build_info_files = _cc_toolchain_build_info_files,
     compilation_outputs = _compilation_outputs,
     compilation_outputs_gcno_files = _compilation_outputs_gcno_files,
+    compilation_outputs_pic_gcno_files = _compilation_outputs_pic_gcno_files,
     compile = _compile,
     copy_without_caching = _copy_without_caching,
     create_linking_context_from_compilation_outputs = _create_linking_context_from_compilation_outputs,
