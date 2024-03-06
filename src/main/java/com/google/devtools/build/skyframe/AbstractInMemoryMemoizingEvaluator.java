@@ -349,6 +349,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
               for (SkyKey dep : deps.getDepGroup(i)) {
                 out.print("    ");
                 out.println(dep.getCanonicalName());
+                out.println(); // newline for readability
               }
             }
           } else {
@@ -371,6 +372,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
             for (SkyKey rdep : rdeps) {
               out.print("    ");
               out.println(rdep.getCanonicalName());
+              out.println(); // newline for readability
             }
           } else {
             out.println("  (rdeps not stored)");

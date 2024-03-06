@@ -399,22 +399,17 @@ public class SkyfocusModule extends BlazeModule {
    */
   private static void dumpKeys(Reporter reporter, SkyframeFocuser.FocusResult focusResult) {
     try (PrintStream pos = new PrintStream(reporter.getOutErr().getOutputStream())) {
-      focusResult
-          .getRoots()
-          .forEach(k -> reporter.handle(Event.info("root: " + k.getCanonicalName())));
-      focusResult
-          .getLeafs()
-          .forEach(k -> reporter.handle(Event.info("leaf: " + k.getCanonicalName())));
+      pos.println("Roots kept:\n");
+      focusResult.getRoots().forEach(k -> pos.println(k.getCanonicalName()));
+
+      pos.println("Leafs (including working set) kept:\n");
+      focusResult.getLeafs().forEach(k -> pos.println("leaf: " + k.getCanonicalName()));
 
       pos.println("Rdeps kept:\n");
       focusResult.getRdeps().forEach(k -> pos.println(k.getCanonicalName()));
 
-      pos.println();
-
       pos.println("Deps kept:");
       focusResult.getDeps().forEach(k -> pos.println(k.getCanonicalName()));
-
-      pos.println();
 
       pos.println("Verification set:");
       focusResult.getVerificationSet().forEach(k -> pos.println(k.getCanonicalName()));
