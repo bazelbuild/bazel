@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
@@ -122,7 +123,7 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
   }
 
   public int version() throws RuleErrorException {
-    return getUnderlyingValue("version", Integer.class);
+    return getUnderlyingValue("version", StarlarkInt.class).toIntUnchecked();
   }
 
   private static class Provider extends StarlarkProviderWrapper<JavaRuntimeInfo> {
