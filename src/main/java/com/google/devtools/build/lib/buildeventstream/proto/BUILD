@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "srcs",
@@ -17,8 +17,6 @@ java_library_srcs(
 
 java_proto_library(
     name = "build_event_stream_java_proto",
-    # The Bazel IntelliJ plugin uses this.
-    visibility = ["//visibility:public"],
     deps = ["build_event_stream_proto"],
 )
 
