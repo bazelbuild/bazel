@@ -43,7 +43,7 @@ message StartBuildArgs {
 
   // The digest function that Bazel uses when communicating with the remote
   // execution system. The remote output service uses this value to ensure
-  // that FileStatus responses contain digests that were computed with right
+  // that BatchStatResponse contains digests that were computed with right
   // digest function.
   //
   // Bazel sets this value to one of the digest functions in the REAPI spec

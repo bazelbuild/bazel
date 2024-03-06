@@ -58,8 +58,8 @@ service BazelOutputService {
   // all of the objects that are stored remotely. This ensures that these
   // objects don't disappear from the Content Addressable Storage while the
   // build is running. Any files that are absent MUST be removed from the output
-  // path and reported through InitialOutputPathContents.modified_paths, unless
-  // the field has been omitted because it would have been too large.
+  // path and reported through InitialOutputPathContents.modified_path_prefixes,
+  // unless the field has been omitted because it would have been too large.
   rpc StartBuild(StartBuildRequest) returns (StartBuildResponse);
 
   // Stage build artifacts at the given paths with digests that are known to the
@@ -76,7 +76,7 @@ service BazelOutputService {
   // the file stored at that path, cause the dirty bit to be set. If the server
   // chooses to implement the dirty bit, any paths with the dirty bit set MUST
   // be reported back to Bazel in the next
-  // InitialOutputPathContents.modified_paths for the same workspace.
+  // InitialOutputPathContents.modified_path_prefixes for the same workspace.
   //
   // As an alternative to tracking modifications via a dirty bit, a server MAY
   // choose to freeze finalized paths, preventing further modifications to the
@@ -194,15 +194,14 @@ message InitialOutputPathContents {
   // the output path.
   string build_id = 1;
 
-  // Output files that have been modified (either the content or metadata) or
-  // removed since the build was finalized.
+  // Output path prefixes that have been deleted or modified since they were
+  // finalized. Any path exactly matching or starting with one of these prefixes
+  // may be assumed to have been modified or deleted.
   //
-  // If directories as a whole are modified/removed, the server needs to
-  // recursively list all modified paths underneath.
-  //
-  // If the remote output service freezes the contents of the output files after
-  // FinalizeArtifacts, this field can be left empty.
-  repeated string modified_files = 2;
+  // In the interest of performance, the server SHOULD only include path
+  // prefixes that contain at least one of the paths that were finalized by the
+  // previous build.
+  repeated string modified_path_prefixes = 2;
 }
 
 message StageArtifactsRequest {
@@ -244,10 +243,9 @@ message FinalizeArtifactsRequest {
   message Artifact {
     // path is relative to StartBuildResponse.output_path.
     string path = 1;
-    // Expected digest for this file. This allows server to detect if the file
-    // has been changed after Bazel finished creating the file and the
-    // corresponding FinalizeArtifactsRequest is processed. This field MAY be
-    // set for regular files, and MUST be omitted for directories and symlinks.
+    // Expected digest for this path. This allows server to detect if the path
+    // has been changed after Bazel finished creating the path and the
+    // corresponding FinalizeArtifactsRequest is processed.
     //
     // The concrete type of the locator depending on the CAS Bazel connects to.
     // In case of a REv2 CAS, the type is
@@ -285,12 +283,12 @@ message BatchStatRequest {
   // determine which output path needs to be inspected.
   string build_id = 1;
 
-  // Paths whose status needs to be obtained. The server MUST canonicalize the
-  // path using lstat semantics and StartBuildRequest.output_path_aliases, i.e.
-  // components except the last one must be resolved if they are symlinks. If
-  // the symlink pointing to a location outside of the output path, but is a
-  // StartBuildRequest.output_path_aliases, the server MAY use the alias to
-  // continue the canonicalization.
+  // Paths whose status is to be obtained. The server MUST canonicalize each
+  // path using lstat semantics, i.e., all components except the last must be
+  // resolved if they are symlinks. If a symlink pointing to a location outside
+  // of the output path is encountered at any point during the canonicalization
+  // process, the server MAY use the information in
+  // StartBuildRequest.output_path_aliases map to continue the canonicalization.
   //
   // Refer to Stat.type for how to handle a situation where canonicalization
   // fails due to a symlink pointing to a location outside of the output path.
@@ -301,8 +299,8 @@ message BatchStatRequest {
 
 message BatchStatResponse {
   message StatResponse {
-    // The status of the file. If no file exists at the requested path, this
-    // field MUST be unset.
+    // The status of the path. If the path does not exist, this field MUST be
+    // unset.
     Stat stat = 1;
   }
 
@@ -310,10 +308,13 @@ message BatchStatResponse {
     message File {
       // The digest of the file.
       //
+      // The server MAY leave this field unset if it is unable to compute the
+      // digest.
+      //
       // The concrete type of the digest depending on the CAS Bazel connects to.
       // In case of a REv2 CAS, the type is
-      // [Digest][build.bazel.remote.execution.v2.Digest].
-      google.protobuf.Any digest = 1;
+      // [FileArtifactLocator][bazel_output_service_rev2.FileArtifactLocator].
+      google.protobuf.Any locator = 1;
     }
 
     message Symlink {
@@ -324,8 +325,7 @@ message BatchStatResponse {
     message Directory {
     }
 
-    // If the path resolves to a location outside the output path where the
-    // server is unable to obtain its status, the server MUST NOT set any of the
+    // If the path cannot be canonicalized, the server MUST NOT set any of the
     // type fields.
     //
     // If the path resolves to a special file, the server MUST NOT set any of
