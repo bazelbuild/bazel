@@ -218,9 +218,7 @@ def create_deploy_archive(
         args.add("--multi_release")
 
     if hermetic:
-        runtime = semantics.find_java_runtime_toolchain(ctx)
-        if not runtime.lib_modules:
-            runtime = ctx.toolchains["@//tools/jdk:fallback_hermetic_runtime_toolchain_type"].java_runtime
+        runtime = ctx.toolchains["@//tools/jdk/hermetic:hermetic_runtime_toolchain_type"].java_runtime
         if runtime.lib_modules != None:
             java_home = runtime.java_home
             lib_modules = runtime.lib_modules
