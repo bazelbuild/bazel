@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import com.google.common.base.Throwables;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
@@ -135,7 +137,8 @@ public class WorkerPoolImpl implements WorkerPool {
       pool.setEvictionPolicy(evictionPolicy);
       pool.evict();
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, InterruptedException.class);
+      throwIfInstanceOf(t, InterruptedException.class);
+      throwIfUnchecked(t);
       throw new VerifyException("unexpected", t);
     }
   }
@@ -152,7 +155,9 @@ public class WorkerPoolImpl implements WorkerPool {
     try {
       result = getPool(key).borrowObject(key);
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
+      throwIfInstanceOf(t, IOException.class);
+      throwIfInstanceOf(t, InterruptedException.class);
+      throwIfUnchecked(t);
       throw new RuntimeException("unexpected", t);
     }
     return result;
@@ -168,7 +173,8 @@ public class WorkerPoolImpl implements WorkerPool {
     try {
       getPool(key).invalidateObject(key, obj);
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, InterruptedException.class);
+      throwIfInstanceOf(t, InterruptedException.class);
+      throwIfUnchecked(t);
       throw new RuntimeException("unexpected", t);
     }
   }

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -212,7 +213,7 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
               callback,
               MoreExecutors.newDirectExecutorService());
     } catch (QueryException e) {
-      Throwables.propagateIfPossible(e, exceptionClass);
+      throwIfInstanceOf(e, exceptionClass);
       throw new IllegalStateException(e);
     } catch (NoSuchPackageException e) {
       // Can happen during a Skyframe no-keep-going evaluation.

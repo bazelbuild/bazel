@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -22,7 +24,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -444,8 +445,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           }
         }
 
-        Throwables.propagateIfPossible(
-            throwableToThrow, QueryException.class, InterruptedException.class);
+        throwIfInstanceOf(throwableToThrow, QueryException.class);
+        throwIfInstanceOf(throwableToThrow, InterruptedException.class);
+        throwIfUnchecked(throwableToThrow);
       }
     }
   }

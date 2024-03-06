@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -65,7 +66,8 @@ public class FileSystemValueCheckerInferringAncestorsTestBase {
             if (throwOnStat != null) {
               Exception toThrow = throwOnStat;
               throwOnStat = null;
-              Throwables.propagateIfPossible(toThrow, IOException.class);
+              throwIfInstanceOf(toThrow, IOException.class);
+              throwIfUnchecked(toThrow);
               fail("Unexpected exception type");
             }
             statedPaths.add(path.relativeTo(srcRoot).toString());

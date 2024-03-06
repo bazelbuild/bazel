@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import com.google.common.base.Throwables;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.flogger.GoogleLogger;
 import java.io.IOException;
 import java.util.HashMap;
@@ -84,7 +86,9 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     try {
       return super.borrowObject(key);
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
+      throwIfInstanceOf(t, IOException.class);
+      throwIfInstanceOf(t, InterruptedException.class);
+      throwIfUnchecked(t);
       throw new RuntimeException("unexpected", t);
     }
   }
@@ -98,7 +102,8 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
         updateShrunkBy(key, obj.getWorkerId());
       }
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, InterruptedException.class);
+      throwIfInstanceOf(t, InterruptedException.class);
+      throwIfUnchecked(t);
       throw new RuntimeException("unexpected", t);
     }
   }
