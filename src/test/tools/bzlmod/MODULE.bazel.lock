@@ -1123,7 +1123,7 @@
     },
     "@@bazel_tools//tools/cpp:cc_configure.bzl%cc_configure_extension": {
       "general": {
-        "bzlTransitiveDigest": "YzPEb7br+Sn73pCNjK2XPg8uSg3RdAvW78QBEJsOLEc=",
+        "bzlTransitiveDigest": "2R7d+McqCoxxzJtI3u0omefoquRQL+juyLyrgK0m7w8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},

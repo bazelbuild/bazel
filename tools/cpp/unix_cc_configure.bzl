@@ -387,6 +387,10 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         overriden_tools["ar"] = _find_generic(repository_ctx, "libtool", "LIBTOOL", overriden_tools)
     auto_configure_warning_maybe(repository_ctx, "CC used: " + str(cc))
     tool_paths = _get_tool_paths(repository_ctx, overriden_tools)
+
+    # The parse_header tool needs to be a wrapper around the compiler as it has
+    # to touch the output file.
+    tool_paths["parse_headers"] = "cc_wrapper.sh"
     cc_toolchain_identifier = escape_string(get_env_var(
         repository_ctx,
         "CC_TOOLCHAIN_NAME",
@@ -546,9 +550,10 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{cc_toolchain_identifier}": cc_toolchain_identifier,
             "%{name}": cpu_value,
             "%{modulemap}": ("\":module.modulemap\"" if generate_modulemap else "None"),
-            "%{cc_compiler_deps}": get_starlark_list([":builtin_include_directory_paths"] + (
-                [":cc_wrapper"] if darwin else []
-            )),
+            "%{cc_compiler_deps}": get_starlark_list([
+                ":builtin_include_directory_paths",
+                ":cc_wrapper",
+            ]),
             "%{compiler}": escape_string(get_env_var(
                 repository_ctx,
                 "BAZEL_COMPILER",
