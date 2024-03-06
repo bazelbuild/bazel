@@ -367,7 +367,7 @@ def create_py_info(ctx, *, direct_sources, imports):
         else:
             # TODO(b/228692666): Remove this once non-PyInfo targets are no
             # longer supported in `deps`.
-            files = target.files.to_list()
+            files = target[DefaultInfo].files.to_list()
             for f in files:
                 if f.extension == "py":
                     transitive_sources_files.append(f)
@@ -391,7 +391,7 @@ def create_py_info(ctx, *, direct_sources, imports):
                 info = target[PyInfo]
                 uses_shared_libraries = info.uses_shared_libraries
             else:
-                files = target.files.to_list()
+                files = target[DefaultInfo].files.to_list()
                 for f in files:
                     uses_shared_libraries = cc_helper.is_valid_shared_library_artifact(f)
                     if uses_shared_libraries:
