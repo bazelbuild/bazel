@@ -18,8 +18,6 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for a configuration type containing info for Apple platforms and tools. */
@@ -63,7 +61,4 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
             doc = "The apple platform type.")
       })
   ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
-
-  @StarlarkMethod(name = "cpu", documented = false, useStarlarkThread = true)
-  String getCpuForStarlark(StarlarkThread thread) throws EvalException;
 }

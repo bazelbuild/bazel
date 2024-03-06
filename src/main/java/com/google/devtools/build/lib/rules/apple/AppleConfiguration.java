@@ -28,14 +28,11 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
 import com.google.devtools.build.lib.util.CPU;
 import java.util.ArrayList;
 import java.util.List;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration containing flags required for Apple platforms and tools. */
@@ -82,7 +79,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
-  private final String cpu;
 
   public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
@@ -93,9 +89,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
-    // AppleConfiguration should not have this knowledge. This is a temporary workaround
-    // for Starlarkification, until apple rules are toolchainized.
-    this.cpu = buildOptions.get(CoreOptions.class).cpu;
   }
 
   /** A class that contains information pertaining to Apple CPUs. */
@@ -411,12 +404,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     if (!components.isEmpty()) {
       ctx.addToMnemonic(Joiner.on('-').join(components));
     }
-  }
-
-  @Override
-  public String getCpuForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
-    return cpu;
   }
 
   @Override
