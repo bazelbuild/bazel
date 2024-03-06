@@ -233,7 +233,6 @@ public final class AndroidSplitTransition implements SplitTransition, AndroidSpl
     // Set the CC options needed to build native code.
     CppOptions newCppOptions = newOptions.get(CppOptions.class);
     newCppOptions.cppCompiler = androidOptions.cppCompiler;
-    newCppOptions.libcTopLabel = androidOptions.androidLibcTopLabel;
     newCppOptions.dynamicMode = androidOptions.dynamicMode;
 
     newOptions.get(AndroidConfiguration.Options.class).configurationDistinguisher =
