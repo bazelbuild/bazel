@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -49,10 +49,9 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.Keep;
 import java.io.PrintStream;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -309,18 +308,18 @@ public class SkyfocusModule extends BlazeModule {
     // TODO: b/312819241 - For simplicity's sake, use the first --package_path as the root.
     // This may be an issue with packages from a different package_path root.
     Root packageRoot = env.getPackageLocator().getPathEntries().get(0);
-    HashSet<RootedPath> workingSetRootedPaths =
+    ImmutableSet<RootedPath> workingSetRootedPaths =
         env.getSkyframeExecutor().getWorkingSet().stream()
             .map(f -> RootedPath.toRootedPath(packageRoot, PathFragment.create(f)))
-            .collect(toCollection(HashSet::new));
+            .collect(toImmutableSet());
 
-    Set<SkyKey> leafs = new LinkedHashSet<>();
+    Set<SkyKey> leafs = Sets.newConcurrentHashSet();
     graph.parallelForEach(
         node -> {
           SkyKey k = node.getKey();
           if (k instanceof FileStateKey) {
             RootedPath rootedPath = ((FileStateKey) k).argument();
-            if (workingSetRootedPaths.remove(rootedPath)) {
+            if (workingSetRootedPaths.contains(rootedPath)) {
               leafs.add(k);
             }
           }
@@ -332,13 +331,15 @@ public class SkyfocusModule extends BlazeModule {
                   + " found in the transitive closure of the build.",
               Code.INVALID_WORKING_SET));
     }
-    if (!workingSetRootedPaths.isEmpty()) {
+    int missingCount = workingSetRootedPaths.size() - leafs.size();
+    if (missingCount > 0) {
       reporter.handle(
           Event.warn(
-              workingSetRootedPaths.size()
-                  + " files were not found in the transitive closure, and "
-                  + "so they are not included in the working set. They are: "
+              missingCount
+                  + " files were not found in the transitive closure, and so they are not included"
+                  + " in the working set. They are: "
                   + workingSetRootedPaths.stream()
+                      .filter(Predicate.not(leafs::contains))
                       .map(r -> r.getRootRelativePath().toString())
                       .collect(joining(", "))));
     }
