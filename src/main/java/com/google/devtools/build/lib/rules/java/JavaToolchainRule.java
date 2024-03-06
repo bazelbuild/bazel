@@ -130,6 +130,10 @@ public final class JavaToolchainRule implements RuleDefinition {
         True if JavaBuilder supports cancellation of persistent workers, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javac_supports_worker_cancellation", BOOLEAN).value(true))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_worker_multiplex_sandboxing) -->
+        True if JavaBuilder supports multiplex sandboxing, false if it doesn't.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("javac_supports_worker_multiplex_sandboxing", BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(tools) -->
         Labels of tools available for label-expansion in jvm_opts.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
