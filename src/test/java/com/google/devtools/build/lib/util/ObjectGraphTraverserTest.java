@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -238,21 +239,61 @@ public class ObjectGraphTraverserTest {
     assertThat(receiver.objects).containsExactly(outer, inner);
   }
 
-  // Arguably, lambdas should not be ignored, nor should be the values they close over, but that's
-  // what the code does at the moment.
   @Test
-  public void testLambdasIgnored() {
+  public void testLambdaClosingOverNothingReported() {
     Object o1 = new Object();
-    Object o2 = new Object();
-    Supplier<Object> lambda = () -> o1;
-    Object pair = Pair.of(o2, lambda);
+    Supplier<Object> lambda = () -> 3;
+    Object pair = Pair.of(o1, lambda);
 
     ConcurrentIdentitySet seen = new ConcurrentIdentitySet(1);
     LoggingObjectReceiver receiver = new LoggingObjectReceiver();
     ObjectGraphTraverser cut = createObjectGraphTraverser(null, seen, receiver, false);
 
     cut.traverse(pair);
-    assertThat(receiver.objects).containsExactly(pair, o2);
+    assertThat(receiver.objects).containsExactly(pair, o1, lambda);
+  }
+
+  @Test
+  public void testLambdaClosingOverNothingReportedWhenReferencedTwice() {
+    Supplier<Object> lambda = () -> 3;
+    Object pair = Pair.of(lambda, lambda);
+
+    ConcurrentIdentitySet seen = new ConcurrentIdentitySet(1);
+    LoggingObjectReceiver receiver = new LoggingObjectReceiver();
+    ObjectGraphTraverser cut = createObjectGraphTraverser(null, seen, receiver, false);
+
+    cut.traverse(pair);
+    assertThat(receiver.objects).containsExactly(pair, lambda);
+  }
+
+  @Test
+  public void testValuesClosedOverReported() {
+    Object o1 = new Object();
+    Supplier<Object> lambda = () -> o1;
+
+    ConcurrentIdentitySet seen = new ConcurrentIdentitySet(1);
+    LoggingObjectReceiver receiver = new LoggingObjectReceiver();
+    ObjectGraphTraverser cut = createObjectGraphTraverser(null, seen, receiver, false);
+
+    cut.traverse(lambda);
+    assertThat(receiver.objects).containsExactly(lambda, o1);
+  }
+
+  @Test
+  public void testMultipleClosuresWithSameCodeReported() {
+    Object o1 = new Object();
+    Object o2 = new Object();
+    Function<Object, Supplier<Object>> generator = o -> () -> o;
+    Object l1 = generator.apply(o1);
+    Object l2 = generator.apply(o2);
+    Object pair = Pair.of(l1, l2);
+
+    ConcurrentIdentitySet seen = new ConcurrentIdentitySet(1);
+    LoggingObjectReceiver receiver = new LoggingObjectReceiver();
+    ObjectGraphTraverser cut = createObjectGraphTraverser(null, seen, receiver, false);
+
+    cut.traverse(pair);
+    assertThat(receiver.objects).containsExactly(pair, l1, l2, o1, o2);
   }
 
   @Test

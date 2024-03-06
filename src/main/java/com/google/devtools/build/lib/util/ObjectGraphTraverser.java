@@ -352,10 +352,6 @@ public class ObjectGraphTraverser {
     }
 
     Class<?> clazz = o.getClass();
-    if (clazz.isSynthetic() && !clazz.isLocalClass() && !clazz.isAnonymousClass()) {
-      // This is probably a lambda, ignore it for now
-      return;
-    }
 
     if (clazz.isArray()) {
       traversal.objectFound(o, contextOrNull(context, "[] " + clazz.getComponentType().getName()));
