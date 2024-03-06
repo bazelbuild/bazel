@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.sun.management.ThreadMXBean;
 import java.lang.management.ManagementFactory;
 import java.util.function.Supplier;
@@ -77,6 +78,23 @@ public class ShallowObjectSizeComputerTest {
   @Test
   public void testBooleanArray() {
     assertComputedSizeIsCorrect(() -> new boolean[4]);
+  }
+
+  // TODO(lberki): Lambdas without any values closed over must (eventually) be special-cased since
+  // they don't require heap.
+
+  @Test
+  public void testClosureWithOneValue() {
+    Object o = new Object();
+    assertComputedSizeIsCorrect(() -> (Supplier<Object>) () -> o);
+  }
+
+  @Test
+  public void testClosureWithThreeValues() {
+    Object o1 = new Object();
+    Object o2 = new Object();
+    Object o3 = new Object();
+    assertComputedSizeIsCorrect(() -> (Supplier<Object>) () -> ImmutableList.of(o1, o2, o3));
   }
 
   private void assertComputedSizeIsCorrect(Supplier<Object> createInstance) {
