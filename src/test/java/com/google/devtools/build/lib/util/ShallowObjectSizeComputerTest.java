@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.sun.management.ThreadMXBean;
+import java.lang.management.ManagementFactory;
+import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -22,7 +25,7 @@ import org.junit.runners.JUnit4;
 /**
  * Unit tests for {@link ShallowObjectSizeComputer}.
  *
- * <p>Most tests accept two values to account for the presence or absence of compressed OOPs.
+ * <p>Tests by comparing the computed object size against measurements on the JVM.
  */
 @RunWith(JUnit4.class)
 public class ShallowObjectSizeComputerTest {
@@ -30,7 +33,7 @@ public class ShallowObjectSizeComputerTest {
 
   @Test
   public void testEmptyClass() {
-    assertThat(ShallowObjectSizeComputer.getClassShallowSize(Empty.class)).isEqualTo(16L);
+    assertComputedSizeIsCorrect(Empty::new);
   }
 
   @SuppressWarnings("unused")
@@ -40,7 +43,7 @@ public class ShallowObjectSizeComputerTest {
 
   @Test
   public void testOneReference() {
-    assertThat(ShallowObjectSizeComputer.getClassShallowSize(OneReference.class)).isAnyOf(16L, 24L);
+    assertComputedSizeIsCorrect(OneReference::new);
   }
 
   @SuppressWarnings("unused")
@@ -51,8 +54,7 @@ public class ShallowObjectSizeComputerTest {
 
   @Test
   public void testTwoReferences() {
-    assertThat(ShallowObjectSizeComputer.getClassShallowSize(TwoReferences.class))
-        .isAnyOf(24L, 32L);
+    assertComputedSizeIsCorrect(TwoReferences::new);
   }
 
   @SuppressWarnings("unused")
@@ -64,17 +66,39 @@ public class ShallowObjectSizeComputerTest {
 
   @Test
   public void testThreeBooleans() {
-    assertThat(ShallowObjectSizeComputer.getClassShallowSize(ThreeBooleans.class))
-        .isAnyOf(16L, 24L);
+    assertComputedSizeIsCorrect(ThreeBooleans::new);
   }
 
   @Test
   public void testObjectArray() {
-    assertThat(ShallowObjectSizeComputer.getShallowSize(new Object[4])).isAnyOf(32L, 56L);
+    assertComputedSizeIsCorrect(() -> new Object[4]);
   }
 
   @Test
   public void testBooleanArray() {
-    assertThat(ShallowObjectSizeComputer.getShallowSize(new boolean[4])).isAnyOf(24L, 32L);
+    assertComputedSizeIsCorrect(() -> new boolean[4]);
+  }
+
+  private void assertComputedSizeIsCorrect(Supplier<Object> createInstance) {
+    Object sampleToCompute = createInstance.get();
+    long computedSize = ShallowObjectSizeComputer.getShallowSize(sampleToCompute);
+    long measuredSize = measureSize(createInstance);
+    assertThat(computedSize).isEqualTo(measuredSize);
+  }
+
+  private static long measureSize(Supplier<Object> createInstance) {
+    Object[] storage = new Object[1];
+
+    // NB: this is com.sun.management.ThreadMXBean, NOT java.lang.management.ThreadMXBean
+    ThreadMXBean bean = (ThreadMXBean) ManagementFactory.getThreadMXBean();
+    bean.setThreadAllocatedMemoryEnabled(true);
+
+    // One would think that this is at least somewhat inaccurate, but according to measurements it's
+    // accurate to the last byte. The mind boggles.
+    long before = bean.getCurrentThreadAllocatedBytes();
+    storage[0] = createInstance.get();
+    long after = bean.getCurrentThreadAllocatedBytes();
+
+    return after - before;
   }
 }
