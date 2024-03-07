@@ -47,6 +47,11 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      # https://github.com/bazelbuild/bazel/issues/21593
+      # --
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
+      # --
     include_json_profile:
       - build
       - test
@@ -95,7 +100,11 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+      # https://github.com/bazelbuild/bazel/issues/21593
+      # --
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
+      # --
     include_json_profile:
       - build
       - test
@@ -154,6 +163,11 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # https://github.com/bazelbuild/bazel/issues/21593
+      # --
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
+      # --
     include_json_profile:
       - build
       - test
@@ -207,6 +221,11 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      # https://github.com/bazelbuild/bazel/issues/21593
+      # --
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
+      # --
     include_json_profile:
       - build
       - test
@@ -371,6 +390,11 @@ tasks:
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/py/bazel:mod_command_test"
       - "-//src/test/shell/bazel:verify_workspace"
+      # TODO(pcloudy): Re-enable after rbe platform switch to JDK 21
+      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:AllTests"
+      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:antxmlresultwriter_integration_test"
+      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:junit4_testbridge_integration_test"
+      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:utf8_test_log_test"
     include_json_profile:
       - build
       - test
