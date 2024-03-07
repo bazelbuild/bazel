@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.BuildToolFinalizingEvent;
 import com.google.devtools.build.lib.events.Event;
@@ -228,6 +229,21 @@ public class SkyfocusModule extends BlazeModule {
       // New working set contains new files. Unfortunately, this is a suboptimal path, and we
       // have to re-run full analysis.
       return PendingSkyfocusState.RERUN_ANALYSIS_THEN_RUN_FOCUS;
+    }
+  }
+
+  /** Subscriber trigger for Skyfocus using information from {@link AnalysisPhaseCompleteEvent}. */
+  @SuppressWarnings("unused")
+  @Subscribe
+  public void onAnalysisPhaseComplete(AnalysisPhaseCompleteEvent event) {
+    if (!skyfocusEnabled()) {
+      return;
+    }
+
+    // If there's an active working set and the analysis cache was dropped for any reason (e.g.
+    // configuration change), we need to re-run Skyfocus.
+    if (event.wasAnalysisCacheDropped() && !env.getSkyframeExecutor().getWorkingSet().isEmpty()) {
+      pendingSkyfocusState = PendingSkyfocusState.RUN_FOCUS;
     }
   }
 
