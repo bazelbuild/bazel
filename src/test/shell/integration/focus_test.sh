@@ -204,8 +204,6 @@ EOF
   assert_contains "a change" $out
 }
 
-
-
 function test_focus_command_prints_info_about_graph() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
@@ -581,6 +579,65 @@ EOF
   bazel build //${pkg}/a/b --experimental_working_set=${pkg}/a,${pkg}/a/b \
     || fail "expected build to succeed"
   assert_contains "a change" $out
+}
+
+function test_glob_inputs_change_with_dir_in_working_set() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir -p ${pkg}
+  touch ${pkg}/in.txt ${pkg}/in2.txt ${pkg}/in3.txt
+  cat > ${pkg}/BUILD <<EOF
+genrule(
+  name = "g",
+  outs = ["out.txt"],
+  cmd = "echo %s > \$@" % glob(["*.txt"]),
+)
+EOF
+
+  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
+
+  # Define the working set as ${pkg}, which will exclude the
+  # DIRECTORY_LISTING_STATE($pkg) in the verification set.
+  bazel build //${pkg}:g --experimental_working_set=${pkg}
+  assert_contains "in.txt" $out
+  assert_contains "in2.txt" $out
+  assert_contains "in3.txt" $out
+
+  # Remove in3.txt from the glob, invalidating DIRECTORY_LISTING_STATE($pkg),
+  # and build should work.
+  rm ${pkg}/in3.txt
+  bazel build //${pkg}:g || fail "expected build to succeed"
+  assert_contains "in.txt" $out
+  assert_contains "in2.txt" $out
+  assert_not_contains "in3.txt" $out
+}
+
+function test_errors_after_glob_inputs_change_without_dir_in_working_set() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir -p ${pkg}
+  touch ${pkg}/in.txt ${pkg}/in2.txt ${pkg}/in3.txt
+  cat > ${pkg}/BUILD <<EOF
+genrule(
+  name = "g",
+  outs = ["out.txt"],
+  cmd = "echo %s > \$@" % glob(["*.txt"]),
+)
+EOF
+
+  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
+
+  # Define the working set as ${pkg}/BUILD only, which will cause
+  # DIRECTORY_LISTING_STATE($pkg) to be in the verification set.
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/BUILD
+  assert_contains "in.txt" $out
+  assert_contains "in2.txt" $out
+  assert_contains "in3.txt" $out
+
+  # Remove in3.txt from the glob, and expect the build to fail because the
+  # DIRECTORY_LISTING_STATE($pkg) in the verification set has changed.
+  rm ${pkg}/in3.txt
+  bazel build //${pkg}:g &>"$TEST_log" && fail "expected build to fail"
+  expect_log "detected changes outside of the working set"
+  expect_log "${pkg}"
 }
 
 function test_does_not_run_if_build_fails() {

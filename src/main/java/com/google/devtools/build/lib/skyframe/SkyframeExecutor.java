@@ -465,7 +465,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private ImmutableSet<String> activeWorkingSet = ImmutableSet.of();
 
-  protected ImmutableSet<RootedPath> skyfocusVerificationSet = ImmutableSet.of();
+  protected ImmutableSet<SkyKey> skyfocusVerificationSet = ImmutableSet.of();
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -1358,7 +1358,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     activeWorkingSet = workingSet;
   }
 
-  public void setSkyfocusVerificationSet(ImmutableSet<RootedPath> skyfocusVerificationSet) {
+  public void setSkyfocusVerificationSet(ImmutableSet<SkyKey> skyfocusVerificationSet) {
     this.skyfocusVerificationSet = skyfocusVerificationSet;
   }
 
@@ -3568,17 +3568,36 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return;
     }
 
-    Set<RootedPath> intersection = new TreeSet<>();
-    for (SkyKey k : diff.changedKeysWithoutNewValues()) {
-      if (skyfocusVerificationSet.contains(k)) {
-        intersection.add((RootedPath) k);
-      }
-    }
-    for (SkyKey k : diff.changedKeysWithNewValues().keySet()) {
-      if (skyfocusVerificationSet.contains(k)) {
-        intersection.add((RootedPath) k);
-      }
-    }
+    Set<String> intersection = new TreeSet<>();
+    Consumer<SkyKey> maybeAddToIntersection =
+        (SkyKey k) -> {
+          if (skyfocusVerificationSet.contains(k)) {
+            @Nullable RootedPath rp;
+            // TODO: b/300214667 - switch to pattern matching when JDK 21 support lands.
+            if (k instanceof RootedPath) {
+              rp = (RootedPath) k;
+            } else if (k instanceof DirectoryListingStateValue.Key) {
+              rp = ((DirectoryListingStateValue.Key) k).argument();
+            } else {
+              throw new IllegalStateException(
+                  "Unhandled key type in verification set: " + k.getCanonicalName());
+            }
+
+            if (rp != null) {
+              // RootedPath#toString() prints square brackets around the components, but we don't
+              // want that.
+              StringBuilder path = new StringBuilder();
+              path.append(rp.getRoot());
+              path.append(FileSystems.getDefault().getSeparator());
+              path.append(rp.getRootRelativePath());
+              intersection.add(path.toString());
+            }
+          }
+        };
+
+    diff.changedKeysWithoutNewValues().forEach(maybeAddToIntersection);
+    diff.changedKeysWithNewValues().keySet().forEach(maybeAddToIntersection);
+
     if (intersection.isEmpty()) {
       return;
     }
@@ -3588,12 +3607,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         "Skyfocus detected changes outside of the working set. These files/directories must be"
             + " added to the working set.");
     message.append("\n");
-    for (RootedPath rp : intersection) {
-      // RootedPath#toString() prints square brackets around the components, but we don't want
-      // that.
-      message.append(rp.getRoot());
-      message.append(FileSystems.getDefault().getSeparator());
-      message.append(rp.getRootRelativePath());
+    for (String path : intersection) {
+      message.append(path);
       message.append("\n");
     }
 

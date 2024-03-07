@@ -2479,6 +2479,7 @@ java_library(
         "SkyframeFocuser.java",
     ],
     deps = [
+        ":directory_listing_state_value",
         ":precomputed_value",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

@@ -44,6 +44,10 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class SkyframeFocuser extends AbstractQueueVisitor {
 
+  private static boolean isVerificationSetKeyType(SkyKey k) {
+    return k instanceof RootedPath || k instanceof DirectoryListingStateValue.Key;
+  }
+
   // The in-memory Skyframe graph
   private final InMemoryGraph graph;
 
@@ -101,14 +105,14 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     private final ImmutableSet<SkyKey> rdeps;
 
     private final ImmutableSet<SkyKey> deps;
-    private final ImmutableSet<RootedPath> verificationSet;
+    private final ImmutableSet<SkyKey> verificationSet;
 
     private FocusResult(
         ImmutableSet<SkyKey> roots,
         ImmutableSet<SkyKey> leafs,
         ImmutableSet<SkyKey> rdeps,
         ImmutableSet<SkyKey> deps,
-        ImmutableSet<RootedPath> verificationSet) {
+        ImmutableSet<SkyKey> verificationSet) {
       this.roots = roots;
       this.leafs = leafs;
       this.rdeps = rdeps;
@@ -139,12 +143,12 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     }
 
     /**
-     * Returns the set of {@link RootedPath} that are in the transitive closure of the roots, but
-     * not in the working set. These SkyKeys are also retained in the graph, because {@link
+     * Returns the set of {@link SkyKey} that are in the transitive closure of the roots, but not in
+     * the working set. These SkyKeys are also retained in the graph, because {@link
      * FilesystemValueChecker} uses them to check for dirty keys to be invalidated on each new
      * build.
      */
-    public ImmutableSet<RootedPath> getVerificationSet() {
+    public ImmutableSet<SkyKey> getVerificationSet() {
       return verificationSet;
     }
   }
@@ -166,13 +170,12 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     // concurrently.
     private final Set<SkyKey> keptRdeps;
 
-    // Threadsafe set of keys that this key depends on. May be modified by multiple NodeVisitors
-    // concurrently.
+    // Threadsafe set of (mostly direct) dep keys that this key depends on. May be modified by
+    // multiple NodeVisitors concurrently.
     private final Set<SkyKey> keptDeps;
 
-    // Threadsafe set of FileStateKey/RootedPath that this key depends on, but are external to the
-    // working set.
-    private final Set<RootedPath> verificationSet;
+    // Threadsafe set of *leaf* keys that this key depends on, but are external to the working set.
+    private final Set<SkyKey> verificationSet;
 
     // Threadsafe set of keys that keeps track of the keys that have been visited while
     // constructing the verification set, so we do not visit the same subgraph more than once.
@@ -183,7 +186,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
         SkyKey key,
         Set<SkyKey> keptRdeps,
         Set<SkyKey> keptDeps,
-        Set<RootedPath> verificationSet,
+        Set<SkyKey> verificationSet,
         Set<SkyKey> verificationSetSeen) {
       this.key = key;
       this.keptRdeps = keptRdeps;
@@ -254,8 +257,8 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
         return;
       }
 
-      if (k instanceof RootedPath) {
-        verificationSet.add((RootedPath) k);
+      if (isVerificationSetKeyType(k)) {
+        verificationSet.add(k);
         return;
       }
 
@@ -274,8 +277,8 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
      * Skyframe graph of those files.
      *
      * <p>Technically, CollectVerificationSet is applied downwards on the indirect dependencies of
-     * the working set's reverse transitive closure, and is responsible for collecting all
-     * FileStateKey/RootedPaths (except the working set itself).
+     * the working set's reverse transitive closure, and is responsible for collecting the necessary
+     * leaf SkyKeys, except the working set itself.
      *
      * <p>TODO: b/327545930 - make this run faster.
      */
@@ -306,7 +309,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
 
     Set<SkyKey> keptDeps = Sets.newConcurrentHashSet();
     Set<SkyKey> keptRdeps = Sets.newConcurrentHashSet();
-    Set<RootedPath> verificationSet = Sets.newConcurrentHashSet();
+    Set<SkyKey> verificationSet = Sets.newConcurrentHashSet();
 
     // All leafs are automatically considered as rdeps.
     keptRdeps.addAll(leafs);
@@ -394,7 +397,9 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               Preconditions.checkNotNull(nodeEntry);
               nodeEntry.clearDirectDepsForSkyfocus();
 
-              if (key instanceof RootedPath) {
+              if (isVerificationSetKeyType(key)) {
+                // Ensure that the verification set doesn't contain any direct deps to build the
+                // working set.
                 verificationSet.remove(key);
               }
 
