@@ -1,3 +1,25 @@
+## Release 8.0.0-pre.20240303.1 (2024-03-07)
+
+```
+Baseline: 7f749e927f61a84ef3a8f361ce601db9d2b81fc4
+```
+
+New features:
+
+  - New $(DUMPBIN) make variable is now available for Visual Studio
+    toolchains.
+
+Important changes:
+
+  - The result of `canonicalize-flags` now includes all Starlark
+    flags by default. Use `--noexperimental_include_default_values`
+    for the old behavior that only reports Starlark flags with
+    non-default values.
+  - Added `windows_quoting_for_param_files` feature for windows-style
+    parameter file escaping.
+
+This release contains contributions from many people at Google, as well as Alex Sharoff, Cameron Martin, Cristin Donoso, Son Luong Ngoc, Sushain Cherivirala, Viktor Kustov, Yannic Bonenberger.
+
 ## Release 8.0.0-pre.20240226.1 (2024-03-05)
 
 ```
