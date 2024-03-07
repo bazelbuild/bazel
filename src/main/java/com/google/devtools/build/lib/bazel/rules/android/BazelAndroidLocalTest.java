@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
+import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -57,16 +58,25 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
       throws RuleErrorException, InterruptedException {
     Artifact androidAllJarsPropertiesFile = getAndroidAllJarsPropertiesFile(ruleContext);
 
-    return ImmutableList.<String>builder()
-        .addAll(JavaCommon.getJvmFlags(ruleContext))
-        .add("-ea")
-        .add("-Dbazel.test_suite=" + ShellEscaper.escapeString(testClass))
-        .add("-Drobolectric.offline=true")
-        .add(
-            "-Drobolectric-deps.properties=" + androidAllJarsPropertiesFile.getRunfilesPathString())
-        .add("-Duse_framework_manifest_parser=true")
-        .add("-Dorg.robolectric.packagesToNotAcquire=com.google.testing.junit.runner.util")
-        .build();
+    ImmutableList.Builder<String> builder =
+        ImmutableList.<String>builder()
+            .addAll(JavaCommon.getJvmFlags(ruleContext))
+            .add("-ea")
+            .add("-Dbazel.test_suite=" + ShellEscaper.escapeString(testClass))
+            .add("-Drobolectric.offline=true")
+            .add(
+                "-Drobolectric-deps.properties="
+                    + androidAllJarsPropertiesFile.getRunfilesPathString())
+            .add("-Duse_framework_manifest_parser=true")
+            .add("-Dorg.robolectric.packagesToNotAcquire=com.google.testing.junit.runner.util");
+
+    if (JavaRuntimeInfo.from(ruleContext, createJavaSemantics().getJavaRuntimeToolchainType())
+            .version()
+        >= 17) {
+      builder.add("-Djava.security.manager=allow");
+    }
+
+    return builder.build();
   }
 
   @Override
