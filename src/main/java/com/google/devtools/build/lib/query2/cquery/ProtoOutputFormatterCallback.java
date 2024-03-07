@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResult;
@@ -27,6 +26,9 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResultOrBui
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.output.ConfigurationForOutput;
+import com.google.devtools.build.lib.analysis.config.output.FragmentForOutput;
+import com.google.devtools.build.lib.analysis.config.output.FragmentOptionsForOutput;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -54,7 +56,7 @@ import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -81,7 +83,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   private static class ConfigurationCache {
-    private final Map<BuildConfigurationEvent, Integer> cache = new HashMap<>();
+    private final Map<BuildConfigurationValue, Integer> cache = new LinkedHashMap<>();
     private final Function<BuildConfigurationKey, BuildConfigurationValue> configurationGetter;
 
     private ConfigurationCache(
@@ -89,35 +91,65 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       this.configurationGetter = configurationGetter;
     }
 
-    public int getId(BuildConfigurationEvent buildConfigurationEvent) {
-      return cache.computeIfAbsent(buildConfigurationEvent, event -> cache.size() + 1);
+    public int getId(BuildConfigurationValue buildConfigurationValue) {
+      return cache.computeIfAbsent(buildConfigurationValue, event -> cache.size() + 1);
     }
 
     public int getId(BuildOptions options) {
       BuildConfigurationValue configurationValue =
           configurationGetter.apply(BuildConfigurationKey.create(options));
-      BuildConfigurationEvent buildConfigurationEvent = configurationValue.toBuildEvent();
-      return getId(buildConfigurationEvent);
+      return getId(configurationValue);
     }
 
     public ImmutableList<Configuration> getConfigurations() {
       return cache.entrySet().stream()
-          .map(
-              entry -> {
-                BuildConfigurationEvent event = entry.getKey();
-                String checksum = event.getEventId().getConfiguration().getId();
-                BuildEventStreamProtos.Configuration configProto =
-                    event.asStreamProto(/* unusedConverters= */ null).getConfiguration();
-
-                return AnalysisProtosV2.Configuration.newBuilder()
-                    .setChecksum(checksum)
-                    .setMnemonic(configProto.getMnemonic())
-                    .setPlatformName(configProto.getPlatformName())
-                    .setId(entry.getValue())
-                    .setIsTool(configProto.getIsTool())
-                    .build();
-              })
+          .map(v -> createConfigurationProto(v.getKey(), v.getValue()))
           .collect(toImmutableList());
+    }
+
+    private Configuration createConfigurationProto(
+        BuildConfigurationValue configurationValue, int id) {
+      ConfigurationForOutput configurationForOutput =
+          ConfigurationForOutput.getConfigurationForOutput(configurationValue);
+      Configuration.Builder configBuilder = Configuration.newBuilder();
+
+      for (FragmentForOutput fragmentForOutput : configurationForOutput.getFragments()) {
+        AnalysisProtosV2.Fragment.Builder fragment = AnalysisProtosV2.Fragment.newBuilder();
+        fragment.setName(fragmentForOutput.getName());
+        fragmentForOutput.getFragmentOptions().forEach(fragment::addFragmentOptionNames);
+        configBuilder.addFragments(fragment);
+      }
+
+      for (FragmentOptionsForOutput fragmentOptionsForOutput :
+          configurationForOutput.getFragmentOptions()) {
+        AnalysisProtosV2.FragmentOptions.Builder fragmentOptions =
+            AnalysisProtosV2.FragmentOptions.newBuilder()
+                .setName(fragmentOptionsForOutput.getName());
+        for (Map.Entry<String, String> option : fragmentOptionsForOutput.getOptions().entrySet()) {
+          AnalysisProtosV2.Option optionProto =
+              AnalysisProtosV2.Option.newBuilder()
+                  .setName(option.getKey())
+                  .setValue(option.getValue())
+                  .build();
+          fragmentOptions.addOptions(optionProto);
+        }
+        configBuilder.addFragmentOptions(fragmentOptions.build());
+      }
+
+      String checksum = configurationValue.getEventId().getConfiguration().getId();
+      BuildEventStreamProtos.Configuration configProto =
+          configurationValue
+              .toBuildEvent()
+              .asStreamProto(/* unusedConverters= */ null)
+              .getConfiguration();
+
+      return configBuilder
+          .setChecksum(checksum)
+          .setMnemonic(configProto.getMnemonic())
+          .setPlatformName(configProto.getPlatformName())
+          .setId(id)
+          .setIsTool(configProto.getIsTool())
+          .build();
     }
   }
 
@@ -307,9 +339,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         if (configuredTargetKey != null) {
           BuildConfigurationKey configurationKey = configuredTargetKey.getConfigurationKey();
           if (configurationKey != null) {
-            BuildConfigurationEvent buildConfigurationEvent =
-                getConfiguration(configurationKey).toBuildEvent();
-            int id = configurationCache.getId(buildConfigurationEvent);
+            BuildConfigurationValue configuration = getConfiguration(configurationKey);
+            int id = configurationCache.getId(configuration);
             builder.setConfigurationId(id);
           }
         }

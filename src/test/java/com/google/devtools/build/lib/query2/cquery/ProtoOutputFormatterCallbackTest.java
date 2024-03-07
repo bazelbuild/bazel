@@ -24,6 +24,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Fragment;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.FragmentOptions;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Option;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -201,13 +204,59 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     assertThat(parentConfiguration)
         .ignoringFieldDescriptors(
             Configuration.getDescriptor().findFieldByName("checksum"),
-            Configuration.getDescriptor().findFieldByName("id"))
+            Configuration.getDescriptor().findFieldByName("id"),
+            Configuration.getDescriptor().findFieldByName("fragments"),
+            Configuration.getDescriptor().findFieldByName("id"),
+            Configuration.getDescriptor().findFieldByName("fragment_options"))
         .isEqualTo(
             Configuration.newBuilder()
                 .setMnemonic("k8-fastbuild")
                 .setPlatformName("k8")
                 .setIsTool(false)
                 .build());
+
+    List<Fragment> fragmentsList = parentConfiguration.getFragmentsList();
+
+    assertThat(fragmentsList.stream().map(Fragment::getName)).isInOrder();
+    assertThat(fragmentsList)
+        .contains(
+            Fragment.newBuilder()
+                .setName("com.google.devtools.build.lib.rules.cpp.CppConfiguration")
+                .addFragmentOptionNames(
+                    "com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions")
+                .addFragmentOptionNames("com.google.devtools.build.lib.rules.cpp.CppOptions")
+                .build());
+
+    List<FragmentOptions> fragmentOptionsList = parentConfiguration.getFragmentOptionsList();
+    assertThat(fragmentOptionsList.stream().map(FragmentOptions::getName)).isInOrder();
+
+    FragmentOptions appleFragmentOptions =
+        fragmentOptionsList.stream()
+            .filter(
+                fo ->
+                    fo.getName()
+                        .equals(
+                            "com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions"))
+            .findFirst()
+            .get();
+    assertThat(appleFragmentOptions.getName())
+        .isEqualTo("com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions");
+    assertThat(appleFragmentOptions.getOptionsList())
+        .contains(Option.newBuilder().setName("apple_platform_type").setValue("macos").build());
+
+    assertThat(appleFragmentOptions.getOptionsList().stream().map(Option::getName)).isInOrder();
+
+    FragmentOptions cppFragmentOptions =
+        fragmentOptionsList.stream()
+            .filter(fo -> fo.getName().equals("com.google.devtools.build.lib.rules.cpp.CppOptions"))
+            .findFirst()
+            .get();
+    assertThat(cppFragmentOptions.getName())
+        .isEqualTo("com.google.devtools.build.lib.rules.cpp.CppOptions");
+    assertThat(cppFragmentOptions.getOptionsList())
+        .contains(Option.newBuilder().setName("dynamic_mode").setValue("DEFAULT").build());
+
+    assertThat(cppFragmentOptions.getOptionsList().stream().map(Option::getName)).isInOrder();
 
     AnalysisProtosV2.ConfiguredTarget transitionRuleProto =
         getRuleProtoByName(resultsList, "//test:transition_rule");

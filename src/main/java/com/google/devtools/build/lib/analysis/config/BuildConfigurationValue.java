@@ -630,6 +630,11 @@ public class BuildConfigurationValue
     return clazz.cast(fragments.get(clazz));
   }
 
+  /** Return all the configuration fragments. */
+  public ImmutableSortedMap<Class<? extends Fragment>, Fragment> getFragments() {
+    return fragments;
+  }
+
   /** Returns true if the requested configuration fragment is present. */
   public <T extends Fragment> boolean hasFragment(Class<T> clazz) {
     return getFragment(clazz) != null;
@@ -838,8 +843,8 @@ public class BuildConfigurationValue
   /**
    * Describes how to create runfile symlink trees.
    *
-   * <p>May be overridden if an {@link OutputService} capable of creating symlink trees is
-   * available.
+   * <p>May be overridden if an {@link com.google.devtools.build.lib.vfs.OutputService} capable of
+   * creating symlink trees is available.
    */
   public enum RunfileSymlinksMode {
     /** Do not create. */

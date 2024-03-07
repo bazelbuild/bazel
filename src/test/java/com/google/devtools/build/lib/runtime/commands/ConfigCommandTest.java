@@ -26,10 +26,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.output.ConfigurationForOutput;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigurationDiffForOutput;
-import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigurationForOutput;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.FragmentDiffForOutput;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
@@ -159,9 +159,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   private static String getOptionValue(
       ConfigurationForOutput config, String fragmentOptions, String optionName) {
     List<String> ans =
-        config.fragmentOptions.stream()
-            .filter(fragment -> fragment.name.endsWith(fragmentOptions))
-            .flatMap(fragment -> fragment.options.entrySet().stream())
+        config.getFragmentOptions().stream()
+            .filter(fragment -> fragment.getName().endsWith(fragmentOptions))
+            .flatMap(fragment -> fragment.getOptions().entrySet().stream())
             .filter(setting -> setting.getKey().equals(optionName))
             .map(Map.Entry::getValue)
             .collect(Collectors.toList());
@@ -177,7 +177,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   }
 
   private static boolean isTargetConfig(ConfigurationForOutput config) {
-    if (config.mnemonic.endsWith("-noconfig")) {
+    if (config.getMnemonic().endsWith("-noconfig")) {
       return false;
     }
     return !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is exec configuration"));
@@ -210,7 +210,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
           .fromJson(
               callConfigCommand(configHash.getAsString()).outAsLatin1(),
               ConfigurationForOutput.class)
-          .mnemonic
+          .getMnemonic()
           .contains("-noconfig");
     } catch (Exception e) {
       assertWithMessage("Failed to retrieve %s: %s", configHash.getAsString(), e.getMessage())
@@ -250,29 +250,32 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
     assertThat(config).isNotNull();
     // Verify config metadata:
-    assertThat(config.configHash).isEqualTo(configHash);
-    assertThat(config.skyKey).isEqualTo(String.format("BuildConfigurationKey[%s]", configHash));
+    assertThat(config.getConfigHash()).isEqualTo(configHash);
+    assertThat(config.getSkyKey())
+        .isEqualTo(String.format("BuildConfigurationKey[%s]", configHash));
     // Verify the existence of a couple of expected fragments:
     assertThat(
-            config.fragments.stream()
+            config.getFragments().stream()
                 .map(
                     fragment ->
-                        Pair.of(getBaseName(fragment.name), getBaseNames(fragment.fragmentOptions)))
+                        Pair.of(
+                            getBaseName(fragment.getName()),
+                            getBaseNames(fragment.getFragmentOptions())))
                 .collect(Collectors.toList()))
         .containsAtLeast(
             Pair.of("PlatformConfiguration", ImmutableList.of("PlatformOptions")),
             Pair.of("TestConfiguration", ImmutableList.of("TestConfiguration$TestOptions")));
     // Verify the existence of a couple of expected fragment options:
     assertThat(
-            config.fragmentOptions.stream()
-                .map(fragment -> getBaseName(fragment.name))
+            config.getFragmentOptions().stream()
+                .map(fragment -> getBaseName(fragment.getName()))
                 .collect(Collectors.toList()))
         .containsAtLeast("PlatformOptions", "CoreOptions", "user-defined");
     // Verify the existence of a couple of expected option names:
     assertThat(
-            config.fragmentOptions.stream()
-                .filter(fragment -> fragment.name.endsWith("CoreOptions"))
-                .flatMap(fragment -> fragment.options.keySet().stream())
+            config.getFragmentOptions().stream()
+                .filter(fragment -> fragment.getName().endsWith("CoreOptions"))
+                .flatMap(fragment -> fragment.getOptions().keySet().stream())
                 .collect(Collectors.toList()))
         .containsAtLeast("run_under", "check_visibility", "stamp");
   }
@@ -292,7 +295,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
         new Gson()
             .fromJson(callConfigCommand(hashPrefix).outAsLatin1(), ConfigurationForOutput.class);
     assertThat(config).isNotNull();
-    assertThat(config.configHash).startsWith(hashPrefix);
+    assertThat(config.getConfigHash()).startsWith(hashPrefix);
   }
 
   @Test
@@ -329,9 +332,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void compareConfigs() throws Exception {
     // Do not trim test configuration for now to make 'finding' the configurations easier.
     analyzeTargetWithTransition("--platform_suffix=pure", "--notrim_test_configuration");
-    String targetConfig1Hash = getTargetConfig().configHash;
+    String targetConfig1Hash = getTargetConfig().getConfigHash();
     String targetConfig2Hash =
-        getTargetConfig(/*excludedHashes=*/ ImmutableSet.of(targetConfig1Hash)).configHash;
+        getTargetConfig(/* excludedHashes= */ ImmutableSet.of(targetConfig1Hash)).getConfigHash();
 
     // Get their diff.
     String result = callConfigCommand(targetConfig1Hash, targetConfig2Hash).outAsLatin1();
@@ -358,9 +361,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void compareConfigsHashPrefix() throws Exception {
     // Do not trim test configuration for now to make 'finding' the configurations easier.
     analyzeTargetWithTransition("--platform_suffix=pure", "--notrim_test_configuration");
-    String targetConfig1Hash = getTargetConfig().configHash;
+    String targetConfig1Hash = getTargetConfig().getConfigHash();
     String targetConfig2Hash =
-        getTargetConfig(/*excludedHashes=*/ ImmutableSet.of(targetConfig1Hash)).configHash;
+        getTargetConfig(/* excludedHashes= */ ImmutableSet.of(targetConfig1Hash)).getConfigHash();
 
     String hashPrefix1 = targetConfig1Hash.substring(0, targetConfig1Hash.length() / 2);
     String hashPrefix2 = targetConfig2Hash.substring(0, targetConfig2Hash.length() / 2);
@@ -457,9 +460,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(getOptionValue(targetConfig, "user-defined", "--define:a")).isEqualTo("1");
     assertThat(getOptionValue(targetConfig, "user-defined", "--define:b")).isEqualTo("2");
     assertThat(
-            targetConfig.fragmentOptions.stream()
-                .filter(fragment -> fragment.name.endsWith("CoreOptions"))
-                .flatMap(fragment -> fragment.options.keySet().stream())
+            targetConfig.getFragmentOptions().stream()
+                .filter(fragment -> fragment.getName().endsWith("CoreOptions"))
+                .flatMap(fragment -> fragment.getOptions().keySet().stream())
                 .filter(name -> name.equals("define"))
                 .collect(Collectors.toList()))
         .isEmpty();
@@ -482,9 +485,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(targetConfig).isNotNull();
     assertThat(getOptionValue(targetConfig, "user-defined", "--define:a")).isEqualTo("2");
     assertThat(
-            targetConfig.fragmentOptions.stream()
-                .filter(fragment -> fragment.name.endsWith("CoreOptions"))
-                .flatMap(fragment -> fragment.options.keySet().stream())
+            targetConfig.getFragmentOptions().stream()
+                .filter(fragment -> fragment.getName().endsWith("CoreOptions"))
+                .flatMap(fragment -> fragment.getOptions().keySet().stream())
                 .filter(name -> name.equals("define"))
                 .collect(Collectors.toList()))
         .isEmpty();

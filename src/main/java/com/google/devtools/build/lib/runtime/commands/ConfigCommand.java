@@ -14,14 +14,11 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -32,13 +29,13 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.config.output.ConfigurationForOutput;
+import com.google.devtools.build.lib.analysis.config.output.FragmentOptionsForOutput;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -115,146 +112,6 @@ public class ConfigCommand implements BlazeCommand {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "Formats the output of displayed results. Can be one of: 'text', 'json'. ")
     public OutputType outputType;
-  }
-
-  /**
-   * Data structure defining a {@link BuildConfigurationValue} for the purpose of this command's
-   * output.
-   *
-   * <p>Includes all data representing a "configuration" and defines their relative structure and
-   * list order.
-   *
-   * <p>A {@link ConfigCommandOutputFormatter} uses this to lightly format output from a logically
-   * consistent core structure.
-   */
-  protected static class ConfigurationForOutput {
-    final String skyKey;
-    final String configHash;
-    final String mnemonic;
-    final boolean isExec;
-    final List<FragmentForOutput> fragments;
-    final List<FragmentOptionsForOutput> fragmentOptions;
-
-    ConfigurationForOutput(
-        String skyKey,
-        String configHash,
-        String mnemonic,
-        boolean isExec,
-        List<FragmentForOutput> fragments,
-        List<FragmentOptionsForOutput> fragmentOptions) {
-      this.skyKey = skyKey;
-      this.configHash = configHash;
-      this.mnemonic = mnemonic;
-      this.isExec = isExec;
-      this.fragments = fragments;
-      this.fragmentOptions = fragmentOptions;
-    }
-
-    @Nullable
-    public FragmentOptionsForOutput fragment(String fragmentName) {
-      return this.fragmentOptions.stream()
-          .filter(fo -> fo.name.equals(fragmentName))
-          .findFirst()
-          .orElse(null);
-    }
-
-    public Set<String> fragmentOptionNames() {
-      return this.fragmentOptions.stream().map(fragment -> fragment.name).collect(toImmutableSet());
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (o instanceof ConfigurationForOutput) {
-        ConfigurationForOutput other = (ConfigurationForOutput) o;
-        return other.skyKey.equals(skyKey)
-            && other.configHash.equals(configHash)
-            && other.fragments.equals(fragments)
-            && other.fragmentOptions.equals(fragmentOptions);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(skyKey, configHash, fragments, fragmentOptions);
-    }
-
-    String checksum() {
-      return configHash;
-    }
-  }
-
-  /**
-   * Data structure defining a {@link Fragment} for the purpose of this command's output.
-   *
-   * <p>{@link Fragment} is a Java object representation of a domain-specific "piece" of
-   * configuration (like "C++-related configuration"). It depends on one or more {@link
-   * FragmentOptions}, which are the <code>--flag=value</code> pairs that key configurations.
-   *
-   * <p>See {@link FragmentOptionsForOutput} and {@link ConfigurationForOutput} for further details.
-   */
-  protected static class FragmentForOutput {
-    final String name;
-    // We store the name of the associated FragmentOptions instead of FragmentOptionsForOutput
-    // objects because multiple fragments may use the same FragmentOptions and we don't want to list
-    // it multiple times.
-    final List<String> fragmentOptions;
-
-    FragmentForOutput(String name, List<String> fragmentOptions) {
-      this.name = name;
-      this.fragmentOptions = fragmentOptions;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (o instanceof FragmentForOutput) {
-        FragmentForOutput other = (FragmentForOutput) o;
-        return other.name.equals(name) && other.fragmentOptions.equals(fragmentOptions);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(name, fragmentOptions);
-    }
-  }
-
-  /**
-   * Data structure defining a {@link FragmentOptions} from the point of this command's output.
-   *
-   * <p>See {@link FragmentForOutput} and {@link ConfigurationForOutput} for further details.
-   */
-  protected static class FragmentOptionsForOutput {
-    final String name;
-    final Map<String, String> options;
-
-    FragmentOptionsForOutput(String name, Map<String, String> options) {
-      this.name = name;
-      this.options = options;
-    }
-
-    public Set<String> optionNames() {
-      return this.options.keySet();
-    }
-
-    public String getOption(String optionName) {
-      return this.options.get(optionName);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (o instanceof FragmentOptionsForOutput) {
-        FragmentOptionsForOutput other = (FragmentOptionsForOutput) o;
-        return other.name.equals(name) && other.options.equals(options);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(name, options);
-    }
   }
 
   /**
@@ -432,63 +289,15 @@ public class ConfigCommand implements BlazeCommand {
               Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
           fragmentDefs) {
     ImmutableSortedSet.Builder<ConfigurationForOutput> ans =
-        ImmutableSortedSet.orderedBy(comparing(e -> e.configHash));
+        ImmutableSortedSet.orderedBy(comparing(e -> e.getConfigHash()));
     for (Map.Entry<BuildConfigurationKey, BuildConfigurationValue> entry : asSkyKeyMap.entrySet()) {
       BuildConfigurationKey key = entry.getKey();
       BuildConfigurationValue config = entry.getValue();
-      ans.add(getConfigurationForOutput(key, config.checksum(), config, fragmentDefs));
+      ans.add(
+          ConfigurationForOutput.getConfigurationForOutput(
+              key, config.checksum(), config, fragmentDefs));
     }
     return ans.build();
-  }
-
-  /** Constructs a {@link ConfigurationForOutput} from the given input daata. */
-  private static ConfigurationForOutput getConfigurationForOutput(
-      BuildConfigurationKey skyKey,
-      String configHash,
-      BuildConfigurationValue config,
-      ImmutableSortedMap<
-              Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
-          fragmentDefs) {
-
-    ImmutableSortedSet.Builder<FragmentForOutput> fragments =
-        ImmutableSortedSet.orderedBy(comparing(e -> e.name));
-    for (Map.Entry<Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
-        entry : fragmentDefs.entrySet()) {
-      fragments.add(
-          new FragmentForOutput(
-              entry.getKey().getName(),
-              entry.getValue().stream().map(Class::getName).collect(toList())));
-    }
-    fragmentDefs.entrySet().stream()
-        .filter(entry -> config.hasFragment(entry.getKey()))
-        .forEach(
-            entry ->
-                fragments.add(
-                    new FragmentForOutput(
-                        entry.getKey().getName(),
-                        entry.getValue().stream().map(Class::getName).collect(toList()))));
-
-    ImmutableSortedSet.Builder<FragmentOptionsForOutput> fragmentOptions =
-        ImmutableSortedSet.orderedBy(comparing(e -> e.name));
-    config.getOptions().getFragmentClasses().stream()
-        .map(optionsClass -> config.getOptions().get(optionsClass))
-        .forEach(
-            fragmentOptionsInstance ->
-                fragmentOptions.add(
-                    new FragmentOptionsForOutput(
-                        fragmentOptionsInstance.getClass().getName(),
-                        getOrderedNativeOptions(fragmentOptionsInstance))));
-    fragmentOptions.add(
-        new FragmentOptionsForOutput(
-            UserDefinedFragment.DESCRIPTIVE_NAME, getOrderedUserDefinedOptions(config)));
-
-    return new ConfigurationForOutput(
-        skyKey.toString(),
-        configHash,
-        config.getMnemonic(),
-        config.isExecConfiguration(),
-        fragments.build().asList(),
-        fragmentOptions.build().asList());
   }
 
   /**
@@ -513,7 +322,9 @@ public class ConfigCommand implements BlazeCommand {
           String.format(
               "Configuration identifier '%s' is ambiguous.\n"
                   + "'%s' is a prefix of multiple configurations:\n "
-                  + matches.stream().map(ConfigurationForOutput::checksum).collect(joining("\n "))
+                  + matches.stream()
+                      .map(ConfigurationForOutput::getConfigHash)
+                      .collect(joining("\n "))
                   + "\n\n"
                   + "Use a sufficient prefix to uniquely identify one configuration.",
               configPrefix,
@@ -523,53 +334,7 @@ public class ConfigCommand implements BlazeCommand {
   }
 
   private static boolean doesConfigMatch(ConfigurationForOutput config, String configPrefix) {
-    return config.checksum().startsWith(configPrefix);
-  }
-
-  /**
-   * Returns a {@link FragmentOptions}'s native option settings in canonical order.
-   *
-   * <p>While actual option values are objects, we serialize them to strings to prevent command
-   * output from interpreting them more deeply than we want for simple "name=value" output.
-   */
-  private static ImmutableSortedMap<String, String> getOrderedNativeOptions(
-      FragmentOptions options) {
-    return options.asMap().entrySet().stream()
-        // While technically part of CoreOptions, --define is practically a user-definable flag so
-        // we include it in the user-defined fragment for clarity. See getOrderedUserDefinedOptions.
-        .filter(
-            entry ->
-                !(options.getClass().equals(CoreOptions.class) && entry.getKey().equals("define")))
-        .collect(
-            toImmutableSortedMap(
-                Ordering.natural(), Map.Entry::getKey, e -> String.valueOf(e.getValue())));
-  }
-
-  /**
-   * Returns a configuration's user-definable settings in canonical order.
-   *
-   * <p>While actual option values are objects, we serialize them to strings to prevent command
-   * output from interpreting them more deeply than we want for simple "name=value" output.
-   */
-  private static ImmutableSortedMap<String, String> getOrderedUserDefinedOptions(
-      BuildConfigurationValue config) {
-    ImmutableSortedMap.Builder<String, String> ans = ImmutableSortedMap.naturalOrder();
-
-    // Starlark-defined options:
-    for (Map.Entry<Label, Object> entry : config.getOptions().getStarlarkOptions().entrySet()) {
-      ans.put(entry.getKey().toString(), String.valueOf(entry.getValue()));
-    }
-
-    // --define:
-    for (Map.Entry<String, String> entry :
-        config
-            .getOptions()
-            .get(CoreOptions.class)
-            .getNormalizedCommandLineBuildVariables()
-            .entrySet()) {
-      ans.put("--define:" + entry.getKey(), Verify.verifyNotNull(entry.getValue()));
-    }
-    return ans.buildOrThrow();
+    return config.getConfigHash().startsWith(configPrefix);
   }
 
   /**
@@ -638,15 +403,6 @@ public class ConfigCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(e.getMessage()));
       return createFailureResult(e.getMessage(), Code.CONFIGURATION_NOT_FOUND);
     }
-  }
-
-  /**
-   * Starlark options don't have configuration fragments. This is just to keep their output
-   * consistent with native options, i.e. to include "user-defined" section in the output list.
-   */
-  private static class UserDefinedFragment extends FragmentOptions {
-    static final String DESCRIPTIVE_NAME = "user-defined";
-    // Intentionally empty: we read the actual options directly from BuildOptions.
   }
 
   private static Table<String, String, Pair<Object, Object>> diffConfigurations(

@@ -8,6 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/output:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations:srcs",

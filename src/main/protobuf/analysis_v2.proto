@@ -199,6 +199,45 @@ message Configuration {
 
   // Whether this configuration is used for building tools.
   bool is_tool = 5;
+
+  // The configuration fragments that are a part of this configuration.
+  repeated Fragment fragments = 6;
+
+  // The union of all the FragmentOptions associated with the Fragments that are
+  // a part of this configuration. These are returned separately from the
+  // fragments field because a set of FragmentOptions can be referenced by more
+  // than one Fragment, and we wish to avoid returning the same FragmentOptions
+  // repeatedly. These are sorted by the FragmentOptions name field.
+  repeated FragmentOptions fragment_options = 7;
+}
+
+// A configuration fragment
+// (http://bazel.build/rules/lib/fragments).
+message Fragment {
+  // The name of the Fragment.
+  string name = 1;
+
+  // The names of the FragmentOptions associated with this fragment in sorted
+  // order.
+  repeated string fragment_option_names = 2;
+}
+
+// A set of fragment options.
+message FragmentOptions {
+  // The name of this set of fragment options.
+  string name = 1;
+
+  // The options themselves, in sorted order by name.
+  repeated Option options = 2;
+}
+
+// A fragment option.
+message Option {
+  // The name of the option.
+  optional string name = 1;
+
+  // The value of the option.
+  optional string value = 2;
 }
 
 message KeyValuePair {
