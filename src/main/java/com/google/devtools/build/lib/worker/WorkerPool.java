@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
-import org.apache.commons.pool2.impl.EvictionPolicy;
 
 /**
  * A worker pool that spawns multiple workers and delegates work to them. Allows separate
@@ -32,8 +32,10 @@ public interface WorkerPool {
 
   int getNumActive(WorkerKey key);
 
-  // TODO (b/242835648) filter throwed exceptions better
-  void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy) throws InterruptedException;
+  ImmutableSet<Integer> evictWorkers(ImmutableSet<Integer> workerIdsToEvict)
+      throws InterruptedException;
+
+  ImmutableSet<Integer> getIdleWorkers() throws InterruptedException;
 
   Worker borrowObject(WorkerKey key) throws IOException, InterruptedException;
 

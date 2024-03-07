@@ -18,14 +18,20 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
+import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.impl.EvictionConfig;
 import org.apache.commons.pool2.impl.EvictionPolicy;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 
@@ -122,14 +128,46 @@ public class WorkerPoolImplLegacy implements WorkerPool {
     return getPool(key).getNumActive(key);
   }
 
-  // TODO (b/242835648) filter throwed exceptions better
-  @Override
   public void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy) throws InterruptedException {
     for (SimpleWorkerPool pool : workerPools.values()) {
       evictWithPolicy(evictionPolicy, pool);
     }
     for (SimpleWorkerPool pool : multiplexPools.values()) {
       evictWithPolicy(evictionPolicy, pool);
+    }
+  }
+
+  @Override
+  public ImmutableSet<Integer> evictWorkers(ImmutableSet<Integer> workerIdsToEvict)
+      throws InterruptedException {
+    CandidateEvictionPolicy policy = new CandidateEvictionPolicy(workerIdsToEvict);
+    evictWithPolicy(policy);
+    return policy.getEvictedWorkers();
+  }
+
+  @Override
+  public ImmutableSet<Integer> getIdleWorkers() throws InterruptedException {
+    InfoEvictionPolicy infoEvictionPolicy = new InfoEvictionPolicy();
+    evictWithPolicy(infoEvictionPolicy);
+    return ImmutableSet.copyOf(infoEvictionPolicy.getWorkerIds());
+  }
+
+  /**
+   * Eviction policy for WorkerPool. Only collects ids of idle workers, doesn't evict any of them.
+   */
+  private static class InfoEvictionPolicy implements EvictionPolicy<Worker> {
+    private final Set<Integer> workerIds = new HashSet<>();
+
+    public InfoEvictionPolicy() {}
+
+    @Override
+    public boolean evict(EvictionConfig config, PooledObject<Worker> underTest, int idleCount) {
+      workerIds.add(underTest.getObject().getWorkerId());
+      return false;
+    }
+
+    public Set<Integer> getWorkerIds() {
+      return workerIds;
     }
   }
 
@@ -142,6 +180,41 @@ public class WorkerPoolImplLegacy implements WorkerPool {
       throwIfInstanceOf(t, InterruptedException.class);
       throwIfUnchecked(t);
       throw new VerifyException("unexpected", t);
+    }
+  }
+
+  /** Eviction policy for WorkerPool. Evict all idle workers, which were passed in constructor. */
+  private static class CandidateEvictionPolicy implements EvictionPolicy<Worker> {
+    private final ImmutableSet<Integer> workerIdsToEvict;
+    private final Set<Integer> evictedWorkers;
+
+    public CandidateEvictionPolicy(ImmutableSet<Integer> workerIdsToEvict) {
+      this.workerIdsToEvict = workerIdsToEvict;
+      this.evictedWorkers = new HashSet<>();
+    }
+
+    @Override
+    public boolean evict(EvictionConfig config, PooledObject<Worker> underTest, int idleCount) {
+      int workerId = underTest.getObject().getWorkerId();
+      if (workerIdsToEvict.contains(workerId)) {
+        evictedWorkers.add(workerId);
+        // Eviction through an EvictionPolicy doesn't go through the #returnObject and
+        // #invalidateObject code paths and directly calls #destroy, so we'll need to specify that
+        // explicitly here.
+        underTest
+            .getObject()
+            .getStatus()
+            .maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
+        logger.atInfo().log(
+            "Evicting worker %d with mnemonic %s",
+            workerId, underTest.getObject().getWorkerKey().getMnemonic());
+        return true;
+      }
+      return false;
+    }
+
+    public ImmutableSet<Integer> getEvictedWorkers() {
+      return ImmutableSet.copyOf(evictedWorkers);
     }
   }
 

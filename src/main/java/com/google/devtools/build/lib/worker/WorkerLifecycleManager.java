@@ -24,15 +24,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.impl.EvictionConfig;
-import org.apache.commons.pool2.impl.EvictionPolicy;
 
 /**
  * This class kills idle persistent workers at intervals, if the total worker resource usage is
@@ -273,9 +268,8 @@ final class WorkerLifecycleManager extends Thread {
    */
   private static ImmutableSet<Integer> evictCandidates(
       WorkerPool pool, ImmutableSet<WorkerProcessMetrics> candidates) throws InterruptedException {
-    CandidateEvictionPolicy policy = new CandidateEvictionPolicy(candidates);
-    pool.evictWithPolicy(policy);
-    return policy.getEvictedWorkers();
+    return pool.evictWorkers(
+        candidates.stream().flatMap(w -> w.getWorkerIds().stream()).collect(toImmutableSet()));
   }
 
   /** Collects worker candidates to evict. Chooses workers with the largest memory consumption. */
@@ -294,7 +288,7 @@ final class WorkerLifecycleManager extends Thread {
     //  some of this responsiveness by just killing or marking workers as killed in descending
     //  memory usage and waiting for the active workers to be returned later (where they are then
     //  killed).
-    Set<Integer> idleWorkers = getIdleWorkers();
+    ImmutableSet<Integer> idleWorkers = workerPool.getIdleWorkers();
 
     List<WorkerProcessMetrics> idleWorkerProcessMetrics =
         workerProcessMetrics.stream()
@@ -324,73 +318,6 @@ final class WorkerLifecycleManager extends Thread {
     }
 
     return candidates.build();
-  }
-
-  /**
-   * Calls workerPool.evict() to collect information, but doesn't kill any workers during this
-   * process.
-   */
-  private Set<Integer> getIdleWorkers() throws InterruptedException {
-    InfoEvictionPolicy infoEvictionPolicy = new InfoEvictionPolicy();
-    workerPool.evictWithPolicy(infoEvictionPolicy);
-    return infoEvictionPolicy.getWorkerIds();
-  }
-
-  /**
-   * Eviction policy for WorkerPool. Only collects ids of idle workers, doesn't evict any of them.
-   */
-  private static class InfoEvictionPolicy implements EvictionPolicy<Worker> {
-    private final Set<Integer> workerIds = new HashSet<>();
-
-    public InfoEvictionPolicy() {}
-
-    @Override
-    public boolean evict(EvictionConfig config, PooledObject<Worker> underTest, int idleCount) {
-      workerIds.add(underTest.getObject().getWorkerId());
-      return false;
-    }
-
-    public Set<Integer> getWorkerIds() {
-      return workerIds;
-    }
-  }
-
-  /** Eviction policy for WorkerPool. Evict all idle workers, which were passed in constructor. */
-  private static class CandidateEvictionPolicy implements EvictionPolicy<Worker> {
-    private final ImmutableSet<Integer> workerIdsToEvict;
-    private final Set<Integer> evictedWorkers;
-
-    public CandidateEvictionPolicy(ImmutableSet<WorkerProcessMetrics> workerProcessMetrics) {
-      this.workerIdsToEvict =
-          workerProcessMetrics.stream()
-              .flatMap(m -> m.getWorkerIds().stream())
-              .collect(toImmutableSet());
-      this.evictedWorkers = new HashSet<>();
-    }
-
-    @Override
-    public boolean evict(EvictionConfig config, PooledObject<Worker> underTest, int idleCount) {
-      int workerId = underTest.getObject().getWorkerId();
-      if (workerIdsToEvict.contains(workerId)) {
-        evictedWorkers.add(workerId);
-        // Eviction through an EvictionPolicy doesn't go through the #returnObject and
-        // #invalidateObject code paths and directly calls #destroy, so we'll need to specify that
-        // explicitly here.
-        underTest
-            .getObject()
-            .getStatus()
-            .maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
-        logger.atInfo().log(
-            "Evicting worker %d with mnemonic %s",
-            workerId, underTest.getObject().getWorkerKey().getMnemonic());
-        return true;
-      }
-      return false;
-    }
-
-    public ImmutableSet<Integer> getEvictedWorkers() {
-      return ImmutableSet.copyOf(evictedWorkers);
-    }
   }
 
   /** Compare worker metrics by memory consumption in descending order. */

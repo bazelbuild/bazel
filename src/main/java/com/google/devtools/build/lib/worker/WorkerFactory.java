@@ -154,10 +154,13 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   /** When a worker process is discarded, destroy its process, too. */
   @Override
   public void destroyObject(WorkerKey key, PooledObject<Worker> p) {
-    Worker worker = p.getObject();
+    destroyWorker(key, p.getObject());
+  }
+
+  public void destroyWorker(WorkerKey key, Worker worker) {
     int workerId = worker.getWorkerId();
     String workerFailureCode = "";
-    Optional<Code> code = p.getObject().getStatus().getWorkerCode();
+    Optional<Code> code = worker.getStatus().getWorkerCode();
     if (code.isPresent()) {
       workerFailureCode = String.format("(code: %s)", code.get());
     }
@@ -171,7 +174,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
             worker.getStatus().get(),
             workerFailureCode);
     WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
-    p.getObject().destroy();
+    worker.destroy();
   }
 
   /**
@@ -181,7 +184,10 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
    */
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
-    Worker worker = p.getObject();
+    return validateWorker(key, p.getObject());
+  }
+
+  public boolean validateWorker(WorkerKey key, Worker worker) {
     // Status is invalid if the status is either killed or pending killed.
     if (!worker.getStatus().isValid()) {
       return false;
