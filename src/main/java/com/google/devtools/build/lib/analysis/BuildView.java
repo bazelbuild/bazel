@@ -338,8 +338,8 @@ public class BuildView {
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
       String msg =
           String.format(
-              "Analysis succeeded for only %d of %d top-level targets",
-              numSuccessful, numTargetsToAnalyze);
+              "%s succeeded for only %d of %d top-level targets",
+              includeExecutionPhase ? "Build" : "Analysis", numSuccessful, numTargetsToAnalyze);
       eventHandler.handle(Event.info(msg));
       logger.atInfo().log("%s", msg);
     }
