@@ -466,13 +466,13 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
-                    flag_groups = [flag_group(flags = ["/Od", "/Z7"])],
+                    flag_groups = [flag_group(flags = ["/Od"])],
                 ),
                 flag_set(
                     actions = all_link_actions,
                     flag_groups = [
                         flag_group(
-                            flags = [ctx.attr.fastbuild_mode_debug_flag, "/INCREMENTAL:NO"],
+                            flags = ["/INCREMENTAL:NO"],
                         ),
                     ],
                 ),
@@ -591,13 +591,13 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
-                    flag_groups = [flag_group(flags = ["/Od", "/Z7"])],
+                    flag_groups = [flag_group(flags = ["/Od"])],
                 ),
                 flag_set(
                     actions = all_link_actions,
                     flag_groups = [
                         flag_group(
-                            flags = [ctx.attr.dbg_mode_debug_flag, "/INCREMENTAL:NO"],
+                            flags = ["/INCREMENTAL:NO"],
                         ),
                     ],
                 ),
@@ -721,7 +721,48 @@ def _impl(ctx):
 
         generate_pdb_file_feature = feature(
             name = "generate_pdb_file",
+            # generate_pdb_file is always on in dbg and fastbuild, so turn this flag into a no-op
+            # if no_pdb_file is enabled
+            flag_sets = [
+                flag_set(
+                    actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                    flag_groups = [flag_group(flags = ["/Z7"])],
+                    with_features = [
+                        with_feature_set(features = ["dbg"], not_features = ["no_pdb_file"]),
+                        with_feature_set(features = ["fastbuild"], not_features = ["no_pdb_file"]),
+                        with_feature_set(features = ["opt"], not_features = ["no_pdb_file"]),
+                    ],
+                ),
+                flag_set(
+                    actions = all_link_actions,
+                    flag_groups = [
+                        flag_group(
+                            flags = [ctx.attr.dbg_mode_debug_flag],
+                        ),
+                    ],
+                    with_features = [with_feature_set(features = ["dbg"], not_features = ["no_pdb_file"])],
+                ),
+                # Debug flag used for PDB generation with fastdbg. Also use for opt in case we
+                # enable this feature there.
+                flag_set(
+                    actions = all_link_actions,
+                    flag_groups = [
+                        flag_group(
+                            flags = [ctx.attr.fastbuild_mode_debug_flag],
+                        ),
+                    ],
+                    with_features = [
+                        with_feature_set(features = ["fastbuild"], not_features = ["no_pdb_file"]),
+                        with_feature_set(features = ["opt"], not_features = ["no_pdb_file"]),
+                    ],
+                ),
+            ],
         )
+
+        # feature used to disable PDB file generation. Since generate_pdb_file is implied by
+        # fastbuild and dbg, it would not be possible to disable PDB generation without another
+        # feature.
+        no_pdb_file_feature = feature(name = "no_pdb_file")
 
         output_execpath_flags_feature = feature(
             name = "output_execpath_flags",
@@ -1123,6 +1164,7 @@ def _impl(ctx):
             parse_showincludes_feature,
             no_dotd_file_feature,
             generate_pdb_file_feature,
+            no_pdb_file_feature,
             shared_flag_feature,
             linkstamps_feature,
             output_execpath_flags_feature,

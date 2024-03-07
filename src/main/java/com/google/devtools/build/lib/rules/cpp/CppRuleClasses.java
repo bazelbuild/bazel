@@ -322,6 +322,13 @@ public class CppRuleClasses {
   public static final String GENERATE_PDB_FILE = "generate_pdb_file";
 
   /**
+   * A string constant used to disable PDB file generation. This is needed since generate_pdb_file
+   * is implied when building under fastbuild or dbg modes, making it impossible to disable it
+   * directly.
+   */
+  public static final String NO_PDB_FILE = "no_pdb_file";
+
+  /**
    * A string constant for a feature that automatically exporting symbols on Windows. Bazel
    * generates a DEF file for object files of a cc_library, then use it at linking time. This
    * feature should only be used for toolchains targeting Windows, and the toolchain should support
