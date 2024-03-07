@@ -95,6 +95,7 @@ java_library(
         ":singleplex_worker",
         ":worker_factory",
         ":worker_options",
+        ":worker_pool",
         ":worker_pool_config",
         ":worker_pool_impl",
         ":worker_process_metrics",
@@ -223,6 +224,7 @@ java_library(
     ],
     deps = [
         ":worker_factory",
+        "//third_party:guava",
     ],
 )
 
@@ -230,6 +232,7 @@ java_library(
     name = "worker_pool_impl",
     srcs = [
         "SimpleWorkerPool.java",
+        "WorkerPoolImpl.java",
         "WorkerPoolImplLegacy.java",
     ],
     deps = [
