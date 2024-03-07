@@ -95,7 +95,4 @@ public interface BuildConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "runfiles_enabled", documented = false, useStarlarkThread = true)
   boolean runfilesEnabledForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "cpu", documented = false, useStarlarkThread = true)
-  String getCpuForStarlark(StarlarkThread thread) throws EvalException;
 }
