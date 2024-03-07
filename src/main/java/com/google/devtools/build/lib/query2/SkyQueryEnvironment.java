@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -410,45 +408,38 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected void evalTopLevelInternal(
       QueryExpression expr, OutputFormatterCallback<Target> callback)
       throws QueryException, InterruptedException {
-    Throwable throwableToThrow = null;
     try {
       super.evalTopLevelInternal(expr, callback);
-    } catch (Throwable throwable) {
-      throwableToThrow = throwable;
-    } finally {
-      if (throwableToThrow != null) {
-        logger.atInfo().withCause(throwableToThrow).log(
-            "About to shutdown query threadpool because of throwable");
-        ListeningExecutorService obsoleteExecutor = executor;
-        // Signal that executor must be recreated on the next invocation.
-        executor = null;
+    } catch (QueryException | InterruptedException | RuntimeException | Error throwable) {
+      logger.atInfo().withCause(throwable).log(
+          "About to shutdown query threadpool because of throwable");
+      ListeningExecutorService obsoleteExecutor = executor;
+      // Signal that executor must be recreated on the next invocation.
+      executor = null;
 
-        // If evaluation failed abruptly (e.g. was interrupted), attempt to terminate all remaining
-        // tasks and then wait for them all to finish. We don't want to leave any dangling threads
-        // running tasks.
-        obsoleteExecutor.shutdownNow();
-        boolean interrupted = false;
-        boolean executorTerminated = false;
-        try {
-          while (!executorTerminated) {
-            try {
-              executorTerminated =
-                  obsoleteExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-              interrupted = true;
-              handleInterruptedShutdown();
-            }
-          }
-        } finally {
-          if (interrupted) {
-            Thread.currentThread().interrupt();
+      // If evaluation failed abruptly (e.g. was interrupted), attempt to terminate all remaining
+      // tasks and then wait for them all to finish. We don't want to leave any dangling threads
+      // running tasks.
+      obsoleteExecutor.shutdownNow();
+      boolean interrupted = false;
+      boolean executorTerminated = false;
+      try {
+        while (!executorTerminated) {
+          try {
+            executorTerminated =
+                obsoleteExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+          } catch (InterruptedException e) {
+            interrupted = true;
+            handleInterruptedShutdown();
           }
         }
-
-        throwIfInstanceOf(throwableToThrow, QueryException.class);
-        throwIfInstanceOf(throwableToThrow, InterruptedException.class);
-        throwIfUnchecked(throwableToThrow);
+      } finally {
+        if (interrupted) {
+          Thread.currentThread().interrupt();
+        }
       }
+
+      throw throwable;
     }
   }
 

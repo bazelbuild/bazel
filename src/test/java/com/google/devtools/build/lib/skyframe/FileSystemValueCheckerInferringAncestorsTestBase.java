@@ -17,7 +17,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -68,7 +67,7 @@ public class FileSystemValueCheckerInferringAncestorsTestBase {
               throwOnStat = null;
               throwIfInstanceOf(toThrow, IOException.class);
               throwIfUnchecked(toThrow);
-              fail("Unexpected exception type");
+              throw new AssertionError("Unexpected exception type", toThrow);
             }
             statedPaths.add(path.relativeTo(srcRoot).toString());
             return super.statIfFound(path, followSymlinks);
