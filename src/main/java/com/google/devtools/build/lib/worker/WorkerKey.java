@@ -27,7 +27,7 @@ import java.util.SortedMap;
 
 /**
  * Data container that uniquely identifies a kind of worker process and is used as the key for the
- * {@link WorkerPoolImpl}.
+ * {@link WorkerPoolImplLegacy}.
  *
  * <p>We expect a small number of WorkerKeys per mnemonic. Unbounded creation of WorkerKeys will
  * break various things as well as render the workers less useful.

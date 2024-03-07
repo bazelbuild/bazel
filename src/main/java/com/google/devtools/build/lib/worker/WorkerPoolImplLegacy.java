@@ -30,9 +30,12 @@ import javax.annotation.concurrent.ThreadSafe;
 import org.apache.commons.pool2.impl.EvictionPolicy;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 
-/** Implementation of WorkerPool. */
+/**
+ * TODO(b/323880131): Legacy implementation of WorkerPool to be removed eventually to cut dependency
+ * on the apache.commons.pool2 library.
+ */
 @ThreadSafe
-public class WorkerPoolImpl implements WorkerPool {
+public class WorkerPoolImplLegacy implements WorkerPool {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -50,7 +53,7 @@ public class WorkerPoolImpl implements WorkerPool {
   /** Map of multiplex worker pools, one per mnemonic. */
   private final ImmutableMap<String, SimpleWorkerPool> multiplexPools;
 
-  public WorkerPoolImpl(WorkerPoolConfig workerPoolConfig) {
+  public WorkerPoolImplLegacy(WorkerPoolConfig workerPoolConfig) {
     this.workerPoolConfig = workerPoolConfig;
 
     ImmutableMap<String, Integer> config =

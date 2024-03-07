@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerFactory;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerOptions;
-import com.google.devtools.build.lib.worker.WorkerPoolImpl;
+import com.google.devtools.build.lib.worker.WorkerPoolImplLegacy;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -93,9 +93,9 @@ public final class ResourceManagerTest {
     rm.setWorkerPool(createWorkerPool());
   }
 
-  private WorkerPoolImpl createWorkerPool() {
-    return new WorkerPoolImpl(
-        new WorkerPoolImpl.WorkerPoolConfig(
+  private WorkerPoolImplLegacy createWorkerPool() {
+    return new WorkerPoolImplLegacy(
+        new WorkerPoolImplLegacy.WorkerPoolConfig(
             new WorkerFactory(fs.getPath("/workerBase"), new WorkerOptions()) {
               @Override
               public Worker create(WorkerKey key) {

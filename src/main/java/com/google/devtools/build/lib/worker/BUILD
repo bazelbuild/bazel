@@ -220,7 +220,7 @@ java_library(
     name = "worker_pool_impl",
     srcs = [
         "SimpleWorkerPool.java",
-        "WorkerPoolImpl.java",
+        "WorkerPoolImplLegacy.java",
     ],
     deps = [
         ":worker",

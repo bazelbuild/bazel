@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.worker.WorkerPoolImpl.WorkerPoolConfig;
+import com.google.devtools.build.lib.worker.WorkerPoolImplLegacy.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.util.Map.Entry;
 import org.apache.commons.pool2.PooledObject;
@@ -92,7 +92,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_createsWhenNeeded() throws Exception {
     WorkerPool workerPool =
-        new WorkerPoolImpl(
+        new WorkerPoolImplLegacy(
             new WorkerPoolConfig(factoryMock, entryList("mnem", 2, "", 1), entryList()));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey);
@@ -105,7 +105,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_reusesWhenPossible() throws Exception {
     WorkerPool workerPool =
-        new WorkerPoolImpl(
+        new WorkerPoolImplLegacy(
             new WorkerPoolConfig(factoryMock, entryList("mnem", 2, "", 1), entryList()));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey);
@@ -118,7 +118,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_usesDefault() throws Exception {
     WorkerPool workerPool =
-        new WorkerPoolImpl(
+        new WorkerPoolImplLegacy(
             new WorkerPoolConfig(factoryMock, entryList("mnem", 2, "", 1), entryList()));
     WorkerKey workerKey1 = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey1);
@@ -135,7 +135,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_pooledByKey() throws Exception {
     WorkerPool workerPool =
-        new WorkerPoolImpl(
+        new WorkerPoolImplLegacy(
             new WorkerPoolConfig(factoryMock, entryList("mnem", 2, "", 1), entryList()));
     WorkerKey workerKey1 = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey1);
@@ -152,7 +152,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_separateMultiplexWorkers() throws Exception {
     WorkerPool workerPool =
-        new WorkerPoolImpl(
+        new WorkerPoolImplLegacy(
             new WorkerPoolConfig(
                 factoryMock, entryList("mnem", 1, "", 1), entryList("mnem", 2, "", 1)));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
@@ -176,7 +176,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_doomedWorkers() throws Exception {
     WorkerPool workerPool =
-        new WorkerPoolImpl(
+        new WorkerPoolImplLegacy(
             new WorkerPoolConfig(factoryMock, entryList("mnem", 2, "", 1), entryList()));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey);

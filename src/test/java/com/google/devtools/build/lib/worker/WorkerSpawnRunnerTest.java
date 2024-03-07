@@ -65,7 +65,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.worker.WorkerPoolImpl.WorkerPoolConfig;
+import com.google.devtools.build.lib.worker.WorkerPoolImplLegacy.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
@@ -114,8 +114,8 @@ public class WorkerSpawnRunnerTest {
     when(resourceHandle.getWorker()).thenReturn(worker);
   }
 
-  private WorkerPoolImpl createWorkerPool() {
-    return new WorkerPoolImpl(
+  private WorkerPoolImplLegacy createWorkerPool() {
+    return new WorkerPoolImplLegacy(
         new WorkerPoolConfig(
             new WorkerFactory(fs.getPath("/workerBase"), options) {
               @Override
