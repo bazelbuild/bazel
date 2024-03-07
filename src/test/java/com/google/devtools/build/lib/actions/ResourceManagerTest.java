@@ -43,13 +43,10 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.Worker;
-import com.google.devtools.build.lib.worker.WorkerFactory;
 import com.google.devtools.build.lib.worker.WorkerKey;
-import com.google.devtools.build.lib.worker.WorkerOptions;
-import com.google.devtools.build.lib.worker.WorkerPoolConfig;
-import com.google.devtools.build.lib.worker.WorkerPoolImplLegacy;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
+import com.google.devtools.build.lib.worker.WorkerTestUtils;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Collection;
@@ -58,7 +55,6 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
-import org.apache.commons.pool2.PooledObject;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -91,25 +87,7 @@ public final class ResourceManagerTest {
     worker = mock(Worker.class);
     workerStatus = spy(new WorkerProcessStatus());
     when(worker.getStatus()).thenReturn(workerStatus);
-    rm.setWorkerPool(createWorkerPool());
-  }
-
-  private WorkerPoolImplLegacy createWorkerPool() {
-    return new WorkerPoolImplLegacy(
-        new WorkerPoolConfig(
-            new WorkerFactory(fs.getPath("/workerBase"), new WorkerOptions()) {
-              @Override
-              public Worker create(WorkerKey key) {
-                return worker;
-              }
-
-              @Override
-              public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
-                return true;
-              }
-            },
-            ImmutableList.of(),
-            ImmutableList.of()));
+    rm.setWorkerPool(WorkerTestUtils.createTestWorkerPool(worker));
   }
 
   private ResourceHandle acquire(double ram, double cpu, int tests, ResourcePriority priority)

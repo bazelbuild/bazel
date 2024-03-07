@@ -37,7 +37,7 @@ java_library(
     testonly = 1,
     srcs = [
         "SandboxHelper.java",
-        "TestUtils.java",
+        "WorkerTestUtils.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -48,9 +48,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/java/com/google/devtools/build/lib/worker:singleplex_worker",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_options",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_pool",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_spawn_runner",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//third_party:guava",

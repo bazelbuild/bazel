@@ -81,7 +81,7 @@ public class WorkerModuleTest {
     assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isFalse();
     assertThat(module.workerPool).isNotNull();
 
-    WorkerKey workerKey = TestUtils.createWorkerKey(JSON, fs);
+    WorkerKey workerKey = WorkerTestUtils.createWorkerKey(JSON, fs);
     Worker worker = module.workerPool.borrowObject(workerKey);
 
     assertThat(worker.workerKey).isEqualTo(workerKey);
@@ -137,7 +137,7 @@ public class WorkerModuleTest {
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker factory configuration has changed");
     assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
-    WorkerKey workerKey = TestUtils.createWorkerKey(fs, "mnemonic", false);
+    WorkerKey workerKey = WorkerTestUtils.createWorkerKey(fs, "mnemonic", false);
     module.getWorkerPoolConfig().getWorkerFactory().create(workerKey);
     assertThat(fs.getPath("/otherRootDir/outputBase/bazel-workers").exists()).isTrue();
     assertThat(oldLog.exists()).isTrue();
@@ -259,7 +259,7 @@ public class WorkerModuleTest {
     workerDir.getParentDirectory().setWritable(false);
 
     // But an actual worker cannot be created.
-    WorkerKey key = TestUtils.createWorkerKey(fs, "Work", /* proxied= */ false);
+    WorkerKey key = WorkerTestUtils.createWorkerKey(fs, "Work", /* proxied= */ false);
     assertThrows(IOException.class, () -> module.workerPool.borrowObject(key));
   }
 

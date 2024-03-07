@@ -38,9 +38,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /** Utilities that come in handy when unit-testing the worker code. */
-class TestUtils {
+public class WorkerTestUtils {
 
-  private TestUtils() {}
+  private WorkerTestUtils() {}
 
   /** A helper method to create a fake Spawn with the given execution info. */
   static Spawn createSpawn(ImmutableMap<String, String> executionInfo) {
@@ -319,5 +319,47 @@ class TestUtils {
     public long getProcessId() {
       return 0;
     }
+  }
+
+  public static WorkerPool createTestWorkerPool(Worker worker) {
+    return new WorkerPool() {
+      @Override
+      public int getMaxTotalPerKey(WorkerKey key) {
+        return 1;
+      }
+
+      @Override
+      public int getNumActive(WorkerKey key) {
+        return 0;
+      }
+
+      @Override
+      public ImmutableSet<Integer> evictWorkers(ImmutableSet<Integer> workerIdsToEvict)
+          throws InterruptedException {
+        return ImmutableSet.of();
+      }
+
+      @Override
+      public ImmutableSet<Integer> getIdleWorkers() throws InterruptedException {
+        return ImmutableSet.of();
+      }
+
+      @Override
+      public Worker borrowObject(WorkerKey key) throws IOException, InterruptedException {
+        return worker;
+      }
+
+      @Override
+      public void returnObject(WorkerKey key, Worker obj) {}
+
+      @Override
+      public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {}
+
+      @Override
+      public void reset() {}
+
+      @Override
+      public void close() {}
+    };
   }
 }

@@ -40,42 +40,46 @@ public class WorkerParserTest {
 
   @Test
   public void workerKeyComputationCheck() {
-    WorkerKey keyNomultiNoSandboxedNoDynamic = TestUtils.createWorkerKey(fs, false, false, false);
+    WorkerKey keyNomultiNoSandboxedNoDynamic =
+        WorkerTestUtils.createWorkerKey(fs, false, false, false);
     assertThat(keyNomultiNoSandboxedNoDynamic.isMultiplex()).isFalse();
     assertThat(keyNomultiNoSandboxedNoDynamic.isSandboxed()).isFalse();
     assertThat(keyNomultiNoSandboxedNoDynamic.getWorkerTypeName()).isEqualTo("worker");
 
-    WorkerKey keyMultiNoSandboxedNoDynamic = TestUtils.createWorkerKey(fs, true, false, false);
+    WorkerKey keyMultiNoSandboxedNoDynamic =
+        WorkerTestUtils.createWorkerKey(fs, true, false, false);
     assertThat(keyMultiNoSandboxedNoDynamic.isMultiplex()).isTrue();
     assertThat(keyMultiNoSandboxedNoDynamic.isSandboxed()).isFalse();
     assertThat(keyMultiNoSandboxedNoDynamic.getWorkerTypeName()).isEqualTo("multiplex-worker");
 
-    WorkerKey keyNomultiSandboxedNoDynamic = TestUtils.createWorkerKey(fs, false, true, false);
+    WorkerKey keyNomultiSandboxedNoDynamic =
+        WorkerTestUtils.createWorkerKey(fs, false, true, false);
     assertThat(keyNomultiSandboxedNoDynamic.isMultiplex()).isFalse();
     assertThat(keyNomultiSandboxedNoDynamic.isSandboxed()).isTrue();
     assertThat(keyNomultiSandboxedNoDynamic.getWorkerTypeName()).isEqualTo("worker");
 
-    WorkerKey keyMultiSandboxedNoDynamic = TestUtils.createWorkerKey(fs, true, true, false);
+    WorkerKey keyMultiSandboxedNoDynamic = WorkerTestUtils.createWorkerKey(fs, true, true, false);
     assertThat(keyMultiSandboxedNoDynamic.isMultiplex()).isTrue();
     assertThat(keyMultiSandboxedNoDynamic.isSandboxed()).isFalse();
     assertThat(keyMultiSandboxedNoDynamic.getWorkerTypeName()).isEqualTo("multiplex-worker");
 
-    WorkerKey keyNomultiNoSandboxedDynamic = TestUtils.createWorkerKey(fs, false, false, true);
+    WorkerKey keyNomultiNoSandboxedDynamic =
+        WorkerTestUtils.createWorkerKey(fs, false, false, true);
     assertThat(keyNomultiNoSandboxedDynamic.isMultiplex()).isFalse();
     assertThat(keyNomultiNoSandboxedDynamic.isSandboxed()).isTrue();
     assertThat(keyNomultiNoSandboxedDynamic.getWorkerTypeName()).isEqualTo("worker");
 
-    WorkerKey keyMultiNoSandboxedDynamic = TestUtils.createWorkerKey(fs, true, false, true);
+    WorkerKey keyMultiNoSandboxedDynamic = WorkerTestUtils.createWorkerKey(fs, true, false, true);
     assertThat(keyMultiNoSandboxedDynamic.isMultiplex()).isFalse();
     assertThat(keyMultiNoSandboxedDynamic.isSandboxed()).isTrue();
     assertThat(keyMultiNoSandboxedDynamic.getWorkerTypeName()).isEqualTo("worker");
 
-    WorkerKey keyNomultiSandboxedDynamic = TestUtils.createWorkerKey(fs, false, true, true);
+    WorkerKey keyNomultiSandboxedDynamic = WorkerTestUtils.createWorkerKey(fs, false, true, true);
     assertThat(keyNomultiSandboxedDynamic.isMultiplex()).isFalse();
     assertThat(keyNomultiSandboxedDynamic.isSandboxed()).isTrue();
     assertThat(keyNomultiSandboxedDynamic.getWorkerTypeName()).isEqualTo("worker");
 
-    WorkerKey keyMultiSandboxedDynamic = TestUtils.createWorkerKey(fs, true, true, true);
+    WorkerKey keyMultiSandboxedDynamic = WorkerTestUtils.createWorkerKey(fs, true, true, true);
     assertThat(keyMultiSandboxedDynamic.isMultiplex()).isFalse();
     assertThat(keyMultiSandboxedDynamic.isSandboxed()).isTrue();
     assertThat(keyMultiSandboxedDynamic.getWorkerTypeName()).isEqualTo("worker");
@@ -88,19 +92,21 @@ public class WorkerParserTest {
     options.workerMultiplex = true;
 
     WorkerKey keyNoMultiplexSandboxing =
-        TestUtils.createWorkerKeyWithRequirements(fs.getPath("/outputbase"), options, "Nom", false);
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Nom", false);
     assertThat(keyNoMultiplexSandboxing.isMultiplex()).isTrue();
     assertThat(keyNoMultiplexSandboxing.isSandboxed()).isFalse();
     assertThat(keyNoMultiplexSandboxing.getWorkerTypeName()).isEqualTo("multiplex-worker");
 
     WorkerKey keyForcedSandboxedDynamic =
-        TestUtils.createWorkerKeyWithRequirements(fs.getPath("/outputbase"), options, "Nom", true);
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Nom", true);
     assertThat(keyForcedSandboxedDynamic.isMultiplex()).isFalse();
     assertThat(keyForcedSandboxedDynamic.isSandboxed()).isTrue();
     assertThat(keyForcedSandboxedDynamic.getWorkerTypeName()).isEqualTo("worker");
 
     WorkerKey keyForcedeMultiplexSandboxing =
-        TestUtils.createWorkerKeyWithRequirements(
+        WorkerTestUtils.createWorkerKeyWithRequirements(
             fs.getPath("/outputbase"), options, "Nom", true, SUPPORTS_MULTIPLEX_SANDBOXING);
     assertThat(keyForcedeMultiplexSandboxing.isMultiplex()).isFalse();
     assertThat(keyForcedeMultiplexSandboxing.isSandboxed()).isTrue();
@@ -109,20 +115,21 @@ public class WorkerParserTest {
     options.multiplexSandboxing = true;
 
     WorkerKey keyBaseMultiplexNoSandbox =
-        TestUtils.createWorkerKeyWithRequirements(fs.getPath("/outputbase"), options, "Nom", false);
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Nom", false);
     assertThat(keyBaseMultiplexNoSandbox.isMultiplex()).isTrue();
     assertThat(keyBaseMultiplexNoSandbox.isSandboxed()).isFalse();
     assertThat(keyBaseMultiplexNoSandbox.getWorkerTypeName()).isEqualTo("multiplex-worker");
 
     WorkerKey keyBaseMultiplexSandboxing =
-        TestUtils.createWorkerKeyWithRequirements(
+        WorkerTestUtils.createWorkerKeyWithRequirements(
             fs.getPath("/outputbase"), options, "Nom", false, SUPPORTS_MULTIPLEX_SANDBOXING);
     assertThat(keyBaseMultiplexSandboxing.isMultiplex()).isTrue();
     assertThat(keyBaseMultiplexSandboxing.isSandboxed()).isTrue();
     assertThat(keyBaseMultiplexSandboxing.getWorkerTypeName()).isEqualTo("multiplex-worker");
 
     WorkerKey keyDynamicMultiplexSandboxing =
-        TestUtils.createWorkerKeyWithRequirements(
+        WorkerTestUtils.createWorkerKeyWithRequirements(
             fs.getPath("/outputbase"), options, "Nom", true, SUPPORTS_MULTIPLEX_SANDBOXING);
     assertThat(keyDynamicMultiplexSandboxing.isMultiplex()).isTrue();
     assertThat(keyDynamicMultiplexSandboxing.isSandboxed()).isTrue();
@@ -136,7 +143,7 @@ public class WorkerParserTest {
     options.workerExtraFlags = ImmutableList.of();
     WorkerParser parser = new WorkerParser(null, options, null, null);
 
-    Spawn spawn = TestUtils.createSpawn(ImmutableList.of("--foo", "@bar"), ImmutableMap.of());
+    Spawn spawn = WorkerTestUtils.createSpawn(ImmutableList.of("--foo", "@bar"), ImmutableMap.of());
     List<String> flagFiles = new ArrayList<>();
     ImmutableList<String> args = parser.splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
     assertThat(args).containsExactly("--foo", "--persistent_worker").inOrder();
@@ -152,7 +159,7 @@ public class WorkerParserTest {
             Maps.immutableEntry("Other action", "--should_not_appear"),
             Maps.immutableEntry("Null", "--quxify"));
     WorkerParser parser = new WorkerParser(null, options, null, null);
-    Spawn spawn = TestUtils.createSpawn(ImmutableList.of("--foo", "@bar"), ImmutableMap.of());
+    Spawn spawn = WorkerTestUtils.createSpawn(ImmutableList.of("--foo", "@bar"), ImmutableMap.of());
 
     List<String> flagFiles = new ArrayList<>();
     ImmutableList<String> args = parser.splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
@@ -168,7 +175,7 @@ public class WorkerParserTest {
     options.strictFlagfiles = false;
     WorkerParser parser = new WorkerParser(null, options, null, null);
     Spawn spawn =
-        TestUtils.createSpawn(
+        WorkerTestUtils.createSpawn(
             ImmutableList.of("--foo", "--flagfile=bar", "@@escaped", "@bar", "@bartoo", "--final"),
             ImmutableMap.of());
 
@@ -190,7 +197,7 @@ public class WorkerParserTest {
     options.strictFlagfiles = true;
     WorkerParser parser = new WorkerParser(null, options, null, null);
     Spawn spawn =
-        TestUtils.createSpawn(
+        WorkerTestUtils.createSpawn(
             ImmutableList.of("--foo", "@@escaped", "--final", "@bar"), ImmutableMap.of());
 
     List<String> flagFiles = new ArrayList<>();
@@ -220,7 +227,7 @@ public class WorkerParserTest {
     options.workerExtraFlags = ImmutableList.of();
     options.strictFlagfiles = true;
     WorkerParser parser = new WorkerParser(null, options, null, null);
-    Spawn spawn = TestUtils.createSpawn(ImmutableList.copyOf(args), ImmutableMap.of());
+    Spawn spawn = WorkerTestUtils.createSpawn(ImmutableList.copyOf(args), ImmutableMap.of());
 
     assertThrows(
         message,

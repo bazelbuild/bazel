@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.worker.TestUtils.createWorkerKey;
+import static com.google.devtools.build.lib.worker.WorkerTestUtils.createWorkerKey;
 
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;

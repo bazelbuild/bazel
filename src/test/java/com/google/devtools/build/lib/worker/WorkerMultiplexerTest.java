@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.worker.TestUtils.FakeSubprocess;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+import com.google.devtools.build.lib.worker.WorkerTestUtils.FakeSubprocess;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PipedInputStream;
@@ -60,7 +60,7 @@ public class WorkerMultiplexerTest {
 
   @Test
   public void testGetResponse_noOutstandingRequests() throws IOException, InterruptedException {
-    WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test1", true, "fakeBinary");
+    WorkerKey workerKey = WorkerTestUtils.createWorkerKey(fileSystem, "test1", true, "fakeBinary");
     WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStream = new PipedInputStream();
@@ -85,7 +85,7 @@ public class WorkerMultiplexerTest {
   @Test
   public void testGetResponse_basicConcurrency()
       throws IOException, InterruptedException, ExecutionException {
-    WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test2", true, "fakeBinary");
+    WorkerKey workerKey = WorkerTestUtils.createWorkerKey(fileSystem, "test2", true, "fakeBinary");
     WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStream = new PipedInputStream();
@@ -123,7 +123,7 @@ public class WorkerMultiplexerTest {
   @Test
   public void testGetResponse_slowMultiplexer()
       throws IOException, InterruptedException, ExecutionException {
-    WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test3", true, "fakeBinary");
+    WorkerKey workerKey = WorkerTestUtils.createWorkerKey(fileSystem, "test3", true, "fakeBinary");
     WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStream = new PipedInputStream();
@@ -193,7 +193,7 @@ public class WorkerMultiplexerTest {
   @Test
   public void testGetResponse_slowProxy()
       throws IOException, InterruptedException, ExecutionException {
-    WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test4", true, "fakeBinary");
+    WorkerKey workerKey = WorkerTestUtils.createWorkerKey(fileSystem, "test4", true, "fakeBinary");
     WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
     PipedInputStream serverInputStream = new PipedInputStream();

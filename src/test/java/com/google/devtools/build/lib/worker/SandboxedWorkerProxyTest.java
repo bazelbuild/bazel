@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.worker.TestUtils.FakeSubprocess;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
+import com.google.devtools.build.lib.worker.WorkerTestUtils.FakeSubprocess;
 import java.io.IOException;
 import java.io.PipedInputStream;
 import org.junit.Before;
@@ -151,32 +151,32 @@ public class SandboxedWorkerProxyTest {
   }
 
   private SandboxedWorkerProxy createSandboxedWorkerProxy() throws IOException {
-    ImmutableMap.Builder<String, String> req = TestUtils.execRequirementsBuilder("Mnem");
+    ImmutableMap.Builder<String, String> req = WorkerTestUtils.execRequirementsBuilder("Mnem");
     req.put(SUPPORTS_MULTIPLEX_SANDBOXING, "1");
-    Spawn spawn = TestUtils.createSpawn(req.buildOrThrow());
+    Spawn spawn = WorkerTestUtils.createSpawn(req.buildOrThrow());
 
     WorkerOptions options = new WorkerOptions();
     options.workerMultiplex = true;
     options.multiplexSandboxing = true;
 
     WorkerKey key =
-        TestUtils.createWorkerKeyFromOptions(
+        WorkerTestUtils.createWorkerKeyFromOptions(
             PROTO, globalOutputBase, options, true, spawn, "worker.sh");
     WorkerFactory factory = new WorkerFactory(workerBaseDir, options);
     return (SandboxedWorkerProxy) factory.create(key);
   }
 
   private SandboxedWorkerProxy createFakedSandboxedWorkerProxy() throws IOException {
-    ImmutableMap.Builder<String, String> req = TestUtils.execRequirementsBuilder("Mnem");
+    ImmutableMap.Builder<String, String> req = WorkerTestUtils.execRequirementsBuilder("Mnem");
     req.put(SUPPORTS_MULTIPLEX_SANDBOXING, "1");
-    Spawn spawn = TestUtils.createSpawn(req.buildOrThrow());
+    Spawn spawn = WorkerTestUtils.createSpawn(req.buildOrThrow());
 
     WorkerOptions options = new WorkerOptions();
     options.workerMultiplex = true;
     options.multiplexSandboxing = true;
 
     WorkerKey key =
-        TestUtils.createWorkerKeyFromOptions(
+        WorkerTestUtils.createWorkerKeyFromOptions(
             PROTO, globalOutputBase, options, true, spawn, "worker.sh");
     WorkerMultiplexerManager.injectForTesting(
         key,
