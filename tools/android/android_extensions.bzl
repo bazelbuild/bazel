@@ -42,6 +42,11 @@ alias(
   visibility = ["//visibility:public"],
 )
 alias(
+  name  = "sdk",
+  actual = "%s",
+  visibility = ["//visibility:public"],
+)
+alias(
   name  = "dx_jar_import",
   actual = "%s",
   visibility = ["//visibility:public"],
@@ -58,6 +63,7 @@ alias(
 )
 """ % (
             repo_ctx.attr.has_androidsdk,
+            repo_ctx.attr.sdk,
             repo_ctx.attr.dx_jar_import,
             repo_ctx.attr.android_sdk_for_testing,
             repo_ctx.attr.android_ndk_for_testing,
@@ -70,6 +76,7 @@ android_external_repository = repository_rule(
     implementation = _android_external_repository_impl,
     attrs = {
         "has_androidsdk": attr.label(default = "@bazel_tools//tools/android:always_false"),
+        "sdk": attr.label(default = "@bazel_tools//tools/android:poison_pill_android_sdk"),
         "dx_jar_import": attr.label(default = "@bazel_tools//tools/android:no_android_sdk_repository_error"),
         "android_sdk_for_testing": attr.label(default = "@bazel_tools//tools/android:empty"),
         "android_ndk_for_testing": attr.label(default = "@bazel_tools//tools/android:empty"),
@@ -90,6 +97,7 @@ def _android_sdk_proxy_extensions_impl(module_ctx):
     kwargs = {}
     if module.tags.configure:
         kwargs["has_androidsdk"] = module.tags.configure[0].has_androidsdk
+        kwargs["sdk"] = module.tags.configure[0].sdk
         kwargs["dx_jar_import"] = module.tags.configure[0].dx_jar_import
         kwargs["android_sdk_for_testing"] = module.tags.configure[0].android_sdk_for_testing
         kwargs["android_ndk_for_testing"] = module.tags.configure[0].android_ndk_for_testing
@@ -104,6 +112,7 @@ android_sdk_proxy_extensions = module_extension(
     tag_classes = {
         "configure": tag_class(attrs = {
             "has_androidsdk": attr.label(default = "@bazel_tools//tools/android:always_false"),
+            "sdk": attr.label(default = "@bazel_tools//tools/android:poison_pill_android_sdk"),
             "dx_jar_import": attr.label(default = "@bazel_tools//tools/android:no_android_sdk_repository_error"),
             "android_sdk_for_testing": attr.label(default = "@bazel_tools//tools/android:empty"),
             "android_ndk_for_testing": attr.label(default = "@bazel_tools//tools/android:empty"),

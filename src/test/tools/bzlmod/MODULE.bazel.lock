@@ -1080,7 +1080,7 @@
     },
     "@@bazel_tools//tools/android:android_extensions.bzl%android_sdk_proxy_extensions": {
       "general": {
-        "bzlTransitiveDigest": "2AZ7StOD4EzjLI/J5lC8j+ezjzb6hAcRySycgrwBFRk=",
+        "bzlTransitiveDigest": "U01H1C/EjifBSSOsHLy9wW17OQrdwBhrqGIFCGW50xs=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1096,7 +1096,7 @@
     },
     "@@bazel_tools//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "2AZ7StOD4EzjLI/J5lC8j+ezjzb6hAcRySycgrwBFRk=",
+        "bzlTransitiveDigest": "U01H1C/EjifBSSOsHLy9wW17OQrdwBhrqGIFCGW50xs=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},

@@ -2765,7 +2765,7 @@
       "general": {
         "bzlTransitiveDigest": "r8gQnSLwon27gWD77J8mb3DIe4v3gtn7J/rsic53Qyw=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "757d0a347552181528c083af9e8851fe4a0ca87ef21794f843fbfc2742cbfed1",
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "36be85298605cd87b305a9e552db380313888139c1b040c29ced0132ae544416",
           "@@//:MODULE.bazel": "14bba83eb932a2d1e95652677a2b9c697eb9d59b7e170f8bde7032f88c80a9d7"
         },
         "envVariables": {},
@@ -3319,7 +3319,7 @@
     },
     "//tools/android:android_extensions.bzl%android_sdk_proxy_extensions": {
       "general": {
-        "bzlTransitiveDigest": "2AZ7StOD4EzjLI/J5lC8j+ezjzb6hAcRySycgrwBFRk=",
+        "bzlTransitiveDigest": "U01H1C/EjifBSSOsHLy9wW17OQrdwBhrqGIFCGW50xs=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -3336,7 +3336,7 @@
     },
     "//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "2AZ7StOD4EzjLI/J5lC8j+ezjzb6hAcRySycgrwBFRk=",
+        "bzlTransitiveDigest": "U01H1C/EjifBSSOsHLy9wW17OQrdwBhrqGIFCGW50xs=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
