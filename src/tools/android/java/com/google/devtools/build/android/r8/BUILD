@@ -28,18 +28,15 @@ filegroup(
 
 java_library(
     name = "r8",
-    srcs = select({
-        "//external:has_androidsdk": glob(
-            [
-                "*.java",
-                "desugar/*.java",
-            ],
-            exclude = [
-                "NoAndroidSdkStub.java",
-            ],
-        ),
-        "//conditions:default": ["NoAndroidSdkStub.java"],
-    }),
+    srcs = glob(
+        [
+            "*.java",
+            "desugar/*.java",
+        ],
+        exclude = [
+            "NoAndroidSdkStub.java",
+        ],
+    ),
     visibility = ["//src/test/java/com/google/devtools/build/android/r8:__pkg__"],
     runtime_deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies",
