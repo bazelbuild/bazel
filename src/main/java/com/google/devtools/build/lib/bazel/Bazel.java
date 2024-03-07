@@ -40,6 +40,8 @@ public final class Bazel {
   public static final ImmutableList<Class<? extends BlazeModule>> BAZEL_MODULES =
       ImmutableList.of(
           BazelStartupOptionsModule.class,
+          // This module is registered early so that profiles are as complete as possible.
+          com.google.devtools.build.lib.profiler.CommandProfilerModule.class,
           // This module needs to be registered before any module providing a SpawnCache
           // implementation.
           com.google.devtools.build.lib.runtime.NoSpawnCacheModule.class,
@@ -76,7 +78,6 @@ public final class Bazel {
           com.google.devtools.build.lib.network.NoOpConnectivityModule.class,
           com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class,
           com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule.class,
-          com.google.devtools.build.lib.profiler.CommandProfilerModule.class,
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder
               .PostGCMemoryUseRecorderModule.class,
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
