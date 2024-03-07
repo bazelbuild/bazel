@@ -935,6 +935,7 @@ message DumpCommand {
     ACTION_GRAPH_DUMP_FAILED = 4 [(metadata) = { exit_code: 7 }];
     STARLARK_HEAP_DUMP_FAILED = 5 [(metadata) = { exit_code: 8 }];
      reserved 6; // For internal use
+    SKYFRAME_MEMORY_DUMP_FAILED = 7 [(metadata) = { exit_code: 7 }];
   }
 
   Code code = 1;
