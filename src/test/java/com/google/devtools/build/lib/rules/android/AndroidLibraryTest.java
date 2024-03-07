@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.List;
@@ -800,6 +801,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    zipalign = 'zipalign',",
         "    tags = ['__ANDROID_RULES_MIGRATION__'],",
         ")",
+        "toolchain(",
+        "    name = 'sdk_toolchain',",
+        String.format("    toolchain_type = '%s',", TestConstants.ANDROID_TOOLCHAIN_TYPE_LABEL),
+        "    toolchain = ':sdk',",
+        ")",
         "java_library(",
         "    name = 'aidl_lib',",
         "    srcs = ['AidlLib.java'],",
@@ -829,7 +835,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         "    proguard_specs = ['proguard-spec.pro'],",
         ")");
-    useConfiguration("--android_sdk=//sdk:sdk");
+    useConfiguration("--extra_toolchains=//sdk:sdk_toolchain");
 
     // Targets with AIDL-generated sources also get AIDL support lib Proguard specs
     ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:binary");
@@ -1886,6 +1892,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
         "    tags = ['__ANDROID_RULES_MIGRATION__'],",
+        ")",
+        "toolchain(",
+        "    name = 'sdk_toolchain',",
+        String.format("    toolchain_type = '%s',", TestConstants.ANDROID_TOOLCHAIN_TYPE_LABEL),
+        "    toolchain = ':sdk',",
         ")");
     scratch.file(
         "java/a/BUILD",
@@ -1903,7 +1914,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    resource_files = ['res/values/b.xml'],",
         ")");
 
-    useConfiguration("--android_sdk=//sdk:sdk");
+    useConfiguration("--extra_toolchains=//sdk:sdk_toolchain");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     ConfiguredTarget b = getDirectPrerequisite(a, "//java/a:b");
     ConfiguredTarget sdk = getDirectPrerequisite(a, "//sdk:sdk");

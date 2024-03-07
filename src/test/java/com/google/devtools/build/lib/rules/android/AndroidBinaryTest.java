@@ -2802,7 +2802,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
         "    legacy_main_dex_list_generator = '//tools/fake:generate_main_dex_list',",
-        "    tags = ['__ANDROID_RULES_MIGRATION__'])");
+        "    tags = ['__ANDROID_RULES_MIGRATION__'])",
+        "toolchain(",
+        "    name = 'sdk_toolchain',",
+        String.format("    toolchain_type = '%s',", TestConstants.ANDROID_TOOLCHAIN_TYPE_LABEL),
+        "    toolchain = ':sdk',",
+        ")");
 
     scratch.file(
         "java/a/BUILD",
@@ -2812,7 +2817,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         "    multidex = 'legacy')");
 
-    useConfiguration("--android_sdk=//sdk:sdk");
+    useConfiguration("--extra_toolchains=//sdk:sdk_toolchain");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     Artifact mainDexList =
         ActionsTestUtil.getFirstArtifactEndingWith(

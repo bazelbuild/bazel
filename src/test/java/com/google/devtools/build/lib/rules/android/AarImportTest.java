@@ -584,20 +584,6 @@ public class AarImportTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testFailsWithoutAndroidSdk() throws Exception {
-    scratch.file("sdk/BUILD", "alias(", "    name = 'sdk',", "    actual = 'doesnotexist',", ")");
-    useConfiguration("--android_sdk=//sdk");
-    checkError(
-        "aar",
-        "aar",
-        "resolved to target //sdk:sdk, but that target does not provide ToolchainInfo",
-        "aar_import(",
-        "    name = 'aar',",
-        "    aar = 'a.aar',",
-        ")");
-  }
-
-  @Test
   public void testExportsManifest() throws Exception {
     Artifact binaryMergedManifest =
         getConfiguredTarget("//java:app").get(ApkInfo.PROVIDER).getMergedManifest();

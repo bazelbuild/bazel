@@ -78,28 +78,9 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
 
     // Platform-based toolchain resolution:
     ImmutableList.Builder<String> fullArgs = ImmutableList.builder();
-    fullArgs.add("--incompatible_enable_android_toolchain_resolution");
-    // Uncomment the below to get more info when tests fail because of toolchain resolution.
-    // fullArgs.add("--toolchain_resolution_debug=tools/android:.*toolchain_type");
     boolean hasPlatform = false;
     for (String arg : args) {
-      if (arg.startsWith("--android_sdk=")) {
-        // --android_sdk is a legacy toolchain resolution flag. Remap it to the platform-equivalent:
-        // wrap a toolchain definition around the SDK with no constraint requirements and register
-        // it with --extra_toolchains. --extra_toolchains guarantees this SDK will be chosen before
-        // anything registered in the WORKSPACE.
-        String sdkLabel = arg.substring("--android_sdk=".length());
-        scratch.file(
-            "legacy_to_platform_sdk/BUILD",
-            "toolchain(",
-            "    name = 'custom_sdk_toolchain',",
-            String.format("    toolchain_type = '%s',", TestConstants.ANDROID_TOOLCHAIN_TYPE_LABEL),
-            String.format("    toolchain = '%s',", sdkLabel),
-            ")");
-        fullArgs.add("--extra_toolchains=//legacy_to_platform_sdk:custom_sdk_toolchain");
-      }
       fullArgs.add(arg);
-
       if (arg.startsWith("--platforms=") || arg.startsWith("--android_platforms=")) {
         hasPlatform = true;
       }
@@ -110,7 +91,6 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
               "--platforms=%sandroid:armeabi-v7a", TestConstants.CONSTRAINTS_PACKAGE_ROOT));
       fullArgs.add(defaultPlatformFlag());
     }
-    fullArgs.add("--incompatible_enable_cc_toolchain_resolution");
     super.useConfiguration(fullArgs.build().toArray(new String[0]));
   }
 

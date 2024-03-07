@@ -446,6 +446,22 @@ platform(
         "@platforms//cpu:armv7",
     ],
 )
+
+platform(
+    name = "armeabi-v7a",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:armv7",
+    ],
+)
+
+platform(
+    name = "x86",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:x86_32",
+    ],
+)
 EOF
 
   add_to_bazelrc "build --platform_mappings=test_android_platforms/mappings"
