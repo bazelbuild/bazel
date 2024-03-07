@@ -110,8 +110,6 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("RECURSIVE_FILESYSTEM_TRAVERSAL");
   public static final SkyFunctionName FILESET_ENTRY =
       SkyFunctionName.createHermetic("FILESET_ENTRY");
-  static final SkyFunctionName BUILD_INFO_COLLECTION =
-      SkyFunctionName.createHermetic("BUILD_INFO_COLLECTION");
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.createHermetic("BUILD_INFO");
   public static final SkyFunctionName WORKSPACE_NAME =
       SkyFunctionName.createHermetic("WORKSPACE_NAME");
