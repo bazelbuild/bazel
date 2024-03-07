@@ -164,6 +164,10 @@ public class DumpCommand implements BlazeCommand {
     }
   }
 
+  public static final String WARNING_MESSAGE =
+      "This information is intended for consumption by developers "
+          + "only, and may change at any time. Script against it at your own risk!";
+
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     BlazeRuntime runtime = env.getRuntime();
@@ -194,9 +198,7 @@ public class DumpCommand implements BlazeCommand {
     }
     PrintStream out = new PrintStream(env.getReporter().getOutErr().getOutputStream());
     try {
-      out.println("Warning: this information is intended for consumption by developers");
-      out.println("only, and may change at any time. Script against it at your own risk!");
-      out.println();
+      env.getReporter().handle(Event.warn(WARNING_MESSAGE));
       Optional<BlazeCommandResult> failure = Optional.empty();
 
       if (dumpOptions.dumpPackages) {

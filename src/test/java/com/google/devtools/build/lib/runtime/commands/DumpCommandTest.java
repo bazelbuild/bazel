@@ -57,6 +57,13 @@ public final class DumpCommandTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void doesNotContainWarningInStdout() throws Exception {
+    assertThat(dump("--skyframe", "count").isSuccess()).isTrue();
+    assertThat(recordingOutErr.errAsLatin1()).contains(DumpCommand.WARNING_MESSAGE);
+    assertThat(recordingOutErr.outAsLatin1()).doesNotContain(DumpCommand.WARNING_MESSAGE);
+  }
+
+  @Test
   public void multiOptionSmoke() throws Exception {
     write("foo/BUILD", "genrule(name = 'foo', outs = ['out'], cmd = 'touch $@')");
     addOptions("--nobuild");
