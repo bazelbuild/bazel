@@ -138,7 +138,7 @@ public class WorkerModuleTest {
         .contains("Worker factory configuration has changed");
     assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
     WorkerKey workerKey = TestUtils.createWorkerKey(fs, "mnemonic", false);
-    module.workerPool.getWorkerPoolConfig().getWorkerFactory().create(workerKey);
+    module.getWorkerPoolConfig().getWorkerFactory().create(workerKey);
     assertThat(fs.getPath("/otherRootDir/outputBase/bazel-workers").exists()).isTrue();
     assertThat(oldLog.exists()).isTrue();
   }

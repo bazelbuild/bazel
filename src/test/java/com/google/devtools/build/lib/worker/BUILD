@@ -117,6 +117,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_options",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_pool",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_pool_config",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_pool_impl",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",

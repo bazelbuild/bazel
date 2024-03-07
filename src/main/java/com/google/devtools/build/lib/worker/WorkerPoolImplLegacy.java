@@ -24,7 +24,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.commons.pool2.impl.EvictionPolicy;
@@ -207,55 +206,5 @@ public class WorkerPoolImplLegacy implements WorkerPool {
   public void close() {
     workerPools.values().forEach(GenericKeyedObjectPool::close);
     multiplexPools.values().forEach(GenericKeyedObjectPool::close);
-  }
-
-  /**
-   * Describes the configuration of worker pool, e.g. number of maximal instances and priority of
-   * the workers.
-   */
-  public static class WorkerPoolConfig {
-    private final WorkerFactory workerFactory;
-    private final List<Entry<String, Integer>> workerMaxInstances;
-    private final List<Entry<String, Integer>> workerMaxMultiplexInstances;
-
-    public WorkerPoolConfig(
-        WorkerFactory workerFactory,
-        List<Entry<String, Integer>> workerMaxInstances,
-        List<Entry<String, Integer>> workerMaxMultiplexInstances) {
-      this.workerFactory = workerFactory;
-      this.workerMaxInstances = workerMaxInstances;
-      this.workerMaxMultiplexInstances = workerMaxMultiplexInstances;
-    }
-
-    public WorkerFactory getWorkerFactory() {
-      return workerFactory;
-    }
-
-    public List<Entry<String, Integer>> getWorkerMaxInstances() {
-      return workerMaxInstances;
-    }
-
-    public List<Entry<String, Integer>> getWorkerMaxMultiplexInstances() {
-      return workerMaxMultiplexInstances;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof WorkerPoolConfig)) {
-        return false;
-      }
-      WorkerPoolConfig that = (WorkerPoolConfig) o;
-      return workerFactory.equals(that.workerFactory)
-          && workerMaxInstances.equals(that.workerMaxInstances)
-          && workerMaxMultiplexInstances.equals(that.workerMaxMultiplexInstances);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(workerFactory, workerMaxInstances, workerMaxMultiplexInstances);
-    }
   }
 }

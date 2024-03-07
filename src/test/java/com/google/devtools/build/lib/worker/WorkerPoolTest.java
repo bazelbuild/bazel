@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.worker.WorkerPoolImplLegacy.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.util.Map.Entry;
 import org.apache.commons.pool2.PooledObject;

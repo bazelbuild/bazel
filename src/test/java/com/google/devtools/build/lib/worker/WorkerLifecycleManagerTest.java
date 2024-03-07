@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.worker.WorkerPoolImplLegacy.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.time.Instant;
 import java.util.Map.Entry;

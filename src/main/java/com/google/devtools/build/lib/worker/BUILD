@@ -96,6 +96,7 @@ java_library(
         ":singleplex_worker",
         ":worker_factory",
         ":worker_options",
+        ":worker_pool_config",
         ":worker_pool_impl",
         ":worker_process_metrics",
         ":worker_spawn_runner",
@@ -217,6 +218,16 @@ java_library(
 )
 
 java_library(
+    name = "worker_pool_config",
+    srcs = [
+        "WorkerPoolConfig.java",
+    ],
+    deps = [
+        ":worker_factory",
+    ],
+)
+
+java_library(
     name = "worker_pool_impl",
     srcs = [
         "SimpleWorkerPool.java",
@@ -227,6 +238,7 @@ java_library(
         ":worker_factory",
         ":worker_key",
         ":worker_pool",
+        ":worker_pool_config",
         "//third_party:apache_commons_pool2",
         "//third_party:flogger",
         "//third_party:guava",
