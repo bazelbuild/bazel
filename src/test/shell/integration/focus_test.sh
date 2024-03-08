@@ -730,4 +730,93 @@ EOF
   assert_contains "value=command_line_val" ${out}
 }
 
+function test_changes_with_symlinks_are_detected() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir -p ${pkg}/subdir
+
+  echo "input" > ${pkg}/in.txt
+  ln -s in.txt ${pkg}/single.symlink
+  ln -s single.symlink ${pkg}/double.symlink
+
+  echo "subdir_input" > ${pkg}/subdir/in.txt
+  ln -s subdir ${pkg}/dir.symlink
+
+  cat > ${pkg}/BUILD <<EOF
+genrule(
+    name = "g",
+    srcs = [
+        "single.symlink",
+        "double.symlink",
+        "dir.symlink/in.txt",
+    ],
+    outs = ["out.txt"],
+    cmd = "cat \$(location single.symlink) \$(location double.symlink) \$(location dir.symlink/in.txt) > \$@",
+)
+EOF
+
+  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
+  # Verify that Skyfocus handles the symlinks/files edges correctly, and that
+  # using the linked file in the working set should work, even though the
+  # symlinks are used as the genrule inputs.
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/subdir/in.txt \
+    || "expected build to succeed"
+
+  echo "a change" >> ${pkg}/in.txt
+  bazel build //${pkg}:g || fail "expected build to succeed"
+  assert_contains "a change" ${out}
+
+  echo "final change" >> ${pkg}/subdir/in.txt
+  bazel build //${pkg}:g || fail "expected build to succeed"
+  assert_contains "final change" ${out}
+
+  # Yes, this means that you symlinks that used to link to the working set
+  # can be relinked to something else, and the build will still work.
+  # Not a correctness issue.
+  mkdir -p ${pkg}/new_subdir
+  echo "new file" > ${pkg}/new_subdir/new_file
+  ln -sf new_subdir/new_file ${pkg}/single.symlink
+  bazel build //${pkg}:g || fail "expected build to succeed"
+  assert_contains "new file" ${out}
+
+  echo "new file 2" > ${pkg}/new_subdir/new_file
+  ln -sf new_subdir ${pkg}/dir.symlink
+  bazel build //${pkg}:g || fail "expected build to succeed"
+  assert_contains "new file 2" ${out}
+}
+
+function test_symlinks_as_working_set() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir -p ${pkg}/subdir
+
+  echo "input" > ${pkg}/in.txt
+  ln -s in.txt ${pkg}/single.symlink
+
+  echo "subdir_input" > ${pkg}/subdir/in.txt
+  ln -s subdir ${pkg}/dir.symlink
+
+  cat > ${pkg}/BUILD <<EOF
+genrule(
+    name = "g",
+    srcs = [
+        "single.symlink",
+        "dir.symlink/in.txt",
+    ],
+    outs = ["out.txt"],
+    cmd = "cat \$(location single.symlink) \$(location dir.symlink/in.txt) > \$@",
+)
+EOF
+
+  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/single.symlink,${pkg}/dir.symlink \
+    || "expected build to succeed"
+
+  echo "a change" >> ${pkg}/in.txt
+  bazel build //${pkg}:g || fail "expected build to succeed"
+  assert_contains "a change" ${out}
+
+  echo "another change" >> ${pkg}/subdir/in.txt
+  bazel build //${pkg}:g || fail "expected build to succeed"
+  assert_contains "another change" ${out}
+}
+
 run_suite "Tests for Skyfocus"
