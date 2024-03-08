@@ -25,11 +25,13 @@ import javax.annotation.Nullable;
 /** A representation of a list of arguments. */
 public abstract class CommandLine {
 
-  public static final CommandLine EMPTY = new EmptyCommandLine();
+  public static CommandLine empty() {
+    return EmptyCommandLine.INSTANCE;
+  }
 
   /** Returns a {@link CommandLine} backed by the given list of arguments. */
   public static CommandLine of(ImmutableList<String> arguments) {
-    return arguments.isEmpty() ? CommandLine.EMPTY : new SimpleCommandLine(arguments);
+    return arguments.isEmpty() ? empty() : new SimpleCommandLine(arguments);
   }
 
   /**
@@ -40,7 +42,7 @@ public abstract class CommandLine {
     if (args.isEmpty()) {
       return commandLine;
     }
-    if (commandLine == EMPTY) {
+    if (commandLine == EmptyCommandLine.INSTANCE) {
       return CommandLine.of(args);
     }
     return new SuffixedCommandLine(args, commandLine);
@@ -126,6 +128,8 @@ public abstract class CommandLine {
       throws CommandLineExpansionException, InterruptedException;
 
   private static final class EmptyCommandLine extends AbstractCommandLine {
+    private static final EmptyCommandLine INSTANCE = new EmptyCommandLine();
+
     @Override
     public ImmutableList<String> arguments() {
       return ImmutableList.of();

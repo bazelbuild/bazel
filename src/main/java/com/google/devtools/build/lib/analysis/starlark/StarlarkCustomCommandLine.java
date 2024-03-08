@@ -756,7 +756,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     CommandLine build(boolean flagPerLine) {
       if (arguments.isEmpty()) {
-        return CommandLine.EMPTY;
+        return CommandLine.empty();
       }
       Object[] args = arguments.toArray();
       return flagPerLine
