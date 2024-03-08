@@ -1,3 +1,16 @@
+## Release 8.0.0-pre.20240303.2 (2024-03-08)
+
+```
+Baseline: 7f749e927f61a84ef3a8f361ce601db9d2b81fc4
+
+Cherry picks:
+
+   + ae71ce99dd2928920341b6784a9cc0ae4bb25447:
+     Fix CommandLine class initialization deadlock.
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson.
+
 ## Release 8.0.0-pre.20240303.1 (2024-03-07)
 
 ```
