@@ -173,7 +173,9 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       // worker thread, wait for it to finish, and then propagate the InterruptedException.
       state.close();
       signal = Uninterruptibles.takeUninterruptibly(state.signalQueue);
-      Thread.interrupted(); // clear the interrupted status
+      // The call to Uninterruptibles.takeUninterruptibly() above may set the thread interrupted
+      // status if it suppressed an InterruptedException, so we clear it again.
+      Thread.interrupted();
       throw new InterruptedException();
     }
     switch (signal) {
