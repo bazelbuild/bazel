@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -74,7 +76,8 @@ public final class RepositoryName {
     try {
       return repositoryNameCache.get(name);
     } catch (CompletionException e) {
-      Throwables.propagateIfPossible(e.getCause(), LabelSyntaxException.class);
+      throwIfInstanceOf(e.getCause(), LabelSyntaxException.class);
+      throwIfUnchecked(e.getCause());
       throw e;
     }
   }

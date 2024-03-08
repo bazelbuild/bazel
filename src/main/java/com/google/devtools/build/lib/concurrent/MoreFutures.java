@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -107,7 +108,8 @@ public class MoreFutures {
     try {
       return future.get();
     } catch (ExecutionException e) {
-      Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
+      throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      throwIfUnchecked(e.getCause());
       throw new IllegalStateException(e);
     }
   }
@@ -124,12 +126,12 @@ public class MoreFutures {
     try {
       return future.get();
     } catch (ExecutionException e) {
-      if (exceptionClass2 == null) {
-        Throwables.propagateIfPossible(e.getCause(), exceptionClass1);
-      } else {
-        Throwables.propagateIfPossible(e.getCause(), exceptionClass1, exceptionClass2);
+      throwIfInstanceOf(e.getCause(), exceptionClass1);
+      if (exceptionClass2 != null) {
+        throwIfInstanceOf(e.getCause(), exceptionClass2);
       }
-      Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      throwIfUnchecked(e.getCause());
+      throwIfInstanceOf(e.getCause(), InterruptedException.class);
       throw new IllegalStateException(e);
     }
   }

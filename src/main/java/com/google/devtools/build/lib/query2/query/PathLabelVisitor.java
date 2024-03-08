@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.query2.query;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -311,8 +313,9 @@ final class PathLabelVisitor {
               }
             });
       } catch (CompletionException e) {
-        Throwables.propagateIfPossible(
-            e.getCause(), InterruptedException.class, NoSuchThingException.class);
+        throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        throwIfInstanceOf(e.getCause(), NoSuchThingException.class);
+        throwIfUnchecked(e.getCause());
         throw e;
       }
     }

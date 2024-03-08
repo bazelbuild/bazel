@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.CompletionException;
@@ -40,7 +42,8 @@ public final class FragmentFactory {
     try {
       fragment = fragmentCache.get(fragmentKey);
     } catch (CompletionException e) {
-      Throwables.propagateIfPossible(e.getCause(), InvalidConfigurationException.class);
+      throwIfInstanceOf(e.getCause(), InvalidConfigurationException.class);
+      throwIfUnchecked(e.getCause());
       throw e;
     }
     if (fragment != NULL_MARKER) {

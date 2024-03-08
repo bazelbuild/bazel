@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
@@ -444,8 +446,9 @@ public final class NestedSet<E> {
         actualChildren =
             ((ListenableFuture<Object[]>) children).get(timeout.toNanos(), TimeUnit.NANOSECONDS);
       } catch (ExecutionException e) {
-        Throwables.propagateIfPossible(
-            e.getCause(), InterruptedException.class, MissingFingerprintValueException.class);
+        throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        throwIfInstanceOf(e.getCause(), MissingFingerprintValueException.class);
+        throwIfUnchecked(e.getCause());
         throw new IllegalStateException(e);
       }
     } else {

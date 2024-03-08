@@ -16,11 +16,12 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -204,7 +205,8 @@ public final class PlatformMappingValue implements SkyValue {
     try {
       return mappingCache.get(original);
     } catch (CompletionException e) {
-      Throwables.propagateIfPossible(e.getCause(), OptionsParsingException.class);
+      throwIfInstanceOf(e.getCause(), OptionsParsingException.class);
+      throwIfUnchecked(e.getCause());
       throw e;
     }
   }
@@ -268,7 +270,8 @@ public final class PlatformMappingValue implements SkyValue {
     try {
       return parserCache.get(args);
     } catch (CompletionException e) {
-      Throwables.propagateIfPossible(e.getCause(), OptionsParsingException.class);
+      throwIfInstanceOf(e.getCause(), OptionsParsingException.class);
+      throwIfUnchecked(e.getCause());
       throw e;
     }
   }
