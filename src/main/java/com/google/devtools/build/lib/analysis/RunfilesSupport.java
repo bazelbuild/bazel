@@ -526,10 +526,10 @@ public final class RunfilesSupport {
     if (!ruleContext.getRule().isAttrDefined("args", Type.STRING_LIST)) {
       // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args
       // attribute here.
-      return CommandLine.EMPTY;
+      return CommandLine.empty();
     }
     ImmutableList<String> args = ruleContext.getExpander().withDataLocations().tokenized("args");
-    return args.isEmpty() ? CommandLine.EMPTY : CommandLine.of(args);
+    return args.isEmpty() ? CommandLine.empty() : CommandLine.of(args);
   }
 
   private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext)
