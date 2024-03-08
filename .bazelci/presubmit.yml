@@ -356,8 +356,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote:RemoteTests"
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
-      # https://github.com/bazelbuild/bazel/issues/21593
-      - "-//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:DownloaderTestSuite"
     include_json_profile:
       - build
       - test
