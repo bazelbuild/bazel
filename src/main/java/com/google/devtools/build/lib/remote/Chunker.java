@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.Math.min;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -275,7 +276,10 @@ public class Chunker {
               ? new ChunkerInputStream(new ZstdCompressingInputStream(src))
               : new ChunkerInputStream(src);
     } catch (RuntimeException e) {
-      Throwables.propagateIfPossible(e.getCause(), IOException.class);
+      if (e.getCause() != null) {
+        throwIfInstanceOf(e.getCause(), IOException.class);
+        throwIfUnchecked(e.getCause());
+      }
       throw e;
     }
     offset = srcPos;

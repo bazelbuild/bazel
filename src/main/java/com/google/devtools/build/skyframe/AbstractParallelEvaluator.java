@@ -15,11 +15,12 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -923,7 +924,10 @@ abstract class AbstractParallelEvaluator {
 
   static void propagateInterruption(SchedulerException e) throws InterruptedException {
     boolean mustThrowInterrupt = Thread.interrupted();
-    Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
+    if (e.getCause() != null) {
+      throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      throwIfUnchecked(e.getCause());
+    }
     if (mustThrowInterrupt) {
       // As per the contract of AbstractQueueVisitor#work, if an unchecked exception is thrown and
       // the build is interrupted, the thrown exception is what will be rethrown. Since the user

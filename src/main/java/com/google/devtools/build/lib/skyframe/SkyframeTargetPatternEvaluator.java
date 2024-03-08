@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -85,8 +87,9 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
         skyframeExecutor.targetPatterns(
             allKeys, SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing, eventHandler);
     Exception catastrophe = result.getCatastrophe();
-    Throwables.propagateIfPossible(catastrophe, TargetParsingException.class);
     if (catastrophe != null) {
+      throwIfInstanceOf(catastrophe, TargetParsingException.class);
+      throwIfUnchecked(catastrophe);
       throw wrapException(catastrophe, null, result);
     }
     WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
