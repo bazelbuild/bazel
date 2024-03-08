@@ -106,6 +106,9 @@ def _get_cc_runtimes(ctx, is_library):
 
     return runtimes
 
+def _get_cc_runtimes_copts(ctx):
+    return []
+
 def _get_implementation_deps_allowed_attr():
     return {}
 
@@ -162,6 +165,7 @@ semantics = struct(
     get_runtimes_toolchain = _get_runtimes_toolchain,
     get_test_malloc_attr = _get_test_malloc_attr,
     get_cc_runtimes = _get_cc_runtimes,
+    get_cc_runtimes_copts = _get_cc_runtimes_copts,
     get_coverage_attrs = _get_coverage_attrs,
     get_coverage_env = _get_coverage_env,
     get_proto_aspects = _get_proto_aspects,

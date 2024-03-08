@@ -154,10 +154,12 @@ def _cc_import_impl(ctx):
         )
 
     runtimes_deps = semantics.get_cc_runtimes(ctx, True)
+    runtimes_copts = semantics.get_cc_runtimes_copts(ctx)
     compilation_contexts = cc_helper.get_compilation_contexts_from_deps(runtimes_deps)
     (compilation_context, _) = cc_common.compile(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
+        user_compile_flags = runtimes_copts,
         cc_toolchain = cc_toolchain,
         compilation_contexts = compilation_contexts,
         public_hdrs = ctx.files.hdrs,

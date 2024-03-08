@@ -625,6 +625,8 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     all_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
     compilation_context_deps = [dep[CcInfo].compilation_context for dep in all_deps if CcInfo in dep]
 
+    runtimes_copts = semantics.get_cc_runtimes_copts(ctx)
+
     additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
     additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
 
@@ -633,7 +635,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
+        user_compile_flags = runtimes_copts + cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx, ctx.attr.deps),
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),

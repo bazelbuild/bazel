@@ -44,6 +44,7 @@ def _cc_library_impl(ctx):
 
     semantics.check_can_use_implementation_deps(ctx)
     interface_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, True)
+    runtimes_copts = semantics.get_cc_runtimes_copts(ctx)
     compilation_contexts = cc_helper.get_compilation_contexts_from_deps(interface_deps)
     implementation_compilation_contexts = cc_helper.get_compilation_contexts_from_deps(ctx.attr.implementation_deps)
 
@@ -55,7 +56,7 @@ def _cc_library_impl(ctx):
         name = ctx.label.name,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
-        user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
+        user_compile_flags = runtimes_copts + cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx, ctx.attr.deps + ctx.attr.implementation_deps),
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
