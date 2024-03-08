@@ -680,6 +680,12 @@ misuse.
 
 An open source software library for machine intelligence.
 
+### [Trunk](https://trunk.io){: .external}
+
+Trunk is a developer experience (DevEx) toolkit that enables you to ship code
+quickly while maintaining the necessary guardrails for excellent eng teams. Use
+Trunk to check, test, merge, and monitor your code.
+
 ### [Turbo Santa](https://github.com/turbo-santa/turbo-santa-common){: .external}
 
 A platform-independent GameBoy emulator.
