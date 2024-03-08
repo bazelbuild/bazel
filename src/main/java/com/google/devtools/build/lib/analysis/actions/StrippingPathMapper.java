@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.CommandLine.ArgChunk;
-import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
@@ -142,9 +140,9 @@ public final class StrippingPathMapper {
       }
 
       @Override
-      public ArgChunk mapCustomStarlarkArgs(ArgChunk chunk) {
+      public Iterable<String> mapCustomStarlarkArgs(Iterable<String> args) {
         if (!isStarlarkAction) {
-          return chunk;
+          return args;
         }
         // Add your favorite Starlark mnemonic that needs custom arg processing here.
         if (!mnemonic.contains("Android")
@@ -153,14 +151,10 @@ public final class StrippingPathMapper {
             && !mnemonic.equals("StarlarkAARGenerator")
             && !mnemonic.equals("JetifySrcs")
             && !mnemonic.equals("Desugar")) {
-          return chunk;
+          return args;
         }
 
-        // TODO: b/327187486 - This materializes strings when totalArgLength() is called. Can it
-        //  compute the total arg length without creating garbage strings?
-        Iterable<String> args = chunk.arguments();
-        return new SimpleArgChunk(
-            () -> new CustomStarlarkArgsIterator(args.iterator(), argStripper));
+        return () -> new CustomStarlarkArgsIterator(args.iterator(), argStripper);
       }
 
       @Override
