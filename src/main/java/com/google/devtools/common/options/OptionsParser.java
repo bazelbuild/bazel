@@ -274,6 +274,7 @@ public class OptionsParser implements OptionsParsingResult {
   private final boolean allowResidue;
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
   private final Map<String, String> aliases = new HashMap<>();
+  private boolean success = true;
 
   private OptionsParser(OptionsParserImpl impl, boolean allowResidue) {
     this.impl = impl;
@@ -774,6 +775,16 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public Map<String, String> getAliases() {
     return ImmutableMap.copyOf(aliases);
+  }
+
+  /** Makes {@link #success()} return false. */
+  public void setError() {
+    success = false;
+  }
+
+  @Override
+  public boolean success() {
+    return success;
   }
 
   @Override

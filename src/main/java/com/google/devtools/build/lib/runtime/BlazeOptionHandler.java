@@ -436,6 +436,15 @@ public final class BlazeOptionHandler {
    * @return {@code DetailedExitCode.success()} if everything went well, or some other value if not
    */
   DetailedExitCode parseOptions(List<String> args, ExtendedEventHandler eventHandler) {
+    DetailedExitCode result = parseOptionsInternal(args, eventHandler);
+    if (!result.isSuccess()) {
+      optionsParser.setError();
+    }
+    return result;
+  }
+
+  private DetailedExitCode parseOptionsInternal(
+      List<String> args, ExtendedEventHandler eventHandler) {
     // The initialization code here was carefully written to parse the options early before we call
     // into the BlazeModule APIs, which means we must not generate any output to outErr, return, or
     // throw an exception. All the events happening here are instead stored in a temporary event

@@ -111,4 +111,7 @@ public interface OptionsParsingResult extends OptionsProvider {
    * are the aliases and the values are the actual flag names.
    */
   Map<String, String> getAliases();
+
+  /** Returns true if there were no errors during options parsing. */
+  boolean success();
 }
