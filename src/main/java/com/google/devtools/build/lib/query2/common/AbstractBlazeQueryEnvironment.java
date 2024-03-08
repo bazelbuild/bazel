@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.common;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -20,7 +22,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -694,8 +695,9 @@ public abstract class AbstractBlazeQueryEnvironment<T>
         throw new InterruptedException();
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
-        Throwables.propagateIfPossible(cause, QueryException.class);
-        Throwables.propagateIfPossible(cause, InterruptedException.class);
+        throwIfInstanceOf(cause, QueryException.class);
+        throwIfInstanceOf(cause, InterruptedException.class);
+        throwIfUnchecked(cause);
         throw new IllegalStateException(e);
       }
     }

@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -478,7 +480,8 @@ public final class UnixGlob {
         return globAsync(base, patterns, pathDiscriminator, syscalls).get();
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
-        Throwables.propagateIfPossible(cause, IOException.class);
+        throwIfInstanceOf(cause, IOException.class);
+        throwIfUnchecked(cause);
         throw new RuntimeException(e);
       }
     }
@@ -494,8 +497,9 @@ public final class UnixGlob {
             globAsync(base, patterns, pathDiscriminator, syscalls));
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
-        Throwables.propagateIfPossible(cause, IOException.class);
-        Throwables.propagateIfPossible(cause, BadPattern.class);
+        throwIfInstanceOf(cause, IOException.class);
+        throwIfInstanceOf(cause, BadPattern.class);
+        throwIfUnchecked(cause);
         throw new RuntimeException(e);
       }
     }

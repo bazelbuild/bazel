@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -179,8 +182,9 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
           // TODO(b/266179316): Clean this up.
           throw new IOException(cause.getMessage());
         }
-        Throwables.propagateIfPossible(cause, IOException.class);
-        Throwables.propagateIfPossible(cause, InterruptedException.class);
+        throwIfInstanceOf(cause, IOException.class);
+        throwIfInstanceOf(cause, InterruptedException.class);
+        throwIfUnchecked(cause);
         throw new IllegalStateException("Unexpected exception type: ", e);
       } finally {
         executor.shutdown();

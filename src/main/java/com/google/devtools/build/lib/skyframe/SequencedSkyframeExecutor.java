@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -575,10 +578,11 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       } catch (ExecutionException e) {
         aqueryConsumingOutputHandler.stopConsumer(/* discardRemainingTasks= */ true);
         Throwable cause = Throwables.getRootCause(e);
-        Throwables.propagateIfPossible(cause, CommandLineExpansionException.class);
-        Throwables.propagateIfPossible(cause, TemplateExpansionException.class);
-        Throwables.propagateIfPossible(cause, IOException.class);
-        Throwables.propagateIfPossible(cause, InterruptedException.class);
+        throwIfInstanceOf(cause, CommandLineExpansionException.class);
+        throwIfInstanceOf(cause, TemplateExpansionException.class);
+        throwIfInstanceOf(cause, IOException.class);
+        throwIfInstanceOf(cause, InterruptedException.class);
+        throwIfUnchecked(cause);
         throw new IllegalStateException("Unexpected exception type: ", e);
       } finally {
         executor.shutdown();
