@@ -83,6 +83,10 @@ def _java_toolchain_impl(ctx):
     if java_runtime and java_runtime.lib_ct_sym:
         header_compiler_direct_data = [java_runtime.lib_ct_sym]
         header_compiler_direct_jvm_opts = ["-Dturbine.ctSymPath=" + java_runtime.lib_ct_sym.path]
+    elif java_runtime and java_runtime.java_home:
+        # Turbine finds ct.sym relative to java.home.
+        header_compiler_direct_data = []
+        header_compiler_direct_jvm_opts = ["-Djava.home=" + java_runtime.java_home]
     else:
         header_compiler_direct_data = []
         header_compiler_direct_jvm_opts = []
