@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi.XcodeConfigProviderApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
@@ -141,7 +142,7 @@ public class XcodeConfigInfo extends NativeInfo
     }
 
     @Override
-    public XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
+    public XcodeConfigInfoApi<?, ?> create(
         String iosSdkVersion,
         String iosMinimumOsVersion,
         String visionosSdkVersion,

@@ -151,7 +151,7 @@ public interface XcodeConfigInfoApi<
         },
         selfCall = true)
     @StarlarkConstructor
-    XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
+    XcodeConfigInfoApi<?, ?> create(
         String iosSdkVersion,
         String iosMinimumOsVersion,
         String visionosSdkVersion,

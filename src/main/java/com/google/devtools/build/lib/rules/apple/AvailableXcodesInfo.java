@@ -13,9 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.apple;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** The available xcode versions computed from the {@code available_xcodes} rule. */
 @Immutable
@@ -24,8 +30,7 @@ public class AvailableXcodesInfo extends NativeInfo {
   public static final String STARLARK_NAME = "AvailableXcodesInfo";
 
   /** Provider identifier for {@link AvailableXcodesInfo}. */
-  public static final BuiltinProvider<AvailableXcodesInfo> PROVIDER =
-      new BuiltinProvider<AvailableXcodesInfo>(STARLARK_NAME, AvailableXcodesInfo.class) {};
+  public static final BuiltinProvider<AvailableXcodesInfo> PROVIDER = new Provider();
 
   private final Iterable<XcodeVersionRuleData> availableXcodes;
   private final XcodeVersionRuleData defaultVersion;
@@ -49,5 +54,29 @@ public class AvailableXcodesInfo extends NativeInfo {
   /** Returns the default xcode version from {@code available_xcodes}. */
   public XcodeVersionRuleData getDefaultVersion() {
     return defaultVersion;
+  }
+
+  /** Provider class for {@link XcodeVersionRuleData} objects. */
+  public static class Provider extends BuiltinProvider<AvailableXcodesInfo>
+      implements AvailableXcodesApi<Artifact> {
+    private Provider() {
+      super(AvailableXcodesInfo.STARLARK_NAME, AvailableXcodesInfo.class);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public AvailableXcodesInfo createInfo(
+        Object availableXcodes, Object defaultVersion, StarlarkThread thread) throws EvalException {
+      Sequence<XcodeVersionRuleData> availableXcodesSequence =
+          nullIfNone(availableXcodes, Sequence.class);
+      return new AvailableXcodesInfo(
+          Sequence.cast(availableXcodesSequence, XcodeVersionRuleData.class, "availableXcodes"),
+          nullIfNone(defaultVersion, XcodeVersionRuleData.class));
+    }
+
+    @Nullable
+    private static <T> T nullIfNone(Object object, Class<T> type) {
+      return object != Starlark.NONE ? type.cast(object) : null;
+    }
   }
 }

@@ -25,7 +25,6 @@ load("@_builtins//:common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryH
 load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
 load("@_builtins//:common/cc/cc_toolchain.bzl", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
-load("@_builtins//:common/cc/xcode_version.bzl", "xcode_version")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
@@ -35,6 +34,8 @@ load("@_builtins//:common/proto/proto_info.bzl", "ProtoInfo")
 load("@_builtins//:common/proto/proto_lang_toolchain.bzl", "proto_lang_toolchain")
 load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
 load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
+load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
+load("@_builtins//:common/xcode/xcode_version.bzl", "xcode_version")
 load(":common/cc/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
 load(":common/cc/fdo_profile.bzl", "fdo_profile")
 load(":common/cc/memprof_profile.bzl", "memprof_profile")
@@ -95,6 +96,7 @@ exported_rules = {
     "memprof_profile": memprof_profile,
     "propeller_optimize": propeller_optimize,
     "xcode_version": xcode_version,
+    "available_xcodes": available_xcodes,
 }
 
 # A list of Starlark functions callable from native rules implementation.
