@@ -60,17 +60,24 @@ namespace blaze {
 using blaze_util::GetLastErrorString;
 using std::string;
 
+// ${XDG_CACHE_HOME}/bazel, a.k.a. ~/.cache/bazel by default (which is the
+// fallback when XDG_CACHE_HOME is not set)
 string GetOutputRoot() {
-  char buf[2048];
-  struct passwd pwbuf;
-  struct passwd *pw = nullptr;
-  int uid = getuid();
-  int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
-  if (r == 0 && pw != nullptr) {
-    return blaze_util::JoinPath(pw->pw_dir, ".cache/bazel");
-  } else {
-    return "/tmp";
+  string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
+  if (xdg_cache_home.empty()) {
+    char buf[2048];
+    struct passwd pwbuf;
+    struct passwd *pw = nullptr;
+    int uid = getuid();
+    int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
+    if (r == 0 && pw != nullptr) {
+      xdg_cache_home = blaze_util::JoinPath(pw->pw_dir, ".cache");
+    } else {
+      return "/tmp";
+    }
   }
+
+  return blaze_util::JoinPath(xdg_cache_home, "bazel");
 }
 
 void WarnFilesystemType(const blaze_util::Path &output_base) {

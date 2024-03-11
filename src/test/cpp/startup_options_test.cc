@@ -92,15 +92,27 @@ TEST_F(StartupOptionsTest, JavaLoggingOptions) {
 #ifdef __linux
 TEST_F(StartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
   SetEnv("HOME", "/nonexistent/home");
+  SetEnv("XDG_CACHE_HOME", "/nonexistent/cache");
   SetEnv("TEST_TMPDIR", "/nonexistent/tmpdir");
   ReinitStartupOptions();
 
   ASSERT_EQ("/nonexistent/tmpdir", startup_options_->output_root);
 }
 
+TEST_F(StartupOptionsTest,
+       OutputRootPreferXdgCacheHomeIfSetAndTestTmpdirUnset) {
+  SetEnv("HOME", "/nonexistent/home");
+  SetEnv("XDG_CACHE_HOME", "/nonexistent/cache");
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+
+  ASSERT_EQ("/nonexistent/cache/bazel", startup_options_->output_root);
+}
+
 TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
   SetEnv("HOME", "/nonexistent/home");
   UnsetEnv("TEST_TMPDIR");
+  UnsetEnv("XDG_CACHE_HOME");
   ReinitStartupOptions();
 
   ASSERT_EQ("/nonexistent/home/.cache/bazel", startup_options_->output_root);
