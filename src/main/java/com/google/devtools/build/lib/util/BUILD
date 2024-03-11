@@ -162,6 +162,15 @@ java_library(
 )
 
 java_library(
+    name = "memory_accountant",
+    srcs = ["MemoryAccountant.java"],
+    deps = [
+        ":object_graph_traverser",
+        ":shallow_object_size_computer",
+    ],
+)
+
+java_library(
     name = "ram_resource_converter",
     srcs = [
         "RamResourceConverter.java",
