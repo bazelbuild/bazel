@@ -1,6 +1,6 @@
 ---
 platforms:
-  centos7_java11_devtoolset10:
+  centos7:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
