@@ -282,7 +282,7 @@ platform(
     ],
 )
 
-REMOTE_PLATFORMS = ("rbe_ubuntu2004_java11",)
+REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
 
 [
     platform(

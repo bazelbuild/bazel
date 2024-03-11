@@ -20,8 +20,8 @@ load("@bazelci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
 def _bazel_rbe_deps(_ctx):
     rbe_preconfig(
-        name = "rbe_ubuntu2004_java11",
-        toolchain = "ubuntu2004-bazel-java11",
+        name = "rbe_ubuntu2004",
+        toolchain = "ubuntu2004",
     )
 
 bazel_rbe_deps = module_extension(implementation = _bazel_rbe_deps)

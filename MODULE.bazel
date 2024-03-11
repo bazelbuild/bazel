@@ -311,7 +311,7 @@ use_repo(
 )
 
 bazel_rbe_deps = use_extension("//:rbe_extension.bzl", "bazel_rbe_deps")
-use_repo(bazel_rbe_deps, "rbe_ubuntu2004_java11")
+use_repo(bazel_rbe_deps, "rbe_ubuntu2004")
 
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
