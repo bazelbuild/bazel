@@ -50,6 +50,7 @@ java_library(
 java_test(
     name = "CollectTests",
     size = "small",
+    timeout = "moderate",
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":CollectTests_lib",
