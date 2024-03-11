@@ -230,14 +230,18 @@ sh_test(
     srcs = ["bazel_java17_test.sh"],
     args = [
         # java_tools zip to test
-        "$(rlocationpath //src:java_tools_zip)",
-        "$(rlocationpath //src:java_tools_prebuilt_zip)",
+        "$(rlocationpath //src:java_tools_java8.zip)",
+        "$(rlocationpath //src:java_tools_prebuilt_java8.zip)",
     ],
     data = [
         ":gen_rules_java_repo_name",
         ":test-deps",
-        "//src:java_tools_prebuilt_zip",
-        "//src:java_tools_zip",
+        # Use java_tools compiled at Java language 8 instead (aligned with the
+        # default compilation level of java_tools). For the purpose
+        # of this test, we need java_tools to be running with runtime >11 to
+        # test the failure modes of incompatible system classpaths.
+        "//src:java_tools_prebuilt_java8.zip",
+        "//src:java_tools_java8.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["local"],
@@ -261,9 +265,9 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-JAVA_VERSIONS = ("11", "17")
+JAVA_VERSIONS = ("21",)
 
-JAVA_VERSIONS_COVERAGE = ("11", "17")
+JAVA_VERSIONS_COVERAGE = ("21",)
 
 [
     sh_test(

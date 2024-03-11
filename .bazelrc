@@ -55,9 +55,11 @@ build:macos --host_cxxopt=-std=c++17
 build:windows --cxxopt=/std:c++17
 build:windows --host_cxxopt=/std:c++17
 
-# Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
-build --java_language_version=11
-build --tool_java_language_version=11
+# Enable Java 21 language features
+build --java_runtime_version=21
+build --java_language_version=21
+build --tool_java_language_version=21
+build --tool_java_runtime_version=21
 
 # Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
 common --incompatible_disallow_empty_glob
