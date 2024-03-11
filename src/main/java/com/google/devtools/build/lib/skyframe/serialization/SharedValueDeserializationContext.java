@@ -26,29 +26,41 @@ import java.io.IOException;
  */
 // TODO: b/297857068 - complete this implementation
 final class SharedValueDeserializationContext extends MemoizingDeserializationContext {
+  private final FingerprintValueService fingerprintValueService;
+
   @VisibleForTesting // private
   static SharedValueDeserializationContext createForTesting(
-      ObjectCodecRegistry codecRegistry, ImmutableClassToInstanceMap<Object> dependencies) {
-    return new SharedValueDeserializationContext(codecRegistry, dependencies);
+      ObjectCodecRegistry codecRegistry,
+      ImmutableClassToInstanceMap<Object> dependencies,
+      FingerprintValueService fingerprintValueService) {
+    return new SharedValueDeserializationContext(
+        codecRegistry, dependencies, fingerprintValueService);
   }
 
   private SharedValueDeserializationContext(
-      ObjectCodecRegistry codecRegistry, ImmutableClassToInstanceMap<Object> dependencies) {
+      ObjectCodecRegistry codecRegistry,
+      ImmutableClassToInstanceMap<Object> dependencies,
+      FingerprintValueService fingerprintValueService) {
     super(codecRegistry, dependencies);
+    this.fingerprintValueService = fingerprintValueService;
   }
 
   static Object deserializeWithSharedValues(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      FingerprintValueService fingerprintValueService,
       ByteString bytes)
       throws SerializationException {
     return ObjectCodecs.deserializeStreamFully(
-        bytes.newCodedInput(), new SharedValueDeserializationContext(codecRegistry, dependencies));
+        bytes.newCodedInput(),
+        new SharedValueDeserializationContext(
+            codecRegistry, dependencies, fingerprintValueService));
   }
 
   @Override
   public SharedValueDeserializationContext getFreshContext() {
-    return new SharedValueDeserializationContext(getRegistry(), getDependencies());
+    return new SharedValueDeserializationContext(
+        getRegistry(), getDependencies(), fingerprintValueService);
   }
 
   @Override

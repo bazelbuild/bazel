@@ -77,8 +77,10 @@ public class ObjectCodecs {
   }
 
   @VisibleForTesting // private
-  public SharedValueSerializationContext getSharedValueSerializationContextForTesting() {
-    return SharedValueSerializationContext.createForTesting(getCodecRegistry(), getDependencies());
+  public SharedValueSerializationContext getSharedValueSerializationContextForTesting(
+      FingerprintValueService fingerprintValueService) {
+    return SharedValueSerializationContext.createForTesting(
+        getCodecRegistry(), getDependencies(), fingerprintValueService);
   }
 
   @VisibleForTesting // private
@@ -98,9 +100,10 @@ public class ObjectCodecs {
   }
 
   @VisibleForTesting // private
-  public SharedValueDeserializationContext getSharedValueDeserializationContextForTesting() {
+  public SharedValueDeserializationContext getSharedValueDeserializationContextForTesting(
+      FingerprintValueService fingerprintValueService) {
     return SharedValueDeserializationContext.createForTesting(
-        getCodecRegistry(), getDependencies());
+        getCodecRegistry(), getDependencies(), fingerprintValueService);
   }
 
   /**
@@ -152,10 +155,11 @@ public class ObjectCodecs {
   }
 
   /** Serializes {@code subject} using a {@link SharedValueSerializationContext}. */
-  public SerializationResult<ByteString> serializeMemoizedAndBlocking(Object subject)
+  public SerializationResult<ByteString> serializeMemoizedAndBlocking(
+      FingerprintValueService fingerprintValueService, Object subject)
       throws SerializationException {
     return SharedValueSerializationContext.serializeToResult(
-        getCodecRegistry(), getDependencies(), subject);
+        getCodecRegistry(), getDependencies(), fingerprintValueService, subject);
   }
 
   /**
@@ -164,9 +168,15 @@ public class ObjectCodecs {
    * @param dependencyOverrides dependencies to override, see {@link #overrideDependencies}
    */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(
-      Object subject, ClassToInstanceMap<?> dependencyOverrides) throws SerializationException {
+      FingerprintValueService fingerprintValueService,
+      Object subject,
+      ImmutableClassToInstanceMap<?> dependencyOverrides)
+      throws SerializationException {
     return SharedValueSerializationContext.serializeToResult(
-        getCodecRegistry(), overrideDependencies(getDependencies(), dependencyOverrides), subject);
+        getCodecRegistry(),
+        overrideDependencies(getDependencies(), dependencyOverrides),
+        fingerprintValueService,
+        subject);
   }
 
   public Object deserialize(byte[] data) throws SerializationException {
@@ -191,16 +201,23 @@ public class ObjectCodecs {
         getCodecRegistry(), getDependencies(), data);
   }
 
-  public Object deserializeMemoizedAndBlocking(ByteString data) throws SerializationException {
+  public Object deserializeMemoizedAndBlocking(
+      FingerprintValueService fingerprintValueService, ByteString data)
+      throws SerializationException {
     return SharedValueDeserializationContext.deserializeWithSharedValues(
-        getCodecRegistry(), getDependencies(), data);
+        getCodecRegistry(), getDependencies(), fingerprintValueService, data);
   }
 
   public Object deserializeMemoizedAndBlocking(
-      ByteString data, ImmutableClassToInstanceMap<?> dependencyOverrides)
+      FingerprintValueService fingerprintValueService,
+      ByteString data,
+      ImmutableClassToInstanceMap<?> dependencyOverrides)
       throws SerializationException {
     return SharedValueDeserializationContext.deserializeWithSharedValues(
-        getCodecRegistry(), overrideDependencies(getDependencies(), dependencyOverrides), data);
+        getCodecRegistry(),
+        overrideDependencies(getDependencies(), dependencyOverrides),
+        fingerprintValueService,
+        data);
   }
 
   static Object deserializeStreamFully(CodedInputStream codedIn, DeserializationContext context)

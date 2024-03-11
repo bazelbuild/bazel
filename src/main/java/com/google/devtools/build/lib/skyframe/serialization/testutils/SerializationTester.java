@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForSerializationFuture;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -23,15 +24,19 @@ import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.Random;
+import javax.annotation.Nullable;
 
 /**
  * Utility for testing serialization of given subjects.
@@ -63,6 +68,12 @@ public class SerializationTester {
   private boolean memoize;
   private boolean allowFutureBlocking;
   private ObjectCodecs objectCodecs;
+
+  // TODO: b/297857068 - consider splitting out a builder to cleanly separate this state
+  @Nullable // lazily initialized
+  private FingerprintValueService fingerprintValueService;
+
+  private boolean exerciseDeserializationInKeyValueStore = true;
 
   @SuppressWarnings("rawtypes")
   private VerificationFunction verificationFunction =
@@ -130,13 +141,23 @@ public class SerializationTester {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public SerializationTester setExerciseDeserializationInKeyValueStore(
+      boolean exerciseDeserializationInKeyValueStore) {
+    this.exerciseDeserializationInKeyValueStore = exerciseDeserializationInKeyValueStore;
+    return this;
+  }
+
   private void runTests(boolean verifyStableSerialization) throws Exception {
     ObjectCodecs codecs = this.objectCodecs == null ? createObjectCodecs() : this.objectCodecs;
     testSerializeDeserialize(codecs);
+    fingerprintValueService = null;
     if (verifyStableSerialization) {
       testStableSerialization(codecs);
+      fingerprintValueService = null;
     }
     testDeserializeJunkData(codecs);
+    fingerprintValueService = null;
   }
 
   public void runTests() throws Exception {
@@ -173,15 +194,19 @@ public class SerializationTester {
   }
 
   private ByteString serialize(Object subject, ObjectCodecs codecs) throws SerializationException {
-    if (memoize) {
-      if (allowFutureBlocking) {
-        return codecs.serializeMemoizedAndBlocking(subject).getObject();
-      } else {
-        return codecs.serializeMemoized(subject);
-      }
-    } else {
+    if (!memoize) {
       return codecs.serialize(subject);
     }
+    if (!allowFutureBlocking) {
+      return codecs.serializeMemoized(subject);
+    }
+    SerializationResult<ByteString> result =
+        codecs.serializeMemoizedAndBlocking(getFingerprintValueService(), subject);
+    ListenableFuture<Void> writeFuture = result.getFutureToBlockWritesOn();
+    if (writeFuture != null) {
+      var unused = waitForSerializationFuture(writeFuture);
+    }
+    return result.getObject();
   }
 
   private Object deserialize(ByteString serialized, ObjectCodecs codecs)
@@ -189,7 +214,17 @@ public class SerializationTester {
     if (!memoize) {
       return codecs.deserialize(serialized);
     }
-    return codecs.deserializeMemoized(serialized);
+    return allowFutureBlocking
+        ? codecs.deserializeMemoizedAndBlocking(getFingerprintValueService(), serialized)
+        : codecs.deserializeMemoized(serialized);
+  }
+
+  private FingerprintValueService getFingerprintValueService() {
+    if (fingerprintValueService == null) {
+      fingerprintValueService =
+          FingerprintValueService.createForTesting(exerciseDeserializationInKeyValueStore);
+    }
+    return fingerprintValueService;
   }
 
   /** Runs serialization/deserialization tests. */

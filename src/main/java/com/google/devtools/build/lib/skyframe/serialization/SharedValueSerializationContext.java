@@ -33,6 +33,8 @@ import javax.annotation.Nullable;
  * SerializationResult#getFutureToBlockWritesOn}.
  */
 final class SharedValueSerializationContext extends MemoizingSerializationContext {
+  private final FingerprintValueService fingerprintValueService;
+
   /**
    * Futures that represent writes to remote storage.
    *
@@ -44,13 +46,19 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
 
   @VisibleForTesting // private
   static SharedValueSerializationContext createForTesting(
-      ObjectCodecRegistry codecRegistry, ImmutableClassToInstanceMap<Object> dependencies) {
-    return new SharedValueSerializationContext(codecRegistry, dependencies);
+      ObjectCodecRegistry codecRegistry,
+      ImmutableClassToInstanceMap<Object> dependencies,
+      FingerprintValueService fingerprintValueService) {
+    return new SharedValueSerializationContext(
+        codecRegistry, dependencies, fingerprintValueService);
   }
 
   private SharedValueSerializationContext(
-      ObjectCodecRegistry codecRegistry, ImmutableClassToInstanceMap<Object> dependencies) {
+      ObjectCodecRegistry codecRegistry,
+      ImmutableClassToInstanceMap<Object> dependencies,
+      FingerprintValueService fingerprintValueService) {
     super(codecRegistry, dependencies);
+    this.fingerprintValueService = fingerprintValueService;
   }
 
   /**
@@ -62,12 +70,13 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
   static SerializationResult<ByteString> serializeToResult(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      FingerprintValueService fingerprintValueService,
       @Nullable Object subject)
       throws SerializationException {
-    SharedValueSerializationContext context =
-        new SharedValueSerializationContext(codecRegistry, dependencies);
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
+    SharedValueSerializationContext context =
+        new SharedValueSerializationContext(codecRegistry, dependencies, fingerprintValueService);
     try {
       context.serialize(subject, codedOut);
       codedOut.flush();
@@ -79,7 +88,8 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
 
   @Override
   public SharedValueSerializationContext getFreshContext() {
-    return new SharedValueSerializationContext(getCodecRegistry(), getDependencies());
+    return new SharedValueSerializationContext(
+        getCodecRegistry(), getDependencies(), fingerprintValueService);
   }
 
   /**
