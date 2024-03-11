@@ -175,10 +175,10 @@ TARGET_NAMES = [
     for version in (8, 9, 10, 11)
 ] + [
     "toolchain_jdk_%d" % version
-    for version in (14, 15, 16, 17, 20)
+    for version in (14, 15, 16, 17, 21)
 ] + [
      "toolchain_jdk_%d_definition" % version
-     for version in (14, 15, 16, 17, 20)
+     for version in (14, 15, 16, 17, 21)
 ]
 
 [

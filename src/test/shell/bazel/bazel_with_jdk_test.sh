@@ -148,7 +148,9 @@ function test_bazel_reports_missing_local_jdk() {
   export JAVA_HOME="$PWD"
   export PATH="$PWD/bin:$PATH"
 
-  bazel build java/main:JavaExample &>"${TEST_log}" \
+  bazel build \
+      --java_runtime_version=local_jdk \
+       java/main:JavaExample &>"${TEST_log}" \
       && fail "build with missing local JDK should have failed" || true
   expect_log "Auto-Configuration Error: Cannot find Java binary"
 }
@@ -275,6 +277,7 @@ EOF
   export PATH="$PWD/jdk/bin:$PATH"
 
   bazel cquery \
+      --java_runtime_version=local_jdk \
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       //java/main:JavaExample &>"${TEST_log}" \
       || fail "Failed to resolve Java toolchain when version cannot be detected"
