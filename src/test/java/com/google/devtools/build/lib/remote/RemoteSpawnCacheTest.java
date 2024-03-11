@@ -25,6 +25,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -80,6 +81,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -254,7 +256,8 @@ public class RemoteSpawnCacheTest {
                 null,
                 tempPathGenerator,
                 /* captureCorruptedOutputsDir= */ null,
-                DUMMY_REMOTE_OUTPUT_CHECKER));
+                DUMMY_REMOTE_OUTPUT_CHECKER,
+                mock(OutputService.class)));
     return new RemoteSpawnCache(
         execRoot, options, /* verboseFailures= */ true, service, digestUtil);
   }

@@ -764,6 +764,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "disable TLS.")
   public String remoteOutputService;
 
+  @Option(
+      name = "experimental_remote_output_service_output_path_prefix",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The path at which all output path directories are visible that are managed by the remote"
+              + " output service.")
+  public String remoteOutputServiceOutputPathPrefix;
+
   private static final class ScrubberConverter extends Converter.Contextless<Scrubber> {
 
     @Override

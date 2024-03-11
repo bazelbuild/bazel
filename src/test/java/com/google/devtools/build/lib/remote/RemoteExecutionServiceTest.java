@@ -110,6 +110,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -144,6 +145,8 @@ public class RemoteExecutionServiceTest {
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
   @Mock private RemoteOutputChecker remoteOutputChecker; // download nothing by default.
+
+  @Mock private OutputService outputService;
 
   private final DigestUtil digestUtil =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
@@ -2520,7 +2523,8 @@ public class RemoteExecutionServiceTest {
         executor,
         tempPathGenerator,
         null,
-        remoteOutputChecker);
+        remoteOutputChecker,
+        outputService);
   }
 
   private RunfilesTree createRunfilesTree(String root, Collection<Artifact> artifacts) {

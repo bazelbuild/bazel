@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -94,6 +95,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -345,7 +347,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             executor,
             tempPathGenerator,
             /* captureCorruptedOutputsDir= */ null,
-            remoteOutputChecker);
+            remoteOutputChecker,
+            mock(OutputService.class));
     client =
         new RemoteSpawnRunner(
             execRoot,
