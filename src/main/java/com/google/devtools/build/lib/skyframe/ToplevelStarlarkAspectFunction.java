@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunctio
 import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.BuildTopLevelAspectsDetailsValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -47,8 +46,7 @@ import javax.annotation.Nullable;
 final class ToplevelStarlarkAspectFunction implements SkyFunction {
   @Nullable
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws TopLevelStarlarkAspectFunctionException, InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     TopLevelAspectsKey topLevelAspectsKey = (TopLevelAspectsKey) skyKey.argument();
 
     BuildTopLevelAspectsDetailsKey topLevelAspectsDetailsKey =
@@ -129,12 +127,4 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
   }
-
-  /** Exceptions thrown from ToplevelStarlarkAspectFunction. */
-  public static final class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
-    public TopLevelStarlarkAspectFunctionException(AspectCreationException cause) {
-      super(cause, Transience.PERSISTENT);
-    }
-  }
-
 }
