@@ -739,6 +739,7 @@ class ModCommandTest(test_base.TestBase):
           [
               'ext = use_extension("//:extension.bzl", "ext")',
               'use_repo(ext, "dep")',
+              # This newline is from ScratchFile.
               '',
           ],
           module_file.read().split('\n'),
@@ -781,6 +782,7 @@ class ModCommandTest(test_base.TestBase):
           [
               'ext = use_extension("//:extension.bzl", "ext")',
               'use_repo(ext, "dep")',
+              # This newline is from ScratchFile.
               '',
           ],
           module_file.read().split('\n'),
