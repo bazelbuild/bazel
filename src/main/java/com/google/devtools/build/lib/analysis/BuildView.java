@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
+import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigRequestedEvent;
@@ -94,6 +95,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -218,7 +220,8 @@ public class BuildView {
       @Nullable BuildResultListener buildResultListener,
       @Nullable ExecutionSetup executionSetupCallback,
       @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback,
-      @Nullable BuildDriverKeyTestContext buildDriverKeyTestContext)
+      @Nullable BuildDriverKeyTestContext buildDriverKeyTestContext,
+      Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent)
       throws ViewCreationFailedException,
           InvalidConfigurationException,
           InterruptedException,
@@ -257,7 +260,8 @@ public class BuildView {
         eventHandler,
         topLevelConfig,
         viewOptions.maxConfigChangesToShow,
-        viewOptions.allowAnalysisCacheDiscards);
+        viewOptions.allowAnalysisCacheDiscards,
+        additionalConfigurationChangeEvent);
 
     eventBus.post(new MakeEnvironmentEvent(topLevelConfig.getMakeEnvironment()));
     eventBus.post(topLevelConfig.toBuildEvent());

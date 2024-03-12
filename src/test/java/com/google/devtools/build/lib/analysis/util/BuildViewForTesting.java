@@ -96,6 +96,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import net.starlark.java.eval.Mutability;
 
@@ -252,7 +253,8 @@ public class BuildViewForTesting {
         /* buildResultListener= */ null,
         /* executionSetupCallback= */ null,
         /* buildConfigurationsCreatedCallback= */ null,
-        /* buildDriverKeyTestContext= */ null);
+        /* buildDriverKeyTestContext= */ null,
+        /* additionalConfigurationChangeEvent= */ Optional.empty());
   }
 
   /** Sets the configuration. Not thread-safe. */
@@ -263,7 +265,8 @@ public class BuildViewForTesting {
           eventHandler,
           configuration,
           /* maxDifferencesToShow= */ -1, /* allowAnalysisCacheDiscards */
-          true);
+          true,
+          /* additionalConfigurationChangeEvent= */ Optional.empty());
     } catch (InvalidConfigurationException e) {
       throw new UnsupportedOperationException(
           "InvalidConfigurationException was thrown and caught during a test, "

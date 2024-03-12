@@ -606,7 +606,6 @@ java_library(
         ":blaze_directories",
         ":config/build_configuration",
         ":config/build_options",
-        ":config/core_options",
         ":config/invalid_configuration_exception",
         ":configured_target",
         ":constraints/platform_restrictions_result",
@@ -623,6 +622,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/additional_configuration_change_event",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -1763,6 +1763,15 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:auto_value",
+    ],
+)
+
+java_library(
+    name = "config/additional_configuration_change_event",
+    srcs = ["config/AdditionalConfigurationChangeEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:guava",
     ],
 )
 

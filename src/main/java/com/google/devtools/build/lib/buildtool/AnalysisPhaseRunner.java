@@ -254,7 +254,8 @@ public final class AnalysisPhaseRunner {
               /* buildResultListener= */ null,
               /* executionSetupCallback= */ null,
               /* buildConfigurationsCreatedCallback= */ null,
-              /* buildDriverKeyTestContext= */ null);
+              /* buildDriverKeyTestContext= */ null,
+              env.getAdditionalConfigurationChangeEvent());
     } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }

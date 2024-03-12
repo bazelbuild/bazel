@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
+import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -287,7 +288,8 @@ public final class SkyframeBuildView {
       EventHandler eventHandler,
       BuildConfigurationValue configuration,
       int maxDifferencesToShow,
-      boolean allowAnalysisCacheDiscards)
+      boolean allowAnalysisCacheDiscards,
+      Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent)
       throws InvalidConfigurationException {
     if (skyframeAnalysisWasDiscarded) {
       eventHandler.handle(
@@ -299,6 +301,9 @@ public final class SkyframeBuildView {
       skyframeExecutor.handleAnalysisInvalidatingChange();
     } else {
       String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
+      if (diff == null && additionalConfigurationChangeEvent.isPresent()) {
+        diff = additionalConfigurationChangeEvent.get().getChangeDescription();
+      }
       this.configuration = configuration;
       if (diff != null) {
         if (!allowAnalysisCacheDiscards) {

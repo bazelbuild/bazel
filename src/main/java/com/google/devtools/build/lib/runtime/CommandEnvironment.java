@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
+import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
@@ -126,6 +127,8 @@ public class CommandEnvironment {
   private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
   private boolean buildInfoPosted = false;
+  private Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent =
+      Optional.empty();
   @Nullable private WorkspaceInfoFromDiff workspaceInfoFromDiff;
 
   // This AtomicReference is set to:
@@ -945,6 +948,15 @@ public class CommandEnvironment {
   @SuppressWarnings("unused")
   void gotBuildInfo(BuildInfoEvent event) {
     buildInfoPosted = true;
+  }
+
+  @Subscribe
+  public void additionalConfigurationChangeEvent(AdditionalConfigurationChangeEvent event) {
+    additionalConfigurationChangeEvent = Optional.of(event);
+  }
+
+  public Optional<AdditionalConfigurationChangeEvent> getAdditionalConfigurationChangeEvent() {
+    return additionalConfigurationChangeEvent;
   }
 
   /**
