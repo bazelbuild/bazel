@@ -454,7 +454,8 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
   public void androidManifestMergerOrderAlphabeticalByConfiguration_MergeesSortedByPathInBinOrGen()
       throws Exception {
     useConfiguration(
-        "--fat_apk_cpu=k8", "--android_manifest_merger_order=alphabetical_by_configuration");
+        "--android_platforms=//test_android_platforms:x86",
+        "--android_manifest_merger_order=alphabetical_by_configuration");
     scratch.overwriteFile(
         "java/android/BUILD",
         "android_library(",
