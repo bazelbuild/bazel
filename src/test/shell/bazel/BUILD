@@ -275,9 +275,19 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-JAVA_VERSIONS = ("21",)
+JAVA_VERSIONS = [
+    #    ("11", "//src:java_tools_zip", "//src:java_tools_prebuilt_zip"),
+    ("11", "//src:java_tools_java8.zip", "//src:java_tools_prebuilt_java8.zip"),
+    ("17", "//src:java_tools_java8.zip", "//src:java_tools_prebuilt_java8.zip"),
+    #    ("17", "//src:java_tools_zip", "//src:java_tools_prebuilt_zip"),
+    ("21", "//src:java_tools_zip", "//src:java_tools_prebuilt_zip"),
+]
 
-JAVA_VERSIONS_COVERAGE = ("21",)
+JAVA_VERSIONS_COVERAGE = [
+    ("11", "//src:java_tools_java8.zip", "//src:java_tools_prebuilt_java8.zip"),
+    ("17", "//src:java_tools_java8.zip", "//src:java_tools_prebuilt_java8.zip"),
+    ("21", "//src:java_tools_zip", "//src:java_tools_prebuilt_zip"),
+]
 
 [
     sh_test(
@@ -287,8 +297,8 @@ JAVA_VERSIONS_COVERAGE = ("21",)
         srcs = ["bazel_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(rlocationpath //src:java_tools_zip)",
-            "$(rlocationpath //src:java_tools_prebuilt_zip)",
+            "$(rlocationpath %s)" % java_tools_zip,
+            "$(rlocationpath %s)" % java_tools_prebuilt_zip,
             # --java_language_version value
             java_version,
             # --java_runtime_version value
@@ -297,13 +307,13 @@ JAVA_VERSIONS_COVERAGE = ("21",)
         data = [
             ":gen_rules_java_repo_name",
             ":test-deps",
-            "//src:java_tools_prebuilt_zip",
-            "//src:java_tools_zip",
+            java_tools_zip,
+            java_tools_prebuilt_zip,
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
     )
-    for java_version in JAVA_VERSIONS
+    for java_version, java_tools_zip, java_tools_prebuilt_zip in JAVA_VERSIONS
 ]
 
 [
@@ -329,7 +339,7 @@ JAVA_VERSIONS_COVERAGE = ("21",)
         # This test is only run by the java_tools binaries pipeline.
         tags = ["manual"],
     )
-    for java_version in JAVA_VERSIONS
+    for java_version, _, _ in JAVA_VERSIONS
 ]
 
 sh_test(
@@ -540,7 +550,7 @@ sh_test(
             "no_windows",
         ],
     )
-    for java_version in JAVA_VERSIONS_COVERAGE
+    for java_version, _, _ in JAVA_VERSIONS_COVERAGE
 ]
 
 # Test java coverage with the java_toolchain in the java_tools zip built at head.
@@ -551,8 +561,8 @@ sh_test(
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(rlocationpath //src:java_tools_zip)",
-            "$(rlocationpath //src:java_tools_prebuilt_zip)",
+            "$(rlocationpath %s" % java_tools_zip,
+            "$(rlocationpath %s)" % java_tools_prebuilt_zip,
             # WORKSPACE file of the coverage output generator repo to test
             "$(rlocationpath //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace)",
             # --java_runtime_version value
@@ -561,14 +571,14 @@ sh_test(
         data = [
             ":gen_rules_java_repo_name",
             ":test-deps",
-            "//src:java_tools_prebuilt_zip",
-            "//src:java_tools_zip",
+            java_tools_prebuilt_zip,
+            java_tools_zip,
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = ["no_windows"],
     )
-    for java_version in JAVA_VERSIONS_COVERAGE
+    for java_version, java_tools_zip, java_tools_prebuilt_zip in JAVA_VERSIONS_COVERAGE
 ]
 
 sh_test(
