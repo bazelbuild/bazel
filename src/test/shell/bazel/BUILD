@@ -276,10 +276,8 @@ sh_test(
 )
 
 JAVA_VERSIONS = [
-    #    ("11", "//src:java_tools_zip", "//src:java_tools_prebuilt_zip"),
     ("11", "//src:java_tools_java8.zip", "//src:java_tools_prebuilt_java8.zip"),
     ("17", "//src:java_tools_java8.zip", "//src:java_tools_prebuilt_java8.zip"),
-    #    ("17", "//src:java_tools_zip", "//src:java_tools_prebuilt_zip"),
     ("21", "//src:java_tools_zip", "//src:java_tools_prebuilt_zip"),
 ]
 
@@ -561,7 +559,7 @@ sh_test(
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(rlocationpath %s" % java_tools_zip,
+            "$(rlocationpath %s)" % java_tools_zip,
             "$(rlocationpath %s)" % java_tools_prebuilt_zip,
             # WORKSPACE file of the coverage output generator repo to test
             "$(rlocationpath //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace)",
