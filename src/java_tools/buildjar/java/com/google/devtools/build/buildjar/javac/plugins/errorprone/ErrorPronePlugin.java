@@ -25,6 +25,7 @@ import com.google.errorprone.ErrorProneError;
 import com.google.errorprone.ErrorProneOptions;
 import com.google.errorprone.ErrorProneTimings;
 import com.google.errorprone.InvalidCommandLineOptionException;
+import com.google.errorprone.RefactoringCollection;
 import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
 import com.google.errorprone.scanner.ScannerSupplier;
 import com.sun.source.util.TaskEvent;
@@ -65,6 +66,7 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
   }
 
   private ErrorProneAnalyzer errorProneAnalyzer;
+  private ErrorProneAnalyzer.RefactoringTask refactoringTask;
   private ErrorProneOptions epOptions;
   private ErrorProneTimings timings;
   private DeferredCompletionFailureHandler deferredCompletionFailureHandler;
@@ -106,8 +108,12 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
     if (epOptions == null) {
       epOptions = ErrorProneOptions.empty();
     }
+    RefactoringCollection[] refactoringCollection = {null};
     errorProneAnalyzer =
-        ErrorProneAnalyzer.createByScanningForPlugins(scannerSupplier, epOptions, context);
+        ErrorProneAnalyzer.createAnalyzer(scannerSupplier, epOptions, context, refactoringCollection);
+    if (refactoringCollection[0] != null) {
+      refactoringTask = new ErrorProneAnalyzer.RefactoringTask(context, refactoringCollection[0]);
+    }
     timings = ErrorProneTimings.instance(context);
     deferredCompletionFailureHandler = DeferredCompletionFailureHandler.instance(context);
   }
@@ -121,6 +127,9 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
     elapsed.start();
     try {
       errorProneAnalyzer.finished(new TaskEvent(Kind.ANALYZE, env.toplevel, env.enclClass.sym));
+      if (refactoringTask != null) {
+        refactoringTask.finished(new TaskEvent(Kind.GENERATE, env.toplevel, env.enclClass.sym));
+      }
     } catch (ErrorProneError e) {
       e.logFatalError(log, context);
       // let the exception propagate to javac's main, where it will cause the compilation to
