@@ -282,9 +282,9 @@ JAVA_VERSIONS = [
 ]
 
 JAVA_VERSIONS_COVERAGE = [
-    ("11", "//src:java_tools_java8.zip", "//src:java_tools_prebuilt_java8.zip"),
-    ("17", "//src:java_tools_java8.zip", "//src:java_tools_prebuilt_java8.zip"),
-    ("21", "//src:java_tools_zip", "//src:java_tools_prebuilt_zip"),
+    ("11", "//src:java_tools_java8.zip", "//src:java_tools_prebuilt_java8.zip", "coverage_output_generator_repo_java8"),
+    ("17", "//src:java_tools_java8.zip", "//src:java_tools_prebuilt_java8.zip", "coverage_output_generator_repo_java8"),
+    ("21", "//src:java_tools_zip", "//src:java_tools_prebuilt_zip", "coverage_output_generator_repo"),
 ]
 
 [
@@ -548,7 +548,7 @@ sh_test(
             "no_windows",
         ],
     )
-    for java_version, _, _ in JAVA_VERSIONS_COVERAGE
+    for java_version, _, _, _ in JAVA_VERSIONS_COVERAGE
 ]
 
 # Test java coverage with the java_toolchain in the java_tools zip built at head.
@@ -572,11 +572,11 @@ sh_test(
             java_tools_prebuilt_zip,
             java_tools_zip,
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
-            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
+            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:%s" % coverage_output_generator_repo,
         ],
         tags = ["no_windows"],
     )
-    for java_version, java_tools_zip, java_tools_prebuilt_zip in JAVA_VERSIONS_COVERAGE
+    for java_version, java_tools_zip, java_tools_prebuilt_zip, coverage_output_generator_repo in JAVA_VERSIONS_COVERAGE
 ]
 
 sh_test(
