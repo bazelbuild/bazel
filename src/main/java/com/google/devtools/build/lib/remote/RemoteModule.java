@@ -245,7 +245,8 @@ public final class RemoteModule extends BlazeModule {
             remoteCache,
             /* retryScheduler= */ null,
             digestUtil,
-            remoteOutputChecker);
+            remoteOutputChecker,
+            remoteOutputService);
   }
 
   @Override
@@ -266,6 +267,7 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(this.env == null, "env must be null");
     Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
     Preconditions.checkState(remoteOutputChecker == null, "remoteOutputChecker must be null");
+    Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
@@ -393,6 +395,8 @@ public final class RemoteModule extends BlazeModule {
       handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
       return;
     }
+
+    remoteOutputService = new RemoteOutputService(env);
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
       initHttpAndDiskCache(
@@ -572,7 +576,8 @@ public final class RemoteModule extends BlazeModule {
               retryScheduler,
               digestUtil,
               logDir,
-              remoteOutputChecker);
+              remoteOutputChecker,
+              remoteOutputService);
       repositoryRemoteExecutorFactoryDelegate.init(
           new RemoteRepositoryRemoteExecutorFactory(
               remoteCache,
@@ -602,7 +607,13 @@ public final class RemoteModule extends BlazeModule {
       RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
-              executorService, env, remoteCache, retryScheduler, digestUtil, remoteOutputChecker);
+              executorService,
+              env,
+              remoteCache,
+              retryScheduler,
+              digestUtil,
+              remoteOutputChecker,
+              remoteOutputService);
     }
 
     buildEventArtifactUploaderFactoryDelegate.init(
@@ -960,6 +971,7 @@ public final class RemoteModule extends BlazeModule {
 
     if (actionContextProvider.getRemoteCache() != null) {
       Preconditions.checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
+      Preconditions.checkNotNull(remoteOutputService, "remoteOutputService must not be null");
 
       actionInputFetcher =
           new RemoteActionInputFetcher(
@@ -1002,11 +1014,8 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
+  @Nullable
   public OutputService getOutputService() {
-    Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
-    if (actionContextProvider.getRemoteCache() != null) {
-      remoteOutputService = new RemoteOutputService(env);
-    }
     return remoteOutputService;
   }
 
