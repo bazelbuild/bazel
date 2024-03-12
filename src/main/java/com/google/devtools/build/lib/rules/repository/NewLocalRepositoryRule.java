@@ -31,6 +31,8 @@ public class NewLocalRepositoryRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+    // DO NOT MODIFY THIS! It's being deprecated in favor of Starlark counterparts.
+    // See https://github.com/bazelbuild/bazel/issues/18285
     return builder
         /* <!-- #BLAZE_RULE(new_local_repository).ATTRIBUTE(path) -->
         A path on the local filesystem.

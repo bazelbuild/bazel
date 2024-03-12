@@ -436,6 +436,7 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
         'WORKSPACE.bzlmod',
         [
+            'load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")',
             'local_repository(name="foo", path="foo", repo_mapping={',
             '  "@bar":"@baz",',
             '  "@my_aaa":"@aaa",',
@@ -497,6 +498,7 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
         'WORKSPACE',
         [
+            'load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")',
             'local_repository(name="hello", path="hello")',
             'load("@hello//:world.bzl", "message")',
             'print(message)',
@@ -562,7 +564,9 @@ class BazelModuleTest(test_base.TestBase):
         ],
     )
     self.ScratchFile(
-        'WORKSPACE.bzlmod', ['local_repository(name="quux",path="quux")']
+        'WORKSPACE.bzlmod', [
+            'load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")',
+            'local_repository(name="quux",path="quux")']
     )
     self.ScratchFile(
         'BUILD',

@@ -42,6 +42,7 @@ genrule(
 REPO_BZL_FILES = [
     "git",
     "http",
+    "local",
     "utils",
 ]
 
