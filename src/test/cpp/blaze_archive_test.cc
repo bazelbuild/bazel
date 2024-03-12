@@ -23,7 +23,7 @@
 #include "src/main/cpp/bazel_startup_options.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
-#include "third_party/absl/strings/escaping.h"
+#include "absl/strings/escaping.h"
 #include "src/main/cpp/blaze.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file_platform.h"
