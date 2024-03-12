@@ -743,6 +743,48 @@ class ModCommandTest(test_base.TestBase):
           ],
           module_file.read().split('\n'),
       )
+      
+  def testModTidyNoop(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("//:extension.bzl", "ext")',
+            'use_repo(ext, "dep")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="dep")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=["dep"],',
+            '        root_module_direct_dev_deps=[],',
+            '    )',
+            '',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    # Verify that bazel mod tidy doesn't fail or change the file.
+    self.RunBazel(['mod', 'tidy'])
+
+    with open('MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'ext = use_extension("//:extension.bzl", "ext")',
+              'use_repo(ext, "dep")',
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
 
   def testModTidyFailsOnExtensionFailure(self):
     self.ScratchFile(
