@@ -124,7 +124,7 @@ public class WorkerModule extends BlazeModule {
     VirtualCGroupFactory cgroupFactory = new VirtualCGroupFactory(
         "worker_",
         VirtualCGroup.getInstance(),
-        options.sandboxHardening ? ImmutableMap.copyOf(sandboxOptions.limits) : ImmutableMap.of(),
+        options.sandboxHardening ? sandboxOptions.getLimits() : ImmutableMap.of(),
         options.useCgroupsOnLinux);
 
     WorkerFactory newWorkerFactory =
