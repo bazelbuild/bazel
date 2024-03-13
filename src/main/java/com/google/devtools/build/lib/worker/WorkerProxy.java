@@ -17,15 +17,13 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
-
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
@@ -50,9 +48,8 @@ class WorkerProxy extends Worker {
     this.workerMultiplexer = workerMultiplexer;
   }
 
-  @Nullable
   @Override
-  public VirtualCGroup getCgroup() {
+  public Cgroup getCgroup() {
     // WorkerProxy does not have a cgroup at the momemnt. Consider adding it to the
     // multiplexer and returning it here?
     return null;

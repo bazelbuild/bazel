@@ -16,8 +16,7 @@ package com.google.devtools.build.lib.metrics;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
-import java.io.IOException;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import java.util.Map;
 
 /** Collects resource usage of processes from their cgroups {@code CgroupsInfo}. */
@@ -36,20 +35,15 @@ public class CgroupsInfoCollector {
     return instance;
   }
 
-  public ResourceSnapshot collectResourceUsage(Map<Long, VirtualCGroup> pidToCgroups, Clock clock) {
+  public ResourceSnapshot collectResourceUsage(Map<Long, Cgroup> pidToCgroups, Clock clock) {
     ImmutableMap.Builder<Long, Integer> pidToMemoryInKb = ImmutableMap.builder();
 
-    for (Map.Entry<Long, VirtualCGroup> entry : pidToCgroups.entrySet()) {
-      VirtualCGroup cgroup = entry.getValue();
-      if (cgroup.memory() != null && cgroup.memory().exists()) {
-        int usageKb;
-        try {
-          usageKb = Long.valueOf(cgroup.memory().getUsageInBytes() / 1024).intValue();
-        } catch (IOException e) {
-          // If we fail to read the value, just assume 0.
-          usageKb = 0;
-        }
-        pidToMemoryInKb.put(entry.getKey(), usageKb);
+    for (Map.Entry<Long, Cgroup> entry : pidToCgroups.entrySet()) {
+      Cgroup cgroup = entry.getValue();
+      // TODO(b/292634407): Consider how to handle the unlikely case where only some cgroups are
+      //  invalid.
+      if (cgroup.exists()) {
+        pidToMemoryInKb.put(entry.getKey(), entry.getValue().getMemoryUsageInKb());
       }
     }
     return ResourceSnapshot.create(pidToMemoryInKb.buildOrThrow(), clock.now());

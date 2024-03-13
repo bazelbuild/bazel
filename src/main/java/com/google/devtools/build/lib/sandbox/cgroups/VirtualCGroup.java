@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.CharSink;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.Controller;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v1.LegacyCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v1.LegacyMemory;
@@ -31,7 +32,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * subsystem within the virtual cgroup and that could in theory belong to different real cgroups.
  */
 @AutoValue
-public abstract class VirtualCGroup {
+public abstract class VirtualCGroup implements Cgroup {
     private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
     private static final File PROC_SELF_MOUNTS_PATH = new File("/proc/self/mounts");
     private static final File PROC_SELF_CGROUP_PATH = new File("/proc/self/cgroup");
@@ -198,5 +199,19 @@ public abstract class VirtualCGroup {
             CharSink sink = Files.asCharSink(procs, StandardCharsets.UTF_8);
             sink.write(pidStr);
         }
+    }
+
+    @Override
+    public int getMemoryUsageInKb() {
+        try {
+            return memory() == null ? 0 : (int) (memory().getUsageInBytes() / 1024);
+        } catch (IOException e) {
+            return 0;
+        }
+    }
+
+    @Override
+    public boolean exists() {
+        return memory() != null && memory().exists();
     }
 }

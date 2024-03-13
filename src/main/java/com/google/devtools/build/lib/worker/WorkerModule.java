@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
+import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
@@ -109,6 +110,7 @@ public class WorkerModule extends BlazeModule {
               sandboxOptions.sandboxDebug,
               ImmutableList.copyOf(sandboxOptions.sandboxTmpfsPath),
               ImmutableList.copyOf(sandboxOptions.sandboxWritablePath),
+              sandboxOptions.memoryLimitMb,
               sandboxOptions.getInaccessiblePaths(env.getRuntime().getFileSystem()),
               ImmutableList.copyOf(sandboxOptions.sandboxAdditionalMounts));
     } else {
@@ -121,11 +123,14 @@ public class WorkerModule extends BlazeModule {
         removeStaleTrash(workerDir, trashBase);
       }
     }
-    VirtualCGroupFactory cgroupFactory = new VirtualCGroupFactory(
-        "worker_",
-        VirtualCGroup.getInstance(),
-        options.sandboxHardening ? sandboxOptions.getLimits() : ImmutableMap.of(),
-        options.useCgroupsOnLinux);
+    VirtualCGroupFactory cgroupFactory =
+      sandboxOptions == null || sandboxOptions.useOldCgroupImplementation ?
+        null :
+        new VirtualCGroupFactory(
+          "worker_",
+          VirtualCGroup.getInstance(),
+          options.sandboxHardening ? sandboxOptions.getLimits() : ImmutableMap.of(),
+          options.useCgroupsOnLinux);
 
     WorkerFactory newWorkerFactory =
         new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter, cgroupFactory);
@@ -191,7 +196,10 @@ public class WorkerModule extends BlazeModule {
     }
 
     // Override the flag value if we can't actually use cgroups so that we at least fallback to ps.
-    boolean useCgroupsOnLinux = options.useCgroupsOnLinux && VirtualCGroup.getInstance().memory() != null;
+    boolean useCgroupsOnLinux = options.useCgroupsOnLinux &&
+        (sandboxOptions == null || sandboxOptions.useOldCgroupImplementation ?
+            CgroupsInfo.isSupported() :
+            VirtualCGroup.getInstance().memory() != null);
     WorkerProcessMetricsCollector.instance().setUseCgroupsOnLinux(useCgroupsOnLinux);
 
     // Start collecting after a pool is defined

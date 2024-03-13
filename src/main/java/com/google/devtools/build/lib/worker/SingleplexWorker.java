@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.sandbox.Cgroup;
+import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
@@ -75,24 +77,33 @@ class SingleplexWorker extends Worker {
   private final VirtualCGroupFactory cgroupFactory;
 
   SingleplexWorker(
-          WorkerKey workerKey, int workerId, final Path workDir, Path logFile, WorkerOptions options, VirtualCGroupFactory cgroupFactory) {
+      WorkerKey workerKey, int workerId, final Path workDir, Path logFile, WorkerOptions options, VirtualCGroupFactory cgroupFactory) {
     super(workerKey, workerId, logFile, new WorkerProcessStatus());
     this.workDir = workDir;
     this.options = options;
     this.cgroupFactory = cgroupFactory;
   }
 
-  @Nullable
   @Override
-  public VirtualCGroup getCgroup() {
-    return cgroupFactory.get(workerId);
+  public Cgroup getCgroup() {
+    return cgroupFactory != null ? cgroupFactory.get(workerId) : cgroup;
   }
 
   protected Subprocess createProcess() throws IOException, InterruptedException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
     Subprocess process = createProcessBuilder(args).start();
-    VirtualCGroup cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
-    cgroup.addProcess(process.getProcessId());
+    if (cgroupFactory != null) {
+      VirtualCGroup cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
+      cgroup.addProcess(process.getProcessId());
+    } else if (options.useCgroupsOnLinux && CgroupsInfo.isSupported()) {
+      cgroup =
+          CgroupsInfo.getBlazeSpawnsCgroup()
+              .createIndividualSpawnCgroup(
+                  /* dirName= */ "worker_" + workerId, /* memoryLimitMb= */ 0);
+      if (cgroup.exists()) {
+        cgroup.addProcess(process.getProcessId());
+      }
+    }
     return process;
   }
 
@@ -198,7 +209,8 @@ class SingleplexWorker extends Worker {
       wasDestroyed = true;
       process.destroyAndWait();
     }
-    cgroupFactory.remove(workerId);
+    if (cgroupFactory != null)
+      cgroupFactory.remove(workerId);
     status.setKilled();
   }
 

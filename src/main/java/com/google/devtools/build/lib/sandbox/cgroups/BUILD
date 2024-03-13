@@ -19,6 +19,7 @@ java_library(
         "VirtualCGroupFactory.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller",

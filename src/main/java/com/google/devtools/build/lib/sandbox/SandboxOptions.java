@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Converters.TriStateConverter;
 import com.google.devtools.common.options.Option;
@@ -391,6 +392,17 @@ public class SandboxOptions extends OptionsBase {
         .putAll(limits)
         .buildKeepingLast();
   }
+
+  @Option(
+    name = "incompatible_use_old_cgroup_implementation",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    converter = BooleanConverter.class,
+    help =
+        "If true, use the old implementation for cgroups. The old implementation only supports"
+            + " the memory controller and ignores the value of --experimental_sandbox_limits.")
+  public boolean useOldCgroupImplementation;
 
   @Option(
       name = "experimental_sandbox_enforce_resources_regexp",
