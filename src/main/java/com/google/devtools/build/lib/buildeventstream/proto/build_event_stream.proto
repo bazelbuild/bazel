@@ -1032,6 +1032,10 @@ message BuildMetrics {
     // elapsed time from the first action execution (excluding workspace status
     // actions) to the last.
     int64 execution_phase_time_in_ms = 4;
+
+    // The elapsed wall time in milliseconds until the first action execution
+    // started (excluding workspace status actions).
+    int64 actions_execution_start_in_ms = 5;
   }
   TimingMetrics timing_metrics = 5;
 
