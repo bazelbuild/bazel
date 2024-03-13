@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.FunctionHermeticity;
@@ -78,10 +79,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
- * A helper class to find dirty values by accessing the filesystem directly (contrast with
- * {@link DiffAwareness}).
+ * A helper class to find dirty values by accessing the filesystem directly (contrast with {@link
+ * DiffAwareness}).
  */
 public class FilesystemValueChecker {
+  public interface XattrProviderOverrider {
+    XattrProvider getXattrProvider(SyscallCache syscallCache);
+
+    XattrProviderOverrider IDENTICAL = syscallCache -> syscallCache;
+  }
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -90,14 +96,17 @@ public class FilesystemValueChecker {
 
   @Nullable private final TimestampGranularityMonitor tsgm;
   private final SyscallCache syscallCache;
+  private final XattrProviderOverrider xattrProviderOverrider;
   private final int numThreads;
 
   public FilesystemValueChecker(
       @Nullable TimestampGranularityMonitor tsgm,
       SyscallCache syscallCache,
+      XattrProviderOverrider xattrProviderOverrider,
       int numThreads) {
     this.tsgm = tsgm;
     this.syscallCache = syscallCache;
+    this.xattrProviderOverrider = xattrProviderOverrider;
     this.numThreads = numThreads;
   }
   /**
@@ -377,7 +386,7 @@ public class FilesystemValueChecker {
         try {
           FileArtifactValue newData =
               ActionOutputMetadataStore.fileArtifactValueFromArtifact(
-                  artifact, stat, syscallCache, tsgm);
+                  artifact, stat, xattrProviderOverrider.getXattrProvider(syscallCache), tsgm);
           if (newData.couldBeModifiedSince(lastKnownData)) {
             modifiedOutputsReceiver.reportModifiedOutputFile(
                 stat != null ? stat.getLastChangeTime() : -1, artifact);
@@ -488,7 +497,8 @@ public class FilesystemValueChecker {
     }
     try {
       FileArtifactValue fileMetadata =
-          ActionOutputMetadataStore.fileArtifactValueFromArtifact(file, null, syscallCache, tsgm);
+          ActionOutputMetadataStore.fileArtifactValueFromArtifact(
+              file, null, xattrProviderOverrider.getXattrProvider(syscallCache), tsgm);
       boolean trustRemoteValue =
           fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()
