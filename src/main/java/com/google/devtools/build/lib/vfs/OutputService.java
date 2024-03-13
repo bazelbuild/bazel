@@ -241,4 +241,8 @@ public interface OutputService {
   default BulkDeleter bulkDeleter() {
     return null;
   }
+
+  default XattrProvider getXattrProvider(XattrProvider delegate) {
+    return delegate;
+  }
 }
