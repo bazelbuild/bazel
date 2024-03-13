@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.metrics.CgroupsInfoCollector;
 import com.google.devtools.build.lib.metrics.PsInfoCollector;
 import com.google.devtools.build.lib.metrics.ResourceSnapshot;
+import com.google.devtools.build.lib.sandbox.Cgroup;
+import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
 import com.google.devtools.build.lib.util.OS;
 import java.time.Instant;
@@ -55,7 +57,7 @@ public class WorkerProcessMetricsCollector {
   private final Map<Long, WorkerProcessMetrics> pidToWorkerProcessMetrics =
       new ConcurrentHashMap<>();
 
-  private final Map<Long, VirtualCGroup> pidToCgroups = new ConcurrentHashMap<>();
+  private final Map<Long, Cgroup> pidToCgroups = new ConcurrentHashMap<>();
 
   private boolean useCgroupsOnLinux = false;
 
@@ -249,7 +251,7 @@ public class WorkerProcessMetricsCollector {
       boolean isMultiplex,
       boolean isSandboxed,
       int workerKeyHash,
-      @Nullable VirtualCGroup cgroup) {
+      @Nullable Cgroup cgroup) {
     WorkerProcessMetrics workerMetric =
         pidToWorkerProcessMetrics.computeIfAbsent(
             processId,

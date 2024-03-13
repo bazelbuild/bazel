@@ -21,6 +21,8 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.sandbox.Cgroup;
+import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.Controller;
 import org.junit.Test;
@@ -33,16 +35,35 @@ import java.io.IOException;
 public class CgroupsInfoCollectorTest {
 
   @Test
+  public void testCollectResourceUsage_returnsValidCgroupInfoMemoryUsage() {
+    Clock clock = BlazeClock.instance();
+    CgroupsInfo cgroupsInfo1 = mock(CgroupsInfo.class);
+    when(cgroupsInfo1.getMemoryUsageInKb()).thenReturn(1000);
+    when(cgroupsInfo1.exists()).thenReturn(true);
+    CgroupsInfo cgroupsInfo2 = mock(CgroupsInfo.class);
+    when(cgroupsInfo2.exists()).thenReturn(false);
+    when(cgroupsInfo2.getMemoryUsageInKb()).thenReturn(2000);
+    CgroupsInfo cgroupsInfo3 = mock(CgroupsInfo.class);
+    when(cgroupsInfo3.exists()).thenReturn(true);
+    when(cgroupsInfo3.getMemoryUsageInKb()).thenReturn(3000);
+
+    ResourceSnapshot snapshot =
+        CgroupsInfoCollector.instance()
+            .collectResourceUsage(
+                ImmutableMap.of(1L, cgroupsInfo1, 2L, cgroupsInfo2, 3L, cgroupsInfo3), clock);
+    assertThat(snapshot.getPidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);
+  }
+
+
+  @Test
   public void testCollectResourceUsage_returnsValidCgroupMemoryUsage() throws IOException {
     Clock clock = BlazeClock.instance();
-    ImmutableMap.Builder<Long, VirtualCGroup> pidToCgroups = ImmutableMap.builder();
-    for (long i = 1; i < 4; i++) {
-      Controller.Memory m = mock(Controller.Memory.class);
-      when(m.getUsageInBytes()).thenReturn(i * 1000 * 1024);
-      when(m.exists()).thenReturn(i == 2 ? false : true);
+    ImmutableMap.Builder<Long, Cgroup> pidToCgroups = ImmutableMap.builder();
+    for (int i = 1; i < 4; i++) {
       VirtualCGroup cg = mock(VirtualCGroup.class);
-      when(cg.memory()).thenReturn(m);
-      pidToCgroups.put(i, cg);
+      when(cg.getMemoryUsageInKb()).thenReturn(i * 1000);
+      when(cg.exists()).thenReturn(i != 2);
+      pidToCgroups.put((long) i, cg);
     }
 
     ResourceSnapshot snapshot =

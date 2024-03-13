@@ -49,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_java_proto",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:network_metrics_collector",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
@@ -97,6 +98,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups",
         "//third_party:auto_value",
         "//third_party:flogger",

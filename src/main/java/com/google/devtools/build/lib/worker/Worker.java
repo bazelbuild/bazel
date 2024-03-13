@@ -16,9 +16,10 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.sandbox.Cgroup;
+import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /**
  * An abstract superclass for persistent workers. Workers execute actions in long-running processes
@@ -52,6 +54,8 @@ public abstract class Worker {
 
   protected final WorkerProcessStatus status;
 
+  @Nullable protected CgroupsInfo cgroup = null;
+
   /**
    * Returns a unique id for this worker. This is used to distinguish different worker processes in
    * logs and messages.
@@ -74,7 +78,7 @@ public abstract class Worker {
     return status;
   }
 
-  abstract public VirtualCGroup getCgroup();
+  abstract public Cgroup getCgroup();
 
   HashCode getWorkerFilesCombinedHash() {
     return workerKey.getWorkerFilesCombinedHash();

@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestThread;
-import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroupFactory;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -68,7 +67,7 @@ public class WorkerPoolTest {
   private static class TestWorker extends SingleplexWorker {
     TestWorker(
         WorkerKey workerKey, int workerId, Path workDir, Path logFile, WorkerOptions options) {
-      super(workerKey, workerId, workDir, logFile, options, VirtualCGroupFactory.NOOP);
+      super(workerKey, workerId, workDir, logFile, options, null);
     }
   }
 
