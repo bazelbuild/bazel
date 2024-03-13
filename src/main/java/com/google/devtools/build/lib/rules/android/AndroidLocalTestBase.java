@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
 
 import com.google.common.collect.ImmutableList;
@@ -162,9 +163,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         Substitution.of("%android_merged_resources%", "jar:file:" + resourcesLocation + "!/res"));
     substitutions.add(
         Substitution.of("%android_merged_assets%", "jar:file:" + resourcesLocation + "!/assets"));
-    substitutions.add(
-        Substitution.of(
-            "%android_custom_package%", resourceApk.getValidatedResources().getJavaPackage()));
+
+    String customPackage = resourceApk.getValidatedResources().getJavaPackage();
+    substitutions.add(Substitution.of("%android_custom_package%", nullToEmpty(customPackage)));
 
     substitutions.add(
         Substitution.of(
