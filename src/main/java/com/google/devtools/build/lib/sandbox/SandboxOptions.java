@@ -362,6 +362,17 @@ public class SandboxOptions extends OptionsBase {
   public boolean sandboxHermeticTmp;
 
   @Option(
+      name = "experimental_sandbox_memory_limit_mb",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RamResourceConverter.class,
+      help =
+          "If > 0, each Linux sandbox will be limited to the given amount of memory (in MB)."
+              + " Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.")
+  public int memoryLimitMb;
+
+  @Option(
       name = "experimental_sandbox_limits",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -370,9 +381,16 @@ public class SandboxOptions extends OptionsBase {
       allowMultiple = true,
       help =
           "If > 0, each Linux sandbox will be limited to the given amount"
-              + " for the specified resource"
+              + " for the specified resource. Overrides --experimental_sandbox_memory_limit_mb."
               + " Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.")
   public List<Map.Entry<String, Double>> limits;
+
+  public ImmutableMap<String, Double> getLimits() {
+    return ImmutableMap.<String, Double> builder()
+        .put("memory", (double) memoryLimitMb)
+        .putAll(limits)
+        .buildKeepingLast();
+  }
 
   @Option(
       name = "experimental_sandbox_enforce_resources_regexp",
