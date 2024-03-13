@@ -181,7 +181,9 @@ public final class SpawnLogModule extends BlazeModule {
 
     try {
       spawnLogContext.close();
-      event.getResult().getBuildToolLogCollection().addLocalFile("execution.log", outputPath);
+      if (spawnLogContext.shouldPublish()) {
+        event.getResult().getBuildToolLogCollection().addLocalFile("execution.log", outputPath);
+      }
     } catch (IOException e) {
       abruptExit =
           new AbruptExitException(
