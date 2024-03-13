@@ -25,3 +25,26 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "allowlist",
+    srcs = ["allowlist.cc"],
+    hdrs = ["allowlist.h"],
+    deps = [
+        ":duplicate_class_collector",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:flat_hash_set",
+    ],
+)
+
+cc_test(
+    name = "allowlist_test",
+    srcs = ["allowlist_test.cc"],
+    deps = [
+        ":allowlist",
+        ":duplicate_class_collector",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
