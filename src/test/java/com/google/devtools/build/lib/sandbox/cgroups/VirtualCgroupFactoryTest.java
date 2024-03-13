@@ -27,7 +27,7 @@ public class VirtualCgroupFactoryTest {
             Hierarchy.create(1, List.of("cpu"), scratch.path("/cpu").getPathFile().toPath()),
             Hierarchy.create(2, List.of("memory"), scratch.path("/mem").getPathFile().toPath()));
 
-        root = VirtualCGroup.create(mounts, hierarchies);
+        root = VirtualCGroup.createRoot(mounts, hierarchies);
         assertThat(root.cpu()).isNotNull();
         assertThat(root.memory()).isNotNull();
     }

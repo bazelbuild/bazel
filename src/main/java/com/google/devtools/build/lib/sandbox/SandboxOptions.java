@@ -375,14 +375,14 @@ public class SandboxOptions extends OptionsBase {
   public List<Map.Entry<String, Double>> limits;
 
   @Option(
-      name = "experimental_sandbox_enforce_resources",
+      name = "experimental_sandbox_enforce_resources_regexp",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       converter = RegexPatternConverter.class,
       help =
           "If true, actions whose mnemonic matches the input regex"
-              + " will have their resources request enforced as limits, ovverriding"
+              + " will have their resources request enforced as limits, overriding"
               + " the value of --experimental_sandbox_limits, if the resource type"
               + " supports it. For example a test that declares"
               + " cpu:3 and resources:memory:10, will run with at most 3 cpus and 10"

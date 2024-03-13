@@ -25,6 +25,10 @@ public abstract class Mount {
 
     public abstract Path path();
     public abstract String type();
+    /**
+     * Mount point options for this mount. In the context of this cgroup, this will
+     * contain the controllers that are mounted at this mount point.
+     */
     public abstract List<String> opts();
     public boolean isV2() {
         return type().equals("cgroup2");
@@ -34,6 +38,11 @@ public abstract class Mount {
         return new AutoValue_Mount(path, type, opts);
     }
 
+    /**
+     * Parses the cgroup mounts from the provided file and returns a list of mounts.
+     * @param procMounts: a file containing the cgroup mounts, typically {@code /proc/mounts}.
+     * @return The list of cgroup mounts in the file.
+     */
     static List<Mount> parse(File procMounts) throws IOException {
         ImmutableList.Builder<Mount> mounts = ImmutableList.builder();
 

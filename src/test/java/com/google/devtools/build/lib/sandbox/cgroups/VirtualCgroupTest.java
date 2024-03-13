@@ -52,7 +52,7 @@ public class VirtualCgroupTest {
     updateV1("dev/cgroup/cpuset");
     updateV1("dev/cgroup/cpu/user.slice");
     updateV1("dev/cgroup/blkio/user.slice");
-    return VirtualCGroup.create(mounts, hierarchies);
+    return VirtualCGroup.createRoot(mounts, hierarchies);
   }
 
   private void updateV2(String path, String controllers) throws IOException {
@@ -72,7 +72,7 @@ public class VirtualCgroupTest {
         "0::/user.slice").getPathFile();
     updateV2("dev/cgroup/unified", "memory cpu");
     updateV2("dev/cgroup/unified/user.slice", "memory cpu");
-    return VirtualCGroup.create(mounts, hierarchies);
+    return VirtualCGroup.createRoot(mounts, hierarchies);
   }
 
   private VirtualCGroup createHybrid() throws IOException {
@@ -96,7 +96,7 @@ public class VirtualCgroupTest {
 
     updateV2("dev/cgroup/unified", "memory pids");
     updateV2("dev/cgroup/unified/user.slice", "memory pids");
-    return VirtualCGroup.create(mounts, hierarchies);
+    return VirtualCGroup.createRoot(mounts, hierarchies);
   }
 
   @Test
@@ -141,7 +141,7 @@ public class VirtualCgroupTest {
   @Test
   public void testCreateChild() throws IOException {
     VirtualCGroup vcg = createHybrid();
-    VirtualCGroup child = vcg.child("foo");
+    VirtualCGroup child = vcg.createChild("foo");
     assertThat(child.cpu()).isNotNull();
     assertThat(child.memory()).isNotNull();
     assertThat(child.memory().getPath())
@@ -155,7 +155,7 @@ public class VirtualCgroupTest {
 
   @Test
   public void testNullCgroupCreatesNullChild() throws IOException {
-    VirtualCGroup child = VirtualCGroup.NULL.child("foo");
+    VirtualCGroup child = VirtualCGroup.NULL.createChild("foo");
     assertThat(child.cpu()).isNull();
     assertThat(child.cpu()).isNull();
   }
@@ -185,7 +185,7 @@ public class VirtualCgroupTest {
     File mounts = scratch.file("proc/self/mounts").getPathFile();
     File hierarchies = scratch.file("proc/self/cgroup", "0::/user.slice").getPathFile();
 
-    VirtualCGroup vcg = VirtualCGroup.create(mounts, hierarchies);
+    VirtualCGroup vcg = VirtualCGroup.createRoot(mounts, hierarchies);
     assertThat(vcg.cpu()).isNull();
     assertThat(vcg.memory()).isNull();
   }
@@ -197,7 +197,7 @@ public class VirtualCgroupTest {
         String.format("cgroup %s/dev/cgroup/unified cgroup2 ro 0 0", scratch.path(""))).getPathFile();
     File hierarchies = scratch.file("proc/self/cgroup").getPathFile();
 
-    VirtualCGroup vcg = VirtualCGroup.create(mounts, hierarchies);
+    VirtualCGroup vcg = VirtualCGroup.createRoot(mounts, hierarchies);
     assertThat(vcg.cpu()).isNull();
     assertThat(vcg.memory()).isNull();
   }
@@ -215,7 +215,7 @@ public class VirtualCgroupTest {
     scratch.file("dev/cgroup/memory/user.slice/cgroup.procs");
     scratch.file("dev/cgroup/cpuset/user.slice/cgroup.procs");
 
-    VirtualCGroup vcg = VirtualCGroup.create(mounts, hierarchies);
+    VirtualCGroup vcg = VirtualCGroup.createRoot(mounts, hierarchies);
     assertThat(vcg.cpu()).isNull();
     assertThat(vcg.memory()).isNotNull();
   }
@@ -233,7 +233,7 @@ public class VirtualCgroupTest {
     scratch.file("dev/cgroup/cpu/user.slice/cgroup.procs");
     scratch.file("dev/cgroup/cpuset/user.slice/cgroup.procs");
 
-    VirtualCGroup vcg = VirtualCGroup.create(mounts, hierarchies);
+    VirtualCGroup vcg = VirtualCGroup.createRoot(mounts, hierarchies);
     assertThat(vcg.cpu()).isNotNull();
     assertThat(vcg.memory()).isNull();
   }

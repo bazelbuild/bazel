@@ -3,13 +3,9 @@ package com.google.devtools.build.lib.sandbox.cgroups;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.CharSink;
-import com.google.common.io.FileWriteMode;
 import com.google.common.io.Files;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.Controller;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v1.LegacyCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v1.LegacyMemory;
@@ -18,9 +14,7 @@ import com.google.devtools.build.lib.sandbox.cgroups.controller.v2.UnifiedMemory
 
 import javax.annotation.Nullable;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -58,7 +52,7 @@ public abstract class VirtualCGroup {
             synchronized (VirtualCGroup.class) {
                 if (instance == null) {
                     try {
-                        instance = create().child("bazel_" + ProcessHandle.current().pid() + ".slice");
+                        instance = createRoot().createChild("bazel_" + ProcessHandle.current().pid() + ".slice");
                     } catch (IOException e) {
                         logger.atInfo().withCause(e).log("Failed to create root cgroup");
                         instance = NULL;
@@ -81,18 +75,18 @@ public abstract class VirtualCGroup {
         }
     }
 
-    static public VirtualCGroup NULL = new AutoValue_VirtualCGroup(null, null, ImmutableSet.of());
+    public static VirtualCGroup NULL = new AutoValue_VirtualCGroup(null, null, ImmutableSet.of());
 
-    public static VirtualCGroup create() throws IOException {
-        return create(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH);
+    static VirtualCGroup createRoot() throws IOException {
+        return createRoot(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH);
     }
 
-    public static VirtualCGroup create(File procMounts, File procCgroup) throws IOException {
-        return create(Mount.parse(procMounts), Hierarchy.parse(procCgroup));
+    static VirtualCGroup createRoot(File procMounts, File procCgroup) throws IOException {
+        return createRoot(Mount.parse(procMounts), Hierarchy.parse(procCgroup));
     }
 
-    public static VirtualCGroup create(List<Mount> mounts, List<Hierarchy> hierarchies) throws IOException {
-        return create(
+    static VirtualCGroup createRoot(List<Mount> mounts, List<Hierarchy> hierarchies) throws IOException {
+        return createRoot(
             mounts,
             hierarchies.stream()
                 .flatMap(h -> h.controllers().stream().map(c -> Map.entry(c, h)))
@@ -104,7 +98,7 @@ public abstract class VirtualCGroup {
                 .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
-    private static VirtualCGroup create(List<Mount> mounts, Map<String, Hierarchy> hierarchies) throws IOException {
+    private static VirtualCGroup createRoot(List<Mount> mounts, Map<String, Hierarchy> hierarchies) throws IOException {
         Controller.Memory memory = null;
         Controller.Cpu cpu = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
@@ -180,7 +174,7 @@ public abstract class VirtualCGroup {
         this.paths().stream().map(Path::toFile).filter(File::exists).forEach(File::delete);
     }
 
-    public VirtualCGroup child(String name) throws IOException {
+    public VirtualCGroup createChild(String name) throws IOException {
         Controller.Cpu cpu = null;
         Controller.Memory memory = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
