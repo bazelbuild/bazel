@@ -494,7 +494,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         remoteOptions.remotePrintExecutionMessages.shouldPrintMessages(success)
             && !message.isEmpty();
     if (printMessage) {
-      outErr.printErr(message + "\n");
+      outErr.printErr("Remote server execution message: " + message + "\n");
     }
   }
 
@@ -517,7 +517,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       if (serverLogs.logCount > 0 && verboseFailures) {
         report(
             Event.info(
-                "Server logs of failing action:\n   "
+                "Remote server log of failing action:\n   "
                     + (serverLogs.logCount > 1 ? serverLogs.directory : serverLogs.lastLogPath)));
       }
     } catch (IOException e) {
