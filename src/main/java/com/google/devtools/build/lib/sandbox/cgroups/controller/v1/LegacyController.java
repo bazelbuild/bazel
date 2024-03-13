@@ -6,6 +6,11 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 abstract class LegacyController implements Controller {
+    @Override
+    public boolean isLegacy() {
+        return true;
+    }
+
     protected Path getChild(String name) throws IOException {
         Path path = getPath().resolve(name);
         path.toFile().mkdirs();
