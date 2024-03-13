@@ -265,6 +265,14 @@ public class ActionOutputDirectoryHelperTest {
       }
 
       @Override
+      public boolean createWritableDirectory(PathFragment path) throws IOException {
+        if (path.equals(failingPath)) {
+          throw injectedException;
+        }
+        return super.createWritableDirectory(path);
+      }
+
+      @Override
       public void createDirectoryAndParents(PathFragment path) throws IOException {
         if (path.equals(failingPath)) {
           throw injectedException;
