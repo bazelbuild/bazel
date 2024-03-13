@@ -66,28 +66,3 @@ def transition_java_language_8_archive(name, archive_zip, visibility):
         archive_zip = archive_zip,
         visibility = visibility,
     )
-
-def _transition_java_language_8_files_impl(ctx):
-    return [
-        DefaultInfo(
-            files = depset(ctx.files.files),
-        ),
-    ]
-
-_transitioned_java_8_files = rule(
-    implementation = _transition_java_language_8_files_impl,
-    attrs = {
-        "files": attr.label_list(
-            allow_files = True,
-            cfg = _java_language_version_8_transition,
-            mandatory = True,
-        ),
-    },
-)
-
-def transition_java_language_8_filegroup(name, files, visibility):
-    _transitioned_java_8_files(
-        name = name,
-        files = files,
-        visibility = visibility,
-    )

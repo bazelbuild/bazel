@@ -1,5 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
-load("//src:build_defs.bzl", "transition_java_language_8_filegroup")
+load("//tools:build_defs.bzl", "transition_java_language_8_filegroup")
 
 package(
     default_visibility = [
