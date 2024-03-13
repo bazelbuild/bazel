@@ -136,15 +136,6 @@ public class FdoHelper {
       protoProfileArtifact = fdoInputs.getSecond();
     }
 
-    if (ruleContext.hasErrors()) {
-      return null;
-    }
-
-    if (fdoInputs != null) {
-      fdoInputFile = fdoInputs.getFirst();
-      protoProfileArtifact = fdoInputs.getSecond();
-    }
-
     FdoContext.BranchFdoProfile branchFdoProfile = null;
     if (fdoInputFile != null) {
       BranchFdoMode branchFdoMode;
