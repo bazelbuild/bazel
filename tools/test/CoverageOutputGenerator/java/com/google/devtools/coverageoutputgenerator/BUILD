@@ -228,6 +228,10 @@ filegroup(
 
 transition_java_language_8_filegroup(
     name = "coverage_output_generator_repo_java8",
-    files = [":coverage_output_generator_repo"],
+    files = [
+        ":coverage/BUILD",
+        ":coverage/WORKSPACE",
+        ":coverage/all_lcov_merger_tools_deploy.jar",
+    ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )

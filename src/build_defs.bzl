@@ -68,7 +68,11 @@ def transition_java_language_8_archive(name, archive_zip, visibility):
     )
 
 def _transition_java_language_8_files_impl(ctx):
-    return ctx.attr.files[0][DefaultInfo]
+    return [
+        DefaultInfo(
+            files = depset(ctx.files.files),
+        ),
+    ]
 
 _transitioned_java_8_files = rule(
     implementation = _transition_java_language_8_files_impl,
