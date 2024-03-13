@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -228,20 +227,6 @@ public final class JavaCompileActionBuilder {
     // TODO(b/123076347): outputDepsProto should never be null if SJD is enabled
     if (strictJavaDeps == StrictDepsMode.OFF || outputs.depsProto() == null) {
       classpathMode = JavaClasspathMode.OFF;
-    }
-
-    if (outputs.depsProto() != null) {
-      JavaConfiguration javaConfiguration =
-          ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
-      if (javaConfiguration.inmemoryJdepsFiles()) {
-        executionInfo =
-            ImmutableMap.<String, String>builderWithExpectedSize(this.executionInfo.size() + 1)
-                .putAll(this.executionInfo)
-                .put(
-                    ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                    outputs.depsProto().getExecPathString())
-                .buildOrThrow();
-      }
     }
 
     NestedSet<Artifact> tools = toolsBuilder.build();
