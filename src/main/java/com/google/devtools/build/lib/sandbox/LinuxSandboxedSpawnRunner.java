@@ -333,24 +333,22 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       commandLineBuilder.setSandboxDebugPath(sandboxDebugPath.getPathString());
     }
 
-    if (!spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_SUPPORTS_CGROUPS)) {
-      if (cgroupFactory != null) {
-        ImmutableMap<String, Double> spawnResourceLimits = ImmutableMap.of();
-        if (sandboxOptions.enforceResources.regexPattern().matcher(spawn.getMnemonic()).matches()) {
-          spawnResourceLimits = spawn.getLocalResources().getResources();
-        }
-        VirtualCGroup cgroup = cgroupFactory.create(context.getId(), spawnResourceLimits);
-        commandLineBuilder.setCgroupsDirs(cgroup.paths());
-      } else if (sandboxOptions.memoryLimitMb > 0) {
-        // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
-        // unique per spawn run by this spawn runner.
-        CgroupsInfo sandboxCgroup =
-            CgroupsInfo.getBlazeSpawnsCgroup()
-                .createIndividualSpawnCgroup(
-                    "sandbox_" + context.getId(), sandboxOptions.memoryLimitMb);
-        if (sandboxCgroup.exists()) {
-          commandLineBuilder.setCgroupsDirs(ImmutableSet.of(sandboxCgroup.getCgroupDir().toPath()));
-        }
+    if (cgroupFactory != null) {
+      ImmutableMap<String, Double> spawnResourceLimits = ImmutableMap.of();
+      if (sandboxOptions.enforceResources.regexPattern().matcher(spawn.getMnemonic()).matches()) {
+        spawnResourceLimits = spawn.getLocalResources().getResources();
+      }
+      VirtualCGroup cgroup = cgroupFactory.create(context.getId(), spawnResourceLimits);
+      commandLineBuilder.setCgroupsDirs(cgroup.paths());
+    } else if (sandboxOptions.memoryLimitMb > 0) {
+      // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
+      // unique per spawn run by this spawn runner.
+      CgroupsInfo sandboxCgroup =
+          CgroupsInfo.getBlazeSpawnsCgroup()
+              .createIndividualSpawnCgroup(
+                  "sandbox_" + context.getId(), sandboxOptions.memoryLimitMb);
+      if (sandboxCgroup.exists()) {
+        commandLineBuilder.setCgroupsDirs(ImmutableSet.of(sandboxCgroup.getCgroupDir().toPath()));
       }
     }
 
