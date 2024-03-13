@@ -36,7 +36,7 @@ public class VirtualCGroupFactory {
             limits.getOrDefault("memory", defaultLimits.getOrDefault("memory", 0.0)) * 1024 * 1024;
 
         if (alwaysCreate || cpuLimit != 0 || memoryLimit != 0) {
-            cgroup = root.child(this.name + id + ".scope");
+            cgroup = root.createChild(this.name + id + ".scope");
             cgroups.put(id, cgroup);
         }
         if (memoryLimit > 0 && cgroup.memory() != null)
