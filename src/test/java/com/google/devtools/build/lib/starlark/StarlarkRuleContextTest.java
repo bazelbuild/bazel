@@ -932,6 +932,29 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(((Artifact) Iterables.getOnlyElement(result)).getFilename()).isEqualTo("d.txt");
   }
 
+  // Regression test for b/329066920
+  @Test
+  public void outputsAddOutput_keyCollision_failsCleanly() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        "def _undertest_impl(ctx):",
+        "    pass",
+        "",
+        "undertest_rule = rule(",
+        "    implementation = _undertest_impl,",
+        "    attrs = {'out_collision': attr.output(),},",
+        "    outputs = {'out_collision': '%{name}.out'},",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':rules.bzl', 'undertest_rule')",
+        "undertest_rule(",
+        "    name = 'undertest',",
+        ")");
+
+    checkError("//test:undertest", "Multiple outputs with the same key: out_collision");
+  }
+
   @Test
   public void testStarlarkRuleContextGetDefaultShellEnv() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
