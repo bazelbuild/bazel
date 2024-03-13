@@ -12,6 +12,11 @@ import java.nio.file.Path;
 import java.util.Scanner;
 
 abstract class UnifiedController implements Controller {
+    @Override
+    public boolean isLegacy() {
+        return false;
+    }
+
     protected Path getChild(String name) throws IOException {
         File subtree = getPath().resolve("cgroup.subtree_control").toFile();
         File controllers = getPath().resolve("cgroup.controllers").toFile();

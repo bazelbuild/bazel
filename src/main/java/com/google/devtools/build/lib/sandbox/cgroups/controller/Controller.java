@@ -13,9 +13,7 @@ import java.nio.file.Path;
 import java.util.function.Supplier;
 
 public interface Controller {
-    default boolean isLegacy() throws IOException {
-        return !getPath().resolve("cgroup.controllers").toFile().exists();
-    }
+    boolean isLegacy();
 
     default boolean exists() {
         return getPath().toFile().isDirectory();
