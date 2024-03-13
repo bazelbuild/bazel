@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
@@ -48,11 +50,12 @@ class WorkerProxy extends Worker {
     this.workerMultiplexer = workerMultiplexer;
   }
 
+  @Nullable
   @Override
-  public Optional<VirtualCGroup> getCgroup() {
+  public VirtualCGroup getCgroup() {
     // WorkerProxy does not have a cgroup at the momemnt. Consider adding it to the
     // multiplexer and returning it here?
-    return Optional.empty();
+    return null;
   }
 
   @Override

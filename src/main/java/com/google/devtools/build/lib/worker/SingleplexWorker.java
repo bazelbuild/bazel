@@ -82,17 +82,17 @@ class SingleplexWorker extends Worker {
     this.cgroupFactory = cgroupFactory;
   }
 
+  @Nullable
   @Override
-  public Optional<VirtualCGroup> getCgroup() {
+  public VirtualCGroup getCgroup() {
     return cgroupFactory.get(workerId);
   }
 
   protected Subprocess createProcess() throws IOException, InterruptedException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
     Subprocess process = createProcessBuilder(args).start();
-    Optional<VirtualCGroup> cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
-    if (cgroup.isPresent())
-      cgroup.get().addProcess(process.getProcessId());
+    VirtualCGroup cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
+    cgroup.addProcess(process.getProcessId());
     return process;
   }
 
@@ -198,7 +198,7 @@ class SingleplexWorker extends Worker {
       wasDestroyed = true;
       process.destroyAndWait();
     }
-    cgroupFactory.remove(workerId).ifPresent(VirtualCGroup::delete);
+    cgroupFactory.remove(workerId);
     status.setKilled();
   }
 

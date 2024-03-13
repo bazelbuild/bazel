@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
@@ -180,7 +179,7 @@ final class SandboxedWorker extends SingleplexWorker {
   protected Subprocess createProcess() throws IOException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
 
-    Optional<VirtualCGroup> cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
+    VirtualCGroup cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
 
     // TODO(larsrc): Check that execRoot and outputBase are not under /tmp
     if (hardenedSandboxOptions != null) {
@@ -200,7 +199,7 @@ final class SandboxedWorker extends SingleplexWorker {
               .setUseFakeHostname(this.hardenedSandboxOptions.fakeHostname())
               .setCreateNetworkNamespace(NETNS);
 
-      cgroup.map(VirtualCGroup::paths).ifPresent(commandLineBuilder::setCgroupsDirs);
+      commandLineBuilder.setCgroupsDirs(cgroup.paths());
 
       if (this.hardenedSandboxOptions.fakeUsername()) {
         commandLineBuilder.setUseFakeUsername(true);
@@ -216,9 +215,7 @@ final class SandboxedWorker extends SingleplexWorker {
     // sandboxed children processes (pid 1, 2) into the cgroup. But we still need to move the
     // linux-sandbox process into the worker cgroup. On the other hand, without linux-sandbox, Blaze
     // needs to do this itself for the spawned worker process.
-    if (cgroup.isPresent()) {
-      cgroup.get().addProcess(process.getProcessId());
-    }
+    cgroup.addProcess(process.getProcessId());
     return process;
   }
 
@@ -249,7 +246,7 @@ final class SandboxedWorker extends SingleplexWorker {
       if (inaccessibleHelperDir != null) {
         inaccessibleHelperDir.delete();
       }
-      cgroupFactory.remove(workerId).ifPresent(VirtualCGroup::delete);
+      cgroupFactory.remove(workerId);
       workDir.deleteTree();
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Caught IOException while deleting workdir.");

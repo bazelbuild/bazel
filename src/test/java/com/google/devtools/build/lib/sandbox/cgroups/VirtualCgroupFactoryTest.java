@@ -6,8 +6,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -37,9 +37,9 @@ public class VirtualCgroupFactoryTest {
         ImmutableMap<String, Double> defaults = ImmutableMap.of();
         VirtualCGroupFactory factory = new VirtualCGroupFactory("nolimits", root, defaults, false);
 
-        Optional<VirtualCGroup> vcg = factory.create(1, ImmutableMap.of());
+        VirtualCGroup vcg = factory.create(1, ImmutableMap.of());
 
-        assertThat(vcg).isEmpty();
+        assertThat(vcg.paths()).isEmpty();
     }
 
     @Test
@@ -47,11 +47,11 @@ public class VirtualCgroupFactoryTest {
         ImmutableMap<String, Double> defaults = ImmutableMap.of();
         VirtualCGroupFactory factory = new VirtualCGroupFactory("nolimits", root, defaults, true);
 
-        Optional<VirtualCGroup> vcg = factory.create(1, ImmutableMap.of());
+        VirtualCGroup vcg = factory.create(1, ImmutableMap.of());
 
-        assertThat(vcg).isPresent();
-        assertThat(vcg.get().cpu()).isNotNull();
-        assertThat(vcg.get().memory()).isNotNull();
+        assertThat(vcg.paths()).isNotEmpty();
+        assertThat(vcg.cpu()).isNotNull();
+        assertThat(vcg.memory()).isNotNull();
     }
 
     @Test
@@ -59,12 +59,12 @@ public class VirtualCgroupFactoryTest {
         ImmutableMap<String, Double> defaults = ImmutableMap.of("memory", 100.0);
         VirtualCGroupFactory factory = new VirtualCGroupFactory("defaults", root, defaults, false);
 
-        Optional<VirtualCGroup> vcg = factory.create(1, ImmutableMap.of());
+        VirtualCGroup vcg = factory.create(1, ImmutableMap.of());
 
-        assertThat(vcg).isPresent();
-        assertThat(vcg.get().cpu()).isNotNull();
-        assertThat(vcg.get().memory()).isNotNull();
-        assertThat(vcg.get().memory().getMaxBytes()).isEqualTo(100 * 1024 * 1024);
+        assertThat(vcg.paths()).isNotEmpty();
+        assertThat(vcg.cpu()).isNotNull();
+        assertThat(vcg.memory()).isNotNull();
+        assertThat(vcg.memory().getMaxBytes()).isEqualTo(100 * 1024 * 1024);
     }
 
     @Test
@@ -73,13 +73,13 @@ public class VirtualCgroupFactoryTest {
         ImmutableMap<String, Double> defaults = ImmutableMap.of("memory", 100.0, "cpu", 1.0);
         VirtualCGroupFactory factory = new VirtualCGroupFactory("custom", root, defaults, false);
 
-        Optional<VirtualCGroup> vcg = factory.create(1, ImmutableMap.of("memory", 200.0));
+        VirtualCGroup vcg = factory.create(1, ImmutableMap.of("memory", 200.0));
 
-        assertThat(vcg).isPresent();
-        assertThat(vcg.get().cpu()).isNotNull();
-        assertThat(vcg.get().memory()).isNotNull();
-        assertThat(vcg.get().cpu().getCpus()).isEqualTo(1);
-        assertThat(vcg.get().memory().getMaxBytes()).isEqualTo(200 * 1024 * 1024);
+        assertThat(vcg.paths()).isNotEmpty();
+        assertThat(vcg.cpu()).isNotNull();
+        assertThat(vcg.memory()).isNotNull();
+        assertThat(vcg.cpu().getCpus()).isEqualTo(1);
+        assertThat(vcg.memory().getMaxBytes()).isEqualTo(200 * 1024 * 1024);
     }
 
     @Test
@@ -88,11 +88,11 @@ public class VirtualCgroupFactoryTest {
         VirtualCGroupFactory factory =
             new VirtualCGroupFactory("null", VirtualCGroup.NULL, defaults, false);
 
-        Optional<VirtualCGroup> vcg = factory.create(1, ImmutableMap.of());
+        VirtualCGroup vcg = factory.create(1, ImmutableMap.of());
 
-        assertThat(vcg).isPresent();
-        assertThat(vcg.get().cpu()).isNull();
-        assertThat(vcg.get().memory()).isNull();
+        assertThat(vcg.paths()).isEmpty();
+        assertThat(vcg.cpu()).isNull();
+        assertThat(vcg.memory()).isNull();
     }
 
     @Test
@@ -100,7 +100,7 @@ public class VirtualCgroupFactoryTest {
         ImmutableMap<String, Double> defaults = ImmutableMap.of("memory", 100.0);
         VirtualCGroupFactory factory = new VirtualCGroupFactory("get", root, defaults, false);
 
-        Optional<VirtualCGroup> vcg = factory.create(1, ImmutableMap.of());
+        VirtualCGroup vcg = factory.create(1, ImmutableMap.of());
 
         assertThat(factory.get(1)).isEqualTo(vcg);
     }
@@ -111,9 +111,11 @@ public class VirtualCgroupFactoryTest {
         ImmutableMap<String, Double> defaults = ImmutableMap.of();
         VirtualCGroupFactory factory = new VirtualCGroupFactory("get", root, defaults, true);
 
-        Optional<VirtualCGroup> vcg = factory.create(1, ImmutableMap.of());
+        VirtualCGroup vcg = factory.create(1, ImmutableMap.of());
 
         assertThat(factory.remove(1)).isEqualTo(vcg);
-        assertThat(factory.get(1)).isEmpty();
+        for (Path p: vcg.paths()) {
+            assertThat(p.toFile().exists()).isFalse();
+        }
     }
 }

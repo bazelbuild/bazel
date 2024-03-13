@@ -74,7 +74,7 @@ public abstract class Worker {
     return status;
   }
 
-  abstract public Optional<VirtualCGroup> getCgroup();
+  abstract public VirtualCGroup getCgroup();
 
   HashCode getWorkerFilesCombinedHash() {
     return workerKey.getWorkerFilesCombinedHash();

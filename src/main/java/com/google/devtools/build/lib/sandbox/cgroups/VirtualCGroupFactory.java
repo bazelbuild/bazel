@@ -4,7 +4,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class VirtualCGroupFactory {
@@ -25,33 +24,35 @@ public class VirtualCGroupFactory {
         this.cgroups = new ConcurrentHashMap<>();
     }
 
-    public Optional<VirtualCGroup> create(Integer id, ImmutableMap<String, Double> limits) throws IOException {
+    public VirtualCGroup create(Integer id, ImmutableMap<String, Double> limits) throws IOException {
         if (!alwaysCreate && defaultLimits.isEmpty() && limits.isEmpty())
-            return Optional.empty();
-
-        VirtualCGroup cgroup = null;
+            return VirtualCGroup.NULL;
 
         Double cpuLimit = limits.getOrDefault("cpu", defaultLimits.getOrDefault("cpu", 0.0));
         Double memoryLimit =
             limits.getOrDefault("memory", defaultLimits.getOrDefault("memory", 0.0)) * 1024 * 1024;
 
-        if (alwaysCreate || cpuLimit != 0 || memoryLimit != 0) {
-            cgroup = root.createChild(this.name + id + ".scope");
-            cgroups.put(id, cgroup);
-        }
+        if (!alwaysCreate && cpuLimit == 0 && memoryLimit == 0)
+            return VirtualCGroup.NULL;
+
+        VirtualCGroup cgroup = root.createChild(this.name + id + ".scope");
+        cgroups.put(id, cgroup);
         if (memoryLimit > 0 && cgroup.memory() != null)
             cgroup.memory().setMaxBytes(memoryLimit.longValue());
         if (cpuLimit > 0 && cgroup.cpu() != null)
             cgroup.cpu().setCpus(cpuLimit);
 
-        return Optional.ofNullable(cgroup);
+        return cgroup;
     }
 
-    public Optional<VirtualCGroup> get(Integer id) {
-        return Optional.ofNullable(cgroups.get(id));
+    public VirtualCGroup get(Integer id) {
+        return cgroups.get(id);
     }
 
-    public Optional<VirtualCGroup> remove(Integer id) {
-        return Optional.ofNullable(cgroups.remove(id));
+    public VirtualCGroup remove(Integer id) {
+        VirtualCGroup cgroup = cgroups.remove(id);
+        if (cgroup != null)
+            cgroup.delete();
+        return cgroup;
     }
 }

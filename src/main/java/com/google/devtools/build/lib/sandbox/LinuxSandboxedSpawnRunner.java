@@ -336,10 +336,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       if (sandboxOptions.enforceResources.regexPattern().matcher(spawn.getMnemonic()).matches()) {
         spawnResourceLimits = spawn.getLocalResources().getResources();
       }
-      cgroupFactory
-        .create(context.getId(), spawnResourceLimits)
-        .map(VirtualCGroup::paths)
-        .ifPresent(commandLineBuilder::setCgroupsDirs);
+      VirtualCGroup cgroup = cgroupFactory.create(context.getId(), spawnResourceLimits);
+      commandLineBuilder.setCgroupsDirs(cgroup.paths());
     }
 
     if (useHermeticTmp) {
@@ -502,7 +500,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // We cannot leave the cgroups around and delete them only when we delete the sandboxes
     // because linux has a hard limit of 65535 memory controllers.
     // Ref. https://github.com/torvalds/linux/blob/58d4e450a490d5f02183f6834c12550ba26d3b47/include/linux/memcontrol.h#L69
-    cgroupFactory.remove(context.getId()).ifPresent(VirtualCGroup::delete);
+    cgroupFactory.remove(context.getId());
   }
 
   private void checkForConcurrentModifications(SpawnExecutionContext context)
