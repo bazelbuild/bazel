@@ -98,6 +98,10 @@ StartupOptions::StartupOptions(const string &product_name,
 #endif
       unlimit_coredumps(false),
       windows_enable_symlinks(false) {
+  // To ensure predictable behavior from PathFragmentConverter in Java,
+  // output_root must be an absolute path. In particular, if we were to return a
+  // relative path starting with "~/", PathFragmentConverter would shell-expand
+  // it as a path relative to the home directory, and Bazel would crash.
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
@@ -105,7 +109,7 @@ StartupOptions::StartupOptions(const string &product_name,
                     << output_root << "' and max_idle_secs default is '"
                     << max_idle_secs << "'.";
   } else {
-    output_root = workspace_layout->GetOutputRoot();
+    output_root = blaze_util::MakeAbsolute(workspace_layout->GetOutputRoot());
     max_idle_secs = 3 * 3600;
     BAZEL_LOG(INFO) << "output root is '" << output_root
                     << "' and max_idle_secs default is '" << max_idle_secs
