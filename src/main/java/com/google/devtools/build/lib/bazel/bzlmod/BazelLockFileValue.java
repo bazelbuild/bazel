@@ -132,7 +132,14 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
     newDepGraph.putAll(getModuleDepGraph());
     newDepGraph.put(
         ModuleKey.ROOT,
-        toModule(value.getModule(), /* override= */ null, /* remoteRepoSpec= */ null));
+        toModule(
+            value
+                .getModule()
+                .withDepSpecsTransformed(
+                    InterimModule.applyOverrides(
+                        value.getOverrides(), value.getModule().getName())),
+            /* override= */ null,
+            /* remoteRepoSpec= */ null));
     return toBuilder()
         .setModuleFileHash(value.getModuleFileHash())
         .setModuleDepGraph(newDepGraph.buildKeepingLast())
