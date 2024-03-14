@@ -777,10 +777,6 @@ public abstract class BuildIntegrationTestCase {
     return Iterables.getOnlyElement(topLevelTargetConfigurations);
   }
 
-  protected BuildConfigurationValue getExecConfiguration() throws Exception {
-    return runtimeWrapper.getExecConfiguration();
-  }
-
   protected TopLevelArtifactContext getTopLevelArtifactContext() {
     return getRequest().getTopLevelArtifactContext();
   }
