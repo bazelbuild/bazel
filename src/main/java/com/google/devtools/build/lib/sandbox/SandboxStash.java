@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -95,8 +96,29 @@ public class SandboxStash {
           stashExecroot.renameTo(sandboxExecroot);
           stash.deleteTree();
           if (isTestAction(mnemonic)) {
-            Path stashedRunfilesDir =
-                sandboxExecroot.getRelative(stashPathToRunfilesDir.get(stashExecroot));
+            String relativeStashedRunfilesDir = stashPathToRunfilesDir.get(stashExecroot);
+            if (relativeStashedRunfilesDir == null) {
+              StringBuilder errorMessageBuilder = new StringBuilder();
+              errorMessageBuilder.append(
+                  String.format("Current stashExecroot:%s\n", stashExecroot));
+              errorMessageBuilder.append("Stashes:\n");
+              for (Path path : stashes) {
+                errorMessageBuilder.append(path.getPathString()).append("\n");
+              }
+              errorMessageBuilder.append("Environment:\n");
+              for (var entry : environment.entrySet()) {
+                errorMessageBuilder.append(
+                    String.format("%s : %s\n", entry.getKey(), entry.getValue()));
+              }
+              errorMessageBuilder.append("Entries runfiles map:\n");
+              for (var entry : stashPathToRunfilesDir.entrySet()) {
+                errorMessageBuilder.append(
+                    String.format("%s : %s\n", entry.getKey(), entry.getValue()));
+              }
+              Preconditions.checkNotNull(
+                  relativeStashedRunfilesDir, errorMessageBuilder.toString());
+            }
+            Path stashedRunfilesDir = sandboxExecroot.getRelative(relativeStashedRunfilesDir);
             Path currentRunfiles = sandboxExecroot.getRelative(getCurrentRunfilesDir(environment));
             currentRunfiles.getParentDirectory().createDirectoryAndParents();
             stashedRunfilesDir.renameTo(currentRunfiles);
@@ -154,11 +176,11 @@ public class SandboxStash {
               path.getRelative("execroot/" + environment.get("TEST_WORKSPACE") + "/_tmp"));
         }
       }
-      path.getChild("execroot").renameTo(stashPathExecroot);
       if (isTestAction(mnemonic)) {
-        // We only do this after the rename operation has succeeded
+        // We do this before the rename operation to avoid a race condition.
         stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
       }
+      path.getChild("execroot").renameTo(stashPathExecroot);
     } catch (IOException e) {
       // Since stash names are unique, this IOException indicates some other problem with stashing,
       // so we turn it off.
