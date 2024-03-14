@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction.IGNO
 import static com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction.MODULE_OVERRIDES;
 import static com.google.devtools.build.lib.skyframe.PrecomputedValue.STARLARK_SEMANTICS;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -81,7 +82,12 @@ public class BazelModTidyFunction implements SkyFunction {
     }
 
     ImmutableSet<SkyKey> extensionsUsedByRootModule =
-        depGraphValue.getExtensionUsagesTable().columnMap().get(ModuleKey.ROOT).keySet().stream()
+        depGraphValue
+            .getExtensionUsagesTable()
+            .columnMap()
+            .getOrDefault(ModuleKey.ROOT, ImmutableMap.of())
+            .keySet()
+            .stream()
             .map(SingleExtensionEvalValue::key)
             .collect(toImmutableSet());
     SkyframeLookupResult result = env.getValuesAndExceptions(extensionsUsedByRootModule);
