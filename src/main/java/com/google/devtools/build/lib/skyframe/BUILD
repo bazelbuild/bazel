@@ -2483,6 +2483,7 @@ java_library(
         ":directory_listing_state_value",
         ":precomputed_value",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",

@@ -380,7 +380,9 @@ public class SkyfocusModule extends BlazeModule {
     FocusResult focusResult;
 
     try (SilentCloseable c = Profiler.instance().profile("SkyframeFocuser")) {
-      focusResult = SkyframeFocuser.focus(graph, reporter, roots, leafs);
+      focusResult =
+          SkyframeFocuser.focus(
+              graph, env.getBlazeWorkspace().getPersistentActionCache(), reporter, roots, leafs);
     }
 
     return focusResult;
