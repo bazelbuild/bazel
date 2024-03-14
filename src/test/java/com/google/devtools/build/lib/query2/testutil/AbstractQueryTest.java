@@ -701,7 +701,8 @@ public abstract class AbstractQueryTest<T> {
     // "blaze query 'deps(<output file>, 1)' returns the output file,
     // not its generating rule"
     assertThat(eval("deps(//a:out, 0)")).isEqualTo(eval("//a:out"));
-    assertThat(eval("deps(//a:out, 1)")).isEqualTo(eval("//a:out + //a"));
+    assertThat(eval("deps(//a:out, 1)" + getDependencyCorrectionWithGen()))
+        .isEqualTo(eval("//a:out + //a"));
     assertThat(eval("deps(//a:out, 2)" + getDependencyCorrectionWithGen()))
         .isEqualTo(eval("//a:out + //a + //b + //c"));
 
@@ -2203,8 +2204,9 @@ public abstract class AbstractQueryTest<T> {
         "package_group(name = 'pg', includes = [':other-pg'])",
         "package_group(name = 'other-pg')");
     assertEqualsFiltered(
-        "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg",
-        "deps(//foo:out)",
+        "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg"
+            + getDependencyCorrectionWithGen(),
+        "deps(//foo:out)" + getDependencyCorrectionWithGen(),
         Setting.NO_IMPLICIT_DEPS);
   }
 
@@ -2362,7 +2364,8 @@ public abstract class AbstractQueryTest<T> {
         "sh_binary(name = 'thief', srcs = ['thief.sh'])",
         "label_flag(name = 'myflag', build_setting_default = ':thief')");
 
-    assertThat(evalToString("deps(//donut:myflag, 1)")).isEqualTo("//donut:myflag //donut:thief");
+    assertThat(evalToString("deps(//donut:myflag, 1)" + getDependencyCorrectionWithGen()))
+        .isEqualTo("//donut:myflag //donut:thief");
   }
 
   @Test
@@ -2372,7 +2375,7 @@ public abstract class AbstractQueryTest<T> {
         "sh_binary(name = 'thief', srcs = ['thief.sh'])",
         "label_setting(name = 'mysetting', build_setting_default = ':thief')");
 
-    assertThat(evalToString("deps(//donut:mysetting, 1)"))
+    assertThat(evalToString("deps(//donut:mysetting, 1)" + getDependencyCorrectionWithGen()))
         .isEqualTo("//donut:mysetting //donut:thief");
   }
 

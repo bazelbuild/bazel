@@ -232,7 +232,10 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     // Regression test for b/73496081 in which alias-ed configured targets were skipping filtering.
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
-    assertThat(evalToListOfStrings("deps(//test:other_my_rule)-//test:other_my_rule"))
+    assertThat(
+            evalToListOfStrings(
+                "deps(//test:other_my_rule)-//test:other_my_rule"
+                    + getDependencyCorrectionWithGen()))
         .isEqualTo(evalToListOfStrings("//test:my_rule"));
   }
 
