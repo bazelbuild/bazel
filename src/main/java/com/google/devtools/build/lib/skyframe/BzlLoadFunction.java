@@ -66,7 +66,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -763,11 +762,6 @@ public class BzlLoadFunction implements SkyFunction {
     if (repoMapping == null) {
       return null;
     }
-    Optional<RepositoryMapping> mainRepoMapping =
-        getMainRepositoryMapping(key, builtins.starlarkSemantics, env);
-    if (mainRepoMapping == null) {
-      return null;
-    }
     Label.RepoMappingRecorder repoMappingRecorder = new Label.RepoMappingRecorder();
     ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
     ImmutableList<Label> loadLabels =
@@ -846,7 +840,6 @@ public class BzlLoadFunction implements SkyFunction {
         BazelModuleContext.create(
             label,
             repoMapping,
-            mainRepoMapping.orElse(null),
             prog.getFilename(),
             ImmutableList.copyOf(loadMap.values()),
             transitiveDigest);
@@ -979,34 +972,6 @@ public class BzlLoadFunction implements SkyFunction {
       return null;
     }
     return repositoryMappingValue.getRepositoryMapping();
-  }
-
-  @Nullable
-  private static Optional<RepositoryMapping> getMainRepositoryMapping(
-      BzlLoadValue.Key key, StarlarkSemantics starlarkSemantics, Environment env)
-      throws InterruptedException {
-    if (!starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
-      return Optional.empty();
-    }
-    RepositoryMappingValue.Key repoMappingKey;
-    // When adding cases for other key types such as WORKSPACE or Bzlmod, make sure to track the
-    // usages of the repo mapping in persistent caches, such as repository marker files and the
-    // MODULE.bazel.lock file.
-    if (key instanceof BzlLoadValue.KeyForBuild) {
-      repoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
-    } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
-      // Using the full main repo mapping here results in a cycle as it depends on WORKSPACE, but
-      // builtins are injected into WORKSPACE. Fixing this fully would require adding a new key type
-      // for builtins (transitively) loaded from WORKSPACE.
-      repoMappingKey = RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS;
-    } else {
-      return Optional.empty();
-    }
-    var mainRepositoryMappingValue = (RepositoryMappingValue) env.getValue(repoMappingKey);
-    if (mainRepositoryMappingValue == null) {
-      return null;
-    }
-    return Optional.of(mainRepositoryMappingValue.getRepositoryMapping());
   }
 
   /**

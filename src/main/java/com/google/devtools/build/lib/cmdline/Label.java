@@ -442,26 +442,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
    * @return analogous to {@link PackageIdentifier#getDisplayForm(RepositoryMapping)}
    */
-  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
+  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
     return packageIdentifier.getDisplayForm(mainRepositoryMapping) + ":" + name;
-  }
-
-  @StarlarkMethod(
-      name = "to_display_form",
-      useStarlarkThread = true,
-      doc =
-          "Returns a string representation of this label that is optimized for human readability."
-              + " Use this to format a <code>Label</code> for use in BUILD files. <p>The exact form"
-              + " of the return value is explicitly unspecified and subject to change. The"
-              + " following properties are guaranteed for a <code>Label</code> <code>l</code>:<ul> "
-              + " <li><code>l.to_display_form()</code> has no repository part if and only if"
-              + " <code>l</code> references the main repository;</li> "
-              + " <li><code>Label(l.to_display_form()) == l</code> if the call to"
-              + " <code>Label</code> occurs in the main repository.</li></ul>")
-  public String getDisplayFormForStarlark(StarlarkThread starlarkThread) throws EvalException {
-    checkRepoVisibilityForStarlark("to_display_form");
-    return getDisplayForm(
-        BazelModuleContext.ofInnermostBzlOrThrow(starlarkThread).bestEffortMainRepoMapping());
   }
 
   /**

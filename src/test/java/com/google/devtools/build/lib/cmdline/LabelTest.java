@@ -419,12 +419,6 @@ public class LabelTest {
         .isEqualTo("@unremapped//:unremapped");
   }
 
-  @Test
-  public void testDisplayFormNullMapping() throws Exception {
-    assertThat(displayFormFor("//foo/bar:bar", null)).isEqualTo("//foo/bar:bar");
-    assertThat(displayFormFor("@@foo//bar:bar", null)).isEqualTo("@@foo//bar:bar");
-  }
-
   private static String shorthandDisplayFormFor(
       String rawLabel, RepositoryMapping repositoryMapping) throws Exception {
     return Label.parseCanonical(rawLabel).getShorthandDisplayForm(repositoryMapping);
