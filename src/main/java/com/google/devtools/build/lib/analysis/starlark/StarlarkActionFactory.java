@@ -332,7 +332,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public void write(FileApi output, Object content, Boolean isExecutable) throws EvalException {
+  public void write(FileApi output, Object content, Boolean isExecutable)
+      throws EvalException, InterruptedException {
     context.checkMutable("actions.write");
     RuleContext ruleContext = getRuleContext();
 
@@ -347,7 +348,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               ruleContext.getActionOwner(),
               NestedSetBuilder.wrap(Order.STABLE_ORDER, args.getDirectoryArtifacts()),
               (Artifact) output,
-              args.build(),
+              args.build(context.getRuleContext().getAnalysisEnvironment()::getMainRepoMapping),
               args.getParameterFileType());
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
@@ -373,7 +374,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
       Object toolchainUnchecked)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     context.checkMutable("actions.run");
     execGroupUnchecked = context.maybeOverrideExecGroup(execGroupUnchecked);
     toolchainUnchecked = context.maybeOverrideToolchain(toolchainUnchecked);
@@ -382,7 +383,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     boolean useAutoExecGroups = ruleContext.useAutoExecGroups();
 
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
-    buildCommandLine(builder, arguments);
+    buildCommandLine(builder, arguments, ruleContext.getAnalysisEnvironment()::getMainRepoMapping);
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
       FilesToRunProvider provider = context.getExecutableRunfiles(executable, "executable");
@@ -560,7 +561,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
       Object toolchainUnchecked)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     context.checkMutable("actions.run_shell");
     execGroupUnchecked = context.maybeOverrideExecGroup(execGroupUnchecked);
     toolchainUnchecked = context.maybeOverrideToolchain(toolchainUnchecked);
@@ -568,7 +569,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     RuleContext ruleContext = getRuleContext();
 
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
-    buildCommandLine(builder, arguments);
+    buildCommandLine(builder, arguments, ruleContext.getAnalysisEnvironment()::getMainRepoMapping);
 
     // When we use a shell command, add an empty argument before other arguments.
     //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
@@ -631,8 +632,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         builder);
   }
 
-  private static void buildCommandLine(SpawnAction.Builder builder, Sequence<?> argumentsList)
-      throws EvalException {
+  private static void buildCommandLine(
+      SpawnAction.Builder builder,
+      Sequence<?> argumentsList,
+      Args.InterruptibleRepoMappingSupplier repoMappingSupplier)
+      throws EvalException, InterruptedException {
     ImmutableList.Builder<String> stringArgs = null;
     for (Object value : argumentsList) {
       if (value instanceof String) {
@@ -647,7 +651,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         }
         Args args = (Args) value;
         ParamFileInfo paramFileInfo = args.getParamFileInfo();
-        builder.addCommandLine(args.build(), paramFileInfo);
+        builder.addCommandLine(args.build(repoMappingSupplier), paramFileInfo);
       } else {
         throw Starlark.errorf(
             "expected list of strings or ctx.actions.args() for arguments instead of %s",

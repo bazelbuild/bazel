@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
+
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -166,7 +168,10 @@ public class FlagPerLineTest extends BuildViewTestCase {
     byte[] bytes;
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       ParameterFile.writeParameterFile(
-          outputStream, args.build().arguments(), args.getParameterFileType(), UTF_8);
+          outputStream,
+          args.build(() -> RepositoryMapping.ALWAYS_FALLBACK).arguments(),
+          args.getParameterFileType(),
+          UTF_8);
       bytes = outputStream.toByteArray();
     }
     try (ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);

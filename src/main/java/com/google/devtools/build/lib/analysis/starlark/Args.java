@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -70,7 +72,8 @@ public abstract class Args implements CommandLineArgsApi {
   @Override
   public void debugPrint(Printer printer, StarlarkSemantics semantics) {
     try {
-      printer.append(Joiner.on(" ").join(build().arguments()));
+      printer.append(
+          Joiner.on(" ").join(build(/* mainRepoMappingSupplier */ () -> null).arguments()));
     } catch (CommandLineExpansionException e) {
       printer.append("Cannot expand command line: " + e.getMessage());
     } catch (InterruptedException e) {
@@ -101,8 +104,13 @@ public abstract class Args implements CommandLineArgsApi {
    */
   public abstract ImmutableSet<Artifact> getDirectoryArtifacts();
 
+  public interface InterruptibleRepoMappingSupplier {
+    RepositoryMapping get() throws InterruptedException;
+  }
+
   /** Returns the command line built by this {@link Args} object. */
-  public abstract CommandLine build();
+  public abstract CommandLine build(InterruptibleRepoMappingSupplier mainRepoMappingSupplier)
+      throws InterruptedException;
 
   /**
    * Returns a frozen {@link Args} representation corresponding to an already-registered action.
@@ -157,7 +165,7 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     @Override
-    public CommandLine build() {
+    public CommandLine build(InterruptibleRepoMappingSupplier mainRepoMappingSupplier) {
       return commandLine;
     }
 
@@ -259,6 +267,12 @@ public abstract class Args implements CommandLineArgsApi {
      */
     private boolean flagPerLine = false;
 
+    /**
+     * True if the command line needs to stringify any {@link Label}s without an explicit 'map_each'
+     * function.
+     */
+    private boolean mayStringifyExternalLabel = false;
+
     // May be set explicitly once -- if unset defaults to ParameterFileType.SHELL_QUOTED.
     private ParameterFileType parameterFileType = null;
     private String flagFormatString;
@@ -306,6 +320,9 @@ public abstract class Args implements CommandLineArgsApi {
         throw Starlark.errorf(
             "Args.add() doesn't accept vectorized arguments. Please use Args.add_all() or"
                 + " Args.add_joined() instead.");
+      }
+      if (value instanceof Label label && !label.getRepository().isMain()) {
+        mayStringifyExternalLabel = true;
       }
       addSingleArg(value, format != Starlark.NONE ? (String) format : null);
       return this;
@@ -436,8 +453,12 @@ public abstract class Args implements CommandLineArgsApi {
       validateFormatString("format_each", formatEach);
       validateFormatString("format_joined", formatJoined);
       StarlarkCustomCommandLine.VectorArg.Builder vectorArg;
-      if (value instanceof Depset) {
-        Depset starlarkNestedSet = (Depset) value;
+      if (value instanceof Depset starlarkNestedSet) {
+        if (mapEach == null && Label.class.equals(starlarkNestedSet.getElementClass())) {
+          // We don't want to eagerly check whether all labels reference targets in the main repo,
+          // so just assume they might not. Nested sets of labels should be rare.
+          mayStringifyExternalLabel = true;
+        }
         NestedSet<?> nestedSet = starlarkNestedSet.getSet();
         if (nestedSet.isEmpty() && omitIfEmpty) {
           return;
@@ -454,6 +475,13 @@ public abstract class Args implements CommandLineArgsApi {
         if (expandDirectories) {
           scanForDirectories(starlarkList);
         }
+        // Labels referencing targets in the main repo are stringified as //pkg:name and thus
+        // don't require a RepositoryMapping. If a map_each function is provided, default
+        // stringification via Label#toString() is not used.
+        mayStringifyExternalLabel |=
+            (mapEach != null)
+                && starlarkList.stream()
+                    .anyMatch(o -> o instanceof Label label && !label.getRepository().isMain());
         vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(starlarkList);
       }
       commandLine.recordArgStart();
@@ -573,8 +601,10 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     @Override
-    public CommandLine build() {
-      return commandLine.build(flagPerLine);
+    public CommandLine build(InterruptibleRepoMappingSupplier mainRepoMappingSupplier)
+        throws InterruptedException {
+      return commandLine.build(
+          flagPerLine, mayStringifyExternalLabel ? mainRepoMappingSupplier.get() : null);
     }
 
     @Override
