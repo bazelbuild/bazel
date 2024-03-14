@@ -166,15 +166,6 @@ public final class CppSysrootTest extends BuildViewTestCase {
       useConfiguration("--cpu=" + cpu, "--grte_top=//a/grte/top");
       config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
-
-      // If a host_crosstool_top is set, we shouldn't see the grte_top option in the exec config.
-      // (Assuming there was not also a --host_grte_top specified)
-      useConfiguration(
-          "--cpu=" + cpu,
-          "--grte_top=//a/grte/top",
-          "--host_crosstool_top=" + analysisMock.ccSupport().getMockCrosstoolLabel());
-      config = getExecConfiguration();
-      testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }
   }
 
