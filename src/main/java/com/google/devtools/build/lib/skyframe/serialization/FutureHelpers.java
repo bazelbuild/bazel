@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.List;
@@ -64,6 +65,44 @@ public final class FutureHelpers {
   }
 
   /**
+   * Waits for {@code future} and returns the result.
+   *
+   * <p>Handles exceptions by converting them into {@link SerializationException}. The {@link
+   * SerializationException} may have a {@link MissingFingerprintValueException} cause.
+   *
+   * <p>The {@link MissingFingerprintValueException} needs special case handling anywhere this
+   * method is used. Outside of test code, this is only possible for via {@link
+   * SharedValueDeserializationContext#deserializeWithSharedValues}, which explicitly handles it.
+   */
+  @CanIgnoreReturnValue // may be called for side effects
+  static <T> T waitForDeserializationFuture(ListenableFuture<T> future)
+      throws SerializationException {
+    try {
+      // TODO: b/297857068 - revisit whether this should handle to interrupts. As of 02/09/24,
+      // serialization doesn't handle interrupts so introducing them here could lead to unforseen
+      // problems.
+      return getUninterruptibly(future);
+    } catch (ExecutionException e) {
+      throw asDeserializationException(e.getCause());
+    }
+  }
+
+  /**
+   * Gets the done value of {@code future}.
+   *
+   * <p>May throw an {@link IllegalStateException} if the future is not done. See {@link
+   * #waitForDeserializationFuture} for a description the {@link SerializationException}.
+   */
+  static <T> T getDoneDeserializationFuture(ListenableFuture<T> future)
+      throws SerializationException {
+    try {
+      return Futures.getDone(future);
+    } catch (ExecutionException e) {
+      throw asDeserializationException(e.getCause());
+    }
+  }
+
+  /**
    * Reports any errors that occur on {@code combiner}.
    *
    * <p>Used when a future value is going to be discarded, but it would be inappropriate to ignore
@@ -90,6 +129,13 @@ public final class FutureHelpers {
       return futures.get(0);
     }
     return Futures.whenAllSucceed(futures).call(() -> null, directExecutor());
+  }
+
+  private static SerializationException asDeserializationException(Throwable cause) {
+    if (cause instanceof MissingFingerprintValueException) {
+      return new SerializationException(cause);
+    }
+    return asSerializationException(cause);
   }
 
   private static SerializationException asSerializationException(Throwable cause) {

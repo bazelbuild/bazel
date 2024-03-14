@@ -44,7 +44,7 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
   @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
   public final <T> T deserialize(CodedInputStream codedIn)
       throws IOException, SerializationException {
-    return (T) processTagAndDeserialize(codedIn);
+    return (T) makeSynchronous(processTagAndDeserialize(codedIn));
   }
 
   /**
@@ -73,6 +73,17 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
       throws IOException, SerializationException {
     deserialize(codedIn, parent, offset);
     done.run();
+  }
+
+  @Override
+  public <T> void getSharedValue(
+      CodedInputStream codedIn,
+      @Nullable Object distinguisher,
+      DeferredObjectCodec<?> codec,
+      T parent,
+      FieldSetter<? super T> setter)
+      throws IOException, SerializationException {
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -137,4 +148,16 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
 
   @ForOverride
   abstract Object getMemoizedBackReference(int memoIndex);
+
+  /**
+   * Returns the result value.
+   *
+   * <p>In the {@link SharedValueDeserializationContext}, the {@link deserializeAndMaybeMemoize} may
+   * produce futures. This method is overridden to unwrap them.
+   */
+  @SuppressWarnings("CanIgnoreReturnValueSuggester")
+  @ForOverride
+  Object makeSynchronous(Object obj) throws SerializationException {
+    return obj;
+  }
 }

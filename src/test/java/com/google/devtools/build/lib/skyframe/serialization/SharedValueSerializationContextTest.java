@@ -19,14 +19,12 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
+import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
@@ -40,104 +38,6 @@ public final class SharedValueSerializationContextTest {
 
   private final ForkJoinPool executor = new ForkJoinPool(CONCURRENCY);
   private final Random rng = new Random(0);
-
-  private static final class NotNestedSet {
-    private final Object[] contents;
-
-    private NotNestedSet(Object[] contents) {
-      this.contents = contents;
-    }
-  }
-
-  private static final class NotNestedSetCodec extends AsyncObjectCodec<NotNestedSet> {
-    private final NestedArrayCodec innerCodec;
-
-    private NotNestedSetCodec(NestedArrayCodec innerCodec) {
-      this.innerCodec = innerCodec;
-    }
-
-    @Override
-    public Class<NotNestedSet> getEncodedClass() {
-      return NotNestedSet.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, NotNestedSet set, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.putSharedValue(set.contents, /* distinguisher= */ null, innerCodec, codedOut);
-    }
-
-    @Override
-    public NotNestedSet deserializeAsync(
-        AsyncDeserializationContext context, CodedInputStream codedIn) {
-      throw new UnsupportedOperationException();
-    }
-  }
-
-  static final class NestedArrayCodec extends DeferredObjectCodec<Object[]> {
-    @SuppressWarnings("ArrayAsKeyOfSetOrMap") // deliberate use of reference equality
-    private final ConcurrentHashMap<Object[], InjectedDelay> delays = new ConcurrentHashMap<>();
-
-    @Override
-    public boolean autoRegister() {
-      return false;
-    }
-
-    @Override
-    public Class<Object[]> getEncodedClass() {
-      return Object[].class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, Object[] nestedArray, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      InjectedDelay delay = delays.get(nestedArray);
-      if (delay != null) {
-        delay.entered.countDown();
-        try {
-          delay.waitFor.await();
-        } catch (InterruptedException e) {
-          throw new AssertionError(e);
-        }
-      }
-      int length = nestedArray.length;
-      codedOut.writeInt32NoTag(length);
-      for (int i = 0; i < length; i++) {
-        Object child = nestedArray[i];
-        if (child instanceof Object[]) {
-          context.putSharedValue(
-              (Object[]) child, /* distinguisher= */ null, /* codec= */ this, codedOut);
-        } else {
-          context.serialize(child, codedOut);
-        }
-      }
-    }
-
-    @Override
-    public DeferredValue<Object[]> deserializeDeferred(
-        AsyncDeserializationContext context, CodedInputStream codedIn) {
-      throw new UnsupportedOperationException();
-    }
-
-    /** Injects a controllable delay for the specified {@code nestedArray}. */
-    void injectDelay(Object[] nestedArray, CountDownLatch entered, CountDownLatch waitFor) {
-      delays.put(nestedArray, new InjectedDelay(entered, waitFor));
-    }
-
-    private NestedArrayCodec() {}
-  }
-
-  private static final class InjectedDelay {
-    private final CountDownLatch entered;
-    private final CountDownLatch waitFor;
-
-    private InjectedDelay(CountDownLatch entered, CountDownLatch waitFor) {
-      this.entered = entered;
-      this.waitFor = waitFor;
-    }
-  }
 
   private static final class PutRecordingStore implements FingerprintValueStore {
     private final ArrayList<SettableFuture<Void>> putResponses = new ArrayList<>();
@@ -254,7 +154,7 @@ public final class SharedValueSerializationContextTest {
     Object[] sharedArray = createRandomLeafArray();
     CountDownLatch sharedEntered = new CountDownLatch(1);
     CountDownLatch sharedBlocker = new CountDownLatch(1);
-    arrayCodec.injectDelay(sharedArray, sharedEntered, sharedBlocker);
+    arrayCodec.injectSerializeDelay(sharedArray, sharedEntered, sharedBlocker);
 
     // Serializes `sharedArray`, which is registered to block on `sharedBlocker`.
     ListenableFuture<SerializationResult<ByteString>> first =
@@ -265,7 +165,7 @@ public final class SharedValueSerializationContextTest {
     CountDownLatch myArrayEntered = new CountDownLatch(1);
     // Does not block serialization of `myArray`, but uses `myArrayEntered` to determine that
     // serialization of `myArray` has started.
-    arrayCodec.injectDelay(myArray, myArrayEntered, new CountDownLatch(0));
+    arrayCodec.injectSerializeDelay(myArray, myArrayEntered, new CountDownLatch(0));
 
     ListenableFuture<SerializationResult<ByteString>> second =
         serializeWithExecutor(
@@ -407,6 +307,10 @@ public final class SharedValueSerializationContextTest {
     return task;
   }
 
+  private Object[] createRandomLeafArray() {
+    return NotNestedSet.createRandomLeafArray(rng);
+  }
+
   private static final long POLL_MS = 100;
 
   private static CountDownLatch waitForLastPermit(ConcurrentLinkedDeque<CountDownLatch> deque)
@@ -416,17 +320,6 @@ public final class SharedValueSerializationContextTest {
       Thread.sleep(POLL_MS);
     }
     return latch;
-  }
-
-  private static final int MAX_ELEMENTS = 5;
-
-  private Object[] createRandomLeafArray() {
-    int count = rng.nextInt(MAX_ELEMENTS - 1) + 1;
-    Object[] array = new Object[count];
-    for (int i = 0; i < count; i++) {
-      array[i] = rng.nextInt();
-    }
-    return array;
   }
 
   private static ObjectCodecs createObjectCodecs() {
