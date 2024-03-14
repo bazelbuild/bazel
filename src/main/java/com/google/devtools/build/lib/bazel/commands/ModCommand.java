@@ -94,6 +94,7 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
@@ -494,6 +495,14 @@ public final class ModCommand implements BlazeCommand {
                         e ->
                             (BzlmodRepoRuleValue)
                                 result.get(BzlmodRepoRuleValue.key(e.getValue()))));
+        for (Map.Entry<String, BzlmodRepoRuleValue> entry : targetRepoRuleValues.entrySet()) {
+          if (entry.getValue() == BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
+            return reportAndCreateFailureResult(
+                env,
+                String.format("In repo argument %s: no such repo", entry.getKey()),
+                Code.INVALID_ARGUMENTS);
+          }
+        }
       }
     } catch (InterruptedException e) {
       String errorMessage = "mod command interrupted: " + e.getMessage();
