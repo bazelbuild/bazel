@@ -139,6 +139,10 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     return new ContainingPackage(pkgId, root);
   }
 
+  static ContainingPackageLookupValue noContainingPackage(String reason) {
+    return new NoContainingPackage(reason);
+  }
+
   /** Value indicating there is no containing package. */
   public static class NoContainingPackage extends ContainingPackageLookupValue {
     private final String reason;
@@ -147,7 +151,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
       this.reason = null;
     }
 
-    NoContainingPackage(@Nonnull String reason) {
+    private NoContainingPackage(@Nonnull String reason) {
       this.reason = reason;
     }
 

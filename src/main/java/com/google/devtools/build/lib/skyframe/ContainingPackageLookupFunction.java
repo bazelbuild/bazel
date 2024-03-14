@@ -52,7 +52,7 @@ public class ContainingPackageLookupFunction implements SkyFunction {
     }
 
     if (ErrorReason.REPOSITORY_NOT_FOUND.equals(pkgLookupValue.getErrorReason())) {
-      return new ContainingPackageLookupValue.NoContainingPackage(pkgLookupValue.getErrorMsg());
+      return ContainingPackageLookupValue.noContainingPackage(pkgLookupValue.getErrorMsg());
     }
     PathFragment parentDir = dir.getPackageFragment().getParentDirectory();
     if (parentDir == null) {
