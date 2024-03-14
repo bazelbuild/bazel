@@ -174,7 +174,7 @@ public class SandboxStash {
         }
       }
       if (isTestAction(mnemonic)) {
-        // We only do this after the rename operation has succeeded
+        // We do this before the rename operation to avoid a race condition.
         stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
       }
       path.getChild("execroot").renameTo(stashPathExecroot);
