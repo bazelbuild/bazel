@@ -846,7 +846,10 @@ class ModCommandTest(test_base.TestBase):
     with open('MODULE.bazel', 'r') as module_file:
       self.assertEqual(
         [
-          'module(name = "foo", version = "1.2.3")',
+          'module(',
+          '    name = "foo",',
+          '    version = "1.2.3",',
+          ')',
           # This newline is from ScratchFile.
           '',
         ],

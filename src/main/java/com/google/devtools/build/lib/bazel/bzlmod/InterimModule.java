@@ -260,4 +260,26 @@ public abstract class InterimModule extends ModuleBase {
         .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
         .build();
   }
+
+  static UnaryOperator<DepSpec> applyOverrides(
+      ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
+    return depSpec -> {
+      if (rootModuleName.equals(depSpec.getName())) {
+        return DepSpec.fromModuleKey(ModuleKey.ROOT);
+      }
+
+      Version newVersion = depSpec.getVersion();
+      @Nullable ModuleOverride override = overrides.get(depSpec.getName());
+      if (override instanceof NonRegistryOverride) {
+        newVersion = Version.EMPTY;
+      } else if (override instanceof SingleVersionOverride) {
+        Version overrideVersion = ((SingleVersionOverride) override).getVersion();
+        if (!overrideVersion.isEmpty()) {
+          newVersion = overrideVersion;
+        }
+      }
+
+      return DepSpec.create(depSpec.getName(), newVersion, depSpec.getMaxCompatibilityLevel());
+    };
+  }
 }
