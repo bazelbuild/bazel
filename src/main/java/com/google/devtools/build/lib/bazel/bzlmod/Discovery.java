@@ -54,7 +54,10 @@ final class Discovery {
     String rootModuleName = root.getModule().getName();
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
     Map<ModuleKey, InterimModule> depGraph = new HashMap<>();
-    depGraph.put(ModuleKey.ROOT, rewriteDepSpecs(root.getModule(), overrides, rootModuleName));
+    depGraph.put(
+        ModuleKey.ROOT,
+        root.getModule()
+            .withDepSpecsTransformed(InterimModule.applyOverrides(overrides, rootModuleName)));
     Queue<ModuleKey> unexpanded = new ArrayDeque<>();
     Map<ModuleKey, ModuleKey> predecessors = new HashMap<>();
     unexpanded.add(ModuleKey.ROOT);
@@ -101,7 +104,11 @@ final class Discovery {
           depGraph.put(depKey, null);
         } else {
           depGraph.put(
-              depKey, rewriteDepSpecs(moduleFileValue.getModule(), overrides, rootModuleName));
+              depKey,
+              moduleFileValue
+                  .getModule()
+                  .withDepSpecsTransformed(
+                      InterimModule.applyOverrides(overrides, rootModuleName)));
           unexpanded.add(depKey);
         }
       }
@@ -110,28 +117,5 @@ final class Discovery {
       return null;
     }
     return ImmutableMap.copyOf(depGraph);
-  }
-
-  private static InterimModule rewriteDepSpecs(
-      InterimModule module, ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
-    return module.withDepSpecsTransformed(
-        depSpec -> {
-          if (rootModuleName.equals(depSpec.getName())) {
-            return DepSpec.fromModuleKey(ModuleKey.ROOT);
-          }
-
-          Version newVersion = depSpec.getVersion();
-          @Nullable ModuleOverride override = overrides.get(depSpec.getName());
-          if (override instanceof NonRegistryOverride) {
-            newVersion = Version.EMPTY;
-          } else if (override instanceof SingleVersionOverride) {
-            Version overrideVersion = ((SingleVersionOverride) override).getVersion();
-            if (!overrideVersion.isEmpty()) {
-              newVersion = overrideVersion;
-            }
-          }
-
-          return DepSpec.create(depSpec.getName(), newVersion, depSpec.getMaxCompatibilityLevel());
-        });
   }
 }
