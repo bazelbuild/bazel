@@ -303,10 +303,10 @@ public class ModuleArgTest {
                 baseModuleUnusedDeps,
                 /* includeUnused= */ true,
                 /* warnUnused= */ true));
-    assertThrows(
-        InvalidArgumentException.class,
-        () ->
-            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping));
+    // The repo need not exist in the "repo -> repo" case.
+    assertThat(
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
+        .containsExactly("@@bar~1.0", RepositoryName.create("bar~1.0"));
   }
 
   @Test
@@ -341,9 +341,8 @@ public class ModuleArgTest {
         .containsExactly(foo1);
 
     // resolving to repo names doesn't care about unused deps.
-    assertThrows(
-        InvalidArgumentException.class,
-        () ->
-            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping));
+    assertThat(
+            arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
+        .containsExactly("@@foo~1.0", RepositoryName.create("foo~1.0"));
   }
 }

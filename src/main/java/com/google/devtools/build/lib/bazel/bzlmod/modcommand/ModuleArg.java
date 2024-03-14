@@ -334,18 +334,7 @@ public interface ModuleArg {
         ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
         ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
-        RepositoryMapping mapping)
-        throws InvalidArgumentException {
-      if (depGraph.values().stream()
-          .filter(m -> moduleKeyToCanonicalNames.get(m.getKey()).equals(repoName()) && m.isUsed())
-          .findAny()
-          .isEmpty()) {
-        throw new InvalidArgumentException(
-            String.format(
-                "No module with the canonical repo name @@%s exists in the dependency graph",
-                repoName().getName()),
-            Code.INVALID_ARGUMENTS);
-      }
+        RepositoryMapping mapping) {
       return ImmutableMap.of(toString(), repoName());
     }
 
