@@ -48,6 +48,7 @@ function run_external_starlark_load_test() {
   external_repo=${new_workspace_dir}
 
   cat > ${WORKSPACE_DIR}/WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "external_repo", path = "${external_repo}")
 EOF
 
@@ -126,6 +127,7 @@ remote_rule = rule(
 EOF
 
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r",
     path = "$repo2",
@@ -158,6 +160,7 @@ function test_starlark_repository_nested_relative_label() {
 
   # local
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r1",
     path = "$repo1",

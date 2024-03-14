@@ -241,6 +241,10 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     """Regression test for https://github.com/bazelbuild/bazel/issues/7063."""
     rule_definition = [
         'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        (
+            'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+            ' "new_local_repository")'
+        ),
         'new_local_repository(',
         '    name = "r",',
         '    path = "./repo",',
@@ -280,9 +284,16 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ])
     self.ScratchFile('other_repo/pkg/ignore/file')
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        "local_repository(name = 'other_repo', path='../other_repo')",
-    ])
+    self.ScratchFile(
+        'my_repo/WORKSPACE',
+        [
+            (
+                'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            "local_repository(name = 'other_repo', path='../other_repo')",
+        ],
+    )
 
     exit_code, _, stderr = self.RunBazel(
         args=['build', '@other_repo//pkg:file'],
@@ -317,9 +328,16 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ])
     self.ScratchFile('other_repo/pkg/ignore/file.txt')
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-    ])
+    self.ScratchFile(
+        'my_repo/WORKSPACE',
+        [
+            (
+                'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "other_repo", path="../other_repo")',
+        ],
+    )
 
     exit_code, _, stderr = self.RunBazel(
         args=['build', '@other_repo//pkg:file'],
@@ -368,9 +386,16 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ])
 
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-    ])
+    self.ScratchFile(
+        'my_repo/WORKSPACE',
+        [
+            (
+                'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "other_repo", path="../other_repo")',
+        ],
+    )
 
     _, stdout, _ = self.RunBazel(
         args=[
@@ -395,9 +420,16 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('other_repo/foo/bar/file.txt')
 
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-    ])
+    self.ScratchFile(
+        'my_repo/WORKSPACE',
+        [
+            (
+                'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "other_repo", path="../other_repo")',
+        ],
+    )
     # This should not exclude @other_repo//foo/bar
     self.ScratchFile('my_repo/.bazelignore', ['foo/bar'])
 
@@ -420,9 +452,16 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         ')',
     ])
     self.ScratchFile('my_repo/foo/bar/file.txt')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-    ])
+    self.ScratchFile(
+        'my_repo/WORKSPACE',
+        [
+            (
+                'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "other_repo", path="../other_repo")',
+        ],
+    )
 
     _, stdout, _ = self.RunBazel(args=['query', '//foo/bar/...'], cwd=work_dir)
     self.assertIn('//foo/bar:file', ''.join(stdout))
@@ -438,9 +477,16 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('other_repo/foo/bar/file.txt')
 
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-    ])
+    self.ScratchFile(
+        'my_repo/WORKSPACE',
+        [
+            (
+                'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "other_repo", path="../other_repo")',
+        ],
+    )
     # This should not exclude @other_repo//foo/bar, because .bazelignore doesn't
     # support having repository name in the path fragment.
     self.ScratchFile('my_repo/.bazelignore', ['@other_repo//foo/bar'])
@@ -470,10 +516,17 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('third_repo/foo/bar/file.txt')
 
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-        'local_repository(name = "third_repo", path="../third_repo")',
-    ])
+    self.ScratchFile(
+        'my_repo/WORKSPACE',
+        [
+            (
+                'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "other_repo", path="../other_repo")',
+            'local_repository(name = "third_repo", path="../third_repo")',
+        ],
+    )
 
     self.RunBazel(args=['build', '@other_repo//:file'], cwd=work_dir)
 
