@@ -38,7 +38,7 @@ _PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("", "rust/private"),
     ("rules_rust", "rust/private"),
     ("", "third_party/gpus/cuda"),
-]
+] + _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
 _BUILTINS = [("_builtins", "")]
 

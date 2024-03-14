@@ -143,6 +143,7 @@ public abstract class CcModule
               BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
               BuiltinRestriction.allowlistEntry(
                   "", "rust/private"),
+              BuiltinRestriction.allowlistEntry("", "third_party/crubit"),
               BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
               BuiltinRestriction.allowlistEntry("rules_android", ""),
               BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"),
