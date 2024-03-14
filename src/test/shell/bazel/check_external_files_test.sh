@@ -104,6 +104,7 @@ setup_local() {
   mkdir main
   cd main
   cat >> "$(create_workspace_with_default_repos WORKSPACE)" <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name="local_rep",
   path="../local_rep",
@@ -205,7 +206,8 @@ test_no_fetch_then_fetch() {
     --noexperimental_check_output_files \
     --watchfs \
     @remote//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such package '@@bazel_tools//tools/build_defs/repo'"
+  expect_log "no such package"
+  expect_log "fetching repositories is disabled"
   bazel build \
     --fetch \
     --noexperimental_check_external_repository_files \

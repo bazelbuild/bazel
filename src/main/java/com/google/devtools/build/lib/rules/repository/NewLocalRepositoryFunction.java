@@ -62,6 +62,8 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
+    // DO NOT MODIFY THIS! It's being deprecated in favor of Starlark counterparts.
+    // See https://github.com/bazelbuild/bazel/issues/18285
 
     NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
     if (!fileHandler.prepareFile(rule, env)) {
