@@ -301,11 +301,28 @@ public final class RemoteModule extends BlazeModule {
     }
     boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
+    boolean enableRemoteOutputService = !Strings.isNullOrEmpty(remoteOptions.remoteOutputService);
 
     if (enableRemoteDownloader && !enableGrpcCache) {
       throw createOptionsExitException(
           "The remote downloader can only be used in combination with gRPC caching",
           FailureDetails.RemoteOptions.Code.DOWNLOADER_WITHOUT_GRPC_CACHE);
+    }
+
+    if (enableRemoteOutputService) {
+      if (enableDiskCache) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "--disk_cache is ignored when --experimental_remote_output_service is set."));
+      }
+
+      if (Strings.isNullOrEmpty(remoteOptions.remoteCache)) {
+        throw createOptionsExitException(
+            "--experimental_remote_output_service can only be used in combination with"
+                + " --remote_cache or --remote_executor.",
+            FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+      }
     }
 
     if (!enableDiskCache && !enableHttpCache && !enableGrpcCache && !enableRemoteExecution) {
@@ -451,15 +468,12 @@ public final class RemoteModule extends BlazeModule {
               env::getExecRoot,
               () -> env.getDirectories().getOutputPath(env.getWorkspaceName()),
               digestUtil.getDigestFunction(),
-              remoteOptions,
+              remoteOptions.remoteCache,
+              remoteOptions.remoteInstanceName,
+              remoteOptions.remoteOutputServiceOutputPathPrefix,
               verboseFailures,
               retrier,
               bazelOutputServiceChannel);
-
-      throw createExitException(
-          "Remote Output Service is still WIP",
-          ExitCode.REMOTE_ERROR,
-          Code.REMOTE_EXECUTION_UNKNOWN);
     } else {
       outputService = new RemoteOutputService(env);
     }

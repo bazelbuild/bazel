@@ -80,7 +80,9 @@ public class BazelOutputService implements OutputService {
   private final Supplier<Path> execRootSupplier;
   private final Supplier<Path> outputPathSupplier;
   private final DigestFunction.Value digestFunction;
-  private final RemoteOptions remoteOptions;
+  private final String remoteCache;
+  private final String remoteInstanceName;
+  private final String remoteOutputServiceOutputPathPrefix;
   private final boolean verboseFailures;
   private final RemoteRetrier retrier;
   private final ReferenceCountedChannel channel;
@@ -93,7 +95,9 @@ public class BazelOutputService implements OutputService {
       Supplier<Path> execRootSupplier,
       Supplier<Path> outputPathSupplier,
       DigestFunction.Value digestFunction,
-      RemoteOptions remoteOptions,
+      String remoteCache,
+      String remoteInstanceName,
+      String remoteOutputServiceOutputPathPrefix,
       boolean verboseFailures,
       RemoteRetrier retrier,
       ReferenceCountedChannel channel) {
@@ -101,7 +105,9 @@ public class BazelOutputService implements OutputService {
     this.execRootSupplier = execRootSupplier;
     this.outputPathSupplier = outputPathSupplier;
     this.digestFunction = digestFunction;
-    this.remoteOptions = remoteOptions;
+    this.remoteCache = remoteCache;
+    this.remoteInstanceName = remoteInstanceName;
+    this.remoteOutputServiceOutputPathPrefix = remoteOutputServiceOutputPathPrefix;
     this.verboseFailures = verboseFailures;
     this.retrier = retrier;
     this.channel = channel;
@@ -187,7 +193,7 @@ public class BazelOutputService implements OutputService {
       throws AbruptExitException, InterruptedException {
     checkState(this.buildId == null, "this.buildId must be null");
     this.buildId = buildId.toString();
-    var outputPathPrefix = PathFragment.create(remoteOptions.remoteOutputServiceOutputPathPrefix);
+    var outputPathPrefix = PathFragment.create(remoteOutputServiceOutputPathPrefix);
     if (!outputPathPrefix.isEmpty() && !outputPathPrefix.isAbsolute()) {
       throw new AbruptExitException(
           DetailedExitCode.of(
@@ -212,8 +218,8 @@ public class BazelOutputService implements OutputService {
             .setArgs(
                 Any.pack(
                     StartBuildArgs.newBuilder()
-                        .setRemoteCache(remoteOptions.remoteCache)
-                        .setInstanceName(remoteOptions.remoteInstanceName)
+                        .setRemoteCache(remoteCache)
+                        .setInstanceName(remoteInstanceName)
                         .setDigestFunction(digestFunction)
                         .build()))
             .setOutputPathPrefix(outputPathPrefix.toString())
