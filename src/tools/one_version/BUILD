@@ -48,3 +48,36 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "one_version",
+    srcs = ["one_version.cc"],
+    hdrs = ["one_version.h"],
+    deps = [
+        "//third_party/absl/log:die_if_null",
+        "//third_party/absl/memory",
+        "//third_party/absl/strings",
+        "//third_party/bazel/src/tools/one_version:allowlist",
+        "//third_party/bazel/src/tools/one_version:duplicate_class_collector",
+        "//third_party/bazel/src/tools/singlejar:input_jar",
+    ],
+)
+
+cc_binary(
+    name = "one_version_main",
+    srcs = [
+        "one_version_main.cc",
+    ],
+    copts = ["-Ithird_party/bazel"],
+    deps = [
+        ":allowlist",
+        ":duplicate_class_collector",
+        ":one_version",
+        "//third_party/absl/container:flat_hash_map",
+        "//third_party/absl/container:flat_hash_set",
+        "//third_party/absl/log:die_if_null",
+        "//third_party/absl/strings",
+        "//third_party/bazel/src/tools/singlejar:input_jar",
+        "//third_party/bazel/src/tools/singlejar:token_stream",
+    ],
+)
