@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdeInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkCommonApi;
 import net.starlark.java.annot.StarlarkMethod;
@@ -103,5 +104,10 @@ public class AndroidStarlarkCommon
   @StarlarkMethod(name = AndroidIdeInfoProviderApi.NAME, structField = true, documented = false)
   public AndroidIdeInfoProvider.Provider getAndroidIdeInfoProvider() {
     return AndroidIdeInfoProvider.PROVIDER;
+  }
+
+  @StarlarkMethod(name = AndroidSdkProviderApi.NAME, structField = true, documented = false)
+  public AndroidSdkProvider.Provider getAndroidSdkInfoProvider() {
+    return AndroidSdkProvider.PROVIDER;
   }
 }
