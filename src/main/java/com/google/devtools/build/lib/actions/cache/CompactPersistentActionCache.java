@@ -483,6 +483,15 @@ public class CompactPersistentActionCache implements ActionCache {
     }
   }
 
+  /**
+   * Returns the number of entries in the backing map. If non-zero, it means that the map has been
+   * initialized and contains the validation record.
+   */
+  @Override
+  public int size() {
+    return map.size();
+  }
+
   private static void encodeRemoteMetadata(
       RemoteFileArtifactValue value, StringIndexer indexer, ByteArrayOutputStream sink)
       throws IOException {

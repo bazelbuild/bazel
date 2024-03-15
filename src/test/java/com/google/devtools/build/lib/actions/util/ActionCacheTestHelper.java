@@ -54,6 +54,11 @@ public class ActionCacheTestHelper {
         public void dump(PrintStream out) {}
 
         @Override
+        public int size() {
+          return 0;
+        }
+
+        @Override
         public void accountHit() {}
 
         @Override

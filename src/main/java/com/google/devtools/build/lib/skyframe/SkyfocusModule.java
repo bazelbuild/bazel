@@ -52,6 +52,7 @@ import com.google.errorprone.annotations.Keep;
 import java.io.PrintStream;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.LongFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -274,6 +275,7 @@ public class SkyfocusModule extends BlazeModule {
 
     int beforeNodeCount = env.getSkyframeExecutor().getEvaluator().getValues().size();
     long beforeHeap = 0;
+    long beforeActionCacheEntries = env.getBlazeWorkspace().getPersistentActionCache().size();
     if (skyfocusOptions.dumpPostGcStats) {
       beforeHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
     }
@@ -291,16 +293,29 @@ public class SkyfocusModule extends BlazeModule {
       dumpKeys(env.getReporter(), focusResult);
     }
 
-    reportNodeReduction(
+    reportReductions(
         env.getReporter(),
+        "Node count",
         beforeNodeCount,
-        env.getSkyframeExecutor().getEvaluator().getValues().size());
+        env.getSkyframeExecutor().getEvaluator().getValues().size(),
+        Long::toString);
+
+    reportReductions(
+        env.getReporter(),
+        "Action cache count",
+        beforeActionCacheEntries,
+        env.getBlazeWorkspace().getPersistentActionCache().size(),
+        Long::toString);
 
     if (skyfocusOptions.dumpPostGcStats) {
       // Users may skip heap size reporting, which triggers slow manual GCs, in place of faster
       // focusing.
-      reportHeapReduction(
-          env.getReporter(), beforeHeap, UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc());
+      reportReductions(
+          env.getReporter(),
+          "Heap",
+          beforeHeap,
+          UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc(),
+          StringUtilities::prettyPrintBytes);
     }
 
     env.getSkyframeExecutor().getEvaluator().cleanupLatestTopLevelEvaluations();
@@ -388,25 +403,26 @@ public class SkyfocusModule extends BlazeModule {
     return focusResult;
   }
 
-  private static void reportNodeReduction(
-      Reporter reporter, int beforeNodeCount, int afterNodeCount) {
-    reporter.handle(
-        Event.info(
-            String.format(
-                "Node count: %s -> %s (%.2f%% reduction)",
-                beforeNodeCount,
-                afterNodeCount,
-                (double) (beforeNodeCount - afterNodeCount) / beforeNodeCount * 100)));
-  }
+  private static void reportReductions(
+      Reporter reporter,
+      String prefix,
+      long before,
+      long after,
+      LongFunction<String> valueFormatter) {
+    Preconditions.checkState(!prefix.isEmpty(), "A prefix must be specified.");
 
-  private static void reportHeapReduction(Reporter reporter, long beforeHeap, long afterHeap) {
-    reporter.handle(
-        Event.info(
-            String.format(
-                "Heap: %s -> %s (%.2f%% reduction)",
-                StringUtilities.prettyPrintBytes(beforeHeap),
-                StringUtilities.prettyPrintBytes(afterHeap),
-                (double) (beforeHeap - afterHeap) / beforeHeap * 100)));
+    StringBuilder message = new StringBuilder();
+    message.append(prefix);
+    message.append(": ");
+    message.append(valueFormatter.apply(before));
+    message.append(" -> ");
+    message.append(valueFormatter.apply(after));
+    if (before > 0) {
+      message.append(
+          String.format(" (%.2f%% reduction)", (double) (before - after) / before * 100));
+    }
+
+    reporter.handle(Event.info(message.toString()));
   }
 
   /**

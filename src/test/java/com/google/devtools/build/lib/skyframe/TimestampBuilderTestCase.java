@@ -577,6 +577,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     }
 
     @Override
+    public int size() {
+      return actionCache.size();
+    }
+
+    @Override
     public void accountHit() {
       // Not needed for these tests.
     }
