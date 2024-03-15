@@ -234,7 +234,7 @@ public class QueryTransitivePackagePreloaderTest {
                 .build());
 
     verify(memoizingEvaluator).evaluate(roots, context);
-    verify(bugReporter).sendBugReport(ArgumentMatchers.any());
+    verify(bugReporter).sendNonFatalBugReport(ArgumentMatchers.any());
   }
 
   @Test
@@ -272,7 +272,7 @@ public class QueryTransitivePackagePreloaderTest {
                 .build());
 
     verify(memoizingEvaluator).evaluate(roots, context);
-    verify(bugReporter).sendBugReport(ArgumentMatchers.any());
+    verify(bugReporter).sendNonFatalBugReport(ArgumentMatchers.any());
   }
 
   @Test
