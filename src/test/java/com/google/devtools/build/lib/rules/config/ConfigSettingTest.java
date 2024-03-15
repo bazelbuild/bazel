@@ -582,14 +582,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void selectForDefaultCrosstoolTop() throws Exception {
-    String crosstoolTop = TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain";
-    scratchConfiguredTarget("a", "a",
-        "config_setting(name='cs', values={'crosstool_top': '" + crosstoolTop + "'})",
-        "sh_library(name='a', srcs=['a.sh'], deps=select({':cs': []}))");
-  }
-
-  @Test
   public void selectForDefaultGrteTop() throws Exception {
     scratchConfiguredTarget("a", "a",
         "config_setting(name='cs', values={'grte_top': 'default'})",

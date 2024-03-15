@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.Provider;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -407,12 +407,12 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void testRedirectChasing() throws Exception {
-    RepositoryName toolsRepository = ruleClassProvider.getToolsRepository();
-    scratch.file("a/BUILD",
-        "alias(name='cc', actual='" + toolsRepository + "//tools/cpp:toolchain')",
+    scratch.file(
+        "a/BUILD",
+        "alias(name='cc', actual='" + TestConstants.PLATFORM_LABEL + "')",
         "cc_library(name='a', srcs=['a.cc'])");
 
-    useConfiguration("--crosstool_top=//a:cc");
+    useConfiguration("--platforms=" + "//a:cc");
     getConfiguredTarget("//a:a");
   }
 
