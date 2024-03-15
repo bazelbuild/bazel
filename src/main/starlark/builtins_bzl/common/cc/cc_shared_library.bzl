@@ -684,7 +684,7 @@ def _cc_shared_library_impl(ctx):
         main_output = ctx.actions.declare_file(ctx.attr.shared_lib_name)
 
     pdb_file = None
-    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
+    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file") and not cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_pdb_file"):
         if ctx.attr.shared_lib_name:
             pdb_file = ctx.actions.declare_file(paths.replace_extension(ctx.attr.shared_lib_name, ".pdb"))
         else:

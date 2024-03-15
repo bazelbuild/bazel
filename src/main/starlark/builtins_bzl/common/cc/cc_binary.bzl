@@ -713,7 +713,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     # On Windows, if GENERATE_PDB_FILE feature is enabled
     # then a pdb file will be built along with the executable.
     pdb_file = None
-    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
+    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file") and not cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_pdb_file"):
         pdb_file = ctx.actions.declare_file(_strip_extension(binary) + ".pdb", sibling = binary)
 
     extra_link_time_libraries = deps_cc_linking_context.extra_link_time_libraries()

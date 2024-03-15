@@ -126,6 +126,15 @@ function test_cpp() {
   assert_build -c opt ${cpp_pkg}:hello-world --output_groups=pdb_file
   test -f ./bazel-bin/${cpp_pkg}/hello-world.pdb \
     && fail "PDB file should not be generated in OPT mode"
+  # Check that no_pdb_file/generate_pdb_file can be used to control PDB file
+  # behavior.
+  assert_build_output ./bazel-bin/${cpp_pkg}/hello-world.pdb -c opt \
+    --features=generate_pdb_file ${cpp_pkg}:hello-world \
+    --output_groups=pdb_file
+  assert_build --features=no_pdb_file ${cpp_pkg}:hello-world \
+    --output_groups=pdb_file
+  test -f ./bazel-bin/${cpp_pkg}/hello-world.pdb \
+    && fail "PDB file should not be generated under no_pdb_file"
   assert_build ${cpp_pkg}:hello-world
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
     || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
