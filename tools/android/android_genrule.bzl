@@ -15,8 +15,6 @@
 """Allows building Android-specific dependencies with the correct configuration."""
 
 def _android_transition_impl(settings, attr):
-    if not settings["//command_line_option:incompatible_enable_android_toolchain_resolution"]:
-        return {}
     return {
         "//command_line_option:platforms": str(attr.platform),
         "//command_line_option:android_platforms": str(attr.platform),
@@ -24,9 +22,7 @@ def _android_transition_impl(settings, attr):
 
 _android_transition = transition(
     implementation = _android_transition_impl,
-    inputs = [
-        "//command_line_option:incompatible_enable_android_toolchain_resolution",
-    ],
+    inputs = [],
     outputs = [
         "//command_line_option:platforms",
         "//command_line_option:android_platforms",

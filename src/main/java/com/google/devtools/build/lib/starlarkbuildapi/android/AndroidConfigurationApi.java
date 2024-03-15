@@ -250,13 +250,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   String getOutputDirectoryName();
 
-  @StarlarkMethod(
-      name = "incompatible_use_toolchain_resolution",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean incompatibleUseToolchainResolution();
-
   @StarlarkMethod(name = "hwasan", structField = true, doc = "", documented = false)
   boolean isHwasan();
 

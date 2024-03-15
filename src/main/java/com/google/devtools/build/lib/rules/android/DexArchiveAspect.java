@@ -211,16 +211,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
    */
   private static ImmutableList<Artifact> getPlatformBasedToolchainJars(RuleContext ruleContext)
       throws RuleErrorException {
-    if (!ruleContext
-        .getConfiguration()
-        .getFragment(AndroidConfiguration.class)
-        .incompatibleUseToolchainResolution()) {
-      // Legacy toolchains: toolchain .jars are dexed by propagating the aspect down the
-      // ":android_sdk" attribute. That makes them transitive deps, so no special logic is needed
-      // in the parent target to process them.
-      return ImmutableList.of();
-
-    } else if (!ruleContext.attributes().has(":android_sdk")) {
+    if (!ruleContext.attributes().has(":android_sdk")) {
       // If we're dexing a non-Android target (like a java_library), there's no Android toolchain to
       // include.
       return ImmutableList.of();
@@ -488,8 +479,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   @Nullable
   private Artifact getAndroidJar(RuleContext ruleContext) throws RuleErrorException {
     Label toolchainType = Label.parseCanonicalUnchecked(toolsRepository + sdkToolchainLabel);
-    AndroidSdkProvider androidSdk =
-        AndroidSdkProvider.fromRuleContext(ruleContext, ":dex_archive_android_sdk", toolchainType);
+    AndroidSdkProvider androidSdk = AndroidSdkProvider.fromRuleContext(ruleContext, toolchainType);
     if (androidSdk == null) {
       // If the Android SDK is null, we don't have a valid toolchain. Expect a rule error reported
       // from AndroidSdkProvider.

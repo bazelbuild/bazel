@@ -1144,7 +1144,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
   private final boolean disableInstrumentationManifestMerging;
-  private final boolean incompatibleUseToolchainResolution;
   private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
 
@@ -1204,7 +1203,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
-    this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
     this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
 
@@ -1433,11 +1431,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentMultiplexDexDesugar() {
     return persistentMultiplexDexDesugar;
-  }
-
-  @Override
-  public boolean incompatibleUseToolchainResolution() {
-    return incompatibleUseToolchainResolution;
   }
 
   @Override

@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -473,14 +472,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static SpawnAction createAarNativeLibsFilterActions(
       RuleContext ruleContext, Artifact aar, Artifact outputZip) throws RuleErrorException {
 
-    BuildConfigurationValue configuration = ruleContext.getConfiguration();
-
     String cpu = null;
-    AndroidConfiguration androidConfiguration =
-        configuration.getFragment(AndroidConfiguration.class);
-
-    if (androidConfiguration.incompatibleUseToolchainResolution()) {
-
       // Maps a CPU name as used in an AAR to the corresponding CPU constraint.
       ImmutableMap<String, ConstraintValueInfo> aarCpuToConstraint =
           ImmutableMap.of(
@@ -508,10 +500,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 ruleContext.getToolchainContexts().getTargetPlatform().label(),
                 ruleContext.getLabel()));
       }
-
-    } else {
-      cpu = configuration.getCpu();
-    }
 
     SpawnAction.Builder actionBuilder = new SpawnAction.Builder();
     ParamFileInfo paramFileInfo = getParamFileInfo(ruleContext);
