@@ -164,6 +164,17 @@ public abstract class ImplicitOutputsFunction {
    * Implicit output functions which can not throw an EvalException.
    */
   public abstract static class SafeImplicitOutputsFunction extends ImplicitOutputsFunction {
+
+    /** The implicit output function that returns no files. */
+    @SerializationConstant
+    public static final SafeImplicitOutputsFunction NONE =
+        new SafeImplicitOutputsFunction() {
+          @Override
+          public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
+            return Collections.emptyList();
+          }
+        };
+
     @Override
     public abstract Iterable<String> getImplicitOutputs(
         EventHandler eventHandler, AttributeMap map);
@@ -187,16 +198,6 @@ public abstract class ImplicitOutputsFunction {
    */
   public abstract Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule)
       throws EvalException, InterruptedException;
-
-  /** The implicit output function that returns no files. */
-  @SerializationConstant
-  public static final SafeImplicitOutputsFunction NONE =
-      new SafeImplicitOutputsFunction() {
-        @Override
-        public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
-          return Collections.emptyList();
-        }
-      };
 
   /**
    * A convenience wrapper for {@link #fromTemplates(Iterable)}.

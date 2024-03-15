@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
@@ -104,7 +105,8 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
     TestFilter filter = TestFilter.forOptions(options);
     Package pkg = mock(Package.class);
     RuleClass ruleClass = mock(RuleClass.class);
-    when(ruleClass.getDefaultImplicitOutputsFunction()).thenReturn(ImplicitOutputsFunction.NONE);
+    when(ruleClass.getDefaultImplicitOutputsFunction())
+        .thenReturn(SafeImplicitOutputsFunction.NONE);
     Rule mockRule =
         new Rule(
             pkg,

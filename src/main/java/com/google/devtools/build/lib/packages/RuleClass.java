@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultT
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -778,7 +779,7 @@ public class RuleClass implements RuleClassData {
     private final ImmutableList.Builder<AllowlistChecker> allowlistCheckers =
         ImmutableList.builder();
     private boolean ignoreLicenses = false;
-    private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
+    private ImplicitOutputsFunction implicitOutputsFunction = SafeImplicitOutputsFunction.NONE;
     @Nullable private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
@@ -955,7 +956,7 @@ public class RuleClass implements RuleClassData {
 
       if (starlark
           && (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
-          && implicitOutputsFunction == ImplicitOutputsFunction.NONE
+          && implicitOutputsFunction == SafeImplicitOutputsFunction.NONE
           && outputsToBindir
           && !starlarkTestable
           && !isAnalysisTest
@@ -1174,7 +1175,7 @@ public class RuleClass implements RuleClassData {
 
     /**
      * Sets the implicit outputs function of the rule class. The default implicit outputs function
-     * is {@link ImplicitOutputsFunction#NONE}.
+     * is {@link SafeImplicitOutputsFunction#NONE}.
      *
      * <p>This property is not inherited and this method should not be called by builder of {@link
      * RuleClassType#ABSTRACT} rule class.

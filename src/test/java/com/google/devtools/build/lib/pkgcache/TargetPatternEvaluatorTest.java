@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -59,7 +59,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     // TODO(ulfjack): Also disable the implicit C++ outputs in Google's internal version.
     boolean hasImplicitCcOutputs =
         ruleClassProvider.getRuleClassMap().get("cc_library").getDefaultImplicitOutputsFunction()
-            != ImplicitOutputsFunction.NONE;
+            != SafeImplicitOutputsFunction.NONE;
 
     scratch.file("BUILD", "filegroup(name = 'fg', srcs = glob(['*.cc']))");
     scratch.file("foo.cc");
