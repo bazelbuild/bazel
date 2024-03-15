@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SkyfocusOptions;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
@@ -107,7 +106,7 @@ public class SkyfocusModule extends BlazeModule {
       return;
     }
 
-    if (!commandActuallyBuilds(env.getCommand())) {
+    if (!env.commandActuallyBuilds()) {
       return;
     }
     // All commands that inherit from 'build' will have SkyfocusOptions.
@@ -175,27 +174,7 @@ public class SkyfocusModule extends BlazeModule {
   }
 
   private boolean skyfocusEnabled() {
-    return commandActuallyBuilds(env.getCommand()) && skyfocusOptions.skyfocusEnabled;
-  }
-
-  /**
-   * Checks if the command builds.
-   *
-   * <p>Not all 'build = true' annotated commands actually run a build.
-   */
-  private static boolean commandActuallyBuilds(Command command) {
-    if (!command.builds()) {
-      return false;
-    }
-    // 'clean' and 'info' set 'build = true' to make build options accessible to users (and info
-    // uses them), but does not run a build.
-    if (command.name().equals("clean")) {
-      return false;
-    }
-    if (command.name().equals("info")) {
-      return false;
-    }
-    return true;
+    return env.commandActuallyBuilds() && skyfocusOptions.skyfocusEnabled;
   }
 
   /**

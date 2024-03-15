@@ -967,4 +967,24 @@ public class CommandEnvironment {
   public int getAttemptNumber() {
     return attemptNumber;
   }
+
+  /**
+   * Checks if the command builds.
+   *
+   * <p>Not all 'build = true' annotated commands actually run a build.
+   */
+  public boolean commandActuallyBuilds() {
+    if (!command.builds()) {
+      return false;
+    }
+    // 'clean' and 'info' set 'build = true' to make build options accessible to users (and info
+    // uses them), but does not run a build.
+    if (command.name().equals("clean")) {
+      return false;
+    }
+    if (command.name().equals("info")) {
+      return false;
+    }
+    return true;
+  }
 }
