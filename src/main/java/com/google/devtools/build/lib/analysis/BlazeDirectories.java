@@ -77,7 +77,6 @@ public final class BlazeDirectories {
    * fall-back host_javabase. This is not the embedded JDK.
    */
   private final Path defaultSystemJavabase;
-  /** The root of all build actions. */
   private final Path blazeExecRoot;
 
   // These two are kept to avoid creating new objects every time they are accessed. This showed up
@@ -102,9 +101,11 @@ public final class BlazeDirectories {
       if (useDefaultExecRootName) {
         // TODO(bazel-team): if workspace is null execRoot should be null, but at the moment there
         // is a lot of code that depends on it being non-null.
-        this.blazeExecRoot = getExecRootBase().getChild(DEFAULT_EXEC_ROOT);
+        this.blazeExecRoot =
+            outputBase.getChild(ServerDirectories.EXECROOT).getChild(DEFAULT_EXEC_ROOT);
       } else {
-        this.blazeExecRoot = getExecRootBase().getChild(workspace.getBaseName());
+        this.blazeExecRoot =
+            outputBase.getChild(ServerDirectories.EXECROOT).getChild(workspace.getBaseName());
       }
       this.blazeOutputPath = blazeExecRoot.getRelative(getRelativeOutputPath());
     } else {
@@ -160,12 +161,13 @@ public final class BlazeDirectories {
     return serverDirectories.getOutputBase();
   }
 
+  /** Returns the effective execution root, which may be virtualized. */
   public Path getExecRootBase() {
     return serverDirectories.getExecRootBase();
   }
 
   /**
-   * Returns the execution root of Blaze.
+   * Returns the local execution root of Blaze. Virtualization is not respected.
    *
    * @deprecated Avoid using this method as it will only work if your workspace is named like
    *     Google's internal workspace. This method will not work in Bazel. Use {@link
@@ -188,7 +190,7 @@ public final class BlazeDirectories {
   }
 
   /**
-   * Returns the output path of Blaze.
+   * Returns the local output path of Blaze. Virtualization is not respected.
    *
    * @deprecated Avoid using this method as it will only work if your workspace is named like
    *     Google's internal workspace. This method will not work in Bazel. Use {@link
