@@ -82,7 +82,7 @@ final class TransitiveTargetFunction
         continue;
       }
       if (transitiveTargetValue == null) {
-        BugReport.sendBugReport(
+        BugReport.sendNonFatalBugReport(
             new IllegalStateException(
                 "TransitiveTargetValue " + skyKey + " was missing, this should never happen"));
         continue;
