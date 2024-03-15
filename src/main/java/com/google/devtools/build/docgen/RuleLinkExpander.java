@@ -40,7 +40,6 @@ public class RuleLinkExpander {
           .put("package", FUNCTIONS_PAGE)
           .put("package_group", FUNCTIONS_PAGE)
           .put("description", FUNCTIONS_PAGE)
-          .put("distribs", FUNCTIONS_PAGE)
           .put("licenses", FUNCTIONS_PAGE)
           .put("exports_files", FUNCTIONS_PAGE)
           .put("glob", FUNCTIONS_PAGE)
