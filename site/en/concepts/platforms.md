@@ -300,14 +300,14 @@ corresponding set of legacy flags or the reverse. For example:
 
 ```python
 platforms:
-  # Maps "--platforms=//platforms:ios" to "--cpu=ios_x86_64 --apple_platform_type=ios".
+  # Maps "--platforms=//platforms:ios" to "--ios_multi_cpus=x86_64 --apple_platform_type=ios".
   //platforms:ios
-    --cpu=ios_x86_64
+    --ios_multi_cpus=x86_64
     --apple_platform_type=ios
 
 flags:
-  # Maps "--cpu=ios_x86_64 --apple_platform_type=ios" to "--platforms=//platforms:ios".
-  --cpu=ios_x86_64
+  # Maps "--ios_multi_cpus=x86_64 --apple_platform_type=ios" to "--platforms=//platforms:ios".
+  --ios_multi_cpus=x86_64
   --apple_platform_type=ios
     //platforms:ios
 
