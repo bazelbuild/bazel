@@ -674,7 +674,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
         "--extra_toolchains=//a:cc-toolchain-b",
-        "--crosstool_top=//a:a",
         "--cpu=k8",
         "--host_cpu=k8");
     assertThat(getConfiguredTarget("//a:main")).isNull();
@@ -729,7 +728,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
         "--extra_toolchains=//a:cc-toolchain-b",
-        "--crosstool_top=//a:a",
         "--cpu=k8",
         "--host_cpu=k8",
         "--dynamic_mode=fully");

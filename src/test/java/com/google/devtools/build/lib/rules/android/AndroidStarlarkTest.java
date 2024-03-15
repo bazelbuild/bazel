@@ -55,16 +55,12 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
         "  //java/android/platforms:armeabi-v7a",
         "    --cpu=armeabi-v7a",
         "    --android_cpu=armeabi-v7a",
-        "    --crosstool_top=//android/crosstool:everything",
         "  //java/android/platforms:x86",
         "    --cpu=x86",
         "    --android_cpu=x86",
-        "    --crosstool_top=//android/crosstool:everything",
         "flags:",
-        "  --crosstool_top=//android/crosstool:everything",
         "  --cpu=armeabi-v7a",
         "    //java/android/platforms:armeabi-v7a",
-        "  --crosstool_top=//android/crosstool:everything",
         "  --cpu=x86",
         "    //java/android/platforms:x86");
     invalidatePackages(false);
