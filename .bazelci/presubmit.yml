@@ -436,7 +436,7 @@ tasks:
     include_json_profile:
       - build
       - test
-  kythe_ubuntu2004:
+  kythe_ubuntu2204:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
       -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
