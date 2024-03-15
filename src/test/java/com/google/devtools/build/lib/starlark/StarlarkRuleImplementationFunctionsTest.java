@@ -2692,6 +2692,33 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testArgsMainRepoLabel() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "args.add('--foo')",
+        "args.add('-')",
+        "args.add('foo', format='format%s')",
+        "args.add('-')",
+        "args.add('--foo', 'val')",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly("foo/t.exe", "--foo", "-", "formatfoo", "-", "--foo", "val")
+        .inOrder();
+  }
+
+  @Test
   public void testConfigurationField_starlarkSplitTransitionProhibited() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
