@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -69,7 +67,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class BlazeDirectories {
-  @VisibleForTesting static final String DEFAULT_EXEC_ROOT = "default-exec-root";
+  private static final String DEFAULT_EXEC_ROOT = "default-exec-root";
 
   private final ServerDirectories serverDirectories;
   /** Workspace root and server CWD. */
@@ -263,25 +261,5 @@ public final class BlazeDirectories {
 
   public String getProductName() {
     return productName;
-  }
-
-  @Override
-  public int hashCode() {
-    // blazeExecRoot is derivable from other fields, but better safe than sorry.
-    return Objects.hash(serverDirectories, workspace, productName);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (!(obj instanceof BlazeDirectories)) {
-      return false;
-    }
-    BlazeDirectories that = (BlazeDirectories) obj;
-    return this.serverDirectories.equals(that.serverDirectories)
-        && this.workspace.equals(that.workspace)
-        && this.productName.equals(that.productName);
   }
 }
