@@ -58,9 +58,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
    * baz_toolchain -> exec_compatible_with platform_2; toolchain_type_2 -> bar_toolchain ->
    * exec_compatible_with platform_2
    */
-  @Before
   public void createToolchainsAndPlatforms() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "rule/test_toolchain.bzl",
         "def _impl(ctx):",
         "    return [platform_common.ToolchainInfo(",
@@ -73,7 +72,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "       '_tool': attr.label(default='//toolchain:b_tool', executable=True, cfg='exec'),",
         "    },",
         ")");
-    scratch.file(
+    scratch.overwriteFile(
         "rule/BUILD",
         "exports_files(['test_toolchain/bzl'])",
         "toolchain_type(name = 'toolchain_type_1')",
@@ -86,7 +85,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "    ], ",
         "    java_home = 'k8',",
         ")");
-    scratch.file(
+    scratch.overwriteFile(
         "toolchain/BUILD",
         "load('//rule:test_toolchain.bzl', 'test_toolchain')",
         "genrule(name = 'a_tool', outs = ['atool'], cmd = '', executable = True)",
@@ -119,7 +118,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "    toolchain = ':bar',",
         ")");
 
-    scratch.file(
+    scratch.overwriteFile(
         "platforms/BUILD",
         "constraint_setting(name = 'setting')",
         "constraint_value(",
@@ -160,6 +159,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
   @Override
   public void useConfiguration(String... args) throws Exception {
+    // These need to be defined before the configuration is parsed.
+    createToolchainsAndPlatforms();
     String[] flags = {
       "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain,//toolchain:baz_toolchain",
       "--platforms=//platforms:platform_1",

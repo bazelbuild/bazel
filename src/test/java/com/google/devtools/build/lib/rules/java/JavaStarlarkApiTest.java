@@ -76,7 +76,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     this.targetCpu = cpu;
   }
 
-  @Before
   public void setupTargetPlatform() throws Exception {
     JavaTestUtil.setupPlatform(
         getAnalysisMock(),
@@ -97,6 +96,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Override
   protected void useConfiguration(String... args) throws Exception {
+    // Must actually define the platform before using it in a flag.
+    setupTargetPlatform();
     super.useConfiguration(
         ObjectArrays.concat(
             args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));

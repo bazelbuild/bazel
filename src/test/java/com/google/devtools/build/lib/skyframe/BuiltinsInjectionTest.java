@@ -169,7 +169,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // on our minimal rule class provider.
     // We do need the host platform. Set it to something trivial.
     return ImmutableList.of(
-        "--host_platform=//minimal_buildenv/platforms:default_host",
+        "--host_platform=//minimal_buildenv/platforms:default",
+        "--platforms=//minimal_buildenv/platforms:default",
         // Since this file tests builtins injection, replace the standard exec transition (which is
         // in builtins) with a no-op to avoid interference.
         "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_transition");
@@ -194,7 +195,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // Provide a trivial platform definition.
     mockToolsConfig.create(
         "minimal_buildenv/platforms/BUILD", //
-        "platform(name = 'default_host')");
+        "platform(name = 'default')");
     // No-op exec transition:
     scratch.overwriteFile("pkg2/BUILD", "");
     scratch.file(

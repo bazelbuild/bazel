@@ -86,7 +86,7 @@ public class JavaTestUtil {
       String os,
       String cpu)
       throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         packagePath + "/BUILD",
         "platform(",
         "  name = '" + platform + "',",

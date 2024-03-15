@@ -518,7 +518,6 @@ public class TestActionBuilderTest extends BuildViewTestCase {
    */
   @Test
   public void testOverrideTestExecGroup() throws Exception {
-    useConfiguration("--use_target_platform_for_tests=true", "--platforms=//:linux_aarch64");
     scratch.file(
         "some_test.bzl",
         "def _some_test_impl(ctx):",
@@ -548,6 +547,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "    name = 'custom_exec_group_test',",
         "    exec_properties = {'test.key': 'bad', 'custom_group.key': 'good'},",
         ")");
+    useConfiguration("--use_target_platform_for_tests=true", "--platforms=//:linux_aarch64");
     ImmutableList<Artifact.DerivedArtifact> testStatusList =
         getTestStatusArtifacts("//:custom_exec_group_test");
     TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
@@ -558,10 +558,6 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   /** Adding exec_properties from the platform with --use_target_platform_for_tests. */
   @Test
   public void testTargetTestExecGroup() throws Exception {
-    useConfiguration(
-        "--use_target_platform_for_tests=true",
-        "--platforms=//:linux_aarch64",
-        "--host_platform=//:linux_x86");
     scratch.file(
         "some_test.bzl",
         "def _some_test_impl(ctx):",
@@ -598,6 +594,10 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "    name = 'exec_group_test',",
         "    exec_properties = {'key': 'bad'},",
         ")");
+    useConfiguration(
+        "--use_target_platform_for_tests=true",
+        "--platforms=//:linux_aarch64",
+        "--host_platform=//:linux_x86");
     ImmutableList<Artifact.DerivedArtifact> testStatusList =
         getTestStatusArtifacts("//:exec_group_test");
     TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));

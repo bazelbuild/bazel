@@ -397,6 +397,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testPlatformInOutputDir_legacy_withPlatform() throws Exception {
+    scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
             "--experimental_platform_in_output_dir",
@@ -421,6 +422,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testPlatformInOutputDir_withPlatform() throws Exception {
+    scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
             "--experimental_platform_in_output_dir",
@@ -433,6 +435,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testPlatformInOutputDir_withPlatformAndMatchingOverride() throws Exception {
+    scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
             "--experimental_platform_in_output_dir",
@@ -446,6 +449,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testPlatformInOutputDir_withPlatformAndNonMatchingOverride() throws Exception {
+    scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
             "--experimental_platform_in_output_dir",
