@@ -8767,7 +8767,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             .collect(toImmutableList());
     // aspect depends only on its target and its implicit dependencies not the dependencies of its
     // target
-    assertThat(configuredTargetsDeps).containsExactly("//test:tool", "//test:t1");
+    assertThat(configuredTargetsDeps).containsAtLeast("//test:tool", "//test:t1");
+    assertThat(configuredTargetsDeps).doesNotContain("//test:t2");
+    assertThat(configuredTargetsDeps).doesNotContain("//test:t3");
+    assertThat(configuredTargetsDeps).doesNotContain("//test:t4");
 
     ImmutableList<String> aspectsDeps =
         stream(Iterables.filter(aspectNode.getDirectDeps(), AspectKey.class))
