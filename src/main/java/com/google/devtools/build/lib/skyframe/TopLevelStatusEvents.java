@@ -105,14 +105,10 @@ public final class TopLevelStatusEvents {
 
     public abstract boolean succeeded();
 
-    public static TopLevelEntityAnalysisConcludedEvent success(SkyKey analyzedTopLevelKey) {
+    public static TopLevelEntityAnalysisConcludedEvent create(
+        SkyKey analyzedTopLevelKey, boolean succeeded) {
       return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
-          analyzedTopLevelKey, /*succeeded=*/ true);
-    }
-
-    public static TopLevelEntityAnalysisConcludedEvent failure(SkyKey analyzedTopLevelKey) {
-      return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
-          analyzedTopLevelKey, /*succeeded=*/ false);
+          analyzedTopLevelKey, succeeded);
     }
 
     @Override

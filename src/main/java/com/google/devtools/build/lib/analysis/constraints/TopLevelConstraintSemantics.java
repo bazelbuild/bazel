@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
+import com.google.devtools.build.lib.skyframe.AbstractSaneAnalysisException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.ArrayList;
@@ -621,8 +621,7 @@ public class TopLevelConstraintSemantics {
   }
 
   /** For Exceptions that arise during the compatibility checking of a target. */
-  public static class TargetCompatibilityCheckException extends Exception
-      implements SaneAnalysisException {
+  public static class TargetCompatibilityCheckException extends AbstractSaneAnalysisException {
     private final FailureDetail failureDetail;
 
     public TargetCompatibilityCheckException(String message, FailureDetail failureDetail) {

@@ -169,7 +169,6 @@ java_library(
         ":repository_mapping_function",
         ":repository_mapping_value",
         ":rule_configured_target_value",
-        ":sane_analysis_exception",
         ":sky_functions",
         ":sky_value_dirtiness_checker",
         ":skyframe_aware_action",
@@ -192,6 +191,7 @@ java_library(
         ":tests_for_target_pattern_function",
         ":tests_for_target_pattern_value",
         ":top_level_action_lookup_key_wrapper",
+        ":top_level_aspects_details_build_failed_exception",
         ":top_level_aspects_value",
         ":top_level_status_events",
         ":track_source_directories_flag",
@@ -879,6 +879,7 @@ java_library(
         ":incremental_artifact_conflict_finder",
         ":package_value",
         ":precomputed_value",
+        ":sane_analysis_exception",
         ":target_completion_value",
         ":test_completion_value",
         ":top_level_aspects_value",
@@ -942,6 +943,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "top_level_aspects_details_build_failed_exception",
+    srcs = [
+        "TopLevelAspectsDetailsBuildFailedException.java",
+    ],
+    deps = [
+        ":sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
     ],
 )
 
@@ -2254,7 +2267,10 @@ java_library(
 
 java_library(
     name = "sane_analysis_exception",
-    srcs = ["SaneAnalysisException.java"],
+    srcs = [
+        "AbstractSaneAnalysisException.java",
+        "SaneAnalysisException.java",
+    ],
     deps = [
         ":detailed_exceptions",
     ],
@@ -2307,7 +2323,6 @@ java_library(
         ":sky_functions",
         ":test_completion_value",
         ":top_level_conflict_exception",
-        ":top_level_status_events",
         ":transitive_target_key",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",

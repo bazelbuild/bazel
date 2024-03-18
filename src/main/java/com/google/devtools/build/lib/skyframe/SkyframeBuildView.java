@@ -632,7 +632,8 @@ public final class SkyframeBuildView {
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(
                             ctKey.getLabel()),
                         skipIncompatibleExplicitTargets,
-                        extraActionTopLevelOnly))
+                        extraActionTopLevelOnly,
+                        keepGoing))
             .collect(ImmutableSet.toImmutableSet());
 
     ImmutableSet<BuildDriverKey> buildDriverAspectKeys =
@@ -645,7 +646,8 @@ public final class SkyframeBuildView {
                         strictConflictCheck,
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(k.getLabel()),
                         skipIncompatibleExplicitTargets,
-                        extraActionTopLevelOnly))
+                        extraActionTopLevelOnly,
+                        keepGoing))
             .collect(ImmutableSet.toImmutableSet());
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
     MultiThreadPoolsQuiescingExecutor executor =

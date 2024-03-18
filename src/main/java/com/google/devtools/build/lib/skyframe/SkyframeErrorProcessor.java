@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
-import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -264,8 +263,6 @@ public final class SkyframeErrorProcessor {
         ErrorProcessingResult.newBuilder();
 
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
-      maybePostTopLevelEntryAnalysisConcludedEvent(
-          errorEntry.getKey(), errorEntry.getValue(), eventBus, keepGoing);
       ErrorInfo errorInfo = errorEntry.getValue();
 
       // The cycle reporter requires that the path to the cycle starts at the top level key
@@ -626,17 +623,6 @@ public final class SkyframeErrorProcessor {
 
   private static boolean isValidErrorKeyType(Object errorKey) {
     return errorKey instanceof ConfiguredTargetKey || errorKey instanceof TopLevelAspectsKey;
-  }
-
-  private static void maybePostTopLevelEntryAnalysisConcludedEvent(
-      SkyKey skyKey, ErrorInfo errorInfo, EventBus eventBus, boolean keepGoing) {
-    // In case of --nokeep_going and there's an analysis error, we don't consider the analysis phase
-    // to be concluded.
-    if (keepGoing
-        && skyKey instanceof BuildDriverKey
-        && !isExecutionException(errorInfo.getException())) {
-      eventBus.post(TopLevelEntityAnalysisConcludedEvent.failure(skyKey));
-    }
   }
 
   /** Peel away the wrapper layers to get to the ActionLookupKey of the top level target. */
