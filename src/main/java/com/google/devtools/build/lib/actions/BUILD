@@ -310,6 +310,7 @@ java_library(
         "ArtifactResolver.java",
         "ArtifactRoot.java",
         "Artifacts.java",
+        "PathMapper.java",
     ],
     deps = [
         ":action_lookup_data",
@@ -319,6 +320,7 @@ java_library(
         ":fileset_output_symlink",
         ":package_roots",
         ":path_strippable",
+        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -337,6 +339,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:execution_phase_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",

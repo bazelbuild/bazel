@@ -1577,7 +1577,12 @@ public class RemoteExecutionServiceTest {
                 OutputFile.newBuilder().setPath("outputs/bin/other_dir/output2").setDigest(d2))
             .build();
     PathMapper pathMapper =
-        execPath -> PathFragment.create(execPath.getPathString().replaceAll("config/", ""));
+        new PathMapper() {
+          @Override
+          public PathFragment map(PathFragment execPath) {
+            return PathFragment.create(execPath.getPathString().replaceAll("config/", ""));
+          }
+        };
     Spawn spawn =
         new SpawnBuilder("unused")
             .withOutput(output1)
@@ -2352,7 +2357,12 @@ public class RemoteExecutionServiceTest {
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, "bin/config/output_dir");
     PathMapper pathMapper =
-        execPath -> PathFragment.create(execPath.getPathString().replaceAll("config/", ""));
+        new PathMapper() {
+          @Override
+          public PathFragment map(PathFragment execPath) {
+            return PathFragment.create(execPath.getPathString().replaceAll("config/", ""));
+          }
+        };
     Spawn spawn =
         new SpawnBuilder("unused")
             .withInputs(mappedInput, unmappedInput)
