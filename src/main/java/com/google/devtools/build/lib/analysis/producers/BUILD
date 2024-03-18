@@ -17,6 +17,7 @@ java_library(
         ["*.java"],
         exclude = [
             "BuildConfigurationKeyProducer.java",
+            "PlatformFlagsProducer.java",
             "PlatformInfoProducer.java",
         ],
     ),
@@ -107,6 +108,24 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:exceptions",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "platform_flags_producer",
+    srcs = ["PlatformFlagsProducer.java"],
+    deps = [
+        ":platform_info_producer",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
