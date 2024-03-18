@@ -45,7 +45,7 @@ def _py_test_impl(ctx):
         is_test = True,
         inherited_environment = ctx.attr.env_inherit,
     )
-    maybe_add_test_execution_info(providers.providers, ctx)
+    maybe_add_test_execution_info(providers, ctx)
     return providers
 
 py_test = create_executable_rule(
