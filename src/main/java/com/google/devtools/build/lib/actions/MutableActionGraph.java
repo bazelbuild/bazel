@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
+import com.google.devtools.build.lib.skyframe.AbstractSaneAnalysisException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -61,7 +61,7 @@ public interface MutableActionGraph extends ActionGraph {
    * about the artifact for which the conflict is found, and data about the two conflicting actions
    * and their owners.
    */
-  final class ActionConflictException extends Exception implements SaneAnalysisException {
+  final class ActionConflictException extends AbstractSaneAnalysisException {
 
     private final Artifact artifact;
 

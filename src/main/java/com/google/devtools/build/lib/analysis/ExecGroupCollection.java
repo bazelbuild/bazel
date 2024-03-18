@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
+import com.google.devtools.build.lib.skyframe.AbstractSaneAnalysisException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -262,8 +262,7 @@ public abstract class ExecGroupCollection {
   }
 
   /** An error for when the user tries to access a non-existent exec group. */
-  public static final class InvalidExecGroupException extends Exception
-      implements SaneAnalysisException {
+  public static final class InvalidExecGroupException extends AbstractSaneAnalysisException {
 
     public InvalidExecGroupException(Collection<String> invalidNames) {
       super(
