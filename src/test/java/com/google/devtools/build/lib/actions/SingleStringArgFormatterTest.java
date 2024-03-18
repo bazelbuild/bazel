@@ -32,6 +32,7 @@ public final class SingleStringArgFormatterTest {
   @Test
   public void invalid(
       @TestParameter({
+            "hello",
             "hello %%s",
             "hello %s %s",
             "%s hello %s",
