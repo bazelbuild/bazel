@@ -37,6 +37,7 @@ public class PlatformRule implements RuleDefinition {
   public static final String PARENTS_PLATFORM_ATTR = "parents";
   public static final String REMOTE_EXECUTION_PROPS_ATTR = "remote_execution_properties";
   public static final String EXEC_PROPS_ATTR = "exec_properties";
+  public static final String FLAGS_ATTR = "flags";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -109,6 +110,15 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(EXEC_PROPS_ATTR, Type.STRING_DICT)
                 .value(ImmutableMap.of())
+                .nonconfigurable("Part of the configuration"))
+
+        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(flags) -->
+        A list of flags that will be enabled when this platform is used as the target platform in
+        a configuration. Only flags that can be set in transitions are allowed to be used.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(FLAGS_ATTR, Type.STRING_LIST)
+                .value(ImmutableList.of())
                 .nonconfigurable("Part of the configuration"))
         .build();
   }

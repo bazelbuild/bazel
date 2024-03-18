@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.base.Strings;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.DuplicateConstraintException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -71,17 +72,21 @@ public class PlatformInfo extends NativeInfo
   // PlatformUtils.getPlatformProto to use the dict-typed execProperties and do a migration.
   private final PlatformProperties execProperties;
 
+  private final ImmutableList<String> flags;
+
   private PlatformInfo(
       Label label,
       ConstraintCollection constraints,
       String remoteExecutionProperties,
       PlatformProperties execProperties,
+      ImmutableList<String> flags,
       Location creationLocation) {
     super(creationLocation);
     this.label = label;
     this.constraints = constraints;
     this.remoteExecutionProperties = Strings.nullToEmpty(remoteExecutionProperties);
     this.execProperties = execProperties;
+    this.flags = flags;
   }
 
   @Override
@@ -107,6 +112,10 @@ public class PlatformInfo extends NativeInfo
     return execProperties.properties();
   }
 
+  public ImmutableList<String> flags() {
+    return flags;
+  }
+
   @Override
   public void repr(Printer printer) {
     printer.append(String.format("PlatformInfo(%s, constraints=%s)", label, constraints));
@@ -117,6 +126,7 @@ public class PlatformInfo extends NativeInfo
     fp.addString(label.toString());
     fp.addNullableString(remoteExecutionProperties);
     fp.addStringMap(execProperties.properties());
+    fp.addStrings(flags);
     constraints.addToFingerprint(fp);
   }
 
@@ -150,6 +160,7 @@ public class PlatformInfo extends NativeInfo
     private final ConstraintCollection.Builder constraints = ConstraintCollection.builder();
     private String remoteExecutionProperties = null;
     private final PlatformProperties.Builder execPropertiesBuilder = PlatformProperties.builder();
+    private final ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
     private Location creationLocation = Location.BUILTIN;
 
     /**
@@ -251,6 +262,13 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
+    /** Add the given flags to this {@link PlatformInfo}. */
+    @CanIgnoreReturnValue
+    public Builder addFlags(Iterable<String> flags) {
+      this.flags.addAll(flags);
+      return this;
+    }
+
     private static void checkRemoteExecutionProperties(
         PlatformInfo parent,
         String remoteExecutionProperties,
@@ -294,11 +312,20 @@ public class PlatformInfo extends NativeInfo
       String remoteExecutionProperties =
           mergeRemoteExecutionProperties(parent, this.remoteExecutionProperties);
 
+      // Merge parent flags and this builder's flags. Parent flags always come first so that flags
+      // from this builder will override or combine, depending on the flag type.
+      ImmutableList.Builder<String> flagBuilder = new ImmutableList.Builder<>();
+      if (this.parent != null) {
+        flagBuilder.addAll(this.parent.flags);
+      }
+      flagBuilder.addAll(this.flags.build());
+
       return new PlatformInfo(
           label,
           constraints.build(),
           remoteExecutionProperties,
           execPropertiesBuilder.build(),
+          flagBuilder.build(),
           creationLocation);
     }
 

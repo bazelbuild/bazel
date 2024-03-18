@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.packages.Type;
+import java.util.List;
 import java.util.Map;
 
 /** Defines a platform for execution contexts. */
@@ -66,6 +67,11 @@ public class Platform implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Type.STRING_DICT);
     if (execProperties != null && !execProperties.isEmpty()) {
       platformBuilder.setExecProperties(ImmutableMap.copyOf(execProperties));
+    }
+
+    List<String> flags = ruleContext.attributes().get(PlatformRule.FLAGS_ATTR, Type.STRING_LIST);
+    if (flags != null && !flags.isEmpty()) {
+      platformBuilder.addFlags(flags);
     }
 
     PlatformInfo platformInfo;
