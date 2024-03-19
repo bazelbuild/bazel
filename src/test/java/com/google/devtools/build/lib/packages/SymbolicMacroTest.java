@@ -56,14 +56,18 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   @Test
   public void implementationIsInvokedWithNameParam() throws Exception {
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl(name):",
-        "    print('my_macro called with name = %s' % name)",
-        "my_macro = macro(implementation=_impl)");
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            print("my_macro called with name = %s" % name)
+        my_macro = macro(implementation=_impl)
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')",
-        "my_macro(name='abc')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
@@ -73,14 +77,18 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   @Test
   public void implementationFailsDueToBadSignature() throws Exception {
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl():",
-        "    pass",
-        "my_macro = macro(implementation=_impl)");
+        "pkg/foo.bzl",
+        """
+        def _impl():
+            pass
+        my_macro = macro(implementation=_impl)
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')",
-        "my_macro(name='abc')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
 
     reporter.removeHandler(failFastHandler);
     Package pkg = getPackage("pkg");
@@ -92,14 +100,18 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   @Test
   public void macroCanDeclareTargets() throws Exception {
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl(name):",
-        "    native.cc_library(name = name + '$lib')",
-        "my_macro = macro(implementation=_impl)");
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            native.cc_library(name = name + "$lib")
+        my_macro = macro(implementation=_impl)
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')",
-        "my_macro(name='abc')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
@@ -109,17 +121,21 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   @Test
   public void macroCanDeclareSubmacros() throws Exception {
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _inner_impl(name):",
-        "    native.cc_library(name = name + '$lib')",
-        "inner_macro = macro(implementation=_inner_impl)",
-        "def _impl(name):",
-        "    inner_macro(name = name + '$inner')",
-        "my_macro = macro(implementation=_impl)");
+        "pkg/foo.bzl",
+        """
+        def _inner_impl(name):
+            native.cc_library(name = name + "$lib")
+        inner_macro = macro(implementation=_inner_impl)
+        def _impl(name):
+            inner_macro(name = name + "$inner")
+        my_macro = macro(implementation=_impl)
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')",
-        "my_macro(name='abc')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
@@ -131,14 +147,18 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   public void macroCanCallGlob() throws Exception {
     scratch.file("pkg/foo.txt");
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl(name):",
-        "    print('Glob result: %s' % native.glob(['foo*']))",
-        "my_macro = macro(implementation=_impl)");
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            print("Glob result: %s" % native.glob(["foo*"]))
+        my_macro = macro(implementation=_impl)
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')",
-        "my_macro(name='abc')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
@@ -149,16 +169,20 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   @Test
   public void macroCanCallExistingRules() throws Exception {
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl(name):",
-        "    native.cc_binary(name = name + '$lib')",
-        "    print('existing_rules() keys: %s' % native.existing_rules().keys())",
-        "my_macro = macro(implementation=_impl)");
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            native.cc_binary(name = name + "$lib")
+            print("existing_rules() keys: %s" % native.existing_rules().keys())
+        my_macro = macro(implementation=_impl)
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')",
-        "cc_library(name = 'outer_target')",
-        "my_macro(name='abc')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        cc_library(name = "outer_target")
+        my_macro(name="abc")
+        """);
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
@@ -170,18 +194,22 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   @Test
   public void macroDeclaredTargetsAreVisibleToExistingRules() throws Exception {
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl(name):",
-        "    native.cc_binary(name = name + '$lib')",
-        "my_macro = macro(implementation=_impl)",
-        "def query():",
-        "    print('existing_rules() keys: %s' % native.existing_rules().keys())");
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            native.cc_binary(name = name + "$lib")
+        my_macro = macro(implementation=_impl)
+        def query():
+            print("existing_rules() keys: %s" % native.existing_rules().keys())
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro', 'query')",
-        "cc_library(name = 'outer_target')",
-        "my_macro(name='abc')",
-        "query()");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro", "query")
+        cc_library(name = "outer_target")
+        my_macro(name="abc")
+        query()
+        """);
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
