@@ -218,6 +218,11 @@ def _impl(ctx):
         enabled = True,
     )
 
+    gcc_quoting_for_param_files_feature = feature(
+        name = "gcc_quoting_for_param_files",
+        enabled = True,
+    )
+
     static_link_cpp_runtimes_feature = feature(
         name = "static_link_cpp_runtimes",
         enabled = False,
@@ -1419,6 +1424,7 @@ def _impl(ctx):
             asan_feature,
             tsan_feature,
             ubsan_feature,
+            gcc_quoting_for_param_files_feature,
             static_link_cpp_runtimes_feature,
         ] + (
             [
@@ -1459,6 +1465,7 @@ def _impl(ctx):
             asan_feature,
             tsan_feature,
             ubsan_feature,
+            gcc_quoting_for_param_files_feature,
             static_link_cpp_runtimes_feature,
         ] + (
             [
