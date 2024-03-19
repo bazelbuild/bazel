@@ -90,6 +90,19 @@ public class ToolchainResolutionFunction implements SkyFunction {
                           .map(ToolchainTypeRequirement::toolchainType)
                           .collect(toImmutableSet()));
 
+      // Create keys for all platforms that will be used, and validate them early.
+      // Do this early, to catch platform errors early.
+      PlatformKeys platformKeys =
+          loadPlatformKeys(
+              env,
+              debug,
+              configuration.getKey(),
+              platformConfiguration,
+              key.execConstraintLabels());
+      if (env.valuesMissing()) {
+        return null;
+      }
+
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.
       ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypeInfos =
@@ -102,18 +115,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
       builder.setRequestedLabelToToolchainType(resolvedToolchainTypeInfos);
       ImmutableSet<ToolchainType> resolvedToolchainTypes =
           loadToolchainTypes(resolvedToolchainTypeInfos, key.toolchainTypes());
-
-      // Create keys for all platforms that will be used, and validate them early.
-      PlatformKeys platformKeys =
-          loadPlatformKeys(
-              env,
-              debug,
-              configuration.getKey(),
-              platformConfiguration,
-              key.execConstraintLabels());
-      if (env.valuesMissing()) {
-        return null;
-      }
 
       // Determine the actual toolchain implementations to use.
       determineToolchainImplementations(

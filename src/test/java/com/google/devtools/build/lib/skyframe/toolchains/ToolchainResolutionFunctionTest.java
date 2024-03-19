@@ -18,9 +18,12 @@ import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSub
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ConstraintValueLookupUtil.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
@@ -540,13 +543,22 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   @Test
   public void resolve_invalidTargetPlatform_badTarget() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
-    useConfiguration("--platforms=//invalid:not_a_platform");
+
+    // Manually create a configuration key: trying to call `useConfiguration` will immediately throw
+    // the exception this is checking for.
+    BuildOptions newOptions = targetConfigKey.getOptions().clone();
+    newOptions.get(PlatformOptions.class).platforms =
+        ImmutableList.of(Label.parseCanonicalUnchecked("//invalid:not_a_platform"));
+    BuildConfigurationKey configKey = BuildConfigurationKey.create(newOptions);
+
+    // Create the toolchain context key and evaluate it.
     ToolchainContextKey key =
         ToolchainContextKey.key()
-            .configurationKey(targetConfigKey)
+            .configurationKey(configKey)
             .toolchainTypes(testToolchainType)
             .build();
 
+    reporter.removeHandler(failFastHandler); // expect errors
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasError();
@@ -566,13 +578,22 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   @Test
   public void resolve_invalidTargetPlatform_badPackage() throws Exception {
     scratch.resolve("invalid").delete();
-    useConfiguration("--platforms=//invalid:not_a_platform");
+
+    // Manually create a configuration key: trying to call `useConfiguration` will immediately throw
+    // the exception this is checking for.
+    BuildOptions newOptions = targetConfigKey.getOptions().clone();
+    newOptions.get(PlatformOptions.class).platforms =
+        ImmutableList.of(Label.parseCanonicalUnchecked("//invalid:not_a_platform"));
+    BuildConfigurationKey configKey = BuildConfigurationKey.create(newOptions);
+
+    // Create the toolchain context key and evaluate it.
     ToolchainContextKey key =
         ToolchainContextKey.key()
-            .configurationKey(targetConfigKey)
+            .configurationKey(configKey)
             .toolchainTypes(testToolchainType)
             .build();
 
+    reporter.removeHandler(failFastHandler); // expect errors
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasError();
