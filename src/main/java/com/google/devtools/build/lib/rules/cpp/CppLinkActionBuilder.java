@@ -172,8 +172,6 @@ public class CppLinkActionBuilder {
   private Link.LinkingMode linkingMode = LinkingMode.STATIC;
   private String libraryIdentifier = null;
   private LtoCompilationContext ltoCompilationContext;
-  private Artifact defFile;
-
   private boolean isNativeDeps;
   private boolean useTestOnlyFlags;
   private boolean wholeArchive;
@@ -871,7 +869,6 @@ public class CppLinkActionBuilder {
             interfaceOutput != null ? interfaceOutput.getExecPathString() : null,
             ltoOutputRootPrefix,
             ltoObjRootPrefix,
-            defFile != null ? defFile.getExecPathString() : null,
             fdoContext,
             collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
             collectedLibrariesToLink.getLibrariesToLink(),
@@ -934,9 +931,6 @@ public class CppLinkActionBuilder {
     // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.
     if (shouldUseLinkDynamicLibraryTool()) {
       dependencyInputsBuilder.add(toolchain.getLinkDynamicLibraryTool());
-    }
-    if (defFile != null) {
-      dependencyInputsBuilder.add(defFile);
     }
 
     NestedSet<Artifact> nonCodeInputsAsNestedSet =
@@ -1251,12 +1245,6 @@ public class CppLinkActionBuilder {
       LtoCompilationContext ltoCompilationContext) {
     Preconditions.checkState(this.ltoCompilationContext == null);
     this.ltoCompilationContext = ltoCompilationContext;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public CppLinkActionBuilder setDefFile(Artifact defFile) {
-    this.defFile = defFile;
     return this;
   }
 

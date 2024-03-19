@@ -591,18 +591,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "pdb_file",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound"),
-        @Param(
-            name = "win_def_file",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound"),
-        @Param(
             name = "use_shareable_artifact_factory",
             documented = false,
             positional = false,
@@ -645,8 +633,6 @@ public interface CcModuleApi<
       Object mainOutput,
       Object linkerOutputs,
       Object useTestOnlyFlags,
-      Object pdbFile,
-      Object winDefFile,
       Object useShareableArtifactFactory,
       Object buildConfig,
       StarlarkThread thread)
@@ -1166,12 +1152,6 @@ public interface CcModuleApi<
             named = true,
             positional = false,
             defaultValue = "None"),
-        @Param(
-            name = "def_file",
-            doc = "Optional .def file path.",
-            named = true,
-            positional = false,
-            defaultValue = "None"),
         // TODO(b/65151735): Remove once we migrate crosstools to features
         @Param(
             name = "is_using_linker",
@@ -1225,7 +1205,6 @@ public interface CcModuleApi<
       Object userLinkFlags,
       Object outputFile,
       Object paramFile,
-      Object defFile,
       boolean isUsingLinkerNotArchiver,
       boolean isCreatingSharedLibrary,
       boolean mustKeepDebug,
@@ -2028,12 +2007,6 @@ public interface CcModuleApi<
             documented = false,
             defaultValue = "unbound"),
         @Param(
-            name = "win_def_file",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound"),
-        @Param(
             name = "test_only_target",
             positional = false,
             named = true,
@@ -2057,7 +2030,6 @@ public interface CcModuleApi<
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
-      Object winDefFile,
       Object testOnlyTarget,
       StarlarkThread thread)
       throws InterruptedException, EvalException;

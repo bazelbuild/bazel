@@ -114,7 +114,6 @@ public enum LinkBuildVariables {
       String interfaceLibraryOutput,
       PathFragment ltoOutputRootPrefix,
       PathFragment ltoObjRootPrefix,
-      String defFile,
       FdoContext fdoContext,
       NestedSet<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
@@ -242,10 +241,6 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(
           INTERFACE_LIBRARY_OUTPUT.getVariableName(),
           shouldGenerateInterfaceLibrary ? interfaceLibraryOutput : "ignored");
-    }
-
-    if (defFile != null) {
-      buildVariables.addStringVariable(DEF_FILE_PATH.getVariableName(), defFile);
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {

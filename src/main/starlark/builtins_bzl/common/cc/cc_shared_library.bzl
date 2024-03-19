@@ -683,14 +683,18 @@ def _cc_shared_library_impl(ctx):
     if ctx.attr.shared_lib_name:
         main_output = ctx.actions.declare_file(ctx.attr.shared_lib_name)
 
+    additional_inputs = []
+    additional_outputs = []
+    link_variables = {}
+
     pdb_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
         if ctx.attr.shared_lib_name:
             pdb_file = ctx.actions.declare_file(paths.replace_extension(ctx.attr.shared_lib_name, ".pdb"))
         else:
             pdb_file = ctx.actions.declare_file(ctx.label.name + ".pdb")
+        additional_outputs.append(pdb_file)
 
-    win_def_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
         object_files = []
         for linker_input in linking_context.linker_inputs.to_list():
@@ -709,8 +713,9 @@ def _cc_shared_library_impl(ctx):
             generated_def_file = cc_helper.generate_def_file(ctx, def_parser, object_files, ctx.label.name)
         custom_win_def_file = ctx.file.win_def_file
         win_def_file = cc_helper.get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
+        link_variables["def_file_path"] = win_def_file.path
+        additional_inputs.append(win_def_file)
 
-    additional_inputs = []
     additional_inputs.extend(ctx.files.additional_linker_inputs)
     linking_outputs = cc_common.link(
         actions = ctx.actions,
@@ -722,8 +727,8 @@ def _cc_shared_library_impl(ctx):
         name = ctx.label.name,
         output_type = "dynamic_library",
         main_output = main_output,
-        pdb_file = pdb_file,
-        win_def_file = win_def_file,
+        variables_extension = link_variables,
+        additional_outputs = additional_outputs,
     )
 
     runfiles_files = []

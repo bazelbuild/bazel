@@ -101,8 +101,6 @@ public final class CcLinkingHelper {
   private boolean willOnlyBeLinkedIntoDynamicLibraries;
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
   private boolean useTestOnlyFlags;
-  private Artifact pdbFile;
-  private Artifact defFile;
   private LinkingMode linkingMode = LinkingMode.DYNAMIC;
   private boolean nativeDeps;
   private boolean wholeArchive;
@@ -527,18 +525,6 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  @CanIgnoreReturnValue
-  public CcLinkingHelper setPdbFile(Artifact pdbFile) {
-    this.pdbFile = pdbFile;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public CcLinkingHelper setDefFile(Artifact defFile) {
-    this.defFile = defFile;
-    return this;
-  }
-
   private void createNoPicAndPicStaticLibraries(
       LibraryToLink.Builder libraryToLinkBuilder,
       boolean usePicForBinaries,
@@ -760,14 +746,6 @@ public final class CcLinkingHelper {
           ccLinkingContext.getFlattenedUserLinkFlags(),
           linkstamps,
           ccLinkingContext.getNonCodeInputs().toList());
-    }
-
-    if (pdbFile != null) {
-      dynamicLinkActionBuilder.addActionOutput(pdbFile);
-    }
-
-    if (defFile != null) {
-      dynamicLinkActionBuilder.setDefFile(defFile);
     }
 
     if (dynamicLinkActionBuilder.hasLtoBitcodeInputs()

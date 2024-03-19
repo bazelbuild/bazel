@@ -1001,23 +1001,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDefFileLinkVariables() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder().withFeatures("def"));
-    useConfiguration();
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_LINK_EXECUTABLE,
-                "cc_common.create_link_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "def_file = 'foo/bar/def',",
-                ")"))
-        .contains("-qux_foo/bar/def");
-  }
-
-  @Test
   public void testMustKeepDebugLinkVariables() throws Exception {
     AnalysisMock.get()
         .ccSupport()
@@ -1597,7 +1580,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
     Depset additionalInputs = info.getValue("additional_inputs", Depset.class);
     assertThat(additionalInputs.toList(Artifact.class).stream().map(Artifact::getFilename))
-        .containsExactly("b.lds", "d.lds");
+        .containsAtLeast("b.lds", "d.lds"); // On Windows also .def files
     Depset linkstamps = info.getValue("linkstamps", Depset.class);
     assertThat(
             artifactsToStrings(
@@ -7893,64 +7876,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             + " cc_toolchain)",
         "  cc_common.link(actions = ctx.actions, cc_toolchain = cc_toolchain, feature_configuration"
             + " = feature_configuration,use_test_only_flags = True, name = 'test')",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foo:alias'))},",
-        "  fragments = ['cpp'],",
-        ")");
-    invalidatePackages();
-
-    AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
-
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
-  public void testLinkUsePdbFileNotAccessibleFromOutsideBuiltins() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        "load(':custom_rule.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
-        "custom_rule(name = 'custom')");
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain ="
-            + " cc_toolchain)",
-        "  cc_common.link(actions = ctx.actions, cc_toolchain = cc_toolchain, feature_configuration"
-            + " = feature_configuration,pdb_file = None, name = 'test')",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foo:alias'))},",
-        "  fragments = ['cpp'],",
-        ")");
-    invalidatePackages();
-
-    AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
-
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
-  public void testLinkUseWinDefFileNotAccessibleFromOutsideBuiltins() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        "load(':custom_rule.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
-        "custom_rule(name = 'custom')");
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain ="
-            + " cc_toolchain)",
-        "  cc_common.link(actions = ctx.actions, cc_toolchain = cc_toolchain, feature_configuration"
-            + " = feature_configuration,win_def_file = None, name = 'test')",
         "  return []",
         "custom_rule = rule(",
         "  implementation = _impl,",

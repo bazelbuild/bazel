@@ -380,7 +380,6 @@ public abstract class CcModule
       Object userLinkFlags,
       Object outputFile,
       Object paramFile,
-      Object defFile,
       boolean isUsingLinkerNotArchiver,
       boolean isCreatingSharedLibrary,
       boolean mustKeepDebug,
@@ -413,7 +412,6 @@ public abstract class CcModule
         /* interfaceLibraryOutput= */ null,
         /* ltoOutputRootPrefix= */ null,
         /* ltoObjRootPrefix= */ null,
-        convertFromNoneable(defFile, /* defaultValue= */ null),
         /* fdoContext= */ null,
         Depset.noneableCast(
             runtimeLibrarySearchDirectories, String.class, "runtime_library_search_directories"),
@@ -1912,7 +1910,6 @@ public abstract class CcModule
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
-      Object winDefFileObject,
       Object testOnlyTargetObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
@@ -1936,7 +1933,6 @@ public abstract class CcModule
     } else {
       staticLinkTargetType = LinkTargetType.STATIC_LIBRARY;
     }
-    Artifact winDefFile = convertFromNoneable(winDefFileObject, /* defaultValue= */ null);
     List<CcLinkingContext> ccLinkingContexts =
         Sequence.cast(linkingContextsObjects, CcLinkingContext.class, "linking_contexts");
     CcLinkingHelper helper =
@@ -1961,7 +1957,6 @@ public abstract class CcModule
             .emitInterfaceSharedLibraries(true)
             .setLinkedDLLNameSuffix(
                 convertFromNoneable(linkedDllNameSuffix, /* defaultValue= */ ""))
-            .setDefFile(winDefFile)
             .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(convertFromNoneable(testOnlyTargetObject, false))
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
@@ -2370,8 +2365,6 @@ public abstract class CcModule
       Object mainOutputObject,
       Object linkerOutputsObject,
       Object useTestOnlyFlags,
-      Object pdbFile,
-      Object winDefFile,
       Object useShareableArtifactFactory,
       Object buildConfig,
       StarlarkThread thread)
@@ -2463,8 +2456,6 @@ public abstract class CcModule
                         ccToolchainProvider.getCppConfiguration(), actualFeatureConfiguration))
             .setLinkerOutputArtifact(convertFromNoneable(mainOutput, null))
             .setUseTestOnlyFlags(convertFromNoneable(useTestOnlyFlags, false))
-            .setPdbFile(convertFromNoneable(pdbFile, null))
-            .setDefFile(convertFromNoneable(winDefFile, null))
             .addLinkerOutputs(linkerOutputs);
     if (staticLinkTargetType != null) {
       helper.setShouldCreateDynamicLibrary(false).setStaticLinkType(staticLinkTargetType);
