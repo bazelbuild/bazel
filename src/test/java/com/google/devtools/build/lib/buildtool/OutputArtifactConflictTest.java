@@ -52,6 +52,7 @@ import org.junit.runner.RunWith;
 public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
   @TestParameter boolean skymeld;
+  @TestParameter boolean minimizeMemory;
 
   static class AnalysisFailureEventListener extends BlazeModule {
 
@@ -80,6 +81,13 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   @Before
   public void setup() {
     addOptions("--experimental_merged_skyframe_analysis_execution=" + skymeld);
+    if (minimizeMemory) {
+      addOptions(
+          "--notrack_incremental_state",
+          "--discard_analysis_cache",
+          "--nokeep_state_after_build",
+          "--heuristically_drop_nodes");
+    }
   }
 
   private void writeConflictBzl() throws IOException {
@@ -648,6 +656,14 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
     Code errorCode =
         assertThrowsExceptionWhenBuildingTargets(/*keepGoing=*/ true, "//x:y", "//x/y:y");
+
+    assertThat(errorCode).isEqualTo(Code.NOT_ALL_TARGETS_ANALYZED);
+
+    if (minimizeMemory) {
+      // The states might have been dropped, so we can't check further here.
+      return;
+    }
+
     Path outputXY = Iterables.getOnlyElement(getArtifacts("//x:y")).getPath();
     Path outputXYY = Iterables.getOnlyElement(getArtifacts("//x/y:y")).getPath();
 
@@ -659,11 +675,12 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
       assertThat(outputXY.exists()).isFalse();
       assertThat(outputXYY.exists()).isFalse();
     }
-    assertThat(errorCode).isEqualTo(Code.NOT_ALL_TARGETS_ANALYZED);
   }
 
   @Test
   public void dependencyHasConflict_keepGoing_bothTopLevelTargetsFail() throws Exception {
+    // TODO(b/326363176) Known bug.
+    assume().that(minimizeMemory).isFalse();
     addOptions("--keep_going");
     writeConflictBzl();
     write(
@@ -710,7 +727,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
   @Test
   public void conflict_noTrackIncrementalState_detected() throws Exception {
-    addOptions("--notrack_incremental_state");
+    assume().that(minimizeMemory).isTrue();
     writeConflictBzl();
     write(
         "foo/BUILD",
