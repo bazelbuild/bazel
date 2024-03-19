@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ActionLookupConflictFindingFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -964,7 +965,7 @@ public class BuildViewTest extends BuildViewTestBase {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     reporter.removeHandler(failFastHandler); // Expect errors from action conflicts.
     scratch.file(
         "conflict/BUILD",

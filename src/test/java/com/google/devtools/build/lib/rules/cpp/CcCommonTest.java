@@ -172,7 +172,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget archiveInSrcsTest =
         scratchConfiguredTarget(
             "archive_in_srcs",
@@ -360,7 +360,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
     invalidatePackages();
-    useConfiguration("--cpu=k8", "--save_temps");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--save_temps");
     scratch.file(
         "ananas/BUILD",
         "cc_library(name='ananas',",
@@ -448,7 +448,7 @@ public class CcCommonTest extends BuildViewTestCase {
             CcToolchainConfig.builder()
                 .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
     invalidatePackages();
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file("a/BUILD", "cc_library(name='preprocess', srcs=['preprocess.S'])");
     List<String> argv = getCppCompileAction("//a:preprocess").getArguments();
     assertThat(argv).contains("-fPIC");
@@ -562,7 +562,11 @@ public class CcCommonTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.PER_OBJECT_DEBUG_INFO));
-    useConfiguration("--cpu=k8", "--build_test_dwp", "--dynamic_mode=off", "--fission=yes");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--build_test_dwp",
+        "--dynamic_mode=off",
+        "--fission=yes");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "mypackage", "mytest", "cc_test(name = 'mytest', srcs = ['mytest.cc'])");
@@ -1005,7 +1009,7 @@ public class CcCommonTest extends BuildViewTestCase {
                     CppActionNames.CPP_LINK_STATIC_LIBRARY,
                     CppActionNames.CPP_COMPILE,
                     CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
@@ -1059,7 +1063,7 @@ public class CcCommonTest extends BuildViewTestCase {
                     CppActionNames.CPP_LINK_STATIC_LIBRARY,
                     CppActionNames.CPP_COMPILE,
                     CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
-    useConfiguration("--force_pic", "--cpu=k8");
+    useConfiguration("--force_pic", "--platforms=" + TestConstants.PLATFORM_LABEL);
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
@@ -1089,7 +1093,7 @@ public class CcCommonTest extends BuildViewTestCase {
                     CppActionNames.CPP_LINK_STATIC_LIBRARY,
                     CppActionNames.CPP_COMPILE,
                     CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
-    useConfiguration("--cpu=k8", "--compilation_mode=opt");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=opt");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
@@ -1118,7 +1122,7 @@ public class CcCommonTest extends BuildViewTestCase {
                     CppActionNames.CPP_LINK_STATIC_LIBRARY,
                     CppActionNames.CPP_COMPILE,
                     CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
-    useConfiguration("--cpu=k8", "--compilation_mode=opt");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=opt");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");

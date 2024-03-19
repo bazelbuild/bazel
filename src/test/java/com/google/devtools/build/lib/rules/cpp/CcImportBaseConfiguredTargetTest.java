@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -166,7 +167,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithSharedLibrary() throws Exception {
-    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -193,7 +196,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithVersionedSharedLibrary() throws Exception {
-    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -220,7 +225,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithVersionedSharedLibraryWithDotInTheName() throws Exception {
-    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_enable_cc_toolchain_resolution");
 
     ConfiguredTarget target =
         scratchConfiguredTarget(
@@ -275,7 +282,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithInterfaceSharedLibrary() throws Exception {
-    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "b",
@@ -303,7 +312,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithBothStaticAndSharedLibraries() throws Exception {
-    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -415,7 +426,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -457,7 +468,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",

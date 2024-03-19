@@ -159,15 +159,25 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void testPic() throws Exception {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
 
-    assertThat(usePicForBinariesWithConfiguration("--cpu=k8")).isFalse();
-    assertThat(usePicForBinariesWithConfiguration("--cpu=k8", "-c", "opt")).isFalse();
+    assertThat(usePicForBinariesWithConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL))
+        .isFalse();
+    assertThat(
+            usePicForBinariesWithConfiguration(
+                "--platforms=" + TestConstants.PLATFORM_LABEL, "-c", "opt"))
+        .isFalse();
+
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
     invalidatePackages();
-    assertThat(usePicForBinariesWithConfiguration("--cpu=k8")).isTrue();
-    assertThat(usePicForBinariesWithConfiguration("--cpu=k8", "-c", "opt")).isFalse();
+
+    assertThat(usePicForBinariesWithConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL))
+        .isTrue();
+    assertThat(
+            usePicForBinariesWithConfiguration(
+                "--platforms=" + TestConstants.PLATFORM_LABEL, "-c", "opt"))
+        .isFalse();
   }
 
   private boolean usePicForBinariesWithConfiguration(String... configuration) throws Exception {

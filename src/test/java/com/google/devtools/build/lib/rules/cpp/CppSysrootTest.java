@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -113,13 +114,14 @@ public final class CppSysrootTest extends BuildViewTestCase {
   @Test
   public void testSysroot() throws Exception {
     // BuildConfigurationValue shouldn't provide a sysroot option by default.
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     BuildConfigurationValue config = getTargetConfiguration();
     testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
 
     scratch.file("a/grte/top/BUILD", "filegroup(name='everything')");
     // BuildConfigurationValue should work with label grte_top options.
-    useConfiguration("--cpu=k8", "--grte_top=//a/grte/top:everything");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL, "--grte_top=//a/grte/top:everything");
     config = getTargetConfiguration();
     testCCFlagsContainsSysroot(config, "a/grte/top", true);
   }
@@ -149,21 +151,26 @@ public final class CppSysrootTest extends BuildViewTestCase {
   @Test
   public void testSysrootWithExecConfig() throws Exception {
     // The exec BuildConfigurationValue shouldn't provide a sysroot option by default.
-    for (String cpu : new String[] {"piii", "k8"}) {
-      useConfiguration("--cpu=" + cpu);
+    for (String platform : new String[] {"piii", "host"}) {
+      useConfiguration(
+          "--platforms=" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":" + platform);
       BuildConfigurationValue config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }
     // The exec BuildConfigurationValue should work with label grte_top options.
     scratch.file("a/grte/top/BUILD", "filegroup(name='everything')");
-    for (String cpu : new String[] {"piii", "k8"}) {
-      useConfiguration("--cpu=" + cpu, "--host_grte_top=//a/grte/top");
+    for (String platform : new String[] {"piii", "host"}) {
+      useConfiguration(
+          "--platforms=" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":" + platform,
+          "--host_grte_top=//a/grte/top");
       BuildConfigurationValue config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "a/grte/top", true);
 
       // "--grte_top" does *not* set the exec grte_top,
       // so we don't get "a/grte/top" here, but instead the default "/usr/grte/v1"
-      useConfiguration("--cpu=" + cpu, "--grte_top=//a/grte/top");
+      useConfiguration(
+          "--platforms=" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":" + platform,
+          "--grte_top=//a/grte/top");
       config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }
