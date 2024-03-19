@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BzlVisibility;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -202,7 +202,7 @@ public class BzlLoadValue implements SkyValue {
 
   /** A key for loading a .bzl during package loading (BUILD evaluation). */
   @Immutable
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   static final class KeyForBuild extends Key {
     private final Label label;
 
@@ -260,7 +260,7 @@ public class BzlLoadValue implements SkyValue {
   // are we reevaluating whether its loads are still valid? AI: fix if broken, improve this comment
   // if not broken.
   @Immutable
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   static final class KeyForWorkspace extends Key {
     private final Label label;
     private final int workspaceChunk;
@@ -322,7 +322,7 @@ public class BzlLoadValue implements SkyValue {
    */
   // TODO(#11437): Prevent users from trying to declare a repo named "@_builtins".
   @Immutable
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   static final class KeyForBuiltins extends Key {
     private final Label label;
 
@@ -356,7 +356,7 @@ public class BzlLoadValue implements SkyValue {
 
   /** A key for loading a .bzl to get the repo rule required by Bzlmod generated repositories. */
   @Immutable
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   static class KeyForBzlmod extends Key {
     private final Label label;
 
@@ -381,7 +381,7 @@ public class BzlLoadValue implements SkyValue {
   }
 
   @Immutable
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   static class KeyForBzlmodBootstrap extends KeyForBzlmod {
     private KeyForBzlmodBootstrap(Label label) {
       super(label);

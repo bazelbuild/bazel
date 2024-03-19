@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.io;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -36,7 +35,7 @@ public class FileSymlinkInfiniteExpansionUniquenessFunction
     return Key.create(AbstractFileChainUniquenessFunction.canonicalize(cycle));
   }
 
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey.WithCachedHashCode<ImmutableList<RootedPath>> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -45,7 +44,7 @@ public class FileSymlinkInfiniteExpansionUniquenessFunction
       super(arg);
     }
 
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(ImmutableList<RootedPath> arg) {
       return interner.intern(new Key(arg));

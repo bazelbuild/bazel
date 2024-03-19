@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -136,7 +135,7 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /** {@link SkyKey} for {@link PackageLookupValue} computation. */
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<PackageIdentifier> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -145,7 +144,7 @@ public abstract class PackageLookupValue implements SkyValue {
       super(arg);
     }
 
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(PackageIdentifier arg) {
       return interner.intern(new Key(arg));

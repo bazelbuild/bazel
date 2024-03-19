@@ -184,7 +184,7 @@ public final class Module implements Resolver.Module {
    */
   @Nullable
   public Object getPredeclared(String name) {
-    Object value = predeclared.get(name);
+    var value = predeclared.get(name);
     if (value == null) {
       return null;
     }

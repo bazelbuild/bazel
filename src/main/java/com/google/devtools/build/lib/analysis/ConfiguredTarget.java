@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -36,7 +35,7 @@ import net.starlark.java.eval.Structure;
  * their direct dependencies, only the corresponding {@link TransitiveInfoCollection}s. Also, {@link
  * ConfiguredTarget} objects should not be accessible from the action graph.
  */
-public interface ConfiguredTarget extends TransitiveInfoCollection, Structure, CqueryNode {
+public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
 
   /** All <code>ConfiguredTarget</code>s have a "label" field. */
   String LABEL_FIELD = "label";
@@ -45,7 +44,6 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure, C
   String FILES_FIELD = "files";
 
   /** Returns a key that may be used to lookup this {@link ConfiguredTarget}. */
-  @Override
   ActionLookupKey getLookupKey();
 
   @Override
@@ -53,7 +51,6 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure, C
     return getLookupKey().getLabel();
   }
 
-  @Override
   @Nullable
   default String getConfigurationChecksum() {
     return getConfigurationKey() == null ? null : getConfigurationKey().getOptions().checksum();
@@ -68,9 +65,8 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure, C
    * com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget} for
    * which it is always <b>null</b>.
    *
-   * <p>If this changes, {@link AspectResolver#aspectMatchesConfiguredTarget} should be updated.
+   * <p>If this changes, {@link AspectResolver#aspecMatchesConfiguredTarget} should be updated.
    */
-  @Override
   @Nullable
   default BuildConfigurationKey getConfigurationKey() {
     return getLookupKey().getConfigurationKey();
@@ -93,7 +89,6 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure, C
    * If the configured target is an alias, return the actual target, otherwise return the current
    * target. This follows alias chains.
    */
-  @Override
   default ConfiguredTarget getActual() {
     return this;
   }
@@ -103,7 +98,6 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure, C
    * label. This is not the same as {@code getActual().getLabel()}, because it does not follow alias
    * chains.
    */
-  @Override
   default Label getOriginalLabel() {
     return getLabel();
   }
@@ -112,12 +106,10 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure, C
    * The configuration conditions that trigger this configured target's configurable attributes. For
    * targets that do not support configurable attributes, this will be an empty map.
    */
-  @Override
   default ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return ImmutableMap.of();
   }
 
-  @Override
   default boolean isRuleConfiguredTarget() {
     return false;
   }
@@ -127,7 +119,6 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure, C
    *
    * <p>Unwrapping is recursive if there are multiple layers.
    */
-  @Override
   default ConfiguredTarget unwrapIfMerged() {
     return this;
   }
@@ -137,7 +128,6 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure, C
    *
    * @return a map of provider names to their values, or null if there are no providers
    */
-  @Override
   @Nullable
   default Dict<String, Object> getProvidersDictForQuery() {
     return null;

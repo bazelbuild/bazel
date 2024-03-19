@@ -19,7 +19,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -48,7 +47,7 @@ public abstract class BazelFetchAllValue implements SkyValue {
   }
 
   /** Key type for BazelFetchAllValue. */
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   @AutoCodec
   public static class Key extends AbstractSkyKey<Boolean> {
     private static final SkyKeyInterner<BazelFetchAllValue.Key> interner = SkyKey.newInterner();
@@ -57,7 +56,7 @@ public abstract class BazelFetchAllValue implements SkyValue {
       super(arg);
     }
 
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static BazelFetchAllValue.Key create(Boolean arg) {
       return interner.intern(new BazelFetchAllValue.Key(arg));

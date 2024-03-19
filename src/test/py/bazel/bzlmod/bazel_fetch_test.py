@@ -37,7 +37,6 @@ class BazelFetchTest(test_base.TestBase):
             'common --noenable_workspace',
             'common --experimental_isolated_extension_usages',
             'common --registry=' + self.main_registry.getURL(),
-            'common --registry=https://bcr.bazel.build',
             'common --verbose_failures',
             # Set an explicit Java language version
             'common --java_language_version=8',
@@ -261,43 +260,6 @@ class BazelFetchTest(test_base.TestBase):
     # One more time to validate force is invoked and not cached by skyframe
     _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
     self.assertIn('No more Orange Juice!', ''.join(stderr))
-
-  def testFetchTarget(self):
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
-        'bbb', '1.0', {'aaa': '1.0'}
-    )
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'bazel_dep(name = "bbb", version = "1.0")',
-        ],
-    )
-    self.ScratchFile(
-        'BUILD',
-        [
-            'cc_binary(',
-            '  name = "main",',
-            '  srcs = ["main.cc"],',
-            '  deps = [',
-            '    "@bbb//:lib_bbb",',
-            '  ],',
-            ')',
-        ],
-    )
-    self.ScratchFile(
-        'main.cc',
-        [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("Hello there!");',
-            '}',
-        ],
-    )
-    self.RunBazel(['fetch', '//:main'])
-    # If we can run the target with --nofetch, this means we successfully
-    # fetched all its needed repos
-    _, stdout, _ = self.RunBazel(['run', '//:main', '--nofetch'])
-    self.assertIn('Hello there! => aaa@1.0', stdout)
 
 
 if __name__ == '__main__':

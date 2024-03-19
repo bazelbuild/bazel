@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -113,7 +112,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.features = features;
     }
 
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static VectorArg create(int features) {
       return interner.intern(new VectorArg(features));
@@ -598,7 +597,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.hasFormat = hasFormat;
     }
 
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static ScalarArg create(boolean hasFormat) {
       return interner.intern(new ScalarArg(hasFormat));

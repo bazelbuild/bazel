@@ -139,7 +139,7 @@ class ExternalRepoCompletionTest(test_base.TestBase):
     self.main_registry.createLocalPathModule('ext', '1.0', 'ext')
     scratchFile(
         self.projects_dir.joinpath('ext', 'BUILD'),
-        ['cc_library(name="lib_ext", visibility = ["//visibility:public"])'],
+        ['cc_library(name="lib_ext")'],
     )
     scratchFile(
         self.projects_dir.joinpath('ext', 'tools', 'BUILD'),
@@ -153,7 +153,7 @@ class ExternalRepoCompletionTest(test_base.TestBase):
     self.main_registry.createLocalPathModule('ext2', '1.0', 'ext2')
     scratchFile(
         self.projects_dir.joinpath('ext2', 'BUILD'),
-        ['cc_library(name="lib_ext2", visibility = ["//visibility:public"])'],
+        ['cc_library(name="lib_ext2")'],
     )
     scratchFile(self.projects_dir.joinpath('ext2', 'ext.bzl'), ext_src)
 

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryTest;
 import java.util.HashMap;
@@ -38,10 +38,10 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link ConfiguredTargetQueryEnvironment}. */
 @RunWith(JUnit4.class)
-public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<CqueryNode> {
+public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredTarget> {
 
   @Override
-  protected QueryHelper<CqueryNode> createQueryHelper() {
+  protected QueryHelper<ConfiguredTarget> createQueryHelper() {
     return new ConfiguredTargetQueryHelper();
   }
 
@@ -57,7 +57,7 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Cq
   }
 
   @Override
-  protected final BuildConfigurationValue getConfiguration(CqueryNode kct) {
+  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget kct) {
     return getHelper()
         .getSkyframeExecutor()
         .getConfiguration(getHelper().getReporter(), kct.getConfigurationKey());
@@ -93,12 +93,12 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Cq
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
     writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
 
-    Set<CqueryNode> result = eval("//test:my_java+//test:foo.java");
+    Set<ConfiguredTarget> result = eval("//test:my_java+//test:foo.java");
 
     assertThat(result).hasSize(2);
 
-    Iterator<CqueryNode> resultIterator = result.iterator();
-    CqueryNode first = resultIterator.next();
+    Iterator<ConfiguredTarget> resultIterator = result.iterator();
+    ConfiguredTarget first = resultIterator.next();
     if (first.getLabel().toString().equals("//test:foo.java")) {
       assertThat(getConfiguration(first)).isNull();
       assertThat(getConfiguration(resultIterator.next())).isNotNull();

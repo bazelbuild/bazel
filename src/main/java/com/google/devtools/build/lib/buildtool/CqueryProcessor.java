@@ -14,11 +14,10 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
-import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -27,30 +26,14 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
-import java.util.Optional;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Performs {@code cquery} processing. */
-public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode> {
-
-  /**
-   * Only passed when this is a call from a non query command like Fetch or Vendor, where we don't
-   * need the output printed
-   */
-  private Optional<NamedThreadSafeOutputFormatterCallback<CqueryNode>> noOutputFormatter;
+public final class CqueryProcessor extends PostAnalysisQueryProcessor<ConfiguredTarget> {
 
   public CqueryProcessor(
       QueryExpression queryExpression, TargetPattern.Parser mainRepoTargetParser) {
     super(queryExpression, mainRepoTargetParser);
-    this.noOutputFormatter = Optional.empty();
-  }
-
-  public CqueryProcessor(
-      QueryExpression queryExpression,
-      TargetPattern.Parser mainRepoTargetParser,
-      Optional<NamedThreadSafeOutputFormatterCallback<CqueryNode>> noOutputFormatter) {
-    this(queryExpression, mainRepoTargetParser);
-    this.noOutputFormatter = noOutputFormatter;
   }
 
   @Override
@@ -83,7 +66,6 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode
         request.getTopLevelArtifactContext(),
         request
             .getOptions(CqueryOptions.class)
-            .getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping()),
-        noOutputFormatter);
+            .getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping()));
   }
 }

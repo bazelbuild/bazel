@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
@@ -42,7 +42,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<CqueryNode> accessor,
+      TargetAccessor<ConfiguredTarget> accessor,
       LabelPrinter labelPrinter) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.labelPrinter = labelPrinter;
@@ -73,7 +73,8 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Nullable
-  private ConfiguredAttributeMapper getAttributeMap(CqueryNode kct) throws InterruptedException {
+  private ConfiguredAttributeMapper getAttributeMap(ConfiguredTarget kct)
+      throws InterruptedException {
     Rule associatedRule = accessor.getTarget(kct).getAssociatedRule();
     if (associatedRule == null) {
       return null;
@@ -93,7 +94,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<CqueryNode> partialResult)
+  public void processOutput(Iterable<ConfiguredTarget> partialResult)
       throws InterruptedException, IOException {
     BuildOutputFormatter.TargetOutputter outputter =
         new TargetOutputter(
@@ -105,7 +106,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
             (rule, attr) -> false,
             System.lineSeparator(),
             labelPrinter);
-    for (CqueryNode configuredTarget : partialResult) {
+    for (ConfiguredTarget configuredTarget : partialResult) {
       Target target = accessor.getTarget(configuredTarget);
       outputter.output(target, new CqueryAttributeReader(getAttributeMap(configuredTarget)));
     }

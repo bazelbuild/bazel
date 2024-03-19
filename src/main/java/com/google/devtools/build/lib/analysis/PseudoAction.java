@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.protobuf.Extension;
@@ -41,10 +41,11 @@ import javax.annotation.Nullable;
  * about rules to extra_actions.
  */
 public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
-  @VisibleForSerialization protected final UUID uuid;
+  @AutoCodec.VisibleForSerialization protected final UUID uuid;
   private final String mnemonic;
 
-  @VisibleForSerialization protected final Extension<ExtraActionInfo, InfoType> infoExtension;
+  @AutoCodec.VisibleForSerialization
+  protected final Extension<ExtraActionInfo, InfoType> infoExtension;
 
   private final InfoType info;
 

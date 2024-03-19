@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2.aquery;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -50,12 +50,13 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
 
   private final WalkableGraph walkableGraph;
   private final TargetLookup targetLookup;
-  private final KeyExtractor<ConfiguredTargetValue, ActionLookupKey> configuredTargetKeyExtractor;
+  private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
+      configuredTargetKeyExtractor;
 
   public ConfiguredTargetValueAccessor(
       WalkableGraph walkableGraph,
       TargetLookup targetLookup,
-      KeyExtractor<ConfiguredTargetValue, ActionLookupKey> configuredTargetKeyExtractor) {
+      KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey> configuredTargetKeyExtractor) {
     this.walkableGraph = walkableGraph;
     this.targetLookup = targetLookup;
     this.configuredTargetKeyExtractor = configuredTargetKeyExtractor;

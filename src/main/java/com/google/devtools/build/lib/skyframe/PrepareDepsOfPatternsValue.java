@@ -16,11 +16,12 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.query2.common.UniverseSkyKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -61,10 +62,11 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
 
   /** The argument value for {@link SkyKey}s of {@link PrepareDepsOfPatternsFunction}. */
   @ThreadSafe
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class TargetPatternSequence implements UniverseSkyKey {
-    private static final SkyKeyInterner<TargetPatternSequence> interner = SkyKey.newInterner();
+    private static final Interner<TargetPatternSequence> interner =
+        BlazeInterners.newWeakInterner();
 
     private final ImmutableList<String> patterns;
     private final PathFragment offset;
@@ -74,7 +76,7 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
       this.offset = Preconditions.checkNotNull(offset);
     }
 
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static TargetPatternSequence create(ImmutableList<String> patterns, PathFragment offset) {
       return interner.intern(new TargetPatternSequence(patterns, offset));
@@ -87,11 +89,6 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
 
     public PathFragment getOffset() {
       return offset;
-    }
-
-    @Override
-    public SkyKeyInterner<TargetPatternSequence> getSkyKeyInterner() {
-      return interner;
     }
 
     @Override
