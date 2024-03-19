@@ -224,6 +224,10 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   @Test
   public void testAspectArtifactPrefix(
       @TestParameter boolean keepGoing, @TestParameter boolean modifyBuildFile) throws Exception {
+    // TODO(b/245923465) Limitation with Skymeld.
+    if (skymeld) {
+      assume().that(minimizeMemory).isFalse();
+    }
     if (modifyBuildFile) {
       write(
           "x/BUILD",
@@ -541,6 +545,10 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
   @Test
   public void testMultipleConflictErrors() throws Exception {
+    // TODO(b/245923465) Limitation with Skymeld.
+    if (skymeld) {
+      assume().that(minimizeMemory).isFalse();
+    }
     writeConflictBzl();
     write(
         "foo/BUILD",
