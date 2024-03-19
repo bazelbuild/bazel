@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Comparator;
@@ -52,7 +51,7 @@ public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
 
   /** Constructs a {@link RootedPath} from a {@link Root} and path fragment relative to the root. */
   @AutoCodec.Instantiator
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   static RootedPath createInternal(Root root, PathFragment rootRelativePath) {
     checkArgument(
         rootRelativePath.isAbsolute() == root.isAbsolute(),

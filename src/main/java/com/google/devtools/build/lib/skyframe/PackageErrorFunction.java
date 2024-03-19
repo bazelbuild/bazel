@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -45,7 +44,7 @@ public class PackageErrorFunction implements SkyFunction {
     return Key.create(packageIdentifier);
   }
 
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<PackageIdentifier> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -54,7 +53,7 @@ public class PackageErrorFunction implements SkyFunction {
       super(arg);
     }
 
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(PackageIdentifier arg) {
       return interner.intern(new Key(arg));

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -84,7 +83,7 @@ public final class PlatformMappingValue implements SkyValue {
     }
 
     @AutoCodec.Instantiator
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     static Key create(PathFragment workspaceRelativeMappingPath, boolean wasExplicitlySetByUser) {
       return interner.intern(new Key(workspaceRelativeMappingPath, wasExplicitlySetByUser));
     }

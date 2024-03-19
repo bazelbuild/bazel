@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetNotFoundException;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -48,7 +47,7 @@ import java.util.List;
  *
  * <p>Incomplete; we'll implement getVisibility when needed.
  */
-public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
+public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
 
   private final WalkableGraph walkableGraph;
   private final ConfiguredTargetQueryEnvironment queryEnvironment;
@@ -75,55 +74,56 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
   }
 
   @Override
-  public String getTargetKind(CqueryNode target) {
+  public String getTargetKind(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return actualTarget.getTargetKind();
   }
 
   @Override
-  public String getLabel(CqueryNode target) {
+  public String getLabel(ConfiguredTarget target) {
     return target.getOriginalLabel().toString();
   }
 
   @Override
-  public String getPackage(CqueryNode target) {
+  public String getPackage(ConfiguredTarget target) {
     return target.getOriginalLabel().getPackageIdentifier().getPackageFragment().toString();
   }
 
   @Override
-  public boolean isRule(CqueryNode target) {
+  public boolean isRule(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return actualTarget instanceof Rule;
   }
 
   @Override
-  public boolean isTestRule(CqueryNode target) {
+  public boolean isTestRule(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return TargetUtils.isTestRule(actualTarget);
   }
 
   @Override
-  public boolean isTestSuite(CqueryNode target) {
+  public boolean isTestSuite(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return TargetUtils.isTestSuiteRule(actualTarget);
   }
 
   @Override
-  public List<CqueryNode> getPrerequisites(
+  public List<ConfiguredTarget> getPrerequisites(
       QueryExpression caller,
-      CqueryNode keyedConfiguredTarget,
+      ConfiguredTarget keyedConfiguredTarget,
       String attrName,
       String errorMsgPrefix)
       throws QueryException, InterruptedException {
     // Process aliases.
-    CqueryNode actual = keyedConfiguredTarget.getActual();
+    ConfiguredTarget actual = keyedConfiguredTarget.getActual();
 
     Preconditions.checkArgument(
         isRule(actual), "%s %s is not a rule configured target", errorMsgPrefix, getLabel(actual));
 
-    ImmutableListMultimap<Label, CqueryNode> depsByLabel =
+    ImmutableListMultimap<Label, ConfiguredTarget> depsByLabel =
         Multimaps.index(
-            queryEnvironment.getFwdDeps(ImmutableList.of(actual)), CqueryNode::getOriginalLabel);
+            queryEnvironment.getFwdDeps(ImmutableList.of(actual)),
+            ConfiguredTarget::getOriginalLabel);
 
     Rule rule = (Rule) getTarget(actual);
     ImmutableMap<Label, ConfigMatchingProvider> configConditions = actual.getConfigConditions();
@@ -141,39 +141,39 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
               errorMsgPrefix, rule.getRuleClass(), attrName),
           ConfigurableQuery.Code.ATTRIBUTE_MISSING);
     }
-    ImmutableList.Builder<CqueryNode> toReturn = ImmutableList.builder();
+    ImmutableList.Builder<ConfiguredTarget> toReturn = ImmutableList.builder();
     attributeMapper.visitLabels(attrName, label -> toReturn.addAll(depsByLabel.get(label)));
     return toReturn.build();
   }
 
   @Override
-  public List<String> getStringListAttr(CqueryNode target, String attrName) {
+  public List<String> getStringListAttr(ConfiguredTarget target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getStringListAttr(actualTarget, attrName);
   }
 
   @Override
-  public String getStringAttr(CqueryNode target, String attrName) {
+  public String getStringAttr(ConfiguredTarget target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getStringAttr(actualTarget, attrName);
   }
 
   @Override
-  public Iterable<String> getAttrAsString(CqueryNode target, String attrName) {
+  public Iterable<String> getAttrAsString(ConfiguredTarget target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getAttrAsString(actualTarget, attrName);
   }
 
   @Override
-  public ImmutableSet<QueryVisibility<CqueryNode>> getVisibility(
-      QueryExpression caller, CqueryNode from) throws QueryException {
+  public ImmutableSet<QueryVisibility<ConfiguredTarget>> getVisibility(
+      QueryExpression caller, ConfiguredTarget from) throws QueryException {
     // TODO(bazel-team): implement this if needed.
     throw new QueryException(
         "visible() is not supported on configured targets",
         ConfigurableQuery.Code.VISIBLE_FUNCTION_NOT_SUPPORTED);
   }
 
-  public Target getTarget(CqueryNode configuredTarget) {
+  public Target getTarget(ConfiguredTarget configuredTarget) {
     // Dereference any aliases that might be present.
     Label label = configuredTarget.getOriginalLabel();
     try {
@@ -190,7 +190,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
   }
 
   /** Returns the rule that generates the given output file. */
-  RuleConfiguredTarget getGeneratingConfiguredTarget(CqueryNode kct) throws InterruptedException {
+  RuleConfiguredTarget getGeneratingConfiguredTarget(ConfiguredTarget kct)
+      throws InterruptedException {
     Preconditions.checkArgument(kct instanceof OutputFileConfiguredTarget);
     return (RuleConfiguredTarget)
         ((ConfiguredTargetValue)

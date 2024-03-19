@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -52,7 +51,7 @@ public final class ActionEnvironmentFunction implements SkyFunction {
     return Key.create(variable);
   }
 
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<String> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -61,7 +60,7 @@ public final class ActionEnvironmentFunction implements SkyFunction {
       super(arg);
     }
 
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(String arg) {
       return interner.intern(new Key(arg));

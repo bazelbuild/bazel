@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.Path;
@@ -165,7 +164,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
     return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, rootType));
   }
 
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
   static ArtifactRoot createForSerialization(
       Root rootForSerialization, PathFragment execPath, RootType rootType) {

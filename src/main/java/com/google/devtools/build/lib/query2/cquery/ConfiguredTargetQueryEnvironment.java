@@ -23,8 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -42,7 +40,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
-import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
@@ -53,12 +50,10 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -66,7 +61,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -77,11 +71,11 @@ import net.starlark.java.eval.StarlarkSemantics;
  * {@link QueryEnvironment} that runs queries over the configured target (analysis) graph.
  *
  * <p>Aspects are partially supported. Their dependencies appear as implicit dependencies on the
- * targets they're connected to. When using the --experimental_explicit_aspects flag, the aspects
- * themselves are visible as query nodes. See https://github.com/bazelbuild/bazel/issues/16310 for
- * details.
+ * targets they're connected to, but the aspects themselves aren't visible as query nodes. See
+ * comments on {@link PostAnalysisQueryEnvironment#targetifyValues} and b/163052263 for details.
  */
-public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironment<CqueryNode> {
+public class ConfiguredTargetQueryEnvironment
+    extends PostAnalysisQueryEnvironment<ConfiguredTarget> {
   /** Common query functions and cquery specific functions. */
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
   /** Cquery specific functions. */
@@ -91,18 +85,12 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
 
   private final TopLevelArtifactContext topLevelArtifactContext;
 
-  private final KeyExtractor<CqueryNode, ActionLookupKey> configuredTargetKeyExtractor;
+  private final KeyExtractor<ConfiguredTarget, ConfiguredTargetKey> configuredTargetKeyExtractor;
 
   private final ConfiguredTargetAccessor accessor;
 
   /**
-   * Only passed when this is a call from a non query command like Fetch or Vendor, where we don't
-   * need the output printed
-   */
-  private Optional<NamedThreadSafeOutputFormatterCallback<CqueryNode>> noOutputFormatter;
-
-  /**
-   * F Stores every configuration in the transitive closure of the build graph as a map from its
+   * Stores every configuration in the transitive closure of the build graph as a map from its
    * user-friendly hash to the configuration itself.
    *
    * <p>This is used to find configured targets in, e.g. {@code somepath} queries. Given {@code
@@ -119,7 +107,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
   private final ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations;
 
   @Override
-  protected KeyExtractor<CqueryNode, ActionLookupKey> getConfiguredTargetKeyExtractor() {
+  protected KeyExtractor<ConfiguredTarget, ConfiguredTargetKey> getConfiguredTargetKeyExtractor() {
     return configuredTargetKeyExtractor;
   }
 
@@ -147,7 +135,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         settings,
         labelPrinter);
     this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
-    this.configuredTargetKeyExtractor = CqueryNode::getLookupKey;
+    this.configuredTargetKeyExtractor = ConfiguredTargetKey::fromConfiguredTarget;
     this.transitiveConfigurations =
         getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraphSupplier.get());
     this.topLevelArtifactContext = topLevelArtifactContext;
@@ -164,8 +152,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       Supplier<WalkableGraph> walkableGraphSupplier,
       CqueryOptions cqueryOptions,
       TopLevelArtifactContext topLevelArtifactContext,
-      LabelPrinter labelPrinter,
-      Optional<NamedThreadSafeOutputFormatterCallback<CqueryNode>> noOutputFormatter)
+      LabelPrinter labelPrinter)
       throws InterruptedException {
     this(
         keepGoing,
@@ -180,7 +167,6 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         topLevelArtifactContext,
         labelPrinter);
     this.cqueryOptions = cqueryOptions;
-    this.noOutputFormatter = noOutputFormatter;
   }
 
   private static ImmutableList<QueryFunction> populateFunctions() {
@@ -206,9 +192,9 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
   }
 
   @Override
-  public ImmutableList<NamedThreadSafeOutputFormatterCallback<CqueryNode>>
+  public ImmutableList<NamedThreadSafeOutputFormatterCallback<ConfiguredTarget>>
       getDefaultOutputFormatters(
-          TargetAccessor<CqueryNode> accessor,
+          TargetAccessor<ConfiguredTarget> accessor,
           ExtendedEventHandler eventHandler,
           OutputStream out,
           SkyframeExecutor skyframeExecutor,
@@ -218,112 +204,78 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
           throws QueryException, InterruptedException {
     AspectResolver aspectResolver =
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
-    ImmutableList.Builder<NamedThreadSafeOutputFormatterCallback<CqueryNode>> formatters =
-        ImmutableList.<NamedThreadSafeOutputFormatterCallback<CqueryNode>>builder()
-            .add(
-                new LabelAndConfigurationOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    true,
-                    getLabelPrinter()),
-                new LabelAndConfigurationOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    false,
-                    getLabelPrinter()),
-                new TransitionsOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    ruleClassProvider,
-                    getLabelPrinter()),
-                new ProtoOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    aspectResolver,
-                    OutputType.BINARY,
-                    ruleClassProvider,
-                    getLabelPrinter()),
-                new ProtoOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    aspectResolver,
-                    OutputType.DELIMITED_BINARY,
-                    ruleClassProvider,
-                    labelPrinter),
-                new ProtoOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    aspectResolver,
-                    OutputType.TEXT,
-                    ruleClassProvider,
-                    getLabelPrinter()),
-                new ProtoOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    aspectResolver,
-                    OutputType.JSON,
-                    ruleClassProvider,
-                    getLabelPrinter()),
-                new BuildOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    getLabelPrinter()),
-                new GraphOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    kct -> getFwdDeps(ImmutableList.of(kct)),
-                    getLabelPrinter()),
-                new StarlarkOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    starlarkSemantics),
-                new FilesOutputFormatterCallback(
-                    eventHandler,
-                    cqueryOptions,
-                    out,
-                    skyframeExecutor,
-                    accessor,
-                    topLevelArtifactContext));
-
-    if (noOutputFormatter.isPresent()) {
-      formatters.add(noOutputFormatter.get());
-    }
-    return formatters.build();
+    return ImmutableList.of(
+        new LabelAndConfigurationOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true, getLabelPrinter()),
+        new LabelAndConfigurationOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, false, getLabelPrinter()),
+        new TransitionsOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            ruleClassProvider,
+            getLabelPrinter()),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.BINARY,
+            ruleClassProvider,
+            getLabelPrinter()),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.DELIMITED_BINARY,
+            ruleClassProvider,
+            labelPrinter),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.TEXT,
+            ruleClassProvider,
+            getLabelPrinter()),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.JSON,
+            ruleClassProvider,
+            getLabelPrinter()),
+        new BuildOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, getLabelPrinter()),
+        new GraphOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            kct -> getFwdDeps(ImmutableList.of(kct)),
+            getLabelPrinter()),
+        new StarlarkOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, starlarkSemantics),
+        new FilesOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, topLevelArtifactContext));
   }
 
   @Override
   public String getOutputFormat() {
-    return noOutputFormatter.isPresent() ? "no_output" : cqueryOptions.outputFormat;
+    return cqueryOptions.outputFormat;
   }
 
   @Override
@@ -333,7 +285,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
 
   @Override
   public QueryTaskFuture<Void> getTargetsMatchingPattern(
-      QueryExpression owner, String pattern, Callback<CqueryNode> callback) {
+      QueryExpression owner, String pattern, Callback<ConfiguredTarget> callback) {
     TargetPattern patternToEval;
     try {
       patternToEval = getPattern(pattern);
@@ -359,7 +311,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
                 /* excludedSubdirectories= */ ImmutableSet.of(),
                 (Callback<Target>)
                     partialResult -> {
-                      List<CqueryNode> transformedResult = new ArrayList<>();
+                      List<ConfiguredTarget> transformedResult = new ArrayList<>();
                       for (Target target : partialResult) {
                         transformedResult.addAll(
                             getConfiguredTargetsForConfigFunction(target.getLabel()));
@@ -373,13 +325,14 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
   }
 
   /**
-   * Returns the {@link CqueryNode} for the given label and configuration if it exists, else null.
+   * Returns the {@link ConfiguredTarget} for the given label and configuration if it exists, else
+   * null.
    */
   @Nullable
-  private CqueryNode getConfiguredTarget(
+  private ConfiguredTarget getConfiguredTarget(
       Label label, @Nullable BuildConfigurationValue configuration) throws InterruptedException {
     BuildConfigurationKey configurationKey = configuration == null ? null : configuration.getKey();
-    CqueryNode target =
+    ConfiguredTarget target =
         getValueFromKey(
             ConfiguredTargetKey.builder()
                 .setLabel(label)
@@ -393,25 +346,11 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
     return target;
   }
 
-  /**
-   * Returns the {@link CqueryNode} for the given key if its value is a supported instance of
-   * CqueryNode. This function can only receive keys of node types that the calling logic can
-   * support. For example, if the caller does not support handling of AspectKey types of
-   * CqueryNodes, then this function should not be called with an AspectKey key.
-   */
   @Override
   @Nullable
-  protected CqueryNode getValueFromKey(SkyKey key) throws InterruptedException {
-    SkyValue value = getConfiguredTargetValue(key);
-    if (value == null) {
-      return null;
-    } else if (value instanceof ConfiguredTargetValue) {
-      return ((ConfiguredTargetValue) value).getConfiguredTarget();
-    } else if (value instanceof AspectValue && key instanceof AspectKey) {
-      return (AspectKey) key;
-    } else {
-      throw new IllegalStateException("unknown value type for CqueryNode");
-    }
+  protected ConfiguredTarget getValueFromKey(SkyKey key) throws InterruptedException {
+    ConfiguredTargetValue value = getConfiguredTargetValue(key);
+    return value == null ? null : value.getConfiguredTarget();
   }
 
   /**
@@ -419,16 +358,16 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
    *
    * <p>If there are no matches, returns an empty list.
    */
-  private ImmutableList<CqueryNode> getConfiguredTargetsForConfigFunction(Label label)
+  private ImmutableList<ConfiguredTarget> getConfiguredTargetsForConfigFunction(Label label)
       throws InterruptedException {
-    ImmutableList.Builder<CqueryNode> ans = ImmutableList.builder();
+    ImmutableList.Builder<ConfiguredTarget> ans = ImmutableList.builder();
     for (BuildConfigurationValue config : transitiveConfigurations.values()) {
-      CqueryNode kct = getConfiguredTarget(label, config);
+      ConfiguredTarget kct = getConfiguredTarget(label, config);
       if (kct != null) {
         ans.add(kct);
       }
     }
-    CqueryNode nullConfiguredTarget = getNullConfiguredTarget(label);
+    ConfiguredTarget nullConfiguredTarget = getNullConfiguredTarget(label);
     if (nullConfiguredTarget != null) {
       ans.add(nullConfiguredTarget);
     }
@@ -453,19 +392,19 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       String pattern,
       QueryTaskFuture<ThreadSafeMutableSet<T>> targetsFuture,
       String configPrefix,
-      Callback<CqueryNode> callback) {
+      Callback<ConfiguredTarget> callback) {
     // There's no technical reason other callers beside ConfigFunction can't call this. But they'd
     // need to adjust the error messaging below to not make it config()-specific. Please don't just
     // remove that line: the counter-priority is making error messages as clear, precise, and
     // actionable as possible.
     return () -> {
-      ThreadSafeMutableSet<CqueryNode> targets =
-          (ThreadSafeMutableSet<CqueryNode>) targetsFuture.getIfSuccessful();
-      List<CqueryNode> transformedResult = new ArrayList<>();
+      ThreadSafeMutableSet<ConfiguredTarget> targets =
+          (ThreadSafeMutableSet<ConfiguredTarget>) targetsFuture.getIfSuccessful();
+      List<ConfiguredTarget> transformedResult = new ArrayList<>();
       boolean userFriendlyConfigName = true;
-      for (CqueryNode target : targets) {
+      for (ConfiguredTarget target : targets) {
         Label label = getCorrectLabel(target);
-        CqueryNode keyedConfiguredTarget;
+        ConfiguredTarget keyedConfiguredTarget;
         switch (configPrefix) {
           case "host":
             throw new QueryException(
@@ -540,19 +479,19 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
    * the "actual" target instead of the alias target. Grr.
    */
   @Override
-  public Label getCorrectLabel(CqueryNode target) {
+  public Label getCorrectLabel(ConfiguredTarget target) {
     // Dereference any aliases that might be present.
     return target.getOriginalLabel();
   }
 
   @Nullable
   @Override
-  protected CqueryNode getTargetConfiguredTarget(Label label) throws InterruptedException {
+  protected ConfiguredTarget getTargetConfiguredTarget(Label label) throws InterruptedException {
     if (topLevelConfigurations.isTopLevelTarget(label)) {
       return getConfiguredTarget(
           label, topLevelConfigurations.getConfigurationForTopLevelTarget(label));
     } else {
-      CqueryNode toReturn;
+      ConfiguredTarget toReturn;
       for (BuildConfigurationValue configuration : topLevelConfigurations.getConfigurations()) {
         toReturn = getConfiguredTarget(label, configuration);
         if (toReturn != null) {
@@ -565,13 +504,13 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
 
   @Nullable
   @Override
-  protected CqueryNode getNullConfiguredTarget(Label label) throws InterruptedException {
+  protected ConfiguredTarget getNullConfiguredTarget(Label label) throws InterruptedException {
     return getConfiguredTarget(label, null);
   }
 
   @Nullable
   @Override
-  protected RuleConfiguredTarget getRuleConfiguredTarget(CqueryNode configuredTarget) {
+  protected RuleConfiguredTarget getRuleConfiguredTarget(ConfiguredTarget configuredTarget) {
     if (configuredTarget instanceof RuleConfiguredTarget) {
       return (RuleConfiguredTarget) configuredTarget;
     }
@@ -580,7 +519,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
 
   @Nullable
   @Override
-  protected BuildConfigurationValue getConfiguration(CqueryNode target) {
+  protected BuildConfigurationValue getConfiguration(ConfiguredTarget target) {
     try {
       return target.getConfigurationKey() == null
           ? null
@@ -591,13 +530,15 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
   }
 
   @Override
-  protected ActionLookupKey getConfiguredTargetKey(CqueryNode target) {
-    return target.getLookupKey();
+  protected ConfiguredTargetKey getConfiguredTargetKey(ConfiguredTarget target) {
+    return ConfiguredTargetKey.fromConfiguredTarget(target);
   }
 
   @Override
-  public ThreadSafeMutableSet<CqueryNode> createThreadSafeMutableSet() {
+  public ThreadSafeMutableSet<ConfiguredTarget> createThreadSafeMutableSet() {
     return new ThreadSafeMutableKeyExtractorBackedSetImpl<>(
-        configuredTargetKeyExtractor, CqueryNode.class, SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
+        configuredTargetKeyExtractor,
+        ConfiguredTarget.class,
+        SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 }

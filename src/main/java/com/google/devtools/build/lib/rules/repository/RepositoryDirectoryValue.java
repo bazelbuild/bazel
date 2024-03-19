@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -181,7 +180,7 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
   }
 
   /** The SkyKey for retrieving the local directory of an external repository. */
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   @AutoCodec
   public static class Key extends AbstractSkyKey<RepositoryName> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -190,7 +189,7 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
       super(arg);
     }
 
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(RepositoryName arg) {
       return interner.intern(new Key(arg));

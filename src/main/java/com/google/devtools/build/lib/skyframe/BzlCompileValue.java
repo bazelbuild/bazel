@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Root;
@@ -57,7 +56,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   public abstract String getError(); // on failure
 
   /** If the file is compiled successfully, this class encapsulates the compiled program. */
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   public static class Success extends BzlCompileValue {
     private final Program prog;
     private final byte[] digest;
@@ -90,7 +89,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   }
 
   /** If the file isn't found or has errors, this class encapsulates a message with the reason. */
-  @VisibleForSerialization
+  @AutoCodec.VisibleForSerialization
   public static class Failure extends BzlCompileValue {
     private final String errorMsg;
 
@@ -176,7 +175,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       }
     }
 
-    @VisibleForSerialization
+    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(Root root, Label label, Kind kind) {
       return interner.intern(new Key(root, label, kind));
