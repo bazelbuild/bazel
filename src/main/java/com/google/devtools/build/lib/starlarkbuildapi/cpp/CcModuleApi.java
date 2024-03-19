@@ -1860,7 +1860,9 @@ public interface CcModuleApi<
             name = "target_libc",
             positional = false,
             named = true,
-            doc = "The libc version string (e.g. \"glibc-2.2.2\")."),
+            doc =
+                "The libc version string (e.g. \"glibc-2.2.2\"). If the string is \"macosx\","
+                    + " platform is assumed to be MacOS. Otherwise, Linux"),
         @Param(
             name = "compiler",
             positional = false,
