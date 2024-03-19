@@ -276,22 +276,6 @@ public abstract class Type<T> {
   /** The type of a boolean. */
   @SerializationConstant public static final Type<Boolean> BOOLEAN = new BooleanType();
 
-  /** The type of a list of strings. */
-  @SerializationConstant public static final ListType<String> STRING_LIST = ListType.create(STRING);
-
-  /** The type of a list of signed 32-bit Starlark integer values. */
-  @SerializationConstant
-  public static final ListType<StarlarkInt> INTEGER_LIST = ListType.create(INTEGER);
-
-  /** The type of a dictionary of {@linkplain #STRING strings}. */
-  @SerializationConstant
-  public static final DictType<String, String> STRING_DICT = DictType.create(STRING, STRING);
-
-  /** The type of a dictionary of {@linkplain #STRING_LIST label lists}. */
-  @SerializationConstant
-  public static final DictType<String, List<String>> STRING_LIST_DICT =
-      DictType.create(STRING, STRING_LIST);
-
   /**
    * For ListType objects, returns the type of the elements of the list; for all other types,
    * returns null. (This non-obvious implementation strategy is necessitated by the wildcard capture

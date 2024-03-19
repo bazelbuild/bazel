@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionMapProvider;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -48,8 +48,8 @@ public final class ActionListener implements RuleConfiguredTargetFactory {
 
     Multimap<String, ExtraActionSpec> extraActionMap;
 
-    Set<String> mnemonics = Sets.newHashSet(
-        ruleContext.attributes().get("mnemonics", Type.STRING_LIST));
+    Set<String> mnemonics =
+        Sets.newHashSet(ruleContext.attributes().get("mnemonics", Types.STRING_LIST));
     extraActions = retrieveAndValidateExtraActions(ruleContext);
     ImmutableSortedKeyListMultimap.Builder<String, ExtraActionSpec>
         extraActionMapBuilder = ImmutableSortedKeyListMultimap.builder();

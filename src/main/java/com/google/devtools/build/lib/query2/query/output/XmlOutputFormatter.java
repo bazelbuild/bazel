@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -205,7 +206,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       Element packages =
           createValueElement(
               doc,
-              Type.STRING_LIST,
+              Types.STRING_LIST,
               packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash),
               labelPrinter);
       packages.setAttribute("name", "packages");
@@ -310,7 +311,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     // "Import static" with method scope:
     Type<?> LABEL_LIST = BuildType.LABEL_LIST;
     Type<?> LICENSE = BuildType.LICENSE;
-    Type<?> STRING_LIST = Type.STRING_LIST;
+    Type<?> STRING_LIST = Types.STRING_LIST;
 
     final Element elem;
     final boolean hasMultipleValues = Iterables.size(values) > 1;

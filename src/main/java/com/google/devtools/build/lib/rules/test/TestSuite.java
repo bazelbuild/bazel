@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,7 +52,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
     //
 
     List<String> tagsAttribute =
-        new ArrayList<>(ruleContext.attributes().get("tags", Type.STRING_LIST));
+        new ArrayList<>(ruleContext.attributes().get("tags", Types.STRING_LIST));
     // TODO(ulfjack): This is inconsistent with the other places that do test_suite expansion.
     tagsAttribute.remove("manual");
     Pair<Collection<String>, Collection<String>> requiredExcluded =

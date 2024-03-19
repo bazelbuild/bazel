@@ -18,8 +18,8 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_DICT;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
@@ -54,10 +54,11 @@ public class ConfigRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .override(attr("tags", Type.STRING_LIST)
-               // No need to show up in ":all", etc. target patterns.
-              .value(ImmutableList.of("manual"))
-              .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .override(
+              attr("tags", Types.STRING_LIST)
+                  // No need to show up in ":all", etc. target patterns.
+                  .value(ImmutableList.of("manual"))
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .exemptFromConstraintChecking(
               "these rules don't include content that gets built into their dependers")
           .build();
@@ -271,7 +272,7 @@ public class ConfigRuleClasses {
           .setOptionReferenceFunctionForConfigSettingOnly(
               rule ->
                   NonconfigurableAttributeMapper.of(rule)
-                      .get(SETTINGS_ATTRIBUTE, Type.STRING_DICT)
+                      .get(SETTINGS_ATTRIBUTE, Types.STRING_DICT)
                       .keySet())
           .build();
     }

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -48,8 +49,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
         CommandHelper.builder(context).addToolDependencies("tools").build();
 
     resolvedData.addAll(context.getPrerequisiteArtifacts("data").list());
-    List<String>outputTemplates =
-        context.attributes().get("out_templates", Type.STRING_LIST);
+    List<String> outputTemplates = context.attributes().get("out_templates", Types.STRING_LIST);
 
     String command = context.attributes().get("cmd", Type.STRING);
     // This is a bit of a hack. We want to run the MakeVariableExpander first, so we expand $ on

@@ -29,7 +29,7 @@ import static com.google.devtools.build.lib.packages.RuleClass.NO_TOOLCHAINS_TO_
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -567,7 +567,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     // missing attribute -> default chosen based on type
     assertThat(attributes.get("my-string-attr", Type.STRING)).isEmpty();
     assertThat(attributes.get("my-labellist-attr", BuildType.LABEL_LIST)).isEmpty();
-    assertThat(attributes.get("my-stringlist-attr", Type.STRING_LIST))
+    assertThat(attributes.get("my-stringlist-attr", Types.STRING_LIST))
         .isEqualTo(Arrays.asList("foo", "bar"));
     IllegalArgumentException e =
         assertThrows(
@@ -917,8 +917,8 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     Rule rule = createRule(ruleClassA, "testrule", attributeValues);
     AttributeMap attributes = RawAttributeMapper.of(rule);
 
-    assertThat(attributes.get("my-stringlist-attr", Type.STRING_LIST)).isEqualTo(list);
-    assertThat(attributes.get("my-sorted-stringlist-attr", Type.STRING_LIST))
+    assertThat(attributes.get("my-stringlist-attr", Types.STRING_LIST)).isEqualTo(list);
+    assertThat(attributes.get("my-sorted-stringlist-attr", Types.STRING_LIST))
         .isEqualTo(Arrays.asList("bar", "baz", "foo"));
   }
 

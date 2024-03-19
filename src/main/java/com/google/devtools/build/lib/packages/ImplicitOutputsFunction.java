@@ -364,8 +364,8 @@ public abstract class ImplicitOutputsFunction {
       return ImmutableSet.of(rule.get(attrName, Type.STRING));
     } else if (Type.STRING_NO_INTERN == attrType) {
       return ImmutableSet.of(rule.get(attrName, Type.STRING_NO_INTERN));
-    } else if (Type.STRING_LIST == attrType) {
-      return ImmutableSet.copyOf(rule.get(attrName, Type.STRING_LIST));
+    } else if (Types.STRING_LIST == attrType) {
+      return ImmutableSet.copyOf(rule.get(attrName, Types.STRING_LIST));
     } else if (BuildType.LABEL == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.

@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -207,8 +208,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  pass",
         "exec_rule = rule(implementation = _impl, executable = True)",
         "non_exec_rule = rule(implementation = _impl)");
-    assertThat(getRuleClass("exec_rule").hasAttr("args", Type.STRING_LIST)).isTrue();
-    assertThat(getRuleClass("non_exec_rule").hasAttr("args", Type.STRING_LIST)).isFalse();
+    assertThat(getRuleClass("exec_rule").hasAttr("args", Types.STRING_LIST)).isTrue();
+    assertThat(getRuleClass("non_exec_rule").hasAttr("args", Types.STRING_LIST)).isFalse();
   }
 
   /**
@@ -390,7 +391,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testAttrWithOnlyType() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.string_list()");
     assertThat(attr.starlarkDefined()).isTrue();
-    assertThat(attr.getType()).isEqualTo(Type.STRING_LIST);
+    assertThat(attr.getType()).isEqualTo(Types.STRING_LIST);
   }
 
   private Attribute buildAttribute(String name, String... lines) throws Exception {
@@ -412,7 +413,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testIntListAttr() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.int_list()");
     assertThat(attr.starlarkDefined()).isTrue();
-    assertThat(attr.getType()).isEqualTo(Type.INTEGER_LIST);
+    assertThat(attr.getType()).isEqualTo(Types.INTEGER_LIST);
   }
 
   @Test
@@ -426,14 +427,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testStringDictAttr() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.string_dict(default = {'a': 'b'})");
     assertThat(attr.starlarkDefined()).isTrue();
-    assertThat(attr.getType()).isEqualTo(Type.STRING_DICT);
+    assertThat(attr.getType()).isEqualTo(Types.STRING_DICT);
   }
 
   @Test
   public void testStringListDictAttr() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.string_list_dict(default = {'a': ['b', 'c']})");
     assertThat(attr.starlarkDefined()).isTrue();
-    assertThat(attr.getType()).isEqualTo(Type.STRING_LIST_DICT);
+    assertThat(attr.getType()).isEqualTo(Types.STRING_LIST_DICT);
   }
 
   @Test
@@ -937,7 +938,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   private static RuleClass ruleClass(String name) {
     return new RuleClass.Builder(name, RuleClassType.NORMAL, false)
         .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-        .add(Attribute.attr("tags", Type.STRING_LIST))
+        .add(Attribute.attr("tags", Types.STRING_LIST))
         .build();
   }
 
@@ -1412,7 +1413,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testRuleInheritsBaseRuleAttributes() throws Exception {
     evalAndExport(ev, "def impl(ctx): return None", "r1 = rule(impl)");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.hasAttr("tags", Type.STRING_LIST)).isTrue();
+    assertThat(c.hasAttr("tags", Types.STRING_LIST)).isTrue();
     assertThat(c.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)).isTrue();
     assertThat(c.hasAttr("deprecation", Type.STRING)).isTrue();
     assertThat(c.hasAttr(":action_listener", BuildType.LABEL_LIST))

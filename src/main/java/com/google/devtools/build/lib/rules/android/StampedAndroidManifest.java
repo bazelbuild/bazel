@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -123,7 +123,7 @@ public class StampedAndroidManifest extends AndroidManifest {
     }
 
     Map<String, String> manifestValues =
-        new TreeMap<>(context.attributes().get("manifest_values", Type.STRING_DICT));
+        new TreeMap<>(context.attributes().get("manifest_values", Types.STRING_DICT));
 
     for (String variable : manifestValues.keySet()) {
       manifestValues.put(

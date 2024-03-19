@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransit
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -40,7 +40,7 @@ public class EnvironmentRule implements RuleDefinition {
         .cfg(NoConfigTransition.createFactory())
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .override(
-            attr("tags", Type.STRING_LIST)
+            attr("tags", Types.STRING_LIST)
                 // No need to show up in ":all", etc. target patterns.
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))

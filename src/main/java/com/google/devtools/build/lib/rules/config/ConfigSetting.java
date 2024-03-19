@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
@@ -86,7 +87,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     AttributeMap attributes = NonconfigurableAttributeMapper.of(ruleContext.getRule());
 
     Optional<String> likelyLabelInvalidSetting =
-        attributes.get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Type.STRING_DICT).keySet().stream()
+        attributes.get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Types.STRING_DICT).keySet().stream()
             .filter(s -> s.startsWith("@") || s.startsWith("//") || s.startsWith(":"))
             .findFirst();
     if (likelyLabelInvalidSetting.isPresent()) {
@@ -102,13 +103,15 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     // Get the built-in Blaze flag settings that match this rule.
     ImmutableMultimap<String, String> nativeFlagSettings =
         ImmutableMultimap.<String, String>builder()
-            .putAll(attributes.get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Type.STRING_DICT)
-                .entrySet())
-            .putAll(attributes.get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Type.STRING_DICT)
-                .entrySet()
-                .stream()
-                .map(in -> Maps.immutableEntry("define", in.getKey() + "=" + in.getValue()))
-                .collect(ImmutableList.toImmutableList()))
+            .putAll(
+                attributes.get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Types.STRING_DICT).entrySet())
+            .putAll(
+                attributes
+                    .get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Types.STRING_DICT)
+                    .entrySet()
+                    .stream()
+                    .map(in -> Maps.immutableEntry("define", in.getKey() + "=" + in.getValue()))
+                    .collect(ImmutableList.toImmutableList()))
             .build();
 
     // Get the user-defined flag settings that match this rule.
@@ -166,7 +169,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       BuildConfigurationValue configuration) {
     // values
     attributes
-        .get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Type.STRING_DICT)
+        .get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Types.STRING_DICT)
         .forEach(
             (optionName, value) -> {
               if (optionName.equals("define")) {
@@ -184,7 +187,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
     // define_values
     requiredFragments.addDefines(
-        attributes.get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Type.STRING_DICT).keySet());
+        attributes.get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Types.STRING_DICT).keySet());
 
     // flag_values
     requiredFragments.addStarlarkOptions(

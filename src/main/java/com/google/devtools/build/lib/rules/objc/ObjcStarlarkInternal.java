@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
@@ -93,7 +93,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
                   starlarkRuleContext
                       .getRuleContext()
                       .attributes()
-                      .get("copts", Type.STRING_LIST)));
+                      .get("copts", Types.STRING_LIST)));
       CompilationAttributes.Builder.addCompileOptionsFromRuleContext(
           builder, starlarkRuleContext.getRuleContext(), copts);
     }

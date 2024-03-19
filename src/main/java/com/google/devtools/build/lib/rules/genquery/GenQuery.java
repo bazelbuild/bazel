@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -126,7 +127,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
             .allowResidue(false)
             .build();
     try {
-      optionsParser.parse(ruleContext.attributes().get("opts", Type.STRING_LIST));
+      optionsParser.parse(ruleContext.attributes().get("opts", Types.STRING_LIST));
     } catch (OptionsParsingException e) {
       ruleContext.attributeError("opts", "error while parsing query options: " + e.getMessage());
       return null;

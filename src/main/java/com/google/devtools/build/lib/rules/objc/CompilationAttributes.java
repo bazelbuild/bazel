@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.util.Pair;
@@ -201,28 +202,28 @@ final class CompilationAttributes implements StarlarkValue {
     }
 
     static void addIncludesFromRuleContext(Builder builder, RuleContext ruleContext) {
-      if (ruleContext.attributes().has("includes", Type.STRING_LIST)) {
+      if (ruleContext.attributes().has("includes", Types.STRING_LIST)) {
         NestedSetBuilder<PathFragment> includes = NestedSetBuilder.stableOrder();
         includes.addAll(
             Iterables.transform(
-                ruleContext.attributes().get("includes", Type.STRING_LIST), PathFragment::create));
+                ruleContext.attributes().get("includes", Types.STRING_LIST), PathFragment::create));
         builder.addIncludes(includes.build());
       }
 
-      if (ruleContext.attributes().has("sdk_includes", Type.STRING_LIST)) {
+      if (ruleContext.attributes().has("sdk_includes", Types.STRING_LIST)) {
         NestedSetBuilder<PathFragment> sdkIncludes = NestedSetBuilder.stableOrder();
         sdkIncludes.addAll(
             Iterables.transform(
-                ruleContext.attributes().get("sdk_includes", Type.STRING_LIST),
+                ruleContext.attributes().get("sdk_includes", Types.STRING_LIST),
                 PathFragment::create));
         builder.addSdkIncludes(sdkIncludes.build());
       }
     }
 
     static void addSdkAttributesFromRuleContext(Builder builder, RuleContext ruleContext) {
-      if (ruleContext.attributes().has("sdk_frameworks", Type.STRING_LIST)) {
+      if (ruleContext.attributes().has("sdk_frameworks", Types.STRING_LIST)) {
         NestedSetBuilder<String> frameworks = NestedSetBuilder.stableOrder();
-        for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
+        for (String explicit : ruleContext.attributes().get("sdk_frameworks", Types.STRING_LIST)) {
           frameworks.add(explicit);
         }
         if (ruleContext.getFragment(ObjcConfiguration.class).disallowSdkFrameworksAttributes()
@@ -234,10 +235,10 @@ final class CompilationAttributes implements StarlarkValue {
         builder.addSdkFrameworks(frameworks.build());
       }
 
-      if (ruleContext.attributes().has("weak_sdk_frameworks", Type.STRING_LIST)) {
+      if (ruleContext.attributes().has("weak_sdk_frameworks", Types.STRING_LIST)) {
         NestedSetBuilder<String> weakFrameworks = NestedSetBuilder.stableOrder();
         for (String frameworkName :
-            ruleContext.attributes().get("weak_sdk_frameworks", Type.STRING_LIST)) {
+            ruleContext.attributes().get("weak_sdk_frameworks", Types.STRING_LIST)) {
           weakFrameworks.add(frameworkName);
         }
         if (ruleContext.getFragment(ObjcConfiguration.class).disallowSdkFrameworksAttributes()
@@ -249,9 +250,9 @@ final class CompilationAttributes implements StarlarkValue {
         builder.addWeakSdkFrameworks(weakFrameworks.build());
       }
 
-      if (ruleContext.attributes().has("sdk_dylibs", Type.STRING_LIST)) {
+      if (ruleContext.attributes().has("sdk_dylibs", Types.STRING_LIST)) {
         NestedSetBuilder<String> sdkDylibs = NestedSetBuilder.stableOrder();
-        sdkDylibs.addAll(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST));
+        sdkDylibs.addAll(ruleContext.attributes().get("sdk_dylibs", Types.STRING_LIST));
         builder.addSdkDylibs(sdkDylibs.build());
       }
     }
@@ -264,7 +265,7 @@ final class CompilationAttributes implements StarlarkValue {
     static void addCompileOptionsFromRuleContext(
         Builder builder, RuleContext ruleContext, Iterable<String> copts)
         throws InterruptedException {
-      if (ruleContext.attributes().has("copts", Type.STRING_LIST)) {
+      if (ruleContext.attributes().has("copts", Types.STRING_LIST)) {
         if (copts == null) {
           builder.addCopts(ruleContext.getExpander().withDataLocations().tokenized("copts"));
         } else {
@@ -272,7 +273,7 @@ final class CompilationAttributes implements StarlarkValue {
         }
       }
 
-      if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
+      if (ruleContext.attributes().has("linkopts", Types.STRING_LIST)) {
         builder.addLinkopts(CppHelper.getLinkopts(ruleContext));
       }
 
@@ -281,7 +282,7 @@ final class CompilationAttributes implements StarlarkValue {
             ruleContext.getPrerequisiteArtifacts("additional_linker_inputs").list());
       }
 
-      if (ruleContext.attributes().has("defines", Type.STRING_LIST)) {
+      if (ruleContext.attributes().has("defines", Types.STRING_LIST)) {
         builder.addDefines(ruleContext.getExpander().withDataLocations().tokenized("defines"));
       }
     }

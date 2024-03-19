@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -523,7 +523,7 @@ public final class RunfilesSupport {
   }
 
   private static CommandLine computeArgs(RuleContext ruleContext) throws InterruptedException {
-    if (!ruleContext.getRule().isAttrDefined("args", Type.STRING_LIST)) {
+    if (!ruleContext.getRule().isAttrDefined("args", Types.STRING_LIST)) {
       // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args
       // attribute here.
       return CommandLine.empty();
@@ -538,21 +538,21 @@ public final class RunfilesSupport {
     boolean isNativeRule =
         ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;
     if (!isNativeRule
-        || (!ruleContext.getRule().isAttrDefined("env", Type.STRING_DICT)
-            && !ruleContext.getRule().isAttrDefined("env_inherit", Type.STRING_LIST))) {
+        || (!ruleContext.getRule().isAttrDefined("env", Types.STRING_DICT)
+            && !ruleContext.getRule().isAttrDefined("env_inherit", Types.STRING_LIST))) {
       return ActionEnvironment.EMPTY;
     }
     TreeMap<String, String> fixedEnv = new TreeMap<>();
     Set<String> inheritedEnv = new LinkedHashSet<>();
-    if (ruleContext.isAttrDefined("env", Type.STRING_DICT)) {
+    if (ruleContext.isAttrDefined("env", Types.STRING_DICT)) {
       Expander expander = ruleContext.getExpander().withDataLocations();
       for (Map.Entry<String, String> entry :
-          ruleContext.attributes().get("env", Type.STRING_DICT).entrySet()) {
+          ruleContext.attributes().get("env", Types.STRING_DICT).entrySet()) {
         fixedEnv.put(entry.getKey(), expander.expand("env", entry.getValue()));
       }
     }
-    if (ruleContext.isAttrDefined("env_inherit", Type.STRING_LIST)) {
-      for (String key : ruleContext.attributes().get("env_inherit", Type.STRING_LIST)) {
+    if (ruleContext.isAttrDefined("env_inherit", Types.STRING_LIST)) {
+      for (String key : ruleContext.attributes().get("env_inherit", Types.STRING_LIST)) {
         if (!fixedEnv.containsKey(key)) {
           inheritedEnv.add(key);
         }

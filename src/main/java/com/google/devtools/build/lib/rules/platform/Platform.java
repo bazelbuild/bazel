@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import java.util.List;
 import java.util.Map;
 
@@ -64,12 +65,12 @@ public class Platform implements RuleConfiguredTargetFactory {
     platformBuilder.setRemoteExecutionProperties(remoteExecutionProperties);
 
     Map<String, String> execProperties =
-        ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Type.STRING_DICT);
+        ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Types.STRING_DICT);
     if (execProperties != null && !execProperties.isEmpty()) {
       platformBuilder.setExecProperties(ImmutableMap.copyOf(execProperties));
     }
 
-    List<String> flags = ruleContext.attributes().get(PlatformRule.FLAGS_ATTR, Type.STRING_LIST);
+    List<String> flags = ruleContext.attributes().get(PlatformRule.FLAGS_ATTR, Types.STRING_LIST);
     if (flags != null && !flags.isEmpty()) {
       platformBuilder.addFlags(flags);
     }

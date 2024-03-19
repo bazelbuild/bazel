@@ -180,7 +180,7 @@ public abstract class PackageArgs {
         break;
       case "features":
         builder.mergeFeatures(
-            FeatureSet.parse(Type.STRING_LIST.convert(rawValue, what, labelConverter)));
+            FeatureSet.parse(Types.STRING_LIST.convert(rawValue, what, labelConverter)));
         break;
       case "licenses":
         builder.setLicense(BuildType.LICENSE.convert(rawValue, what, labelConverter));

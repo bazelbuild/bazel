@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -509,12 +510,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     // collection. This is a sensible solution for query output's clients, which are happy to get
     // the union of possible values.
     // TODO(bazel-team): replace below with "is ListType" check (or some variant)
-    if (attrType == Type.STRING_LIST
+    if (attrType == Types.STRING_LIST
         || attrType == BuildType.LABEL_LIST
         || attrType == BuildType.NODEP_LABEL_LIST
         || attrType == BuildType.OUTPUT_LIST
         || attrType == BuildType.DISTRIBUTIONS
-        || attrType == Type.INTEGER_LIST) {
+        || attrType == Types.INTEGER_LIST) {
       ImmutableList.Builder<Object> builder = ImmutableList.builder();
       for (Object possibleValue : possibleValues) {
         Collection<Object> collection = (Collection<Object>) possibleValue;
@@ -526,8 +527,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     // Same for maps as for collections.
-    if (attrType == Type.STRING_DICT
-        || attrType == Type.STRING_LIST_DICT
+    if (attrType == Types.STRING_DICT
+        || attrType == Types.STRING_LIST_DICT
         || attrType == BuildType.LABEL_DICT_UNARY
         || attrType == BuildType.LABEL_KEYED_STRING_DICT) {
       Map<Object, Object> mergedDict = new HashMap<>();

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.LabelRenderer;
 import com.google.devtools.build.skydoc.rendering.StarlarkFunctionInfoExtractor;
@@ -499,9 +500,9 @@ final class ModuleInfoExtractor {
           ruleClass.getAttributes(),
           repositoryRuleInfoBuilder::addAttribute,
           "repository rule " + qualifiedName);
-      if (ruleClass.hasAttr("$environ", Type.STRING_LIST)) {
+      if (ruleClass.hasAttr("$environ", Types.STRING_LIST)) {
         repositoryRuleInfoBuilder.addAllEnviron(
-            Type.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue(null)));
+            Types.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue(null)));
       }
       moduleInfoBuilder.addRepositoryRuleInfo(repositoryRuleInfoBuilder);
     }
@@ -519,9 +520,9 @@ final class ModuleInfoExtractor {
         } else {
           return AttributeType.STRING;
         }
-      } else if (type.equals(Type.STRING_LIST)) {
+      } else if (type.equals(Types.STRING_LIST)) {
         return AttributeType.STRING_LIST;
-      } else if (type.equals(Type.INTEGER_LIST)) {
+      } else if (type.equals(Types.INTEGER_LIST)) {
         return AttributeType.INT_LIST;
       } else if (type.equals(BuildType.LABEL_LIST)) {
         return AttributeType.LABEL_LIST;
@@ -529,9 +530,9 @@ final class ModuleInfoExtractor {
         return AttributeType.BOOLEAN;
       } else if (type.equals(BuildType.LABEL_KEYED_STRING_DICT)) {
         return AttributeType.LABEL_STRING_DICT;
-      } else if (type.equals(Type.STRING_DICT)) {
+      } else if (type.equals(Types.STRING_DICT)) {
         return AttributeType.STRING_DICT;
-      } else if (type.equals(Type.STRING_LIST_DICT)) {
+      } else if (type.equals(Types.STRING_LIST_DICT)) {
         return AttributeType.STRING_LIST_DICT;
       } else if (type.equals(BuildType.OUTPUT)) {
         return AttributeType.OUTPUT;

@@ -744,12 +744,12 @@ public class RuleClass implements RuleClassData {
 
     /** List of required attributes for normal rules, name and type. */
     static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_NORMAL_RULES =
-        ImmutableList.of(attr("tags", Type.STRING_LIST).build());
+        ImmutableList.of(attr("tags", Types.STRING_LIST).build());
 
     /** List of required attributes for test rules, name and type. */
     static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_TESTS =
         ImmutableList.of(
-            attr("tags", Type.STRING_LIST).build(),
+            attr("tags", Types.STRING_LIST).build(),
             attr("size", Type.STRING).build(),
             attr("timeout", Type.STRING).build(),
             attr("flaky", Type.BOOLEAN).build(),
@@ -2390,7 +2390,7 @@ public class RuleClass implements RuleClassData {
         boolean explicit = true; // so that it appears in query output
         rule.setAttributeValue(
             implicitTests,
-            pkgBuilder.getTestSuiteImplicitTestsRef(attributeMapper.get("tags", Type.STRING_LIST)),
+            pkgBuilder.getTestSuiteImplicitTestsRef(attributeMapper.get("tags", Types.STRING_LIST)),
             explicit);
       }
     }

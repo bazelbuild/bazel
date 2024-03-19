@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@link Platform}. */
@@ -51,7 +52,7 @@ public class PlatformRule implements RuleDefinition {
         .removeAttribute(":action_listener")
         .removeAttribute(RuleClass.APPLICABLE_METADATA_ATTR)
         .override(
-            attr("tags", Type.STRING_LIST)
+            attr("tags", Types.STRING_LIST)
                 // No need to show up in ":all", etc. target patterns.
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
@@ -108,7 +109,7 @@ public class PlatformRule implements RuleDefinition {
         <code>remote_execution_properties</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
-            attr(EXEC_PROPS_ATTR, Type.STRING_DICT)
+            attr(EXEC_PROPS_ATTR, Types.STRING_DICT)
                 .value(ImmutableMap.of())
                 .nonconfigurable("Part of the configuration"))
 
@@ -117,7 +118,7 @@ public class PlatformRule implements RuleDefinition {
         a configuration. Only flags that can be set in transitions are allowed to be used.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
-            attr(FLAGS_ATTR, Type.STRING_LIST)
+            attr(FLAGS_ATTR, Types.STRING_LIST)
                 .value(ImmutableList.of())
                 .nonconfigurable("Part of the configuration"))
         .build();
