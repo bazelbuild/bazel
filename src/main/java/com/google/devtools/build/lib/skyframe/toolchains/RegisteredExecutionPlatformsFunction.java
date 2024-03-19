@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -147,7 +149,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
     // Load the configured target for each, and get the declared execution platforms providers.
     ImmutableList<ConfiguredTargetKey> registeredExecutionPlatformKeys =
-        configureRegisteredExecutionPlatforms(env, configuration, platformLabels);
+        configureRegisteredExecutionPlatforms(env, platformLabels);
     if (env.valuesMissing()) {
       return null;
     }
@@ -213,7 +215,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
   @Nullable
   private static ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(
-      Environment env, BuildConfigurationValue configuration, List<Label> labels)
+      Environment env, List<Label> labels)
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
     ImmutableList<ConfiguredTargetKey> keys =
         labels.stream()
@@ -221,7 +223,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
                 label ->
                     ConfiguredTargetKey.builder()
                         .setLabel(label)
-                        .setConfiguration(configuration)
+                        .setConfigurationKey(
+                            BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
                         .build())
             .collect(toImmutableList());
 

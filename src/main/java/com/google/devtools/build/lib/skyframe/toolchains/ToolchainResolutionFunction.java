@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -107,8 +108,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
           loadPlatformKeys(
               env,
               debug,
-              key.configurationKey(),
-              configuration,
+              configuration.getKey(),
               platformConfiguration,
               key.execConstraintLabels());
       if (env.valuesMissing()) {
@@ -262,7 +262,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
       SkyFunction.Environment environment,
       boolean debug,
       BuildConfigurationKey configurationKey,
-      BuildConfigurationValue configuration,
       PlatformConfiguration platformConfiguration,
       ImmutableSet<Label> execConstraintLabels)
       throws InterruptedException,
@@ -277,12 +276,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
     ConfiguredTargetKey hostPlatformKey =
         ConfiguredTargetKey.builder()
             .setLabel(hostPlatformLabel)
-            .setConfiguration(configuration)
+            .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
             .build();
     ConfiguredTargetKey targetPlatformKey =
         ConfiguredTargetKey.builder()
             .setLabel(targetPlatformLabel)
-            .setConfiguration(configuration)
+            .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
             .build();
 
     // Load the host and target platforms early, to check for errors.
@@ -298,7 +297,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
             environment,
             debug,
             configurationKey,
-            configuration,
             hostPlatformKey,
             execConstraintLabels);
 
@@ -309,7 +307,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
       SkyFunction.Environment environment,
       boolean debug,
       BuildConfigurationKey configurationKey,
-      BuildConfigurationValue configuration,
       ConfiguredTargetKey defaultPlatformKey,
       ImmutableSet<Label> execConstraintLabels)
       throws InterruptedException,
@@ -340,7 +337,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
                 label ->
                     ConfiguredTargetKey.builder()
                         .setLabel(label)
-                        .setConfiguration(configuration)
+                        .setConfigurationKey(
+                            BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
                         .build())
             .collect(toImmutableList());
 
