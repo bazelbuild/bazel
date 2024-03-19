@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
+import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
@@ -54,7 +56,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
@@ -833,17 +834,23 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     useConfiguration("--ios_minimum_os=1.0");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
-    CppLinkAction archiveAction = (CppLinkAction) getGeneratingAction(archive);
+    SpawnAction archiveAction = (SpawnAction) getGeneratingAction(archive);
     Artifact objectFilesFromGenJar =
         getFirstArtifactEndingWith(archiveAction.getInputs(), "source_files");
     Artifact normalObjectFile = getFirstArtifactEndingWith(archiveAction.getInputs(), "test.o");
 
     // Test that the archive commandline contains the individual object files inside
     // the object file tree artifact.
-    assertThat(
-            archiveAction
-                .getLinkCommandLineForTesting()
-                .arguments(DUMMY_ARTIFACT_EXPANDER, PathMapper.NOOP))
+    ExpandedCommandLines expandedCommandLines =
+        archiveAction
+            .getCommandLines()
+            .expand(
+                DUMMY_ARTIFACT_EXPANDER,
+                archiveAction.getPrimaryOutput().getExecPath(),
+                PathMapper.NOOP,
+                CommandLineLimits.UNLIMITED);
+
+    assertThat(expandedCommandLines.arguments())
         .containsAtLeast(
             objectFilesFromGenJar.getExecPathString() + "/children1",
             objectFilesFromGenJar.getExecPathString() + "/children2",

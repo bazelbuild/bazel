@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -190,7 +189,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
   private Iterable<Artifact> getLinkerInputs(ConfiguredTarget target) {
     Artifact executable = getExecutable(target);
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(executable);
     return linkAction.getInputs().toList();
   }
 
@@ -225,7 +224,7 @@ public class CcCommonTest extends BuildViewTestCase {
                 .isEmpty())
         .isTrue();
     Artifact staticallyDotA = getFilesToBuild(statically).getSingleton();
-    assertThat(getGeneratingAction(staticallyDotA)).isInstanceOf(CppLinkAction.class);
+    assertThat(getGeneratingAction(staticallyDotA).getMnemonic()).isEqualTo("CppArchive");
     PathFragment dotAPath = staticallyDotA.getExecPath();
     assertThat(dotAPath.getPathString()).endsWith(STATIC_LIB);
   }
@@ -323,7 +322,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "          srcs=['bin.c'])");
 
     ConfiguredTarget target = getConfiguredTarget("//test:bin");
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(getExecutable(target));
+    SpawnAction action = (SpawnAction) getGeneratingAction(getExecutable(target));
     for (Artifact input : action.getInputs().toList()) {
       String name = input.getFilename();
       assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
@@ -345,7 +344,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_binary(name='bin', srcs=['bin.c'])");
 
     ConfiguredTarget target = getConfiguredTarget("//test:bin");
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(getExecutable(target));
+    SpawnAction action = (SpawnAction) getGeneratingAction(getExecutable(target));
     for (Artifact input : action.getInputs().toList()) {
       String name = input.getFilename();
       assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
@@ -832,10 +831,9 @@ public class CcCommonTest extends BuildViewTestCase {
         "    linkopts=['-Wl,@$(location a.lds)'],",
         "    deps=['a.lds'])");
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
-    CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(getFilesToBuild(target).getSingleton());
-    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLineForTesting()))
-        .containsExactly(
+    SpawnAction action = (SpawnAction) getGeneratingAction(getFilesToBuild(target).getSingleton());
+    assertThat(action.getArguments())
+        .contains(
             String.format(
                 "-Wl,@%s/a/a.lds",
                 getTargetConfiguration()
@@ -869,8 +867,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "    linkopts=['-Wl,@$(location a.lds)'],",
         "    deps=['a.lds'])");
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
-    CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(getFilesToBuild(target).getSingleton());
+    SpawnAction action = (SpawnAction) getGeneratingAction(getFilesToBuild(target).getSingleton());
     NestedSet<Artifact> linkInputs = action.getInputs();
     assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("a.lds");
   }

@@ -322,8 +322,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact sharedObject =
         getOnlyElement(
             FileType.filter(getFilesToBuild(hello).toList(), CppFileTypes.SHARED_LIBRARY));
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
-    for (String option : MockCcSupport.getLinkopts(action.getLinkCommandLineForTesting())) {
+    SpawnAction action = (SpawnAction) getGeneratingAction(sharedObject);
+    for (String option : action.getArguments()) {
       assertThat(option).doesNotContain("-Wl,-soname");
     }
 
@@ -335,9 +335,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         FileType.filter(getFilesToBuild(hello).toList(), CppFileTypes.SHARED_LIBRARY)
             .iterator()
             .next();
-    action = (CppLinkAction) getGeneratingAction(sharedObject);
-    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLineForTesting()))
-        .contains("-Wl,-soname=libhello_Slibhello.so");
+    action = (SpawnAction) getGeneratingAction(sharedObject);
+    assertThat(action.getArguments()).contains("-Wl,-soname=libhello_Slibhello.so");
   }
 
   @Test
@@ -353,7 +352,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact archive =
         FileType.filter(getFilesToBuild(hello).toList(), FileType.of(".lib")).iterator().next();
 
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(archive);
+    SpawnAction action = (SpawnAction) getGeneratingAction(archive);
 
     assertThat(action.getArguments()).contains(archive.getExecPathString());
   }
@@ -2288,7 +2287,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             .getLibraries()
             .get(0)
             .getDynamicLibrary();
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
+    SpawnAction action = (SpawnAction) getGeneratingAction(sharedObject);
     assertThat(artifactsToStrings(action.getInputs()))
         .doesNotContain("bin hello/_objs/bin/hello/linkstamp.o");
   }
