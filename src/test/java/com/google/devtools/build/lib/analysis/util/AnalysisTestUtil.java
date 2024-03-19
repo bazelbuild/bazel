@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -542,7 +543,7 @@ public final class AnalysisTestUtil {
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL))
+                    .executionPlatform(targetOptions.get(PlatformOptions.class).hostPlatform)
                     .analysisData(
                         skyframeExecutor.getStarlarkExecTransitionForTesting(
                             targetOptions, handler))
