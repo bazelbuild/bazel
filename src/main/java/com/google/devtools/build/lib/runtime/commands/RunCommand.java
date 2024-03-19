@@ -896,21 +896,23 @@ public class RunCommand implements BlazeCommand {
     // at the start of the command line.
     if (runUnder != null) {
       String runUnderValue = runUnder.getValue();
+      String prettyRunUnderValue = runUnder.getValue();
       if (runUnderTarget != null) {
+        Path runUnderPath =
+            runUnderTarget.getProvider(FilesToRunProvider.class).getExecutable().getPath();
         // --run_under specifies a target. Get the corresponding executable.
         // This must be an absolute path, because the run_under target is only
         // in the runfiles of test targets.
-        runUnderValue =
-            runUnderTarget
-                .getProvider(FilesToRunProvider.class)
-                .getExecutable()
-                .getPath()
-                .getPathString();
+        runUnderValue = runUnderPath.getPathString();
+        prettyRunUnderValue =
+            prettyPrinter.getPrettyPath(runUnderPath.asFragment()).getPathString();
         // If the run_under command contains any options, make sure to add them
         // to the command line as well.
         List<String> opts = runUnder.getOptions();
         if (!opts.isEmpty()) {
-          runUnderValue += " " + ShellEscaper.escapeJoinAll(opts);
+          String escapedOpts = ShellEscaper.escapeJoinAll(opts);
+          runUnderValue += " " + escapedOpts;
+          prettyRunUnderValue += " " + escapedOpts;
         }
       }
 
@@ -939,7 +941,7 @@ public class RunCommand implements BlazeCommand {
       prettyCmdLine.add(shellExecutable.getPathString());
       prettyCmdLine.add("-c");
       String prettyCommandLineArgs =
-          runUnderValue
+          prettyRunUnderValue
               + " "
               + prettyExecutablePath.getPathString()
               + " "
