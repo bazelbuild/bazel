@@ -46,7 +46,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    useConfiguration("--cpu=k8", "--force_pic");
+    useConfiguration("--force_pic", "--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "test/rule.bzl",
         "MyInfo = provider()",
@@ -273,7 +273,9 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "a/cc_toolchain_config.bzl",
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
-    useConfiguration("--cpu=k8", "--host_cpu=k8");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--host_platform=" + TestConstants.PLATFORM_LABEL);
     CcToolchainProvider ccToolchainProvider =
         getConfiguredTarget("//a:a").get(CcToolchainProvider.PROVIDER);
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
@@ -674,8 +676,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
         "--extra_toolchains=//a:cc-toolchain-b",
-        "--cpu=k8",
-        "--host_cpu=k8");
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--host_platform=" + TestConstants.PLATFORM_LABEL);
     assertThat(getConfiguredTarget("//a:main")).isNull();
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute.");
@@ -728,8 +730,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
         "--extra_toolchains=//a:cc-toolchain-b",
-        "--cpu=k8",
-        "--host_cpu=k8",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--host_platform=" + TestConstants.PLATFORM_LABEL,
         "--dynamic_mode=fully");
     assertThat(getConfiguredTarget("//a:test")).isNull();
     assertContainsEvent(

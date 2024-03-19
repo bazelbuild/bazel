@@ -216,7 +216,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .withFeatures(
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     String cpu = getTargetConfiguration().getCpu();
     Artifact archive = getBinArtifact("libhello.a", hello);
@@ -246,7 +246,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testFilesToBuildWithoutDSO() throws Exception {
     // This is like the preceding test, but with a toolchain that can't build '.so' files
-    useConfiguration("--cpu=k8", "--host_cpu=k8");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--host_platform=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact archive = getBinArtifact("libhello.a", hello);
     assertThat(getFilesToBuild(hello).toList()).containsExactly(archive);
@@ -262,7 +264,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .withFeatures(
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     String cpu = getTargetConfiguration().getCpu();
     Artifact archive = getBinArtifact("libhello.a", hello);
@@ -329,7 +331,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     // With interface shared libraries.
     useConfiguration("--interface_shared_objects");
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     hello = getConfiguredTarget("//hello:hello");
     sharedObject =
         FileType.filter(getFilesToBuild(hello).toList(), CppFileTypes.SHARED_LIBRARY)
@@ -564,7 +566,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     // ArtifactsToAlwaysBuild should apply both for static libraries.
     ConfiguredTarget helloStatic = getConfiguredTarget("//hello:hello_static");
     assertThat(artifactsToStrings(getOutputGroup(helloStatic, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
@@ -587,7 +589,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
 
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget x =
         scratchConfiguredTarget(
             "foo",
@@ -608,7 +610,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES, CppRuleClasses.SUPPORTS_PIC));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget x =
         scratchConfiguredTarget(
             "foo",
@@ -630,7 +632,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES, CppRuleClasses.SUPPORTS_PIC));
-    useConfiguration("--cpu=k8", "--collect_code_coverage");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--collect_code_coverage");
     ConfiguredTarget x =
         scratchConfiguredTarget(
             "foo",
@@ -708,7 +710,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withFeatures("compile_header_modules"));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "module/BUILD",
         "package(features = ['header_modules'])",
@@ -758,7 +760,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     setupPackagesForSourcesWithSameBaseNameTests();
     getConfiguredTarget("//foo:lib");
 
@@ -864,7 +866,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES, CppRuleClasses.SUPPORTS_PIC));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     setupPackagesForModuleTests(/* useHeaderModules= */ false);
 
     // The //nomodule:f target only depends on non-module targets, thus it should be module-free.
@@ -947,7 +949,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES, CppRuleClasses.SUPPORTS_PIC));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     setupPackagesForModuleTests(/* useHeaderModules= */ true);
     invalidatePackages();
 
@@ -1341,19 +1343,25 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testCompilationModeFeatures() throws Exception {
     List<String> flags;
-    flags = getCompilationModeFlags("--cpu=k8");
+    flags = getCompilationModeFlags("--platforms=" + TestConstants.PLATFORM_LABEL);
     assertThat(flags).contains("-fastbuild");
     assertThat(flags).containsNoneOf("-opt", "-dbg");
 
-    flags = getCompilationModeFlags("--cpu=k8", "--compilation_mode=fastbuild");
+    flags =
+        getCompilationModeFlags(
+            "--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=fastbuild");
     assertThat(flags).contains("-fastbuild");
     assertThat(flags).containsNoneOf("-opt", "-dbg");
 
-    flags = getCompilationModeFlags("--cpu=k8", "--compilation_mode=opt");
+    flags =
+        getCompilationModeFlags(
+            "--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=opt");
     assertThat(flags).contains("-opt");
     assertThat(flags).containsNoneOf("-fastbuild", "-dbg");
 
-    flags = getCompilationModeFlags("--cpu=k8", "--compilation_mode=dbg");
+    flags =
+        getCompilationModeFlags(
+            "--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=dbg");
     assertThat(flags).contains("-dbg");
     assertThat(flags).containsNoneOf("-fastbuild", "-opt");
   }
@@ -1423,7 +1431,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .withFeatures(
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['source.cc'])");
 
@@ -1495,7 +1503,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .withFeatures(
                     CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--cpu=k8", "--features=copy_dynamic_libraries_to_binary");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--features=copy_dynamic_libraries_to_binary");
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
     Iterable<Artifact> libraries =
@@ -1514,7 +1524,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     invalidatePackages();
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
@@ -1529,7 +1539,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testCcLinkParamsDoNotHaveDynamicLibrariesForRuntime() throws Exception {
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'], linkstatic=1)");
@@ -1543,7 +1553,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void forbidBuildingAndWrappingSameLibraryIdentifier() throws Exception {
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     checkError(
         "a",
         "foo",
@@ -2224,7 +2234,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
 
     prepareCustomTransition();
-    useConfiguration("--cpu=k8", "--compilation_mode=fastbuild");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=fastbuild");
 
     scratch.file(
         "no-transition/BUILD",
@@ -2274,7 +2284,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
 
     prepareCustomTransition();
-    useConfiguration("--cpu=k8", "--compilation_mode=fastbuild");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=fastbuild");
 
     scratch.file(
         "transition/BUILD",

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
@@ -192,7 +193,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict_non_top_level/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -215,7 +216,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    */
   @Test
   public void testNoActionConflictWithInvalidatedTarget() throws Exception {
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -241,7 +242,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -257,7 +258,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -287,7 +288,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -310,7 +311,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo1.cc'])",
@@ -347,7 +348,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -988,16 +989,19 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
-  public void cacheClearMessageAfterChangingCpu() throws Exception {
+  public void cacheClearMessageAfterChangingPlatform() throws Exception {
     setupDiffResetTesting();
     scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--cpu=k8");
+    useConfiguration(
+        "--max_config_changes_to_show=-1", "--platforms=" + TestConstants.PLATFORM_LABEL);
     update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--cpu=armeabi-v7a");
+    useConfiguration(
+        "--max_config_changes_to_show=-1",
+        "--platforms=" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":piii");
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent("Build option --cpu has changed, " + CACHE_DISCARD_WARNING);
+    assertContainsEvent("Build option --platforms has changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test

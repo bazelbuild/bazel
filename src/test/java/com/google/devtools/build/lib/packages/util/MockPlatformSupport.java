@@ -169,6 +169,13 @@ public class MockPlatformSupport {
         "        '" + constraintsPackageRoot + "cpu:x86_64',",
         "        '" + constraintsPackageRoot + "os:linux',",
         "    ],",
+        ")",
+        "platform(",
+        "     name = 'piii',",
+        "     constraint_values = [",
+        "        '" + constraintsPackageRoot + "cpu:x86_32',",
+        "        '" + constraintsPackageRoot + "os:linux',",
+        "    ],",
         ")");
 
     mockToolsConfig.create(
