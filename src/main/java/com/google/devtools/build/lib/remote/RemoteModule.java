@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
@@ -97,6 +98,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
@@ -131,7 +133,7 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private RemoteOptions remoteOptions;
   @Nullable private CommandEnvironment env;
-  @Nullable private RemoteOutputService remoteOutputService;
+  @Nullable private OutputService outputService;
   @Nullable private TempPathGenerator tempPathGenerator;
   @Nullable private BlockWaitingModule blockWaitingModule;
   @Nullable private RemoteOutputChecker remoteOutputChecker;
@@ -244,7 +246,7 @@ public final class RemoteModule extends BlazeModule {
             /* retryScheduler= */ null,
             digestUtil,
             remoteOutputChecker,
-            remoteOutputService);
+            outputService);
   }
 
   @Override
@@ -265,7 +267,7 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(this.env == null, "env must be null");
     Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
     Preconditions.checkState(remoteOutputChecker == null, "remoteOutputChecker must be null");
-    Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
+    Preconditions.checkState(outputService == null, "remoteOutputService must be null");
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
@@ -324,6 +326,15 @@ public final class RemoteModule extends BlazeModule {
                   "Cache key scrubbing is incompatible with remote execution. Actions that are"
                       + " scrubbed per the --experimental_remote_scrubbing_config configuration"
                       + " file will be executed locally instead."));
+    }
+
+    if (digestUtil.getDigestFunction() == DigestFunction.Value.UNKNOWN) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(String.format("Unsupported digest function: %s", hashFn))
+                  .setExecution(Execution.newBuilder().setCode(Execution.Code.EXECUTION_UNKNOWN))
+                  .build()));
     }
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
@@ -394,13 +405,60 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
 
+    // The number of concurrent requests for one connection to a gRPC server is limited by
+    // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
+    // each connection should be fairly well. The number of connections opened by one channel is
+    // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
+    // max concurrency per connection is 100.
+    int maxConcurrencyPerConnection = 100;
+    int maxConnections = 0;
+    if (remoteOptions.remoteMaxConnections > 0) {
+      maxConnections = remoteOptions.remoteMaxConnections;
+    }
+
+    Retrier.CircuitBreaker circuitBreaker =
+        CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
+    RemoteRetrier retrier =
+        new RemoteRetrier(
+            remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryScheduler, circuitBreaker);
+
     if (!Strings.isNullOrEmpty(remoteOptions.remoteOutputService)) {
+      var bazelOutputServiceChannel =
+          createChannel(
+              executorService,
+              remoteOptions,
+              // Don't use auth flags for remote output service
+              Options.getDefaults(AuthAndTLSOptions.class),
+              null,
+              null,
+              channelFactory,
+              remoteOptions.remoteOutputService,
+              null,
+              maxConcurrencyPerConnection,
+              maxConnections,
+              verboseFailures,
+              env.getReporter(),
+              null,
+              digestUtil.getDigestFunction(),
+              ServerCapabilitiesRequirement.NONE);
+
+      outputService =
+          new BazelOutputService(
+              env.getOutputBase(),
+              () -> env.getDirectories().getOutputPath(env.getWorkspaceName()),
+              digestUtil.getDigestFunction(),
+              remoteOptions,
+              verboseFailures,
+              retrier,
+              bazelOutputServiceChannel);
+
       throw createExitException(
           "Remote Output Service is still WIP",
           ExitCode.REMOTE_ERROR,
           Code.REMOTE_EXECUTION_UNKNOWN);
+    } else {
+      outputService = new RemoteOutputService(env);
     }
-    remoteOutputService = new RemoteOutputService(env);
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
       initHttpAndDiskCache(
@@ -421,26 +479,9 @@ public final class RemoteModule extends BlazeModule {
       loggingInterceptor = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
     }
 
-    // The number of concurrent requests for one connection to a gRPC server is limited by
-    // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
-    // each connection should be fairly well. The number of connections opened by one channel is
-    // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
-    // max concurrency per connection is 100.
-    int maxConcurrencyPerConnection = 100;
-    int maxConnections = 0;
-    if (remoteOptions.remoteMaxConnections > 0) {
-      maxConnections = remoteOptions.remoteMaxConnections;
-    }
-
     CallCredentialsProvider callCredentialsProvider =
         GoogleAuthUtils.newCallCredentialsProvider(credentials);
     CallCredentials callCredentials = callCredentialsProvider.getCallCredentials();
-
-    Retrier.CircuitBreaker circuitBreaker =
-        CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
-    RemoteRetrier retrier =
-        new RemoteRetrier(
-            remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryScheduler, circuitBreaker);
 
     RemoteServerCapabilities rsc =
         new RemoteServerCapabilities(
@@ -581,7 +622,7 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               logDir,
               remoteOutputChecker,
-              remoteOutputService);
+              outputService);
       repositoryRemoteExecutorFactoryDelegate.init(
           new RemoteRepositoryRemoteExecutorFactory(
               remoteCache,
@@ -617,7 +658,7 @@ public final class RemoteModule extends BlazeModule {
               retryScheduler,
               digestUtil,
               remoteOutputChecker,
-              remoteOutputService);
+              outputService);
     }
 
     buildEventArtifactUploaderFactoryDelegate.init(
@@ -690,7 +731,7 @@ public final class RemoteModule extends BlazeModule {
       int maxConnections,
       boolean verboseFailures,
       Reporter reporter,
-      RemoteServerCapabilities remoteServerCapabilities,
+      @Nullable RemoteServerCapabilities remoteServerCapabilities,
       DigestFunction.Value digestFunction,
       ServerCapabilitiesRequirement requirement) {
     ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
@@ -866,7 +907,7 @@ public final class RemoteModule extends BlazeModule {
     actionInputFetcher = null;
     remoteOptions = null;
     env = null;
-    remoteOutputService = null;
+    outputService = null;
     tempPathGenerator = null;
     rpcLogFile = null;
     remoteOutputChecker = null;
@@ -975,7 +1016,7 @@ public final class RemoteModule extends BlazeModule {
 
     if (actionContextProvider.getRemoteCache() != null) {
       Preconditions.checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
-      Preconditions.checkNotNull(remoteOutputService, "remoteOutputService must not be null");
+      Preconditions.checkNotNull(outputService, "remoteOutputService must not be null");
 
       actionInputFetcher =
           new RemoteActionInputFetcher(
@@ -1009,18 +1050,20 @@ public final class RemoteModule extends BlazeModule {
               env.getBlazeWorkspace().getPersistentActionCache(),
               leaseExtension);
 
-      remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
-      remoteOutputService.setActionInputFetcher(actionInputFetcher);
-      remoteOutputService.setLeaseService(leaseService);
-      remoteOutputService.setFileCacheSupplier(env::getFileCache);
-      env.getEventBus().register(remoteOutputService);
+      if (outputService instanceof RemoteOutputService remoteOutputService) {
+        remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
+        remoteOutputService.setActionInputFetcher(actionInputFetcher);
+        remoteOutputService.setLeaseService(leaseService);
+        remoteOutputService.setFileCacheSupplier(env::getFileCache);
+        env.getEventBus().register(outputService);
+      }
     }
   }
 
   @Override
   @Nullable
   public OutputService getOutputService() {
-    return remoteOutputService;
+    return outputService;
   }
 
   @Override
