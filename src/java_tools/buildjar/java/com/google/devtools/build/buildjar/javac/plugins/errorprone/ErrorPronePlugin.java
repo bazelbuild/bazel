@@ -30,6 +30,7 @@ import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
 import com.google.errorprone.scanner.ScannerSupplier;
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskEvent.Kind;
+import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.code.DeferredCompletionFailureHandler;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
@@ -66,7 +67,6 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
   }
 
   private ErrorProneAnalyzer errorProneAnalyzer;
-  private ErrorProneAnalyzer.RefactoringTask refactoringTask;
   private ErrorProneOptions epOptions;
   private ErrorProneTimings timings;
   private DeferredCompletionFailureHandler deferredCompletionFailureHandler;
@@ -112,7 +112,9 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
     errorProneAnalyzer =
         ErrorProneAnalyzer.createAnalyzer(scannerSupplier, epOptions, context, refactoringCollection);
     if (refactoringCollection[0] != null) {
-      refactoringTask = new ErrorProneAnalyzer.RefactoringTask(context, refactoringCollection[0]);
+      ErrorProneAnalyzer.RefactoringTask refactoringTask =
+          new ErrorProneAnalyzer.RefactoringTask(context, refactoringCollection[0]);
+      MultiTaskListener.instance(context).add(refactoringTask);
     }
     timings = ErrorProneTimings.instance(context);
     deferredCompletionFailureHandler = DeferredCompletionFailureHandler.instance(context);
@@ -127,9 +129,6 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
     elapsed.start();
     try {
       errorProneAnalyzer.finished(new TaskEvent(Kind.ANALYZE, env.toplevel, env.enclClass.sym));
-      if (refactoringTask != null) {
-        refactoringTask.finished(new TaskEvent(Kind.GENERATE, env.toplevel, env.enclClass.sym));
-      }
     } catch (ErrorProneError e) {
       e.logFatalError(log, context);
       // let the exception propagate to javac's main, where it will cause the compilation to
