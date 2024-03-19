@@ -2671,7 +2671,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "zx7OyNOylz7/QJIpQ1/yJkroCp70/cN4TWBcU61pasg=",
+        "bzlTransitiveDigest": "aG147bvK/3Le2BlGENpzzD+6sHdtM5M5spvZnxEHlQI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2754,11 +2754,6 @@
           ],
           [
             "",
-            "rules_java",
-            "rules_java~"
-          ],
-          [
-            "",
             "rules_jvm_external",
             "rules_jvm_external~"
           ],
@@ -2812,7 +2807,7 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "zx7OyNOylz7/QJIpQ1/yJkroCp70/cN4TWBcU61pasg=",
+        "bzlTransitiveDigest": "aG147bvK/3Le2BlGENpzzD+6sHdtM5M5spvZnxEHlQI=",
         "recordedFileInputs": {
           "@@//MODULE.bazel": "d472aaca74569c2a11107ad68f4da5fcff70d31717481dea9269195a3a504d78",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "d5a515ce069207612dfaee67125e52c38009af30ad6cbeeb11461a780837157f"
@@ -2907,7 +2902,6 @@
                 "platforms",
                 "rules_cc~",
                 "rules_go~",
-                "rules_java~",
                 "rules_jvm_external~",
                 "rules_kotlin~",
                 "rules_graalvm~",
@@ -3123,11 +3117,6 @@
           ],
           [
             "",
-            "rules_java",
-            "rules_java~"
-          ],
-          [
-            "",
             "rules_jvm_external",
             "rules_jvm_external~"
           ],
@@ -3181,7 +3170,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "zx7OyNOylz7/QJIpQ1/yJkroCp70/cN4TWBcU61pasg=",
+        "bzlTransitiveDigest": "aG147bvK/3Le2BlGENpzzD+6sHdtM5M5spvZnxEHlQI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3271,11 +3260,6 @@
             "",
             "rules_graalvm",
             "rules_graalvm~"
-          ],
-          [
-            "",
-            "rules_java",
-            "rules_java~"
           ],
           [
             "",
