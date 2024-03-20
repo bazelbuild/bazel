@@ -4,6 +4,7 @@ labels: ["type: feature request", "untriaged"]
 assignees:
   - sgowroji
   - iancha1992
+  - satyanandak
 body:
   - type: markdown
     attributes:
