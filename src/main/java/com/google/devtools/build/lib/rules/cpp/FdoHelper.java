@@ -92,8 +92,15 @@ public class FdoHelper {
             PropellerOptimizeInputFile.fromStarlarkProvider(propellerOptimizeProvider);
       }
 
+      // Attempt to fetch the memprof profile input from an explicit flag or as part of the
+      // fdo_profile rule. The former overrides the latter.
       if (cppConfiguration.getMemProfProfileLabel() != null) {
         memprofProfile = FdoInputFile.fromStarlarkProvider(memProfProfileProvider);
+      } else if (cppConfiguration.getFdoProfileLabel() != null
+          && fdoProfileProvider.getValue("memprof_artifact") != Starlark.NONE) {
+        memprofProfile =
+            FdoInputFile.fromArtifact(
+                fdoProfileProvider.getValue("memprof_artifact", Artifact.class));
       }
 
       if (cppConfiguration.getFdoPath() != null) {

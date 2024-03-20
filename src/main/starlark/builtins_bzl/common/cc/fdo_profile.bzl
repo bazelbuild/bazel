@@ -18,24 +18,36 @@ load(":common/paths.bzl", "paths")
 
 FdoProfileInfo = provider(
     doc = "Contains the profile used for FDO",
-    fields = ["artifact", "absolute_path", "proto_profile_artifact"],
+    fields = ["artifact", "absolute_path", "proto_profile_artifact", "memprof_artifact"],
 )
 
 def _impl(ctx):
+    # proto_profile and memprof_profile can only be used if at least one of profile and
+    # absolute_path_profile are provided.
     if bool(ctx.file.profile) == bool(ctx.attr.absolute_path_profile):
         fail("exactly one of profile and absolute_path_profile should be specified")
     if ctx.file.proto_profile and not ctx.file.proto_profile.is_source:
         fail("Attribute proto_profile: the target is not an input file")
+    if ctx.file.memprof_profile and not ctx.file.memprof_profile.is_source:
+        fail("Attribute memprof_profile: the target is not an input file")
 
     if ctx.attr.profile:
-        return FdoProfileInfo(artifact = ctx.file.profile, proto_profile_artifact = ctx.file.proto_profile)
+        return FdoProfileInfo(
+            artifact = ctx.file.profile,
+            proto_profile_artifact = ctx.file.proto_profile,
+            memprof_artifact = ctx.file.memprof_profile,
+        )
     else:
         if not ctx.fragments.cpp.enable_fdo_profile_absolute_path():
             fail("this attribute cannot be used when --enable_fdo_profile_absolute_path is false")
         absolute_path_profile = ctx.expand_make_variables("absolute_path_profile", ctx.attr.absolute_path_profile, {})
         if not paths.is_absolute(absolute_path_profile):
             fail("Attribute: absolute_path_profile: %s is not an absolute path" % ctx.attr.absolute_path_profile)
-        return FdoProfileInfo(absolute_path = absolute_path_profile, proto_profile_artifact = ctx.file.proto_profile)
+        return FdoProfileInfo(
+            absolute_path = absolute_path_profile,
+            proto_profile_artifact = ctx.file.proto_profile,
+            memprof_artifact = ctx.file.memprof_profile,
+        )
 
 fdo_profile = rule(
     implementation = _impl,
@@ -72,6 +84,11 @@ that holds an LLVM profraw profile, or .afdo for AutoFDO profile.""",
         ),
         "proto_profile": attr.label(allow_single_file = True, doc = """
 Label of the protobuf profile."""),
+        "memprof_profile": attr.label(allow_single_file = [".profdata", ".zip"], doc = """
+Label of the MemProf profile. The profile is expected to have
+either a .profdata extension (for an indexed/symbolized memprof
+profile), or a .zip extension for a zipfile containing a memprof.profdata
+file."""),
     },
     provides = [FdoProfileInfo],
     fragments = ["cpp"],
