@@ -95,7 +95,7 @@ public enum LinkBuildVariables {
     return variableName;
   }
 
-  public static CcToolchainVariables setupVariables(
+  public static CcToolchainVariables.Builder setupVariables(
       boolean isUsingLinkerNotArchiver,
       PathFragment binDirectoryPath,
       String outputFile,
@@ -119,7 +119,7 @@ public enum LinkBuildVariables {
       SequenceBuilder librariesToLink,
       NestedSet<String> librarySearchDirectories,
       boolean addIfsoRelatedVariables)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(ccToolchainProvider.getBuildVars());
     CppConfiguration cppConfiguration = ccToolchainProvider.getCppConfiguration();
@@ -285,7 +285,7 @@ public enum LinkBuildVariables {
         LinkBuildVariables.USER_LINK_FLAGS.getVariableName(),
         removePieIfCreatingSharedLibrary(
             isCreatingSharedLibrary, userLinkFlagsWithLtoIndexingIfNeeded));
-    return buildVariables.build();
+    return buildVariables;
   }
 
   private static Iterable<String> removePieIfCreatingSharedLibrary(

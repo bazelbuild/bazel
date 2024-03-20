@@ -394,30 +394,34 @@ public abstract class CcModule
     CcToolchainProvider ccToolchainProvider =
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     return LinkBuildVariables.setupVariables(
-        isUsingLinkerNotArchiver,
-        /* binDirectoryPath= */ null,
-        convertFromNoneable(outputFile, /* defaultValue= */ null),
-        /* runtimeSolibName= */ null,
-        isCreatingSharedLibrary,
-        convertFromNoneable(paramFile, /* defaultValue= */ null),
-        /* thinltoParamFile= */ null,
-        /* thinltoMergedObjectFile= */ null,
-        mustKeepDebug,
-        ccToolchainProvider,
-        featureConfiguration.getFeatureConfiguration(),
-        useTestOnlyFlags,
-        /* isLtoIndexing= */ false,
-        userFlagsToIterable(userLinkFlags),
-        /* interfaceLibraryBuilder= */ null,
-        /* interfaceLibraryOutput= */ null,
-        /* ltoOutputRootPrefix= */ null,
-        /* ltoObjRootPrefix= */ null,
-        /* fdoContext= */ null,
-        Depset.noneableCast(
-            runtimeLibrarySearchDirectories, String.class, "runtime_library_search_directories"),
-        /* librariesToLink= */ null,
-        Depset.noneableCast(librarySearchDirectories, String.class, "library_search_directories"),
-        /* addIfsoRelatedVariables= */ false);
+            isUsingLinkerNotArchiver,
+            /* binDirectoryPath= */ null,
+            convertFromNoneable(outputFile, /* defaultValue= */ null),
+            /* runtimeSolibName= */ null,
+            isCreatingSharedLibrary,
+            convertFromNoneable(paramFile, /* defaultValue= */ null),
+            /* thinltoParamFile= */ null,
+            /* thinltoMergedObjectFile= */ null,
+            mustKeepDebug,
+            ccToolchainProvider,
+            featureConfiguration.getFeatureConfiguration(),
+            useTestOnlyFlags,
+            /* isLtoIndexing= */ false,
+            userFlagsToIterable(userLinkFlags),
+            /* interfaceLibraryBuilder= */ null,
+            /* interfaceLibraryOutput= */ null,
+            /* ltoOutputRootPrefix= */ null,
+            /* ltoObjRootPrefix= */ null,
+            /* fdoContext= */ null,
+            Depset.noneableCast(
+                runtimeLibrarySearchDirectories,
+                String.class,
+                "runtime_library_search_directories"),
+            /* librariesToLink= */ null,
+            Depset.noneableCast(
+                librarySearchDirectories, String.class, "library_search_directories"),
+            /* addIfsoRelatedVariables= */ false)
+        .build();
   }
 
   @Override

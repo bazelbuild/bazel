@@ -605,19 +605,6 @@ public class CppLinkActionBuilder {
           "Expected action_config for '%s' to be configured", linkType.getActionName());
     }
 
-    final ImmutableList<Artifact> buildInfoHeaderArtifacts =
-        linkstamps.isEmpty()
-            ? ImmutableList.of()
-            : isStampingEnabled
-                ? toolchain
-                    .getCcBuildInfoTranslator()
-                    .getOutputGroup("non_redacted_build_info_files")
-                    .toList()
-                : toolchain
-                    .getCcBuildInfoTranslator()
-                    .getOutputGroup("redacted_build_info_files")
-                    .toList();
-
     boolean needWholeArchive =
         wholeArchive
             || needWholeArchive(
@@ -796,14 +783,7 @@ public class CppLinkActionBuilder {
                     toolchainLibrariesType,
                     /* disableWholeArchive= */ true)));
 
-    // Add build variables necessary to template link args into the crosstool.
-    CcToolchainVariables ccToolchainVariables;
     Preconditions.checkArgument(linkActionConstruction.getContext() instanceof RuleContext);
-
-    ccToolchainVariables = toolchain.getBuildVars();
-
-    CcToolchainVariables.Builder buildVariablesBuilder =
-        CcToolchainVariables.builder(ccToolchainVariables);
     Preconditions.checkState(!isLtoIndexing || allowLtoIndexing);
     Preconditions.checkState(allowLtoIndexing || thinltoParamFile == null);
     Preconditions.checkState(allowLtoIndexing || thinltoMergedObjectFile == null);
@@ -835,8 +815,6 @@ public class CppLinkActionBuilder {
         getArtifactsPossiblyLtoMapped(
             collectedLibrariesToLink.getExpandedLinkerInputs().toList(), ltoMapping);
 
-    CcToolchainVariables variables;
-
     ImmutableList.Builder<String> userLinkFlags =
         ImmutableList.<String>builder().addAll(linkopts).addAll(cppConfiguration.getLinkopts());
 
@@ -844,7 +822,8 @@ public class CppLinkActionBuilder {
       userLinkFlags.addAll(cppConfiguration.getLtoIndexOptions());
     }
 
-    variables =
+    // Add build variables necessary to template link args into the crosstool.
+    CcToolchainVariables.Builder buildVariablesBuilder =
         LinkBuildVariables.setupVariables(
             getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
             linkActionConstruction.getBinDirectory().getExecPath(),
@@ -873,7 +852,6 @@ public class CppLinkActionBuilder {
             collectedLibrariesToLink.getLibrarySearchDirectories(),
             /* addIfsoRelatedVariables= */ true);
 
-    buildVariablesBuilder.addAllNonTransitive(variables);
     for (VariablesExtension extraVariablesExtension : variablesExtensions) {
       extraVariablesExtension.addVariables(buildVariablesBuilder);
     }
@@ -911,7 +889,8 @@ public class CppLinkActionBuilder {
                     : featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_QUOTING_FOR_PARAM_FILES)
                         ? ParameterFile.ParameterFileType.WINDOWS
                         : ParameterFile.ParameterFileType.UNQUOTED)
-            .setFeatureConfiguration(featureConfiguration);
+            .setFeatureConfiguration(featureConfiguration)
+            .setBuildVariables(buildVariables);
 
     // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.
     if (shouldUseLinkDynamicLibraryTool()) {
@@ -919,7 +898,6 @@ public class CppLinkActionBuilder {
           toolchain.getLinkDynamicLibraryTool().getExecPathString());
     }
 
-    linkCommandLineBuilder.setBuildVariables(buildVariables);
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
 
     // Compute the set of inputs - we only need stable order here.
@@ -963,6 +941,19 @@ public class CppLinkActionBuilder {
         .modifyExecutionInfo(executionInfo, CppLinkAction.getMnemonic(mnemonic, isLtoIndexing));
 
     if (!isLtoIndexing) {
+      final ImmutableList<Artifact> buildInfoHeaderArtifacts =
+          linkstamps.isEmpty()
+              ? ImmutableList.of()
+              : isStampingEnabled
+                  ? toolchain
+                      .getCcBuildInfoTranslator()
+                      .getOutputGroup("non_redacted_build_info_files")
+                      .toList()
+                  : toolchain
+                      .getCcBuildInfoTranslator()
+                      .getOutputGroup("redacted_build_info_files")
+                      .toList();
+
       Set<String> seenLinkstampSources = new HashSet<>();
       for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
         Artifact source = linkstampEntry.getKey().getArtifact();
@@ -970,6 +961,7 @@ public class CppLinkActionBuilder {
           continue;
         }
         seenLinkstampSources.add(source.getExecPathString());
+        NestedSet<Artifact> linkstampInputs = inputsBuilder.build();
         linkActionConstruction
             .getContext()
             .registerAction(
@@ -979,7 +971,7 @@ public class CppLinkActionBuilder {
                     linkstampEntry.getValue(),
                     linkstampEntry.getKey().getDeclaredIncludeSrcs(),
                     nonCodeInputsAsNestedSet,
-                    inputsBuilder.build(),
+                    linkstampInputs,
                     buildInfoHeaderArtifacts,
                     additionalLinkstampDefines,
                     toolchain,
