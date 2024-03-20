@@ -264,27 +264,12 @@ public enum LinkBuildVariables {
           PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
           fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
     }
-    Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;
-    if (!isLtoIndexing || cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
-      userLinkFlagsWithLtoIndexingIfNeeded = userLinkFlags;
-    } else {
-      ImmutableList.Builder<String> opts = ImmutableList.builder();
-      opts.addAll(userLinkFlags);
-      opts.addAll(
-          featureConfiguration.getCommandLine(
-              CppActionNames.LTO_INDEXING, buildVariables.build(), /* expander= */ null));
-      opts.addAll(cppConfiguration.getLtoIndexOptions());
-      userLinkFlagsWithLtoIndexingIfNeeded = opts.build();
-    }
-
     // For now, silently ignore linkopts if this is a static library
-    userLinkFlagsWithLtoIndexingIfNeeded =
-        isUsingLinkerNotArchiver ? userLinkFlagsWithLtoIndexingIfNeeded : ImmutableList.of();
+    userLinkFlags = isUsingLinkerNotArchiver ? userLinkFlags : ImmutableList.of();
 
     buildVariables.addStringSequenceVariable(
         LinkBuildVariables.USER_LINK_FLAGS.getVariableName(),
-        removePieIfCreatingSharedLibrary(
-            isCreatingSharedLibrary, userLinkFlagsWithLtoIndexingIfNeeded));
+        removePieIfCreatingSharedLibrary(isCreatingSharedLibrary, userLinkFlags));
     return buildVariables;
   }
 

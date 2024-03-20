@@ -149,7 +149,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
   public void testActionGraph() throws Exception {
     createBuildFiles();
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
-    useConfiguration("--noincompatible_make_thinlto_command_lines_standalone");
 
     /*
     We follow the chain from the final product backwards.
@@ -233,12 +232,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         .containsNoneIn(linkstampCompileAction.getOutputs());
 
     assertThat(indexAction.getArguments())
-        .containsAtLeast(
-            "param_file=" + prefix + "/bin/pkg/bin-lto-final.params",
-            "prefix_replace=" + ";" + prefix + "/bin/pkg/bin.lto/",
-            "thinlto_merged_object_file=" + prefix + "/bin/pkg/bin.lto.merged.o",
-            "object_suffix_replace=.indexing.o;.o");
-    assertThat(indexAction.getArguments())
         .doesNotContain("thinlto_param_file=" + prefix + "/bin/pkg/bin-lto-final.params");
 
     assertThat(artifactsToStrings(indexAction.getOutputs()))
@@ -286,7 +279,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
         CppRuleClasses.SUPPORTS_PIC,
         CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
-    useConfiguration("--noincompatible_make_thinlto_command_lines_standalone");
 
     /*
     We follow the chain from the final product backwards to verify intermediate actions.
@@ -359,12 +351,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
             getPredecessorByInputName(
                 backendAction,
                 "pkg/liblib.so.lto/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o.thinlto.bc");
-
-    assertThat(indexAction.getArguments())
-        .containsAtLeast(
-            "param_file=" + prefix + "/bin/pkg/liblib.so-lto-final.params",
-            "prefix_replace=" + ";" + prefix + "/bin/pkg/liblib.so.lto/",
-            "object_suffix_replace=.indexing.o;.o");
 
     assertThat(artifactsToStrings(indexAction.getOutputs()))
         .containsAtLeast(
@@ -757,8 +743,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     createBuildFiles();
 
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
-    useConfiguration(
-        "--ltoindexopt=anltoindexopt", "--noincompatible_make_thinlto_command_lines_standalone");
+    useConfiguration("--ltoindexopt=anltoindexopt");
 
     /*
     We follow the chain from the final product backwards.

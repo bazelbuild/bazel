@@ -798,11 +798,9 @@ public class CppOptions extends FragmentOptions {
       name = "incompatible_make_thinlto_command_lines_standalone",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will not reuse C++ link action command lines for lto indexing command "
-              + "lines (see https://github.com/bazelbuild/bazel/issues/6791 for more information).")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean useStandaloneLtoIndexingCommandLines;
 
   @Option(

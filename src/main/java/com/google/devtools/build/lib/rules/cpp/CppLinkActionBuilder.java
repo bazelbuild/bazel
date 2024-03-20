@@ -239,7 +239,7 @@ public class CppLinkActionBuilder {
     // or transitive or nodeps dynamic library.
     Preconditions.checkArgument(
         !isLtoIndexing || linkType.isExecutable() || linkType.isDynamicLibrary());
-    if (isLtoIndexing && cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
+    if (isLtoIndexing) {
       if (linkType.isExecutable()) {
         return CppActionNames.LTO_INDEX_EXECUTABLE;
       } else if (linkType.isTransitiveDynamicLibrary()) {
@@ -818,7 +818,7 @@ public class CppLinkActionBuilder {
     ImmutableList.Builder<String> userLinkFlags =
         ImmutableList.<String>builder().addAll(linkopts).addAll(cppConfiguration.getLinkopts());
 
-    if (isLtoIndexing && cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
+    if (isLtoIndexing) {
       userLinkFlags.addAll(cppConfiguration.getLtoIndexOptions());
     }
 
