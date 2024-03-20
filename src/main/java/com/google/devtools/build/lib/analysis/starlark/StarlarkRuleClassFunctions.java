@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
+import com.google.devtools.build.lib.packages.InitializerStarlarkContext;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.MacroInstance;
@@ -1213,14 +1214,16 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
       ImmutableSet<String> legacyAnyTypeAttrs = getLegacyAnyTypeAttrs(ruleClass);
 
-      // Remove {@link BazelStarlarkContext} to prevent calls to load and analysis time functions.
+      // Use a special BazelStarlarkContext to only allow certain functions on the native module.
       // Mutating values in initializers is mostly not a problem, because the attribute values are
       // copied before calling the initializers (<-TODO) and before they are set on the target.
       // Exception is a legacy case allowing arbitrary type of parameter values. In that case the
       // values may be mutated by the initializer, but they are still copied when set on the target.
       BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.fromOrFail(thread);
       try {
-        thread.setThreadLocal(BazelStarlarkContext.class, null);
+        thread.setThreadLocal(
+            BazelStarlarkContext.class,
+            new InitializerStarlarkContext(pkgBuilder));
         thread.setUncheckedExceptionContext(() -> "an initializer");
 
         // We call all the initializers of the rule and its ancestor rules, proceeding from child to
@@ -1308,6 +1311,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           }
         }
       } finally {
+        thread.setThreadLocal(BazelStarlarkContext.class, null);
         bazelStarlarkContext.storeInThread(thread);
       }
 

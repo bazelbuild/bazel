@@ -52,6 +52,7 @@ java_library(
             "ExecGroup.java",
             "ConfiguredAttributeMapper.java",
             "LabelPrinter.java",
+            "InitializerStarlarkContext.java",
         ],
     ),
     deps = [
@@ -144,5 +145,14 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "initializer_starlark_context",
+    srcs = ["InitializerStarlarkContext.java"],
+    deps = [
+        ":packages",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
 )

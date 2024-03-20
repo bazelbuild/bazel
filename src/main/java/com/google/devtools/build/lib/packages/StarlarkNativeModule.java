@@ -608,8 +608,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public String packageName(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "native.package_name");
-    PackageIdentifier packageId = getContext(thread).getPackageIdentifier();
+    BazelStarlarkContext.checkLoadingPhaseOrInitializer(thread, "native.package_name");
+    PackageIdentifier packageId = getTargetDefinitionContext(thread).getPackageIdentifier();
     return packageId.getPackageFragment().getPathString();
   }
 
@@ -622,19 +622,19 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public String repoName(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "native.repo_name");
-    return getContext(thread).getPackageIdentifier().getRepository().getName();
+    BazelStarlarkContext.checkLoadingPhaseOrInitializer(thread, "native.repo_name");
+    return getTargetDefinitionContext(thread).getPackageIdentifier().getRepository().getName();
   }
 
   @Override
   public Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "native.package_relative_label");
+    BazelStarlarkContext.checkLoadingPhaseOrInitializer(thread, "native.package_relative_label");
     if (input instanceof Label) {
       return (Label) input;
     }
     try {
       String s = (String) input;
-      return getContext(thread).getLabelConverter().convert(s);
+      return getTargetDefinitionContext(thread).getLabelConverter().convert(s);
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label in native.package_relative_label: %s", e.getMessage());
     }
@@ -643,15 +643,15 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Override
   @Nullable
   public String moduleName(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "native.module_name");
-    return getContext(thread).getAssociatedModuleName().orElse(null);
+    BazelStarlarkContext.checkLoadingPhaseOrInitializer(thread, "native.module_name");
+    return getTargetDefinitionContext(thread).getAssociatedModuleName().orElse(null);
   }
 
   @Override
   @Nullable
   public String moduleVersion(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "native.module_version");
-    return getContext(thread).getAssociatedModuleVersion().orElse(null);
+    BazelStarlarkContext.checkLoadingPhaseOrInitializer(thread, "native.module_version");
+    return getTargetDefinitionContext(thread).getAssociatedModuleVersion().orElse(null);
   }
 
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
@@ -901,5 +901,18 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         cpuSemaphore.acquire();
       }
     }
+  }
+
+  private static TargetDefinitionContext getTargetDefinitionContext(StarlarkThread thread)
+      throws EvalException {
+    var value = TargetDefinitionContext.fromOrNull(thread);
+    if (value == null) {
+      // if TargetDefinitionContext is missing, we're not called from a BUILD file. This happens if
+      // someone uses native.some_func() in the wrong place.
+      throw Starlark.errorf(
+          "The native module can be accessed only from a BUILD thread. "
+              + "Wrap the function in a macro and call it from a BUILD file");
+    }
+    return value;
   }
 }
