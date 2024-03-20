@@ -387,7 +387,7 @@ where they explain how Bazel sped up their builds. The build duration went from
 caching.
 
 ### [Trunk.io](https://trunk.io/merge/trunk-merge-and-bazel){: .external}
-<img src="/site/en/images/trunk-logo-dark.svg" width="150" align="right">
+<img src="/community/images/trunk-logo-dark.svg" width="150" align="right">
 
 Trunk is a San Francisco-based company backed by Andreessen Horowitz and Initialized Capital. Trunk offers a powerful pull request merge service with first-class support for the Bazel build system. By leveraging Bazel's understanding of dependencies within a codebase, Trunk's merge service intelligently creates parallel merge lanes, allowing independent changes to be tested and merged simultaneously.
 
