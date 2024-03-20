@@ -5,7 +5,7 @@
 module(name = "bazel_tools")
 
 bazel_dep(name = "rules_cc", version = "0.0.9")
-bazel_dep(name = "rules_java", version = "7.4.0")
+bazel_dep(name = "rules_java", version = "7.5.0")
 bazel_dep(name = "rules_license", version = "0.0.3")
 bazel_dep(name = "rules_proto", version = "4.0.0")
 bazel_dep(name = "rules_python", version = "0.22.1")
