@@ -158,7 +158,7 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
   public static void checkLoadingPhase(StarlarkThread thread, String function)
       throws EvalException {
     BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
-    if (ctx == null) {
+    if (ctx == null || ctx.phase == Phase.INITIALIZER) {
       throw Starlark.errorf(
           "'%s' cannot be called from %s", function, thread.getContextDescription());
     }
