@@ -92,33 +92,6 @@ public final class AndroidSplitTransition implements SplitTransition, AndroidSpl
       return handleAndroidPlatforms(buildOptions, androidOptions, platformsToSplit);
   }
 
-  private void addNonCpuSplits(
-      ImmutableMap.Builder<String, BuildOptions> result,
-      String name,
-      BuildOptionsView buildOptions) {
-
-    AndroidConfiguration.Options androidOptions =
-        buildOptions.get(AndroidConfiguration.Options.class);
-    if (!androidOptions.fatApkHwasan) {
-      return;
-    }
-
-    if (name.contains("arm64-v8a")) {
-      BuildOptionsView hwasanSplitOptions = buildOptions.clone();
-
-      // A HWASAN build is different from a regular one in these ways:
-      // - The native library install directory gets a "-hwasan" suffix
-      // - Some compiler/linker command line options are different (defined in the Android C++
-      //   toolchain)
-      // - The name of the output directory is changed so that HWASAN and non-HWASAN artifacts
-      //   do not conflict
-      hwasanSplitOptions.get(CppOptions.class).outputDirectoryTag = "hwasan";
-      hwasanSplitOptions.get(AndroidConfiguration.Options.class).hwasan = true;
-
-      result.put(name + "-hwasan", hwasanSplitOptions.underlying());
-    }
-  }
-
   /**
    * Splits the configuration based on the values of --android_platforms. Each split will set the
    * --platforms flag to one value from --android_platforms, as well as clean up a few other flags
@@ -140,8 +113,6 @@ public final class AndroidSplitTransition implements SplitTransition, AndroidSpl
       splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platform);
       setCcFlagsFromAndroid(androidOptions, splitOptions);
       result.put(platform.getName(), splitOptions.underlying());
-
-      addNonCpuSplits(result, platform.getName(), splitOptions);
     }
     return result.buildOrThrow();
   }

@@ -335,11 +335,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+          OptionEffectTag.NO_OP,
         },
-        help = "Whether to create HWASAN splits.")
+        help = "No-op flag. Will be removed in a future release.")
     public boolean fatApkHwasan;
 
     // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
