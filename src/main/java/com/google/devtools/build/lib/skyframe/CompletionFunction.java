@@ -33,8 +33,9 @@ import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFacto
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
-import com.google.devtools.build.lib.actions.LostOutputsException;
+import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -407,37 +408,37 @@ public final class CompletionFunction<
       return null; // Avoid expanding artifacts if the default no-op handler is installed.
     }
 
-    ImmutableMap<String, ActionInput> lostOutputs =
-        importantOutputHandler.processAndGetLostArtifacts(
-            ctx.expand(importantArtifacts),
-            new ActionInputMetadataProvider(
-                skyframeActionExecutor.getExecRoot().asFragment(),
-                ctx.getImportantInputMap(),
-                ctx.getExpandedFilesets()));
-    if (lostOutputs.isEmpty()) {
-      return null;
-    }
-
-    ActionInputDepOwners owners = ctx.getDepOwners(lostOutputs.values());
-
-    // Filter out lost outputs from the set of built artifacts so that they are not reported. If
-    // rewinding is successful, we'll report them later on.
-    for (ActionInput lostOutput : lostOutputs.values()) {
-      builtArtifacts.remove(lostOutput);
-      builtArtifacts.removeAll(owners.getDepOwners(lostOutput));
-    }
-
     try {
+      ImmutableMap<String, ActionInput> lostOutputs =
+          importantOutputHandler.processAndGetLostArtifacts(
+              ctx.expand(importantArtifacts),
+              new ActionInputMetadataProvider(
+                  skyframeActionExecutor.getExecRoot().asFragment(),
+                  ctx.getImportantInputMap(),
+                  ctx.getExpandedFilesets()));
+      if (lostOutputs.isEmpty()) {
+        return null;
+      }
+
+      ActionInputDepOwners owners = ctx.getDepOwners(lostOutputs.values());
+
+      // Filter out lost outputs from the set of built artifacts so that they are not reported. If
+      // rewinding is successful, we'll report them later on.
+      for (ActionInput lostOutput : lostOutputs.values()) {
+        builtArtifacts.remove(lostOutput);
+        builtArtifacts.removeAll(owners.getDepOwners(lostOutput));
+      }
+
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
           key, ImmutableSet.copyOf(Artifact.keys(importantArtifacts)), lostOutputs, owners, env);
-    } catch (ActionRewindException e) {
+    } catch (ActionRewindException | ImportantOutputException e) {
       LabelCause cause = new LabelCause(key.actionLookupKey().getLabel(), e.getDetailedExitCode());
       rootCauses = NestedSetBuilder.fromNestedSet(rootCauses).add(cause).build();
       env.getListener().handle(completor.getRootCauseError(key, value, cause, env));
       skyframeActionExecutor.recordExecutionError();
       postFailedEvent(key, value, rootCauses, ctx, artifactsToBuild, builtArtifacts, env);
       throw new CompletionFunctionException(
-          new LostOutputsException(e.getMessage(), e.getDetailedExitCode()));
+          new TopLevelOutputException(e.getMessage(), e.getDetailedExitCode()));
     }
   }
 
@@ -465,7 +466,7 @@ public final class CompletionFunction<
       this.actionException = null;
     }
 
-    CompletionFunctionException(LostOutputsException e) {
+    CompletionFunctionException(TopLevelOutputException e) {
       super(e, Transience.TRANSIENT);
       this.actionException = null;
     }

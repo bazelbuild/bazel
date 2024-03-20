@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
-import com.google.devtools.build.lib.actions.LostOutputsException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.TargetCompatibilityCheckException;
@@ -595,7 +595,7 @@ public final class SkyframeErrorProcessor {
   private static boolean isExecutionCauseWorthLogging(Throwable cause) {
     return !(cause instanceof ActionExecutionException)
         && !(cause instanceof InputFileErrorException)
-        && !(cause instanceof LostOutputsException);
+        && !(cause instanceof TopLevelOutputException);
   }
 
   private static boolean isValidErrorKeyType(Object errorKey) {
@@ -776,8 +776,8 @@ public final class SkyframeErrorProcessor {
         || cause instanceof TestExecException
         // Refer to UnusedInputsFailureIntegrationTest#incrementalFailureOnUnusedInput.
         || cause instanceof ArtifactNestedSetEvalException
-        // For lost top-level outputs and ineffective rewinding.
-        || cause instanceof LostOutputsException;
+        // For top-level outputs errors in CompletionFunction.
+        || cause instanceof TopLevelOutputException;
   }
 
   /**
@@ -898,8 +898,8 @@ public final class SkyframeErrorProcessor {
     if (cause instanceof InputFileErrorException) {
       throw (InputFileErrorException) cause;
     }
-    if (cause instanceof LostOutputsException) {
-      throw (LostOutputsException) cause;
+    if (cause instanceof TopLevelOutputException) {
+      throw (TopLevelOutputException) cause;
     }
 
     // We encountered an exception we don't think we should have encountered. This can indicate
