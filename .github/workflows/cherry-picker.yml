@@ -14,7 +14,7 @@ env:
 
 jobs:
   cherry-picker-on-closed:
-    if: github.event.action == 'closed' && github.event.sender.login == 'copybara-service[bot]'
+    if: github.event.action == 'closed'
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
@@ -23,18 +23,18 @@ jobs:
           egress-policy: audit
       - if: github.event.pull_request
         name: Run cherrypicker on closed PR
-        uses: bazelbuild/continuous-integration/actions/cherry_picker@a17d548ac97333ace5446d412ce7ca7782f5bcd5
+        uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
         with:
           triggered-on: closed
           pr-number: ${{ github.event.number }}
-          is-prod: True
+          is-prod: False
       - if: github.event.issue
         name: Run cherrypicker on closed issue
-        uses: bazelbuild/continuous-integration/actions/cherry_picker@a17d548ac97333ace5446d412ce7ca7782f5bcd5
+        uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
         with:
           triggered-on: closed
           pr-number: ${{ github.event.issue.number }}
-          is-prod: True
+          is-prod: False
   cherry-picker-on-milestoned:
     if: github.event.action == 'milestoned'
     runs-on: ubuntu-latest
@@ -45,20 +45,20 @@ jobs:
           egress-policy: audit
       - if: startsWith(github.event.issue.body, 'Forked from')
         name: Run cherrypicker on comment
-        uses: bazelbuild/continuous-integration/actions/cherry_picker@a17d548ac97333ace5446d412ce7ca7782f5bcd5
+        uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
         with:
           triggered-on: commented
           pr-number: ${{ github.event.issue.body }}
           milestone-title: ${{ github.event.milestone.title }}
           milestoned-issue-number: ${{ github.event.issue.number }}
-          is-prod: True
+          is-prod: False
       - if: startsWith(github.event.issue.body, '### Commit IDs')
         name: Run cherrypicker on demand
-        uses: bazelbuild/continuous-integration/actions/cherry_picker@a17d548ac97333ace5446d412ce7ca7782f5bcd5
+        uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
         with:
           triggered-on: ondemand
           milestone-title: ${{ github.event.milestone.title }}
           milestoned-issue-number: ${{ github.event.issue.number }}
           issue-title: ${{ github.event.issue.title }}
           issue-body: ${{ github.event.issue.body }}
-          is-prod: True
+          is-prod: False
