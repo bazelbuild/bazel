@@ -1431,12 +1431,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSimpleTextMessagesBooleanFields() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     checkTextMessage("struct(name=True).to_proto()", "name: true");
     checkTextMessage("struct(name=False).to_proto()", "name: false");
   }
 
   @Test
   public void testStructRestrictedOverrides() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     ev.checkEvalErrorContains(
         "cannot override built-in struct function 'to_json'", "struct(to_json='foo')");
 
@@ -1446,6 +1448,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSimpleTextMessages() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     checkTextMessage("struct(name='value').to_proto()", "name: \"value\"");
     checkTextMessage("struct(name=[]).to_proto()"); // empty lines
     checkTextMessage("struct(name=['a', 'b']).to_proto()", "name: \"a\"", "name: \"b\"");
@@ -1531,11 +1534,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testProtoFieldsOrder() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     checkTextMessage("struct(d=4, b=2, c=3, a=1).to_proto()", "a: 1", "b: 2", "c: 3", "d: 4");
   }
 
   @Test
   public void testTextMessageEscapes() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     checkTextMessage("struct(name='a\"b').to_proto()", "name: \"a\\\"b\"");
     checkTextMessage("struct(name='a\\'b').to_proto()", "name: \"a'b\"");
     checkTextMessage("struct(name='a\\nb').to_proto()", "name: \"a\\nb\"");
@@ -1546,6 +1551,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testTextMessageInvalidStructure() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     // list in list
     ev.checkEvalErrorContains(
         "in struct field .a: at list index 0: got list, want string, int, float, bool, or struct",
@@ -1595,12 +1601,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testJsonBooleanFields() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     checkJson("struct(name=True).to_json()", "{\"name\":true}");
     checkJson("struct(name=False).to_json()", "{\"name\":false}");
   }
 
   @Test
   public void testJsonDictFields() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     checkJson("struct(config={}).to_json()", "{\"config\":{}}");
     checkJson("struct(config={'key': 'value'}).to_json()", "{\"config\":{\"key\":\"value\"}}");
     ev.checkEvalErrorContains(
@@ -1616,6 +1624,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testJsonEncoding() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     checkJson("struct(name='value').to_json()", "{\"name\":\"value\"}");
     checkJson("struct(name=['a', 'b']).to_json()", "{\"name\":[\"a\",\"b\"]}");
     checkJson("struct(name=123).to_json()", "{\"name\":123}");
@@ -1629,6 +1638,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testJsonEscapes() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     checkJson("struct(name='a\"b').to_json()", "{\"name\":\"a\\\"b\"}");
     checkJson("struct(name='a\\'b').to_json()", "{\"name\":\"a'b\"}");
     checkJson("struct(name='a\\\\b').to_json()", "{\"name\":\"a\\\\b\"}");
@@ -1639,11 +1649,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testJsonNestedListStructure() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     checkJson("struct(a=[['b']]).to_json()", "{\"a\":[[\"b\"]]}");
   }
 
   @Test
   public void testJsonInvalidStructure() throws Exception {
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     ev.checkEvalErrorContains(
         "Invalid text format, expected a struct, a string, a bool, or an int but got a "
             + "builtin_function_or_method for struct field 'a'",
@@ -2835,7 +2847,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "r/create.bzl",
-        "def f(ctx): return struct(value=ctx.attr.to_json())",
+        "def f(ctx): return struct(value=json.encode(ctx.attr))",
         "def create(attrs): return rule(implementation=f, attrs=attrs)");
     scratch.file("r/def.bzl", "load(':create.bzl', 'create')", "r = create({})");
     scratch.file("r/BUILD", "load(':def.bzl', 'r')", "r(name='r')");
