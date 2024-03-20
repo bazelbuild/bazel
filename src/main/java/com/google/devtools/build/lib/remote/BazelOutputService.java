@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.hash.Hashing.md5;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -22,6 +23,8 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeBuildRequest;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeBuildResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceREv2Proto.StartBuildArgs;
@@ -47,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** Output service implementation for the remote build with local output service daemon. */
 public class BazelOutputService implements OutputService {
@@ -58,6 +62,8 @@ public class BazelOutputService implements OutputService {
   private final boolean verboseFailures;
   private final RemoteRetrier retrier;
   private final ReferenceCountedChannel channel;
+
+  @Nullable private String buildId;
 
   public BazelOutputService(
       Path outputBase,
@@ -154,6 +160,8 @@ public class BazelOutputService implements OutputService {
   public ModifiedFileSet startBuild(
       EventHandler eventHandler, UUID buildId, boolean finalizeActions)
       throws AbruptExitException, InterruptedException {
+    checkState(this.buildId == null, "this.buildId must be null");
+    this.buildId = buildId.toString();
     var outputPathPrefix = PathFragment.create(remoteOptions.remoteOutputServiceOutputPathPrefix);
     if (!outputPathPrefix.isEmpty() && !outputPathPrefix.isAbsolute()) {
       throw new AbruptExitException(
@@ -175,7 +183,7 @@ public class BazelOutputService implements OutputService {
         StartBuildRequest.newBuilder()
             .setVersion(1)
             .setOutputBaseId(outputBaseId)
-            .setBuildId(buildId.toString())
+            .setBuildId(this.buildId)
             .setArgs(
                 Any.pack(
                     StartBuildArgs.newBuilder()
@@ -230,8 +238,42 @@ public class BazelOutputService implements OutputService {
   }
 
   @Override
-  public void finalizeBuild(boolean buildSuccessful) {
-    // TODO(chiwang): implement this
+  public void finalizeBuild(boolean buildSuccessful)
+      throws AbruptExitException, InterruptedException {
+    var request =
+        FinalizeBuildRequest.newBuilder()
+            .setBuildId(checkNotNull(buildId))
+            .setBuildSuccessful(buildSuccessful)
+            .build();
+    try {
+      var unused = finalizeBuild(request);
+    } catch (IOException e) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      String.format(
+                          "FinalizeBuild failed: %s",
+                          Utils.grpcAwareErrorMessage(e, verboseFailures)))
+                  .setExecution(Execution.newBuilder().setCode(Code.EXECUTION_UNKNOWN))
+                  .build()));
+    } finally {
+      this.buildId = null;
+    }
+  }
+
+  private FinalizeBuildResponse finalizeBuild(FinalizeBuildRequest request)
+      throws IOException, InterruptedException {
+    return retrier.execute(
+        () ->
+            channel.withChannelBlocking(
+                channel -> {
+                  try {
+                    return BazelOutputServiceGrpc.newBlockingStub(channel).finalizeBuild(request);
+                  } catch (StatusRuntimeException e) {
+                    throw new IOException(e);
+                  }
+                }));
   }
 
   @Override
