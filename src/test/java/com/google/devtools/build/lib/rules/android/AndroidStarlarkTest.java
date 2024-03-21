@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -51,13 +54,6 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
         ")");
     scratch.file(
         "/workspace/platform_mappings",
-        "platforms:",
-        "  //java/android/platforms:armeabi-v7a",
-        "    --cpu=armeabi-v7a",
-        "    --android_cpu=armeabi-v7a",
-        "  //java/android/platforms:x86",
-        "    --cpu=x86",
-        "    --android_cpu=x86",
         "flags:",
         "  --cpu=armeabi-v7a",
         "    //java/android/platforms:armeabi-v7a",
@@ -66,7 +62,12 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
     invalidatePackages(false);
   }
 
-  // Duplicated from WithoutPlatforms.testAndroidSplitTransition_fat_apk_cpu.
+  private ImmutableList<String> getPlatformLabels(ConfiguredTarget target) {
+    return getConfiguration(target).getOptions().get(PlatformOptions.class).platforms.stream()
+        .map(Label::toString)
+        .collect(toImmutableList());
+  }
+
   @Test
   public void testAndroidSplitTransition_android_platforms() throws Exception {
     getAnalysisMock()
@@ -91,12 +92,15 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
     assertThat(splitDeps).containsKey("armeabi-v7a");
     assertThat(splitDeps.get("x86")).hasSize(2);
     assertThat(splitDeps.get("armeabi-v7a")).hasSize(2);
-    assertThat(getConfiguration(splitDeps.get("x86").get(0)).getCpu()).isEqualTo("x86");
-    assertThat(getConfiguration(splitDeps.get("x86").get(1)).getCpu()).isEqualTo("x86");
-    assertThat(getConfiguration(splitDeps.get("armeabi-v7a").get(0)).getCpu())
-        .isEqualTo("armeabi-v7a");
-    assertThat(getConfiguration(splitDeps.get("armeabi-v7a").get(1)).getCpu())
-        .isEqualTo("armeabi-v7a");
+    assertThat(getPlatformLabels(splitDeps.get("x86").get(0)))
+        .containsExactly("//java/android/platforms:x86");
+    assertThat(getPlatformLabels(splitDeps.get("x86").get(1)))
+        .containsExactly("//java/android/platforms:x86");
+
+    assertThat(getPlatformLabels(splitDeps.get("armeabi-v7a").get(0)))
+        .containsExactly("//java/android/platforms:armeabi-v7a");
+    assertThat(getPlatformLabels(splitDeps.get("armeabi-v7a").get(1)))
+        .containsExactly("//java/android/platforms:armeabi-v7a");
 
     // Check that ctx.split_attr.dep has this structure (that is, that the values are not lists):
     // {
@@ -108,8 +112,10 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
         (Map<String, ConfiguredTarget>) myInfo.getValue("split_attr_dep");
     assertThat(splitDep).containsKey("x86");
     assertThat(splitDep).containsKey("armeabi-v7a");
-    assertThat(getConfiguration(splitDep.get("x86")).getCpu()).isEqualTo("x86");
-    assertThat(getConfiguration(splitDep.get("armeabi-v7a")).getCpu()).isEqualTo("armeabi-v7a");
+    assertThat(getPlatformLabels(splitDep.get("x86")))
+        .containsExactly("//java/android/platforms:x86");
+    assertThat(getPlatformLabels(splitDep.get("armeabi-v7a")))
+        .containsExactly("//java/android/platforms:armeabi-v7a");
 
     // The regular ctx.attr.deps should be a single list with all the branches of the split merged
     // together (i.e. for aspects).
@@ -118,31 +124,36 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
     assertThat(attrDeps).hasSize(4);
     ListMultimap<String, Object> attrDepsMap = ArrayListMultimap.create();
     for (ConfiguredTarget ct : attrDeps) {
-      attrDepsMap.put(getConfiguration(ct).getCpu(), target);
+      for (String platformLabel : getPlatformLabels(ct)) {
+        attrDepsMap.put(platformLabel, target);
+      }
     }
-    assertThat(attrDepsMap).valuesForKey("x86").hasSize(2);
-    assertThat(attrDepsMap).valuesForKey("armeabi-v7a").hasSize(2);
+    assertThat(attrDepsMap).valuesForKey("//java/android/platforms:x86").hasSize(2);
+    assertThat(attrDepsMap).valuesForKey("//java/android/platforms:armeabi-v7a").hasSize(2);
 
     // Check that even though my_rule.dep is defined as a single label, ctx.attr.dep is still a
-    // list
-    // with multiple ConfiguredTarget objects because of the two different CPUs.
+    // list with multiple ConfiguredTarget objects because of the two different archs.
     @SuppressWarnings("unchecked")
     List<ConfiguredTarget> attrDep = (List<ConfiguredTarget>) myInfo.getValue("attr_dep");
     assertThat(attrDep).hasSize(2);
     ListMultimap<String, Object> attrDepMap = ArrayListMultimap.create();
     for (ConfiguredTarget ct : attrDep) {
-      attrDepMap.put(getConfiguration(ct).getCpu(), target);
+      for (String platformLabel : getPlatformLabels(ct)) {
+        attrDepMap.put(platformLabel, target);
+      }
     }
-    assertThat(attrDepMap).valuesForKey("x86").hasSize(1);
-    assertThat(attrDepMap).valuesForKey("armeabi-v7a").hasSize(1);
+    assertThat(attrDepMap).valuesForKey("//java/android/platforms:x86").hasSize(1);
+    assertThat(attrDepMap).valuesForKey("//java/android/platforms:armeabi-v7a").hasSize(1);
 
     // Check that the deps were correctly accessed from within Starlark.
     @SuppressWarnings("unchecked")
     List<ConfiguredTarget> defaultSplitDeps =
         (List<ConfiguredTarget>) myInfo.getValue("default_split_deps");
     assertThat(defaultSplitDeps).hasSize(2);
-    assertThat(getConfiguration(defaultSplitDeps.get(0)).getCpu()).isEqualTo("x86");
-    assertThat(getConfiguration(defaultSplitDeps.get(1)).getCpu()).isEqualTo("x86");
+    assertThat(getPlatformLabels(defaultSplitDeps.get(0)))
+        .containsExactly("//java/android/platforms:x86");
+    assertThat(getPlatformLabels(defaultSplitDeps.get(1)))
+        .containsExactly("//java/android/platforms:x86");
   }
 
   void writeAndroidSplitTransitionTestFiles(String defaultCpuName) throws Exception {
