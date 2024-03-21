@@ -1488,11 +1488,12 @@ public final class SkyframeActionExecutor {
       Action action, Artifact output, Reporter reporter, IOException e) {
     String errorMessage;
     if (e instanceof FileNotFoundException) {
-      errorMessage = String.format("TreeArtifact %s was not created", output.prettyPrint());
+      errorMessage = String.format("output tree artifact %s was not created", output.prettyPrint());
     } else {
       errorMessage =
           String.format(
-              "Error while validating output TreeArtifact %s : %s", output, e.getMessage());
+              "error while validating output tree artifact %s: %s",
+              output.prettyPrint(), e.getMessage());
     }
 
     reporter.handle(Event.error(action.getOwner().getLocation(), errorMessage));

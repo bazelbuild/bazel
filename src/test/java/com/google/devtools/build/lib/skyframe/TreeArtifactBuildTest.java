@@ -505,9 +505,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
     assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage())
-        .contains(
-            "Child links/link of tree artifact " + out.getPath() + " is a dangling symbolic link");
+    assertThat(errors.get(0).getMessage()).contains("child links/link is a dangling symbolic link");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
@@ -555,9 +553,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
     assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage())
-        .contains(
-            "Child links/link of tree artifact " + out.getPath() + " is a dangling symbolic link");
+    assertThat(errors.get(0).getMessage()).contains("child links/link is a dangling symbolic link");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
@@ -607,9 +603,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
     assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage())
-        .contains(
-            "Child links/link of tree artifact " + out.getPath() + " is a dangling symbolic link");
+    assertThat(errors.get(0).getMessage()).contains("child links/link is a dangling symbolic link");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 

@@ -451,10 +451,42 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Test
   public void statAndExists_notFound() throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
-    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    PathFragment path = artifact.getPath().asFragment();
+    PathFragment path = getOutputPath("does_not_exist");
 
     assertThat(actionFs.exists(path)).isFalse();
+
+    assertThat(actionFs.statIfFound(path, /* followSymlinks= */ true)).isNull();
+
+    assertThrows(
+        FileNotFoundException.class, () -> actionFs.stat(path, /* followSymlinks= */ true));
+  }
+
+  @Test
+  public void statAndExists_isNotDirectory() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment nonDirPath = getOutputPath("non_dir");
+    PathFragment path = nonDirPath.getChild("file");
+
+    writeLocalFile(actionFs, nonDirPath, "content");
+
+    assertThat(actionFs.exists(path)).isFalse();
+
+    assertThat(actionFs.statIfFound(path, /* followSymlinks= */ true)).isNull();
+
+    assertThrows(
+        FileNotFoundException.class, () -> actionFs.stat(path, /* followSymlinks= */ true));
+  }
+
+  @Test
+  public void statAndExists_danglingSymlink_notFound() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment path = getOutputPath("sym");
+
+    actionFs.getPath(path).createSymbolicLink(PathFragment.create("/does_not_exist"));
+
+    assertThat(actionFs.exists(path)).isFalse();
+
+    assertThat(actionFs.statIfFound(path, /* followSymlinks= */ true)).isNull();
 
     assertThrows(
         FileNotFoundException.class, () -> actionFs.stat(path, /* followSymlinks= */ true));
