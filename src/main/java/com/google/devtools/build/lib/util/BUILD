@@ -400,3 +400,13 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
     ],
 )
+
+java_library(
+    name = "concurrency_meter",
+    srcs = ["ConcurrencyMeter.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+    ],
+)
