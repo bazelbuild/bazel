@@ -33,6 +33,7 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
   public void defaultVisibility() throws Exception {
     scratch.overwriteFile("REPO.bazel", "repo(default_visibility=['//some:thing'])");
     scratch.overwriteFile("p/BUILD", "sh_library(name = 't')");
+    invalidatePackages();
     Target t = getTarget("//p:t");
     assertThat(t.getVisibility().getDeclaredLabels())
         .containsExactly(Label.parseCanonical("//some:thing"));
@@ -42,6 +43,7 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
   public void repoFileInTheMainRepo() throws Exception {
     scratch.overwriteFile("REPO.bazel", "repo(default_deprecation='EVERYTHING IS DEPRECATED')");
     scratch.overwriteFile("abc/def/BUILD", "filegroup(name='what')");
+    invalidatePackages();
     assertThat(
             getRuleContext(getConfiguredTarget("//abc/def:what"))
                 .attributes()
@@ -83,6 +85,13 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
         "repo(features=['abc'])");
     scratch.overwriteFile("abc/def/BUILD", "filegroup(name='what')");
     reporter.removeHandler(failFastHandler);
+    try {
+      invalidatePackages();
+    } catch (
+        @SuppressWarnings("InterruptedExceptionSwallowed")
+        Exception e) {
+      // Ignore any errors.
+    }
     assertTargetError("//abc/def:what", "'repo' can only be called once");
   }
 
@@ -93,6 +102,7 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
         "abc/def/BUILD",
         "package(features=['-a','-b','d'])",
         "filegroup(name='what', features=['b'])");
+    invalidatePackages();
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//abc/def:what"));
     assertThat(ruleContext.getFeatures()).containsExactly("b", "c", "d");
     assertThat(ruleContext.getDisabledFeatures()).containsExactly("a");
@@ -104,6 +114,13 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
         "REPO.bazel", "if 3+5>7: repo(default_deprecation='EVERYTHING IS DEPRECATED')");
     scratch.overwriteFile("abc/def/BUILD", "filegroup(name='what')");
     reporter.removeHandler(failFastHandler);
+    try {
+      invalidatePackages();
+    } catch (
+        @SuppressWarnings("InterruptedExceptionSwallowed")
+        Exception e) {
+      // Ignore any errors.
+    }
     assertTargetError(
         "//abc/def:what",
         "`if` statements are not allowed in REPO.bazel files. You may use an `if` expression for"

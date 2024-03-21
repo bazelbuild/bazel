@@ -21,7 +21,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -246,7 +246,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .thenReturn(OptionalLong.of(42));
     ArgumentCaptor<Package> packageCaptor = ArgumentCaptor.forClass(Package.class);
 
-    invalidatePackages();
+    invalidatePackages(true);
+    reset(mockPackageValidator);
 
     SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(),
@@ -254,11 +255,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
         /* keepGoing= */ false,
         reporter);
 
-    verify(mockPackageValidator, times(2))
-        .validate(packageCaptor.capture(), any(ExtendedEventHandler.class));
+    verify(mockPackageValidator).validate(packageCaptor.capture(), any(ExtendedEventHandler.class));
     List<Package> packages = packageCaptor.getAllValues();
-    assertThat(packages.get(0).getPackageOverhead()).isEmpty(); // Workspace pkg
-    assertThat(packages.get(1).getPackageOverhead()).isEqualTo(OptionalLong.of(42));
+    assertThat(packages.get(0).getPackageOverhead()).isEqualTo(OptionalLong.of(42));
   }
 
   @Test
@@ -1564,6 +1563,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
           "pkg/BUILD", //
           "print(foo)");
 
+      invalidatePackages();
+
       getConfiguredTarget("//pkg:BUILD");
       assertContainsEvent("FOO");
     }
@@ -1582,6 +1583,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
           "pkg/BUILD", //
           "print(foo)");
 
+      invalidatePackages();
+
       getConfiguredTarget("//pkg:BUILD");
       assertContainsEvent("FOO");
     }
@@ -1598,6 +1601,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
           "pkg/BUILD", //
           "print(_foo)");
 
+      invalidatePackages();
+
       getConfiguredTarget("//pkg:BUILD");
       assertContainsEvent("FOO");
     }
@@ -1612,6 +1617,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
           "pkg/BUILD", //
           "print(len)");
 
+      invalidatePackages();
+
       getConfiguredTarget("//pkg:BUILD");
       assertContainsEvent("FOO");
     }
@@ -1625,6 +1632,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
       scratch.file(
           "pkg/BUILD", //
           "print(cc_library)");
+
+      invalidatePackages();
 
       getConfiguredTarget("//pkg:BUILD");
       assertContainsEvent("FOO");
@@ -1646,6 +1655,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
           "pkg/BUILD", //
           "print(cc_library)");
 
+      try {
+        invalidatePackages();
+      } catch (
+          @SuppressWarnings("InterruptedExceptionSwallowed")
+          Exception e) {
+        // Ignore any errors.
+      }
+
       getConfiguredTarget("//pkg:BUILD");
       assertContainsEvent("FOO");
     }
@@ -1661,6 +1678,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
           "foo.append('BAR')");
 
       reporter.removeHandler(failFastHandler);
+      invalidatePackages();
+
       getConfiguredTarget("//pkg:BUILD");
       assertContainsEvent("trying to mutate a frozen list value");
     }
@@ -1676,6 +1695,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
       scratch.file(
           "pkg/BUILD", //
           "print(foo())");
+
+      invalidatePackages();
 
       getConfiguredTarget("//pkg:BUILD");
       // Prelude can access native.glob (though only a BUILD thread can call it).
@@ -1731,6 +1752,15 @@ public class PackageFunctionTest extends BuildViewTestCase {
           "print(foo)");
 
       reporter.removeHandler(failFastHandler);
+
+      try {
+        invalidatePackages();
+      } catch (
+          @SuppressWarnings("InterruptedExceptionSwallowed")
+          Exception e) {
+        // Ignore any errors.
+      }
+
       getConfiguredTarget("//pkg:BUILD");
       assertContainsEvent(
           "File \"/workspace/tools/build_rules/test_prelude\", line 1, column 2, in <toplevel>");
@@ -1748,6 +1778,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
       scratch.file(
           "pkg/BUILD", //
           "print(foo)");
+
+      invalidatePackages();
 
       // Succeeds because prelude loading is only dependent on the prelude package's existence, not
       // its evaluation.
