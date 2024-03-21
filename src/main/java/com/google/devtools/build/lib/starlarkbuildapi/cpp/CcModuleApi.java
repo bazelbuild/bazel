@@ -1846,7 +1846,14 @@ public interface CcModuleApi<
             name = "compiler",
             positional = false,
             named = true,
-            doc = "The compiler version string (e.g. \"gcc-4.1.1\")."),
+            doc =
+                "The compiler string (e.g. \"gcc\"). The current toolchain's compiler"
+                    + " is exposed to `@bazel_tools//tools/cpp:compiler (compiler_flag)` as a flag"
+                    + " value. Targets that require compiler-specific flags can use the"
+                    + " config_settings in"
+                    + " https://github.com/bazelbuild/rules_cc/blob/main/cc/compiler/BUILD in"
+                    + " select() statements or create custom config_setting if the existing"
+                    + " settings don't suffice."),
         @Param(
             name = "abi_version",
             positional = false,
