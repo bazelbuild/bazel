@@ -418,9 +418,7 @@ public final class TreeArtifactValueTest {
         assertThrows(
             IOException.class,
             () -> TreeArtifactValue.visitTree(treeDir, (child, type, traversedSymlink) -> {}));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Child symlink of tree artifact /tree is a dangling symbolic link");
+    assertThat(e).hasMessageThat().contains("child symlink is a dangling symbolic link");
   }
 
   @Test
@@ -455,9 +453,7 @@ public final class TreeArtifactValueTest {
         assertThrows(
             IOException.class,
             () -> TreeArtifactValue.visitTree(treeDir, (child, type, traversedSymlink) -> {}));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Child unknown of tree artifact /tree has an unsupported type");
+    assertThat(e).hasMessageThat().contains("child unknown has an unsupported type");
   }
 
   @Test
@@ -522,9 +518,7 @@ public final class TreeArtifactValueTest {
         assertThrows(
             IOException.class,
             () -> TreeArtifactValue.visitTree(treeDir, (child, type, traversedSymlink) -> {}));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Child sym of tree artifact /tree has an unsupported type");
+    assertThat(e).hasMessageThat().contains("child sym has an unsupported type");
   }
 
   @Test
