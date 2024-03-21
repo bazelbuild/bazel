@@ -608,8 +608,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public String packageName(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhaseOrInitializer(thread, "native.package_name");
-    PackageIdentifier packageId = getTargetDefinitionContext(thread).getPackageIdentifier();
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.package_name");
+    PackageIdentifier packageId = getContext(thread).getPackageIdentifier();
     return packageId.getPackageFragment().getPathString();
   }
 
@@ -622,8 +622,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public String repoName(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhaseOrInitializer(thread, "native.repo_name");
-    return getTargetDefinitionContext(thread).getPackageIdentifier().getRepository().getName();
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.repo_name");
+    return getContext(thread).getPackageIdentifier().getRepository().getName();
   }
 
   @Override
@@ -643,15 +643,15 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Override
   @Nullable
   public String moduleName(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhaseOrInitializer(thread, "native.module_name");
-    return getTargetDefinitionContext(thread).getAssociatedModuleName().orElse(null);
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.module_name");
+    return getContext(thread).getAssociatedModuleName().orElse(null);
   }
 
   @Override
   @Nullable
   public String moduleVersion(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhaseOrInitializer(thread, "native.module_version");
-    return getTargetDefinitionContext(thread).getAssociatedModuleVersion().orElse(null);
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.module_version");
+    return getContext(thread).getAssociatedModuleVersion().orElse(null);
   }
 
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {

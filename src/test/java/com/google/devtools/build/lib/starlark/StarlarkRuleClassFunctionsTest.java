@@ -3601,9 +3601,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "MyInfo = provider()",
         "def initializer(name, **kwargs):",
         "  return {'props': {",
-        "    'module': native.module_name() + '@' + native.module_version(),",
-        "    'repo_name': native.repo_name(),",
-        "    'package_name': native.package_name(),",
         "    'package_relative_label': str(native.package_relative_label(':target')),",
         "  }}",
         "def impl(ctx): ",
@@ -3628,15 +3625,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                     Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
 
     assertThat((Map<String, String>) info.getValue("props"))
-        .containsExactly(
-            "module",
-            "my_mod@1.2.3",
-            "repo_name",
-            "",
-            "package_name",
-            "initializer_testing",
-            "package_relative_label",
-            "@@//initializer_testing:target");
+        .containsExactly("package_relative_label", "@@//initializer_testing:target");
   }
 
   private void scratchParentRule(String rule, String... ruleArgs) throws IOException {

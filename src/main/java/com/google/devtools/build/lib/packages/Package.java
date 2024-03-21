@@ -1130,7 +1130,6 @@ public class Package {
       return (Builder) ctx;
     }
 
-    @Override
     PackageIdentifier getPackageIdentifier() {
       return pkg.getPackageIdentifier();
     }
@@ -1147,12 +1146,10 @@ public class Package {
       return pkg.getWorkspaceName();
     }
 
-    @Override
     Optional<String> getAssociatedModuleName() {
       return pkg.metadata.associatedModuleName;
     }
 
-    @Override
     Optional<String> getAssociatedModuleVersion() {
       return pkg.metadata.associatedModuleVersion;
     }
