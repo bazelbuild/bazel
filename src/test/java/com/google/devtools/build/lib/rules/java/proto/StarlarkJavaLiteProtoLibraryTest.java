@@ -77,7 +77,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "package(default_visibility=['//visibility:public'])",
         "proto_lang_toolchain(",
         "    name = 'javalite',",
-        "    command_line = '--java_out=lite,immutable,no_enforce_api_compatibility:$(OUT)',",
+        "    command_line = '--java_out=lite,immutable:$(OUT)',",
         "    runtime = '//protobuf:javalite_runtime',",
         "    progress_message = 'Generating JavaLite proto_library %{label}',",
         ")");
@@ -135,9 +135,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
     assertThat(args)
         .containsAtLeast(
-            "--java_out=lite,immutable,no_enforce_api_compatibility:"
-                + genfilesDir
-                + "/x/protolib-lite-src.jar",
+            "--java_out=lite,immutable:" + genfilesDir + "/x/protolib-lite-src.jar",
             "-I.",
             "x/file.proto")
         .inOrder();
@@ -210,9 +208,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         getGeneratingSpawnAction(litepb2, "cross/bravo-lite-src.jar").getRemainingArguments();
     assertThat(args)
         .containsAtLeast(
-            "--java_out=lite,immutable,no_enforce_api_compatibility:"
-                + genfilesDir
-                + "/cross/bravo-lite-src.jar",
+            "--java_out=lite,immutable:" + genfilesDir + "/cross/bravo-lite-src.jar",
             "-I.",
             "cross/bravo.proto")
         .inOrder();
