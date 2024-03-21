@@ -17,6 +17,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -43,11 +44,13 @@ public interface AndroidManifestInfoApi<FileT extends FileApi> extends StructApi
       structField = true)
   FileT getManifest();
 
+  @Nullable
   @StarlarkMethod(
       name = "package",
       doc = "This target's package",
       documented = false,
-      structField = true)
+      structField = true,
+      allowReturnNones = true)
   String getPackage();
 
   @StarlarkMethod(
