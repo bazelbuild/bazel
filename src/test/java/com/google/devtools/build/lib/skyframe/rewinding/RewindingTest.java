@@ -101,6 +101,11 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void lostInputWithRewindingDisabled() throws Exception {
+    helper.runLostInputWithRewindingDisabled();
+  }
+
+  @Test
   public void buildingParentFoundUndoneChildNotToleratedWithoutRewinding() throws Exception {
     helper.runBuildingParentFoundUndoneChildNotToleratedWithoutRewinding();
   }
@@ -252,6 +257,11 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   public void discoveredCppModuleLost() throws Exception {
     skipIfBazel();
     helper.runDiscoveredCppModuleLost();
+  }
+
+  @Test
+  public void lostTopLevelOutputWithRewindingDisabled() throws Exception {
+    helper.runLostTopLevelOutputWithRewindingDisabled();
   }
 
   @Test

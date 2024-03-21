@@ -362,6 +362,29 @@ public class RewindingTestsHelper {
     assertThat(rewoundKeys).isEmpty();
   }
 
+  public final void runLostInputWithRewindingDisabled() throws Exception {
+    testCase.write(
+        "foo/BUILD",
+        """
+        genrule(name = 'top', outs = ['top.out'], srcs = [':dep'], cmd = 'cp $< $@')
+        genrule(name = 'dep', outs = ['dep.out'], cmd = 'touch $@')
+        """);
+    testCase.addOptions("--norewind_lost_inputs");
+    addSpawnShim(
+        "Executing genrule //foo:top",
+        (spawn, context) -> {
+          ImmutableList<ActionInput> lostInputs =
+              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "dep.out"));
+          return createLostInputsExecException(
+              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+        });
+
+    var e = assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//foo:top"));
+    assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
+        .isEqualTo(ActionRewinding.Code.LOST_INPUT_REWINDING_DISABLED);
+    testCase.assertContainsError("Executing genrule //foo:top failed: lost inputs with digests");
+  }
+
   /**
    * Tests that {@link Inconsistency#BUILDING_PARENT_FOUND_UNDONE_CHILD} is not tolerated if there
    * has not been any rewinding.
@@ -2646,6 +2669,21 @@ public class RewindingTestsHelper {
     assertThat(rewoundKeys).containsExactly(Artifact.key(depPcm.get()));
     assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
         .hasCount("Compiling foo/dep.cppmap", 2);
+  }
+
+  public final void runLostTopLevelOutputWithRewindingDisabled() throws Exception {
+    testCase.write(
+        "foo/BUILD", "genrule(name = 'gen', outs = ['gen.out'], cmd = 'echo lost > $@')");
+    testCase.addOptions("--norewind_lost_inputs");
+    lostOutputsModule.addLostOutput(getExecPath("bin/foo/gen.out"));
+
+    var e = assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//foo:gen"));
+    lostOutputsModule.verifyAllLostOutputsConsumed();
+    assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
+        .isEqualTo(ActionRewinding.Code.LOST_OUTPUT_REWINDING_DISABLED);
+    testCase.assertContainsError(
+        "//foo:gen: Unexpected lost outputs (pass --rewind_lost_inputs to enable recovery):"
+            + " foo/gen.out");
   }
 
   public final void runTopLevelOutputRewound_regularFile() throws Exception {
