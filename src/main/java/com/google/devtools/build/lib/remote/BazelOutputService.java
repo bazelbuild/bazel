@@ -25,8 +25,12 @@ import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeBuildRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeBuildResponse;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StageArtifactsRequest;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StageArtifactsRequest.Artifact;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StageArtifactsResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildResponse;
+import com.google.devtools.build.lib.remote.BazelOutputServiceREv2Proto.FileArtifactLocator;
 import com.google.devtools.build.lib.remote.BazelOutputServiceREv2Proto.StartBuildArgs;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -44,6 +48,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Any;
+import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.List;
@@ -233,8 +238,49 @@ public class BazelOutputService implements OutputService {
                 }));
   }
 
-  protected void stageArtifacts(List<FileMetadata> files) {
-    // TODO(chiwang): implement this
+  protected void stageArtifacts(List<FileMetadata> files) throws IOException, InterruptedException {
+    var outputPath = outputPathSupplier.get();
+    var request = StageArtifactsRequest.newBuilder();
+    request.setBuildId(buildId);
+    for (var file : files) {
+      request.addArtifacts(
+          Artifact.newBuilder()
+              .setPath(file.path().relativeTo(outputPath).toString())
+              .setLocator(
+                  Any.pack(FileArtifactLocator.newBuilder().setDigest(file.digest()).build()))
+              .build());
+    }
+    var response = stageArtifacts(request.build());
+    if (response.getResponsesCount() != files.size()) {
+      throw new IOException(
+          String.format(
+              "StageArtifacts failed: expect %s responses from StageArtifactsResponse, got %s",
+              files.size(), response.getResponsesCount()));
+    }
+
+    for (var i = 0; i < files.size(); ++i) {
+      var fileResponse = response.getResponses(i);
+      if (fileResponse.getStatus().getCode() != Status.Code.OK.value()) {
+        throw new IOException(
+            String.format(
+                "Failed to stage %s, code: %s",
+                files.get(i).path().relativeTo(outputPath), fileResponse.getStatus()));
+      }
+    }
+  }
+
+  private StageArtifactsResponse stageArtifacts(StageArtifactsRequest request)
+      throws IOException, InterruptedException {
+    return retrier.execute(
+        () ->
+            channel.withChannelBlocking(
+                channel -> {
+                  try {
+                    return BazelOutputServiceGrpc.newBlockingStub(channel).stageArtifacts(request);
+                  } catch (StatusRuntimeException e) {
+                    throw new IOException(e);
+                  }
+                }));
   }
 
   @Override
