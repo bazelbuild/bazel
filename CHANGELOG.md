@@ -1,3 +1,57 @@
+## Release 7.1.1 (2024-03-21)
+
+```
+Baseline:  9b39ccaa33069c9f5688bef477abcd75e4378f04
+
+Release Notes:
+
++ Release 7.1.0 (2024-03-11)
++ Update centos7 platform in build_bazel_binaries.yml (#21644)
++ Fix `bazel mod tidy` failure with no changes (#21662)
++ Update .bazelversion to 7.1.0 (#21664)
++ Let native Turbine image find `ct.sym` with non-hermetic `java_runtime` (#21670)
++ Actually use shouldPublish() to determine whether to publish the execution log to the BEP. (#21671)
++ Also inject a failure for createWritableDirectory when testing that ActionOutputDirectoryHelper propagates exceptions. (#21683)
++ Fix race condition and add more logging for null entry error message (#21692)
++ Allow any canonical repo name to be used with `bazel mod show_repo` (#21694)
++ Fix two `bazel mod tidy` crashes (#21700)
++ Cherry-pick Java execution info improvements (#21703)
++ Disable //src/test/shell/bazel:srcs_test on Intel macOS (#21707)
++ Fix sandbox cleanup crashing after server restart (#21733)
++ Revert "Fix `bazel fetch` by replacing query with cquery for … (#21735)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Fabian Meumertzheim, Xùdōng Yáng.
+```
+
+## Release 7.1.1 (2024-03-21)
+
+```
+Baseline:  9b39ccaa33069c9f5688bef477abcd75e4378f04
+
+Release Notes:
+
++ Release 7.1.0 (2024-03-11)
++ Update centos7 platform in build_bazel_binaries.yml (#21644)
++ Fix `bazel mod tidy` failure with no changes (#21662)
++ Update .bazelversion to 7.1.0 (#21664)
++ Let native Turbine image find `ct.sym` with non-hermetic `java_runtime` (#21670)
++ Actually use shouldPublish() to determine whether to publish the execution log to the BEP. (#21671)
++ Also inject a failure for createWritableDirectory when testing that ActionOutputDirectoryHelper propagates exceptions. (#21683)
++ Fix race condition and add more logging for null entry error message (#21692)
++ Allow any canonical repo name to be used with `bazel mod show_repo` (#21694)
++ Fix two `bazel mod tidy` crashes (#21700)
++ Cherry-pick Java execution info improvements (#21703)
++ Disable //src/test/shell/bazel:srcs_test on Intel macOS (#21707)
++ Fix sandbox cleanup crashing after server restart (#21733)
++ Revert "Fix `bazel fetch` by replacing query with cquery for … (#21735)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Fabian Meumertzheim, Xùdōng Yáng.
+```
+
 ## Release 7.1.0 (2024-03-11)
 
 ```
