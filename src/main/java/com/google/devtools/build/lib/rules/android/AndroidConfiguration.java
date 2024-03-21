@@ -1059,7 +1059,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     @Option(
         name = "optimizing_dexer",
         defaultValue = "null",
-        converter = LabelConverter.class,
+        converter = EmptyToNullLabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Specifies a binary to use to do dexing without sharding.")
