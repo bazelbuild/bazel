@@ -209,6 +209,25 @@ def _impl(ctx):
         )
         action_configs.append(objcopy_action)
 
+    if "validate_static_library" in ctx.attr.tool_paths:
+        validate_static_library = ctx.attr.tool_paths["validate_static_library"]
+        validate_static_library_action = action_config(
+            action_name = ACTION_NAMES.validate_static_library,
+            tools = [
+                tool(
+                    path = validate_static_library,
+                ),
+            ],
+        )
+        action_configs.append(validate_static_library_action)
+
+        symbol_check = feature(
+            name = "symbol_check",
+            implies = [ACTION_NAMES.validate_static_library],
+        )
+    else:
+        symbol_check = None
+
     supports_pic_feature = feature(
         name = "supports_pic",
         enabled = True,
@@ -1447,6 +1466,8 @@ def _impl(ctx):
             treat_warnings_as_errors_feature,
             archive_param_file_feature,
         ] + layering_check_features(ctx.attr.compiler)
+        if symbol_check:
+            features.append(symbol_check)
     else:
         # macOS artifact name patterns differ from the defaults only for dynamic
         # libraries.
@@ -1487,6 +1508,8 @@ def _impl(ctx):
             archive_param_file_feature,
             generate_linkmap_feature,
         ]
+        if symbol_check:
+            features.append(symbol_check)
 
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,

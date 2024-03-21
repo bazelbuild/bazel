@@ -24,6 +24,8 @@ library_rules = struct(
     cc_import = native.cc_import,
     cc_proto_library = native.cc_proto_library,
     cc_shared_library = native.cc_shared_library,
+    # TODO: Replace with native.cc_static_library after bumping .bazelversion.
+    **({"cc_static_library": native.cc_static_library} if hasattr(native, "cc_static_library") else {})
 )
 
 test_rules = struct(
