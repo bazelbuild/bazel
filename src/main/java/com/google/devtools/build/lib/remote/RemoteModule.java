@@ -448,6 +448,7 @@ public final class RemoteModule extends BlazeModule {
       outputService =
           new BazelOutputService(
               env.getOutputBase(),
+              env::getExecRoot,
               () -> env.getDirectories().getOutputPath(env.getWorkspaceName()),
               digestUtil.getDigestFunction(),
               remoteOptions,
