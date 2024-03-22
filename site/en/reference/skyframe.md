@@ -192,3 +192,8 @@ implementations Bazel uses to perform a build:
     within its SkyKey, which is contrary to the concept that SkyKeys should be
     small. Note that `ActionExecutionValue` and `ArtifactValue` are unused if
     the execution phase does not run.
+
+As a visual aid, this diagram shows the relationships between
+SkyFunction implementations after a build of Bazel itself:
+
+![A graph of SkyFunction implementation relationships](/reference/skyframe.png)

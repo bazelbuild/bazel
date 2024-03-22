@@ -159,7 +159,9 @@ public class DumpCommand implements BlazeCommand {
         converter = SkyframeDumpEnumConverter.class,
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "Dump Skyframe graph: 'off', 'summary', 'count', 'value', 'deps', or 'rdeps'.")
+        help =
+            "Dump Skyframe graph: 'off', 'summary', 'count', 'value', 'deps', 'rdeps', or"
+                + " 'function_graph'.")
     public SkyframeDumpOption dumpSkyframe;
 
     @Option(
@@ -168,7 +170,9 @@ public class DumpCommand implements BlazeCommand {
         converter = RegexFilterConverter.class,
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "Regex filter of SkyKey names to output. Only used with --skyframe=deps, rdeps.")
+        help =
+            "Regex filter of SkyKey names to output. Only used with --skyframe=deps, rdeps,"
+                + " function_graph.")
     public RegexFilter skyKeyFilter;
 
     @Option(
@@ -207,7 +211,8 @@ public class DumpCommand implements BlazeCommand {
     COUNT,
     VALUE,
     DEPS,
-    RDEPS
+    RDEPS,
+    FUNCTION_GRAPH,
   }
 
   /**
@@ -297,23 +302,13 @@ public class DumpCommand implements BlazeCommand {
 
       MemoizingEvaluator evaluator = env.getSkyframeExecutor().getEvaluator();
       switch (dumpOptions.dumpSkyframe) {
-        case OFF:
-          break;
-        case SUMMARY:
-          evaluator.dumpSummary(out);
-          break;
-        case COUNT:
-          evaluator.dumpCount(out);
-          break;
-        case VALUE:
-          evaluator.dumpValues(out, dumpOptions.skyKeyFilter);
-          break;
-        case DEPS:
-          evaluator.dumpDeps(out, dumpOptions.skyKeyFilter);
-          break;
-        case RDEPS:
-          evaluator.dumpRdeps(out, dumpOptions.skyKeyFilter);
-          break;
+        case SUMMARY -> evaluator.dumpSummary(out);
+        case COUNT -> evaluator.dumpCount(out);
+        case VALUE -> evaluator.dumpValues(out, dumpOptions.skyKeyFilter);
+        case DEPS -> evaluator.dumpDeps(out, dumpOptions.skyKeyFilter);
+        case RDEPS -> evaluator.dumpRdeps(out, dumpOptions.skyKeyFilter);
+        case FUNCTION_GRAPH -> evaluator.dumpFunctionGraph(out, dumpOptions.skyKeyFilter);
+        case OFF -> {}
       }
 
       return failure.orElse(BlazeCommandResult.success());
