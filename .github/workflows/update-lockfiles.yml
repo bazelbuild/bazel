@@ -1,8 +1,11 @@
 name: update-lockfile
 
 on:
-  pull_request_target:
-    types: [closed]
+  # pull_request_target:
+  #   types: [closed]
+  pull_request:
+    branches:
+      - "hi"
 
 permissions:
   contents: read
