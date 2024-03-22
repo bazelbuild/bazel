@@ -46,7 +46,7 @@ java_binary(
         "-Dcom.android.tools.r8.createSingletonsForStatelessLambdas",
     ],
     main_class = "com.google.devtools.build.android.r8.Desugar",
-    visibility = ["//tools/android:__subpackages__"],
+    visibility = ["//visibility:public"],
     runtime_deps = [
         ":r8",
     ],
