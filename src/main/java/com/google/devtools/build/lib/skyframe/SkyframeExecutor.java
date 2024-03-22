@@ -26,7 +26,6 @@ import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTI
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -2087,7 +2086,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
 
-    return new AutoValue_SkyframeExecutor_ConfigureTargetsResult(
+    return new ConfigureTargetsResult(
         result,
         configuredTargets.build(),
         aspects.buildOrThrow(),
@@ -2107,18 +2106,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Result of a call to {@link #configureTargets}. */
-  @AutoValue
-  protected abstract static class ConfigureTargetsResult {
-    public abstract EvaluationResult<ActionLookupValue> evaluationResult();
-
-    public abstract ImmutableSet<ConfiguredTarget> configuredTargets();
-
-    public abstract ImmutableMap<AspectKey, ConfiguredAspect> aspects();
-
-    public abstract ImmutableList<TargetAndConfiguration> targetsWithConfiguration();
-
-    public abstract PackageRoots packageRoots();
-  }
+  protected record ConfigureTargetsResult(
+      EvaluationResult<ActionLookupValue> evaluationResult,
+      ImmutableSet<ConfiguredTarget> configuredTargets,
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects,
+      ImmutableList<TargetAndConfiguration> targetsWithConfiguration,
+      PackageRoots packageRoots) {}
 
   /** Returns a map of collected package names to root paths. */
   private ImmutableMap<PackageIdentifier, Root> collectPackageRoots() {
