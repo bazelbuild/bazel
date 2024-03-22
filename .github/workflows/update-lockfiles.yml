@@ -5,7 +5,7 @@ on:
   #   types: [closed]
   pull_request:
     branches:
-      - "hi"
+      - "release-**"
 
 permissions:
   contents: read
