@@ -31,13 +31,6 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.CONFIGURATION_FRAGMENT)
 public interface AndroidConfigurationApi extends StarlarkValue {
 
-  @StarlarkMethod(
-      name = "android_cpu",
-      structField = true,
-      doc = "The Android target CPU.",
-      documented = false)
-  String getCpu();
-
   @StarlarkMethod(name = "use_incremental_dexing", structField = true, doc = "", documented = false)
   boolean useIncrementalDexing();
 
