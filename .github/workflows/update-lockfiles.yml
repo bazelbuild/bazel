@@ -1,4 +1,4 @@
-name: update-lockfile
+name: update-lockfiles
 
 on:
   # pull_request_target:
@@ -14,7 +14,7 @@ env:
   GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
 
 jobs:
-  cherry-picker-on-closed:
+  update-lockfiles:
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
