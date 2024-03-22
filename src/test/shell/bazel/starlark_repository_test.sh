@@ -3183,4 +3183,51 @@ EOF
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
 }
 
+function test_repository_cache_concurrency() {
+  cat > MODULE.bazel <<'EOF'
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+[
+  http_file(
+    name = "repo" + str(i),
+    url = "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
+  )
+  for i in range(100)
+]
+EOF
+  cat > BUILD <<EOF
+filegroup(
+  name = "files",
+  srcs = ["@repo{}//file".format(i) for i in range(100)],
+)
+EOF
+
+  mkdir repo_cache
+  bazel build --repository_cache="$PWD"/repo_cache \
+    //:files >& $TEST_log || fail "expected bazel to succeed"
+}
+
+function test_repository_cache_concurrency_with_integrity() {
+  cat > MODULE.bazel <<'EOF'
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+[
+  http_file(
+    name = "repo" + str(i),
+    url = "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
+    integrity = "sha256-zVWgYudjuTSZIfD124w5MyiNyLpPdt2UFqrGis7jy5Q=",
+  )
+  for i in range(100)
+]
+EOF
+  cat > BUILD <<EOF
+filegroup(
+  name = "files",
+  srcs = ["@repo{}//file".format(i) for i in range(100)],
+)
+EOF
+
+  mkdir repo_cache
+  bazel build --repository_cache="$PWD"/repo_cache \
+    //:files >& $TEST_log || fail "expected bazel to succeed"
+}
+
 run_suite "local repository tests"
