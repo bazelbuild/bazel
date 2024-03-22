@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Ascii;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -167,17 +169,12 @@ public final class BlazeDirectories {
   }
 
   /**
-   * Returns the local execution root of Blaze. Virtualization is not respected.
+   * Returns the local execution root of Google-internal Blaze. Virtualization is not respected.
    *
-   * @deprecated Avoid using this method as it will only work if your workspace is named like
-   *     Google's internal workspace. This method will not work in Bazel. Use {@link
-   *     #getExecRoot(String)} instead.
-   *     <p><em>AVOID USING THIS METHOD</em>
+   * <p>This method throws {@link NullPointerException} in Bazel. Use {@link #getExecRoot} instead.
    */
-  @Nullable
-  @Deprecated
   public Path getBlazeExecRoot() {
-    return blazeExecRoot;
+    return checkNotNull(blazeExecRoot, "No Blaze exec root in Bazel");
   }
 
   /**
@@ -190,17 +187,13 @@ public final class BlazeDirectories {
   }
 
   /**
-   * Returns the local output path of Blaze. Virtualization is not respected.
+   * Returns the local output path of Google-internal Blaze. Virtualization is not respected.
    *
-   * @deprecated Avoid using this method as it will only work if your workspace is named like
-   *     Google's internal workspace. This method will not work in Bazel. Use {@link
-   *     #getOutputPath(String)} instead.
-   *     <p><em>AVOID USING THIS METHOD</em>
+   * <p>This method throws {@link NullPointerException} in Bazel. Use {@link #getOutputPath}
+   * instead.
    */
-  @Nullable
-  @Deprecated
   public Path getBlazeOutputPath() {
-    return blazeOutputPath;
+    return checkNotNull(blazeOutputPath, "No Blaze output path in Bazel");
   }
 
   /** Returns the output path used by this Blaze instance. */

@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -24,20 +23,25 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link BlazeDirectories}. */
 @RunWith(JUnit4.class)
-public class BlazeDirectoriesTest extends FoundationTestCase {
+public final class BlazeDirectoriesTest extends FoundationTestCase {
+
+  private final BlazeDirectories directories =
+      new BlazeDirectories(
+          new ServerDirectories(
+              FsUtils.TEST_FILESYSTEM.getPath("/install_base"),
+              FsUtils.TEST_FILESYSTEM.getPath("/output_base"),
+              FsUtils.TEST_FILESYSTEM.getPath("/user_root")),
+          FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
+          /* defaultSystemJavabase= */ null,
+          /* productName= */ "bazel");
 
   @Test
-  public void testBlazeExecIsNullInBazel() {
-    BlazeDirectories directories =
-        new BlazeDirectories(
-            new ServerDirectories(
-                FsUtils.TEST_FILESYSTEM.getPath("/install_base"),
-                FsUtils.TEST_FILESYSTEM.getPath("/output_base"),
-                FsUtils.TEST_FILESYSTEM.getPath("/user_root")),
-            FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
-            /* defaultSystemJavabase= */ null,
-            /* productName = */ "bazel");
-    assertThat(directories.getBlazeExecRoot()).isNull();
-    assertThat(directories.getBlazeOutputPath()).isNull();
+  public void noBlazeExecRootInBazel() {
+    assertThrows(NullPointerException.class, directories::getBlazeExecRoot);
+  }
+
+  @Test
+  public void noBlazeOutputPathInBazel() {
+    assertThrows(NullPointerException.class, directories::getBlazeOutputPath);
   }
 }
