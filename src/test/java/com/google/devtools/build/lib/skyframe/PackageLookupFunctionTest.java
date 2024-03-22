@@ -590,4 +590,14 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
           .isEqualTo(expectedCorrectedPackageIdentifier);
     }
   }
+
+  @Test
+  public void testInvalidProjectFile() throws Exception {
+    scratch.file("mypackage/BUILD");
+    scratch.dir("mypackage/PROJECT.scl");
+    PackageLookupValue packageLookupValue = lookupPackage("mypackage");
+    assertThat(packageLookupValue.packageExists()).isFalse();
+    assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.INVALID_PROJECT_FILE);
+    assertThat(packageLookupValue.getErrorMsg()).isNotNull();
+  }
 }

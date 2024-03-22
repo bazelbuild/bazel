@@ -597,6 +597,21 @@ java_library(
 )
 
 java_library(
+    name = "projects",
+    srcs = ["Project.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "build_view",
     srcs = ["BuildView.java"],
     deps = [
@@ -612,6 +627,7 @@ java_library(
         ":constraints/top_level_constraint_semantics",
         ":extra_action_artifacts_provider",
         ":make_environment_event",
+        ":projects",
         ":test/coverage_report_action_factory",
         ":test/instrumented_files_info",
         ":top_level_artifact_context",
@@ -640,6 +656,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:flogger",

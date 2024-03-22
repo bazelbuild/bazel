@@ -38,7 +38,8 @@ public class ContainingPackageLookupFunction implements SkyFunction {
     }
 
     if (pkgLookupValue.packageExists()) {
-      return ContainingPackageLookupValue.withContainingPackage(dir, pkgLookupValue.getRoot());
+      return ContainingPackageLookupValue.withContainingPackage(
+          dir, pkgLookupValue.getRoot(), pkgLookupValue.hasProjectFile());
     }
 
     // Does the requested package cross into a sub-repository, which we should report via the

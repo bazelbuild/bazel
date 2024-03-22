@@ -60,6 +60,12 @@ public class PackageLookupFunction implements SkyFunction {
     ERROR
   }
 
+  /**
+   * Name of project metadata files. See {@link com.google.devtools.build.lib.analysis.Project} for
+   * details.
+   */
+  public static final String PROJECT_FILE_NAME = "PROJECT.scl";
+
   private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
   private final ImmutableList<BuildFileName> buildFilesByPriority;
@@ -313,8 +319,25 @@ public class PackageLookupFunction implements SkyFunction {
     if (fileValue == null) {
       return null;
     }
+
+    // Check for the existence of the project.scl file.
+    RootedPath projectFileRootedPath =
+        RootedPath.toRootedPath(
+            packagePathEntry,
+            packageIdentifier.getPackageFragment().getRelative(PROJECT_FILE_NAME));
+    FileValue projectFileValue = getFileValue(projectFileRootedPath, env, packageIdentifier);
+    if (projectFileValue == null) {
+      return null;
+    }
+
     if (fileValue.isFile()) {
-      return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+      if (projectFileValue.exists() && !projectFileValue.isFile()) {
+        return PackageLookupValue.INVALID_PROJECT_VALUE;
+      }
+      return PackageLookupValue.success(
+          buildFileRootedPath.getRoot(),
+          buildFileName,
+          /* hasProjectFile= */ projectFileValue.exists());
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
@@ -353,7 +376,8 @@ public class PackageLookupFunction implements SkyFunction {
       // Otherwise ExternalPackageUtil.findWorkspaceFile() returned something whose name is not in
       // BuildFileName
       Verify.verify(filename != null);
-      return PackageLookupValue.success(workspaceFile.getRoot(), filename);
+      return PackageLookupValue.success(
+          workspaceFile.getRoot(), filename, /* hasProjectFile= */ false);
     }
   }
 
