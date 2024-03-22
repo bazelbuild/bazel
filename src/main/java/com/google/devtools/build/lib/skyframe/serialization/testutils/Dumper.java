@@ -14,18 +14,16 @@
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.collect.Iterables.isEmpty;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.getFieldInfo;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
 import java.lang.reflect.Array;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A utility for creating high fidelity string dumps of arbitrary objects.
@@ -58,7 +56,7 @@ public final class Dumper {
    *
    * <p>The format is verbose and suitable for tests and debugging.
    *
-   * @return a multiline String representation of {@code obj} without a trailing newline.
+   * @return a multiline String representation of {@code obj} without a trailing newline
    */
   public static String dumpStructure(Object obj) {
     var deep = new Dumper();
@@ -90,10 +88,10 @@ public final class Dumper {
     // All non-inlined, non-backreference objects are represented like
     // "<type name>(<id>) [<contents>]".
     //
-    // <contents> depends on the type, but is generally a sequence of recursively formatted
-    // objects. For arrays and iterables, this is the sequence of elements, for maps,
-    // it is an alternating sequence of keys and values and for any other type of object, it is
-    // a sequence of its fields, like "<field name>=<object>".
+    // <contents> depends on the type, but is generally a sequence of recursively formatted objects.
+    // For arrays and iterables, this is the sequence of elements, for maps, it is an alternating
+    // sequence of keys and values and for any other type of object, it is a sequence of its fields,
+    // like "<field name>=<object>".
     outputIdentifier(type, id);
     out.append(" [");
     indent++;
@@ -145,6 +143,10 @@ public final class Dumper {
 
   /** Emits an object identifier like {@code "<type name>(<id>)"}. */
   private void outputIdentifier(Class<?> type, int id) {
+    out.append(getTypeName(type)).append('(').append(id).append(')');
+  }
+
+  static String getTypeName(Class<?> type) {
     String name = type.getCanonicalName();
     if (name == null) {
       // According to the documentation for `Class.getCanonicalName`, not all classes have one.
@@ -152,7 +154,7 @@ public final class Dumper {
       // synthetic types are inlined).
       name = type.getName();
     }
-    out.append(name).append('(').append(id).append(')');
+    return name;
   }
 
   private boolean outputArrayElements(Object arr) {
@@ -217,32 +219,15 @@ public final class Dumper {
   }
 
   private void outputField(Object parent, FieldInfo info) {
-    out.append(info.name).append('=');
-
-    Class<?> type = info.type;
-    if (!type.isPrimitive()) {
-      outputObject(unsafe().getObject(parent, info.offset));
-      return;
-    }
-
-    if (type.equals(boolean.class)) {
-      out.append(unsafe().getBoolean(parent, info.offset));
-    } else if (type.equals(byte.class)) {
-      out.append(unsafe().getByte(parent, info.offset));
-    } else if (type.equals(short.class)) {
-      out.append(unsafe().getShort(parent, info.offset));
-    } else if (type.equals(char.class)) {
-      out.append(unsafe().getChar(parent, info.offset));
-    } else if (type.equals(int.class)) {
-      out.append(unsafe().getInt(parent, info.offset));
-    } else if (type.equals(long.class)) {
-      out.append(unsafe().getLong(parent, info.offset));
-    } else if (type.equals(float.class)) {
-      out.append(unsafe().getFloat(parent, info.offset));
-    } else if (type.equals(double.class)) {
-      out.append(unsafe().getDouble(parent, info.offset));
+    if (info instanceof PrimitiveInfo primitiveInfo) {
+      primitiveInfo.output(parent, out);
+    } else if (info instanceof ObjectInfo objectInfo) {
+      out.append(objectInfo.name()).append('=');
+      outputObject(objectInfo.getFieldValue(parent));
     } else {
-      throw new UnsupportedOperationException("Unexpected primitive type: " + type);
+      // TODO: b/297857068 - it should be possible to replace this with a pattern matching switch
+      // which won't require this line, but that's not yet supported.
+      throw new IllegalArgumentException("Unexpected FieldInfo type: " + info);
     }
   }
 
@@ -253,50 +238,7 @@ public final class Dumper {
     }
   }
 
-  private static final ConcurrentHashMap<Class<?>, ImmutableList<FieldInfo>> fieldInfoCache =
-      new ConcurrentHashMap<>();
-
-  private static ImmutableList<FieldInfo> getFieldInfo(Class<?> type) {
-    return fieldInfoCache.computeIfAbsent(type, Dumper::getFieldInfoUncached);
-  }
-
-  private static class FieldInfo {
-    private final String name;
-    private final Class<?> type;
-    private final long offset;
-
-    private FieldInfo(Field field) {
-      this.name = field.getName();
-      this.type = field.getType();
-      this.offset = unsafe().objectFieldOffset(field);
-    }
-  }
-
-  private static ImmutableList<FieldInfo> getFieldInfoUncached(Class<?> type) {
-    var fieldInfo = ImmutableList.<FieldInfo>builder();
-    for (Class<?> next = type; next != null; next = next.getSuperclass()) {
-      Field[] declaredFields = next.getDeclaredFields();
-      var classFields = new ArrayList<Field>(declaredFields.length);
-      for (Field field : next.getDeclaredFields()) {
-        if ((field.getModifiers() & (Modifier.STATIC | Modifier.TRANSIENT)) != 0) {
-          continue; // Skips any static or transient fields.
-        }
-        classFields.add(field);
-      }
-      classFields.stream()
-          // Sorts by name for determinism. Shadowed fields always have separate entries because
-          // they occur at different levels in the inheritance hierarchy.
-          //
-          // Reverses the order here, then reverses it again below. This makes superclass fields
-          // appear before subclass fields.
-          .sorted(Comparator.comparing(Field::getName).reversed())
-          .map(FieldInfo::new)
-          .forEach(fieldInfo::add);
-    }
-    return fieldInfo.build().reverse();
-  }
-
-  private static boolean shouldInline(Class<?> type) {
+  static boolean shouldInline(Class<?> type) {
     return type.isPrimitive() || DIRECT_INLINE_TYPES.contains(type) || type.isSynthetic();
   }
 
