@@ -19,11 +19,14 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeArtifactsRequest;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeArtifactsResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StageArtifactsRequest;
-import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StageArtifactsRequest.Artifact;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StageArtifactsResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildResponse;
@@ -57,6 +60,7 @@ import java.util.function.Supplier;
 public class BazelOutputService implements OutputService {
 
   private final String outputBaseId;
+  private final Supplier<Path> execRootSupplier;
   private final Supplier<Path> outputPathSupplier;
   private final DigestFunction.Value digestFunction;
   private final RemoteOptions remoteOptions;
@@ -66,6 +70,7 @@ public class BazelOutputService implements OutputService {
 
   public BazelOutputService(
       Path outputBase,
+      Supplier<Path> execRootSupplier,
       Supplier<Path> outputPathSupplier,
       DigestFunction.Value digestFunction,
       RemoteOptions remoteOptions,
@@ -73,6 +78,7 @@ public class BazelOutputService implements OutputService {
       RemoteRetrier retrier,
       ReferenceCountedChannel channel) {
     this.outputBaseId = DigestUtil.hashCodeToString(md5().hashString(outputBase.toString(), UTF_8));
+    this.execRootSupplier = execRootSupplier;
     this.outputPathSupplier = outputPathSupplier;
     this.digestFunction = digestFunction;
     this.remoteOptions = remoteOptions;
@@ -236,7 +242,7 @@ public class BazelOutputService implements OutputService {
     request.setBuildId(buildId);
     for (var file : files) {
       request.addArtifacts(
-          Artifact.newBuilder()
+          StageArtifactsRequest.Artifact.newBuilder()
               .setPath(file.path().relativeTo(outputPath).toString())
               .setLocator(
                   Any.pack(FileArtifactLocator.newBuilder().setDigest(file.digest()).build()))
@@ -283,7 +289,63 @@ public class BazelOutputService implements OutputService {
   @Override
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, EnvironmentalExecException, InterruptedException {
-    // TODO(chiwang): implement this
+    var execRoot = execRootSupplier.get();
+    var outputPath = outputPathSupplier.get();
+
+    var request = FinalizeArtifactsRequest.newBuilder();
+    request.setBuildId(buildId);
+    for (var output : action.getOutputs()) {
+      if (outputMetadataStore.artifactOmitted(output)) {
+        continue;
+      }
+
+      if (output.isTreeArtifact()) {
+        // TODO(chiwang): Use TreeArtifactLocator
+        var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
+        for (var child : children) {
+          addArtifact(outputMetadataStore, execRoot, outputPath, request, child);
+        }
+      } else {
+        addArtifact(outputMetadataStore, execRoot, outputPath, request, output);
+      }
+    }
+
+    var unused = finalizeArtifacts(request.build());
+  }
+
+  private FinalizeArtifactsResponse finalizeArtifacts(FinalizeArtifactsRequest request)
+      throws IOException, InterruptedException {
+    return retrier.execute(
+        () ->
+            channel.withChannelBlocking(
+                channel -> {
+                  try {
+                    return BazelOutputServiceGrpc.newBlockingStub(channel)
+                        .finalizeArtifacts(request);
+                  } catch (StatusRuntimeException e) {
+                    throw new IOException(e);
+                  }
+                }));
+  }
+
+  private void addArtifact(
+      OutputMetadataStore outputMetadataStore,
+      Path execRoot,
+      Path outputPath,
+      FinalizeArtifactsRequest.Builder builder,
+      Artifact output)
+      throws IOException, InterruptedException {
+    checkState(!output.isTreeArtifact());
+    var metadata = outputMetadataStore.getOutputMetadata(output);
+    if (metadata.getType().isFile()) {
+      var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+      var path = execRoot.getRelative(output.getExecPath()).relativeTo(outputPath).toString();
+      builder.addArtifacts(
+          FinalizeArtifactsRequest.Artifact.newBuilder()
+              .setPath(path)
+              .setLocator(Any.pack(FileArtifactLocator.newBuilder().setDigest(digest).build()))
+              .build());
+    }
   }
 
   @Override
