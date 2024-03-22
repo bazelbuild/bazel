@@ -3202,7 +3202,7 @@ filegroup(
 EOF
 
   mkdir repo_cache
-  bazel build --repository_cache="$PWD"/repo_cache \
+  bazel build --repository_cache="$(cygpath -w "$PWD"/repo_cache)" \
     //:files >& $TEST_log || fail "expected bazel to succeed"
 }
 
@@ -3226,7 +3226,7 @@ filegroup(
 EOF
 
   mkdir repo_cache
-  bazel build --repository_cache="$PWD"/repo_cache \
+  bazel build --repository_cache="$(cygpath -w "$PWD"/repo_cache)" \
     //:files >& $TEST_log || fail "expected bazel to succeed"
 }
 
