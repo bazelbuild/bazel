@@ -3200,9 +3200,13 @@ filegroup(
   srcs = ["@repo{}//file".format(i) for i in range(100)],
 )
 EOF
-
+  
   mkdir repo_cache
-  bazel build --repository_cache="$(cygpath -w "$PWD"/repo_cache)" \
+  cache="$PWD"/repo_cache
+  if "$is_windows"; then
+    cache="$(cygpath -w "$cache")"
+  fi
+  bazel build --repository_cache="$cache" \
     //:files >& $TEST_log || fail "expected bazel to succeed"
 }
 
@@ -3226,7 +3230,11 @@ filegroup(
 EOF
 
   mkdir repo_cache
-  bazel build --repository_cache="$(cygpath -w "$PWD"/repo_cache)" \
+  cache="$PWD"/repo_cache
+  if "$is_windows"; then
+    cache="$(cygpath -w "$cache")"
+  fi
+  bazel build --repository_cache="$cache" \
     //:files >& $TEST_log || fail "expected bazel to succeed"
 }
 
