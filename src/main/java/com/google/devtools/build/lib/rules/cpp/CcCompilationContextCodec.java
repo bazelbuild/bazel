@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.rules.cpp.HeaderInfoCodec.headerInfo
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext.FieldSetter;
@@ -28,27 +29,24 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.util.LinkedHashMap;
 
 final class CcCompilationContextCodec extends AsyncObjectCodec<CcCompilationContext> {
 
   private final DynamicCodec delegate;
 
   private CcCompilationContextCodec() {
-    LinkedHashMap<Field, FieldHandler> handlers =
-        DynamicCodec.getFieldHandlerMap(CcCompilationContext.class);
     try {
       // Overrides with custom `headerInfo` handler.
-      handlers.put(
-          CcCompilationContext.class.getDeclaredField("headerInfo"),
-          new RemoteHeaderInfoHandler(getFieldOffset(CcCompilationContext.class, "headerInfo")));
+      this.delegate =
+          DynamicCodec.createWithOverrides(
+              CcCompilationContext.class,
+              ImmutableMap.of(
+                  CcCompilationContext.class.getDeclaredField("headerInfo"),
+                  new RemoteHeaderInfoHandler(
+                      getFieldOffset(CcCompilationContext.class, "headerInfo"))));
     } catch (ReflectiveOperationException e) {
       throw new IllegalStateException(e);
     }
-    this.delegate =
-        new DynamicCodec(
-            CcCompilationContext.class, handlers.values().toArray(FieldHandler[]::new));
   }
 
   @Override

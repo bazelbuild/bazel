@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec.FieldHandler;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.protobuf.ByteString;
@@ -25,9 +26,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.Objects;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -530,41 +529,35 @@ public final class DynamicCodecTest {
 
   @Test
   public void customFieldHandler() throws Exception {
-    LinkedHashMap<Field, FieldHandler> fieldHandlers =
-        DynamicCodec.getFieldHandlerMap(CustomHandlerExample.class);
-    Field textField = CustomHandlerExample.class.getDeclaredField("text");
-    Field trickyField = CustomHandlerExample.class.getDeclaredField("tricky");
-    assertThat(fieldHandlers.keySet()).containsExactly(textField, trickyField);
+    // Overrides the handler for the field "tricky".
+    DynamicCodec customCodec =
+        DynamicCodec.createWithOverrides(
+            CustomHandlerExample.class,
+            ImmutableMap.of(
+                CustomHandlerExample.class.getDeclaredField("tricky"),
+                new FieldHandler() {
+                  @Override
+                  public void serialize(
+                      SerializationContext context, CodedOutputStream codedOut, Object obj)
+                      throws IOException {
+                    CustomHandlerExample subject = (CustomHandlerExample) obj;
+                    codedOut.writeBoolNoTag(subject.tricky != null);
+                  }
 
-    // Creates and inserts a custom handler for the field "tricky".
-    fieldHandlers.put(
-        trickyField,
-        new FieldHandler() {
-          @Override
-          public void serialize(
-              SerializationContext context, CodedOutputStream codedOut, Object obj)
-              throws IOException {
-            CustomHandlerExample subject = (CustomHandlerExample) obj;
-            codedOut.writeBoolNoTag(subject.tricky != null);
-          }
-
-          @Override
-          public void deserialize(
-              AsyncDeserializationContext context, CodedInputStream codedIn, Object obj)
-              throws IOException {
-            if (codedIn.readBool()) {
-              ((CustomHandlerExample) obj).tricky = NOT_SERIALIZABLE;
-            }
-          }
-        });
-    DynamicCodec customizedCodec =
-        new DynamicCodec(
-            CustomHandlerExample.class, fieldHandlers.values().toArray(new FieldHandler[2]));
+                  @Override
+                  public void deserialize(
+                      AsyncDeserializationContext context, CodedInputStream codedIn, Object obj)
+                      throws IOException {
+                    if (codedIn.readBool()) {
+                      ((CustomHandlerExample) obj).tricky = NOT_SERIALIZABLE;
+                    }
+                  }
+                }));
 
     // The NOT_SERIALIZABLE object round-trips successfully with the custom handler.
     new SerializationTester(
             new CustomHandlerExample("a", null), new CustomHandlerExample("b ", NOT_SERIALIZABLE))
-        .addCodec(customizedCodec)
+        .addCodec(customCodec)
         .runTests();
   }
 }
