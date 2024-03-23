@@ -52,7 +52,9 @@ public class ArgsParamFileTest extends BuildViewTestCase {
   // TODO(bazel-team): Consider rewriting this setup as Starlark code
   @Before
   public void initArgs() throws Exception {
-    args = Args.newArgs(Mutability.create(), getStarlarkSemantics());
+    args =
+        Args.newArgs(
+            Mutability.create(), getStarlarkSemantics(), () -> RepositoryMapping.ALWAYS_FALLBACK);
     StarlarkThread thread = new StarlarkThread(Mutability.create(), getStarlarkSemantics());
     args.addJoined(
         "--a",
@@ -144,10 +146,7 @@ public class ArgsParamFileTest extends BuildViewTestCase {
     byte[] bytes;
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       ParameterFile.writeParameterFile(
-          outputStream,
-          args.build(() -> RepositoryMapping.ALWAYS_FALLBACK).arguments(),
-          args.getParameterFileType(),
-          UTF_8);
+          outputStream, args.build().arguments(), args.getParameterFileType(), UTF_8);
       bytes = outputStream.toByteArray();
     }
     try (ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);

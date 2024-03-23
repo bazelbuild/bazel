@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -72,8 +73,7 @@ public abstract class Args implements CommandLineArgsApi {
   @Override
   public void debugPrint(Printer printer, StarlarkSemantics semantics) {
     try {
-      printer.append(
-          Joiner.on(" ").join(build(/* mainRepoMappingSupplier */ () -> null).arguments()));
+      printer.append(Joiner.on(" ").join(build().arguments()));
     } catch (CommandLineExpansionException e) {
       printer.append("Cannot expand command line: " + e.getMessage());
     } catch (InterruptedException e) {
@@ -104,13 +104,8 @@ public abstract class Args implements CommandLineArgsApi {
    */
   public abstract ImmutableSet<Artifact> getDirectoryArtifacts();
 
-  public interface InterruptibleRepoMappingSupplier {
-    RepositoryMapping get() throws InterruptedException;
-  }
-
   /** Returns the command line built by this {@link Args} object. */
-  public abstract CommandLine build(InterruptibleRepoMappingSupplier mainRepoMappingSupplier)
-      throws InterruptedException;
+  public abstract CommandLine build() throws InterruptedException;
 
   /**
    * Returns a frozen {@link Args} representation corresponding to an already-registered action.
@@ -130,8 +125,11 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   /** Creates and returns a new (empty) {@link Args} object. */
-  public static Args newArgs(@Nullable Mutability mutability, StarlarkSemantics starlarkSemantics) {
-    return new MutableArgs(mutability, starlarkSemantics);
+  public static Args newArgs(
+      @Nullable Mutability mutability,
+      StarlarkSemantics starlarkSemantics,
+      InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) {
+    return new MutableArgs(mutability, starlarkSemantics, mainRepoMappingSupplier);
   }
 
   /**
@@ -165,7 +163,7 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     @Override
-    public CommandLine build(InterruptibleRepoMappingSupplier mainRepoMappingSupplier) {
+    public CommandLine build() {
       return commandLine;
     }
 
@@ -253,6 +251,8 @@ public abstract class Args implements CommandLineArgsApi {
 
     private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
     private final Set<Artifact> directoryArtifacts = new HashSet<>();
+    private final InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier;
+
     /**
      * If true, flag names and values will be grouped with '=', e.g.
      *
@@ -472,16 +472,17 @@ public abstract class Args implements CommandLineArgsApi {
         if (starlarkList.isEmpty() && omitIfEmpty) {
           return;
         }
-        if (expandDirectories) {
-          scanForDirectories(starlarkList);
+        for (Object object : starlarkList) {
+          if (expandDirectories && isDirectory(object)) {
+            directoryArtifacts.add((Artifact) object);
+          }
+          // Labels referencing targets in the main repo are stringified as //pkg:name and thus
+          // don't require a RepositoryMapping. If a map_each function is provided, default
+          // stringification via Label#toString() is not used.
+          if (mapEach == null && object instanceof Label label && !label.getRepository().isMain()) {
+            mayStringifyExternalLabel = true;
+          }
         }
-        // Labels referencing targets in the main repo are stringified as //pkg:name and thus
-        // don't require a RepositoryMapping. If a map_each function is provided, default
-        // stringification via Label#toString() is not used.
-        mayStringifyExternalLabel |=
-            (mapEach != null)
-                && starlarkList.stream()
-                    .anyMatch(o -> o instanceof Label label && !label.getRepository().isMain());
         vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(starlarkList);
       }
       commandLine.recordArgStart();
@@ -595,14 +596,17 @@ public abstract class Args implements CommandLineArgsApi {
       return this;
     }
 
-    private MutableArgs(@Nullable Mutability mutability, StarlarkSemantics starlarkSemantics) {
+    private MutableArgs(
+        @Nullable Mutability mutability,
+        StarlarkSemantics starlarkSemantics,
+        InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) {
       this.mutability = mutability != null ? mutability : Mutability.IMMUTABLE;
       this.commandLine = new StarlarkCustomCommandLine.Builder(starlarkSemantics);
+      this.mainRepoMappingSupplier = mainRepoMappingSupplier;
     }
 
     @Override
-    public CommandLine build(InterruptibleRepoMappingSupplier mainRepoMappingSupplier)
-        throws InterruptedException {
+    public CommandLine build() throws InterruptedException {
       return commandLine.build(
           flagPerLine, mayStringifyExternalLabel ? mainRepoMappingSupplier.get() : null);
     }
@@ -615,18 +619,15 @@ public abstract class Args implements CommandLineArgsApi {
     @Override
     public ImmutableSet<Artifact> getDirectoryArtifacts() {
       for (NestedSet<?> collection : potentialDirectoryArtifacts) {
-        scanForDirectories(collection.toList());
+        for (Object object : collection.toList()) {
+          if (isDirectory(object)) {
+            directoryArtifacts.add((Artifact) object);
+          }
+        }
       }
       potentialDirectoryArtifacts.clear();
       return ImmutableSet.copyOf(directoryArtifacts);
     }
 
-    private void scanForDirectories(Iterable<?> objects) {
-      for (Object object : objects) {
-        if (isDirectory(object)) {
-          directoryArtifacts.add((Artifact) object);
-        }
-      }
-    }
   }
 }
