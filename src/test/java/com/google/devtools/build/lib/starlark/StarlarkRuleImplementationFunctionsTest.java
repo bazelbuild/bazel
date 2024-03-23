@@ -2696,16 +2696,17 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     ev.exec(
-        "args = ruleContext.actions.args()",
-        "args.add('--foo')",
-        "args.add('-')",
-        "args.add('foo', format='format%s')",
-        "args.add('-')",
-        "args.add('--foo', 'val')",
+        "actions = ruleContext.actions",
+        "a = []",
+        "a.append(actions.args().add(Label('//bar')))",
+        "a.append(actions.args().add('-flag', Label('//bar')))",
+        "a.append(actions.args().add('-flag', Label('//bar'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('//bar')]))",
+        "a.append(actions.args().add_all(depset([Label('//foo'), Label('//bar')])))",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
-        "  arguments = [args],",
+        "  arguments = a,",
         "  executable = ruleContext.files.tools[0],",
         "  toolchain = None",
         ")");
@@ -2714,7 +2715,125 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(action.getArguments())
-        .containsExactly("foo/t.exe", "--foo", "-", "formatfoo", "-", "--foo", "val")
+        .containsExactly(
+            "foo/t.exe",
+            "//bar:bar",
+            "-flag",
+            "//bar:bar",
+            "-flag",
+            "_//bar:bar_",
+            "foo",
+            "//bar:bar",
+            "//foo:foo",
+            "//bar:bar")
+        .inOrder();
+  }
+
+  @Test
+  public void testArgsCanonicalRepoLabel() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "actions = ruleContext.actions",
+        "a = []",
+        "a.append(actions.args().add(Label('@@repo~//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@repo~//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@repo~//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@repo~//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@other_repo~//:foo'), Label('@@repo~//:foo')])))",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = a,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly(
+            "foo/t.exe",
+            "@@repo~//:foo",
+            "-flag",
+            "@@repo~//:foo",
+            "-flag",
+            "_@@repo~//:foo_",
+            "foo",
+            "@@repo~//:foo",
+            "@@other_repo~//:foo",
+            "@@repo~//:foo")
+        .inOrder();
+  }
+
+  @Test
+  public void testArgsApparentRepoLabel() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "actions = ruleContext.actions",
+        "a = []",
+        // bazel_tools is a well-known Bazel module whose canonical repo name is bazel_tools.
+        "a.append(actions.args().add(Label('@bazel_tools')))",
+        "a.append(actions.args().add('-flag', Label('@@bazel_tools//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@bazel_tools//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@bazel_tools//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@repo~//:foo'), Label('@@bazel_tools//:foo')])))",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = a,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly(
+            "foo/t.exe",
+            "@bazel_tools//:bazel_tools",
+            "-flag",
+            "@bazel_tools//:foo",
+            "-flag",
+            "_@bazel_tools//:foo_",
+            "foo",
+            "@bazel_tools//:foo",
+            "@@repo~//:foo",
+            "@bazel_tools//:foo")
+        .inOrder();
+  }
+
+  @Test
+  public void testArgsBuiltTwiceWithExternalLabel() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "args.add(Label('@@foo'))",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")");
+    List<SpawnAction> actions =
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions().stream()
+            .map(SpawnAction.class::cast)
+            .toList();
+    assertThat(actions).hasSize(2);
+    assertThat(actions.getFirst().getArguments())
+        .containsExactlyElementsIn(actions.getLast().getArguments())
         .inOrder();
   }
 
@@ -3393,7 +3512,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   private CommandLine getCommandLine(String... lines) throws Exception {
     ev.exec(lines);
-    return ((Args) ev.eval("args")).build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    return ((Args) ev.eval("args")).build();
   }
 
   @Test
@@ -3416,7 +3535,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Sequence<?> result = (Sequence<?>) ev.eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build();
 
     // When asking for arguments without an artifact expander we just return the directory
     assertThat(commandLine.arguments()).containsExactly("foo/dir");
@@ -3442,7 +3561,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Sequence<?> result = (Sequence<?>) ev.eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build();
 
     Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
     Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
@@ -3493,7 +3612,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "args.add_all([directory, file3], map_each=_expand_dirs)");
     Args args = (Args) ev.eval("args");
     Artifact directory = (Artifact) ev.eval("directory");
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build();
 
     Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
     Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
@@ -3513,7 +3632,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  return dir_expander.expand('oh no a string')",
         "args.add_all([f], map_each=_expand_dirs)");
     Args args = (Args) ev.eval("args");
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build();
     assertThrows(CommandLineExpansionException.class, commandLine::arguments);
   }
 
