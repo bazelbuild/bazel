@@ -217,7 +217,7 @@ public class RepositoryCache {
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     cacheEntry.createDirectoryAndParents();
     FileSystemUtils.copyFile(sourcePath, tmpName);
-    FileSystemUtils.moveFile(tmpName, cacheValue);
+    tmpName.renameTo(cacheValue);
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
       String idHash = keyType.newHasher().putBytes(canonicalId.getBytes(UTF_8)).hash().toString();
