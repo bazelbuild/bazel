@@ -765,10 +765,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if (arguments.isEmpty()) {
         return CommandLine.empty();
       }
+      Object[] args;
       if (mainRepoMapping != null) {
-        arguments.add(mainRepoMapping);
+        args = arguments.toArray(new Object[arguments.size() + 1]);
+        args[arguments.size()] = mainRepoMapping;
+      } else {
+        args = arguments.toArray();
       }
-      Object[] args = arguments.toArray();
       return flagPerLine
           ? new StarlarkCustomCommandLineWithIndexes(args, argStartIndexes.build())
           : new StarlarkCustomCommandLine(args);
