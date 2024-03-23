@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -316,26 +317,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
-    File sourceFile = getIoFile(sourcePath);
-    File targetFile = getIoFile(targetPath);
-    if (!sourceFile.renameTo(targetFile)) {
-      if (!sourceFile.exists()) {
-        throw new FileNotFoundException(sourcePath + ERR_NO_SUCH_FILE_OR_DIR);
-      }
-      if (targetFile.exists()) {
-        if (targetFile.isDirectory() && targetFile.list().length > 0) {
-          throw new IOException(targetPath + ERR_DIRECTORY_NOT_EMPTY);
-        } else if (sourceFile.isDirectory() && targetFile.isFile()) {
-          throw new IOException(sourcePath + " -> " + targetPath + ERR_NOT_A_DIRECTORY);
-        } else if (sourceFile.isFile() && targetFile.isDirectory()) {
-          throw new IOException(sourcePath + " -> " + targetPath + ERR_IS_DIRECTORY);
-        } else {
-          throw new IOException(sourcePath + " -> " + targetPath  + ERR_PERMISSION_DENIED);
-        }
-      } else {
-        throw new FileAccessException(sourcePath + " -> " + targetPath + ERR_PERMISSION_DENIED);
-      }
-    }
+    java.nio.file.Path source = getNioPath(sourcePath);
+    java.nio.file.Path target = getNioPath(targetPath);
+    Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
   }
 
   @Override
