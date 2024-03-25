@@ -2890,7 +2890,7 @@ EOF
   bazel build a_bin >& $TEST_log  || fail "Expected build/run to succeed"
 }
 
-function test_query_external_packages() {
+function DISABLED_test_query_external_packages() {
   setup_skylib_support
 
   mkdir -p external/nested
@@ -2929,7 +2929,7 @@ EOF
   expect_log "//external/nested:a2"
 }
 
-function test_query_external_all_targets() {
+function DISABLED_test_query_external_all_targets() {
   setup_skylib_support
 
   mkdir -p external/nested

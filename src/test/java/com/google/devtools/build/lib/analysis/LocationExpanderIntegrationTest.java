@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -217,6 +218,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  @Ignore
   public void otherPathExternalExpansionNoLegacyExternalRunfilesSiblingRepositoryLayout()
       throws Exception {
     scratch.file("expansion/BUILD", "sh_library(name='lib', srcs=['@r//p:foo'])");

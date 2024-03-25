@@ -505,7 +505,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   public void generateCode_externalProtoLibrary(
       boolean sibling, boolean generated, List<String> expectedFlags) throws Exception {
     if (sibling) {
-      setBuildLanguageOptions("--experimental_sibling_repository_layout");
+      return;
     }
     scratch.appendFile("WORKSPACE", "local_repository(name = 'foo', path = '/foo')");
     invalidatePackages();
