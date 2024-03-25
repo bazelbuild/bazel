@@ -1536,10 +1536,8 @@ public final class CcCompilationHelper {
           CppHelper.getArtifactNameForCategory(
               ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
       Artifact gcnoFile =
-          enableCoverage
-              ? CppHelper.getCompileOutputArtifact(
-                  actionConstructionContext, label, gcnoFileName, configuration)
-              : null;
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext, label, gcnoFileName, configuration);
       Artifact dwoFile =
           generateDwo && !bitcodeOutput ? getDwoFile(picBuilder.getOutputFile()) : null;
       Artifact ltoIndexingFile =
@@ -1610,10 +1608,8 @@ public final class CcCompilationHelper {
 
       // Create no-PIC compile actions
       Artifact gcnoFile =
-          enableCoverage
-              ? CppHelper.getCompileOutputArtifact(
-                  actionConstructionContext, label, gcnoFileName, configuration)
-              : null;
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext, label, gcnoFileName, configuration);
 
       Artifact noPicDwoFile = generateDwo && !bitcodeOutput ? getDwoFile(noPicOutputFile) : null;
       Artifact ltoIndexingFile = bitcodeOutput ? getLtoIndexingFile(builder.getOutputFile()) : null;

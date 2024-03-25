@@ -186,13 +186,11 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
 
   @Override
   public Sequence<Artifact> getStarlarkGcnoFiles(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return StarlarkList.immutableCopyOf(getGcnoFiles());
   }
 
   @Override
   public Sequence<Artifact> getStarlarkPicGcnoFiles(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return StarlarkList.immutableCopyOf(getPicGcnoFiles());
   }
 
