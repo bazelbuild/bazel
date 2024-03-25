@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.collect.Iterables.isEmpty;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.getFieldInfo;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fingerprinter.computeFingerprints;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoC
 import java.lang.reflect.Array;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * A utility for creating high fidelity string dumps of arbitrary objects.
@@ -37,6 +39,16 @@ import java.util.Map;
  */
 public final class Dumper {
   /**
+   * Fingerprints for references.
+   *
+   * <p>Even if this is present, not all references will have fingerprints. In particular, anything
+   * where {@link #shouldInline} is true or inner elements of object cycles will not have
+   * fingerprints.
+   */
+  @Nullable // optional behavior
+  private final IdentityHashMap<Object, String> fingerprints;
+
+  /**
    * Stores an identifier for every object traversed.
    *
    * <p>When an object is encountered again, it is represented with just its type and previous
@@ -49,7 +61,13 @@ public final class Dumper {
 
   private final StringBuilder out = new StringBuilder();
 
-  private Dumper() {}
+  private Dumper(IdentityHashMap<Object, String> fingerprints) {
+    this.fingerprints = fingerprints;
+  }
+
+  private Dumper() {
+    this(/* fingerprints= */ null);
+  }
 
   /**
    * Formats an arbitrary object into a string.
@@ -60,6 +78,17 @@ public final class Dumper {
    */
   public static String dumpStructure(Object obj) {
     var deep = new Dumper();
+    deep.outputObject(obj);
+    return deep.out.toString();
+  }
+
+  /**
+   * Formats an arbitrary object into a string.
+   *
+   * <p>Similar to {@link #dumpStructure} but applies fingerprint-based deduplication.
+   */
+  public static String dumpStructureWithEquivalenceReduction(Object obj) {
+    var deep = new Dumper(computeFingerprints(obj));
     deep.outputObject(obj);
     return deep.out.toString();
   }
@@ -77,13 +106,39 @@ public final class Dumper {
       return;
     }
 
-    Integer id = referenceIds.get(obj);
-    if (id != null) {
-      // This instance has been observed previously. Outputs only a backreference.
-      outputIdentifier(type, id);
-      return;
+    int id;
+    String fingerprint;
+    if (fingerprints != null && ((fingerprint = fingerprints.get(obj)) != null)) {
+      // There's a fingerprint for `obj`. Uses it to lookup a reference ID.
+      Integer previousId = referenceIds.get(fingerprint);
+      if (previousId != null) {
+        // An object having this fingerprint has been observed previously. Outputs only a
+        // backreference.
+        outputIdentifier(type, previousId);
+        return;
+      }
+      // In the case of a backreference to the inner member of an object cycle, the object could
+      // have a fingerprint, but no backreference based on that fingerprint. It might instead be
+      // possible to find that backreference directly through its reference here.
+      previousId = referenceIds.get(obj);
+      if (previousId != null) {
+        outputIdentifier(type, previousId);
+        return;
+      }
+      // No backreferences were found. Inserts a new reference entry.
+      id = referenceIds.size();
+      referenceIds.put(fingerprint, id);
+    } else {
+      // No fingerprint is available. Deduplicates by object reference.
+      Integer previousId = referenceIds.get(obj);
+      if (previousId != null) {
+        // This instance has been observed previously. Outputs only a backreference.
+        outputIdentifier(type, previousId);
+        return;
+      }
+      id = referenceIds.size();
+      referenceIds.put(obj, id);
     }
-    referenceIds.put(obj, id = referenceIds.size());
 
     // All non-inlined, non-backreference objects are represented like
     // "<type name>(<id>) [<contents>]".
