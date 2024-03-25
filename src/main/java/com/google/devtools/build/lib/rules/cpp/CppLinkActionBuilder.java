@@ -518,12 +518,10 @@ public class CppLinkActionBuilder {
     return ltoOutputs.build();
   }
 
-  private ImmutableMap<Artifact, LtoBackendArtifacts> createSharedNonLtoArtifacts(
-      boolean isLtoIndexing) throws EvalException {
+  private ImmutableMap<Artifact, LtoBackendArtifacts> createSharedNonLtoArtifacts()
+      throws EvalException {
     // Only create the shared LTO artifacts for a statically linked library that has bitcode files.
-    if (ltoCompilationContext == null
-        || isLtoIndexing
-        || linkType.linkerOrArchiver() != LinkerOrArchiver.ARCHIVER) {
+    if (ltoCompilationContext == null || linkType.linkerOrArchiver() != LinkerOrArchiver.ARCHIVER) {
       return ImmutableMap.<Artifact, LtoBackendArtifacts>of();
     }
 
@@ -727,32 +725,35 @@ public class CppLinkActionBuilder {
             .addAll(objectArtifacts.toList())
             .addAll(linkstampObjectArtifacts.toList())
             .build();
-    outputLibrary =
-        linkType.isExecutable()
-            ? null
-            : LinkerInputs.newInputLibrary(
-                output,
-                linkType.getLinkerOutput(),
-                libraryIdentifier,
-                linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
-                    ? combinedObjectArtifacts
-                    : ImmutableSet.of(),
-                linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
-                    ? ltoCompilationContext
-                    : LtoCompilationContext.EMPTY,
-                createSharedNonLtoArtifacts(isLtoIndexing),
-                /* mustKeepDebug= */ false);
-    interfaceOutputLibrary =
-        (interfaceOutput == null)
-            ? null
-            : LinkerInputs.newInputLibrary(
-                interfaceOutput,
-                ArtifactCategory.DYNAMIC_LIBRARY,
-                libraryIdentifier,
-                combinedObjectArtifacts,
-                ltoCompilationContext,
-                /* sharedNonLtoBackends= */ null,
-                /* mustKeepDebug= */ false);
+
+    if (!isLtoIndexing) {
+      outputLibrary =
+          linkType.isExecutable()
+              ? null
+              : LinkerInputs.newInputLibrary(
+                  output,
+                  linkType.getLinkerOutput(),
+                  libraryIdentifier,
+                  linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
+                      ? combinedObjectArtifacts
+                      : ImmutableSet.of(),
+                  linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
+                      ? ltoCompilationContext
+                      : LtoCompilationContext.EMPTY,
+                  createSharedNonLtoArtifacts(),
+                  /* mustKeepDebug= */ false);
+      interfaceOutputLibrary =
+          (interfaceOutput == null)
+              ? null
+              : LinkerInputs.newInputLibrary(
+                  interfaceOutput,
+                  ArtifactCategory.DYNAMIC_LIBRARY,
+                  libraryIdentifier,
+                  combinedObjectArtifacts,
+                  ltoCompilationContext,
+                  /* sharedNonLtoBackends= */ null,
+                  /* mustKeepDebug= */ false);
+    }
 
     @Nullable Artifact thinltoParamFile = null;
     @Nullable Artifact thinltoMergedObjectFile = null;
