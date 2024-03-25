@@ -643,16 +643,44 @@ public class CppLinkActionBuilder {
     if (!allowLtoIndexing) {
       return null;
     }
-    return buildLinkAction(/* isLtoIndexing= */ true);
+    // Get the set of object files and libraries containing the correct
+    // inputs for this link, depending on whether this is LTO indexing or
+    // a native link.
+    ImmutableSet<LinkerInput> objectFileInputs = computeLtoIndexingObjectFileInputs();
+    NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries =
+        computeLtoIndexingUniqueLibraries(libraries.build(), includeLinkStaticInLtoIndexing);
+
+    return buildLinkAction(
+        /* isLtoIndexing= */ true,
+        objectFileInputs,
+        uniqueLibraries,
+        /* ltoMapping= */ ImmutableMap.of());
   }
 
   /** Builds the Action as configured and returns it. */
   public CppLinkAction build() throws InterruptedException, EvalException {
-    return buildLinkAction(/* isLtoIndexing= */ false);
+    Map<Artifact, Artifact> ltoMapping = new HashMap<>();
+
+    /* We're doing 4-phased lto build, and this is the final link action (4-th phase). */
+    if (allLtoArtifacts != null) {
+      for (LtoBackendArtifacts a : allLtoArtifacts) {
+        ltoMapping.put(a.getBitcodeFile(), a.getObjectFile());
+      }
+    }
+
+    return buildLinkAction(
+        /* isLtoIndexing= */ false,
+        ImmutableSet.copyOf(objectFiles),
+        libraries.build(),
+        ltoMapping);
   }
 
-  private CppLinkAction buildLinkAction(boolean isLtoIndexing) throws EvalException {
-    NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = libraries.build();
+  private CppLinkAction buildLinkAction(
+      boolean isLtoIndexing,
+      ImmutableSet<LinkerInput> objectFileInputs,
+      NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries,
+      Map<Artifact, Artifact> ltoMapping)
+      throws EvalException {
 
     // Executable links do not have library identifiers.
     boolean hasIdentifier = (libraryIdentifier != null);
@@ -678,32 +706,14 @@ public class CppLinkActionBuilder {
             || needWholeArchive(
                 featureConfiguration, linkingMode, linkType, linkopts, cppConfiguration);
 
-    // Get the set of object files and libraries containing the correct
-    // inputs for this link, depending on whether this is LTO indexing or
-    // a native link.
-    NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries;
-    ImmutableSet<LinkerInput> objectFileInputs;
     ImmutableSet<LinkerInput> linkstampObjectFileInputs;
     if (isLtoIndexing) {
-      objectFileInputs = computeLtoIndexingObjectFileInputs();
-      uniqueLibraries =
-          computeLtoIndexingUniqueLibraries(
-              originalUniqueLibraries, includeLinkStaticInLtoIndexing);
       linkstampObjectFileInputs = ImmutableSet.of();
     } else {
-      objectFileInputs = ImmutableSet.copyOf(objectFiles);
       linkstampObjectFileInputs =
           ImmutableSet.copyOf(LinkerInputs.linkstampLinkerInputs(linkstampMap.values()));
-      uniqueLibraries = originalUniqueLibraries;
     }
 
-    Map<Artifact, Artifact> ltoMapping = new HashMap<>();
-
-    if (isFinalLinkOfLtoBuild(isLtoIndexing)) {
-      for (LtoBackendArtifacts a : allLtoArtifacts) {
-        ltoMapping.put(a.getBitcodeFile(), a.getObjectFile());
-      }
-    }
     NestedSet<Artifact> objectArtifacts =
         getArtifactsPossiblyLtoMapped(objectFileInputs, ltoMapping);
     NestedSet<Artifact> linkstampObjectArtifacts =
@@ -1041,10 +1051,6 @@ public class CppLinkActionBuilder {
     return interfaceOutputLibrary;
   }
 
-  /** We're doing 4-phased lto build, and this is the final link action (4-th phase). */
-  private boolean isFinalLinkOfLtoBuild(boolean isLtoIndexing) {
-    return !isLtoIndexing && allLtoArtifacts != null;
-  }
 
   private static NestedSet<Artifact> getArtifactsPossiblyLtoMapped(
       Iterable<LinkerInput> inputs, Map<Artifact, Artifact> ltoMapping) {
