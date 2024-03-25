@@ -209,6 +209,7 @@ final class BazelScannerSuppliers {
   // New errors should not be enabled in this list to avoid breaking changes in java_rules release
   private static final ImmutableSet<BugCheckerInfo> ENABLED_ERRORS =
       getSuppliers(
+          // keep-sorted start
           AlwaysThrows.class,
           AndroidInjectionBeforeSuper.class,
           ArrayEquals.class,
@@ -386,7 +387,9 @@ final class BazelScannerSuppliers {
           VarTypeName.class,
           WrongOneof.class,
           XorPower.class,
-          ZoneIdOfZ.class);
+          ZoneIdOfZ.class
+          // keep-sorted end
+          );
 
   private BazelScannerSuppliers() {}
 }
