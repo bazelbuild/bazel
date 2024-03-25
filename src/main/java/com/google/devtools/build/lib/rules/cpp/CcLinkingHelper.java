@@ -751,9 +751,9 @@ public final class CcLinkingHelper {
     if (dynamicLinkActionBuilder.hasLtoBitcodeInputs()
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       if (featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB)) {
-        dynamicLinkActionBuilder.setLtoIndexing(true);
         dynamicLinkActionBuilder.setUsePicForLtoBackendActions(usePic);
-        CppLinkAction indexAction = dynamicLinkActionBuilder.build();
+        dynamicLinkActionBuilder.buildAllLtoArtifacts();
+        CppLinkAction indexAction = dynamicLinkActionBuilder.buildLtoIndexingAction();
         if (indexAction != null) {
           linkActionConstruction.getContext().registerAction(indexAction);
         }
@@ -763,8 +763,6 @@ public final class CcLinkingHelper {
                 + CppRuleClasses.SUPPORTS_START_END_LIB
                 + " must be enabled.");
       }
-
-      dynamicLinkActionBuilder.setLtoIndexing(false);
     }
 
     if (shouldPassPropellerProfiles()) {

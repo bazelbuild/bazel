@@ -176,8 +176,6 @@ public class CppLinkActionBuilder {
   private boolean useTestOnlyFlags;
   private boolean wholeArchive;
   private boolean mustKeepDebug = false;
-
-  private boolean isLtoIndexing = false;
   private boolean usePicForLtoBackendActions = false;
   private Iterable<LtoBackendArtifacts> allLtoArtifacts = null;
 
@@ -202,6 +200,12 @@ public class CppLinkActionBuilder {
 
   // Set after build() is called
   @Nullable private LinkerInputs.LibraryToLink interfaceOutputLibrary;
+
+  // LTO variables computed in buildAllLtoArtifacts
+  private boolean allowLtoIndexing = false;
+  boolean includeLinkStaticInLtoIndexing;
+  PathFragment ltoOutputRootPrefix = null;
+  PathFragment ltoObjRootPrefix = null;
 
   /**
    * Creates a builder that builds {@link CppLinkAction}s.
@@ -234,7 +238,7 @@ public class CppLinkActionBuilder {
   }
 
   /** Returns the action name for purposes of querying the crosstool. */
-  private String getActionName() {
+  private String getActionName(boolean isLtoIndexing) {
     // We check that this action is not lto-indexing, or when it is, it's either for executable
     // or transitive or nodeps dynamic library.
     Preconditions.checkArgument(
@@ -581,9 +585,73 @@ public class CppLinkActionBuilder {
     }
   }
 
-  /** Builds the Action as configured and returns it. */
+  /**
+   * When using this, allLtoArtifacts are stored so the next build() call can emit the real link. Do
+   * not call addInput() between the two build() calls.
+   */
+  public void buildAllLtoArtifacts() throws EvalException {
+    Preconditions.checkState(allLtoArtifacts == null);
+
+    // Disallow LTO indexing for test targets that link statically, and optionally for any
+    // linkstatic target (which can be used to disable LTO indexing for non-testonly cc_binary
+    // built due to data dependences for a blaze test invocation). Otherwise this will provoke
+    // Blaze OOM errors in the case where multiple static tests are invoked together,
+    // since each target needs a separate set of LTO Backend actions. With dynamic linking,
+    // the targest share the dynamic libraries which were produced via smaller subsets of
+    // LTO indexing/backends. ThinLTO on the tests will be different than the ThinLTO
+    // optimizations applied to the associated main binaries anyway.
+    // Even for dynamically linked tests, disallow linkstatic libraries from participating
+    // in the test's LTO indexing step for similar reasons.
+    boolean canIncludeAnyLinkStaticInLtoIndexing =
+        !featureConfiguration.isEnabled(
+            CppRuleClasses.THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS);
+    boolean canIncludeAnyLinkStaticTestTargetInLtoIndexing =
+        !featureConfiguration.isEnabled(
+            CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS);
+    includeLinkStaticInLtoIndexing =
+        canIncludeAnyLinkStaticInLtoIndexing
+            && (canIncludeAnyLinkStaticTestTargetInLtoIndexing || !isTestOrTestOnlyTarget);
+    allowLtoIndexing =
+        includeLinkStaticInLtoIndexing
+            || (linkingMode == Link.LinkingMode.DYNAMIC && !ltoCompilationContext.isEmpty());
+
+    ltoOutputRootPrefix =
+        allowLtoIndexing
+            ? CppHelper.getLtoOutputRootPrefix(output.getRootRelativePath())
+            : CppHelper.SHARED_NONLTO_BACKEND_ROOT_PREFIX;
+    ltoObjRootPrefix =
+        featureConfiguration.isEnabled(CppRuleClasses.USE_LTO_NATIVE_OBJECT_DIRECTORY)
+            ? CppHelper.getThinLtoNativeObjectDirectoryFromLtoOutputRoot(ltoOutputRootPrefix)
+            : ltoOutputRootPrefix;
+    // Use the originalUniqueLibraries which contains the full bitcode files
+    // needed by the LTO backends (as opposed to the minimized bitcode files
+    // containing just the summaries and symbol information that can be used by
+    // the LTO indexing step).
+    allLtoArtifacts =
+        createLtoArtifacts(
+            ltoOutputRootPrefix,
+            ltoObjRootPrefix,
+            libraries.build(),
+            allowLtoIndexing,
+            includeLinkStaticInLtoIndexing);
+  }
+
+  /** This is the LTO indexing step, rather than the real link. */
   @Nullable
+  public CppLinkAction buildLtoIndexingAction() throws EvalException {
+    Preconditions.checkState(allLtoArtifacts != null);
+    if (!allowLtoIndexing) {
+      return null;
+    }
+    return buildLinkAction(/* isLtoIndexing= */ true);
+  }
+
+  /** Builds the Action as configured and returns it. */
   public CppLinkAction build() throws InterruptedException, EvalException {
+    return buildLinkAction(/* isLtoIndexing= */ false);
+  }
+
+  private CppLinkAction buildLinkAction(boolean isLtoIndexing) throws EvalException {
     NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = libraries.build();
 
     // Executable links do not have library identifiers.
@@ -609,57 +677,6 @@ public class CppLinkActionBuilder {
         wholeArchive
             || needWholeArchive(
                 featureConfiguration, linkingMode, linkType, linkopts, cppConfiguration);
-    // Disallow LTO indexing for test targets that link statically, and optionally for any
-    // linkstatic target (which can be used to disable LTO indexing for non-testonly cc_binary
-    // built due to data dependences for a blaze test invocation). Otherwise this will provoke
-    // Blaze OOM errors in the case where multiple static tests are invoked together,
-    // since each target needs a separate set of LTO Backend actions. With dynamic linking,
-    // the targest share the dynamic libraries which were produced via smaller subsets of
-    // LTO indexing/backends. ThinLTO on the tests will be different than the ThinLTO
-    // optimizations applied to the associated main binaries anyway.
-    // Even for dynamically linked tests, disallow linkstatic libraries from participating
-    // in the test's LTO indexing step for similar reasons.
-    boolean canIncludeAnyLinkStaticInLtoIndexing =
-        !featureConfiguration.isEnabled(
-            CppRuleClasses.THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS);
-    boolean canIncludeAnyLinkStaticTestTargetInLtoIndexing =
-        !featureConfiguration.isEnabled(
-            CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS);
-    boolean includeLinkStaticInLtoIndexing =
-        canIncludeAnyLinkStaticInLtoIndexing
-            && (canIncludeAnyLinkStaticTestTargetInLtoIndexing || !isTestOrTestOnlyTarget);
-    boolean allowLtoIndexing =
-        includeLinkStaticInLtoIndexing
-            || (linkingMode == Link.LinkingMode.DYNAMIC && !ltoCompilationContext.isEmpty());
-
-    PathFragment ltoOutputRootPrefix = null;
-    PathFragment ltoObjRootPrefix = null;
-    if (isLtoIndexing) {
-      Preconditions.checkState(allLtoArtifacts == null);
-      ltoOutputRootPrefix =
-          allowLtoIndexing
-              ? CppHelper.getLtoOutputRootPrefix(output.getRootRelativePath())
-              : CppHelper.SHARED_NONLTO_BACKEND_ROOT_PREFIX;
-      ltoObjRootPrefix =
-          featureConfiguration.isEnabled(CppRuleClasses.USE_LTO_NATIVE_OBJECT_DIRECTORY)
-              ? CppHelper.getThinLtoNativeObjectDirectoryFromLtoOutputRoot(ltoOutputRootPrefix)
-              : ltoOutputRootPrefix;
-      // Use the originalUniqueLibraries which contains the full bitcode files
-      // needed by the LTO backends (as opposed to the minimized bitcode files
-      // containing just the summaries and symbol information that can be used by
-      // the LTO indexing step).
-      allLtoArtifacts =
-          createLtoArtifacts(
-              ltoOutputRootPrefix,
-              ltoObjRootPrefix,
-              originalUniqueLibraries,
-              allowLtoIndexing,
-              includeLinkStaticInLtoIndexing);
-
-      if (!allowLtoIndexing) {
-        return null;
-      }
-    }
 
     // Get the set of object files and libraries containing the correct
     // inputs for this link, depending on whether this is LTO indexing or
@@ -682,7 +699,7 @@ public class CppLinkActionBuilder {
 
     Map<Artifact, Artifact> ltoMapping = new HashMap<>();
 
-    if (isFinalLinkOfLtoBuild()) {
+    if (isFinalLinkOfLtoBuild(isLtoIndexing)) {
       for (LtoBackendArtifacts a : allLtoArtifacts) {
         ltoMapping.put(a.getBitcodeFile(), a.getObjectFile());
       }
@@ -880,7 +897,7 @@ public class CppLinkActionBuilder {
 
     LinkCommandLine.Builder linkCommandLineBuilder =
         new LinkCommandLine.Builder()
-            .setActionName(getActionName())
+            .setActionName(getActionName(isLtoIndexing))
             .setLinkTargetType(linkType)
             .setSplitCommandLine(canSplitCommandLine())
             .setParameterFileType(
@@ -925,14 +942,16 @@ public class CppLinkActionBuilder {
     }
 
     ImmutableMap<String, String> toolchainEnv =
-        CppHelper.getEnvironmentVariables(featureConfiguration, buildVariables, getActionName());
+        CppHelper.getEnvironmentVariables(
+            featureConfiguration, buildVariables, getActionName(isLtoIndexing));
 
     // If the crosstool uses action_configs to configure cc compilation, collect execution info
     // from there, otherwise, use no execution info.
     // TODO(b/27903698): Assert that the crosstool has an action_config for this action.
 
-    if (featureConfiguration.actionIsConfigured(getActionName())) {
-      for (String req : featureConfiguration.getToolRequirementsForAction(getActionName())) {
+    if (featureConfiguration.actionIsConfigured(getActionName(isLtoIndexing))) {
+      for (String req :
+          featureConfiguration.getToolRequirementsForAction(getActionName(isLtoIndexing))) {
         executionInfo.put(req, "");
       }
     }
@@ -1023,7 +1042,7 @@ public class CppLinkActionBuilder {
   }
 
   /** We're doing 4-phased lto build, and this is the final link action (4-th phase). */
-  private boolean isFinalLinkOfLtoBuild() {
+  private boolean isFinalLinkOfLtoBuild(boolean isLtoIndexing) {
     return !isLtoIndexing && allLtoArtifacts != null;
   }
 
@@ -1174,18 +1193,6 @@ public class CppLinkActionBuilder {
   /** Returns the set of LTO artifacts created during build() */
   public Iterable<LtoBackendArtifacts> getAllLtoBackendArtifacts() {
     return allLtoArtifacts;
-  }
-
-  /**
-   * This is the LTO indexing step, rather than the real link.
-   *
-   * <p>When using this, build() will store allLtoArtifacts as a side-effect so the next build()
-   * call can emit the real link. Do not call addInput() between the two build() calls.
-   */
-  @CanIgnoreReturnValue
-  public CppLinkActionBuilder setLtoIndexing(boolean ltoIndexing) {
-    this.isLtoIndexing = ltoIndexing;
-    return this;
   }
 
   /** Sets flag for using PIC in any scheduled LTO Backend actions. */
