@@ -437,7 +437,8 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
             },
             defaultValue = "-1",
             doc = "The index of the item.")
-      })
+      },
+      trustReturnsValid = true)
   public Object pop(Object i) throws EvalException {
     int size = size();
     Object[] elems = elems();
