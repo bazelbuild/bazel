@@ -133,6 +133,15 @@ function generate_java_file_with_many_synthetic_classes() {
 
   echo "      };"
   echo "    }"
+  echo "    public IntSupplier[] bar() {"
+  echo "      return new IntSupplier[] {"
+
+  for ((i = 0; i < $lambda_count; i++ )) do
+    echo "        () -> $i,"
+  done
+
+  echo "      };"
+  echo "    }"
   echo "  }"
   echo "}"
 }
@@ -169,8 +178,8 @@ function test_DexMapper_synthetic_classes_crossing_dexfiles() {
   bazel build java/com/testapp || fail "Test app should have built succesfully"
 
   dex_file_count=$(unzip -l bazel-bin/java/com/testapp/testapp.apk | grep "classes[0-9]*.dex" | wc -l)
-  if [[ ! "$dex_file_count" -eq "5" ]]; then
-    echo "Expected 5 dexes in app, found: $dex_file_count"
+  if [[ ! "$dex_file_count" -eq "4" ]]; then
+    echo "Expected 4 dexes in app, found: $dex_file_count"
     exit 1
   fi
 }
