@@ -243,9 +243,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   String getOutputDirectoryName();
 
-  @StarlarkMethod(name = "hwasan", structField = true, doc = "", documented = false)
-  boolean isHwasan();
-
   @StarlarkMethod(
       name = "filter_library_jar_with_program_jar",
       structField = true,

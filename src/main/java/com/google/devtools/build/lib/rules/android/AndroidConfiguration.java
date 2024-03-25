@@ -1141,7 +1141,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
   private final boolean disableInstrumentationManifestMerging;
-  private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
@@ -1199,7 +1198,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
-    this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
 
     if (incrementalDexingShardsAfterProguard < 0) {
@@ -1422,11 +1420,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentMultiplexDexDesugar() {
     return persistentMultiplexDexDesugar;
-  }
-
-  @Override
-  public boolean isHwasan() {
-    return hwasan;
   }
 
   @Override

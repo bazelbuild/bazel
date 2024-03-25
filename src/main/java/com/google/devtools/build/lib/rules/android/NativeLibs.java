@@ -49,14 +49,9 @@ public final class NativeLibs {
 
   private static String getLibDirName(ConfiguredTargetAndData dep) {
     BuildConfigurationValue configuration = dep.getConfiguration();
-    AndroidConfiguration androidConfiguration =
-        configuration.getFragment(AndroidConfiguration.class);
     String name =
         configuration.getFragment(PlatformConfiguration.class).getTargetPlatform().getName();
 
-    if (androidConfiguration.isHwasan()) {
-      name += "-hwasan";
-    }
     return name;
   }
 
