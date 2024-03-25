@@ -14,6 +14,7 @@ filegroup(
 DUMPER_SOURCES = [
     "Dumper.java",
     "FieldInfoCache.java",
+    "Fingerprinter.java",
 ]
 
 java_library(
@@ -71,5 +72,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
