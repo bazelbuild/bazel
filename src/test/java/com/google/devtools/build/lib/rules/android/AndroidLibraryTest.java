@@ -1960,25 +1960,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   @Test
   public void compileDataBindingOutputWhenDataBindingEnabled() throws Exception {
     scratch.file(
-        "sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'aapt',",
-        "    aapt2 = 'aapt2',",
-        "    adb = 'adb',",
-        "    aidl = 'aidl',",
-        "    android_jar = 'android.jar',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    framework_aidl = 'framework_aidl',",
-        "    main_dex_classes = 'main_dex_classes',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'proguard',",
-        "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign',",
-        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
-        ")");
-    scratch.file(
         "java/a/BUILD",
         "android_library(",
         "    name = 'a', ",
@@ -1987,7 +1968,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    manifest = 'a/AndroidManifest.xml',",
         "    resource_files = ['res/values/a.xml']",
         ")");
-    useConfiguration("--android_sdk=//sdk:sdk");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
 
     SpawnAction compileAction =

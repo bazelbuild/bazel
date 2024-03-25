@@ -196,29 +196,4 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
         new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
-
-  @Test
-  public void testAndroidSdkConfigurationField() throws Exception {
-    scratch.file(
-        "foo_library.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  return MyInfo(foo = ctx.attr._android_sdk.label)",
-        "foo_library = rule(implementation = _impl,",
-        "    attrs = { '_android_sdk': attr.label(default = configuration_field(",
-        "        fragment = 'android', name = 'android_sdk_label'))},",
-        "    fragments = ['android'])");
-    scratch.file(
-        "BUILD",
-        "load('//:foo_library.bzl', 'foo_library')",
-        "filegroup(name = 'new_sdk')",
-        "foo_library(name = 'lib')");
-
-    // This test doesn't touch platforms, it directly reads the --android_sdk flag value.
-    useConfiguration("--android_sdk=//:new_sdk");
-
-    ConfiguredTarget ct = getConfiguredTarget("//:lib");
-    assertThat(getMyInfoFromTarget(ct).getValue("foo"))
-        .isEqualTo(Label.parseCanonicalUnchecked("//:new_sdk"));
-  }
 }
