@@ -120,6 +120,7 @@ import com.google.errorprone.bugpatterns.RandomModInteger;
 import com.google.errorprone.bugpatterns.RequiredModifiersChecker;
 import com.google.errorprone.bugpatterns.RestrictedApiChecker;
 import com.google.errorprone.bugpatterns.ReturnValueIgnored;
+import com.google.errorprone.bugpatterns.TruthSelfEquals;
 import com.google.errorprone.bugpatterns.SelfAssignment;
 import com.google.errorprone.bugpatterns.SelfComparison;
 import com.google.errorprone.bugpatterns.SelfEquals;
@@ -134,7 +135,6 @@ import com.google.errorprone.bugpatterns.TheoryButNoTheories;
 import com.google.errorprone.bugpatterns.ThrowIfUncheckedKnownChecked;
 import com.google.errorprone.bugpatterns.ThrowNull;
 import com.google.errorprone.bugpatterns.TreeToString;
-import com.google.errorprone.bugpatterns.TruthSelfEquals;
 import com.google.errorprone.bugpatterns.TryFailThrowable;
 import com.google.errorprone.bugpatterns.TypeParameterQualifier;
 import com.google.errorprone.bugpatterns.UnicodeDirectionalityCharacters;
@@ -209,7 +209,6 @@ final class BazelScannerSuppliers {
   // New errors should not be enabled in this list to avoid breaking changes in java_rules release
   private static final ImmutableSet<BugCheckerInfo> ENABLED_ERRORS =
       getSuppliers(
-          // keep-sorted start
           AlwaysThrows.class,
           AndroidInjectionBeforeSuper.class,
           ArrayEquals.class,
@@ -356,6 +355,9 @@ final class BazelScannerSuppliers {
           RequiredModifiersChecker.class,
           RestrictedApiChecker.class,
           ReturnValueIgnored.class,
+          // If you got a build error here, remove the rewrite in
+          // devtools/blaze/bazel/admin/copybara/copy.bara.sky.
+          TruthSelfEquals.class,
           SelfAssignment.class,
           SelfComparison.class,
           SelfEquals.class,
@@ -371,7 +373,6 @@ final class BazelScannerSuppliers {
           ThrowIfUncheckedKnownChecked.class,
           ThrowNull.class,
           TreeToString.class,
-          TruthSelfEquals.class,
           TryFailThrowable.class,
           TypeParameterQualifier.class,
           UnicodeDirectionalityCharacters.class,
@@ -385,9 +386,7 @@ final class BazelScannerSuppliers {
           VarTypeName.class,
           WrongOneof.class,
           XorPower.class,
-          ZoneIdOfZ.class
-          // keep-sorted end
-          );
+          ZoneIdOfZ.class);
 
   private BazelScannerSuppliers() {}
 }
