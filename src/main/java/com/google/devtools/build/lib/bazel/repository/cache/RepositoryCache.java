@@ -217,7 +217,13 @@ public class RepositoryCache {
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     cacheEntry.createDirectoryAndParents();
     FileSystemUtils.copyFile(sourcePath, tmpName);
-    tmpName.renameTo(cacheValue);
+    try {
+      tmpName.renameTo(cacheValue);
+    } catch (java.nio.file.AccessDeniedException e) {
+      if (!cacheValue.exists()) {
+        throw e;
+      }
+    }
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
       String idHash = keyType.newHasher().putBytes(canonicalId.getBytes(UTF_8)).hash().toString();
