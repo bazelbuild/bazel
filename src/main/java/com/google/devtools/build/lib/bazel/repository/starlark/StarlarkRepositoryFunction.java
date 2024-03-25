@@ -186,7 +186,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
           recordedInputValues.putAll(state.recordedInputValues);
           return result;
         } catch (ExecutionException e) {
-          e.printStackTrace();
           Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
           Throwables.throwIfUnchecked(e.getCause());
           throw new IllegalStateException(
