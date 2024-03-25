@@ -319,9 +319,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
     java.nio.file.Path source = getNioPath(sourcePath);
     java.nio.file.Path target = getNioPath(targetPath);
-    try {
-    Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
-    } catch (java.nio.file.FileAlreadyExistsException e) {}
+    Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyAction.REPLACE_EXISTING);
   }
 
   @Override
