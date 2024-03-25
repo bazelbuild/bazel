@@ -654,7 +654,8 @@ public class CppLinkActionBuilder {
         /* isLtoIndexing= */ true,
         objectFileInputs,
         uniqueLibraries,
-        /* ltoMapping= */ ImmutableMap.of());
+        /* ltoMapping= */ ImmutableMap.of(),
+        /* linkstampMap= */ ImmutableMap.of());
   }
 
   /** Builds the Action as configured and returns it. */
@@ -668,18 +669,24 @@ public class CppLinkActionBuilder {
       }
     }
 
+    ImmutableSet<Linkstamp> linkstamps = linkstampsBuilder.build();
+    final ImmutableMap<Linkstamp, Artifact> linkstampMap =
+        mapLinkstampsToOutputs(linkstamps, linkActionConstruction, output);
+
     return buildLinkAction(
         /* isLtoIndexing= */ false,
         ImmutableSet.copyOf(objectFiles),
         libraries.build(),
-        ltoMapping);
+        ltoMapping,
+        linkstampMap);
   }
 
   private CppLinkAction buildLinkAction(
       boolean isLtoIndexing,
       ImmutableSet<LinkerInput> objectFileInputs,
       NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries,
-      Map<Artifact, Artifact> ltoMapping)
+      Map<Artifact, Artifact> ltoMapping,
+      ImmutableMap<Linkstamp, Artifact> linkstampMap)
       throws EvalException {
 
     // Executable links do not have library identifiers.
@@ -687,13 +694,9 @@ public class CppLinkActionBuilder {
     boolean isExecutable = linkType.isExecutable();
     Preconditions.checkState(hasIdentifier != isExecutable);
     Preconditions.checkNotNull(featureConfiguration);
-    ImmutableSet<Linkstamp> linkstamps = linkstampsBuilder.build();
-    final ImmutableMap<Linkstamp, Artifact> linkstampMap =
-        mapLinkstampsToOutputs(linkstamps, linkActionConstruction, output);
 
     if (interfaceOutput != null && !linkType.isDynamicLibrary()) {
-      throw new RuntimeException(
-          "Interface output can only be used " + "with DYNAMIC_LIBRARY targets");
+      throw Starlark.errorf("Interface output can only be used with DYNAMIC_LIBRARY targets");
     }
 
     if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
@@ -971,7 +974,7 @@ public class CppLinkActionBuilder {
 
     if (!isLtoIndexing) {
       final ImmutableList<Artifact> buildInfoHeaderArtifacts =
-          linkstamps.isEmpty()
+          linkstampMap.isEmpty()
               ? ImmutableList.of()
               : isStampingEnabled
                   ? toolchain
