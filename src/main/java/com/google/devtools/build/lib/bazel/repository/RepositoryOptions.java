@@ -266,7 +266,7 @@ public class RepositoryOptions extends OptionsBase {
 
   @Option(
       name = "check_direct_dependencies",
-      defaultValue = "warning",
+      defaultValue = "error",
       converter = CheckDirectDepsMode.Converter.class,
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
