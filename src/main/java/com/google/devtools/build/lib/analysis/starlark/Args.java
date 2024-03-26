@@ -73,7 +73,8 @@ public abstract class Args implements CommandLineArgsApi {
   @Override
   public void debugPrint(Printer printer, StarlarkSemantics semantics) {
     try {
-      printer.append(Joiner.on(" ").join(build().arguments()));
+      printer.append(
+          Joiner.on(" ").join(build(/* mainRepoMappingSupplier */ () -> null).arguments()));
     } catch (CommandLineExpansionException e) {
       printer.append("Cannot expand command line: " + e.getMessage());
     } catch (InterruptedException e) {
@@ -105,7 +106,8 @@ public abstract class Args implements CommandLineArgsApi {
   public abstract ImmutableSet<Artifact> getDirectoryArtifacts();
 
   /** Returns the command line built by this {@link Args} object. */
-  public abstract CommandLine build() throws InterruptedException;
+  public abstract CommandLine build(
+      InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) throws InterruptedException;
 
   /**
    * Returns a frozen {@link Args} representation corresponding to an already-registered action.
@@ -125,11 +127,8 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   /** Creates and returns a new (empty) {@link Args} object. */
-  public static Args newArgs(
-      @Nullable Mutability mutability,
-      StarlarkSemantics starlarkSemantics,
-      InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) {
-    return new MutableArgs(mutability, starlarkSemantics, mainRepoMappingSupplier);
+  public static Args newArgs(@Nullable Mutability mutability, StarlarkSemantics starlarkSemantics) {
+    return new MutableArgs(mutability, starlarkSemantics);
   }
 
   /**
@@ -163,7 +162,7 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     @Override
-    public CommandLine build() {
+    public CommandLine build(InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) {
       return commandLine;
     }
 
@@ -251,8 +250,6 @@ public abstract class Args implements CommandLineArgsApi {
 
     private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
     private final Set<Artifact> directoryArtifacts = new HashSet<>();
-    private final InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier;
-
     /**
      * If true, flag names and values will be grouped with '=', e.g.
      *
@@ -596,17 +593,14 @@ public abstract class Args implements CommandLineArgsApi {
       return this;
     }
 
-    private MutableArgs(
-        @Nullable Mutability mutability,
-        StarlarkSemantics starlarkSemantics,
-        InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) {
+    private MutableArgs(@Nullable Mutability mutability, StarlarkSemantics starlarkSemantics) {
       this.mutability = mutability != null ? mutability : Mutability.IMMUTABLE;
       this.commandLine = new StarlarkCustomCommandLine.Builder(starlarkSemantics);
-      this.mainRepoMappingSupplier = mainRepoMappingSupplier;
     }
 
     @Override
-    public CommandLine build() throws InterruptedException {
+    public CommandLine build(InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier)
+        throws InterruptedException {
       return commandLine.build(
           flagPerLine, mayStringifyExternalLabel ? mainRepoMappingSupplier.get() : null);
     }

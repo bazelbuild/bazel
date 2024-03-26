@@ -49,8 +49,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
 
   @Before
   public void initArgs() throws Exception {
-    args =
-        Args.newArgs(mutability, getStarlarkSemantics(), () -> RepositoryMapping.ALWAYS_FALLBACK);
+    args = Args.newArgs(mutability, getStarlarkSemantics());
     args.setParamFileFormat("flag_per_line");
     thread = new StarlarkThread(mutability, getStarlarkSemantics());
   }
@@ -169,7 +168,10 @@ public class FlagPerLineTest extends BuildViewTestCase {
     byte[] bytes;
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       ParameterFile.writeParameterFile(
-          outputStream, args.build().arguments(), args.getParameterFileType(), UTF_8);
+          outputStream,
+          args.build(() -> RepositoryMapping.ALWAYS_FALLBACK).arguments(),
+          args.getParameterFileType(),
+          UTF_8);
       bytes = outputStream.toByteArray();
     }
     try (ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
