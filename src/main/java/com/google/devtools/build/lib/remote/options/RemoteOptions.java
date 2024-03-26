@@ -752,6 +752,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " smart enough about the RAM/CPU usages, this flag will be removed.")
   public boolean throttleRemoteActionBuilding;
 
+  @Option(
+      name = "experimental_remote_output_service",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "HOST or HOST:PORT of a remote output service endpoint. The supported schemas are grpc, "
+              + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no schema is "
+              + "provided Bazel will default to grpcs. Specify grpc:// or unix: schema to "
+              + "disable TLS.")
+  public String remoteOutputService;
+
   private static final class ScrubberConverter extends Converter.Contextless<Scrubber> {
 
     @Override
