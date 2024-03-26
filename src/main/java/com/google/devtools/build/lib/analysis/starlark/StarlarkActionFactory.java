@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -68,6 +69,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage;
@@ -348,7 +350,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               ruleContext.getActionOwner(),
               NestedSetBuilder.wrap(Order.STABLE_ORDER, args.getDirectoryArtifacts()),
               (Artifact) output,
-              args.build(),
+              args.build(getMainRepoMappingSupplier()),
               args.getParameterFileType());
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
@@ -383,7 +385,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     boolean useAutoExecGroups = ruleContext.useAutoExecGroups();
 
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
-    buildCommandLine(builder, arguments);
+    buildCommandLine(builder, arguments, getMainRepoMappingSupplier());
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
       FilesToRunProvider provider = context.getExecutableRunfiles(executable, "executable");
@@ -569,7 +571,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     RuleContext ruleContext = getRuleContext();
 
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
-    buildCommandLine(builder, arguments);
+    buildCommandLine(builder, arguments, getMainRepoMappingSupplier());
 
     // When we use a shell command, add an empty argument before other arguments.
     //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
@@ -632,7 +634,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         builder);
   }
 
-  private static void buildCommandLine(SpawnAction.Builder builder, Sequence<?> argumentsList)
+  private static void buildCommandLine(
+      SpawnAction.Builder builder,
+      Sequence<?> argumentsList,
+      InterruptibleSupplier<RepositoryMapping> repoMappingSupplier)
       throws EvalException, InterruptedException {
     ImmutableList.Builder<String> stringArgs = null;
     for (Object value : argumentsList) {
@@ -648,7 +653,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         }
         Args args = (Args) value;
         ParamFileInfo paramFileInfo = args.getParamFileInfo();
-        builder.addCommandLine(args.build(), paramFileInfo);
+        builder.addCommandLine(args.build(repoMappingSupplier), paramFileInfo);
       } else {
         throw Starlark.errorf(
             "expected list of strings or ctx.actions.args() for arguments instead of %s",
@@ -1017,10 +1022,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   @Override
   public Args args(StarlarkThread thread) {
-    return Args.newArgs(
-        thread.mutability(),
-        getSemantics(),
-        getRuleContext().getAnalysisEnvironment()::getMainRepoMapping);
+    return Args.newArgs(thread.mutability(), getSemantics());
   }
 
   @Override
@@ -1048,6 +1050,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   public void repr(Printer printer) {
     printer.append("actions for");
     context.repr(printer);
+  }
+
+  private InterruptibleSupplier<RepositoryMapping> getMainRepoMappingSupplier() {
+    return context.getRuleContext().getAnalysisEnvironment()::getMainRepoMapping;
   }
 
   /** The analysis context for {@code Starlark} actions */
