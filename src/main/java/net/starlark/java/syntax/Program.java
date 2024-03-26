@@ -85,7 +85,9 @@ public final class Program {
       }
     }
 
-    return new Program(file.getResolvedFunction(), loads.build(), loadLocations.build());
+    Program program = new Program(file.getResolvedFunction(), loads.build(), loadLocations.build());
+    CoverageRecorder.getInstance().register(program);
+    return program;
   }
 
   /**

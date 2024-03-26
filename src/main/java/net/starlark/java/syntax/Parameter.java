@@ -116,6 +116,9 @@ public abstract class Parameter extends Node {
 
     @Override
     public int getEndOffset() {
+      if (getIdentifier() == null) {
+        return starOffset + 1;
+      }
       return getIdentifier().getEndOffset();
     }
   }
