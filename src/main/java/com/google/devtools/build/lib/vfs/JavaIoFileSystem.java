@@ -22,9 +22,12 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -319,7 +322,43 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
     java.nio.file.Path source = getNioPath(sourcePath);
     java.nio.file.Path target = getNioPath(targetPath);
-    Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    try {
+      Files.move(
+          source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } catch (NoSuchFileException originalException) {
+      FileNotFoundException newException =
+          new FileNotFoundException(originalException.getMessage() + ERR_NO_SUCH_FILE_OR_DIR);
+      newException.initCause(originalException);
+      throw newException;
+    } catch (AccessDeniedException originalException) {
+      AccessDeniedException newException =
+          new AccessDeniedException(originalException.getMessage() + ERR_PERMISSION_DENIED);
+      newException.initCause(originalException);
+      throw newException;
+    } catch (FileSystemException originalException) {
+      if (originalException.getMessage().endsWith(": Directory not empty")) {
+        String originalMessage = originalException.getMessage();
+        throw new IOException(
+            originalMessage.substring(
+                    0, originalMessage.length() - (": Directory not empty").length())
+                + ERR_DIRECTORY_NOT_EMPTY,
+            originalException);
+      } else if (originalException.getMessage().endsWith(": Not a directory")) {
+        String originalMessage = originalException.getMessage();
+        throw new IOException(
+            originalMessage.substring(0, originalMessage.length() - (": Not a directory").length())
+                + ERR_NOT_A_DIRECTORY,
+            originalException);
+      } else if (originalException.getMessage().endsWith(": Is a directory")) {
+        String originalMessage = originalException.getMessage();
+        throw new IOException(
+            originalMessage.substring(0, originalMessage.length() - (": Is a directory").length())
+                + ERR_IS_DIRECTORY,
+            originalException);
+      } else {
+        throw originalException;
+      }
+    }
   }
 
   @Override
