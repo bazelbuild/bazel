@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /**
@@ -167,6 +168,9 @@ public class TestConstants {
 
   public static final String PLATFORM_LABEL =
       LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host";
+
+  public static final Label ANDROID_DEFAULT_SDK =
+     Label.parseCanonicalUnchecked("@bazel_tools//tools/android:sdk");
 
   /** What toolchain type do Android rules use for platform-based toolchain resolution? */
   public static final String ANDROID_TOOLCHAIN_TYPE_LABEL =
