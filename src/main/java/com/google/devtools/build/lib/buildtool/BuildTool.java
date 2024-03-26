@@ -13,11 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -25,6 +33,8 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.Project;
+import com.google.devtools.build.lib.analysis.Project.ProjectParseException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -38,8 +48,10 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.StartingAqueryDumpAfterBuildEvent;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -56,6 +68,7 @@ import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
@@ -73,6 +86,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
@@ -287,6 +301,10 @@ public class BuildTool {
           AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
+
+    // TODO: b/324127375 - Use with incoming --scl_config flag.
+    PathFragment unusedProjectFile =
+        getProjectFile(loadingResult.getTargetLabels(), env.getSkyframeExecutor(), getReporter());
 
     // See https://github.com/bazelbuild/rules_nodejs/issues/3693.
     env.getSkyframeExecutor().clearSyscallCache();
@@ -717,6 +735,71 @@ public class BuildTool {
   public void validateOptions(BuildRequest request) {
     for (String issue : request.validateOptions()) {
       getReporter().handle(Event.warn(issue));
+    }
+  }
+
+  /**
+   * Returns the project file suitable for this build, or null if there's no project file.
+   *
+   * @param topLevelTargets this build's top-level targets
+   * @param skyframeExecutor support for SkyFunctions that look up project files
+   * @param eventHandler event handler
+   * @throws LoadingFailedException if this build doesn't cleanly resolve to a single project file.
+   *     Builds are valid if either a) all top-level targets resolve to the same project file or b)
+   *     none of the top-level targets resolve to any project file. Builds are invalid if a) any
+   *     top-level targets resolve to different project files or b) any top-level target has
+   *     multiple project files (i.e. foo/project.scl and foo/bar/project.scl).
+   */
+  // TODO: b/324127375 - Support hierarchical project files: [foo/project.scl, foo/bar/project.scl].
+  @Nullable
+  @VisibleForTesting
+  static PathFragment getProjectFile(
+      Collection<Label> topLevelTargets,
+      SkyframeExecutor skyframeExecutor,
+      ExtendedEventHandler eventHandler)
+      throws LoadingFailedException {
+    ImmutableMultimap<Label, PathFragment> projectFiles;
+    try {
+      projectFiles = Project.findProjectFiles(topLevelTargets, skyframeExecutor, eventHandler);
+    } catch (ProjectParseException e) {
+      throw new LoadingFailedException(
+          "Error finding project files: " + e.getMessage(),
+          DetailedExitCode.of(ExitCode.PARSING_FAILURE, FailureDetail.getDefaultInstance()));
+    }
+
+    ImmutableSet<PathFragment> distinct = ImmutableSet.copyOf(projectFiles.values());
+    if (distinct.size() == 1) {
+      PathFragment projectFile = Iterables.getOnlyElement(distinct);
+      eventHandler.handle(
+          Event.info(String.format("Reading project settings from %s.", projectFile)));
+      return projectFile;
+    } else if (distinct.isEmpty()) {
+      return null;
+    } else {
+      ListMultimap<Collection<PathFragment>, Label> projectFilesToTargets =
+          LinkedListMultimap.create();
+      Multimaps.invertFrom(Multimaps.forMap(projectFiles.asMap()), projectFilesToTargets);
+      StringBuilder msgBuilder =
+          new StringBuilder("This build doesn't support automatic project resolution. ");
+      if (projectFilesToTargets.size() == 1) {
+        msgBuilder
+            .append("Multiple project files found: ")
+            .append(
+                projectFilesToTargets.keys().stream().map(Object::toString).collect(joining(",")));
+      } else {
+        msgBuilder.append("Targets have different project settings. For example: ");
+        for (var entry : projectFilesToTargets.asMap().entrySet()) {
+          msgBuilder.append(
+              String.format(
+                  " [%s]: %s",
+                  entry.getKey().stream().map(l -> l.toString()).collect(joining(",")),
+                  entry.getValue().iterator().next()));
+        }
+      }
+      String errorMsg = msgBuilder.toString();
+      throw new LoadingFailedException(
+          errorMsg,
+          DetailedExitCode.of(ExitCode.BUILD_FAILURE, FailureDetail.getDefaultInstance()));
     }
   }
 
