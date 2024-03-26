@@ -93,6 +93,19 @@ public class ManifestMergerAction {
     public Map<Path, String> mergeeManifests;
 
     @Option(
+      name = "featureManifests",
+      defaultValue = "",
+      converter = ExistingPathStringDictionaryConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = 
+        "A dictionary of feature manifests, and originating target, to be merged into manifest. "
+             + "Accepts at most one entry."
+    )
+    public Map<Path, String> featureManifests;
+
+    @Option(
       name = "mergeType",
       defaultValue = "APPLICATION",
       converter = MergeTypeConverter.class,
@@ -230,6 +243,7 @@ public class ManifestMergerAction {
           manifestProcessor.mergeManifest(
               manifest,
               mergeeManifests.buildOrThrow(),
+              options.featureManifests,
               options.mergeType,
               options.manifestValues,
               options.customPackage,
