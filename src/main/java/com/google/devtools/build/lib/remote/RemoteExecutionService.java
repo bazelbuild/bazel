@@ -304,13 +304,23 @@ public class RemoteExecutionService {
     if (useRemoteCache(remoteOptions)) {
       allowRemoteCache = remoteOptions.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
       if (useDiskCache(remoteOptions)) {
-        // Combined cache. Disk cache is treated as local cache. Actions which are tagged with
-        // `no-remote-cache` can still hit the disk cache.
-        allowDiskCache = Spawns.mayBeCached(spawn);
+        // Combined cache
+        if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+          // --incompatible_remote_results_ignore_disk is set. Disk cache is treated as local cache.
+          // Actions which are tagged with `no-remote-cache` can still hit the disk cache.
+          allowDiskCache = Spawns.mayBeCached(spawn);
+        } else {
+          // Disk cache is treated as a remote cache and disabled for `no-remote-cache`.
+          allowDiskCache = allowRemoteCache;
+        }
       }
     } else {
       // Disk cache only
-      allowDiskCache = Spawns.mayBeCached(spawn);
+      if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+        allowDiskCache = Spawns.mayBeCached(spawn);
+      } else {
+        allowDiskCache = remoteOptions.remoteAcceptCached && Spawns.mayBeCached(spawn);
+      }
     }
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
@@ -329,13 +339,24 @@ public class RemoteExecutionService {
           shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn.getExecutionInfo())
               && remoteCache.actionCacheSupportsUpdate();
       if (useDiskCache(remoteOptions)) {
-        // Combined cache. Treat the disk cache part as local cache. Actions which are tagged with
-        // `no-remote-cache` can still hit the disk cache.
-        allowDiskCache = Spawns.mayBeCached(spawn);
+        // Combined cache
+        if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+          // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as
+          // local cache. Actions which are tagged with `no-remote-cache` can still hit the disk
+          // cache.
+          allowDiskCache = Spawns.mayBeCached(spawn);
+        } else {
+          // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
+          allowDiskCache = allowRemoteCache;
+        }
       }
     } else {
       // Disk cache only
-      allowDiskCache = Spawns.mayBeCached(spawn);
+      if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+        allowDiskCache = Spawns.mayBeCached(spawn);
+      } else {
+        allowDiskCache = remoteOptions.remoteUploadLocalResults && Spawns.mayBeCached(spawn);
+      }
     }
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
