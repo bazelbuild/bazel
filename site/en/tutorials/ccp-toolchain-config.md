@@ -429,7 +429,7 @@ slightly between different versions of clang.
     )
     ```
 
-10. Run `bazel build //main:hello-world --platforms=android_x86_64` to build the binary for Android.
+10. Run `bazel build //main:hello-world --android_platforms=//toolchain:android_x86_64` to build the binary for Android.
 
 In practice, Linux and Android should have different C++ toolchain configs. You
 can either modify the existing `cc_toolchain_config` for the differences or
@@ -443,8 +443,9 @@ toolchains are more powerful than this simple example.
 
 The key take-aways are:
 
-- You need to specify a `--platforms` flag in the command line for Bazel to
+- You need to specify a matching `platforms` flag in the command line for Bazel to
   resolve to the toolchain for the same constraint values on the platform.
+  The documentation holds more [information about language specific configuration flags](/concepts/platforms).
 - You have to let the toolchain know where the tools live. In this tutorial
   there is a simplified version where you access the tools from the system. If
   you are interested in a more self-contained approach, you can read about
