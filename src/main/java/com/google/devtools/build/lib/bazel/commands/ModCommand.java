@@ -643,6 +643,7 @@ public final class ModCommand implements BlazeCommand {
                 modTidyValue.moduleOverrides(),
                 modTidyValue.ignoreDevDeps(),
                 modTidyValue.starlarkSemantics(),
+                env.getRuntime().getRuleClassProvider().getBazelStarlarkEnvironment(),
                 env.getReporter());
       } catch (SkyFunctionException | InterruptedException e) {
         return reportAndCreateFailureResult(

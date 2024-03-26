@@ -206,6 +206,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
+                        ruleClassProvider.getBazelStarlarkEnvironment(),
                         registryFactory,
                         workspaceRoot,
                         // Required to load @_builtins.
