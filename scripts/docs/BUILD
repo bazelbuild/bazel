@@ -47,7 +47,6 @@ py_binary(
     srcs = ["create_release_docs.py"],
     deps = [
         ":rewriter",
-        "//third_party/py/abseil",
     ],
 )
 
