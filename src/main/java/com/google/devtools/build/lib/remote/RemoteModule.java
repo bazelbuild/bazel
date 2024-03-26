@@ -394,6 +394,12 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
 
+    if (!Strings.isNullOrEmpty(remoteOptions.remoteOutputService)) {
+      throw createExitException(
+          "Remote Output Service is still WIP",
+          ExitCode.REMOTE_ERROR,
+          Code.REMOTE_EXECUTION_UNKNOWN);
+    }
     remoteOutputService = new RemoteOutputService(env);
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
