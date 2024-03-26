@@ -373,7 +373,7 @@ function test_compiles_hello_library_from_deploy_jar() {
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
 
-  bazel build //$pkg/java/main:main_deploy.jar || fail "build failed"
+  bazel build //$pkg/java/main:{main,main_deploy.jar} || fail "build failed"
   ${PRODUCT_NAME}-bin/$pkg/java/main/main --singlejar \
       | grep -q "Hello, Library!;Hello, World!" || fail "comparison failed"
 

@@ -528,7 +528,6 @@ def _auto_create_deploy_jar(ctx, info):
     create_deploy_archive(
         ctx,
         launcher = info.launcher_info.launcher,
-        runfiles = depset(),
         main_class = info.main_class,
         coverage_main_class = info.coverage_main_class,
         resources = java_attrs.resources,
