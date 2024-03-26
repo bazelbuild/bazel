@@ -805,6 +805,13 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             defaultValue = "''",
             named = true,
             doc =
+                "Deprecated: You can drop this parameter in preference"
+		+ "\nto strip_prefix (introduced for the purpose of naming consistency)."),
+	@Param(
+            name = "strip_prefix",
+            defaultValue = "''",
+            named = true,
+            doc =
                 "a directory prefix to strip from the extracted files."
                     + "\nMany archives contain a top-level directory that contains all files in the"
                     + " archive. Instead of needing to specify this prefix over and over in the"
