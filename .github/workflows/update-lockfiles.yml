@@ -6,6 +6,8 @@ on:
   pull_request:
     branches:
       - "release-**"
+    types:
+      - closed
 
 permissions:
   contents: read
