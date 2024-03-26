@@ -448,6 +448,7 @@ public final class BuildEventServiceUploader implements Runnable {
                   besProtoUtil.bazelEvent(
                       buildEvent.getSequenceNumber(),
                       buildEvent.getCreationTime(),
+                      retryAttempt,
                       Any.pack(serializedRegularBuildEvent));
 
               streamContext.sendOverStream(request);
@@ -462,7 +463,7 @@ public final class BuildEventServiceUploader implements Runnable {
               lastEventSent = true;
               PublishBuildToolEventStreamRequest request =
                   besProtoUtil.streamFinished(
-                      lastEvent.getSequenceNumber(), lastEvent.getCreationTime());
+                      lastEvent.getSequenceNumber(), lastEvent.getCreationTime(), retryAttempt);
               streamContext.sendOverStream(request);
               streamContext.halfCloseStream();
               halfCloseFuture.set(null);

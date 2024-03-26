@@ -184,4 +184,8 @@ message PublishBuildToolEventStreamRequest {
   // request. BES only performs this check for events with sequence_number 1
   // i.e. the first event in the stream.
   bool check_preceding_lifecycle_events_present = 7;
+
+  // The number of retry attempts has been made to publish the unique event.
+  // Starts from 0.
+  int32 retry_attempt = 8;
 }
