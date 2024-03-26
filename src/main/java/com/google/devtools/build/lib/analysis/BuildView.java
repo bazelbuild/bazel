@@ -14,18 +14,12 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.LinkedListMultimap;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
@@ -41,7 +35,6 @@ import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
-import com.google.devtools.build.lib.analysis.Project.ProjectParseException;
 import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -96,7 +89,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
 import java.util.HashSet;
@@ -205,72 +197,6 @@ public class BuildView {
         .collect(Collectors.toCollection(LinkedHashSet::new));
   }
 
-  /**
-   * Returns the project file suitable for this build, or null if there's no project file.
-   *
-   * @param topLevelTargets this build's top-level targets
-   * @param skyframeExecutor support for SkyFunctions that look up project files
-   * @param eventHandler event handler
-   * @throws ViewCreationFailedException if this build doesn't cleanly resolve to a single project
-   *     file. Builds are valid if either a) all top-level targets resolve to the same project file
-   *     or b) none of the top-level targets resolve to any project file. Builds are invalid if a)
-   *     any top-level targets resolve to different project files or b) any top-level target has
-   *     multiple project files (i.e. foo/project.scl and foo/bar/project.scl).
-   */
-  // TODO: b/324127375 - Support hierarchical project files: [foo/project.scl, foo/bar/project.scl].
-  @Nullable
-  @VisibleForTesting
-  static PathFragment getProjectFile(
-      Collection<Label> topLevelTargets,
-      SkyframeExecutor skyframeExecutor,
-      ExtendedEventHandler eventHandler)
-      throws ViewCreationFailedException {
-    ImmutableMultimap<Label, PathFragment> projectFiles;
-    try {
-      projectFiles = Project.findProjectFiles(topLevelTargets, skyframeExecutor, eventHandler);
-    } catch (ProjectParseException e) {
-      throw new ViewCreationFailedException(
-          createAnalysisFailureDetail(
-              "Error finding project files", Analysis.Code.UNEXPECTED_ANALYSIS_EXCEPTION),
-          e);
-    }
-
-    ImmutableSet<PathFragment> distinct = ImmutableSet.copyOf(projectFiles.values());
-    if (distinct.size() == 1) {
-      PathFragment projectFile = Iterables.getOnlyElement(distinct);
-      eventHandler.handle(
-          Event.info(String.format("Reading project settings from %s.", projectFile)));
-      return projectFile;
-    } else if (distinct.isEmpty()) {
-      return null;
-    } else {
-      ListMultimap<Collection<PathFragment>, Label> projectFilesToTargets =
-          LinkedListMultimap.create();
-      Multimaps.invertFrom(Multimaps.forMap(projectFiles.asMap()), projectFilesToTargets);
-      StringBuilder msgBuilder =
-          new StringBuilder("This build doesn't support automatic project resolution. ");
-      if (projectFilesToTargets.size() == 1) {
-        msgBuilder
-            .append("Multiple project files found: ")
-            .append(
-                projectFilesToTargets.keys().stream().map(Object::toString).collect(joining(",")));
-      } else {
-        msgBuilder.append("Targets have different project settings. For example: ");
-        for (var entry : projectFilesToTargets.asMap().entrySet()) {
-          msgBuilder.append(
-              String.format(
-                  " [%s]: %s",
-                  entry.getKey().stream().map(l -> l.toString()).collect(joining(",")),
-                  entry.getValue().iterator().next()));
-        }
-      }
-      String errorMsg = msgBuilder.toString();
-      throw new ViewCreationFailedException(
-          errorMsg,
-          createAnalysisFailureDetail(errorMsg, Analysis.Code.UNEXPECTED_ANALYSIS_EXCEPTION));
-    }
-  }
-
   @ThreadCompatible
   public AnalysisResult update(
       TargetPatternPhaseValue loadingResult,
@@ -306,10 +232,6 @@ public class BuildView {
     pollInterruptedStatus();
 
     skyframeBuildView.resetProgressReceiver();
-
-    // TODO: b/324127375 - Use with incoming --scl_config flag.
-    PathFragment unusedProjectFile =
-        getProjectFile(loadingResult.getTargetLabels(), skyframeExecutor, eventHandler);
     skyframeExecutor.setBaselineConfiguration(targetOptions);
 
     ImmutableMap.Builder<Label, Target> labelToTargetsMapBuilder =

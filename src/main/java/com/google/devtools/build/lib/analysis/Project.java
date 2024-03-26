@@ -64,7 +64,7 @@ public final class Project {
   private Project() {}
 
   /** Thrown when project data can't be read. */
-  static class ProjectParseException extends Exception {
+  public static class ProjectParseException extends Exception {
     ProjectParseException(String msg, Throwable cause) {
       super(msg, cause);
     }

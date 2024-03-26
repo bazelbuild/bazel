@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.skyframe.PackageLookupFunction.PROJECT_FILE_NAME;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCountAtLeast;
 import static org.junit.Assert.assertThrows;
 
@@ -1368,94 +1367,5 @@ public class BuildViewTest extends BuildViewTestBase {
     reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//pkg")));
     update("//pkg:foo");
     assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:6: [\"foo\"]");
-  }
-
-  @Test
-  public void buildWithNoProjectFiles() throws Exception {
-    // TODO: b/324127375 - Test with update() once there's a user API to invoke projects.
-    scratch.file("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
-
-    assertThat(
-            BuildView.getProjectFile(
-                ImmutableList.of(Label.parseCanonical("//pkg:f")), skyframeExecutor, reporter))
-        .isNull();
-  }
-
-  @Test
-  public void buildWithOneProjectFile() throws Exception {
-    // TODO: b/324127375 - Test with update() once there's a user API to invoke projects.
-    scratch.file("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
-    scratch.file("pkg/" + PROJECT_FILE_NAME);
-
-    assertThat(
-            BuildView.getProjectFile(
-                ImmutableList.of(Label.parseCanonical("//pkg:f")), skyframeExecutor, reporter))
-        .isEqualTo(PathFragment.create("pkg/" + PROJECT_FILE_NAME));
-  }
-
-  @Test
-  public void buildWithTwoProjectFiles() throws Exception {
-    // TODO: b/324127375 - Test with update() once there's a user API to invoke projects.
-    scratch.file("foo/bar/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
-    scratch.file("foo/BUILD");
-    scratch.file("foo/" + PROJECT_FILE_NAME);
-    scratch.file("foo/bar/" + PROJECT_FILE_NAME);
-
-    var thrown =
-        assertThrows(
-            ViewCreationFailedException.class,
-            () ->
-                BuildView.getProjectFile(
-                    ImmutableList.of(Label.parseCanonical("//foo/bar:f")),
-                    skyframeExecutor,
-                    reporter));
-    assertThat(thrown)
-        .hasMessageThat()
-        .contains(
-            String.format(
-                "Multiple project files found: [foo/%s, foo/bar/%s]",
-                PROJECT_FILE_NAME, PROJECT_FILE_NAME));
-  }
-
-  @Test
-  public void twoTargetsSameProjectFile() throws Exception {
-    // TODO: b/324127375 - Test with update() once there's a user API to invoke projects.
-    scratch.file("foo/bar/BUILD", "genrule(name='child', cmd = '', srcs=[], outs=['c.out'])");
-    scratch.file("foo/BUILD", "genrule(name='parent', cmd = '', srcs=[], outs=['p.out'])");
-    scratch.file("foo/" + PROJECT_FILE_NAME);
-
-    assertThat(
-            BuildView.getProjectFile(
-                ImmutableList.of(
-                    Label.parseCanonical("//foo:parent"), Label.parseCanonical("//foo/bar:child")),
-                skyframeExecutor,
-                reporter))
-        .isEqualTo(PathFragment.create("foo/" + PROJECT_FILE_NAME));
-  }
-
-  @Test
-  public void twoTargetsDifferentProjectFiles() throws Exception {
-    // TODO: b/324127375 - Test with update() once there's a user API to invoke projects.
-    scratch.file("foo/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['f.out'])");
-    scratch.file("bar/BUILD", "genrule(name='g', cmd = '', srcs=[], outs=['g.out'])");
-    scratch.file("foo/" + PROJECT_FILE_NAME);
-    scratch.file("bar/" + PROJECT_FILE_NAME);
-
-    var thrown =
-        assertThrows(
-            ViewCreationFailedException.class,
-            () ->
-                BuildView.getProjectFile(
-                    ImmutableList.of(
-                        Label.parseCanonical("//foo:f"), Label.parseCanonical("//bar:g")),
-                    skyframeExecutor,
-                    reporter));
-    assertThat(thrown)
-        .hasMessageThat()
-        .contains(
-            String.format(
-                "Targets have different project settings. "
-                    + "For example:  [foo/%s]: //foo:f [bar/%s]: //bar:g",
-                PROJECT_FILE_NAME, PROJECT_FILE_NAME));
   }
 }
