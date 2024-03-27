@@ -333,36 +333,21 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
       newException.initCause(originalException);
       throw newException;
     } catch (AccessDeniedException originalException) {
-      AccessDeniedException newException =
-          new AccessDeniedException(originalException.getMessage() + ERR_PERMISSION_DENIED);
+      FileAccessException newException =
+          new FileAccessException(originalException.getMessage() + ERR_PERMISSION_DENIED);
       newException.initCause(originalException);
       throw newException;
-    } catch (FileSystemException originalException) {
+    } catch (FileSystemException e) {
       // Rewrite exception messages to be identical to the ones produced by the native Unix
       // filesystem implementation. Bazel forces the root locale for the JVM, so the error messages
-      // can be expected to be stable.
-      if (originalException.getMessage().endsWith(": Directory not empty")) {
-        String originalMessage = originalException.getMessage();
-        throw new IOException(
-            originalMessage.substring(
-                    0, originalMessage.length() - (": Directory not empty").length())
-                + ERR_DIRECTORY_NOT_EMPTY,
-            originalException);
-      } else if (originalException.getMessage().endsWith(": Not a directory")) {
-        String originalMessage = originalException.getMessage();
-        throw new IOException(
-            originalMessage.substring(0, originalMessage.length() - (": Not a directory").length())
-                + ERR_NOT_A_DIRECTORY,
-            originalException);
-      } else if (originalException.getMessage().endsWith(": Is a directory")) {
-        String originalMessage = originalException.getMessage();
-        throw new IOException(
-            originalMessage.substring(0, originalMessage.length() - (": Is a directory").length())
-                + ERR_IS_DIRECTORY,
-            originalException);
-      } else {
-        throw originalException;
-      }
+      // should be stable.
+      String filesPart = sourcePath + " -> " + targetPath;
+      throw switch (e.getReason()) {
+        case "Directory not empty" -> new IOException(filesPart + ERR_DIRECTORY_NOT_EMPTY, e);
+        case "Not a directory" -> new IOException(filesPart + ERR_NOT_A_DIRECTORY, e);
+        case "Is a directory" -> new IOException(filesPart + ERR_IS_DIRECTORY, e);
+        default -> e;
+      };
     }
   }
 
