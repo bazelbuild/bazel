@@ -773,6 +773,11 @@ public abstract class FileSystem {
   /**
    * Renames the file denoted by "sourceNode" to the location "targetNode". See {@link
    * Path#renameTo} for specification.
+   *
+   * <p>Implementations must be atomic.</p>
+   *
+   * @throws java.nio.file.AccessDeniedException if the target file cannot be replaced due to
+   *     concurrent file system operations on Windows (and possibly other reasons)
    */
   public abstract void renameTo(PathFragment sourcePath, PathFragment targetPath)
       throws IOException;

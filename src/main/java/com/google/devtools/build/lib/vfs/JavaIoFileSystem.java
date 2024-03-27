@@ -322,6 +322,8 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
     java.nio.file.Path source = getNioPath(sourcePath);
     java.nio.file.Path target = getNioPath(targetPath);
+    // Replace NIO exceptions with the types used by the native Unix filesystem implementation where
+    // necessary.
     try {
       Files.move(
           source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
@@ -336,6 +338,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
       newException.initCause(originalException);
       throw newException;
     } catch (FileSystemException originalException) {
+      // Rewrite exception messages to be identical to the ones produced by the native Unix
+      // filesystem implementation. Bazel forces the root locale for the JVM, so the error messages
+      // can be expected to be stable.
       if (originalException.getMessage().endsWith(": Directory not empty")) {
         String originalMessage = originalException.getMessage();
         throw new IOException(
