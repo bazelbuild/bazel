@@ -120,6 +120,7 @@ final class CounterSeriesTraceData implements TraceData {
     // See
     // https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#heading=h.msg3086636uq
     // for how counter series are represented in the Chrome Trace Event format.
+    boolean recorded = false;
     for (int i = 0; i < len; i++) {
       long timeNanos = profileStart.plus(bucketDuration.multipliedBy(i)).toNanos();
       jsonWriter.setIndent("  ");
@@ -138,9 +139,11 @@ final class CounterSeriesTraceData implements TraceData {
       jsonWriter.beginObject();
       for (ProfilerTask profilerTask : counterSeriesMap.keySet()) {
         double value = counterSeriesMap.get(profilerTask)[i];
-        // Skip counts equal to zero. They will show up as a thin line in the profile.
-        if (Math.abs(value) > 0.00001) {
+        // Skip counts equal to zero. They will show up as a thin line in the profile. Once we
+        // record the profile task we need to post it until the end.
+        if (Math.abs(value) > 0.00001 || recorded) {
           jsonWriter.name(COUNTER_TASK_TO_SERIES_NAME.get(profilerTask)).value(value);
+          recorded = true;
         }
       }
       jsonWriter.endObject();
