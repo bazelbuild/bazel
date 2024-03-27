@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -580,9 +581,16 @@ public class CustomCommandLine extends AbstractCommandLine {
 
     private static final UUID PREFIX_UUID = UUID.fromString("a95eccdf-4f54-46fc-b925-c8c7e1f50c95");
 
-    private static void push(List<Object> arguments, String before, Object arg) {
+    private static void push(
+        List<Object> arguments,
+        String before,
+        Object arg,
+        @Nullable RepositoryMapping mainRepoMapping) {
       arguments.add(INSTANCE);
       arguments.add(before);
+      if (mainRepoMapping != null) {
+        arguments.add(mainRepoMapping);
+      }
       arguments.add(arg);
     }
 
@@ -594,6 +602,9 @@ public class CustomCommandLine extends AbstractCommandLine {
         PathMapper pathMapper) {
       String before = (String) arguments.get(argi++);
       Object arg = arguments.get(argi++);
+      if (arg instanceof RepositoryMapping mainRepoMapping) {
+        arg = ((Label) arguments.get(argi++)).getDisplayForm(mainRepoMapping);
+      }
       builder.add(before + CommandLineItem.expandToCommandLine(arg));
       return argi;
     }
@@ -606,7 +617,11 @@ public class CustomCommandLine extends AbstractCommandLine {
         Fingerprint fingerprint) {
       fingerprint.addUUID(PREFIX_UUID);
       fingerprint.addString((String) arguments.get(argi++));
-      fingerprint.addString(CommandLineItem.expandToCommandLine(arguments.get(argi++)));
+      Object arg = arguments.get(argi++);
+      if (arg instanceof RepositoryMapping mainRepoMapping) {
+        arg = ((Label) arguments.get(argi++)).getDisplayForm(mainRepoMapping);
+      }
+      fingerprint.addString(CommandLineItem.expandToCommandLine(arg));
       return argi;
     }
   }
@@ -888,22 +903,28 @@ public class CustomCommandLine extends AbstractCommandLine {
 
     /** Concatenates the passed prefix string and the string. */
     public Builder addPrefixed(@CompileTimeConstant String prefix, @Nullable String arg) {
-      return addPrefixedInternal(prefix, arg);
+      return addPrefixedInternal(prefix, arg, /* mainRepoMapping= */ null);
     }
 
-    /** Concatenates the passed prefix string and the label using {@link Label#getCanonicalForm}. */
-    public Builder addPrefixedLabel(@CompileTimeConstant String prefix, @Nullable Label arg) {
-      return addPrefixedInternal(prefix, arg);
+    /**
+     * Concatenates the passed prefix string and the label using {@link Label#getDisplayForm}, which
+     * is identical to {@link Label#getCanonicalForm()} for main repo labels.
+     */
+    public Builder addPrefixedLabel(
+        @CompileTimeConstant String prefix,
+        @Nullable Label arg,
+        RepositoryMapping mainRepoMapping) {
+      return addPrefixedInternal(prefix, arg, mainRepoMapping);
     }
 
     /** Concatenates the passed prefix string and the path. */
     public Builder addPrefixedPath(@CompileTimeConstant String prefix, @Nullable PathFragment arg) {
-      return addPrefixedInternal(prefix, arg);
+      return addPrefixedInternal(prefix, arg, /* mainRepoMapping= */ null);
     }
 
     /** Concatenates the passed prefix string and the artifact's exec path. */
     public Builder addPrefixedExecPath(@CompileTimeConstant String prefix, @Nullable Artifact arg) {
-      return addPrefixedInternal(prefix, arg);
+      return addPrefixedInternal(prefix, arg, /* mainRepoMapping= */ null);
     }
 
     /**
@@ -1129,10 +1150,11 @@ public class CustomCommandLine extends AbstractCommandLine {
     }
 
     @CanIgnoreReturnValue
-    private Builder addPrefixedInternal(String prefix, @Nullable Object arg) {
+    private Builder addPrefixedInternal(
+        String prefix, @Nullable Object arg, @Nullable RepositoryMapping mainRepoMapping) {
       Preconditions.checkNotNull(prefix);
       if (arg != null) {
-        PrefixArg.push(arguments, prefix, arg);
+        PrefixArg.push(arguments, prefix, arg, mainRepoMapping);
       }
       return this;
     }

@@ -134,7 +134,11 @@ public class JavaStarlarkCommon
       Object injectingRuleKind,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs)
-      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException {
+      throws EvalException,
+          TypeException,
+          RuleErrorException,
+          LabelSyntaxException,
+          InterruptedException {
     checkJavaToolchainIsDeclaredOnRule(ctx.getRuleContext());
     JavaTargetAttributes.Builder attributesBuilder =
         new JavaTargetAttributes.Builder(javaSemantics)
@@ -199,7 +203,11 @@ public class JavaStarlarkCommon
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
       Sequence<?> additionalOutputs)
-      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException {
+      throws EvalException,
+          TypeException,
+          RuleErrorException,
+          LabelSyntaxException,
+          InterruptedException {
     checkJavaToolchainIsDeclaredOnRule(ctx.getRuleContext());
     JavaCompileOutputs<Artifact> outputs =
         JavaCompileOutputs.builder()
