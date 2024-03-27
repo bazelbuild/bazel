@@ -483,6 +483,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     // Paths returned from NativePosixFiles are Strings containing raw bytes from the filesystem.
     // Java's IO subsystem expects paths to be encoded per the `sun.jnu.encoding` setting. This
     // is difficult to handle generically, but we can special-case the most common case (UTF-8).
+    // The client attempts to force a locale that uses ISO-8859-1, but that may fail if no such
+    // locale is available.
     if ("UTF-8".equals(System.getProperty("sun.jnu.encoding"))) {
       final byte[] pathBytes = pathStr.getBytes(StandardCharsets.ISO_8859_1);
       return new File(new String(pathBytes, StandardCharsets.UTF_8));

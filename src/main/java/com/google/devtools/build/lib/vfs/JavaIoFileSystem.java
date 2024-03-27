@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
@@ -66,7 +67,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   protected File getIoFile(PathFragment path) {
-    return new File(path.toString());
+    return new File(toPathString(path));
   }
 
   /**
@@ -78,7 +79,20 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
    * useful for some in-memory filesystem implementations like JimFS.
    */
   protected java.nio.file.Path getNioPath(PathFragment path) {
-    return Paths.get(path.toString());
+    return Paths.get(toPathString(path));
+  }
+
+  private String toPathString(PathFragment path) {
+    // Paths returned from NativePosixFiles are Strings containing raw bytes from the filesystem.
+    // Java's IO subsystem expects paths to be encoded per the `sun.jnu.encoding` setting. This
+    // is difficult to handle generically, but we can special-case the most common case (UTF-8).
+    // The client attempts to force a locale that uses ISO-8859-1, but that may fail if no such
+    // locale is available.
+    if ("UTF-8".equals(System.getProperty("sun.jnu.encoding"))) {
+      final byte[] pathBytes = path.getPathString().getBytes(StandardCharsets.ISO_8859_1);
+      return new String(pathBytes, StandardCharsets.UTF_8);
+    }
+    return path.getPathString();
   }
 
   private LinkOption[] linkOpts(boolean followSymlinks) {
