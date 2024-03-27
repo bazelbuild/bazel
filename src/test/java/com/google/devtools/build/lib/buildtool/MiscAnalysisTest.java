@@ -72,9 +72,28 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
     // :a depends on :dep in the target configuration. :b depends on :dep in the exec configuration.
     write(
         "foo/BUILD",
-        "genrule(name = 'a', outs = ['a.out'], srcs = [':dep'], cmd = 'touch $@')",
-        "genrule(name = 'b', outs = ['b.out'], tools = [':dep'], cmd = 'touch $@')",
-        "genrule(name = 'dep', outs = ['dep.out'], srcs = ['//deprecated'], cmd = 'touch $@')");
+        """
+        genrule(
+            name = "a",
+            srcs = [":dep"],
+            outs = ["a.out"],
+            cmd = "touch $@",
+        )
+
+        genrule(
+            name = "b",
+            outs = ["b.out"],
+            cmd = "touch $@",
+            tools = [":dep"],
+        )
+
+        genrule(
+            name = "dep",
+            srcs = ["//deprecated"],
+            outs = ["dep.out"],
+            cmd = "touch $@",
+        )
+        """);
     write("deprecated/BUILD", "sh_library(name = 'deprecated', deprecation = 'old')");
     addOptions("--nobuild");
     buildTarget("//foo:a", "//foo:b");
@@ -105,10 +124,28 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
   public void testAnalysisCachingAndKeepGoing() throws Exception {
     write(
         "fruit/BUILD",
-        "cc_library(name='apple', deps=[':banana'])",
-        "cc_library(name='banana', deps=[':cherry'])",
-        "cc_library(name='cherry', deps=[':durian__hdrs__'])",
-        "genrule(name='durian', outs=['durian.out'], cmd=':')");
+        """
+        cc_library(
+            name = "apple",
+            deps = [":banana"],
+        )
+
+        cc_library(
+            name = "banana",
+            deps = [":cherry"],
+        )
+
+        cc_library(
+            name = "cherry",
+            deps = [":durian__hdrs__"],
+        )
+
+        genrule(
+            name = "durian",
+            outs = ["durian.out"],
+            cmd = ":",
+        )
+        """);
     addOptions("--nobuild", "--keep_going");
 
     BuildFailedException e =
@@ -131,8 +168,18 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
   public void testErrorsAreReplayedEvenWithAnalysisCaching() throws Exception {
     write(
         "fruit/BUILD",
-        "cc_library(name='apple', deps=[':banana__hdrs__'])",
-        "genrule(name='banana', outs=['banana.out'], cmd=':')");
+        """
+        cc_library(
+            name = "apple",
+            deps = [":banana__hdrs__"],
+        )
+
+        genrule(
+            name = "banana",
+            outs = ["banana.out"],
+            cmd = ":",
+        )
+        """);
     addOptions("--nobuild");
 
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//fruit:apple"));
@@ -164,10 +211,20 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
 
   @Test
   public void testDiscardAnalysisCache() throws Exception {
-    write("sh/BUILD",
-        "sh_library(name = 'sh', srcs = [], deps = [':dep'])",
-        "sh_library(name = 'dep', srcs = [])"
-        );
+    write(
+        "sh/BUILD",
+        """
+        sh_library(
+            name = "sh",
+            srcs = [],
+            deps = [":dep"],
+        )
+
+        sh_library(
+            name = "dep",
+            srcs = [],
+        )
+        """);
     buildTarget("//sh:sh");
     // We test with dep because target completion middleman actions keep references to the
     // top-level configured targets.
@@ -190,8 +247,18 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
   public void testDiscardAnalysisCacheWithError() throws Exception {
     write(
         "x/BUILD",
-        "cc_library(name='x', deps=[':z__hdrs__'])",
-        "genrule(name='z', outs=['z.out'], cmd=':')");
+        """
+        cc_library(
+            name = "x",
+            deps = [":z__hdrs__"],
+        )
+
+        genrule(
+            name = "z",
+            outs = ["z.out"],
+            cmd = ":",
+        )
+        """);
     write("y/BUILD", "sh_library(name='y')");
     addOptions("--discard_analysis_cache", "--keep_going");
     EventCollector collector = new EventCollector(EventKind.STDERR);
@@ -204,11 +271,14 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
 
   @Test
   public void testBuildAllAndEvaluationError() throws Exception {
-    write("pkg/BUILD",
-          "java_binary(",
-          "    name = \"foo\",",
-          "    srcs = unknown_value,",
-          ")");
+    write(
+        "pkg/BUILD",
+        """
+        java_binary(
+            name = "foo",
+            srcs = unknown_value,
+        )
+        """);
 
     addOptions("--nobuild");
 

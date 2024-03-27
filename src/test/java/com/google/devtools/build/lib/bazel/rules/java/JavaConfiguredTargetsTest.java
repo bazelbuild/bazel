@@ -81,13 +81,15 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   public void testResourceStripPrefix() throws Exception {
     scratch.file(
         "a/BUILD",
-        "java_binary(",
-        "   name = 'bin',",
-        "   srcs = ['Foo.java'],",
-        "   resources = ['path/to/strip/bar.props'],",
-        "   main_class = 'Foo',",
-        "   resource_strip_prefix = 'a/path/to/strip'",
-        ")");
+        """
+        java_binary(
+            name = "bin",
+            srcs = ["Foo.java"],
+            main_class = "Foo",
+            resource_strip_prefix = "a/path/to/strip",
+            resources = ["path/to/strip/bar.props"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
 

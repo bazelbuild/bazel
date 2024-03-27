@@ -106,10 +106,15 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
 
   @Test
   public void testPreparingMessage() throws Exception {
-    write("x/BUILD",
-        "genrule(name = 'x',",
-        "        outs = ['slowdelete'],",
-        "        cmd = 'touch $@')");
+    write(
+        "x/BUILD",
+        """
+        genrule(
+            name = "x",
+            outs = ["slowdelete"],
+            cmd = "touch $@",
+        )
+        """);
     buildTarget("//x");
     final Path output = Iterables.getOnlyElement(getArtifacts("//x:x")).getPath();
     assertThat(output.delete()).isTrue();
@@ -137,16 +142,23 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
 
   @Test
   public void testWaitForResources() throws Exception {
-    write("x/BUILD",
-        "genrule(name = 'x',",
-        "        outs = ['x.out'],",
-        "        local = 1,",
-        "        cmd = 'sleep 3; touch $@')",
-        "genrule(name = 'y',",
-        "        outs = ['y.out'],",
-        "        local = 1,",
-        "        cmd = 'sleep 3; touch $@')"
-        );
+    write(
+        "x/BUILD",
+        """
+        genrule(
+            name = "x",
+            outs = ["x.out"],
+            cmd = "sleep 3; touch $@",
+            local = 1,
+        )
+
+        genrule(
+            name = "y",
+            outs = ["y.out"],
+            cmd = "sleep 3; touch $@",
+            local = 1,
+        )
+        """);
     // GenRuleAction currently specifies 300,1.0,0.0. If that changes, this may have to be changed
     // in order to keep exactly one genrule running at a time.
     addOptions(

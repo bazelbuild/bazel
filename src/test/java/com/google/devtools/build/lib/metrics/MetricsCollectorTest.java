@@ -78,11 +78,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   public void writeTrivialFooTarget() throws Exception {
     write(
         "foo/BUILD",
-        "genrule(",
-        "    name = 'foo',",
-        "    outs = ['out'],",
-        "    cmd = 'touch $@',",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            outs = ["out"],
+            cmd = "touch $@",
+        )
+        """);
   }
 
   @Before
@@ -149,8 +151,19 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     createSymlink("c.in", "b/c2.in");
     write(
         "e/BUILD",
-        "alias(name = 'facade', actual = ':e.out')",
-        "genrule(name = 'e', srcs = ['e.in'], outs = ['e.out'], cmd = 'cat $(SRCS) > $@')");
+        """
+        alias(
+            name = "facade",
+            actual = ":e.out",
+        )
+
+        genrule(
+            name = "e",
+            srcs = ["e.in"],
+            outs = ["e.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
     if (OS.getCurrent() == OS.WINDOWS) {
       // On Windows we have \r\n line endings while on other platforms only \n. So make the file one
       // byte shorter on Windows so that the byte counts below match.
@@ -380,27 +393,41 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   public void treeArtifactAndTopLevelMetrics() throws Exception {
     write(
         "foo/tree_artifact_rule.bzl",
-        "def _tree_artifact_files_impl(ctx):",
-        "    directory = ctx.actions.declare_directory(ctx.attr.name + '_artifact')",
-        "    ctx.actions.run_shell(",
-        "      outputs = [directory],",
-        "      command = 'cd %s && echo a > file1 && echo bcde > file2}' % (directory.path))",
-        "    return [DefaultInfo(files = depset([directory]))]",
-        "def _several_outputs_impl(ctx):",
-        "    file = ctx.actions.declare_file(ctx.attr.name + '_file')",
-        "    ctx.actions.write(output = file, content = 'abc')",
-        "    return [DefaultInfo(files = depset([file])),",
-        "            OutputGroupInfo(dep_files = ctx.attr.dep[DefaultInfo].files)]",
-        "my_tree = rule(implementation = _tree_artifact_files_impl)",
-        "my_rule = rule(",
-        "               implementation = _several_outputs_impl,",
-        "               attrs = { 'dep': attr.label()},",
-        " )");
+        """
+        def _tree_artifact_files_impl(ctx):
+            directory = ctx.actions.declare_directory(ctx.attr.name + "_artifact")
+            ctx.actions.run_shell(
+                outputs = [directory],
+                command = "cd %s && echo a > file1 && echo bcde > file2}" % (directory.path),
+            )
+            return [DefaultInfo(files = depset([directory]))]
+
+        def _several_outputs_impl(ctx):
+            file = ctx.actions.declare_file(ctx.attr.name + "_file")
+            ctx.actions.write(output = file, content = "abc")
+            return [
+                DefaultInfo(files = depset([file])),
+                OutputGroupInfo(dep_files = ctx.attr.dep[DefaultInfo].files),
+            ]
+
+        my_tree = rule(implementation = _tree_artifact_files_impl)
+        my_rule = rule(
+            implementation = _several_outputs_impl,
+            attrs = {"dep": attr.label()},
+        )
+        """);
     write(
         "foo/BUILD",
-        "load('//foo:tree_artifact_rule.bzl', 'my_rule', 'my_tree')",
-        "my_tree(name = 'tree')",
-        "my_rule(name = 'top', dep = ':tree')");
+        """
+        load("//foo:tree_artifact_rule.bzl", "my_rule", "my_tree")
+
+        my_tree(name = "tree")
+
+        my_rule(
+            name = "top",
+            dep = ":tree",
+        )
+        """);
     // Null build to populate silly things like fake build-info artifact.
     buildTarget();
     addOptions("--output_groups=+dep_files");
@@ -444,27 +471,37 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   public void aspectLoadedMetric() throws Exception {
     write(
         "foo/foo.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  outfile = ctx.actions.declare_file(ctx.rule.attr.name + 'aspect.out')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [outfile],",
-        "    command = 'echo \"1\" > ' + outfile.path,",
-        "  )",
-        "  return [OutputGroupInfo(files = [outfile])]",
-        "",
-        "def _impl(ctx):",
-        "    return []",
-        "",
-        "rule_aspect = aspect(implementation = _aspect_impl, attr_aspects = ['deps'])",
-        "",
-        "aspected = rule(",
-        "    implementation = _impl,",
-        "    attrs = { 'deps': attr.label_list(aspects = [rule_aspect]) })");
+        """
+        def _aspect_impl(target, ctx):
+            outfile = ctx.actions.declare_file(ctx.rule.attr.name + "aspect.out")
+            ctx.actions.run_shell(
+                outputs = [outfile],
+                command = 'echo "1" > ' + outfile.path,
+            )
+            return [OutputGroupInfo(files = [outfile])]
+
+        def _impl(ctx):
+            return []
+
+        rule_aspect = aspect(implementation = _aspect_impl, attr_aspects = ["deps"])
+
+        aspected = rule(
+            implementation = _impl,
+            attrs = {"deps": attr.label_list(aspects = [rule_aspect])},
+        )
+        """);
     write(
         "foo/BUILD",
-        "load('//foo:foo.bzl', 'aspected')",
-        "aspected(name = 'top', deps = [':dep'])",
-        "aspected(name = 'dep')");
+        """
+        load("//foo:foo.bzl", "aspected")
+
+        aspected(
+            name = "top",
+            deps = [":dep"],
+        )
+
+        aspected(name = "dep")
+        """);
     buildTarget("//foo:top");
     BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
     // 2 additional: aspect and workspace status action.
@@ -589,12 +626,14 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     write(
         "foo/BUILD",
-        "genrule(",
-        "    name = 'foo',",
-        "    outs = ['out'],",
-        "    srcs = ['//noexist:noexist'],",
-        "    cmd = 'touch $@',",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            srcs = ["//noexist"],
+            outs = ["out"],
+            cmd = "touch $@",
+        )
+        """);
 
     addOptions("--analyze");
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
@@ -603,11 +642,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     write(
         "foo/BUILD",
-        "genrule(",
-        "    name = 'foo',",
-        "    outs = ['out'],",
-        "    cmd = '/bin/false',",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            outs = ["out"],
+            cmd = "/bin/false",
+        )
+        """);
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
@@ -618,9 +659,29 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   public void testActionData() throws Exception {
     write(
         "bar/BUILD",
-        "genrule(name='bar', srcs=[':dep1',':dep2'], outs=['out'], cmd='touch $@')",
-        "genrule(name='dep1', outs=['out1'], cmd='touch $@')",
-        "genrule(name='dep2', outs=['out2'], cmd='touch $@')");
+        """
+        genrule(
+            name = "bar",
+            srcs = [
+                ":dep1",
+                ":dep2",
+            ],
+            outs = ["out"],
+            cmd = "touch $@",
+        )
+
+        genrule(
+            name = "dep1",
+            outs = ["out1"],
+            cmd = "touch $@",
+        )
+
+        genrule(
+            name = "dep2",
+            outs = ["out2"],
+            cmd = "touch $@",
+        )
+        """);
     buildTarget("//bar");
     BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
     List<ActionData> actionDataList = buildMetrics.getActionSummary().getActionDataList();
@@ -640,16 +701,19 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   public void skymeldNullIncrementalBuild_buildGraphMetricsNotCollected() throws Exception {
     write(
         "foo/BUILD",
-        "genrule(",
-        "    name = 'foo',",
-        "    outs = ['out'],",
-        "    cmd = 'touch $@',",
-        ")",
-        "genrule(",
-        "    name = 'bar',",
-        "    outs = ['out2'],",
-        "    cmd = 'touch $@',",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            outs = ["out"],
+            cmd = "touch $@",
+        )
+
+        genrule(
+            name = "bar",
+            outs = ["out2"],
+            cmd = "touch $@",
+        )
+        """);
     addOptions("--experimental_merged_skyframe_analysis_execution");
     BuildGraphMetrics expected =
         BuildGraphMetrics.newBuilder()

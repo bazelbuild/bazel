@@ -74,8 +74,16 @@ public class ExportsFilesTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg2/BUILD",
-        "exports_files(['foo'])",
-        "genrule(name = 'foo', srcs = ['bar'], outs = [], cmd = '/bin/true')");
+        """
+        exports_files(["foo"])
+
+        genrule(
+            name = "foo",
+            srcs = ["bar"],
+            outs = [],
+            cmd = "/bin/true",
+        )
+        """);
     assertThat(getTarget("//pkg2:foo")).isInstanceOf(InputFile.class);
     assertContainsEvent("rule 'foo' conflicts with existing source file");
   }

@@ -86,7 +86,13 @@ public class PackageGroupIntegrationTest extends BuildIntegrationTestCase {
   @Test
   public void testNoticesChangeInDefaultVisibility() throws Exception {
     write("z/BUILD", "package_group(name='bs', packages=['//z/c'])");
-    write("z/a/BUILD", "package(default_visibility=['//z:bs'])", "py_library(name='a')");
+    write(
+        "z/a/BUILD",
+        """
+        package(default_visibility = ["//z:bs"])
+
+        py_library(name = "a")
+        """);
     write("z/b/BUILD", "py_library(name='b', deps=['//z/a:a'])");
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//z/b:b"));
 
@@ -101,10 +107,14 @@ public class PackageGroupIntegrationTest extends BuildIntegrationTestCase {
   // "'package' keyword is not handled correctly for BUILD files which...
   @Test
   public void testPackageFunctionPresent() throws Exception {
-    write("boa/BUILD",
-        "# PYTHON-PREPROCESSING-REQUIRED",
-        "package(default_visibility=['//visibility:private'])",
-        "py_library(name='boa')");
+    write(
+        "boa/BUILD",
+        """
+        # PYTHON-PREPROCESSING-REQUIRED
+        package(default_visibility = ["//visibility:private"])
+
+        py_library(name = "boa")
+        """);
     buildTarget("//boa:boa");
   }
 

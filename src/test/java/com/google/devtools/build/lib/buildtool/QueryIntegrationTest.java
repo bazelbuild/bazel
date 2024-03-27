@@ -311,8 +311,17 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void testInputFileElementContainsPackageGroups() throws Exception {
     write(
         "fruit/BUILD",
-        "package_group(name='coconut', packages=['//fruit/walnut'])",
-        "exports_files(['chestnut'], visibility=[':coconut'])");
+        """
+        package_group(
+            name = "coconut",
+            packages = ["//fruit/walnut"],
+        )
+
+        exports_files(
+            ["chestnut"],
+            visibility = [":coconut"],
+        )
+        """);
 
     Document result = getXmlQueryResult("//fruit:chestnut");
     Element resultNode = getResultNode(result, "//fruit:chestnut");
@@ -327,9 +336,25 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void testNonStrictTests() throws Exception {
     write(
         "donut/BUILD",
-        "sh_binary(name = 'thief', srcs = ['thief.sh'])",
-        "cc_test(name = 'shop', srcs = ['shop.cc'])",
-        "test_suite(name = 'cop', tests = [':thief', ':shop'])");
+        """
+        sh_binary(
+            name = "thief",
+            srcs = ["thief.sh"],
+        )
+
+        cc_test(
+            name = "shop",
+            srcs = ["shop.cc"],
+        )
+
+        test_suite(
+            name = "cop",
+            tests = [
+                ":shop",
+                ":thief",
+            ],
+        )
+        """);
 
     // This should not throw an exception, and return 0 targets.
     ProtoQueryOutput result = getProtoQueryResult("tests(//donut:cop)");
@@ -343,8 +368,17 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     options.add("--strict_test_suite=true");
     write(
         "donut/BUILD",
-        "sh_binary(name = 'thief', srcs = ['thief.sh'])",
-        "test_suite(name = 'cop', tests = [':thief'])");
+        """
+        sh_binary(
+            name = "thief",
+            srcs = ["thief.sh"],
+        )
+
+        test_suite(
+            name = "cop",
+            tests = [":thief"],
+        )
+        """);
 
     ProtoQueryOutput result = getProtoQueryResult("tests(//donut:cop)");
     BlazeCommandResult blazeCommandResult = result.getQueryOutput().getBlazeCommandResult();
@@ -462,11 +496,17 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void siblingsFunction() throws Exception {
     write(
         "foo/BUILD",
-        "sh_library(name='t1')",
-        "sh_library(name='t2')",
-        "sh_library(name='t3')",
-        "sh_library(name='t4')",
-        "sh_library(name='t5')");
+        """
+        sh_library(name = "t1")
+
+        sh_library(name = "t2")
+
+        sh_library(name = "t3")
+
+        sh_library(name = "t4")
+
+        sh_library(name = "t5")
+        """);
 
     QueryOutput result = getQueryResult("siblings(//foo:t1)");
     assertSuccessfulExitCode(result);
@@ -477,9 +517,22 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void samePackageDirectRDepsFunction() throws Exception {
     write(
         "foo/BUILD",
-        "sh_library(name='t1', srcs=['t1.sh'])",
-        "sh_library(name='t2', srcs=['t2.sh'])",
-        "sh_library(name='t3', srcs=['t2.sh'])");
+        """
+        sh_library(
+            name = "t1",
+            srcs = ["t1.sh"],
+        )
+
+        sh_library(
+            name = "t2",
+            srcs = ["t2.sh"],
+        )
+
+        sh_library(
+            name = "t3",
+            srcs = ["t2.sh"],
+        )
+        """);
 
     QueryOutput result = getQueryResult("same_pkg_direct_rdeps(//foo:t1.sh)");
     assertSuccessfulExitCode(result);
@@ -703,13 +756,48 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
     write(
         "depth/BUILD",
-        "sh_binary(name = 'one', srcs = ['one.sh'], deps = [':two'])",
-        "sh_library(name = 'two', srcs = ['two.sh'],",
-        "           deps = [':div2', ':three', '//depth2:three'])",
-        "sh_library(name = 'three', srcs = ['three.sh'], deps = [':four'])",
-        "sh_library(name = 'four', srcs = ['four.sh'], deps = [':div2', ':five'])",
-        "sh_library(name = 'five', srcs = ['five.sh'])",
-        "sh_library(name = 'div2', srcs = ['two.sh'])");
+        """
+        sh_binary(
+            name = "one",
+            srcs = ["one.sh"],
+            deps = [":two"],
+        )
+
+        sh_library(
+            name = "two",
+            srcs = ["two.sh"],
+            deps = [
+                ":div2",
+                ":three",
+                "//depth2:three",
+            ],
+        )
+
+        sh_library(
+            name = "three",
+            srcs = ["three.sh"],
+            deps = [":four"],
+        )
+
+        sh_library(
+            name = "four",
+            srcs = ["four.sh"],
+            deps = [
+                ":div2",
+                ":five",
+            ],
+        )
+
+        sh_library(
+            name = "five",
+            srcs = ["five.sh"],
+        )
+
+        sh_library(
+            name = "div2",
+            srcs = ["two.sh"],
+        )
+        """);
 
     write("depth2/BUILD", "sh_library(name = 'three', srcs = ['three.sh'])");
     write("depth/one.sh", "");

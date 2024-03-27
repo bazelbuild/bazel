@@ -46,36 +46,37 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "patched_repo.bzl",
-            "load(",
-            "    \"@bazel_tools//tools/build_defs/repo:utils.bzl\",",
-            "    \"workspace_and_buildfile\",",
-            "    \"patch\",",
-            ")",
-            "",
-            "_common_attrs = {",
-            "    \"files\": attr.string_dict(default = {}),",
-            "    \"patches\": attr.label_list(default = []),",
-            "    \"patch_tool\": attr.string(default = \"\"),",
-            "    \"patch_args\": attr.string_list(default = []),",
-            "    \"patch_cmds\": attr.string_list(default = []),",
-            "    \"patch_cmds_win\": attr.string_list(default = []),",
-            "    \"build_file\": attr.label(allow_single_file = True),",
-            "    \"build_file_content\": attr.string(),",
-            "    \"workspace_file\": attr.label(),",
-            "    \"workspace_file_content\": attr.string(),",
-            "}",
-            "",
-            "def _patched_repo_implementation(ctx):",
-            "    for file_name, label in ctx.attr.files.items():",
-            "      ctx.template(file_name, ctx.path(Label(label)))",
-            "    workspace_and_buildfile(ctx)",
-            "    patch(ctx)",
-            "",
-            "",
-            "patched_repo = repository_rule(",
-            "    implementation = _patched_repo_implementation,",
-            "    attrs = _common_attrs,",
-            ")");
+            """
+            load(
+                "@bazel_tools//tools/build_defs/repo:utils.bzl",
+                "patch",
+                "workspace_and_buildfile",
+            )
+
+            _common_attrs = {
+                "files": attr.string_dict(default = {}),
+                "patches": attr.label_list(default = []),
+                "patch_tool": attr.string(default = ""),
+                "patch_args": attr.string_list(default = []),
+                "patch_cmds": attr.string_list(default = []),
+                "patch_cmds_win": attr.string_list(default = []),
+                "build_file": attr.label(allow_single_file = True),
+                "build_file_content": attr.string(),
+                "workspace_file": attr.label(),
+                "workspace_file_content": attr.string(),
+            }
+
+            def _patched_repo_implementation(ctx):
+                for file_name, label in ctx.attr.files.items():
+                    ctx.template(file_name, ctx.path(Label(label)))
+                workspace_and_buildfile(ctx)
+                patch(ctx)
+
+            patched_repo = repository_rule(
+                implementation = _patched_repo_implementation,
+                attrs = _common_attrs,
+            )
+            """);
     context()
         .write(
             WORKSPACE,

@@ -34,9 +34,16 @@ public class NoOutputActionTest extends BuildIntegrationTestCase {
   public void testNoOutput() throws Exception {
     write(
         "nooutput/BUILD",
-        "genrule(name = 'nooutput', ",
-        "        outs = ['out1', 'out2'],  ",
-        "        cmd = '')");
+        """
+        genrule(
+            name = "nooutput",
+            outs = [
+                "out1",
+                "out2",
+            ],
+            cmd = "",
+        )
+        """);
 
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//nooutput"));

@@ -261,11 +261,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"simple_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"simple_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "simple_test",
+            size = "small",
+            srcs = ["simple_test.sh"],
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
 
     String tmpDirName = TestStrategy.getTmpDirName(testRunnerAction);
@@ -287,11 +289,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"simple_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"simple_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "simple_test",
+            size = "small",
+            srcs = ["simple_test.sh"],
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
 
     SpawnResult expectedSpawnResult =
@@ -349,12 +353,14 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"simple_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"simple_test.sh\"],",
-        "    flaky = True,",
-        ")");
+        """
+        sh_test(
+            name = "simple_test",
+            size = "small",
+            srcs = ["simple_test.sh"],
+            flaky = True,
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
 
     SpawnResult failSpawnResult =
@@ -427,11 +433,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"simple_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"simple_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "simple_test",
+            size = "small",
+            srcs = ["simple_test.sh"],
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
 
     SpawnResult expectedSpawnResult =
@@ -489,11 +497,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"simple_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"simple_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "simple_test",
+            size = "small",
+            srcs = ["simple_test.sh"],
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
 
     SpawnResult expectedSpawnResult =
@@ -552,11 +562,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/failing_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"failing_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"failing_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "failing_test",
+            size = "small",
+            srcs = ["failing_test.sh"],
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:failing_test");
 
     SpawnResult expectedSpawnResult =
@@ -636,12 +648,14 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/failing_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"failing_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"failing_test.sh\"],",
-        "    tags = [\"local\"],",
-        ")");
+        """
+        sh_test(
+            name = "failing_test",
+            size = "small",
+            srcs = ["failing_test.sh"],
+            tags = ["local"],
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:failing_test");
 
     SpawnResult testSpawnResult =
@@ -726,11 +740,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"empty_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"empty_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "empty_test",
+            size = "small",
+            srcs = ["empty_test.sh"],
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:empty_test");
 
     SpawnResult expectedSpawnResult =
@@ -774,11 +790,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"empty_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"empty_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "empty_test",
+            size = "small",
+            srcs = ["empty_test.sh"],
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:empty_test");
 
     SpawnResult expectedSpawnResult =
@@ -818,11 +836,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"empty_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"empty_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "empty_test",
+            size = "small",
+            srcs = ["empty_test.sh"],
+        )
+        """);
     ImmutableList<TestRunnerAction> testRunnerActions = getTestActions("//standalone:empty_test");
     assertThat(testRunnerActions).hasSize(2);
 
@@ -897,11 +917,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"empty_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"empty_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "empty_test",
+            size = "small",
+            srcs = ["empty_test.sh"],
+        )
+        """);
     ImmutableList<TestRunnerAction> testRunnerActions = getTestActions("//standalone:empty_test");
     assertThat(testRunnerActions).hasSize(2);
 
@@ -1001,11 +1023,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"empty_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"empty_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "empty_test",
+            size = "small",
+            srcs = ["empty_test.sh"],
+        )
+        """);
     ImmutableList<TestRunnerAction> testRunnerActions = getTestActions("//standalone:empty_test");
     assertThat(testRunnerActions).hasSize(2);
 
@@ -1084,11 +1108,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
         "standalone/BUILD",
-        "sh_test(",
-        "    name = \"simple_test\",",
-        "    size = \"small\",",
-        "    srcs = [\"simple_test.sh\"],",
-        ")");
+        """
+        sh_test(
+            name = "simple_test",
+            size = "small",
+            srcs = ["simple_test.sh"],
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(

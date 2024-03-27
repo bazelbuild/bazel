@@ -93,25 +93,29 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   private void writeConflictBzl() throws IOException {
     write(
         "foo/conflict.bzl",
-        "def _conflict_impl(ctx):",
-        "  inputs = depset(",
-        "    ctx.files.srcs, transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps])",
-        "  conflict_output = ctx.actions.declare_file('conflict_output')",
-        "  other = ctx.actions.declare_file('other' + ctx.attr.name)",
-        "  ctx.actions.run_shell(",
-        "    inputs = inputs,",
-        "    outputs = [conflict_output, other],",
-        "    command = 'touch %s %s' % (conflict_output.path, other.path)",
-        "  )",
-        "  return [DefaultInfo(files = depset([conflict_output, other]))]",
-        "",
-        "my_rule = rule(",
-        "  implementation=_conflict_impl,",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files = True),",
-        "    'deps': attr.label_list(providers = [DefaultInfo]),",
-        "  }",
-        ")");
+        """
+        def _conflict_impl(ctx):
+            inputs = depset(
+                ctx.files.srcs,
+                transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps],
+            )
+            conflict_output = ctx.actions.declare_file("conflict_output")
+            other = ctx.actions.declare_file("other" + ctx.attr.name)
+            ctx.actions.run_shell(
+                inputs = inputs,
+                outputs = [conflict_output, other],
+                command = "touch %s %s" % (conflict_output.path, other.path),
+            )
+            return [DefaultInfo(files = depset([conflict_output, other]))]
+
+        my_rule = rule(
+            implementation = _conflict_impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "deps": attr.label_list(providers = [DefaultInfo]),
+            },
+        )
+        """);
   }
 
   /**
@@ -175,24 +179,26 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
     write(
         "x/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    if not getattr(ctx.rule.attr, 'outs', None):",
-        "        return struct(output_groups = {})",
-        "    conflict_outputs = list()",
-        "    for out in ctx.rule.attr.outs:",
-        "        if out.name[1:] == '.bad':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1])",
-        "            conflict_outputs.append(aspect_out)",
-        "            cmd = 'echo %s > %s' % (out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "    return [OutputGroupInfo(",
-        "        files = depset(conflict_outputs)",
-        "    )]",
-        "",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+            if not getattr(ctx.rule.attr, "outs", None):
+                return struct(output_groups = {})
+            conflict_outputs = list()
+            for out in ctx.rule.attr.outs:
+                if out.name[1:] == ".bad":
+                    aspect_out = ctx.actions.declare_file(out.name[:1])
+                    conflict_outputs.append(aspect_out)
+                    cmd = "echo %s > %s" % (out.name, aspect_out.path)
+                    ctx.actions.run_shell(
+                        outputs = [aspect_out],
+                        command = cmd,
+                    )
+            return [OutputGroupInfo(
+                files = depset(conflict_outputs),
+            )]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
 
     if (modifyBuildFile) {
       buildTarget("//x/y", "//x:y");
@@ -231,50 +237,85 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     if (modifyBuildFile) {
       write(
           "x/BUILD",
-          "genrule(name = 'y', outs = ['y.out'], cmd = 'touch $@')",
-          "genrule(name = 'ydir', outs = ['y.dir'], cmd = 'touch $@')");
+          """
+          genrule(
+              name = "y",
+              outs = ["y.out"],
+              cmd = "touch $@",
+          )
+
+          genrule(
+              name = "ydir",
+              outs = ["y.dir"],
+              cmd = "touch $@",
+          )
+          """);
     } else {
       write(
           "x/BUILD",
-          "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')",
-          "genrule(name = 'ydir', outs = ['y.dir'], cmd = 'touch $@')");
+          """
+          genrule(
+              name = "y",
+              outs = ["y.bad"],
+              cmd = "touch $@",
+          )
+
+          genrule(
+              name = "ydir",
+              outs = ["y.dir"],
+              cmd = "touch $@",
+          )
+          """);
     }
     write(
         "x/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    if not getattr(ctx.rule.attr, 'outs', None):",
-        "        return struct(output_groups = {})",
-        "    conflict_outputs = list()",
-        "    for out in ctx.rule.attr.outs:",
-        "        if out.name[1:] == '.bad':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1])",
-        "            conflict_outputs.append(aspect_out)",
-        "            cmd = 'echo %s > %s' % (out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "        elif out.name[1:] == '.dir':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1] + '/' + out.name)",
-        "            conflict_outputs.append(aspect_out)",
-        "            out_dir = aspect_out.path[:len(aspect_out.path) - len(out.name) + 1]",
-        "            cmd = 'mkdir %s && echo %s > %s' % (out_dir, out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "    return [OutputGroupInfo(",
-        "        files = depset(conflict_outputs)",
-        "    )]",
-        "",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+            if not getattr(ctx.rule.attr, "outs", None):
+                return struct(output_groups = {})
+            conflict_outputs = list()
+            for out in ctx.rule.attr.outs:
+                if out.name[1:] == ".bad":
+                    aspect_out = ctx.actions.declare_file(out.name[:1])
+                    conflict_outputs.append(aspect_out)
+                    cmd = "echo %s > %s" % (out.name, aspect_out.path)
+                    ctx.actions.run_shell(
+                        outputs = [aspect_out],
+                        command = cmd,
+                    )
+                elif out.name[1:] == ".dir":
+                    aspect_out = ctx.actions.declare_file(out.name[:1] + "/" + out.name)
+                    conflict_outputs.append(aspect_out)
+                    out_dir = aspect_out.path[:len(aspect_out.path) - len(out.name) + 1]
+                    cmd = "mkdir %s && echo %s > %s" % (out_dir, out.name, aspect_out.path)
+                    ctx.actions.run_shell(
+                        outputs = [aspect_out],
+                        command = cmd,
+                    )
+            return [OutputGroupInfo(
+                files = depset(conflict_outputs),
+            )]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
 
     if (modifyBuildFile) {
       buildTarget("//x:y", "//x:ydir");
       write(
           "x/BUILD",
-          "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')",
-          "genrule(name = 'ydir', outs = ['y.dir'], cmd = 'touch $@')");
+          """
+          genrule(
+              name = "y",
+              outs = ["y.bad"],
+              cmd = "touch $@",
+          )
+
+          genrule(
+              name = "ydir",
+              outs = ["y.dir"],
+              cmd = "touch $@",
+          )
+          """);
     } else {
       buildTarget("//x:y");
     }
@@ -304,15 +345,25 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
 
     assertThrows(
         ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
     assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
 
-    write("foo/BUILD", "load('//foo:conflict.bzl', 'my_rule')", "my_rule(name = 'first')");
+    write(
+        "foo/BUILD",
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+        """);
     events.clear();
     buildTarget("//foo:first");
 
@@ -325,9 +376,13 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
     buildTarget("//foo:first");
     events.assertNoWarningsOrErrors();
 
@@ -348,9 +403,13 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
 
     // Verify that together they fail, even though no new targets have been analyzed
     Code errorCode =
@@ -371,14 +430,28 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     addOptions("--keep_going");
     write(
         "x/bad_rule.bzl",
-        "def _impl(ctx):",
-        "  return list().this_method_does_not_exist()",
-        "bad_rule = rule(_impl, attrs = {'deps': attr.label_list()})");
+        """
+        def _impl(ctx):
+            return list().this_method_does_not_exist()
+
+        bad_rule = rule(_impl, attrs = {"deps": attr.label_list()})
+        """);
     write(
         "x/BUILD",
-        "load('//x:bad_rule.bzl', 'bad_rule')",
-        "cc_binary(name = 'y', srcs = ['y.cc'], malloc = '//base:system_malloc')",
-        "bad_rule(name = 'bad', deps = [':y'])");
+        """
+        load("//x:bad_rule.bzl", "bad_rule")
+
+        cc_binary(
+            name = "y",
+            srcs = ["y.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        bad_rule(
+            name = "bad",
+            deps = [":y"],
+        )
+        """);
     write("x/y/y.cc", "");
     write("x/y/BUILD", "cc_library(name = 'y', srcs=['y.cc'])");
     write("x/y.cc", "int main() { return 0; }");
@@ -400,9 +473,13 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
     write("x/BUILD", "sh_library(name = 'x', deps = ['//y:y'])");
     write("y/BUILD", "sh_library(name = 'y', visibility = ['//visibility:private'])");
 
@@ -425,29 +502,41 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     addOptions("--keep_going=" + keepGoing);
     write(
         "x/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    if not getattr(ctx.rule.attr, 'outs', None):",
-        "        return struct(output_groups = {})",
-        "    conflict_outputs = list()",
-        "    for out in ctx.rule.attr.outs:",
-        "        if out.name[1:] == '.bad':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1])",
-        "            conflict_outputs.append(aspect_out)",
-        "            cmd = 'echo %s > %s' % (out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "    return [OutputGroupInfo(",
-        "        files = depset(conflict_outputs)",
-        "    )]",
-        "",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+            if not getattr(ctx.rule.attr, "outs", None):
+                return struct(output_groups = {})
+            conflict_outputs = list()
+            for out in ctx.rule.attr.outs:
+                if out.name[1:] == ".bad":
+                    aspect_out = ctx.actions.declare_file(out.name[:1])
+                    conflict_outputs.append(aspect_out)
+                    cmd = "echo %s > %s" % (out.name, aspect_out.path)
+                    ctx.actions.run_shell(
+                        outputs = [aspect_out],
+                        command = cmd,
+                    )
+            return [OutputGroupInfo(
+                files = depset(conflict_outputs),
+            )]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
 
     write(
         "x/BUILD",
-        "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')",
-        "sh_library(name = 'fail_analysis', deps = ['//private:y'])");
+        """
+        genrule(
+            name = "y",
+            outs = ["y.bad"],
+            cmd = "touch $@",
+        )
+
+        sh_library(
+            name = "fail_analysis",
+            deps = ["//private:y"],
+        )
+        """);
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
     write("private/BUILD", "sh_library(name = 'y', visibility = ['//visibility:private'])");
     addOptions("--aspects=//x:aspect.bzl%my_aspect", "--output_groups=files");
@@ -520,9 +609,19 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
             + " [aspect1, aspect2])})");
     write(
         "foo/BUILD",
-        "load('//foo:aspect.bzl', 'bad_rule')",
-        "sh_library(name = 'dep', srcs = ['dep.sh'])",
-        "bad_rule(name = 'foo', deps = [':dep'])");
+        """
+        load("//foo:aspect.bzl", "bad_rule")
+
+        sh_library(
+            name = "dep",
+            srcs = ["dep.sh"],
+        )
+
+        bad_rule(
+            name = "foo",
+            deps = [":dep"],
+        )
+        """);
     addOptions("--keep_going");
     // If Bazel decides to permit this scenario, the build should succeed instead of throwing here.
     BuildFailedException buildFailedException =
@@ -552,9 +651,13 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
     write("x/BUILD", "genrule(name = 'y', outs = ['y'], cmd = 'touch $@')");
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
 
@@ -580,9 +683,13 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
     ViewCreationFailedException e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
@@ -611,24 +718,26 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
     write(
         "x/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    if not getattr(ctx.rule.attr, 'outs', None):",
-        "        return struct(output_groups = {})",
-        "    conflict_outputs = list()",
-        "    for out in ctx.rule.attr.outs:",
-        "        if out.name[1:] == '.bad':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1])",
-        "            conflict_outputs.append(aspect_out)",
-        "            cmd = 'echo %s > %s' % (out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "    return [OutputGroupInfo(",
-        "        files = depset(conflict_outputs)",
-        "    )]",
-        "",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+            if not getattr(ctx.rule.attr, "outs", None):
+                return struct(output_groups = {})
+            conflict_outputs = list()
+            for out in ctx.rule.attr.outs:
+                if out.name[1:] == ".bad":
+                    aspect_out = ctx.actions.declare_file(out.name[:1])
+                    conflict_outputs.append(aspect_out)
+                    cmd = "echo %s > %s" % (out.name, aspect_out.path)
+                    ctx.actions.run_shell(
+                        outputs = [aspect_out],
+                        command = cmd,
+                    )
+            return [OutputGroupInfo(
+                files = depset(conflict_outputs),
+            )]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
     // First build: no conflict expected.
     buildTarget("//x/y", "//x:y");
     // Null build
@@ -693,38 +802,58 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     writeConflictBzl();
     write(
         "foo/dummy.bzl",
-        "def _path(file):",
-        "  return file.path",
-        "def _impl(ctx):",
-        "  inputs = depset(",
-        "    ctx.files.srcs, transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps])",
-        "  output = ctx.actions.declare_file(ctx.attr.name + '.out')",
-        "  command = 'echo $@ > %s' % (output.path)",
-        "  args = ctx.actions.args()",
-        "  args.add_all(inputs, map_each=_path)",
-        "  ctx.actions.run_shell(",
-        "    inputs = inputs,",
-        "    outputs = [output],",
-        "    command = command,",
-        "    arguments = [args]",
-        "  )",
-        "  return [DefaultInfo(files = depset([output]))]",
-        "",
-        "dummy = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files = True),",
-        "    'deps': attr.label_list(providers = [DefaultInfo]),",
-        "  }",
-        ")");
+        """
+        def _path(file):
+            return file.path
+
+        def _impl(ctx):
+            inputs = depset(
+                ctx.files.srcs,
+                transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps],
+            )
+            output = ctx.actions.declare_file(ctx.attr.name + ".out")
+            command = "echo $@ > %s" % (output.path)
+            args = ctx.actions.args()
+            args.add_all(inputs, map_each = _path)
+            ctx.actions.run_shell(
+                inputs = inputs,
+                outputs = [output],
+                command = command,
+                arguments = [args],
+            )
+            return [DefaultInfo(files = depset([output]))]
+
+        dummy = rule(
+            implementation = _impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "deps": attr.label_list(providers = [DefaultInfo]),
+            },
+        )
+        """);
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "load('//foo:dummy.bzl', 'dummy')",
-        "my_rule(name = 'conflict_first')",
-        "my_rule(name = 'conflict_second', deps = [':conflict_first'])",
-        "dummy(name = 'top_level_a', deps = [':conflict_second'])",
-        "dummy(name = 'top_level_b', deps = [':conflict_second'])");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+        load("//foo:dummy.bzl", "dummy")
+
+        my_rule(name = "conflict_first")
+
+        my_rule(
+            name = "conflict_second",
+            deps = [":conflict_first"],
+        )
+
+        dummy(
+            name = "top_level_a",
+            deps = [":conflict_second"],
+        )
+
+        dummy(
+            name = "top_level_b",
+            deps = [":conflict_second"],
+        )
+        """);
     assertThrows(
         BuildFailedException.class, () -> buildTarget("//foo:top_level_a", "//foo:top_level_b"));
     events.assertContainsError(
@@ -739,9 +868,13 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
 
     assertThrows(
         ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
@@ -753,19 +886,26 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   public void directoryWithNestedFile() throws Exception {
     write(
         "foo/conflict.bzl",
-        "def _impl(ctx):",
-        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
-        "  file = ctx.actions.declare_file(ctx.label.name + '.dir/file.txt')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir, file],",
-        "    command = 'mkdir -p $1 && touch $2',",
-        "    arguments = [dir.path, file.path],",
-        "  )",
-        "  return [DefaultInfo(files = depset([dir, file]))]",
-        "",
-        "my_rule = rule(implementation = _impl)");
-    write("foo/BUILD", "load(':conflict.bzl', 'my_rule')", "my_rule(name = 'bar')");
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory(ctx.label.name + ".dir")
+            file = ctx.actions.declare_file(ctx.label.name + ".dir/file.txt")
+            ctx.actions.run_shell(
+                outputs = [dir, file],
+                command = "mkdir -p $1 && touch $2",
+                arguments = [dir.path, file.path],
+            )
+            return [DefaultInfo(files = depset([dir, file]))]
 
+        my_rule = rule(implementation = _impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":conflict.bzl", "my_rule")
+
+        my_rule(name = "bar")
+        """);
 
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar"));
     events.assertContainsError("One of the output paths");
@@ -776,19 +916,26 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   public void directoryWithNestedDirectory() throws Exception {
     write(
         "foo/conflict.bzl",
-        "def _impl(ctx):",
-        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
-        "  subdir = ctx.actions.declare_directory(ctx.label.name + '.dir/subdir')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir, subdir],",
-        "    command = 'mkdir -p $1 && mkdir -p $2',",
-        "    arguments = [dir.path, subdir.path],",
-        "  )",
-        "  return [DefaultInfo(files = depset([dir, subdir]))]",
-        "",
-        "my_rule = rule(implementation = _impl)");
-    write("foo/BUILD", "load(':conflict.bzl', 'my_rule')", "my_rule(name = 'bar')");
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory(ctx.label.name + ".dir")
+            subdir = ctx.actions.declare_directory(ctx.label.name + ".dir/subdir")
+            ctx.actions.run_shell(
+                outputs = [dir, subdir],
+                command = "mkdir -p $1 && mkdir -p $2",
+                arguments = [dir.path, subdir.path],
+            )
+            return [DefaultInfo(files = depset([dir, subdir]))]
 
+        my_rule = rule(implementation = _impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":conflict.bzl", "my_rule")
+
+        my_rule(name = "bar")
+        """);
 
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar"));
     events.assertContainsError("One of the output paths");

@@ -96,12 +96,14 @@ public class SkymeldOutputServiceBuildIntegrationTest extends BuildIntegrationTe
   public void noAnalyze_outputServiceStartBuildFinalizeBuildNotCalled() throws Exception {
     write(
         "foo/BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = ['foo.in'],",
-        "  outs = ['foo.out'],",
-        "  cmd = 'cp $< $@'",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cp $< $@",
+        )
+        """);
     write("foo/foo.in");
     addOptions("--noanalyze");
 

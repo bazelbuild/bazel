@@ -60,8 +60,15 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
 
     write(
         "package/BUILD",
-        "cc_binary(name='foo', srcs=['foo.cc'], malloc = '//base:system_malloc')",
-        "invalidbuildsyntax");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = ["foo.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        invalidbuildsyntax
+        """);
     write(
         "package/foo.cc",
         "#include <stdio.h>",
@@ -83,9 +90,20 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
 
     write(
         "package/BUILD",
-        "exports_files(['foo.cc'])",
-        "cc_binary(name='foo', srcs=['fg'], malloc = '//base:system_malloc')",
-        "filegroup(name = 'fg', srcs = ['//brokenpackage:fg'])");
+        """
+        exports_files(["foo.cc"])
+
+        cc_binary(
+            name = "foo",
+            srcs = ["fg"],
+            malloc = "//base:system_malloc",
+        )
+
+        filegroup(
+            name = "fg",
+            srcs = ["//brokenpackage:fg"],
+        )
+        """);
     write(
         "package/foo.cc",
         "#include <stdio.h>",
@@ -93,7 +111,16 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
         "  printf(\"Hello, world!\\n\");",
         "  return 0;",
         "}");
-    write("brokenpackage/BUILD", "filegroup(name = 'fg', srcs = ['//package:foo.cc'])", "nope");
+    write(
+        "brokenpackage/BUILD",
+        """
+        filegroup(
+            name = "fg",
+            srcs = ["//package:foo.cc"],
+        )
+
+        nope
+        """);
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("package:foo.cc"));
     assertThat(e)
