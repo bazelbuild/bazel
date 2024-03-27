@@ -558,9 +558,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
           if (statFollow == null) {
             throw new IOException(
-                String.format(
-                    "Child %s of tree artifact %s is a dangling symbolic link",
-                    parentRelativePath, parentDir));
+                String.format("child %s is a dangling symbolic link", parentRelativePath));
           }
 
           if (statFollow.isFile() && !statFollow.isSpecialFile()) {
@@ -574,9 +572,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
         if (type == Dirent.Type.UNKNOWN) {
           throw new IOException(
-              String.format(
-                  "Child %s of tree artifact %s has an unsupported type",
-                  parentRelativePath, parentDir));
+              String.format("child %s has an unsupported type", parentRelativePath));
         }
 
         visitor.visit(parentRelativePath, type, traversedSymlink);
