@@ -321,23 +321,24 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     // Check for the existence of the project.scl file.
-    RootedPath projectFileRootedPath =
+    // TODO b/331316530: Temporarily removed to avoid build memory regressions. Re-enable as opt in.
+    /*RootedPath projectFileRootedPath =
         RootedPath.toRootedPath(
             packagePathEntry,
             packageIdentifier.getPackageFragment().getRelative(PROJECT_FILE_NAME));
     FileValue projectFileValue = getFileValue(projectFileRootedPath, env, packageIdentifier);
     if (projectFileValue == null) {
       return null;
-    }
+    } */
 
     if (fileValue.isFile()) {
-      if (projectFileValue.exists() && !projectFileValue.isFile()) {
+      // TODO b/331316530: Temporarily removed to avoid build memory regressions. Re-enable as opt
+      // in.
+      /*if (projectFileValue.exists() && !projectFileValue.isFile()) {
         return PackageLookupValue.INVALID_PROJECT_VALUE;
-      }
+      }*/
       return PackageLookupValue.success(
-          buildFileRootedPath.getRoot(),
-          buildFileName,
-          /* hasProjectFile= */ projectFileValue.exists());
+          buildFileRootedPath.getRoot(), buildFileName, /* hasProjectFile= */ false);
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;

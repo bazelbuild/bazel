@@ -21,12 +21,15 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link Project}. */
 @RunWith(JUnit4.class)
+// TODO b/331316530: Temporarily removed to avoid build memory regressions. Re-enable as opt in.
+@Ignore
 public class ProjectTest extends AnalysisTestCase {
   @Before
   public void defineSimpleRule() throws Exception {

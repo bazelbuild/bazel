@@ -74,6 +74,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -592,6 +593,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  // TODO b/331316530: Temporarily removed to avoid build memory regressions. Re-enable as opt in.
+  @Ignore
   public void testInvalidProjectFile() throws Exception {
     scratch.file("mypackage/BUILD");
     scratch.dir("mypackage/PROJECT.scl");
