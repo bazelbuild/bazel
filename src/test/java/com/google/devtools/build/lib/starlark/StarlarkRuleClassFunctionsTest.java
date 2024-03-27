@@ -231,13 +231,17 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_enable_first_class_macros=false");
 
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl(name):",
-        "    pass",
-        "my_macro = macro(implementation=_impl)");
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(implementation=_impl)
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        """);
 
     reporter.removeHandler(failFastHandler);
     Package pkg = getPackage("pkg");
@@ -250,16 +254,20 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_enable_first_class_macros");
 
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl(name):",
-        "    pass",
-        "my_macro = macro(implementation=_impl)");
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(implementation=_impl)
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')",
-        "my_macro(name='ghi')", // alphabetized when read back
-        "my_macro(name='abc')",
-        "my_macro(name='def')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="ghi")  # alphabetized when read back
+        my_macro(name="abc")
+        my_macro(name="def")
+        """);
 
     Package pkg = getPackage("pkg");
     assertThat(pkg.getMacros().keySet()).containsExactly("abc", "def", "ghi").inOrder();
@@ -271,14 +279,18 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_enable_first_class_macros");
 
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl(name):",
-        "    pass",
-        "s = struct(m = macro(implementation=_impl))");
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            pass
+        s = struct(m = macro(implementation=_impl))
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 's')",
-        "s.m(name='abc')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "s")
+        s.m(name="abc")
+        """);
 
     reporter.removeHandler(failFastHandler);
     Package pkg = getPackage("pkg");
@@ -293,19 +305,23 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     scratch.file(
         "pkg/foo.bzl",
-        "def _impl(name):",
-        "    pass",
-        "my_macro = macro(implementation=_impl)",
-        "",
-        // Calling it from a function during .bzl load time is a little more interesting than
-        // calling it directly at the top level, since it forces us to check thread state rather
-        // than call stack state.
-        "def some_func():",
-        "    my_macro(name='nope')",
-        "some_func()");
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(implementation=_impl)
+
+        # Calling it from a function during .bzl load time is a little more interesting than
+        # calling it directly at the top level, since it forces us to check thread state rather
+        # than call stack state.
+        def some_func():
+            my_macro(name="nope")
+        some_func()
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        """);
 
     reporter.removeHandler(failFastHandler);
     Package pkg = getPackage("pkg");
@@ -318,14 +334,18 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_enable_first_class_macros");
 
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl(name):",
-        "    pass",
-        "my_macro = macro(implementation=_impl)");
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(implementation=_impl)
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')",
-        "my_macro()");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro()
+        """);
 
     reporter.removeHandler(failFastHandler);
     Package pkg = getPackage("pkg");
@@ -339,14 +359,18 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_enable_first_class_macros");
 
     scratch.file(
-        "pkg/foo.bzl", //
-        "def _impl(name):",
-        "    pass",
-        "my_macro = macro(implementation=_impl)");
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(implementation=_impl)
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load(':foo.bzl', 'my_macro')",
-        "my_macro('a positional arg', name = 'abc')");
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro("a positional arg", name = "abc")
+        """);
 
     reporter.removeHandler(failFastHandler);
     Package pkg = getPackage("pkg");
@@ -360,11 +384,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.setSemantics("--experimental_enable_first_class_macros");
 
     evalAndExport(
-        ev, //
-        "def _impl(name):",
-        "    pass",
-        "exported = macro(implementation=_impl)",
-        "s = struct(unexported = macro(implementation=_impl))");
+        ev,
+        """
+        def _impl(name):
+            pass
+        exported = macro(implementation=_impl)
+        s = struct(unexported = macro(implementation=_impl))
+        """);
 
     MacroFunction exported = (MacroFunction) ev.lookup("exported");
     MacroFunction unexported = (MacroFunction) ev.eval("s.unexported");
