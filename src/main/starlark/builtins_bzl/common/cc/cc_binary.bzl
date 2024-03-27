@@ -426,7 +426,8 @@ def _create_transitive_linking_actions(
         pdb_file,
         win_def_file,
         additional_linkopts,
-        additional_make_variable_substitutions):
+        additional_make_variable_substitutions,
+        additional_outputs):
     cc_compilation_outputs_with_only_objects = cc_common.create_compilation_outputs(objects = None, pic_objects = None)
     deps_cc_info = CcInfo(linking_context = deps_cc_linking_context)
     libraries_for_current_cc_linking_context = []
@@ -514,6 +515,7 @@ def _create_transitive_linking_actions(
         never_link = True,
         pdb_file = pdb_file,
         win_def_file = win_def_file,
+        additional_outputs = additional_outputs,
     )
     cc_launcher_info = cc_internal.create_cc_launcher_info(cc_info = cc_info_without_extra_link_time_libraries, compilation_outputs = cc_compilation_outputs_with_only_objects)
     return (cc_linking_outputs, cc_launcher_info, cc_linking_context)
@@ -713,6 +715,13 @@ def cc_binary_impl(ctx, additional_linkopts):
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
         pdb_file = ctx.actions.declare_file(_strip_extension(binary) + ".pdb", sibling = binary)
 
+    additional_linker_outputs = []
+
+    linkmap = None
+    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_linkmap"):
+        linkmap = ctx.actions.declare_file(binary.basename + ".map", sibling = binary)
+        additional_linker_outputs.append(linkmap)
+
     extra_link_time_libraries = deps_cc_linking_context.extra_link_time_libraries()
     linker_inputs_extra = depset()
     runtime_libraries_extra = depset()
@@ -739,6 +748,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         win_def_file,
         additional_linkopts,
         additional_make_variable_substitutions,
+        additional_linker_outputs,
     )
 
     cc_linking_outputs_binary_library = cc_linking_outputs_binary.library_to_link
@@ -831,6 +841,8 @@ def cc_binary_impl(ctx, additional_linkopts):
         output_groups["pdb_file"] = depset([pdb_file])
     if generated_def_file != None:
         output_groups["def_file"] = depset([generated_def_file])
+    if linkmap:
+        output_groups["linkmap"] = depset([linkmap])
 
     if cc_linking_outputs_binary_library != None:
         # For consistency and readability.

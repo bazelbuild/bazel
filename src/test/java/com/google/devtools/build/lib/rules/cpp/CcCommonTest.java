@@ -1327,4 +1327,25 @@ public class CcCommonTest extends BuildViewTestCase {
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
     assertThat(artifactNames).doesNotContain("liblink_extra_lib.a");
   }
+
+  @Test
+  public void testGenerateLinkMap() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.GENERATE_LINKMAP_FEATURE_NAME));
+    useConfiguration("--cpu=k8");
+    ConfiguredTarget generateLinkMapTest =
+        scratchConfiguredTarget(
+            "generate_linkmap",
+            "generate_linkmap_test",
+            "cc_binary(name = 'generate_linkmap_test',",
+            "          features = ['generate_linkmap'],",
+            "          srcs = ['generate_linkmap_test.cc'],",
+            "          )");
+    Iterable<String> temps =
+        ActionsTestUtil.baseArtifactNames(getOutputGroup(generateLinkMapTest, "linkmap"));
+    assertThat(temps).containsExactly("generate_linkmap_test.map");
+  }
 }
