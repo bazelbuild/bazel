@@ -34,22 +34,12 @@ def _get_build_info(ctx, stamp):
 def _bazel_deploy_jars_impl(ctx):
     info = ctx.attr.binary[InternalDeployJarInfo]
 
-    runfiles_manifest = ctx.attr.binary.files_to_run.runfiles_manifest
-    if runfiles_manifest:
-        runfiles = depset(
-            [runfiles_manifest],
-            transitive = [ctx.attr.binary[OutputGroupInfo]._hidden_top_level_INTERNAL_],
-        )
-    else:
-        runfiles = depset()
-
     build_info_files = _get_build_info(ctx, info.stamp)
 
     create_deploy_archives(
         ctx,
         info.java_attrs,
         info.launcher_info,
-        runfiles,
         info.main_class,
         info.coverage_main_class,
         info.strip_as_default,
