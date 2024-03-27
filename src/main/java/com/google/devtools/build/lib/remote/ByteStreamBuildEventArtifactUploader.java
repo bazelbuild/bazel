@@ -198,6 +198,17 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private PathMetadata readPathMetadata(Path path, LocalFile file) throws IOException {
     DigestUtil digestUtil = new DigestUtil(xattrProvider, path.getFileSystem().getDigestFunction());
 
+    if (!shouldUploadFilename(path.getPathString())) {
+      return new PathMetadata(
+              path,
+              /* digest= */ null,
+              /* directory= */ false,
+              /* symlink= */ true,
+              /* remote= */ false,
+              /* omitted= */ false,
+              /* digestFunction= */ digestUtil.getDigestFunction());
+    }
+
     if (file.type == LocalFileType.OUTPUT_DIRECTORY
         || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
                 || file.type == LocalFileType.FAILED_TEST_OUTPUT
@@ -277,20 +288,23 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
             && !path.isSymlink()
             && !path.isOmitted();
 
-    if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
-      result = result && (isLog(path) || isProfile(path));
-    }
+    String filename = path.getPath().getPathString();
+    result = result && shouldUploadFilename(filename);
 
     return result;
   }
 
-  private boolean isLog(PathMetadata path) {
-    return TEST_LOG_PATTERN.matcher(path.getPath().getPathString()).matches()
-        || BUILD_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
+  private boolean shouldUploadFilename(String filename) {
+    return remoteBuildEventUploadMode != RemoteBuildEventUploadMode.MINIMAL || isLog(filename) || isProfile(filename);
   }
 
-  private boolean isProfile(PathMetadata path) {
-    return path.getPath().equals(profilePath);
+  private boolean isLog(String path) {
+    return TEST_LOG_PATTERN.matcher(path).matches()
+        || BUILD_LOG_PATTERN.matcher(path).matches();
+  }
+
+  private boolean isProfile(String path) {
+    return profilePath != null && path.equals(profilePath.getPathString());
   }
 
   private Single<List<PathMetadata>> queryRemoteCache(
