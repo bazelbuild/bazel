@@ -171,7 +171,7 @@ public final class JavaCompileActionBuilder {
     this.execGroup = execGroup;
   }
 
-  public JavaCompileAction build() throws RuleErrorException {
+  public JavaCompileAction build() throws RuleErrorException, InterruptedException {
     // TODO(bazel-team): all the params should be calculated before getting here, and the various
     // aggregation code below should go away.
 
@@ -271,7 +271,7 @@ public final class JavaCompileActionBuilder {
   }
 
   private CustomCommandLine buildParamFileContents(ImmutableList<String> javacOpts)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
 
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
@@ -304,7 +304,8 @@ public final class JavaCompileActionBuilder {
       } else {
         // @-prefixed strings will be assumed to be filenames and expanded by
         // {@link JavaLibraryBuildRequest}, so add an extra &at; to escape it.
-        result.addPrefixedLabel("@", targetLabel);
+        result.addPrefixedLabel(
+            "@", targetLabel, ruleContext.getAnalysisEnvironment().getMainRepoMapping());
       }
     }
     result.add("--injecting_rule_kind", injectingRuleKind);
