@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.http;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
@@ -34,8 +36,10 @@ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileInputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
@@ -75,6 +79,7 @@ import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
+import io.reactivex.rxjava3.core.Completable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FilterInputStream;
@@ -154,6 +159,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
   @GuardedBy("credentialsLock")
   private long lastRefreshTime;
+
+  protected final AsyncTaskCache.NoResult<String> casUploadCache = AsyncTaskCache.NoResult.create();
 
   public static HttpCacheClient create(
       URI uri,
@@ -637,6 +644,21 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
+  private ListenableFuture<Void> uploadAsyncCached(
+      String key, long length, InputStream in, boolean casUpload, boolean force) {
+    Completable upload =
+        casUploadCache.execute(
+            key,
+            RxFutures.toCompletable(
+                () -> {
+                  return uploadAsync(key, length, in, casUpload);
+                },
+                directExecutor()),
+            force);
+    return RxFutures.toListenableFuture(upload);
+  }
+
+  @SuppressWarnings("FutureReturnValueIgnored")
   private ListenableFuture<Void> uploadAsync(
       String key, long length, InputStream in, boolean casUpload) {
     InputStream wrappedIn =
@@ -725,22 +747,39 @@ public final class HttpCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadFile(context, digest, file, /* force= */ false);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     return retrier.executeAsync(
         () ->
-            uploadAsync(
+            uploadAsyncCached(
                 digest.getHash(),
                 digest.getSizeBytes(),
                 new LazyFileInputStream(file),
-                /* casUpload= */ true));
+                /* casUpload= */ true,
+                /* force */ force));
   }
 
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    return uploadBlob(context, digest, data, /* force= */ false);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
     return retrier.executeAsync(
         () ->
-            uploadAsync(
-                digest.getHash(), digest.getSizeBytes(), data.newInput(), /* casUpload= */ true));
+            uploadAsyncCached(
+                digest.getHash(),
+                digest.getSizeBytes(),
+                data.newInput(),
+                /* casUpload= */ true,
+                /* force= */ force));
   }
 
   @Override
@@ -805,6 +844,18 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
       eventLoop.shutdownGracefully();
     }
+  }
+
+  /** Waits for active network I/Os to finish. */
+  @Override
+  public void awaitTermination() throws InterruptedException {
+    casUploadCache.awaitTermination();
+  }
+
+  /** Shuts the cache down and cancels active network I/Os. */
+  @Override
+  public void shutdownNow() {
+    casUploadCache.shutdownNow();
   }
 
   private boolean cacheMiss(HttpResponseStatus status) {

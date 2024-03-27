@@ -878,6 +878,14 @@ public class GrpcCacheClientTest {
   }
 
   @Test
+  public void testUpload_deduplicationWorks() throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
+  }
+
+  @Test
   public void testUploadSplitMissingDigestsCall() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.maxOutboundMessageSize = 80; // Enough for one digest, but not two.
@@ -1409,3 +1417,4 @@ public class GrpcCacheClientTest {
     assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isFalse();
   }
 }
+

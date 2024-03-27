@@ -136,6 +136,12 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadFile(context, digest, file, /* force= */ false);
+  }  
+
+  @Override
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     try (InputStream in = file.getInputStream()) {
       cas.put(digest, ByteStreams.toByteArray(in));
     } catch (IOException e) {
@@ -147,6 +153,12 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    return uploadBlob(context, digest, data, /* force= */ false);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
     try (InputStream in = data.newInput()) {
       cas.put(digest, data.toByteArray());
     } catch (IOException e) {
@@ -178,4 +190,13 @@ public class InMemoryCacheClient implements RemoteCacheClient {
     cas.clear();
     ac.clear();
   }
+
+  @Override
+  public void shutdownNow() {
+    
+  }
+
+  @Override
+  public void awaitTermination() throws InterruptedException {}
+
 }
