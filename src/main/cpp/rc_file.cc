@@ -144,6 +144,13 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
     } else {
       auto words_it = words.begin();
       words_it++;  // Advance past command.
+      if (words_it == words.end()) {
+        blaze_util::StringPrintf(
+            error_text,
+            "Incomplete line in .blazerc file '%s': '%s'",
+            canonical_filename.c_str(), line.c_str());
+        return ParseError::INVALID_FORMAT;
+      }
       for (; words_it != words.end(); words_it++) {
         options_[command].push_back({*words_it, rcfile_index});
       }

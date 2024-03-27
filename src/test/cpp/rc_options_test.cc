@@ -97,6 +97,18 @@ class RcOptionsTest : public ::testing::Test {
       }
     }
   }
+
+  void FailToParseRcWithErrorAndRegex(
+      const string& filename,
+      const RcFile::ParseError expected_error,
+      const string& expected_error_regex) {
+    RcFile::ParseError error;
+    string error_text;
+    std::unique_ptr<RcFile> rc = Parse(filename, &error, &error_text);
+    // Test the text first, as the error code is hard to debug.
+    ASSERT_THAT(error_text, MatchesRegex(expected_error_regex));
+    ASSERT_EQ(error, expected_error);
+  }
 };
 
 TEST_F(RcOptionsTest, Empty) {
@@ -124,17 +136,21 @@ TEST_F(RcOptionsTest, CommentedStartup) {
 TEST_F(RcOptionsTest, EmptyStartupLine) {
   WriteRc("empty_startup_line.bazelrc",
           "startup");
-  unordered_map<string, vector<string>> no_expected_args;
-  SuccessfullyParseRcWithExpectedArgs("empty_startup_line.bazelrc",
-                                      no_expected_args);
+  FailToParseRcWithErrorAndRegex(
+      "empty_startup_line.bazelrc",
+      RcFile::ParseError::INVALID_FORMAT,
+      "Incomplete line in \\.blazerc file '.*empty_startup_line\\.bazelrc': "
+      "'startup'");
 }
 
 TEST_F(RcOptionsTest, StartupWithOnlyCommentedArg) {
   WriteRc("startup_with_comment.bazelrc",
           "startup # bar");
-  unordered_map<string, vector<string>> no_expected_args;
-  SuccessfullyParseRcWithExpectedArgs("startup_with_comment.bazelrc",
-                                      no_expected_args);
+  FailToParseRcWithErrorAndRegex(
+      "startup_with_comment.bazelrc",
+      RcFile::ParseError::INVALID_FORMAT,
+      "Incomplete line in \\.blazerc file '.*startup_with_comment\\.bazelrc': "
+      "'startup # bar'");
 }
 
 TEST_F(RcOptionsTest, SingleStartupArg) {
@@ -355,17 +371,13 @@ TEST_F(RcOptionsTest, ImportCycleFails) {
   WriteRc("import_cycle_2.bazelrc",
           "import %workspace%/import_cycle_1.bazelrc");
 
-  RcFile::ParseError error;
-  string error_text;
-  std::unique_ptr<RcFile> rc =
-      Parse("import_cycle_1.bazelrc", &error, &error_text);
-  EXPECT_EQ(error, RcFile::ParseError::IMPORT_LOOP);
-  ASSERT_THAT(
-      error_text,
-      MatchesRegex("Import loop detected:\n"
-                   "  .*import_cycle_1.bazelrc\n"
-                   "  .*import_cycle_2.bazelrc\n"
-                   "  .*import_cycle_1.bazelrc\n"));
+  FailToParseRcWithErrorAndRegex(
+      "import_cycle_1.bazelrc",
+      RcFile::ParseError::IMPORT_LOOP,
+      "Import loop detected:\n"
+      "  .*import_cycle_1.bazelrc\n"
+      "  .*import_cycle_2.bazelrc\n"
+      "  .*import_cycle_1.bazelrc\n");
 }
 
 TEST_F(RcOptionsTest, LongImportCycleFails) {
@@ -382,53 +394,62 @@ TEST_F(RcOptionsTest, LongImportCycleFails) {
   WriteRc("import_cycle_2.bazelrc",
           "import %workspace%/import_cycle_1.bazelrc");
 
-  RcFile::ParseError error;
-  string error_text;
-  std::unique_ptr<RcFile> rc =
-      Parse("chain_to_cycle_1.bazelrc", &error, &error_text);
-  EXPECT_EQ(error, RcFile::ParseError::IMPORT_LOOP);
-  ASSERT_THAT(
-      error_text,
-      MatchesRegex("Import loop detected:\n"
-                   "  .*chain_to_cycle_1.bazelrc\n"
-                   "  .*chain_to_cycle_2.bazelrc\n"
-                   "  .*chain_to_cycle_3.bazelrc\n"
-                   "  .*chain_to_cycle_4.bazelrc\n"
-                   "  .*import_cycle_1.bazelrc\n"
-                   "  .*import_cycle_2.bazelrc\n"
-                   "  .*import_cycle_1.bazelrc\n"));
+  FailToParseRcWithErrorAndRegex(
+      "chain_to_cycle_1.bazelrc",
+      RcFile::ParseError::IMPORT_LOOP,
+      "Import loop detected:\n"
+      "  .*chain_to_cycle_1.bazelrc\n"
+      "  .*chain_to_cycle_2.bazelrc\n"
+      "  .*chain_to_cycle_3.bazelrc\n"
+      "  .*chain_to_cycle_4.bazelrc\n"
+      "  .*import_cycle_1.bazelrc\n"
+      "  .*import_cycle_2.bazelrc\n"
+      "  .*import_cycle_1.bazelrc\n");
+}
+
+TEST_F(RcOptionsTest, MissingCommandFails) {
+  WriteRc("missing_command.bazelrc",
+          "--debug_client");
+
+  FailToParseRcWithErrorAndRegex(
+      "missing_command.bazelrc",
+      RcFile::ParseError::INVALID_FORMAT,
+      "Incomplete line in \\.blazerc file '.*missing_command\\.bazelrc': "
+      "'--debug_client'");
+}
+
+TEST_F(RcOptionsTest, EmptyOptionsFails) {
+  WriteRc("empty_options.bazelrc",
+          "build:debug # --debug_client");
+
+  FailToParseRcWithErrorAndRegex(
+      "empty_options.bazelrc",
+      RcFile::ParseError::INVALID_FORMAT,
+      "Incomplete line in \\.blazerc file '.*empty_options\\.bazelrc': "
+      "'build:debug # --debug_client'");
 }
 
 TEST_F(RcOptionsTest, FileDoesNotExist) {
-  RcFile::ParseError error;
-  string error_text;
-  std::unique_ptr<RcFile> rc = Parse("not_a_file.bazelrc", &error, &error_text);
-  EXPECT_EQ(error, RcFile::ParseError::UNREADABLE_FILE);
-  ASSERT_THAT(
-      error_text,
-      MatchesRegex(kIsWindows
-        ? "Unexpected error reading \\.blazerc file '.*not_a_file\\.bazelrc':.*"
-        : "Unexpected error reading \\.blazerc file '.*not_a_file\\.bazelrc': "
-          "\\(error: 2\\): No such file or directory"));
+  FailToParseRcWithErrorAndRegex(
+      "not_a_file.bazelrc",
+      RcFile::ParseError::UNREADABLE_FILE,
+      kIsWindows
+      ? "Unexpected error reading \\.blazerc file '.*not_a_file\\.bazelrc':.*"
+      : "Unexpected error reading \\.blazerc file '.*not_a_file\\.bazelrc': "
+        "\\(error: 2\\): No such file or directory");
 }
 
 TEST_F(RcOptionsTest, ImportedFileDoesNotExist) {
   WriteRc("import_fake_file.bazelrc",
           "import somefile");
 
-  RcFile::ParseError error;
-  string error_text;
-  std::unique_ptr<RcFile> rc =
-      Parse("import_fake_file.bazelrc", &error, &error_text);
-  EXPECT_EQ(error, RcFile::ParseError::UNREADABLE_FILE);
-  if (kIsWindows) {
-    ASSERT_THAT(error_text, MatchesRegex(
-      "Unexpected error reading \\.blazerc file 'somefile':.*"));
-  } else {
-    ASSERT_EQ(error_text,
-      "Unexpected error reading .blazerc file 'somefile': (error: 2): No such "
-      "file or directory");
-  }
+  FailToParseRcWithErrorAndRegex(
+      "import_fake_file.bazelrc",
+      RcFile::ParseError::UNREADABLE_FILE,
+      kIsWindows
+      ? "Unexpected error reading \\.blazerc file 'somefile':.*"
+      : "Unexpected error reading .blazerc file 'somefile': \\(error: 2\\): "
+        "No such file or directory");
 }
 
 TEST_F(RcOptionsTest, TryImportedFileDoesNotExist) {
@@ -443,29 +464,23 @@ TEST_F(RcOptionsTest, ImportHasTooManyArgs) {
   WriteRc("bad_import.bazelrc",
           "import somefile bar");
 
-  RcFile::ParseError error;
-  string error_text;
-  std::unique_ptr<RcFile> rc = Parse("bad_import.bazelrc", &error, &error_text);
-  EXPECT_EQ(error, RcFile::ParseError::INVALID_FORMAT);
-  ASSERT_THAT(
-      error_text,
-      MatchesRegex("Invalid import declaration in .blazerc file "
-                   "'.*bad_import.bazelrc': 'import somefile bar' \\(are you "
-                   "in your source checkout/WORKSPACE\\?\\)"));
+  FailToParseRcWithErrorAndRegex(
+      "bad_import.bazelrc",
+      RcFile::ParseError::INVALID_FORMAT,
+      "Invalid import declaration in .blazerc file "
+      "'.*bad_import.bazelrc': 'import somefile bar' \\(are you "
+      "in your source checkout/WORKSPACE\\?\\)");
 }
 
 TEST_F(RcOptionsTest, TryImportHasTooManyArgs) {
   WriteRc("bad_import.bazelrc", "try-import somefile bar");
 
-  RcFile::ParseError error;
-  string error_text;
-  std::unique_ptr<RcFile> rc = Parse("bad_import.bazelrc", &error, &error_text);
-  EXPECT_EQ(error, RcFile::ParseError::INVALID_FORMAT);
-  ASSERT_THAT(
-      error_text,
-      MatchesRegex("Invalid import declaration in .blazerc file "
-                   "'.*bad_import.bazelrc': 'try-import somefile bar' \\(are "
-                   "you in your source checkout/WORKSPACE\\?\\)"));
+  FailToParseRcWithErrorAndRegex(
+      "bad_import.bazelrc",
+      RcFile::ParseError::INVALID_FORMAT,
+      "Invalid import declaration in .blazerc file "
+      "'.*bad_import.bazelrc': 'try-import somefile bar' \\(are "
+      "you in your source checkout/WORKSPACE\\?\\)");
 }
 
 // TODO(b/34811299) The tests below identify ways that '\' used as a line
@@ -482,9 +497,11 @@ TEST_F(RcOptionsTest, BadStartupLineContinuation_HasWhitespaceAfterSlash) {
   WriteRc("bad_startup_line_continuation.bazelrc",
           "startup foo \\ \n"
           "bar");
-  SuccessfullyParseRcWithExpectedArgs(
+  FailToParseRcWithErrorAndRegex(
       "bad_startup_line_continuation.bazelrc",
-      {{"startup", {"foo"}}});  // Does not contain "bar" from the next line.
+      RcFile::ParseError::INVALID_FORMAT,
+      "Incomplete line in \\.blazerc file '.*bad_startup_line_continuation\\.bazelrc': "
+      "'bar'");
 }
 
 TEST_F(RcOptionsTest, BadStartupLineContinuation_HasErroneousSlash) {
@@ -500,11 +517,11 @@ TEST_F(RcOptionsTest, BadStartupLineContinuation_HasCommentAfterSlash) {
   WriteRc("bad_startup_line_continuation.bazelrc",
           "startup foo \\ # comment\n"
           "bar");
-  SuccessfullyParseRcWithExpectedArgs(
+  FailToParseRcWithErrorAndRegex(
       "bad_startup_line_continuation.bazelrc",
-      // Whitespace between the slash and comment gets counted as a new token,
-      // and the bar on the next line is ignored (it's an argumentless command).
-      {{"startup", {"foo", " "}}});
+      RcFile::ParseError::INVALID_FORMAT,
+      "Incomplete line in \\.blazerc file '.*bad_startup_line_continuation\\.bazelrc': "
+      "'bar'");
 }
 
 TEST_F(RcOptionsTest, BadStartupLineContinuation_InterpretsNextLineAsNewline) {
