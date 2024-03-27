@@ -119,12 +119,32 @@ public final class TransitiveValidationPropagationTest extends BuildViewTestCase
   public void testValidationOutputPropagation() throws Exception {
     scratch.file(
         "valid/BUILD",
-        "validation_rule(name = 'foo')",
-        "validation_rule(name = 'bar', deps = [':foo'])",
-        "validation_rule(name = 'baz')",
-        "validation_rule(name = 'top', deps = ['bar', 'baz'])",
-        "transitive_validation_rule(name = 'top_transitive', deps = ['bar', 'baz'])",
-        "");
+        """
+        validation_rule(name = "foo")
+
+        validation_rule(
+            name = "bar",
+            deps = [":foo"],
+        )
+
+        validation_rule(name = "baz")
+
+        validation_rule(
+            name = "top",
+            deps = [
+                "bar",
+                "baz",
+            ],
+        )
+
+        transitive_validation_rule(
+            name = "top_transitive",
+            deps = [
+                "bar",
+                "baz",
+            ],
+        )
+        """);
 
     List<String> topValid =
         prettyArtifactNames(
@@ -143,10 +163,19 @@ public final class TransitiveValidationPropagationTest extends BuildViewTestCase
   public void testTransitiveValidationOutputGroupNotAllowedForStarlarkRules() throws Exception {
     scratch.file(
         "test/foo_rule.bzl",
-        "def _impl(ctx):",
-        "  return [OutputGroupInfo(_validation_transitive = depset())]",
-        "foo_rule = rule(implementation = _impl)");
-    scratch.file("test/BUILD", "load('//test:foo_rule.bzl', 'foo_rule')", "foo_rule(name='foo')");
+        """
+        def _impl(ctx):
+            return [OutputGroupInfo(_validation_transitive = depset())]
+
+        foo_rule = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:foo_rule.bzl", "foo_rule")
+
+        foo_rule(name = "foo")
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:foo"));

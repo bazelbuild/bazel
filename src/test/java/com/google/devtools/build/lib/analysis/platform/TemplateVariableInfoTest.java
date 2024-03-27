@@ -33,17 +33,32 @@ public class TemplateVariableInfoTest extends BuildViewTestCase {
   public void proxyTemplateVariableInfo() throws Exception {
     scratch.file(
         "a/rule.bzl",
-        "def _impl(ctx):",
-        "  return struct(",
-        "      providers = [ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo]])",
-        "crule = rule(_impl, attrs = { '_cc_toolchain': attr.label(default=Label('//a:a')) })");
+        """
+        def _impl(ctx):
+            return struct(
+                providers = [ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo]],
+            )
+
+        crule = rule(_impl, attrs = {"_cc_toolchain": attr.label(default = Label("//a:a"))})
+        """);
 
     scratch.file(
         "a/BUILD",
-        "load(':rule.bzl', 'crule')",
-        "cc_toolchain_alias(name='a')",
-        "crule(name='r')",
-        "genrule(name='g', srcs=[], outs=['go'], toolchains=[':r'], cmd='VAR $(CC)')");
+        """
+        load(":rule.bzl", "crule")
+
+        cc_toolchain_alias(name = "a")
+
+        crule(name = "r")
+
+        genrule(
+            name = "g",
+            srcs = [],
+            outs = ["go"],
+            cmd = "VAR $(CC)",
+            toolchains = [":r"],
+        )
+        """);
 
     SpawnAction action = (SpawnAction) getGeneratingAction(getConfiguredTarget("//a:g"), "a/go");
     assertThat(action.getArguments().get(2)).containsMatch("VAR .*gcc");
@@ -53,13 +68,24 @@ public class TemplateVariableInfoTest extends BuildViewTestCase {
   public void templateVariableInfo() throws Exception {
     scratch.file(
         "a/rule.bzl",
-        "def _impl(ctx):",
-        "  return struct(",
-        "      variables = ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo].variables)",
-        "crule = rule(_impl, attrs = { '_cc_toolchain': attr.label(default=Label('//a:a')) })");
+        """
+        def _impl(ctx):
+            return struct(
+                variables = ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo].variables,
+            )
+
+        crule = rule(_impl, attrs = {"_cc_toolchain": attr.label(default = Label("//a:a"))})
+        """);
 
     scratch.file(
-        "a/BUILD", "load(':rule.bzl', 'crule')", "cc_toolchain_alias(name='a')", "crule(name='r')");
+        "a/BUILD",
+        """
+        load(":rule.bzl", "crule")
+
+        cc_toolchain_alias(name = "a")
+
+        crule(name = "r")
+        """);
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
 
     @SuppressWarnings("unchecked")
@@ -71,22 +97,43 @@ public class TemplateVariableInfoTest extends BuildViewTestCase {
   public void templateVariableInfoConstructor() throws Exception {
     scratch.file(
         "a/rule.bzl",
-        "def _consumer_impl(ctx):",
-        "  return struct(",
-        "      var = ctx.attr.supplier[platform_common.TemplateVariableInfo]",
-        "          .variables[ctx.attr.var])",
-        "def _supplier_impl(ctx):",
-        "  return [platform_common.TemplateVariableInfo({ctx.attr.var: ctx.attr.value})]",
-        "consumer = rule(_consumer_impl,",
-        "    attrs = { 'var': attr.string(), 'supplier': attr.label() })",
-        "supplier = rule(_supplier_impl,",
-        "    attrs = { 'var': attr.string(), 'value': attr.string() })");
+        """
+        def _consumer_impl(ctx):
+            return struct(
+                var = ctx.attr.supplier[platform_common.TemplateVariableInfo]
+                    .variables[ctx.attr.var],
+            )
+
+        def _supplier_impl(ctx):
+            return [platform_common.TemplateVariableInfo({ctx.attr.var: ctx.attr.value})]
+
+        consumer = rule(
+            _consumer_impl,
+            attrs = {"var": attr.string(), "supplier": attr.label()},
+        )
+        supplier = rule(
+            _supplier_impl,
+            attrs = {"var": attr.string(), "value": attr.string()},
+        )
+        """);
 
     scratch.file(
         "a/BUILD",
-        "load(':rule.bzl', 'consumer', 'supplier')",
-        "consumer(name='consumer', supplier=':supplier', var='cherry')",
-        "supplier(name='supplier', var='cherry', value='ontop')");
+        """
+        load(":rule.bzl", "consumer", "supplier")
+
+        consumer(
+            name = "consumer",
+            supplier = ":supplier",
+            var = "cherry",
+        )
+
+        supplier(
+            name = "supplier",
+            value = "ontop",
+            var = "cherry",
+        )
+        """);
 
     ConfiguredTarget consumer = getConfiguredTarget("//a:consumer");
     @SuppressWarnings("unchecked")

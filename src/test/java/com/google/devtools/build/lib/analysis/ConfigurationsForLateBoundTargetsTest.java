@@ -91,11 +91,17 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
 
   @Test
   public void lateBoundAttributeInTargetConfiguration() throws Exception {
-    scratch.file("foo/BUILD",
-        "rule_with_latebound_attr(",
-        "    name = 'foo')",
-        "rule_with_test_fragment(",
-        "    name = 'latebound_dep')");
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_latebound_attr(
+            name = "foo",
+        )
+
+        rule_with_test_fragment(
+            name = "latebound_dep",
+        )
+        """);
     update("//foo:foo");
     assertThat(getConfiguredTarget("//foo:foo", getTargetConfiguration())).isNotNull();
     ConfiguredTarget dep =
@@ -108,17 +114,25 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
 
   @Test
   public void lateBoundAttributeInExecConfiguration() throws Exception {
-    scratch.file("foo/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['gen.out'],",
-        "    cmd = 'echo hi > $@',",
-        "    tools = [':foo'])",
-        "rule_with_latebound_attr(",
-        "    name = 'foo')",
-        "rule_with_test_fragment(",
-        "    name = 'latebound_dep')");
+    scratch.file(
+        "foo/BUILD",
+        """
+        genrule(
+            name = "gen",
+            srcs = [],
+            outs = ["gen.out"],
+            cmd = "echo hi > $@",
+            tools = [":foo"],
+        )
+
+        rule_with_latebound_attr(
+            name = "foo",
+        )
+
+        rule_with_test_fragment(
+            name = "latebound_dep",
+        )
+        """);
     update("//foo:gen");
     assertThat(getConfiguredTarget("//foo:foo", getExecConfiguration())).isNotNull();
     // TODO(b/203203933) Fix LateboundDefault-s to return exec configuration

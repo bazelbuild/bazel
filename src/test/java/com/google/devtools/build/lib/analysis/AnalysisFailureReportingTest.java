@@ -64,8 +64,12 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
   public void testMissingRequiredAttribute() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'foo',", // missing "out" attribute
-        "        cmd = '')");
+        """
+        genrule(
+            name = "foo",  # missing "out" attribute
+            cmd = "",
+        )
+        """);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
     Label topLevel = Label.parseCanonicalUnchecked("//foo");
@@ -88,10 +92,14 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
   public void testMissingDependency() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'foo',",
-        "        tools = ['//bar'],",
-        "        cmd = 'command',",
-        "        outs = ['foo.txt'])");
+        """
+        genrule(
+            name = "foo",
+            outs = ["foo.txt"],
+            cmd = "command",
+            tools = ["//bar"],
+        )
+        """);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
     Label topLevel = Label.parseCanonicalUnchecked("//foo");
@@ -114,11 +122,13 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
   public void testExpanderFailure() throws Exception {
     scratch.file(
         "test/BUILD",
-        "genrule(",
-        "    name = 'bad',",
-        "    outs = ['bad.out'],",
-        "    cmd = 'cp $< $@',  # Error to use $< with no srcs",
-        ")");
+        """
+        genrule(
+            name = "bad",
+            outs = ["bad.out"],
+            cmd = "cp $< $@",  # Error to use $< with no srcs
+        )
+        """);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//test:bad");
     assertThat(result.hasError()).isTrue();
     Label topLevel = Label.parseCanonicalUnchecked("//test:bad");

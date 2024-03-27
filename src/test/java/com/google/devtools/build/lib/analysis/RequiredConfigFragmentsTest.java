@@ -111,8 +111,14 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     useConfiguration("--include_config_fragments_provider=transitive");
     scratch.file(
         "a/BUILD",
-        "requires_fragment_b(name = 'b')",
-        "requires_fragment_a(name = 'a', deps = [':b'])");
+        """
+        requires_fragment_b(name = "b")
+
+        requires_fragment_a(
+            name = "a",
+            deps = [":b"],
+        )
+        """);
 
     RequiredConfigFragmentsProvider aTransitiveFragments =
         getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class);
@@ -125,8 +131,17 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     useConfiguration("--include_config_fragments_provider=transitive");
     scratch.file(
         "a/BUILD",
-        "config_setting(name = 'config_on_native', values = {'cpu': 'foo'})",
-        "config_setting(name = 'config_on_a', values = {'a_option': 'foo'})");
+        """
+        config_setting(
+            name = "config_on_native",
+            values = {"cpu": "foo"},
+        )
+
+        config_setting(
+            name = "config_on_a",
+            values = {"a_option": "foo"},
+        )
+        """);
 
     assertThat(
             getConfiguredTarget("//a:config_on_a")
@@ -145,8 +160,14 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     useConfiguration("--include_config_fragments_provider=direct");
     scratch.file(
         "a/BUILD",
-        "requires_fragment_b(name = 'b')",
-        "requires_fragment_a(name = 'a', deps = [':b'])");
+        """
+        requires_fragment_b(name = "b")
+
+        requires_fragment_a(
+            name = "a",
+            deps = [":b"],
+        )
+        """);
 
     RequiredConfigFragmentsProvider aDirectFragments =
         getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class);
@@ -159,8 +180,17 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     useConfiguration("--include_config_fragments_provider=direct");
     scratch.file(
         "a/BUILD",
-        "config_setting(name = 'config_on_native', values = {'cpu': 'foo'})",
-        "config_setting(name = 'config_on_a', values = {'a_option': 'foo'})");
+        """
+        config_setting(
+            name = "config_on_native",
+            values = {"cpu": "foo"},
+        )
+
+        config_setting(
+            name = "config_on_a",
+            values = {"a_option": "foo"},
+        )
+        """);
 
     assertThat(
             getConfiguredTarget("//a:config_on_a")
@@ -179,11 +209,14 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     useConfiguration("--include_config_fragments_provider=direct", "--define", "myvar=myval");
     scratch.file(
         "a/BUILD",
-        "genrule(",
-        "    name = 'myrule',",
-        "    srcs = [],",
-        "    outs = ['myrule.out'],",
-        "    cmd = 'echo $(myvar) $(COMPILATION_MODE) > $@')");
+        """
+        genrule(
+            name = "myrule",
+            srcs = [],
+            outs = ["myrule.out"],
+            cmd = "echo $(myvar) $(COMPILATION_MODE) > $@",
+        )
+        """);
     RequiredConfigFragmentsProvider requiredFragments =
         getConfiguredTarget("//a:myrule").getProvider(RequiredConfigFragmentsProvider.class);
     assertThat(requiredFragments.getDefines()).containsExactly("myvar");
@@ -194,14 +227,22 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     useConfiguration("--include_config_fragments_provider=direct", "--define=myvar=myval");
     scratch.file(
         "a/defs.bzl",
-        "def _impl(ctx):",
-        "  print(ctx.expand_make_variables('dummy attribute', 'string with $(myvar)!', {}))",
-        "",
-        "simple_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {}",
-        ")");
-    scratch.file("a/BUILD", "load('//a:defs.bzl', 'simple_rule')", "simple_rule(name = 'simple')");
+        """
+        def _impl(ctx):
+            print(ctx.expand_make_variables("dummy attribute", "string with $(myvar)!", {}))
+
+        simple_rule = rule(
+            implementation = _impl,
+            attrs = {},
+        )
+        """);
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//a:defs.bzl", "simple_rule")
+
+        simple_rule(name = "simple")
+        """);
     RequiredConfigFragmentsProvider requiredFragments =
         getConfiguredTarget("//a:simple").getProvider(RequiredConfigFragmentsProvider.class);
     assertThat(requiredFragments.getDefines()).containsExactly("myvar");
@@ -213,22 +254,32 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "--include_config_fragments_provider=direct", "--define=required_var=1,irrelevant_var=1");
     scratch.file(
         "a/defs.bzl",
-        "def _impl(ctx):",
-        // Defined, so reported as required.
-        "  if 'required_var' not in ctx.var:",
-        "    fail('Missing required_var')",
-        // Not defined, so not reported as required.
-        "  if 'prohibited_var' in ctx.var:",
-        "    fail('Not allowed to set prohibited_var')",
-        // Present but not a define variable, so not reported as required.
-        "  if 'COMPILATION_MODE' not in ctx.var:",
-        "    fail('Missing COMPILATION_MODE')",
-        "",
-        "simple_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {}",
-        ")");
-    scratch.file("a/BUILD", "load('//a:defs.bzl', 'simple_rule')", "simple_rule(name = 'simple')");
+        """
+        def _impl(ctx):
+            # Defined, so reported as required.
+            if "required_var" not in ctx.var:
+                fail("Missing required_var")
+
+            # Not defined, so not reported as required.
+            if "prohibited_var" in ctx.var:
+                fail("Not allowed to set prohibited_var")
+
+            # Present but not a define variable, so not reported as required.
+            if "COMPILATION_MODE" not in ctx.var:
+                fail("Missing COMPILATION_MODE")
+
+        simple_rule = rule(
+            implementation = _impl,
+            attrs = {},
+        )
+        """);
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//a:defs.bzl", "simple_rule")
+
+        simple_rule(name = "simple")
+        """);
     RequiredConfigFragmentsProvider requiredFragments =
         getConfiguredTarget("//a:simple").getProvider(RequiredConfigFragmentsProvider.class);
     assertThat(requiredFragments.getDefines()).containsExactly("required_var");
@@ -307,8 +358,14 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
   public void aspectRequiresFragments() throws Exception {
     scratch.file(
         "a/BUILD",
-        "rule_that_attaches_aspect(name = 'parent', deps = [':dep'])",
-        "rule_that_attaches_aspect(name = 'dep')");
+        """
+        rule_that_attaches_aspect(
+            name = "parent",
+            deps = [":dep"],
+        )
+
+        rule_that_attaches_aspect(name = "dep")
+        """);
     useConfiguration("--include_config_fragments_provider=transitive");
     RequiredConfigFragmentsProvider requiredFragments =
         getConfiguredTarget("//a:parent").getProvider(RequiredConfigFragmentsProvider.class);
@@ -321,28 +378,35 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
   private void writeStarlarkTransitionsAndAllowList() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//a/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//a/...",
+            ],
+        )
+        """);
     scratch.file(
         "transitions/defs.bzl",
-        "def _java_write_transition_impl(settings, attr):",
-        "  return {'//command_line_option:javacopt': ['foo'] }",
-        "java_write_transition = transition(",
-        "  implementation = _java_write_transition_impl,",
-        "  inputs = [],",
-        "  outputs = ['//command_line_option:javacopt'],",
-        ")",
-        "def _cpp_read_transition_impl(settings, attr):",
-        "  return {}",
-        "cpp_read_transition = transition(",
-        "  implementation = _cpp_read_transition_impl,",
-        "  inputs = ['//command_line_option:copt'],",
-        "  outputs = [],",
-        ")");
+        """
+        def _java_write_transition_impl(settings, attr):
+            return {"//command_line_option:javacopt": ["foo"]}
+
+        java_write_transition = transition(
+            implementation = _java_write_transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:javacopt"],
+        )
+
+        def _cpp_read_transition_impl(settings, attr):
+            return {}
+
+        cpp_read_transition = transition(
+            implementation = _cpp_read_transition_impl,
+            inputs = ["//command_line_option:copt"],
+            outputs = [],
+        )
+        """);
     scratch.file("transitions/BUILD");
   }
 
@@ -351,17 +415,24 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     writeStarlarkTransitionsAndAllowList();
     scratch.file(
         "a/defs.bzl",
-        "load('//transitions:defs.bzl', 'cpp_read_transition')",
-        "def _impl(ctx):",
-        "  pass",
-        "has_cpp_aware_rule_transition = rule(",
-        "  implementation = _impl,",
-        "  cfg = cpp_read_transition,",
-        ")");
+        """
+        load("//transitions:defs.bzl", "cpp_read_transition")
+
+        def _impl(ctx):
+            pass
+
+        has_cpp_aware_rule_transition = rule(
+            implementation = _impl,
+            cfg = cpp_read_transition,
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load('//a:defs.bzl', 'has_cpp_aware_rule_transition')",
-        "has_cpp_aware_rule_transition(name = 'cctarget')");
+        """
+        load("//a:defs.bzl", "has_cpp_aware_rule_transition")
+
+        has_cpp_aware_rule_transition(name = "cctarget")
+        """);
     useConfiguration("--include_config_fragments_provider=direct");
     RequiredConfigFragmentsProvider requiredFragments =
         getConfiguredTarget("//a:cctarget").getProvider(RequiredConfigFragmentsProvider.class);
@@ -374,17 +445,24 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     writeStarlarkTransitionsAndAllowList();
     scratch.file(
         "a/defs.bzl",
-        "load('//transitions:defs.bzl', 'java_write_transition')",
-        "def _impl(ctx):",
-        "  pass",
-        "has_java_aware_rule_transition = rule(",
-        "  implementation = _impl,",
-        "  cfg = java_write_transition,",
-        ")");
+        """
+        load("//transitions:defs.bzl", "java_write_transition")
+
+        def _impl(ctx):
+            pass
+
+        has_java_aware_rule_transition = rule(
+            implementation = _impl,
+            cfg = java_write_transition,
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load('//a:defs.bzl', 'has_java_aware_rule_transition')",
-        "has_java_aware_rule_transition(name = 'javatarget')");
+        """
+        load("//a:defs.bzl", "has_java_aware_rule_transition")
+
+        has_java_aware_rule_transition(name = "javatarget")
+        """);
     useConfiguration("--include_config_fragments_provider=direct");
     RequiredConfigFragmentsProvider requiredFragments =
         getConfiguredTarget("//a:javatarget").getProvider(RequiredConfigFragmentsProvider.class);
@@ -397,25 +475,35 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     writeStarlarkTransitionsAndAllowList();
     scratch.file(
         "a/defs.bzl",
-        "load('//transitions:defs.bzl', 'cpp_read_transition', 'java_write_transition')",
-        "def _impl(ctx):",
-        "  pass",
-        "has_java_aware_attr_transition = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(cfg = java_write_transition),",
-        "  })",
-        "has_cpp_aware_rule_transition = rule(",
-        "  implementation = _impl,",
-        "  cfg = cpp_read_transition,",
-        ")");
+        """
+        load("//transitions:defs.bzl", "cpp_read_transition", "java_write_transition")
+
+        def _impl(ctx):
+            pass
+
+        has_java_aware_attr_transition = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(cfg = java_write_transition),
+            },
+        )
+        has_cpp_aware_rule_transition = rule(
+            implementation = _impl,
+            cfg = cpp_read_transition,
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load('//a:defs.bzl', 'has_cpp_aware_rule_transition', 'has_java_aware_attr_transition')",
-        "has_cpp_aware_rule_transition(name = 'ccchild')",
-        "has_java_aware_attr_transition(",
-        "  name = 'javaparent',",
-        "  deps = [':ccchild'])");
+        """
+        load("//a:defs.bzl", "has_cpp_aware_rule_transition", "has_java_aware_attr_transition")
+
+        has_cpp_aware_rule_transition(name = "ccchild")
+
+        has_java_aware_attr_transition(
+            name = "javaparent",
+            deps = [":ccchild"],
+        )
+        """);
     useConfiguration("--include_config_fragments_provider=direct");
     RequiredConfigFragmentsProvider requiredFragments =
         getConfiguredTarget("//a:javaparent").getProvider(RequiredConfigFragmentsProvider.class);
@@ -432,29 +520,43 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     writeStarlarkTransitionsAndAllowList();
     scratch.file(
         "a/defs.bzl",
-        "",
-        "A1Info = provider()",
-        "def _a1_impl(target, ctx):",
-        "  return []",
-        "a1 = aspect(implementation = _a1_impl)",
-        "",
-        "def _java_depender_impl(ctx):",
-        "  return []",
-        "java_depender = rule(",
-        "  implementation = _java_depender_impl,",
-        "  fragments = ['java'],",
-        "  attrs = {})",
-        "",
-        "def _r_impl(ctx):",
-        "  return []",
-        "r = rule(",
-        "  implementation = _r_impl,",
-        "  attrs = {'dep': attr.label(aspects = [a1])})");
+        """
+        A1Info = provider()
+
+        def _a1_impl(target, ctx):
+            return []
+
+        a1 = aspect(implementation = _a1_impl)
+
+        def _java_depender_impl(ctx):
+            return []
+
+        java_depender = rule(
+            implementation = _java_depender_impl,
+            fragments = ["java"],
+            attrs = {},
+        )
+
+        def _r_impl(ctx):
+            return []
+
+        r = rule(
+            implementation = _r_impl,
+            attrs = {"dep": attr.label(aspects = [a1])},
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load(':defs.bzl', 'java_depender', 'r')",
-        "java_depender(name = 'lib')",
-        "r(name = 'r', dep = ':lib')");
+        """
+        load(":defs.bzl", "java_depender", "r")
+
+        java_depender(name = "lib")
+
+        r(
+            name = "r",
+            dep = ":lib",
+        )
+        """);
 
     useConfiguration("--include_config_fragments_provider=" + setting);
     getConfiguredTarget("//a:r");
@@ -474,33 +576,49 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "a/defs.bzl",
-        "",
-        "A1Info = provider()",
-        "def _a1_impl(target, ctx):",
-        "  return A1Info(var = ctx.var.get('my_var', '0'))",
-        "a1 = aspect(implementation = _a1_impl, provides = [A1Info])",
-        "",
-        "A2Info = provider()",
-        "def _a2_impl(target, ctx):",
-        "  return A2Info()",
-        "a2 = aspect(implementation = _a2_impl, required_aspect_providers = [A1Info])",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  return []",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {})",
-        "",
-        "def _r_impl(ctx):",
-        "  return []",
-        "r = rule(",
-        "  implementation = _r_impl,",
-        "  attrs = {'dep': attr.label(aspects = [a1, a2])})");
+        """
+        A1Info = provider()
+
+        def _a1_impl(target, ctx):
+            return A1Info(var = ctx.var.get("my_var", "0"))
+
+        a1 = aspect(implementation = _a1_impl, provides = [A1Info])
+
+        A2Info = provider()
+
+        def _a2_impl(target, ctx):
+            return A2Info()
+
+        a2 = aspect(implementation = _a2_impl, required_aspect_providers = [A1Info])
+
+        def _simple_rule_impl(ctx):
+            return []
+
+        simple_rule = rule(
+            implementation = _simple_rule_impl,
+            attrs = {},
+        )
+
+        def _r_impl(ctx):
+            return []
+
+        r = rule(
+            implementation = _r_impl,
+            attrs = {"dep": attr.label(aspects = [a1, a2])},
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load(':defs.bzl', 'r', 'simple_rule')",
-        "simple_rule(name = 'lib')",
-        "r(name = 'r', dep = ':lib')");
+        """
+        load(":defs.bzl", "r", "simple_rule")
+
+        simple_rule(name = "lib")
+
+        r(
+            name = "r",
+            dep = ":lib",
+        )
+        """);
 
     useConfiguration("--include_config_fragments_provider=" + setting, "--define", "my_var=1");
     getConfiguredTarget("//a:r");
@@ -518,11 +636,19 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
   public void invalidStarlarkFragmentsFiltered() throws Exception {
     scratch.file(
         "a/defs.bzl",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "",
-        "my_rule = rule(implementation = _my_rule_impl, fragments = ['java', 'doesnotexist'])");
-    scratch.file("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'example')");
+        """
+        def _my_rule_impl(ctx):
+            pass
+
+        my_rule = rule(implementation = _my_rule_impl, fragments = ["java", "doesnotexist"])
+        """);
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        my_rule(name = "example")
+        """);
 
     useConfiguration("--include_config_fragments_provider=direct");
     RequiredConfigFragmentsProvider requiredFragments =
@@ -535,21 +661,32 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
   public void aspectInErrorWithAllowAnalysisFailures() throws Exception {
     scratch.file(
         "a/defs.bzl",
-        "def _error_aspect_impl(target, ctx):",
-        "  fail(ctx.var['FAIL_MESSAGE'])",
-        "error_aspect = aspect(implementation = _error_aspect_impl)",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "  attrs = {'dep': attr.label(aspects = [error_aspect])},",
-        ")");
+        """
+        def _error_aspect_impl(target, ctx):
+            fail(ctx.var["FAIL_MESSAGE"])
+
+        error_aspect = aspect(implementation = _error_aspect_impl)
+
+        def _my_rule_impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _my_rule_impl,
+            attrs = {"dep": attr.label(aspects = [error_aspect])},
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load(':defs.bzl', 'my_rule', 'error_aspect')",
-        "my_rule(name = 'a')",
-        "my_rule(name = 'b', dep = ':a')");
+        """
+        load(":defs.bzl", "error_aspect", "my_rule")
+
+        my_rule(name = "a")
+
+        my_rule(
+            name = "b",
+            dep = ":a",
+        )
+        """);
 
     useConfiguration(
         "--allow_analysis_failures",
@@ -566,10 +703,19 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
   public void configuredTargetInErrorWithAllowAnalysisFailures() throws Exception {
     scratch.file(
         "a/defs.bzl",
-        "def _error_rule_impl(ctx):",
-        "  fail(ctx.var['FAIL_MESSAGE'])",
-        "error_rule = rule(implementation = _error_rule_impl)");
-    scratch.file("a/BUILD", "load(':defs.bzl', 'error_rule')", "error_rule(name = 'error')");
+        """
+        def _error_rule_impl(ctx):
+            fail(ctx.var["FAIL_MESSAGE"])
+
+        error_rule = rule(implementation = _error_rule_impl)
+        """);
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "error_rule")
+
+        error_rule(name = "error")
+        """);
 
     useConfiguration(
         "--allow_analysis_failures",
@@ -585,14 +731,28 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
   public void aliasWithSelectResolvesToConfigSetting() throws Exception {
     scratch.file(
         "a/BUILD",
-        "config_setting(name = 'define_x', define_values = {'x': '1'})",
-        "config_setting(name = 'k8', values = {'cpu': 'k8'})",
-        "alias(name = 'alias_to_setting', actual = select({':define_x': ':k8'}))",
-        "genrule(",
-        "  name = 'gen',",
-        "  outs = ['gen.out'],",
-        "  cmd = select({':alias_to_setting': 'touch $@'}),",
-        ")");
+        """
+        config_setting(
+            name = "define_x",
+            define_values = {"x": "1"},
+        )
+
+        config_setting(
+            name = "k8",
+            values = {"cpu": "k8"},
+        )
+
+        alias(
+            name = "alias_to_setting",
+            actual = select({":define_x": ":k8"}),
+        )
+
+        genrule(
+            name = "gen",
+            outs = ["gen.out"],
+            cmd = select({":alias_to_setting": "touch $@"}),
+        )
+        """);
 
     useConfiguration("--define=x=1", "--cpu=k8", "--include_config_fragments_provider=transitive");
     RequiredConfigFragmentsProvider requiredFragments =

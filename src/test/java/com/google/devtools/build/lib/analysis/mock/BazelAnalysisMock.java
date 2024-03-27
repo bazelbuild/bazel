@@ -134,8 +134,14 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_config_xcode_workspace/MODULE.bazel", "module(name = 'local_config_xcode')");
     config.create(
         "protobuf_workspace/BUILD",
-        "licenses(['notice'])",
-        "exports_files(['protoc', 'cc_toolchain'])");
+        """
+        licenses(["notice"])
+
+        exports_files([
+            "protoc",
+            "cc_toolchain",
+        ])
+        """);
     config.create("protobuf_workspace/WORKSPACE");
     config.create("protobuf_workspace/MODULE.bazel", "module(name='com_google_protobuf')");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
@@ -185,96 +191,146 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ")");
     config.create(
         "embedded_tools/tools/jdk/BUILD",
-        "load(",
-        "    ':java_toolchain_alias.bzl',",
-        "    'java_toolchain_alias',",
-        "    'java_runtime_alias',",
-        "    'java_host_runtime_alias',",
-        ")",
-        "load(':launcher_flag_alias.bzl', 'launcher_flag_alias')",
-        "package(default_visibility=['//visibility:public'])",
-        "java_toolchain(",
-        "  name = 'toolchain',",
-        "  source_version = '8',",
-        "  target_version = '8',",
-        "  bootclasspath = [':bootclasspath'],",
-        "  javabuilder = ['JavaBuilder_deploy.jar'],",
-        "  jacocorunner = ':JacocoCoverage',",
-        "  header_compiler = ['turbine_deploy.jar'],",
-        "  header_compiler_direct = ['TurbineDirect_deploy.jar'],",
-        "  singlejar = ['singlejar'],",
-        "  genclass = ['GenClass_deploy.jar'],",
-        "  ijar = ['ijar'],",
-        "  java_runtime = 'host_jdk',",
-        ")",
-        "java_toolchain(",
-        "  name = 'remote_toolchain',",
-        "  source_version = '8',",
-        "  target_version = '8',",
-        "  bootclasspath = [':bootclasspath'],",
-        "  javabuilder = ['JavaBuilder_deploy.jar'],",
-        "  jacocorunner = ':JacocoCoverage',",
-        "  header_compiler = ['turbine_deploy.jar'],",
-        "  header_compiler_direct = ['TurbineDirect_deploy.jar'],",
-        "  singlejar = ['singlejar'],",
-        "  genclass = ['GenClass_deploy.jar'],",
-        "  ijar = ['ijar'],",
-        "  java_runtime = 'host_jdk',",
-        ")",
-        "java_import(",
-        "  name = 'JacocoCoverageRunner',",
-        "  jars = ['JacocoCoverage_jarjar_deploy.jar'],",
-        ")",
-        "java_import(",
-        "  name = 'proguard_import',",
-        "  jars = ['proguard_rt.jar'],",
-        ")",
-        "java_binary(",
-        "  name = 'proguard',",
-        "  main_class = 'proguard.Proguard',",
-        "  runtime_deps = [':proguard_import'],",
-        ")",
-        "java_import(",
-        "  name = 'TestRunner',",
-        "  jars = ['TestRunner.jar'],",
-        ")",
-        "java_runtime(name = 'jdk', srcs = [])",
-        "java_runtime(name = 'host_jdk', srcs = [])",
-        "java_runtime(name = 'remote_jdk11', srcs = [])",
-        "java_toolchain_alias(name = 'current_java_toolchain')",
-        "java_runtime_alias(name = 'current_java_runtime')",
-        "java_host_runtime_alias(name = 'current_host_java_runtime')",
-        "filegroup(name='bootclasspath', srcs=['jdk/jre/lib/rt.jar'])",
-        "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*'], allow_empty = True))",
-        "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
-        "filegroup(name='JacocoCoverage', srcs = ['JacocoCoverage_deploy.jar'])",
-        "exports_files([",
-        "    'JavaBuilder_deploy.jar',",
-        "    'singlejar',",
-        "    'TestRunner_deploy.jar',",
-        "    'ijar',",
-        "    'GenClass_deploy.jar',",
-        "    'turbine_deploy.jar',",
-        "    'TurbineDirect_deploy.jar',",
-        "    'proguard_allowlister.par',",
-        "])",
-        "toolchain_type(name = 'toolchain_type')",
-        "toolchain_type(name = 'runtime_toolchain_type')",
-        "toolchain(",
-        "   name = 'dummy_java_toolchain',",
-        "   toolchain_type = ':toolchain_type',",
-        "   toolchain = ':toolchain',",
-        ")",
-        "toolchain(",
-        "   name = 'dummy_java_runtime_toolchain',",
-        "   toolchain_type = ':runtime_toolchain_type',",
-        "   toolchain = ':jdk',",
-        ")",
-        "java_plugins_flag_alias(name = 'java_plugins_flag_alias')",
-        "launcher_flag_alias(",
-        "  name = 'launcher_flag_alias',",
-        "  visibility = ['//visibility:public'],",
-        ")");
+        """
+        load(
+            ":java_toolchain_alias.bzl",
+            "java_host_runtime_alias",
+            "java_runtime_alias",
+            "java_toolchain_alias",
+        )
+        load(":launcher_flag_alias.bzl", "launcher_flag_alias")
+
+        package(default_visibility = ["//visibility:public"])
+
+        java_toolchain(
+            name = "toolchain",
+            bootclasspath = [":bootclasspath"],
+            genclass = ["GenClass_deploy.jar"],
+            header_compiler = ["turbine_deploy.jar"],
+            header_compiler_direct = ["TurbineDirect_deploy.jar"],
+            ijar = ["ijar"],
+            jacocorunner = ":JacocoCoverage",
+            java_runtime = "host_jdk",
+            javabuilder = ["JavaBuilder_deploy.jar"],
+            singlejar = ["singlejar"],
+            source_version = "8",
+            target_version = "8",
+        )
+
+        java_toolchain(
+            name = "remote_toolchain",
+            bootclasspath = [":bootclasspath"],
+            genclass = ["GenClass_deploy.jar"],
+            header_compiler = ["turbine_deploy.jar"],
+            header_compiler_direct = ["TurbineDirect_deploy.jar"],
+            ijar = ["ijar"],
+            jacocorunner = ":JacocoCoverage",
+            java_runtime = "host_jdk",
+            javabuilder = ["JavaBuilder_deploy.jar"],
+            singlejar = ["singlejar"],
+            source_version = "8",
+            target_version = "8",
+        )
+
+        java_import(
+            name = "JacocoCoverageRunner",
+            jars = ["JacocoCoverage_jarjar_deploy.jar"],
+        )
+
+        java_import(
+            name = "proguard_import",
+            jars = ["proguard_rt.jar"],
+        )
+
+        java_binary(
+            name = "proguard",
+            main_class = "proguard.Proguard",
+            runtime_deps = [":proguard_import"],
+        )
+
+        java_import(
+            name = "TestRunner",
+            jars = ["TestRunner.jar"],
+        )
+
+        java_runtime(
+            name = "jdk",
+            srcs = [],
+        )
+
+        java_runtime(
+            name = "host_jdk",
+            srcs = [],
+        )
+
+        java_runtime(
+            name = "remote_jdk11",
+            srcs = [],
+        )
+
+        java_toolchain_alias(name = "current_java_toolchain")
+
+        java_runtime_alias(name = "current_java_runtime")
+
+        java_host_runtime_alias(name = "current_host_java_runtime")
+
+        filegroup(
+            name = "bootclasspath",
+            srcs = ["jdk/jre/lib/rt.jar"],
+        )
+
+        filegroup(
+            name = "extdir",
+            srcs = glob(
+                ["jdk/jre/lib/ext/*"],
+                allow_empty = True,
+            ),
+        )
+
+        filegroup(
+            name = "java",
+            srcs = ["jdk/jre/bin/java"],
+        )
+
+        filegroup(
+            name = "JacocoCoverage",
+            srcs = ["JacocoCoverage_deploy.jar"],
+        )
+
+        exports_files([
+            "JavaBuilder_deploy.jar",
+            "singlejar",
+            "TestRunner_deploy.jar",
+            "ijar",
+            "GenClass_deploy.jar",
+            "turbine_deploy.jar",
+            "TurbineDirect_deploy.jar",
+            "proguard_allowlister.par",
+        ])
+
+        toolchain_type(name = "toolchain_type")
+
+        toolchain_type(name = "runtime_toolchain_type")
+
+        toolchain(
+            name = "dummy_java_toolchain",
+            toolchain = ":toolchain",
+            toolchain_type = ":toolchain_type",
+        )
+
+        toolchain(
+            name = "dummy_java_runtime_toolchain",
+            toolchain = ":jdk",
+            toolchain_type = ":runtime_toolchain_type",
+        )
+
+        java_plugins_flag_alias(name = "java_plugins_flag_alias")
+
+        launcher_flag_alias(
+            name = "launcher_flag_alias",
+            visibility = ["//visibility:public"],
+        )
+        """);
 
     config.create(
         TestConstants.CONSTRAINTS_PATH + "/android/BUILD",
@@ -300,135 +356,261 @@ public final class BazelAnalysisMock extends AnalysisMock {
         Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
     config.create(
         "embedded_tools/tools/android/dummy_sdk/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "toolchain(",
-        "    name = 'dummy-sdk',",
-        "    toolchain = ':invalid-fallback-sdk',",
-        "    toolchain_type = '@bazel_tools//tools/android:sdk_toolchain_type'",
-        ")",
-        "filegroup(",
-        "    name = 'jar-filegroup',",
-        "    srcs = ['dummy.jar'],",
-        ")",
-        "genrule(",
-        "    name = 'empty-binary',",
-        "    srcs = [],",
-        "    outs = ['empty.sh'],",
-        "    cmd = 'touch $@',",
-        "    executable = 1,",
-        ")",
-        "android_sdk(",
-        "    name = 'invalid-fallback-sdk',",
-        "    aapt = ':empty_binary',",
-        "    aapt2 = ':empty_binary',",
-        "    adb = ':empty_binary',",
-        "    aidl = ':empty_binary',",
-        "    android_jar = ':jar-filegroup',",
-        "    apksigner = ':empty_binary',",
-        "    dx = ':empty_binary',",
-        "    framework_aidl = 'dummy.jar',",
-        "    main_dex_classes = 'dummy.jar',",
-        "    main_dex_list_creator = ':empty_binary',",
-        "    proguard = 'empty_binary',",
-        "    shrinked_android_jar = 'dummy.jar',",
-        "    zipalign = ':empty_binary',",
-        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        toolchain(
+            name = "dummy-sdk",
+            toolchain = ":invalid-fallback-sdk",
+            toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
+        )
+
+        filegroup(
+            name = "jar-filegroup",
+            srcs = ["dummy.jar"],
+        )
+
+        genrule(
+            name = "empty-binary",
+            srcs = [],
+            outs = ["empty.sh"],
+            cmd = "touch $@",
+            executable = 1,
+        )
+
+        android_sdk(
+            name = "invalid-fallback-sdk",
+            aapt = ":empty_binary",
+            aapt2 = ":empty_binary",
+            adb = ":empty_binary",
+            aidl = ":empty_binary",
+            android_jar = ":jar-filegroup",
+            apksigner = ":empty_binary",
+            dx = ":empty_binary",
+            framework_aidl = "dummy.jar",
+            main_dex_classes = "dummy.jar",
+            main_dex_list_creator = ":empty_binary",
+            proguard = "empty_binary",
+            shrinked_android_jar = "dummy.jar",
+            tags = ["__ANDROID_RULES_MIGRATION__"],
+            zipalign = ":empty_binary",
+        )
+        """);
     config.create(
         "android_gmaven_r8/jar/BUILD",
-        "java_import(name = 'jar', jars=['r8.jar'])",
-        "filegroup(name = 'file', srcs=[])");
+        """
+        java_import(
+            name = "jar",
+            jars = ["r8.jar"],
+        )
+
+        filegroup(
+            name = "file",
+            srcs = [],
+        )
+        """);
     config.create("android_gmaven_r8/WORKSPACE");
 
     MockGenruleSupport.setup(config);
 
     config.create(
         "embedded_tools/tools/test/BUILD",
-        "filegroup(name = 'runtime', srcs = ['test-setup.sh', 'test-xml-generator.sh'])",
-        "filegroup(name = 'test_wrapper', srcs = ['test_wrapper_bin'])",
-        "filegroup(name = 'xml_writer', srcs = ['xml_writer_bin'])",
-        "filegroup(name = 'test_setup', srcs = ['test-setup.sh'])",
-        "filegroup(name = 'test_xml_generator', srcs = ['test-xml-generator.sh'])",
-        "filegroup(name = 'collect_coverage', srcs = ['collect_coverage.sh'])",
-        "filegroup(name = 'collect_cc_coverage', srcs = ['collect_cc_coverage.sh'])",
-        "filegroup(name='coverage_support', srcs=['collect_coverage.sh'])",
-        "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])",
-        "filegroup(name = 'lcov_merger', srcs = ['lcov_merger.sh'])");
+        """
+        filegroup(
+            name = "runtime",
+            srcs = [
+                "test-setup.sh",
+                "test-xml-generator.sh",
+            ],
+        )
+
+        filegroup(
+            name = "test_wrapper",
+            srcs = ["test_wrapper_bin"],
+        )
+
+        filegroup(
+            name = "xml_writer",
+            srcs = ["xml_writer_bin"],
+        )
+
+        filegroup(
+            name = "test_setup",
+            srcs = ["test-setup.sh"],
+        )
+
+        filegroup(
+            name = "test_xml_generator",
+            srcs = ["test-xml-generator.sh"],
+        )
+
+        filegroup(
+            name = "collect_coverage",
+            srcs = ["collect_coverage.sh"],
+        )
+
+        filegroup(
+            name = "collect_cc_coverage",
+            srcs = ["collect_cc_coverage.sh"],
+        )
+
+        filegroup(
+            name = "coverage_support",
+            srcs = ["collect_coverage.sh"],
+        )
+
+        filegroup(
+            name = "coverage_report_generator",
+            srcs = ["coverage_report_generator.sh"],
+        )
+
+        filegroup(
+            name = "lcov_merger",
+            srcs = ["lcov_merger.sh"],
+        )
+        """);
 
     // Use an alias package group to allow for modification at the simpler path
     config.create(
         "embedded_tools/tools/allowlists/config_feature_flag/BUILD",
-        "package_group(",
-        "    name='config_feature_flag',",
-        "    includes=['@@//tools/allowlists/config_feature_flag'],",
-        ")",
-        "package_group(",
-        "    name='config_feature_flag_setter',",
-        "    includes=['@@//tools/allowlists/config_feature_flag:config_feature_flag_setter'],",
-        ")");
+        """
+        package_group(
+            name = "config_feature_flag",
+            includes = ["@@//tools/allowlists/config_feature_flag"],
+        )
+
+        package_group(
+            name = "config_feature_flag_setter",
+            includes = ["@@//tools/allowlists/config_feature_flag:config_feature_flag_setter"],
+        )
+        """);
 
     config.create(
         "tools/allowlists/config_feature_flag/BUILD",
-        "package_group(name='config_feature_flag', packages=['public'])",
-        "package_group(name='config_feature_flag_Setter', packages=['public'])");
+        """
+        package_group(
+            name = "config_feature_flag",
+            packages = ["public"],
+        )
+
+        package_group(
+            name = "config_feature_flag_Setter",
+            packages = ["public"],
+        )
+        """);
     config.create(
         "embedded_tools/tools/allowlists/extend_rule_allowlist/BUILD",
-        "package_group(",
-        "    name = 'extend_rule_allowlist',",
-        "    packages = ['public'],",
-        ")");
+        """
+        package_group(
+            name = "extend_rule_allowlist",
+            packages = ["public"],
+        )
+        """);
 
     config.create(
         "embedded_tools/tools/allowlists/android_binary_allowlist/BUILD",
-        "package_group(",
-        "    name='enable_starlark_dex_desugar_proguard',",
-        "    includes=['@@//tools/allowlists/android_binary_allowlist:enable_starlark_dex_desugar_proguard'],",
-        ")");
+        """
+package_group(
+    name = "enable_starlark_dex_desugar_proguard",
+    includes = ["@@//tools/allowlists/android_binary_allowlist:enable_starlark_dex_desugar_proguard"],
+)
+""");
     config.create(
         "tools/allowlists/android_binary_allowlist/BUILD",
         "package_group(name='enable_starlark_dex_desugar_proguard', packages=[])");
 
     config.create(
         "embedded_tools/tools/proto/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "alias(name='protoc',actual='@com_google_protobuf//:protoc')",
-        "alias(name='javalite_toolchain',actual='@com_google_protobuf//:javalite_toolchain')",
-        "alias(name='java_toolchain',actual='@com_google_protobuf//:java_toolchain')",
-        "alias(name='cc_toolchain',actual='@com_google_protobuf//:cc_toolchain')");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        alias(
+            name = "protoc",
+            actual = "@com_google_protobuf//:protoc",
+        )
+
+        alias(
+            name = "javalite_toolchain",
+            actual = "@com_google_protobuf//:javalite_toolchain",
+        )
+
+        alias(
+            name = "java_toolchain",
+            actual = "@com_google_protobuf//:java_toolchain",
+        )
+
+        alias(
+            name = "cc_toolchain",
+            actual = "@com_google_protobuf//:cc_toolchain",
+        )
+        """);
 
     config.create(
         "embedded_tools/tools/zip/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "exports_files(['precompile.py'])",
-        "cc_binary(name='zipper', srcs=['zip_main.cc'])",
-        "alias(name='unzip_fdo', actual=':zipper')");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        exports_files(["precompile.py"])
+
+        cc_binary(
+            name = "zipper",
+            srcs = ["zip_main.cc"],
+        )
+
+        alias(
+            name = "unzip_fdo",
+            actual = ":zipper",
+        )
+        """);
 
     config.create(
         "embedded_tools/tools/launcher/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "load('@bazel_tools//third_party/cc_rules/macros:defs.bzl', 'cc_binary')",
-        "cc_binary(name='launcher', srcs=['launcher_main.cc'])",
-        "cc_binary(name='launcher_maker', srcs=['launcher_maker.cc'])");
+        """
+        load("@bazel_tools//third_party/cc_rules/macros:defs.bzl", "cc_binary")
+
+        package(default_visibility = ["//visibility:public"])
+
+        cc_binary(
+            name = "launcher",
+            srcs = ["launcher_main.cc"],
+        )
+
+        cc_binary(
+            name = "launcher_maker",
+            srcs = ["launcher_maker.cc"],
+        )
+        """);
 
     config.create(
         "embedded_tools/tools/def_parser/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "filegroup(name='def_parser', srcs=['def_parser.exe'])");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        filegroup(
+            name = "def_parser",
+            srcs = ["def_parser.exe"],
+        )
+        """);
 
     config.create(
         "embedded_tools/objcproto/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "objc_library(",
-        "  name = 'protobuf_lib',",
-        "  srcs = ['empty.m'],",
-        "  hdrs = ['include/header.h'],",
-        "  includes = ['include'],",
-        ")",
-        "exports_files(['well_known_type.proto'])",
-        "proto_library(",
-        "  name = 'well_known_type_proto',",
-        "  srcs = ['well_known_type.proto'],",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        objc_library(
+            name = "protobuf_lib",
+            srcs = ["empty.m"],
+            hdrs = ["include/header.h"],
+            includes = ["include"],
+        )
+
+        exports_files(["well_known_type.proto"])
+
+        proto_library(
+            name = "well_known_type_proto",
+            srcs = ["well_known_type.proto"],
+        )
+        """);
     config.create("embedded_tools/objcproto/empty.m");
     config.create("embedded_tools/objcproto/empty.cc");
     config.create("embedded_tools/objcproto/well_known_type.proto");
@@ -446,41 +628,56 @@ public final class BazelAnalysisMock extends AnalysisMock {
     }
     config.create(
         "rules_java_workspace/toolchains/local_java_repository.bzl",
-        "def local_java_repository(**attrs):",
-        "    pass");
+        """
+        def local_java_repository(**attrs):
+            pass
+        """);
     config.create("rules_java_workspace/toolchains/jdk_build_file.bzl", "JDK_BUILD_TEMPLATE = ''");
     config.create(
         "rules_java_workspace/java/defs.bzl",
-        "def java_binary(**attrs):",
-        "    native.java_binary(**attrs)",
-        "def java_library(**attrs):",
-        "    native.java_library(**attrs)",
-        "def java_import(**attrs):",
-        "    native.java_import(**attrs)");
+        """
+        def java_binary(**attrs):
+            native.java_binary(**attrs)
+
+        def java_library(**attrs):
+            native.java_library(**attrs)
+
+        def java_import(**attrs):
+            native.java_import(**attrs)
+        """);
     config.create(
         "rules_java_workspace/java/repositories.bzl",
-        "def rules_java_dependencies():",
-        "    pass",
-        "def rules_java_toolchains():",
-        "    native.register_toolchains('//java/toolchains/runtime:all')",
-        "    native.register_toolchains('//java/toolchains/javac:all')");
+        """
+        def rules_java_dependencies():
+            pass
+
+        def rules_java_toolchains():
+            native.register_toolchains("//java/toolchains/runtime:all")
+            native.register_toolchains("//java/toolchains/javac:all")
+        """);
 
     config.create(
         "rules_java_workspace/java/toolchains/runtime/BUILD",
-        "toolchain_type(name = 'toolchain_type')",
-        "toolchain(",
-        "    name = 'local_jdk',",
-        "    toolchain = '@bazel_tools//tools/jdk:jdk',",
-        "    toolchain_type = '@rules_java//java/toolchains/runtime:toolchain_type',",
-        "    )");
+        """
+        toolchain_type(name = "toolchain_type")
+
+        toolchain(
+            name = "local_jdk",
+            toolchain = "@bazel_tools//tools/jdk:jdk",
+            toolchain_type = "@rules_java//java/toolchains/runtime:toolchain_type",
+        )
+        """);
     config.create(
         "rules_java_workspace/java/toolchains/javac/BUILD",
-        "toolchain_type(name = 'toolchain_type')",
-        "toolchain(",
-        "    name = 'javac_toolchain',",
-        "    toolchain = '@bazel_tools//tools/jdk:toolchain',",
-        "    toolchain_type = '@rules_java//java/toolchains/javac:toolchain_type',",
-        "    )");
+        """
+        toolchain_type(name = "toolchain_type")
+
+        toolchain(
+            name = "javac_toolchain",
+            toolchain = "@bazel_tools//tools/jdk:toolchain",
+            toolchain_type = "@rules_java//java/toolchains/javac:toolchain_type",
+        )
+        """);
 
     config.create("third_party/bazel_rules/rules_proto/WORKSPACE");
     config.create("third_party/bazel_rules/rules_proto/MODULE.bazel", "module(name='rules_proto')");
@@ -490,10 +687,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     config.create(
         "embedded_tools/tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "  name = 'function_transition_allowlist',",
-        "  packages = ['public'],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = ["public"],
+        )
+        """);
 
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
@@ -617,34 +816,40 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("embedded_tools/tools/build_defs/repo/BUILD");
     config.create(
         "embedded_tools/tools/build_defs/build_info/bazel_cc_build_info.bzl",
-        "def _impl(ctx):",
-        "  volatile_file = ctx.actions.declare_file('volatile_file.h')",
-        "  non_volatile_file = ctx.actions.declare_file('non_volatile_file.h')",
-        "  redacted_file = ctx.actions.declare_file('redacted_file.h')",
-        "  ctx.actions.write(output = volatile_file, content = '')",
-        "  ctx.actions.write(output = non_volatile_file, content = '')",
-        "  ctx.actions.write(output = redacted_file, content = '')",
-        "  output_groups = {",
-        "    'non_redacted_build_info_files': depset([volatile_file, non_volatile_file]),",
-        "    'redacted_build_info_files': depset([redacted_file]),",
-        "  }",
-        "  return OutputGroupInfo(**output_groups)",
-        "bazel_cc_build_info = rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+            volatile_file = ctx.actions.declare_file("volatile_file.h")
+            non_volatile_file = ctx.actions.declare_file("non_volatile_file.h")
+            redacted_file = ctx.actions.declare_file("redacted_file.h")
+            ctx.actions.write(output = volatile_file, content = "")
+            ctx.actions.write(output = non_volatile_file, content = "")
+            ctx.actions.write(output = redacted_file, content = "")
+            output_groups = {
+                "non_redacted_build_info_files": depset([volatile_file, non_volatile_file]),
+                "redacted_build_info_files": depset([redacted_file]),
+            }
+            return OutputGroupInfo(**output_groups)
+
+        bazel_cc_build_info = rule(implementation = _impl)
+        """);
     config.create(
         "embedded_tools/tools/build_defs/build_info/bazel_java_build_info.bzl",
-        "def _impl(ctx):",
-        "  volatile_file = ctx.actions.declare_file('volatile_file.properties')",
-        "  non_volatile_file = ctx.actions.declare_file('non_volatile_file.properties')",
-        "  redacted_file = ctx.actions.declare_file('redacted_file.properties')",
-        "  ctx.actions.write(output = volatile_file, content = '')",
-        "  ctx.actions.write(output = non_volatile_file, content = '')",
-        "  ctx.actions.write(output = redacted_file, content = '')",
-        "  output_groups = {",
-        "    'non_redacted_build_info_files': depset([volatile_file, non_volatile_file]),",
-        "    'redacted_build_info_files': depset([redacted_file]),",
-        "  }",
-        "  return OutputGroupInfo(**output_groups)",
-        "bazel_java_build_info = rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+            volatile_file = ctx.actions.declare_file("volatile_file.properties")
+            non_volatile_file = ctx.actions.declare_file("non_volatile_file.properties")
+            redacted_file = ctx.actions.declare_file("redacted_file.properties")
+            ctx.actions.write(output = volatile_file, content = "")
+            ctx.actions.write(output = non_volatile_file, content = "")
+            ctx.actions.write(output = redacted_file, content = "")
+            output_groups = {
+                "non_redacted_build_info_files": depset([volatile_file, non_volatile_file]),
+                "redacted_build_info_files": depset([redacted_file]),
+            }
+            return OutputGroupInfo(**output_groups)
+
+        bazel_java_build_info = rule(implementation = _impl)
+        """);
     config.create(
         "embedded_tools/tools/build_defs/build_info/BUILD",
         "load('//tools/build_defs/build_info:bazel_cc_build_info.bzl'," + " 'bazel_cc_build_info')",
@@ -660,39 +865,58 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ")");
     config.create(
         "embedded_tools/tools/build_defs/repo/utils.bzl",
-        "def maybe(repo_rule, name, **kwargs):",
-        "  if name not in native.existing_rules():",
-        "    repo_rule(name = name, **kwargs)");
+        """
+        def maybe(repo_rule, name, **kwargs):
+            if name not in native.existing_rules():
+                repo_rule(name = name, **kwargs)
+        """);
     config.create(
         "embedded_tools/tools/build_defs/repo/http.bzl",
-        "def http_archive(**kwargs):",
-        "  pass",
-        "",
-        "def http_file(**kwargs):",
-        "  pass",
-        "",
-        "def http_jar(**kwargs):",
-        "  pass");
+        """
+        def http_archive(**kwargs):
+            pass
+
+        def http_file(**kwargs):
+            pass
+
+        def http_jar(**kwargs):
+            pass
+        """);
     config.create("embedded_tools/tools/jdk/jdk_build_file.bzl", "JDK_BUILD_TEMPLATE = ''");
     config.create(
         "embedded_tools/tools/jdk/local_java_repository.bzl",
-        "def local_java_repository(**kwargs):",
-        "  pass");
+        """
+        def local_java_repository(**kwargs):
+            pass
+        """);
     config.create(
         "embedded_tools/tools/jdk/remote_java_repository.bzl",
-        "def remote_java_repository(**kwargs):",
-        "  pass");
+        """
+        def remote_java_repository(**kwargs):
+            pass
+        """);
     config.create(
-        "embedded_tools/tools/cpp/cc_configure.bzl", "def cc_configure(**kwargs):", "  pass");
+        "embedded_tools/tools/cpp/cc_configure.bzl",
+        """
+        def cc_configure(**kwargs):
+            pass
+        """);
 
     config.create("embedded_tools/tools/sh/BUILD");
     config.create(
-        "embedded_tools/tools/sh/sh_configure.bzl", "def sh_configure(**kwargs):", "  pass");
+        "embedded_tools/tools/sh/sh_configure.bzl",
+        """
+        def sh_configure(**kwargs):
+            pass
+        """);
     config.create("embedded_tools/tools/osx/BUILD");
     config.create(
         "embedded_tools/tools/osx/xcode_configure.bzl",
-        "def xcode_configure(*args, **kwargs):", // no positional arguments for XCode
-        "  pass");
+        """
+        # no positional arguments for XCode
+        def xcode_configure(*args, **kwargs):
+            pass
+        """);
     config.create("embedded_tools/bin/sh", "def sh(**kwargs):", "  pass");
   }
 

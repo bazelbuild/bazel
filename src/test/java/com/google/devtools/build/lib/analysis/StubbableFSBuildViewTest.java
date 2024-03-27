@@ -55,10 +55,13 @@ public class StubbableFSBuildViewTest extends BuildViewTestBase {
     scratch.file("a/a.cc", "");
     scratch.file(
         "a/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   print('This aspect does nothing')",
-        "   return struct()",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        def _impl(target, ctx):
+            print("This aspect does nothing")
+            return struct()
+
+        MyAspect = aspect(implementation = _impl)
+        """);
     getStubbableFS().stubFastDigestError(pathToBuildB, new IOException("testException"));
     AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
     eventBus.register(recorder);

@@ -79,42 +79,58 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   static void writeAllowlistFile(Scratch scratch) throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//test/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//test/...",
+            ],
+        )
+        """);
   }
 
   @Test
   public void testDupeSettingsInInputsThrowsError() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _setting_impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _setting_impl,",
-        "  build_setting = config.string(flag=True),",
-        ")",
-        "def _transition_impl(settings, attr):",
-        "  return {'//test:formation': 'mesa'}",
-        "formation_transition = transition(",
-        "  implementation = _transition_impl,",
-        "  inputs = ['@//test:formation', '//test:formation'],", // duplicates here
-        "  outputs = ['//test:formation'],",
-        ")",
-        "def _impl(ctx):",
-        "  return []",
-        "state = rule(",
-        "  implementation = _impl,",
-        "  cfg = formation_transition,",
-        ")");
+        """
+        def _setting_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _setting_impl,
+            build_setting = config.string(flag = True),
+        )
+
+        def _transition_impl(settings, attr):
+            return {"//test:formation": "mesa"}
+
+        formation_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["@//test:formation", "//test:formation"],  # duplicates here
+            outputs = ["//test:formation"],
+        )
+
+        def _impl(ctx):
+            return []
+
+        state = rule(
+            implementation = _impl,
+            cfg = formation_transition,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'state', 'string_flag')",
-        "state(name = 'arizona')",
-        "string_flag(name = 'formation', build_setting_default = 'canyon')");
+        """
+        load("//test:defs.bzl", "state", "string_flag")
+
+        state(name = "arizona")
+
+        string_flag(
+            name = "formation",
+            build_setting_default = "canyon",
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
 
@@ -127,30 +143,44 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   public void testDupeSettingsInOutputsThrowsError() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _setting_impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _setting_impl,",
-        "  build_setting = config.string(flag=True),",
-        ")",
-        "def _transition_impl(settings, attr):",
-        "  return {'//test:formation': 'mesa'}",
-        "formation_transition = transition(",
-        "  implementation = _transition_impl,",
-        "  inputs = ['//test:formation'],",
-        "  outputs = ['@//test:formation', '//test:formation'],", // duplicates here
-        ")",
-        "def _impl(ctx):",
-        "  return []",
-        "state = rule(",
-        "  implementation = _impl,",
-        "  cfg = formation_transition,",
-        ")");
+        """
+        def _setting_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _setting_impl,
+            build_setting = config.string(flag = True),
+        )
+
+        def _transition_impl(settings, attr):
+            return {"//test:formation": "mesa"}
+
+        formation_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:formation"],
+            outputs = ["@//test:formation", "//test:formation"],  # duplicates here
+        )
+
+        def _impl(ctx):
+            return []
+
+        state = rule(
+            implementation = _impl,
+            cfg = formation_transition,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'state', 'string_flag')",
-        "state(name = 'arizona')",
-        "string_flag(name = 'formation', build_setting_default = 'canyon')");
+        """
+        load("//test:defs.bzl", "state", "string_flag")
+
+        state(name = "arizona")
+
+        string_flag(
+            name = "formation",
+            build_setting_default = "canyon",
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:arizona");
@@ -163,37 +193,51 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     writeAllowlistFile(scratch);
     scratch.file(
         "test/defs.bzl",
-        "def _setting_impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _setting_impl,",
-        "  build_setting = config.string(flag=True),",
-        ")",
-        "def _transition_impl(settings, attr):",
-        "  formation = settings['@//test:formation']",
-        "  if formation.endswith('-transitioned'):",
-        "    new_value = formation",
-        "  else:",
-        "    new_value = formation + '-transitioned'",
-        "  return {",
-        "    '//test:formation': new_value,",
-        "  }",
-        "formation_transition = transition(",
-        "  implementation = _transition_impl,",
-        "  inputs = ['@//test:formation'],",
-        "  outputs = ['//test:formation'],",
-        ")",
-        "def _impl(ctx):",
-        "  return []",
-        "state = rule(",
-        "  implementation = _impl,",
-        "  cfg = formation_transition,",
-        ")");
+        """
+        def _setting_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _setting_impl,
+            build_setting = config.string(flag = True),
+        )
+
+        def _transition_impl(settings, attr):
+            formation = settings["@//test:formation"]
+            if formation.endswith("-transitioned"):
+                new_value = formation
+            else:
+                new_value = formation + "-transitioned"
+            return {
+                "//test:formation": new_value,
+            }
+
+        formation_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["@//test:formation"],
+            outputs = ["//test:formation"],
+        )
+
+        def _impl(ctx):
+            return []
+
+        state = rule(
+            implementation = _impl,
+            cfg = formation_transition,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'state', 'string_flag')",
-        "state(name = 'arizona')",
-        "string_flag(name = 'formation', build_setting_default = 'canyon')");
+        """
+        load("//test:defs.bzl", "state", "string_flag")
+
+        state(name = "arizona")
+
+        string_flag(
+            name = "formation",
+            build_setting_default = "canyon",
+        )
+        """);
 
     Map<Label, Object> starlarkOptions =
         getConfiguration(getConfiguredTarget("//test:arizona")).getOptions().getStarlarkOptions();
@@ -205,27 +249,34 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   private void writeDefBzlWithStringFlagAndEaterRule() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _setting_impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _setting_impl,",
-        "  build_setting = config.string(flag=True),",
-        ")",
-        "def _transition_impl(settings, attr):",
-        "  if settings['@//options:fruit'].endswith('-eaten'):",
-        "    return {'//options:fruit': settings['@//options:fruit']}",
-        "  return {'//options:fruit': settings['@//options:fruit'] + '-eaten'}",
-        "eating_transition = transition(",
-        "  implementation = _transition_impl,",
-        "  inputs = ['@//options:fruit'],",
-        "  outputs = ['//options:fruit'],",
-        ")",
-        "def _impl(ctx):",
-        "  return []",
-        "eater = rule(",
-        "  implementation = _impl,",
-        "  cfg = eating_transition,",
-        ")");
+        """
+        def _setting_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _setting_impl,
+            build_setting = config.string(flag = True),
+        )
+
+        def _transition_impl(settings, attr):
+            if settings["@//options:fruit"].endswith("-eaten"):
+                return {"//options:fruit": settings["@//options:fruit"]}
+            return {"//options:fruit": settings["@//options:fruit"] + "-eaten"}
+
+        eating_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["@//options:fruit"],
+            outputs = ["//options:fruit"],
+        )
+
+        def _impl(ctx):
+            return []
+
+        eater = rule(
+            implementation = _impl,
+            cfg = eating_transition,
+        )
+        """);
   }
 
   @Test
@@ -234,9 +285,21 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     writeDefBzlWithStringFlagAndEaterRule();
     scratch.file(
         "options/BUILD",
-        "load('//test:defs.bzl', 'string_flag')",
-        "string_flag(name = 'fruit', build_setting_default = 'apple')");
-    scratch.file("test/BUILD", "load('//test:defs.bzl', 'eater')", "eater(name = 'foo')");
+        """
+        load("//test:defs.bzl", "string_flag")
+
+        string_flag(
+            name = "fruit",
+            build_setting_default = "apple",
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "eater")
+
+        eater(name = "foo")
+        """);
 
     assertThat(
             getConfiguration(getConfiguredTarget("//test:foo"))
@@ -247,8 +310,14 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
 
     scratch.overwriteFile(
         "options/BUILD",
-        "load('//test:defs.bzl', 'string_flag')",
-        "string_flag(name = 'fruit', build_setting_default = 'orange')");
+        """
+        load("//test:defs.bzl", "string_flag")
+
+        string_flag(
+            name = "fruit",
+            build_setting_default = "orange",
+        )
+        """);
     invalidatePackages();
     assertThat(
             getConfiguration(getConfiguredTarget("//test:foo"))
@@ -264,11 +333,31 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     writeDefBzlWithStringFlagAndEaterRule();
     scratch.file(
         "options/BUILD",
-        "load('//test:defs.bzl', 'string_flag')",
-        "string_flag(name = 'usually_apple', build_setting_default = 'apple')",
-        "string_flag(name = 'usually_orange', build_setting_default = 'orange')",
-        "alias(name = 'fruit', actual = ':usually_apple')");
-    scratch.file("test/BUILD", "load('//test:defs.bzl', 'eater')", "eater(name = 'foo')");
+        """
+        load("//test:defs.bzl", "string_flag")
+
+        string_flag(
+            name = "usually_apple",
+            build_setting_default = "apple",
+        )
+
+        string_flag(
+            name = "usually_orange",
+            build_setting_default = "orange",
+        )
+
+        alias(
+            name = "fruit",
+            actual = ":usually_apple",
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "eater")
+
+        eater(name = "foo")
+        """);
 
     assertThat(
             getConfiguration(getConfiguredTarget("//test:foo")).getOptions().getStarlarkOptions())
@@ -276,10 +365,24 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
 
     scratch.overwriteFile(
         "options/BUILD",
-        "load('//test:defs.bzl', 'string_flag')",
-        "string_flag(name = 'usually_apple', build_setting_default = 'apple')",
-        "string_flag(name = 'usually_orange', build_setting_default = 'orange')",
-        "alias(name = 'fruit', actual = ':usually_orange')");
+        """
+        load("//test:defs.bzl", "string_flag")
+
+        string_flag(
+            name = "usually_apple",
+            build_setting_default = "apple",
+        )
+
+        string_flag(
+            name = "usually_orange",
+            build_setting_default = "orange",
+        )
+
+        alias(
+            name = "fruit",
+            actual = ":usually_orange",
+        )
+        """);
     invalidatePackages();
 
     assertThat(
@@ -291,20 +394,31 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   public void testChangingImmutableOptionFails() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _transition_impl(settings, attr):",
-        "  return {'//command_line_option:immutable_option': 'something_else'}",
-        "_transition = transition(",
-        "  implementation = _transition_impl,",
-        "  inputs = [],",
-        "  outputs = ['//command_line_option:immutable_option'],",
-        ")",
-        "def _impl(ctx):",
-        "  return []",
-        "state = rule(",
-        "  implementation = _impl,",
-        "  cfg = _transition,",
-        ")");
-    scratch.file("test/BUILD", "load('//test:defs.bzl', 'state')", "state(name = 'arizona')");
+        """
+        def _transition_impl(settings, attr):
+            return {"//command_line_option:immutable_option": "something_else"}
+
+        _transition = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:immutable_option"],
+        )
+
+        def _impl(ctx):
+            return []
+
+        state = rule(
+            implementation = _impl,
+            cfg = _transition,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "state")
+
+        state(name = "arizona")
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:arizona");

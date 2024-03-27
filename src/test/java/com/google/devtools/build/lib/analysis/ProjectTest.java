@@ -32,16 +32,23 @@ public class ProjectTest extends AnalysisTestCase {
   public void defineSimpleRule() throws Exception {
     scratch.file(
         "foo/defs.bzl",
-        "simple_rule = rule(",
-        "  implementation = lambda ctx: [],",
-        "  attrs = {})",
-        "");
+        """
+        simple_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {},
+        )
+        """);
   }
 
   @Test
   public void singleTargetNoProjects() throws Exception {
     scratch.file(
-        "foo/bar/BUILD", "load('//foo:defs.bzl', 'simple_rule')", "simple_rule(name = 's')");
+        "foo/bar/BUILD",
+        """
+        load("//foo:defs.bzl", "simple_rule")
+
+        simple_rule(name = "s")
+        """);
 
     assertThat(
             Project.findProjectFiles(
@@ -52,7 +59,12 @@ public class ProjectTest extends AnalysisTestCase {
   @Test
   public void singleTargetProjectInDirectPackage() throws Exception {
     scratch.file(
-        "foo/bar/BUILD", "load('//foo:defs.bzl', 'simple_rule')", "simple_rule(name = 's')");
+        "foo/bar/BUILD",
+        """
+        load("//foo:defs.bzl", "simple_rule")
+
+        simple_rule(name = "s")
+        """);
     scratch.file("foo/bar/" + PROJECT_FILE_NAME);
 
     assertThat(
@@ -69,7 +81,12 @@ public class ProjectTest extends AnalysisTestCase {
   @Test
   public void singleTargetProjectInParentPackage() throws Exception {
     scratch.file(
-        "foo/bar/BUILD", "load('//foo:defs.bzl', 'simple_rule')", "simple_rule(name = 's')");
+        "foo/bar/BUILD",
+        """
+        load("//foo:defs.bzl", "simple_rule")
+
+        simple_rule(name = "s")
+        """);
     scratch.file("foo/BUILD");
     scratch.file("foo/" + PROJECT_FILE_NAME);
 
@@ -87,7 +104,12 @@ public class ProjectTest extends AnalysisTestCase {
   @Test
   public void singleTargetProjectInBothDirectAndParentPackages() throws Exception {
     scratch.file(
-        "foo/bar/BUILD", "load('//foo:defs.bzl', 'simple_rule')", "simple_rule(name = 's')");
+        "foo/bar/BUILD",
+        """
+        load("//foo:defs.bzl", "simple_rule")
+
+        simple_rule(name = "s")
+        """);
     scratch.file("foo/BUILD");
     scratch.file("foo/" + PROJECT_FILE_NAME);
     scratch.file("foo/bar/" + PROJECT_FILE_NAME);
@@ -108,7 +130,12 @@ public class ProjectTest extends AnalysisTestCase {
   @Test
   public void singleTargetProjectInNonPackageParentDir() throws Exception {
     scratch.file(
-        "foo/bar/BUILD", "load('//foo:defs.bzl', 'simple_rule')", "simple_rule(name = 's')");
+        "foo/bar/BUILD",
+        """
+        load("//foo:defs.bzl", "simple_rule")
+
+        simple_rule(name = "s")
+        """);
     scratch.file("foo/" + PROJECT_FILE_NAME);
     scratch.file("foo/bar/" + PROJECT_FILE_NAME);
 
@@ -126,8 +153,20 @@ public class ProjectTest extends AnalysisTestCase {
 
   @Test
   public void twoTargetsInIndependentPackages() throws Exception {
-    scratch.file("foo/BUILD", "load('//foo:defs.bzl', 'simple_rule')", "simple_rule(name = 's')");
-    scratch.file("baz/BUILD", "load('//foo:defs.bzl', 'simple_rule')", "simple_rule(name = 't')");
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("//foo:defs.bzl", "simple_rule")
+
+        simple_rule(name = "s")
+        """);
+    scratch.file(
+        "baz/BUILD",
+        """
+        load("//foo:defs.bzl", "simple_rule")
+
+        simple_rule(name = "t")
+        """);
     scratch.file("foo/" + PROJECT_FILE_NAME);
     scratch.file("baz/" + PROJECT_FILE_NAME);
 
@@ -148,9 +187,19 @@ public class ProjectTest extends AnalysisTestCase {
   @Test
   public void twoTargetsInSubPackagesHierarchy() throws Exception {
     scratch.file(
-        "foo/bar/BUILD", "load('//foo:defs.bzl', 'simple_rule')", "simple_rule(name = 'child')");
+        "foo/bar/BUILD",
+        """
+        load("//foo:defs.bzl", "simple_rule")
+
+        simple_rule(name = "child")
+        """);
     scratch.file(
-        "foo/BUILD", "load('//foo:defs.bzl', 'simple_rule')", "simple_rule(name = 'parent')");
+        "foo/BUILD",
+        """
+        load("//foo:defs.bzl", "simple_rule")
+
+        simple_rule(name = "parent")
+        """);
     scratch.file("foo/bar/" + PROJECT_FILE_NAME);
     scratch.file("foo/" + PROJECT_FILE_NAME);
 

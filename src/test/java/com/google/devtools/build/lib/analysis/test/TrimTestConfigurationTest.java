@@ -111,32 +111,38 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     setRulesAvailableInTests(NATIVE_TEST_RULE, NATIVE_LIB_RULE);
     scratch.file(
         "test/test.bzl",
-        "def _starlark_test_impl(ctx):",
-        "  executable = ctx.actions.declare_file(ctx.label.name)",
-        "  ctx.actions.write(executable, '#!/bin/true', is_executable=True)",
-        "  return DefaultInfo(",
-        "      executable=executable,",
-        "  )",
-        "starlark_test = rule(",
-        "    implementation = _starlark_test_impl,",
-        "    test = True,",
-        "    executable = True,",
-        "    attrs = {",
-        "        'deps': attr.label_list(),",
-        "        'exec_deps': attr.label_list(cfg='exec'),",
-        "    },",
-        ")");
+        """
+        def _starlark_test_impl(ctx):
+            executable = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.write(executable, "#!/bin/true", is_executable = True)
+            return DefaultInfo(
+                executable = executable,
+            )
+
+        starlark_test = rule(
+            implementation = _starlark_test_impl,
+            test = True,
+            executable = True,
+            attrs = {
+                "deps": attr.label_list(),
+                "exec_deps": attr.label_list(cfg = "exec"),
+            },
+        )
+        """);
     scratch.file(
         "test/lib.bzl",
-        "def _starlark_lib_impl(ctx):",
-        "  pass",
-        "starlark_lib = rule(",
-        "    implementation = _starlark_lib_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(),",
-        "        'exec_deps': attr.label_list(cfg='exec'),",
-        "    },",
-        ")");
+        """
+        def _starlark_lib_impl(ctx):
+            pass
+
+        starlark_lib = rule(
+            implementation = _starlark_lib_impl,
+            attrs = {
+                "deps": attr.label_list(),
+                "exec_deps": attr.label_list(cfg = "exec"),
+            },
+        )
+        """);
   }
 
   private static void assertNumberOfConfigurationsOfTargets(
@@ -160,34 +166,58 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOffDifferentTestOptions_ResultsInDifferentCTs() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "test_suite(",
-        "    name = 'suite',",
-        "    tests = [':native_test', ':starlark_test'],",
-        ")",
-        "native_test(",
-        "    name = 'native_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_shared_dep',",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_shared_dep',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        test_suite(
+            name = "suite",
+            tests = [
+                ":native_test",
+                ":starlark_test",
+            ],
+        )
+
+        native_test(
+            name = "native_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        starlark_lib(
+            name = "starlark_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_shared_dep",
+        )
+
+        starlark_lib(
+            name = "starlark_shared_dep",
+        )
+        """);
     useConfiguration("--notrim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update(
         "//test:suite",
@@ -242,34 +272,58 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOffDifferentTestOptions_CacheCleared() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "test_suite(",
-        "    name = 'suite',",
-        "    tests = [':native_test', ':starlark_test'],",
-        ")",
-        "native_test(",
-        "    name = 'native_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_shared_dep',",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_shared_dep',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        test_suite(
+            name = "suite",
+            tests = [
+                ":native_test",
+                ":starlark_test",
+            ],
+        )
+
+        native_test(
+            name = "native_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        starlark_lib(
+            name = "starlark_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_shared_dep",
+        )
+
+        starlark_lib(
+            name = "starlark_shared_dep",
+        )
+        """);
     useConfiguration("--notrim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update("//test:suite");
     useConfiguration("--notrim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeB");
@@ -295,34 +349,58 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOnDifferentTestOptions_SharesCTsForNonTestRules() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "test_suite(",
-        "    name = 'suite',",
-        "    tests = [':native_test', ':starlark_test'],",
-        ")",
-        "native_test(",
-        "    name = 'native_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_shared_dep',",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_shared_dep',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        test_suite(
+            name = "suite",
+            tests = [
+                ":native_test",
+                ":starlark_test",
+            ],
+        )
+
+        native_test(
+            name = "native_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        starlark_lib(
+            name = "starlark_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_shared_dep",
+        )
+
+        starlark_lib(
+            name = "starlark_shared_dep",
+        )
+        """);
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update(
         "//test:suite",
@@ -389,34 +467,58 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOnDifferentTestOptions_CacheKeptBetweenRuns() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "test_suite(",
-        "    name = 'suite',",
-        "    tests = [':native_test', ':starlark_test'],",
-        ")",
-        "native_test(",
-        "    name = 'native_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_shared_dep',",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_shared_dep',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        test_suite(
+            name = "suite",
+            tests = [
+                ":native_test",
+                ":starlark_test",
+            ],
+        )
+
+        native_test(
+            name = "native_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        starlark_lib(
+            name = "starlark_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_shared_dep",
+        )
+
+        starlark_lib(
+            name = "starlark_shared_dep",
+        )
+        """);
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update("//test:suite");
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeB");
@@ -447,34 +549,58 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOnDifferentNonTestOptions_CacheCleared() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "test_suite(",
-        "    name = 'suite',",
-        "    tests = [':native_test', ':starlark_test'],",
-        ")",
-        "native_test(",
-        "    name = 'native_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_shared_dep',",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_shared_dep',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        test_suite(
+            name = "suite",
+            tests = [
+                ":native_test",
+                ":starlark_test",
+            ],
+        )
+
+        native_test(
+            name = "native_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        starlark_lib(
+            name = "starlark_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_shared_dep",
+        )
+
+        starlark_lib(
+            name = "starlark_shared_dep",
+        )
+        """);
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--define=Test=TypeA");
     update("//test:suite");
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--define=Test=TypeB");
@@ -500,34 +626,58 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOffToOn_CacheCleared() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "test_suite(",
-        "    name = 'suite',",
-        "    tests = [':native_test', ':starlark_test'],",
-        ")",
-        "native_test(",
-        "    name = 'native_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_shared_dep',",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_shared_dep',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        test_suite(
+            name = "suite",
+            tests = [
+                ":native_test",
+                ":starlark_test",
+            ],
+        )
+
+        native_test(
+            name = "native_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        starlark_lib(
+            name = "starlark_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_shared_dep",
+        )
+
+        starlark_lib(
+            name = "starlark_shared_dep",
+        )
+        """);
     useConfiguration("--notrim_test_configuration", "--noexpand_test_suites");
     update("//test:suite");
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites");
@@ -551,34 +701,58 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOnToOff_CacheCleared() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "test_suite(",
-        "    name = 'suite',",
-        "    tests = [':native_test', ':starlark_test'],",
-        ")",
-        "native_test(",
-        "    name = 'native_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_shared_dep',",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_shared_dep',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        test_suite(
+            name = "suite",
+            tests = [
+                ":native_test",
+                ":starlark_test",
+            ],
+        )
+
+        native_test(
+            name = "native_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        starlark_lib(
+            name = "starlark_dep",
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_shared_dep",
+        )
+
+        starlark_lib(
+            name = "starlark_shared_dep",
+        )
+        """);
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites");
     update("//test:suite");
     useConfiguration("--notrim_test_configuration", "--noexpand_test_suites");
@@ -602,44 +776,90 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOnDynamicConfigsNotrimExecDeps_AreNotAnalyzedAnyExtraTimes() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "native_test(",
-        "    name = 'native_outer_test',",
-        "    deps = [':native_test', ':starlark_test'],",
-        "    exec_deps = [':native_test', ':starlark_test'],",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_outer_test',",
-        "    deps = [':native_test', ':starlark_test'],",
-        "    exec_deps = [':native_test', ':starlark_test'],",
-        ")",
-        "native_test(",
-        "    name = 'native_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        "    exec_deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        "    deps = [':native_dep', ':starlark_dep'],",
-        "    exec_deps = [':native_dep', ':starlark_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        "    exec_deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        "    exec_deps = [':native_shared_dep', 'starlark_shared_dep'],",
-        ")",
-        "native_lib(",
-        "    name = 'native_shared_dep',",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_shared_dep',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        native_test(
+            name = "native_outer_test",
+            exec_deps = [
+                ":native_test",
+                ":starlark_test",
+            ],
+            deps = [
+                ":native_test",
+                ":starlark_test",
+            ],
+        )
+
+        starlark_test(
+            name = "starlark_outer_test",
+            exec_deps = [
+                ":native_test",
+                ":starlark_test",
+            ],
+            deps = [
+                ":native_test",
+                ":starlark_test",
+            ],
+        )
+
+        native_test(
+            name = "native_test",
+            exec_deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+            exec_deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+            deps = [
+                ":native_dep",
+                ":starlark_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_dep",
+            exec_deps = [
+                ":native_shared_dep",
+                "starlark_shared_dep",
+            ],
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        starlark_lib(
+            name = "starlark_dep",
+            exec_deps = [
+                ":native_shared_dep",
+                "starlark_shared_dep",
+            ],
+            deps = [
+                "starlark_shared_dep",
+                ":native_shared_dep",
+            ],
+        )
+
+        native_lib(
+            name = "native_shared_dep",
+        )
+
+        starlark_lib(
+            name = "starlark_shared_dep",
+        )
+        """);
     useConfiguration("--trim_test_configuration");
     update(
         "//test:native_outer_test",
@@ -670,23 +890,35 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOffConfigSetting_CanInspectTestOptions() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "config_setting(",
-        "    name = 'test_mode',",
-        "    values = {'test_arg': 'TypeA'},",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        "    deps = select({':test_mode': [':starlark_shared_dep'], '//conditions:default': []})",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = select({':test_mode': [':starlark_shared_dep'], '//conditions:default': []})",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_shared_dep',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        config_setting(
+            name = "test_mode",
+            values = {"test_arg": "TypeA"},
+        )
+
+        starlark_test(
+            name = "starlark_test",
+            deps = select({
+                ":test_mode": [":starlark_shared_dep"],
+                "//conditions:default": [],
+            }),
+        )
+
+        starlark_lib(
+            name = "starlark_dep",
+            deps = select({
+                ":test_mode": [":starlark_shared_dep"],
+                "//conditions:default": [],
+            }),
+        )
+
+        starlark_lib(
+            name = "starlark_shared_dep",
+        )
+        """);
     useConfiguration("--notrim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update("//test:test_mode", "//test:starlark_test", "//test:starlark_dep");
     // All 3 targets (top level, under a test, under a non-test) should successfully analyze.
@@ -698,23 +930,35 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "config_setting(",
-        "    name = 'test_mode',",
-        "    values = {'test_arg': 'TypeA'},",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        "    deps = select({':test_mode': [':starlark_shared_dep'], '//conditions:default': []})",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = select({':test_mode': [':starlark_shared_dep'], '//conditions:default': []})",
-        ")",
-        "starlark_lib(",
-        "    name = 'starlark_shared_dep',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        config_setting(
+            name = "test_mode",
+            values = {"test_arg": "TypeA"},
+        )
+
+        starlark_test(
+            name = "starlark_test",
+            deps = select({
+                ":test_mode": [":starlark_shared_dep"],
+                "//conditions:default": [],
+            }),
+        )
+
+        starlark_lib(
+            name = "starlark_dep",
+            deps = select({
+                ":test_mode": [":starlark_shared_dep"],
+                "//conditions:default": [],
+            }),
+        )
+
+        starlark_lib(
+            name = "starlark_shared_dep",
+        )
+        """);
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     assertThrows(ViewCreationFailedException.class, () -> update("//test:starlark_dep"));
     assertContainsEvent("unknown option: 'test_arg'");
@@ -728,16 +972,20 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOffNonTestTargetWithTestDependencies_IsPermitted() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':starlark_test'],",
-        "    testonly = 1,",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        starlark_lib(
+            name = "starlark_dep",
+            testonly = 1,
+            deps = [":starlark_test"],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+        )
+        """);
     useConfiguration("--notrim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update("//test:starlark_dep");
     assertThat(getAnalysisResult().getTargetsToBuild()).isNotEmpty();
@@ -748,16 +996,20 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':starlark_test'],",
-        "    testonly = 1,",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        starlark_lib(
+            name = "starlark_dep",
+            testonly = 1,
+            deps = [":starlark_test"],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+        )
+        """);
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update("//test:starlark_dep");
     assertThat(getAnalysisResult().getTargetsToBuild()).isNotEmpty();
@@ -768,20 +1020,25 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     // reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':a_test_suite'],",
-        "    testonly = 1,",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        ")",
-        "test_suite(",
-        "    name = 'a_test_suite',",
-        "    tests = [':starlark_test'],",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        starlark_lib(
+            name = "starlark_dep",
+            testonly = 1,
+            deps = [":a_test_suite"],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+        )
+
+        test_suite(
+            name = "a_test_suite",
+            tests = [":starlark_test"],
+        )
+        """);
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update("//test:starlark_dep");
     assertThat(getAnalysisResult().getTargetsToBuild()).isNotEmpty();
@@ -792,17 +1049,21 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     // reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/BUILD",
-        "load(':lib.bzl', 'starlark_lib')",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':JavaTest'],",
-        "    testonly = 1,",
-        ")",
-        "java_test(",
-        "    name = 'JavaTest',",
-        "    srcs = ['JavaTest.java'],",
-        "    test_class = 'test.JavaTest',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+
+        starlark_lib(
+            name = "starlark_dep",
+            testonly = 1,
+            deps = [":JavaTest"],
+        )
+
+        java_test(
+            name = "JavaTest",
+            srcs = ["JavaTest.java"],
+            test_class = "test.JavaTest",
+        )
+        """);
     useConfiguration(
         "--trim_test_configuration",
         "--noexpand_test_suites",
@@ -816,25 +1077,38 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOnTestSuiteWithTestDependencies_CanBeAnalyzed() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "test_suite(",
-        "    name = 'suite',",
-        "    tests = [':starlark_test', ':suite_2'],",
-        ")",
-        "test_suite(",
-        "    name = 'suite_2',",
-        "    tests = [':starlark_test_2', ':starlark_test_3'],",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test_2',",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test_3',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        test_suite(
+            name = "suite",
+            tests = [
+                ":starlark_test",
+                ":suite_2",
+            ],
+        )
+
+        test_suite(
+            name = "suite_2",
+            tests = [
+                ":starlark_test_2",
+                ":starlark_test_3",
+            ],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+        )
+
+        starlark_test(
+            name = "starlark_test_2",
+        )
+
+        starlark_test(
+            name = "starlark_test_3",
+        )
+        """);
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update("//test:suite", "//test:suite_2");
     assertThat(getAnalysisResult().getTargetsToBuild()).hasSize(2);
@@ -844,16 +1118,20 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOnNonTestTargetWithTestDependencies_isTrimmed() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':starlark_test'],",
-        "    testonly = 1,",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        starlark_lib(
+            name = "starlark_dep",
+            testonly = 1,
+            deps = [":starlark_test"],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+        )
+        """);
     useConfiguration(
         "--trim_test_configuration", "--noexperimental_retain_test_configuration_across_testonly");
     update("//test:starlark_dep");
@@ -866,16 +1144,20 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
       throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [':starlark_test'],",
-        "    testonly = 1,",
-        ")",
-        "starlark_test(",
-        "    name = 'starlark_test',",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        starlark_lib(
+            name = "starlark_dep",
+            testonly = 1,
+            deps = [":starlark_test"],
+        )
+
+        starlark_test(
+            name = "starlark_test",
+        )
+        """);
     useConfiguration(
         "--trim_test_configuration", "--experimental_retain_test_configuration_across_testonly");
     update("//test:starlark_dep");
@@ -887,14 +1169,17 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   public void flagOnNonTestTargetWithMagicTransitiveConfigs_isNotTrimmed() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':test.bzl', 'starlark_test')",
-        "load(':lib.bzl', 'starlark_lib')",
-        "starlark_lib(",
-        "    name = 'starlark_dep',",
-        "    deps = [],",
-        "    testonly = 1,",
-        "    transitive_configs = ['//command_line_option/fragment:test'],",
-        ")");
+        """
+        load(":lib.bzl", "starlark_lib")
+        load(":test.bzl", "starlark_test")
+
+        starlark_lib(
+            name = "starlark_dep",
+            testonly = 1,
+            transitive_configs = ["//command_line_option/fragment:test"],
+            deps = [],
+        )
+        """);
     useConfiguration("--trim_test_configuration");
     update("//test:starlark_dep");
     ConfiguredTarget top = getConfiguredTarget("//test:starlark_dep");

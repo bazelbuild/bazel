@@ -568,8 +568,18 @@ public class AspectTest extends AnalysisTestCase {
     useConfiguration("--experimental_action_listener=//extra_actions:listener");
     scratch.file(
         "extra_actions/BUILD",
-        "extra_action(name='xa', cmd='echo dont-care')",
-        "action_listener(name='listener', mnemonics=['Null'], extra_actions=[':xa'])");
+        """
+        extra_action(
+            name = "xa",
+            cmd = "echo dont-care",
+        )
+
+        action_listener(
+            name = "listener",
+            extra_actions = [":xa"],
+            mnemonics = ["Null"],
+        )
+        """);
     pkg("a",
         "testrule(name='a', foo=[':b'])",
         "testrule(name='b')");
@@ -618,31 +628,67 @@ public class AspectTest extends AnalysisTestCase {
 
     scratch.file(
         "x/BUILD",
-        "load(':extension.bzl', 'injector1', 'injector2', 'null_rule')",
-        "injector1(name='a', deps=[':b'])",
-        "null_rule(name='b', deps=[':c'])",
-        "null_rule(name='c', deps=[':d'])",
-        "injector2(name = 'd', extra_deps=[':e'])",
-        "null_rule(name = 'e')");
+        """
+        load(":extension.bzl", "injector1", "injector2", "null_rule")
+
+        injector1(
+            name = "a",
+            deps = [":b"],
+        )
+
+        null_rule(
+            name = "b",
+            deps = [":c"],
+        )
+
+        null_rule(
+            name = "c",
+            deps = [":d"],
+        )
+
+        injector2(
+            name = "d",
+            extra_deps = [":e"],
+        )
+
+        null_rule(name = "e")
+        """);
 
     scratch.file(
         "x/extension.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  ctx.actions.do_nothing(mnemonic='Mnemonic')",
-        "  return []",
-        "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'])",
-        "aspect2 = aspect(_aspect_impl, attr_aspects=['extra_deps'])",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "injector1 = rule(_rule_impl, attrs = { 'deps' : attr.label_list(aspects = [aspect1]) })",
-        "null_rule = rule(_rule_impl, attrs = { 'deps' : attr.label_list() })",
-        "injector2 = rule(",
-        "  _rule_impl, attrs = { 'extra_deps' : attr.label_list(aspects = [aspect2]) })");
+        """
+        def _aspect_impl(target, ctx):
+            ctx.actions.do_nothing(mnemonic = "Mnemonic")
+            return []
+
+        aspect1 = aspect(_aspect_impl, attr_aspects = ["deps"])
+        aspect2 = aspect(_aspect_impl, attr_aspects = ["extra_deps"])
+
+        def _rule_impl(ctx):
+            return []
+
+        injector1 = rule(_rule_impl, attrs = {"deps": attr.label_list(aspects = [aspect1])})
+        null_rule = rule(_rule_impl, attrs = {"deps": attr.label_list()})
+        injector2 = rule(
+            _rule_impl,
+            attrs = {"extra_deps": attr.label_list(aspects = [aspect2])},
+        )
+        """);
 
     scratch.file(
         "pkg1/BUILD",
-        "extra_action(name='xa', cmd='echo dont-care')",
-        "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
+        """
+        extra_action(
+            name = "xa",
+            cmd = "echo dont-care",
+        )
+
+        action_listener(
+            name = "listener",
+            extra_actions = [":xa"],
+            mnemonics = ["Mnemonic"],
+        )
+        """);
 
     // Check: //x:d injects an aspect which produces some extra-action.
     {
@@ -683,32 +729,73 @@ public class AspectTest extends AnalysisTestCase {
 
     scratch.file(
         "x/BUILD",
-        "load(':extension.bzl', 'injector1', 'injector2', 'null_rule')",
-        "injector2(name='i2_a', deps = [':i1_a'])",
-        "injector1(name='i1_a', deps=[':n'], param = 'a')",
-        "injector1(name='i1_b', deps=[':n'], param = 'b')",
-        "injector2(name='i2', deps=[':n'])",
-        "null_rule(name = 'n')");
+        """
+        load(":extension.bzl", "injector1", "injector2", "null_rule")
+
+        injector2(
+            name = "i2_a",
+            deps = [":i1_a"],
+        )
+
+        injector1(
+            name = "i1_a",
+            param = "a",
+            deps = [":n"],
+        )
+
+        injector1(
+            name = "i1_b",
+            param = "b",
+            deps = [":n"],
+        )
+
+        injector2(
+            name = "i2",
+            deps = [":n"],
+        )
+
+        null_rule(name = "n")
+        """);
 
     scratch.file(
         "x/extension.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  ctx.actions.do_nothing(mnemonic='Mnemonic')",
-        "  return []",
-        "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'], attrs =",
-        "    {'param': attr.string(values = ['a', 'b'])})",
-        "aspect2 = aspect(_aspect_impl, attr_aspects=['deps'])",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "injector1 = rule(_rule_impl, attrs =",
-        "    { 'deps' : attr.label_list(aspects = [aspect1]), 'param' : attr.string() })",
-        "injector2 = rule(_rule_impl, attrs = { 'deps' : attr.label_list(aspects = [aspect2]) })",
-        "null_rule = rule(_rule_impl, attrs = { 'deps' : attr.label_list() })");
+        """
+def _aspect_impl(target, ctx):
+    ctx.actions.do_nothing(mnemonic = "Mnemonic")
+    return []
+
+aspect1 = aspect(
+    _aspect_impl,
+    attr_aspects = ["deps"],
+    attrs = {"param": attr.string(values = ["a", "b"])}
+)
+aspect2 = aspect(_aspect_impl, attr_aspects = ["deps"])
+
+def _rule_impl(ctx):
+    return []
+
+injector1 = rule(
+    _rule_impl,
+    attrs = {"deps": attr.label_list(aspects = [aspect1]), "param": attr.string()}
+)
+injector2 = rule(_rule_impl, attrs = {"deps": attr.label_list(aspects = [aspect2])})
+null_rule = rule(_rule_impl, attrs = {"deps": attr.label_list()})
+""");
 
     scratch.file(
         "pkg1/BUILD",
-        "extra_action(name='xa', cmd='echo dont-care')",
-        "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
+        """
+        extra_action(
+            name = "xa",
+            cmd = "echo dont-care",
+        )
+
+        action_listener(
+            name = "listener",
+            extra_actions = [":xa"],
+            mnemonics = ["Mnemonic"],
+        )
+        """);
 
     update("//x:i1_a", "//x:i1_b", "//x:i2", "//x:i2_a");
 
@@ -720,33 +807,50 @@ public class AspectTest extends AnalysisTestCase {
   public void sharedArtifactsInAspect() throws Exception {
     scratch.file(
         "foo/shared_aspect.bzl",
-        "def _shared_aspect_impl(target, ctx):",
-        "  shared_file = ctx.actions.declare_file('shared_file')",
-        "  ctx.actions.write(output=shared_file, content='Shared content')",
-        "  lib = ctx.rule.attr.lib",
-        "  if lib:",
-        "    result = depset([shared_file], transitive=[ctx.rule.attr.lib.prov])",
-        "  else:",
-        "    result = depset([shared_file])",
-        "  return struct(prov=result)",
-        "",
-        "shared_aspect = aspect(implementation = _shared_aspect_impl,",
-        "                       attr_aspects = ['lib'])",
-        "",
-        "def _rule_impl(ctx):",
-        "  pass",
-        "",
-        "simple_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = {'lib': attr.label(providers = ['prov'],",
-        "                               aspects=[shared_aspect])})");
+        """
+        def _shared_aspect_impl(target, ctx):
+            shared_file = ctx.actions.declare_file("shared_file")
+            ctx.actions.write(output = shared_file, content = "Shared content")
+            lib = ctx.rule.attr.lib
+            if lib:
+                result = depset([shared_file], transitive = [ctx.rule.attr.lib.prov])
+            else:
+                result = depset([shared_file])
+            return struct(prov = result)
+
+        shared_aspect = aspect(
+            implementation = _shared_aspect_impl,
+            attr_aspects = ["lib"],
+        )
+
+        def _rule_impl(ctx):
+            pass
+
+        simple_rule = rule(
+            implementation = _rule_impl,
+            attrs = {"lib": attr.label(
+                providers = ["prov"],
+                aspects = [shared_aspect],
+            )},
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':shared_aspect.bzl', 'shared_aspect', 'simple_rule')",
-        "",
-        "simple_rule(name = 'top_rule', lib = ':first_dep')",
-        "simple_rule(name = 'first_dep', lib = ':second_dep')",
-        "simple_rule(name = 'second_dep')");
+        """
+        load(":shared_aspect.bzl", "shared_aspect", "simple_rule")
+
+        simple_rule(
+            name = "top_rule",
+            lib = ":first_dep",
+        )
+
+        simple_rule(
+            name = "first_dep",
+            lib = ":second_dep",
+        )
+
+        simple_rule(name = "second_dep")
+        """);
     // Confirm that load is successful and doesn't crash.
     update("//foo:top_rule");
   }
@@ -1046,7 +1150,13 @@ public class AspectTest extends AnalysisTestCase {
     setRulesAndAspectsAvailableInTests(
         ImmutableList.of(aspectApplies, aspectDoesNotApply),
         ImmutableList.of(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE));
-    scratch.file("extra/BUILD", "simple(name='extra')", "simple(name='extra2')");
+    scratch.file(
+        "extra/BUILD",
+        """
+        simple(name = "extra")
+
+        simple(name = "extra2")
+        """);
     scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
 
     AnalysisResult analysisResult =
@@ -1073,23 +1183,43 @@ public class AspectTest extends AnalysisTestCase {
   public void sameConfiguredAttributeOnAspectAndRule() throws Exception {
     scratch.file(
         "a/a.bzl",
-        "def _a_impl(t, ctx):",
-        "  return [DefaultInfo()]",
-        "def _r_impl(ctx):",
-        "  return [DefaultInfo()]",
-        "a = aspect(",
-        "  implementation = _a_impl,",
-        "  attrs = {'_f': attr.label(",
-        "                   default = configuration_field(",
-        "                     fragment = 'cpp', name = 'cc_toolchain'))})",
-        "r = rule(",
-        "  implementation = _r_impl,",
-        "  attrs = {'_f': attr.label(",
-        "                   default = configuration_field(",
-        "                     fragment = 'cpp', name = 'cc_toolchain')),",
-        "           'dep': attr.label(aspects=[a])})");
+        """
+        def _a_impl(t, ctx):
+            return [DefaultInfo()]
 
-    scratch.file("a/BUILD", "load(':a.bzl', 'r')", "r(name='r')");
+        def _r_impl(ctx):
+            return [DefaultInfo()]
+
+        a = aspect(
+            implementation = _a_impl,
+            attrs = {"_f": attr.label(
+                default = configuration_field(
+                    fragment = "cpp",
+                    name = "cc_toolchain",
+                ),
+            )},
+        )
+        r = rule(
+            implementation = _r_impl,
+            attrs = {
+                "_f": attr.label(
+                    default = configuration_field(
+                        fragment = "cpp",
+                        name = "cc_toolchain",
+                    ),
+                ),
+                "dep": attr.label(aspects = [a]),
+            },
+        )
+        """);
+
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":a.bzl", "r")
+
+        r(name = "r")
+        """);
 
     setRulesAndAspectsAvailableInTests(ImmutableList.of(), ImmutableList.of());
     getConfiguredTarget("//a:r");
@@ -1196,9 +1326,19 @@ public class AspectTest extends AnalysisTestCase {
             + " [my_aspect])})");
     scratch.file(
         "foo/BUILD",
-        "load('//foo:aspect.bzl', 'my_aspect', 'my_rule')",
-        "my_rule(name = 'foo', deps = [':dep'])",
-        "sh_library(name = 'dep', srcs = ['dep.sh'])");
+        """
+        load("//foo:aspect.bzl", "my_aspect", "my_rule")
+
+        my_rule(
+            name = "foo",
+            deps = [":dep"],
+        )
+
+        sh_library(
+            name = "dep",
+            srcs = ["dep.sh"],
+        )
+        """);
     // Expect errors.
     reporter.removeHandler(failFastHandler);
     ViewCreationFailedException exception =
@@ -1218,23 +1358,32 @@ public class AspectTest extends AnalysisTestCase {
     setRulesAndAspectsAvailableInTests(ImmutableList.of(), ImmutableList.of());
     scratch.file(
         "aspect/build_defs.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    return [DefaultInfo()]",
-        "",
-        "returns_default_info_aspect = aspect(implementation = _aspect_impl)",
-        "",
-        "def _rule_impl(ctx):",
-        "    pass",
-        "",
-        "duplicate_provider_aspect_applying_rule = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {'to': attr.label(aspects = [returns_default_info_aspect])},",
-        ")");
+        """
+        def _aspect_impl(target, ctx):
+            return [DefaultInfo()]
+
+        returns_default_info_aspect = aspect(implementation = _aspect_impl)
+
+        def _rule_impl(ctx):
+            pass
+
+        duplicate_provider_aspect_applying_rule = rule(
+            implementation = _rule_impl,
+            attrs = {"to": attr.label(aspects = [returns_default_info_aspect])},
+        )
+        """);
     scratch.file(
         "aspect/BUILD",
-        "load('build_defs.bzl', 'duplicate_provider_aspect_applying_rule')",
-        "cc_library(name = 'rule_target')",
-        "duplicate_provider_aspect_applying_rule(name='applies_aspect', to=':rule_target')");
+        """
+        load("build_defs.bzl", "duplicate_provider_aspect_applying_rule")
+
+        cc_library(name = "rule_target")
+
+        duplicate_provider_aspect_applying_rule(
+            name = "applies_aspect",
+            to = ":rule_target",
+        )
+        """);
     assertThat(
             assertThrows(
                 AssertionError.class, () -> getConfiguredTarget("//aspect:applies_aspect")))
@@ -1246,93 +1395,97 @@ public class AspectTest extends AnalysisTestCase {
   public void instrumentedFilesInfoFromBaseRuleAndAspectUsesAspect() throws Exception {
     scratch.file(
         "aspect/build_defs.bzl",
-        "def _instrumented_files_info_aspect_impl(target, ctx):",
-        "    return [coverage_common.instrumented_files_info(ctx, source_attributes=['a'])]",
-        "",
-        "instrumented_files_info_aspect = aspect(",
-        "    implementation = _instrumented_files_info_aspect_impl,",
-        ")",
-        "",
-        "def _no_instrumented_files_info_aspect_impl(target, ctx):",
-        "    return []",
-        "",
-        "no_instrumented_files_info_aspect = aspect(",
-        "    implementation = _no_instrumented_files_info_aspect_impl,",
-        ")",
-        "",
-        "def _applies_aspect_impl(ctx):",
-        "    return coverage_common.instrumented_files_info(ctx, dependency_attributes=['to'])",
-        "",
-        "instrumented_files_info_aspect_rule = rule(",
-        "    implementation = _applies_aspect_impl,",
-        "    attrs = {'to': attr.label(aspects = [instrumented_files_info_aspect])},",
-        ")",
-        "",
-        "no_instrumented_files_info_aspect_rule = rule(",
-        "    implementation = _applies_aspect_impl,",
-        "    attrs = {'to': attr.label(aspects = [no_instrumented_files_info_aspect])},",
-        ")",
-        "",
-        "def _base_rule_impl(ctx):",
-        "    return [coverage_common.instrumented_files_info(ctx, source_attributes=['b'])]",
-        "",
-        "base_rule = rule(",
-        "    implementation = _base_rule_impl,",
-        "    attrs = {'a': attr.label(allow_files=True), 'b': attr.label(allow_files=True)},",
-        ")",
-        "",
-        "def _base_rule_no_coverage_impl(ctx):",
-        "    return []",
-        "",
-        "base_rule_no_coverage = rule(",
-        "    implementation = _base_rule_no_coverage_impl,",
-        "    attrs = {'a': attr.label(allow_files=True), 'b': attr.label(allow_files=True)},",
-        ")");
+        """
+        def _instrumented_files_info_aspect_impl(target, ctx):
+            return [coverage_common.instrumented_files_info(ctx, source_attributes = ["a"])]
+
+        instrumented_files_info_aspect = aspect(
+            implementation = _instrumented_files_info_aspect_impl,
+        )
+
+        def _no_instrumented_files_info_aspect_impl(target, ctx):
+            return []
+
+        no_instrumented_files_info_aspect = aspect(
+            implementation = _no_instrumented_files_info_aspect_impl,
+        )
+
+        def _applies_aspect_impl(ctx):
+            return coverage_common.instrumented_files_info(ctx, dependency_attributes = ["to"])
+
+        instrumented_files_info_aspect_rule = rule(
+            implementation = _applies_aspect_impl,
+            attrs = {"to": attr.label(aspects = [instrumented_files_info_aspect])},
+        )
+
+        no_instrumented_files_info_aspect_rule = rule(
+            implementation = _applies_aspect_impl,
+            attrs = {"to": attr.label(aspects = [no_instrumented_files_info_aspect])},
+        )
+
+        def _base_rule_impl(ctx):
+            return [coverage_common.instrumented_files_info(ctx, source_attributes = ["b"])]
+
+        base_rule = rule(
+            implementation = _base_rule_impl,
+            attrs = {"a": attr.label(allow_files = True), "b": attr.label(allow_files = True)},
+        )
+
+        def _base_rule_no_coverage_impl(ctx):
+            return []
+
+        base_rule_no_coverage = rule(
+            implementation = _base_rule_no_coverage_impl,
+            attrs = {"a": attr.label(allow_files = True), "b": attr.label(allow_files = True)},
+        )
+        """);
     scratch.file(
         "aspect/BUILD",
-        "load(",
-        "    'build_defs.bzl',",
-        "    'base_rule',",
-        "    'base_rule_no_coverage',",
-        "    'instrumented_files_info_aspect_rule',",
-        "    'no_instrumented_files_info_aspect_rule',",
-        ")",
-        "",
-        "base_rule(",
-        "    name = 'rule_target',",
-        // Ends up in coverage sources when instrumented_files_info_aspect is applied
-        "    a = 'a',",
-        // Ends up in coverage sources for the base rule's InstrumentedFilesInfo is used
-        "    b = 'b',",
-        ")",
-        "",
-        "instrumented_files_info_aspect_rule(",
-        "    name='duplicate_instrumented_file_info',",
-        "    to=':rule_target',",
-        ")",
-        "",
-        "no_instrumented_files_info_aspect_rule(",
-        "    name='instrumented_file_info_from_base_target',",
-        "    to=':rule_target',",
-        ")",
-        "",
-        "base_rule_no_coverage(",
-        "    name = 'rule_target_no_coverage',",
-        // Ends up in coverage sources when instrumented_files_info_aspect is applied
-        "    a = 'a',",
-        // Ends up in coverage sources never
-        "    b = 'b',",
-        ")",
-        "",
-        "instrumented_files_info_aspect_rule(",
-        "    name='instrumented_files_info_only_from_aspect',",
-        "    to=':rule_target_no_coverage',",
-        ")",
-        "",
-        "no_instrumented_files_info_aspect_rule(",
-        "    name='no_instrumented_files_info',",
-        "    to=':rule_target_no_coverage',",
-        ")");
+        """
+        load(
+            "build_defs.bzl",
+            "base_rule",
+            "base_rule_no_coverage",
+            "instrumented_files_info_aspect_rule",
+            "no_instrumented_files_info_aspect_rule",
+        )
+
+        base_rule(
+            name = "rule_target",
+            # Ends up in coverage sources when instrumented_files_info_aspect is applied
+            a = "a",
+            # Ends up in coverage sources for the base rule's InstrumentedFilesInfo is used
+            b = "b",
+        )
+
+        instrumented_files_info_aspect_rule(
+            name = "duplicate_instrumented_file_info",
+            to = ":rule_target",
+        )
+
+        no_instrumented_files_info_aspect_rule(
+            name = "instrumented_file_info_from_base_target",
+            to = ":rule_target",
+        )
+
+        base_rule_no_coverage(
+            name = "rule_target_no_coverage",
+            # Ends up in coverage sources when instrumented_files_info_aspect is applied
+            a = "a",
+            # Ends up in coverage sources never
+            b = "b",
+        )
+
+        instrumented_files_info_aspect_rule(
+            name = "instrumented_files_info_only_from_aspect",
+            to = ":rule_target_no_coverage",
+        )
+
+        no_instrumented_files_info_aspect_rule(
+            name = "no_instrumented_files_info",
+            to = ":rule_target_no_coverage",
+        )
+        """);
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=.*");
     update();
     assertThat(getInstrumentedFiles("//aspect:rule_target")).containsExactly("b");
@@ -1358,13 +1511,30 @@ public class AspectTest extends AnalysisTestCase {
     setupAspectHints();
     scratch.file(
         "aspect_hints/BUILD",
-        "load('//aspect_hints:hints_counter.bzl', 'count_hints')",
-        "load('//aspect_hints:hints.bzl', 'hint')",
-        "",
-        "hint(name = 'my_hint', hints_cnt = 3)",
-        "cc_library(name = 'lib1', deps = [':lib2'])",
-        "cc_library(name = 'lib2', aspect_hints = [':my_hint'])",
-        "count_hints(name = 'cnt', deps = [':lib1'])");
+        """
+        load("//aspect_hints:hints.bzl", "hint")
+        load("//aspect_hints:hints_counter.bzl", "count_hints")
+
+        hint(
+            name = "my_hint",
+            hints_cnt = 3,
+        )
+
+        cc_library(
+            name = "lib1",
+            deps = [":lib2"],
+        )
+
+        cc_library(
+            name = "lib2",
+            aspect_hints = [":my_hint"],
+        )
+
+        count_hints(
+            name = "cnt",
+            deps = [":lib1"],
+        )
+        """);
     update();
 
     ConfiguredTarget a = getConfiguredTarget("//aspect_hints:cnt");
@@ -1379,14 +1549,31 @@ public class AspectTest extends AnalysisTestCase {
     setupStarlarkRule();
     scratch.file(
         "aspect_hints/BUILD",
-        "load('//aspect_hints:hints_counter.bzl', 'count_hints')",
-        "load('//aspect_hints:custom_rule.bzl', 'custom_rule')",
-        "load('//aspect_hints:hints.bzl', 'hint')",
-        "",
-        "hint(name = 'my_hint', hints_cnt = 2)",
-        "custom_rule(name = 'lib1', deps = [':lib2'])",
-        "custom_rule(name = 'lib2', aspect_hints = [':my_hint'])",
-        "count_hints(name = 'cnt', deps = [':lib1'])");
+        """
+        load("//aspect_hints:custom_rule.bzl", "custom_rule")
+        load("//aspect_hints:hints.bzl", "hint")
+        load("//aspect_hints:hints_counter.bzl", "count_hints")
+
+        hint(
+            name = "my_hint",
+            hints_cnt = 2,
+        )
+
+        custom_rule(
+            name = "lib1",
+            deps = [":lib2"],
+        )
+
+        custom_rule(
+            name = "lib2",
+            aspect_hints = [":my_hint"],
+        )
+
+        count_hints(
+            name = "cnt",
+            deps = [":lib1"],
+        )
+        """);
     update();
 
     ConfiguredTarget a = getConfiguredTarget("//aspect_hints:cnt");
@@ -1402,22 +1589,31 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file("defs/BUILD");
     scratch.file(
         "defs/build_defs.bzl",
-        "def _rule_impl(ctx):",
-        "  pass",
-        "",
-        "implicit_dep_rule = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {",
-        "        '_tool': attr.label(default = '//tool:tool'),",
-        "        'deps': attr.label_list()",
-        "    },",
-        ")");
+        """
+        def _rule_impl(ctx):
+            pass
+
+        implicit_dep_rule = rule(
+            implementation = _rule_impl,
+            attrs = {
+                "_tool": attr.label(default = "//tool:tool"),
+                "deps": attr.label_list(),
+            },
+        )
+        """);
     scratch.file("tool/BUILD", "sh_library(name='tool', visibility = ['//defs:__pkg__'])");
     scratch.file(
         "pkg/BUILD",
-        "load('//defs:build_defs.bzl', 'implicit_dep_rule')",
-        "implicit_dep_rule(name='y')",
-        "implicit_dep_rule(name='x', deps = [':y'])");
+        """
+        load("//defs:build_defs.bzl", "implicit_dep_rule")
+
+        implicit_dep_rule(name = "y")
+
+        implicit_dep_rule(
+            name = "x",
+            deps = [":y"],
+        )
+        """);
 
     AnalysisResult result =
         update(
@@ -1436,14 +1632,21 @@ public class AspectTest extends AnalysisTestCase {
     setRulesAndAspectsAvailableInTests(ImmutableList.of(extraAttributeAspect), ImmutableList.of());
     scratch.file(
         "pkg/build_defs.bzl",
-        "def _rule_impl(ctx):",
-        "  pass",
-        "",
-        "simple_rule = rule(",
-        "    implementation = _rule_impl,",
-        ")");
+        """
+        def _rule_impl(ctx):
+            pass
+
+        simple_rule = rule(
+            implementation = _rule_impl,
+        )
+        """);
     scratch.file(
-        "pkg/BUILD", "load('//pkg:build_defs.bzl', 'simple_rule')", "simple_rule(name='x')");
+        "pkg/BUILD",
+        """
+        load("//pkg:build_defs.bzl", "simple_rule")
+
+        simple_rule(name = "x")
+        """);
     reporter.removeHandler(failFastHandler);
 
     assertThrows(
@@ -1464,61 +1667,69 @@ public class AspectTest extends AnalysisTestCase {
   private void setupAspectHints() throws Exception {
     scratch.file(
         "aspect_hints/hints.bzl",
-        "HintInfo = provider(fields = ['hints_cnt'])",
-        "def _hint_impl(ctx):",
-        "    return [HintInfo(hints_cnt = ctx.attr.hints_cnt)]",
-        "",
-        "hint = rule(",
-        "    implementation = _hint_impl,",
-        "    attrs = {'hints_cnt': attr.int(default=0)},",
-        ")");
+        """
+        HintInfo = provider(fields = ["hints_cnt"])
+
+        def _hint_impl(ctx):
+            return [HintInfo(hints_cnt = ctx.attr.hints_cnt)]
+
+        hint = rule(
+            implementation = _hint_impl,
+            attrs = {"hints_cnt": attr.int(default = 0)},
+        )
+        """);
     scratch.file(
         "aspect_hints/hints_counter.bzl",
-        "load('//aspect_hints:hints.bzl', 'HintInfo')",
-        "HintsCntInfo = provider(fields = ['cnt'])",
-        "",
-        "def _my_aspect_impl(target, ctx):",
-        "    transitive_hints = 0",
-        "    for dep in ctx.rule.attr.deps:",
-        "        transitive_hints = transitive_hints + dep[HintsCntInfo].cnt",
-        "",
-        "    hints = 0",
-        "    for hint in ctx.rule.attr.aspect_hints:",
-        "        hints = hints + hint[HintInfo].hints_cnt",
-        "",
-        "    return [HintsCntInfo(cnt = hints + transitive_hints)]",
-        "",
-        "my_aspect = aspect(",
-        "    implementation = _my_aspect_impl,",
-        "    attr_aspects = ['deps'],",
-        ")",
-        "",
-        "def _count_hints_impl(ctx):",
-        "    hints = 0",
-        "    for dep in ctx.attr.deps:",
-        "        hints = hints + dep[HintsCntInfo].cnt",
-        "    return [HintsCntInfo(cnt = hints)]",
-        "",
-        "count_hints = rule(",
-        "    implementation = _count_hints_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(aspects = [my_aspect])",
-        "    }",
-        ")");
+        """
+        load("//aspect_hints:hints.bzl", "HintInfo")
+
+        HintsCntInfo = provider(fields = ["cnt"])
+
+        def _my_aspect_impl(target, ctx):
+            transitive_hints = 0
+            for dep in ctx.rule.attr.deps:
+                transitive_hints = transitive_hints + dep[HintsCntInfo].cnt
+
+            hints = 0
+            for hint in ctx.rule.attr.aspect_hints:
+                hints = hints + hint[HintInfo].hints_cnt
+
+            return [HintsCntInfo(cnt = hints + transitive_hints)]
+
+        my_aspect = aspect(
+            implementation = _my_aspect_impl,
+            attr_aspects = ["deps"],
+        )
+
+        def _count_hints_impl(ctx):
+            hints = 0
+            for dep in ctx.attr.deps:
+                hints = hints + dep[HintsCntInfo].cnt
+            return [HintsCntInfo(cnt = hints)]
+
+        count_hints = rule(
+            implementation = _count_hints_impl,
+            attrs = {
+                "deps": attr.label_list(aspects = [my_aspect]),
+            },
+        )
+        """);
   }
 
   private void setupStarlarkRule() throws Exception {
     scratch.file(
         "aspect_hints/custom_rule.bzl",
-        "def _custom_rule_impl(ctx):",
-        "    return []",
-        "",
-        "custom_rule = rule(",
-        "    implementation = _custom_rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(),",
-        "    },",
-        ")");
+        """
+        def _custom_rule_impl(ctx):
+            return []
+
+        custom_rule = rule(
+            implementation = _custom_rule_impl,
+            attrs = {
+                "deps": attr.label_list(),
+            },
+        )
+        """);
   }
 
   private static StructImpl getHintsCntInfo(ConfiguredTarget configuredTarget)

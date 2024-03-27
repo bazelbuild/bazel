@@ -174,11 +174,15 @@ public class LocalConfigPlatformFunctionTest {
           ")");
       scratch.file(
           "test/platform/BUILD",
-          "load('//test/platform:my_platform.bzl', 'my_platform')",
-          "load('@local_config_platform_test//:constraints.bzl', 'HOST_CONSTRAINTS')",
-          "my_platform(name = 'custom',",
-          "    constraints = HOST_CONSTRAINTS,",
-          ")");
+          """
+          load("@local_config_platform_test//:constraints.bzl", "HOST_CONSTRAINTS")
+          load("//test/platform:my_platform.bzl", "my_platform")
+
+          my_platform(
+              name = "custom",
+              constraints = HOST_CONSTRAINTS,
+          )
+          """);
 
       setBuildLanguageOptions("--experimental_platforms_api");
       ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
