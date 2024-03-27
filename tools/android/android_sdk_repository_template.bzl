@@ -141,6 +141,14 @@ def create_android_sdk_rules(
                 jars = ["platforms/android-%d/optional/org.apache.http.legacy.jar" % api_level],
             )
 
+        if api_level >= 29:
+            # Android 29 is min api that compatible with Car App Library
+            java_import(
+                name = "android_car-%d" % api_level,
+                jars = ["platforms/android-%d/optional/android.car.jar" % api_level],
+                neverlink = 1,
+            )
+
         if api_level >= 28:
             # Android 28 removed most of android.test from android.jar and moved it
             # to separate jars.
@@ -209,6 +217,12 @@ def create_android_sdk_rules(
         name = "org_apache_http_legacy",
         actual = ":org_apache_http_legacy-%d" % default_api_level,
     )
+
+    if default_api_level >= 29:
+        native.alias(
+            name = "android_car",
+            actual = ":android_car-%d" % default_api_level,
+        )
 
     native.alias(
         name = "sdk",
