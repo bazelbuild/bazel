@@ -8823,7 +8823,7 @@
         ]
       },
       "os:osx,arch:x86_64": {
-        "bzlTransitiveDigest": "4qX9XayUU4+ssvkUImaig9sNH2WtD/3dpOpLKPS713E=",
+        "bzlTransitiveDigest": "CS/1Pw/d30m8Me8qw4v8Pa+5BGjlWsvf1KKl8ZmUosM=",
         "recordedFileInputs": {
           "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
