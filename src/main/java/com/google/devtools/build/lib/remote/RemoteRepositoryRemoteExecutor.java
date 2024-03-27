@@ -28,6 +28,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions.CredentialHelperOption;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -48,6 +50,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 
 /** The remote package's implementation of {@link RepositoryRemoteExecutor}. */
 public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor {
@@ -60,6 +63,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
+  private final Supplier<Path> execRootSupplier;
+  private final Reporter reporter;
 
   public RemoteRepositoryRemoteExecutor(
       RemoteExecutionCache remoteCache,
@@ -68,7 +73,9 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       String buildRequestId,
       String commandId,
       String remoteInstanceName,
-      boolean acceptCached) {
+      boolean acceptCached,
+      Supplier<Path> execRootSupplier,
+      Reporter reporter) {
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
     this.digestUtil = digestUtil;
@@ -76,6 +83,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     this.commandId = commandId;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
+    this.execRootSupplier = execRootSupplier;
+    this.reporter = reporter;
   }
 
   private ExecutionResult downloadOutErr(RemoteActionExecutionContext context, ActionResult result)
@@ -162,7 +171,13 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         additionalInputs.put(actionDigest, action);
         additionalInputs.put(commandHash, command);
 
-        remoteCache.ensureInputsPresent(context, merkleTree, additionalInputs, /* force= */ true);
+        remoteCache.ensureInputsPresent(
+            context,
+            merkleTree,
+            additionalInputs,
+            /* force= */ true,
+            execRootSupplier.get(),
+            reporter);
       }
 
       try (SilentCloseable c =

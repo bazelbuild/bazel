@@ -168,11 +168,7 @@ public class RemoteOutputService implements OutputService {
   @Subscribe
   public void onExecutionPhaseCompleteEvent(ExecutionPhaseCompleteEvent event) {
     if (leaseService != null) {
-      var missingActionInputs = ImmutableSet.<ActionInput>of();
-      if (actionInputFetcher != null) {
-        missingActionInputs = actionInputFetcher.getMissingActionInputs();
-      }
-      leaseService.finalizeExecution(missingActionInputs);
+      leaseService.finalizeExecution();
     }
   }
 

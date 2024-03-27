@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -22,17 +23,19 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -40,6 +43,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree.PathOrBytes;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -59,11 +63,31 @@ import java.util.concurrent.atomic.AtomicReference;
 /** A {@link RemoteCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends RemoteCache {
 
+  public interface RemotePathChecker {
+    boolean isRemote(Path path) throws IOException;
+  }
+
+  private RemotePathChecker remotePathChecker =
+      new RemotePathChecker() {
+        @Override
+        public boolean isRemote(Path path) throws IOException {
+          var fs = path.getFileSystem();
+          if (fs instanceof RemoteActionFileSystem) {
+            var remoteActionFileSystem = (RemoteActionFileSystem) fs;
+            return remoteActionFileSystem.isRemote(path);
+          }
+          return false;
+        }
+      };
+
   public RemoteExecutionCache(
-      RemoteCacheClient protocolImpl,
-      RemoteOptions options,
-      DigestUtil digestUtil) {
+      RemoteCacheClient protocolImpl, RemoteOptions options, DigestUtil digestUtil) {
     super(protocolImpl, options, digestUtil);
+  }
+
+  @VisibleForTesting
+  void setRemotePathChecker(RemotePathChecker remotePathChecker) {
+    this.remotePathChecker = remotePathChecker;
   }
 
   /**
@@ -82,7 +106,9 @@ public class RemoteExecutionCache extends RemoteCache {
       RemoteActionExecutionContext context,
       MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
-      boolean force)
+      boolean force,
+      Path execRoot,
+      Reporter reporter)
       throws IOException, InterruptedException {
     Iterable<Digest> merkleTreeAllDigests;
     try (SilentCloseable s = Profiler.instance().profile("merkleTree.getAllDigests()")) {
@@ -95,7 +121,8 @@ public class RemoteExecutionCache extends RemoteCache {
     }
 
     Flowable<TransferResult> uploads =
-        createUploadTasks(context, merkleTree, additionalInputs, allDigests, force)
+        createUploadTasks(
+                context, merkleTree, additionalInputs, allDigests, force, execRoot, reporter)
             .flatMapPublisher(
                 result ->
                     Flowable.using(
@@ -113,10 +140,7 @@ public class RemoteExecutionCache extends RemoteCache {
                         }));
 
     try {
-      // Workaround for https://github.com/bazelbuild/bazel/issues/19513.
-      if (!mergeBulkTransfer(uploads).blockingAwait(options.remoteTimeout.getSeconds(), SECONDS)) {
-        throw new IOException("Timed out when waiting for uploads");
-      }
+      mergeBulkTransfer(uploads).blockingAwait();
     } catch (RuntimeException e) {
       Throwable cause = e.getCause();
       if (cause != null) {
@@ -131,7 +155,9 @@ public class RemoteExecutionCache extends RemoteCache {
       RemoteActionExecutionContext context,
       Digest digest,
       MerkleTree merkleTree,
-      Map<Digest, Message> additionalInputs) {
+      Map<Digest, Message> additionalInputs,
+      Path execRoot,
+      Reporter reporter) {
     Directory node = merkleTree.getDirectoryByDigest(digest);
     if (node != null) {
       return cacheProtocol.uploadBlob(context, digest, node.toByteString());
@@ -142,7 +168,19 @@ public class RemoteExecutionCache extends RemoteCache {
       if (file.getBytes() != null) {
         return cacheProtocol.uploadBlob(context, digest, file.getBytes());
       }
-      return cacheProtocol.uploadFile(context, digest, file.getPath());
+
+      var path = checkNotNull(file.getPath());
+      try {
+        if (remotePathChecker.isRemote(path)) {
+          // A remote input is missing from remote cache, probably evicted by the remote server.
+          var execPath = path.relativeTo(execRoot);
+          reporter.post(new LostInputsEvent(ImmutableList.of(execPath)));
+          throw new IOException(format("%s (%s) was evicted from remote cache", execPath, digest));
+        }
+      } catch (IOException e) {
+        return immediateFailedFuture(e);
+      }
+      return cacheProtocol.uploadFile(context, digest, path);
     }
 
     Message message = additionalInputs.get(digest);
@@ -169,14 +207,23 @@ public class RemoteExecutionCache extends RemoteCache {
       MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       Iterable<Digest> allDigests,
-      boolean force) {
+      boolean force,
+      Path execRoot,
+      Reporter reporter) {
     return Single.using(
         () -> Profiler.instance().profile("collect digests"),
         ignored ->
             Flowable.fromIterable(allDigests)
                 .flatMapMaybe(
                     digest ->
-                        maybeCreateUploadTask(context, merkleTree, additionalInputs, digest, force))
+                        maybeCreateUploadTask(
+                            context,
+                            merkleTree,
+                            additionalInputs,
+                            digest,
+                            force,
+                            execRoot,
+                            reporter))
                 .collect(toImmutableList()),
         SilentCloseable::close);
   }
@@ -186,7 +233,9 @@ public class RemoteExecutionCache extends RemoteCache {
       MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       Digest digest,
-      boolean force) {
+      boolean force,
+      Path execRoot,
+      Reporter reporter) {
     return Maybe.create(
         emitter -> {
           AsyncSubject<Void> completion = AsyncSubject.create();
@@ -211,7 +260,12 @@ public class RemoteExecutionCache extends RemoteCache {
                             return toCompletable(
                                 () ->
                                     uploadBlob(
-                                        context, uploadTask.digest, merkleTree, additionalInputs),
+                                        context,
+                                        uploadTask.digest,
+                                        merkleTree,
+                                        additionalInputs,
+                                        execRoot,
+                                        reporter),
                                 directExecutor());
                           }),
                   /* onAlreadyRunning= */ () -> emitter.onSuccess(uploadTask),

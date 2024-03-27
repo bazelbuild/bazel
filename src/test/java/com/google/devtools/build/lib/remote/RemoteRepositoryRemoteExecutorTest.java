@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,11 +27,14 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -66,7 +70,9 @@ public class RemoteRepositoryRemoteExecutorTest {
             "none",
             "none",
             /* remoteInstanceName= */ "foo",
-            /* acceptCached= */ true);
+            /* acceptCached= */ true,
+            () -> mock(Path.class),
+            new Reporter(new EventBus()));
   }
 
   @Test
