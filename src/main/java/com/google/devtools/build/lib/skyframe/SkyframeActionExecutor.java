@@ -217,7 +217,7 @@ public final class SkyframeActionExecutor {
   @Nullable private ActionCompletedReceiver completionReceiver;
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
-  private OutputService outputService;
+  @Nullable private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
@@ -283,7 +283,7 @@ public final class SkyframeActionExecutor {
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
       ActionOutputDirectoryHelper outputDirectoryHelper,
-      OutputService outputService,
+      @Nullable OutputService outputService,
       boolean trackIncrementalState) {
     this.reporter = checkNotNull(reporter);
     this.executorEngine = checkNotNull(executor);
@@ -361,6 +361,10 @@ public final class SkyframeActionExecutor {
   }
 
   XattrProvider getXattrProvider() {
+    if (outputService != null) {
+      return checkNotNull(outputService.getXattrProvider(syscallCache));
+    }
+
     return syscallCache;
   }
 
@@ -369,14 +373,15 @@ public final class SkyframeActionExecutor {
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts) {
-    return outputService.createActionFileSystem(
-        executorEngine.getFileSystem(),
-        executorEngine.getExecRoot().asFragment(),
-        relativeOutputPath,
-        sourceRootSupplier.get(),
-        inputArtifactData,
-        outputArtifacts,
-        rewindingEnabled);
+    return checkNotNull(outputService)
+        .createActionFileSystem(
+            executorEngine.getFileSystem(),
+            executorEngine.getExecRoot().asFragment(),
+            relativeOutputPath,
+            sourceRootSupplier.get(),
+            inputArtifactData,
+            outputArtifacts,
+            rewindingEnabled);
   }
 
   private void updateActionFileSystemContext(
@@ -385,8 +390,8 @@ public final class SkyframeActionExecutor {
       Environment env,
       MetadataInjector metadataInjector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
-    outputService.updateActionFileSystemContext(
-        action, actionFileSystem, env, metadataInjector, filesets);
+    checkNotNull(outputService)
+        .updateActionFileSystemContext(action, actionFileSystem, env, metadataInjector, filesets);
   }
 
   void executionOver() {
