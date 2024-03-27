@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.remote.options;
 
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.RegexPatternOption;
 import java.time.Duration;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -33,12 +35,12 @@ public class CommonRemoteOptions extends OptionsBase {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = RegexPatternConverter.class,
       help =
-          "Force Bazel to download the artifacts that match the given regexp. To be used in"
-              + " conjunction with Build without the Bytes (or the internal equivalent) to allow"
-              + " the client to request certain artifacts that might be needed locally (e.g. IDE"
-              + " support). Multiple regexes can be specified by repeating this flag.")
-  public List<String> remoteDownloadRegex;
+          "Force remote build outputs whose path matches this pattern to be downloaded,"
+              + " irrespective of --remote_download_outputs. Multiple patterns may be specified by"
+              + " repeating this flag.")
+  public List<RegexPatternOption> remoteDownloadRegex;
 
   @Option(
       name = "experimental_remote_cache_ttl",
