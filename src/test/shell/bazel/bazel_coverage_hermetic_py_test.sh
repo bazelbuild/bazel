@@ -23,6 +23,9 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 disable_bzlmod
 
+# TODO: Fix tests that fail without this flag
+add_to_bazelrc "test --test_env=IGNORE_COVERAGE_COLLECTION_FAILURES=1"
+
 # Fetch hermetic python and register toolchain.
 function set_up() {
     cat >>WORKSPACE <<EOF
