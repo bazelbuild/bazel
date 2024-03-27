@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+
 import com.google.devtools.build.lib.rules.proto.ProtoConstants;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -111,22 +113,27 @@ public final class MockProtoSupport {
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'cc_proto_library_blaze_internal_deps',",
         "           srcs = [ 'cc_proto_library_blaze_internal_deps.cc' ])");
-    config.create("net/proto2/python/public/BUILD",
+    config.create(
+        "net/proto2/python/public/BUILD",
+        getPyLoad("py_library"),
         "package(default_visibility=['//visibility:public'])",
-         "py_library(name = 'public',",
-         "           srcs = [ 'pyproto2.py' ])");
+        "py_library(name = 'public',",
+        "           srcs = [ 'pyproto2.py' ])");
     config.create("net/proto2/bridge/public/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'compatibility_mode_support',",
         "           srcs = [ 'compatibility.cc' ])");
     config.create(
         "net/proto/BUILD",
+        getPyLoad("py_library"),
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'proto',",
         "           srcs = [ 'proto.cc' ])",
         "py_library(name = 'pyproto',",
         "           srcs = [ 'pyproto.py' ])");
-    config.create("net/proto/python/BUILD",
+    config.create(
+        "net/proto/python/BUILD",
+        getPyLoad("py_library"),
         "package(default_visibility=['//visibility:public'])",
         "py_library(name = 'proto1',",
         "           srcs = [ 'pyproto.py' ])");
@@ -143,6 +150,7 @@ public final class MockProtoSupport {
         "cc_library(name = 'grpc++_codegen_lib', srcs = ['grpc++_codegen_lib.cc'])");
     config.create(
         "net/rpc/python/BUILD",
+        getPyLoad("py_library"),
         "py_library(name = 'proto_python_api_2_stub',",
         "           srcs = [ 'test_only_prefix_proto_python_api_2_stub.py' ],",
         "           visibility = ['//visibility:public'],",

@@ -1094,10 +1094,8 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testVisibilityReferencesNonexistentPackage() throws Exception {
-    scratch.file("z/a/BUILD",
-        "py_library(name='a', visibility=['//nonexistent:nothing'])");
-    scratch.file("z/b/BUILD",
-        "py_library(name='b', deps=['//z/a:a'])");
+    scratch.file("z/a/BUILD", "filegroup(name='a', visibility=['//nonexistent:nothing'])");
+    scratch.file("z/b/BUILD", "filegroup(name='b', srcs=['//z/a:a'])");
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//z/b:b"));
     assertContainsEvent("no such package 'nonexistent'");
@@ -1106,11 +1104,8 @@ public class BuildViewTest extends BuildViewTestBase {
   // regression test ("java.lang.IllegalStateException: cannot happen")
   @Test
   public void testDefaultVisibilityInNonexistentPackage() throws Exception {
-    scratch.file("z/a/BUILD",
-        "package(default_visibility=['//b'])",
-        "py_library(name='alib')");
-    scratch.file("z/b/BUILD",
-        "py_library(name='b', deps=['//z/a:alib'])");
+    scratch.file("z/a/BUILD", "package(default_visibility=['//b'])", "filegroup(name='alib')");
+    scratch.file("z/b/BUILD", "filegroup(name='b', srcs=['//z/a:alib'])");
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//z/b:b"));
     assertContainsEvent("no such package 'b'");
@@ -1243,8 +1238,7 @@ public class BuildViewTest extends BuildViewTestBase {
   @Test
   public void testErrorMessageForMissingPackageGroup() throws Exception {
     scratch.file(
-        "apple/BUILD",
-        "py_library(name='apple', visibility=['//non:existent'])");
+        "apple/BUILD", "filegroup(name='apple', srcs=['x.txt'], visibility=['//non:existent'])");
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//apple"));
     assertDoesNotContainEvent("implicitly depends upon");

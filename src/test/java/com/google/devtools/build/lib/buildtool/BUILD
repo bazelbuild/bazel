@@ -427,6 +427,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/rules/python:PythonTestUtils",
         "//third_party:junit4",
     ],
 )

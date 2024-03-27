@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
@@ -1201,6 +1202,7 @@ public abstract class AbstractQueryTest<T> {
   public void testTestsOperatorExpandsTestsAndExcludesNonTests() throws Exception {
     writeFile(
         "a/BUILD",
+        getPyLoad("py_test"),
         "test_suite(name='a')",
         "sh_test(name='sh_test', srcs=['sh_test.sh'])",
         "py_test(name='py_test', srcs=['py_test.py'])",
@@ -1213,6 +1215,7 @@ public abstract class AbstractQueryTest<T> {
   public void testTestsOperatorFiltersByTagSizeAndEnv() throws Exception {
     writeFile(
         "b/BUILD",
+        getPyLoad("py_test"),
         "test_suite(name='large_tests', tags=['large'])",
         "test_suite(name='prod_tests', tags=['prod'])",
         "test_suite(name='foo_tests', tags=['foo'])",
@@ -1229,6 +1232,7 @@ public abstract class AbstractQueryTest<T> {
   public void testTestsOperatorFiltersByNegativeTag() throws Exception {
     writeFile(
         "b/BUILD",
+        getPyLoad("py_test"),
         "test_suite(name='foo_tests', tags=['foo'])",
         "test_suite(name='bar_tests', tags=['bar'])",
         "test_suite(name='foo_notbar_tests', tags=['foo', '-bar'])",

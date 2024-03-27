@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionCacheTestHelper.AMNESIAC_CACHE;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -245,7 +246,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
     String pathString = rootDirectory + "/python/hello/BUILD";
-    scratch.file(pathString, "py_binary(name = 'hello', srcs = ['hello.py'])");
+    scratch.file(
+        pathString, getPyLoad("py_binary"), "py_binary(name = 'hello', srcs = ['hello.py'])");
 
     // A dummy file that is never changed.
     scratch.file(rootDirectory + "/misc/BUILD", "sh_binary(name = 'misc', srcs = ['hello.sh'])");
@@ -256,7 +258,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     assertThat(dirtyValues()).isEmpty();
 
     // Make a change.
-    scratch.overwriteFile(pathString, "py_binary(name = 'hello', srcs = ['something_else.py'])");
+    scratch.overwriteFile(
+        pathString,
+        getPyLoad("py_binary"),
+        "py_binary(name = 'hello', srcs = ['something_else.py'])");
     assertThat(dirtyValues())
         .containsExactly(
             FileStateValue.key(
@@ -303,12 +308,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     scratch.file(
         "python/hello/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(name = 'hello', srcs = ['hello.py'], data = glob(['*.txt']))");
     scratch.file("python/hello/foo.txt", "foo");
 
     // A dummy directory that is not changed.
     scratch.file(
         "misc/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(name = 'misc', srcs = ['other.py'], data = glob(['*.txt'], allow_empty ="
             + " True))");
 
@@ -674,6 +681,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     analysisMock.pySupport().setup(mockToolsConfig);
     scratch.file(
         "python/hello/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(name = 'hello', srcs = ['hello.py'], data = glob(['*.txt'], allow_empty ="
             + " True))");
     Thread.currentThread().interrupt();

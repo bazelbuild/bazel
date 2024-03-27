@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -517,23 +518,26 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   public void testRulesDontProvideRequiredFragmentsByDefault() throws Exception {
     scratch.file(
         "a/BUILD",
-        """
-        config_setting(
-            name = "config",
-            values = {"start_end_lib": "1"},
-        )
+        String.format(
+            """
+            %s
+            config_setting(
+                name = "config",
+                values = {"start_end_lib": "1"},
+            )
 
-        py_library(
-            name = "pylib",
-            srcs = ["pylib.py"],
-        )
+            py_library(
+                name = "pylib",
+                srcs = ["pylib.py"],
+            )
 
-        cc_library(
-            name = "a",
-            srcs = ["A.cc"],
-            data = [":pylib"],
-        )
-        """);
+            cc_library(
+                name = "a",
+                srcs = ["A.cc"],
+                data = [":pylib"],
+            )
+            """,
+            getPyLoad("py_library")));
     assertThat(getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class))
         .isNull();
     assertThat(getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class))

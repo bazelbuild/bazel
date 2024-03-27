@@ -283,15 +283,13 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         "a/BUILD",
         "genrule(name = 'gen_rule', cmd = '', outs = [ 'out' ], " + srcs,
         "cc_library(name = 'cc_rule', " + srcs,
-        "java_library(name = 'java_rule', " + srcs,
-        "py_library(name = 'py_rule', " + srcs);
+        "java_library(name = 'java_rule', " + srcs);
 
     assertThat(parseListCompileOneDep("a/a.cc")).containsExactlyElementsIn(labels("//a:cc_rule"));
     assertThat(parseListCompileOneDep("a/a.c")).containsExactlyElementsIn(labels("//a:cc_rule"));
     assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:cc_rule"));
     assertThat(parseListCompileOneDep("a/a.java"))
         .containsExactlyElementsIn(labels("//a:java_rule"));
-    assertThat(parseListCompileOneDep("a/a.py")).containsExactlyElementsIn(labels("//a:py_rule"));
     assertThat(parseListCompileOneDep("a/a.txt")).containsExactlyElementsIn(labels("//a:gen_rule"));
   }
 

@@ -501,6 +501,8 @@ function test_location_output_source_files() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load('@rules_python//python:py_binary.bzl', 'py_binary')
+
 py_binary(
   name = "main",
   srcs = ["main.py"],
@@ -531,6 +533,8 @@ function test_proto_output_source_files() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load('@rules_python//python:py_binary.bzl', 'py_binary')
+
 py_binary(
   name = "main",
   srcs = ["main.py"],
@@ -549,6 +553,8 @@ function test_xml_output_source_files() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load('@rules_python//python:py_binary.bzl', 'py_binary')
+
 py_binary(
   name = "main",
   srcs = ["main.py"],

@@ -53,10 +53,10 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
     scratch.file(
         "tests/BUILD",
         """
-        py_test(
+        sh_test(
             name = "small_test_1",
             size = "small",
-            srcs = ["small_test_1.py"],
+            srcs = ["small_test_1.sh"],
             data = [":xUnit"],
             tags = ["tag1"],
         )
@@ -80,9 +80,9 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
             tags = ["tag1"],
         )
 
-        py_binary(
+        sh_binary(
             name = "notest",
-            srcs = ["notest.py"],
+            srcs = ["notest.sh"],
         )
 
         cc_library(name = "xUnit")
