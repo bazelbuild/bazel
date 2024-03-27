@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.actions.DynamicStrategyRegistry.Dyna
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -82,9 +83,11 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private final DynamicExecutionOptions options;
   private final Function<Spawn, ExecutionPolicy> getExecutionPolicy;
 
+  private final ImmutableMap<String, Integer> localExecutionDelays;
+
   /**
    * Set to true by the first action that completes remotely. Until that happens, all local actions
-   * are delayed by the amount given in {@link DynamicExecutionOptions#localExecutionDelay}.
+   * are delayed by the amount given in {@link DynamicExecutionOptions#localExecutionDelays}.
    *
    * <p>This is a rather simple approach to make it possible to score a cache hit on remote
    * execution before even trying to start the action locally. This saves resources that would
@@ -130,6 +133,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       IgnoreFailureCheck ignoreFailureCheck) {
     this.executorService = MoreExecutors.listeningDecorator(executorService);
     this.options = options;
+    this.localExecutionDelays = ImmutableMap.<String, Integer>builder()
+              .putAll(options.localExecutionDelays)
+              .buildKeepingLast();
     this.getExecutionPolicy = getExecutionPolicy;
     this.getExtraSpawnForLocalExecution = getPostProcessingSpawnForLocalExecution;
     this.threadLimiter =
@@ -220,6 +226,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
             spawn,
             strategyThatCancelled,
             options,
+            localExecutionDelays,
             ignoreFailureCheck,
             getExtraSpawnForLocalExecution,
             delayLocalExecution);
