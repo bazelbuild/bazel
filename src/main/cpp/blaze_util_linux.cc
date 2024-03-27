@@ -85,7 +85,10 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
 
 uint64_t GetMillisecondsMonotonic() {
   struct timespec ts = {};
-  clock_gettime(CLOCK_MONOTONIC, &ts);
+  if (clock_gettime(CLOCK_MONOTONIC, &ts)) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "error calling clock_gettime: " << GetLastErrorString();
+  }
   return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
 }
 
