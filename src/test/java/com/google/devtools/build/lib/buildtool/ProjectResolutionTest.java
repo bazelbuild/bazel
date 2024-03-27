@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.Options;
 import java.util.UUID;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,6 +46,8 @@ import org.junit.runners.JUnit4;
  * projects, use {@link ProjectTest}.
  */
 @RunWith(JUnit4.class)
+// TODO b/331316530: Temporarily removed to avoid build memory regressions. Re-enable as opt in.
+@Ignore
 public class ProjectResolutionTest extends BuildIntegrationTestCase {
   @Before
   public void setupSkyframePackageSemantics() {
