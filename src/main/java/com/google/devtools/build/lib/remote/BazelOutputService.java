@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatRequest;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeBuildRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeBuildResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildRequest;
@@ -43,8 +45,11 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.devtools.build.lib.vfs.XattrProvider.DelegatingXattrProvider;
 import com.google.protobuf.Any;
 import io.grpc.StatusRuntimeException;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +69,7 @@ public class BazelOutputService implements OutputService {
   private final ReferenceCountedChannel channel;
 
   @Nullable private String buildId;
+  @Nullable private PathFragment outputPathTarget;
 
   public BazelOutputService(
       Path outputBase,
@@ -209,7 +215,8 @@ public class BazelOutputService implements OutputService {
                   .build()));
     }
 
-    var outputPathTarget = constructOutputPathTarget(outputPathPrefix, response);
+    checkState(outputPathTarget == null, "outputPathTarget must be null");
+    outputPathTarget = constructOutputPathTarget(outputPathPrefix, response);
     prepareOutputPath(outputPath, outputPathTarget);
 
     if (finalizeActions) {
@@ -259,6 +266,7 @@ public class BazelOutputService implements OutputService {
                   .build()));
     } finally {
       this.buildId = null;
+      this.outputPathTarget = null;
     }
   }
 
@@ -302,5 +310,73 @@ public class BazelOutputService implements OutputService {
   @Override
   public void clean() {
     // TODO(chiwang): implement this
+  }
+
+  private BatchStatResponse batchStat(BatchStatRequest request)
+      throws IOException, InterruptedException {
+    return retrier.execute(
+        () ->
+            channel.withChannelBlocking(
+                channel -> {
+                  try {
+                    return BazelOutputServiceGrpc.newBlockingStub(channel).batchStat(request);
+                  } catch (StatusRuntimeException e) {
+                    throw new IOException(e);
+                  }
+                }));
+  }
+
+  @Override
+  public XattrProvider getXattrProvider(XattrProvider delegate) {
+    return new DelegatingXattrProvider(delegate) {
+      @Nullable
+      @Override
+      public byte[] getFastDigest(Path path) throws IOException {
+        var outputPath = outputPathSupplier.get();
+        var buildId = checkNotNull(BazelOutputService.this.buildId);
+        var outputPathTarget = checkNotNull(BazelOutputService.this.outputPathTarget);
+
+        String pathString = null;
+        if (path.startsWith(outputPath)) {
+          pathString = path.relativeTo(outputPath).toString();
+        } else if (path.startsWith(outputPathTarget)) {
+          pathString = path.asFragment().relativeTo(outputPathTarget).toString();
+        }
+        if (pathString == null) {
+          return super.getFastDigest(path);
+        }
+
+        var request =
+            BatchStatRequest.newBuilder().setBuildId(buildId).addPaths(pathString).build();
+        BatchStatResponse response;
+        try {
+          response = batchStat(request);
+        } catch (InterruptedException e) {
+          throw new IOException(e);
+        }
+
+        if (response.getResponsesCount() != 1) {
+          throw new IOException(
+              String.format(
+                  "BatchStat failed: expect 1 response, got %s", response.getResponsesCount()));
+        }
+
+        var statResponse = response.getResponses(0);
+        if (!statResponse.hasStat()) {
+          throw new FileNotFoundException(path.getPathString());
+        }
+
+        var stat = statResponse.getStat();
+        if (stat.hasFile()) {
+          var file = stat.getFile();
+          if (file.hasLocator()) {
+            var locator = file.getLocator().unpack(FileArtifactLocator.class);
+            return DigestUtil.toBinaryDigest(locator.getDigest());
+          }
+        }
+
+        return null;
+      }
+    };
   }
 }

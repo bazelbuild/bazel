@@ -57,6 +57,7 @@ public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTe
     when(outputService.getFilesSystemName()).thenReturn("fileSystemName");
     when(outputService.startBuild(any(), any(), anyBoolean()))
         .thenReturn(ModifiedFileSet.EVERYTHING_MODIFIED);
+    when(outputService.getXattrProvider(any())).thenAnswer(i -> i.getArgument(0));
   }
 
   @Override
