@@ -180,6 +180,7 @@ final class Eval {
     for (Resolver.Binding bind : rfn.getFreeVars()) {
       // Unlike expr(Identifier), we want the cell itself, not its content.
       switch (bind.getScope()) {
+        case DEEPLY_FREE:
         case FREE:
           freevars[i++] = fn(fr).getFreeVar(bind.getIndex());
           break;
@@ -697,6 +698,7 @@ final class Eval {
       case CELL:
         result = ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x;
         break;
+      case DEEPLY_FREE:
       case FREE:
         result = fn(fr).getFreeVar(bind.getIndex()).x;
         break;

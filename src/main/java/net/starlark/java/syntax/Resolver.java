@@ -61,6 +61,8 @@ public final class Resolver extends NodeVisitor {
     CELL,
     /** Binding is an implicit parameter whose value is the CELL of some enclosing function. */
     FREE,
+    /** Binding is an implicit parameter whose value is the CELL of the top-level function. */
+    DEEPLY_FREE,
     /** Binding is predeclared by the application (e.g. glob in Bazel). */
     PREDECLARED,
     /** Binding is predeclared by the core (e.g. None). */
@@ -131,6 +133,7 @@ public final class Resolver extends NodeVisitor {
     private final int[] cellIndices;
     private final ImmutableList<Binding> freevars;
     private final ImmutableList<String> globals; // TODO(adonovan): move to Program.
+    private final boolean closesOverTopLevelValuesOnly;
 
     private Function(
         String name,
@@ -142,7 +145,8 @@ public final class Resolver extends NodeVisitor {
         int numKeywordOnlyParams,
         List<Binding> locals,
         List<Binding> freevars,
-        List<String> globals) {
+        List<String> globals,
+        boolean closesOverTopLevelValuesOnly) {
       this.name = name;
       this.location = loc;
       this.params = params;
@@ -161,6 +165,7 @@ public final class Resolver extends NodeVisitor {
       this.locals = ImmutableList.copyOf(locals);
       this.freevars = ImmutableList.copyOf(freevars);
       this.globals = ImmutableList.copyOf(globals);
+      this.closesOverTopLevelValuesOnly = closesOverTopLevelValuesOnly;
 
       // Create an index of the locals that are cells.
       int ncells = 0;
@@ -290,6 +295,10 @@ public final class Resolver extends NodeVisitor {
     // or switch to a compiled representation of function bodies.
     public boolean isToplevel() {
       return isToplevel;
+    }
+
+    public boolean closesOverTopLevelValuesOnly() {
+      return closesOverTopLevelValuesOnly;
     }
   }
 
@@ -758,13 +767,18 @@ public final class Resolver extends NodeVisitor {
         // recursion returns through many functions.
         if (b.syntax instanceof DefStatement || b.syntax instanceof LambdaExpression) {
           Scope scope = bind.getScope();
-          if (scope == Scope.LOCAL || scope == Scope.FREE || scope == Scope.CELL) {
+          if (scope == Scope.LOCAL
+              || scope == Scope.FREE
+              || scope == Scope.DEEPLY_FREE
+              || scope == Scope.CELL) {
             if (scope == Scope.LOCAL) {
               bind.scope = Scope.CELL;
             }
             int index = b.freevars.size();
             b.freevars.add(bind);
-            bind = new Binding(Scope.FREE, index, bind.first);
+            boolean isDeeplyFree =
+                scope == Scope.DEEPLY_FREE || b.parent.syntax instanceof StarlarkFile;
+            bind = new Binding(isDeeplyFree ? Scope.DEEPLY_FREE : Scope.FREE, index, bind.first);
           }
         }
 
@@ -872,6 +886,11 @@ public final class Resolver extends NodeVisitor {
     visitAll(body);
     popLocalBlock();
 
+    boolean closesOverTopLevelValuesOnly =
+        !seenOptional && freevars.stream().allMatch(b -> b.scope == Scope.DEEPLY_FREE);
+    if (syntax instanceof LambdaExpression && !closesOverTopLevelValuesOnly) {
+      System.err.println(name + " " + seenOptional + " " + freevars);
+    }
     return new Function(
         name,
         loc,
@@ -882,7 +901,8 @@ public final class Resolver extends NodeVisitor {
         numKeywordOnlyParams,
         frame,
         freevars,
-        globals);
+        globals,
+        closesOverTopLevelValuesOnly);
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
@@ -1051,14 +1071,15 @@ public final class Resolver extends NodeVisitor {
         new Function(
             "<toplevel>",
             file.getStartLocation(),
-            /*params=*/ ImmutableList.of(),
-            /*body=*/ stmts,
-            /*hasVarargs=*/ false,
-            /*hasKwargs=*/ false,
-            /*numKeywordOnlyParams=*/ 0,
+            /* params= */ ImmutableList.of(),
+            /* body= */ stmts,
+            /* hasVarargs= */ false,
+            /* hasKwargs= */ false,
+            /* numKeywordOnlyParams= */ 0,
             frame,
-            /*freevars=*/ ImmutableList.of(),
-            r.globals));
+            /* freevars= */ ImmutableList.of(),
+            r.globals,
+            true));
   }
 
   /**
@@ -1084,14 +1105,15 @@ public final class Resolver extends NodeVisitor {
     return new Function(
         "<expr>",
         expr.getStartLocation(),
-        /*params=*/ ImmutableList.of(),
+        /* params= */ ImmutableList.of(),
         ImmutableList.of(ReturnStatement.make(expr)),
-        /*hasVarargs=*/ false,
-        /*hasKwargs=*/ false,
-        /*numKeywordOnlyParams=*/ 0,
+        /* hasVarargs= */ false,
+        /* hasKwargs= */ false,
+        /* numKeywordOnlyParams= */ 0,
         frame,
-        /*freevars=*/ ImmutableList.of(),
-        r.globals);
+        /* freevars= */ ImmutableList.of(),
+        r.globals,
+        true);
   }
 
   private void pushLocalBlock(
