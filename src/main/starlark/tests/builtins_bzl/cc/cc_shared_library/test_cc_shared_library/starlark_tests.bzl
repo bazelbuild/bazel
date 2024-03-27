@@ -14,9 +14,9 @@
 
 """Starlark tests for cc_shared_library"""
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 load("@rules_testing//lib:truth.bzl", "matching")
-load("@bazel_skylib//lib:paths.bzl", "paths")
 
 def _same_package_or_above(label_a, label_b):
     if label_a.workspace_name != label_b.workspace_name:

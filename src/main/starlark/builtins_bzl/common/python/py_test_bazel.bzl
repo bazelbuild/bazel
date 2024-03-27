@@ -13,14 +13,14 @@
 # limitations under the License.
 """Rule implementation of py_test for Bazel."""
 
-load(":common/python/semantics.bzl", "TOOLS_REPO")
+load(":common/python/attributes.bzl", "AGNOSTIC_TEST_ATTRS")
+load(":common/python/common.bzl", "maybe_add_test_execution_info")
 load(
     ":common/python/py_executable_bazel.bzl",
     "create_executable_rule",
     "py_executable_bazel_impl",
 )
-load(":common/python/common.bzl", "maybe_add_test_execution_info")
-load(":common/python/attributes.bzl", "AGNOSTIC_TEST_ATTRS")
+load(":common/python/semantics.bzl", "TOOLS_REPO")
 
 _BAZEL_PY_TEST_ATTRS = {
     # This *might* be a magic attribute to help C++ coverage work. There's no

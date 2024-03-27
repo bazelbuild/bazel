@@ -1,5 +1,5 @@
-load("//tools/python:gen_runfiles_constants.bzl", "gen_runfiles_constants")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("//tools/python:gen_runfiles_constants.bzl", "gen_runfiles_constants")
 
 package(default_visibility = ["//visibility:private"])
 
