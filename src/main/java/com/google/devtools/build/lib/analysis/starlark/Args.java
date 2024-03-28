@@ -74,7 +74,7 @@ public abstract class Args implements CommandLineArgsApi {
   public void debugPrint(Printer printer, StarlarkSemantics semantics) {
     try {
       printer.append(
-          Joiner.on(" ").join(build(/* mainRepoMappingSupplier */ () -> null).arguments()));
+          Joiner.on(" ").join(build(/* mainRepoMappingSupplier= */ () -> null).arguments()));
     } catch (CommandLineExpansionException e) {
       printer.append("Cannot expand command line: " + e.getMessage());
     } catch (InterruptedException e) {
