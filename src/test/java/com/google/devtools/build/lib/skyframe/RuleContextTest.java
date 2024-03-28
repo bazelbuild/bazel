@@ -67,11 +67,14 @@ public class RuleContextTest extends ToolchainTestCase {
 
     scratch.file(
         "p0/BUILD",
-        "load('//foo:rule_def.bzl', 'foo_rule')",
-        "foo_rule(",
-        "    name = 'p0',",
-        "    testonly = True,",
-        ")");
+        """
+        load("//foo:rule_def.bzl", "foo_rule")
+
+        foo_rule(
+            name = "p0",
+            testonly = True,
+        )
+        """);
     // This should succeed.
     getConfiguredTarget("//p0:p0");
   }
@@ -97,31 +100,44 @@ public class RuleContextTest extends ToolchainTestCase {
     // Define a custom rule with a testonly toolchain.
     scratch.file(
         "foo/toolchain_def.bzl",
-        "def _impl(ctx):",
-        "  return [platform_common.ToolchainInfo()]",
-        "foo_toolchain = rule(",
-        "    implementation = _impl,",
-        "    attrs = {})");
+        """
+        def _impl(ctx):
+            return [platform_common.ToolchainInfo()]
+
+        foo_toolchain = rule(
+            implementation = _impl,
+            attrs = {},
+        )
+        """);
     scratch.file(
         "foo/rule_def.bzl",
-        "def _impl(ctx):",
-        "    pass",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    toolchains = ['//foo:toolchain_type'])");
+        """
+        def _impl(ctx):
+            pass
+
+        foo_rule = rule(
+            implementation = _impl,
+            toolchains = ["//foo:toolchain_type"],
+        )
+        """);
     scratch.file("foo/BUILD", "toolchain_type(name = 'toolchain_type')");
     // Create an instance of the toolchain.
     scratch.file(
         "bar/BUILD",
-        "load('//foo:toolchain_def.bzl', 'foo_toolchain')",
-        "toolchain(",
-        "  name = 'foo_toolchain_impl',",
-        "  toolchain_type = '//foo:toolchain_type',",
-        "  toolchain = ':foo_toolchain_def')",
-        "foo_toolchain(",
-        "    name = 'foo_toolchain_def',",
-        "    testonly = True,",
-        ")");
+        """
+        load("//foo:toolchain_def.bzl", "foo_toolchain")
+
+        toolchain(
+            name = "foo_toolchain_impl",
+            toolchain = ":foo_toolchain_def",
+            toolchain_type = "//foo:toolchain_type",
+        )
+
+        foo_toolchain(
+            name = "foo_toolchain_def",
+            testonly = True,
+        )
+        """);
 
     useConfiguration("--extra_toolchains=//bar:all");
   }

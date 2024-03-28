@@ -51,12 +51,14 @@ public final class TrackSourceDirectoriesIntegrationTest extends BuildIntegratio
     write("pkg/dir/file", "foo");
     write(
         "pkg/BUILD",
-        "genrule(",
-        "    name = 'a',",
-        "    srcs = ['dir'],",
-        "    outs = ['out'],",
-        "    cmd = 'touch $@',",
-        ")");
+        """
+        genrule(
+            name = "a",
+            srcs = ["dir"],
+            outs = ["out"],
+            cmd = "touch $@",
+        )
+        """);
 
     String testTarget = "//pkg:a";
     String testTargetRebuildsEvent = "Executing genrule " + testTarget;
@@ -115,12 +117,14 @@ public final class TrackSourceDirectoriesIntegrationTest extends BuildIntegratio
     write("pkg/dir/file", "foo");
     write(
         "pkg/BUILD",
-        "genrule(",
-        "    name = 'a',",
-        "    srcs = ['dir'],",
-        "    outs = ['out'],",
-        "    cmd = 'touch $@',",
-        ")");
+        """
+        genrule(
+            name = "a",
+            srcs = ["dir"],
+            outs = ["out"],
+            cmd = "touch $@",
+        )
+        """);
 
     String testTarget = "//pkg:a";
     String testTargetRebuildsEvent = "Executing genrule " + testTarget;

@@ -565,7 +565,15 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   public void testDependencyOnPotentialSubpackages() throws Exception {
     ExtendedEventHandler eventHandler = NullEventHandler.INSTANCE;
     scratch.file(
-        "x/BUILD", "sh_library(name = 'x', deps = ['//x:y/z'])", "sh_library(name = 'y/z')");
+        "x/BUILD",
+        """
+        sh_library(
+            name = "x",
+            deps = ["//x:y/z"],
+        )
+
+        sh_library(name = "y/z")
+        """);
 
     Package pkgBefore =
         skyframeExecutor
@@ -709,8 +717,17 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   public void testNoActionConflictWithInvalidatedTarget() throws Exception {
     scratch.file(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+        """
+        cc_library(
+            name = "x",
+            srcs = ["foo.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+        """);
     ConfiguredTargetAndData conflict =
         skyframeExecutor.getConfiguredTargetAndDataForTesting(
             reporter, Label.parseCanonical("@//conflict:x"), getTargetConfiguration());

@@ -180,8 +180,19 @@ public abstract class AbstractPackageLoaderTest {
 
   @Test
   public void simpleGoodPackage_Starlark() throws Exception {
-    file("good/good.bzl", "def f(x):", "  native.sh_library(name = x)");
-    file("good/BUILD", "load('//good:good.bzl', 'f')", "f('good')");
+    file(
+        "good/good.bzl",
+        """
+        def f(x):
+            native.sh_library(name = x)
+        """);
+    file(
+        "good/BUILD",
+        """
+        load("//good:good.bzl", "f")
+
+        f("good")
+        """);
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("good"));
     Package goodPkg;
     try (PackageLoader pkgLoader = newPackageLoader()) {

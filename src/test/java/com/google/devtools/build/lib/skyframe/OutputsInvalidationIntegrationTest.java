@@ -178,8 +178,19 @@ public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTe
   public void outputFileModified_invalidatesOnlyAffectedAction() throws Exception {
     write(
         "foo/BUILD",
-        "genrule(name='foo', outs=['foo.out'], cmd='touch $@')",
-        "genrule(name='bar', outs=['bar.out'], cmd='touch $@')");
+        """
+        genrule(
+            name = "foo",
+            outs = ["foo.out"],
+            cmd = "touch $@",
+        )
+
+        genrule(
+            name = "bar",
+            outs = ["bar.out"],
+            cmd = "touch $@",
+        )
+        """);
     buildTarget("//foo:all");
     MoreAsserts.assertContainsEvent(events.collector(), "Executing genrule //foo:foo");
     MoreAsserts.assertContainsEvent(events.collector(), "Executing genrule //foo:bar");

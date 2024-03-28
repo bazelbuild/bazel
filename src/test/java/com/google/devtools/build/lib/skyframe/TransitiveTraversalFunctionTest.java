@@ -172,26 +172,35 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     Label label = Label.parseCanonical("//test:foo");
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_aspect_impl,",
-        "   attr_aspects=['deps'],",
-        "   attrs = { '_extra_deps' : attr.label(default = Label('//foo:bar'))},",
-        ")",
-        "my_rule = rule(",
-        "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : ",
-        "             attr.label_list(mandatory=True, aspects = [MyAspect]) ",
-        "           },",
-        ")");
+        """
+        def _aspect_impl(target, ctx):
+            return struct()
+
+        def _rule_impl(ctx):
+            return struct()
+
+        MyAspect = aspect(
+            implementation = _aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {"_extra_deps": attr.label(default = Label("//foo:bar"))},
+        )
+        my_rule = rule(
+            implementation = _rule_impl,
+            attrs = {
+                "attr": attr.label_list(mandatory = True, aspects = [MyAspect]),
+            },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'foo',attr = [':bad'])");
+        """
+        load("//test:aspect.bzl", "my_rule")
+
+        my_rule(
+            name = "foo",
+            attr = [":bad"],
+        )
+        """);
     Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAny targetAndErrorIfAny =
         new TargetAndErrorIfAny(

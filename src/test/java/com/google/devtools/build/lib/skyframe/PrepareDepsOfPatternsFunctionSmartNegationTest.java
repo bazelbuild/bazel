@@ -217,7 +217,14 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
 
   private void createFooAndFooFoo() throws IOException {
     scratch.file(
-        "foo/BUILD", "genrule(name = 'foo',", "    outs = ['out.txt'],", "    cmd = 'touch $@')");
+        "foo/BUILD",
+        """
+        genrule(
+            name = "foo",
+            outs = ["out.txt"],
+            cmd = "touch $@",
+        )
+        """);
     scratch.file(
         "foo/foo/BUILD", "genrule(name = 'foofoo',", "    This isn't even remotely grammatical.)");
   }
