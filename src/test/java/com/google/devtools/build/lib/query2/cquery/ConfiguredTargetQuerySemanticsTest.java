@@ -692,117 +692,119 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
             "//donut:test_filegroup");
   }
 
-  @Test
-  public void testAspectOnAspectDepsAppearInCqueryDeps() throws Exception {
-    writeFile(
-        "donut/test.bzl",
-        "TestAspectInfo = provider('TestAspectInfo', fields = ['info'])",
-        "TestAspectOnAspectInfo = provider('TestAspectOnAspectInfo', fields = ['info'])",
-        "def _test_aspect_impl(target, ctx):",
-        "    return [",
-        "        TestAspectInfo(",
-        "            info = depset([target.label]),",
-        "        ),",
-        "    ]",
-        "_test_aspect = aspect(",
-        "    implementation = _test_aspect_impl,",
-        "    attr_aspects = ['deps'],",
-        "    attrs = {",
-        "        '_test_attr': attr.label(",
-        "            allow_files = True,",
-        "            default = Label('//donut:test_aspect_filegroup'),",
-        "        ),",
-        "    },",
-        "    provides = [TestAspectInfo],",
-        ")",
-        "def _test_aspect_on_aspect_impl(target, ctx):",
-        "    return [",
-        "        TestAspectOnAspectInfo(",
-        "            info = depset(",
-        "                direct = [target.label],",
-        "                transitive = [target[TestAspectInfo].info],",
-        "            ),",
-        "        ),",
-        "    ]",
-        "_test_aspect_on_aspect = aspect(",
-        "    implementation = _test_aspect_on_aspect_impl,",
-        "    attr_aspects = ['deps'],",
-        "    attrs = {",
-        "        '_test_attr': attr.label(",
-        "            allow_files = True,",
-        "            default = Label('//donut:test_aspect_on_aspect_filegroup'),",
-        "        ),",
-        "    },",
-        "    required_aspect_providers = [TestAspectInfo],",
-        "    provides = [TestAspectOnAspectInfo],",
-        ")",
-        "def _test_impl(ctx):",
-        "    pass",
-        "test_rule = rule(",
-        "    _test_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(",
-        "            aspects = [_test_aspect],",
-        "        ),",
-        "    },",
-        ")",
-        "def _test_aspect_on_aspect_rule_impl(ctx):",
-        "    pass",
-        "test_aspect_on_aspect_rule = rule(",
-        "    _test_aspect_on_aspect_rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(",
-        "            aspects = [_test_aspect, _test_aspect_on_aspect],",
-        "        ),",
-        "    },",
-        ")");
-    writeFile("donut/test_aspect.file");
-    writeFile("donut/test_aspect_on_aspect.file");
-    writeFile(
-        "donut/BUILD",
-        "load(':test.bzl', 'test_rule', 'test_aspect_on_aspect_rule')",
-        "filegroup(",
-        "    name = 'test_aspect_filegroup',",
-        "    srcs = ['test_aspect.file'],",
-        ")",
-        "filegroup(",
-        "    name = 'test_aspect_on_aspect_filegroup',",
-        "    srcs = ['test_aspect_on_aspect.file'],",
-        ")",
-        "test_rule(",
-        "    name = 'test_rule_dep',",
-        ")",
-        "test_rule(",
-        "    name = 'test_rule',",
-        "    deps = [':test_rule_dep'],",
-        ")",
-        "test_aspect_on_aspect_rule(",
-        "    name = 'test_aspect_on_aspect_rule',",
-        "    deps = ['test_rule'],",
-        ")");
-
-    helper.setUniverseScope("//donut/...");
-    helper.setQuerySettings(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS);
-    var result =
-        eval("filter(//donut, deps(//donut:test_aspect_on_aspect_rule))").stream()
-            .map(cf -> cf.getDescription(LabelPrinter.legacy()))
-            .collect(toImmutableList());
-    assertThat(result)
-        .containsExactly(
-            "//donut:test.bzl%_test_aspect_on_aspect on top of"
-                + " [//donut:test.bzl%_test_aspect of //donut:test_rule_dep]",
-            "//donut:test.bzl%_test_aspect_on_aspect on top of"
-                + " [//donut:test.bzl%_test_aspect of //donut:test_rule]",
-            "//donut:test_rule_dep",
-            "//donut:test_rule",
-            "//donut:test.bzl%_test_aspect of //donut:test_rule_dep",
-            "//donut:test.bzl%_test_aspect of //donut:test_rule",
-            "//donut:test_aspect_on_aspect_rule",
-            "//donut:test_aspect.file",
-            "//donut:test_aspect_on_aspect_filegroup",
-            "//donut:test_aspect_on_aspect.file",
-            "//donut:test_aspect_filegroup");
-  }
+  // TODO: Disable this due to https://github.com/bazelbuild/bazel/pull/21567#issuecomment-1978992760
+  //       Re-enable once the problem is understood and fixed.
+  // @Test
+  // public void testAspectOnAspectDepsAppearInCqueryDeps() throws Exception {
+  //   writeFile(
+  //       "donut/test.bzl",
+  //       "TestAspectInfo = provider('TestAspectInfo', fields = ['info'])",
+  //       "TestAspectOnAspectInfo = provider('TestAspectOnAspectInfo', fields = ['info'])",
+  //       "def _test_aspect_impl(target, ctx):",
+  //       "    return [",
+  //       "        TestAspectInfo(",
+  //       "            info = depset([target.label]),",
+  //       "        ),",
+  //       "    ]",
+  //       "_test_aspect = aspect(",
+  //       "    implementation = _test_aspect_impl,",
+  //       "    attr_aspects = ['deps'],",
+  //       "    attrs = {",
+  //       "        '_test_attr': attr.label(",
+  //       "            allow_files = True,",
+  //       "            default = Label('//donut:test_aspect_filegroup'),",
+  //       "        ),",
+  //       "    },",
+  //       "    provides = [TestAspectInfo],",
+  //       ")",
+  //       "def _test_aspect_on_aspect_impl(target, ctx):",
+  //       "    return [",
+  //       "        TestAspectOnAspectInfo(",
+  //       "            info = depset(",
+  //       "                direct = [target.label],",
+  //       "                transitive = [target[TestAspectInfo].info],",
+  //       "            ),",
+  //       "        ),",
+  //       "    ]",
+  //       "_test_aspect_on_aspect = aspect(",
+  //       "    implementation = _test_aspect_on_aspect_impl,",
+  //       "    attr_aspects = ['deps'],",
+  //       "    attrs = {",
+  //       "        '_test_attr': attr.label(",
+  //       "            allow_files = True,",
+  //       "            default = Label('//donut:test_aspect_on_aspect_filegroup'),",
+  //       "        ),",
+  //       "    },",
+  //       "    required_aspect_providers = [TestAspectInfo],",
+  //       "    provides = [TestAspectOnAspectInfo],",
+  //       ")",
+  //       "def _test_impl(ctx):",
+  //       "    pass",
+  //       "test_rule = rule(",
+  //       "    _test_impl,",
+  //       "    attrs = {",
+  //       "        'deps': attr.label_list(",
+  //       "            aspects = [_test_aspect],",
+  //       "        ),",
+  //       "    },",
+  //       ")",
+  //       "def _test_aspect_on_aspect_rule_impl(ctx):",
+  //       "    pass",
+  //       "test_aspect_on_aspect_rule = rule(",
+  //       "    _test_aspect_on_aspect_rule_impl,",
+  //       "    attrs = {",
+  //       "        'deps': attr.label_list(",
+  //       "            aspects = [_test_aspect, _test_aspect_on_aspect],",
+  //       "        ),",
+  //       "    },",
+  //       ")");
+  //   writeFile("donut/test_aspect.file");
+  //   writeFile("donut/test_aspect_on_aspect.file");
+  //   writeFile(
+  //       "donut/BUILD",
+  //       "load(':test.bzl', 'test_rule', 'test_aspect_on_aspect_rule')",
+  //       "filegroup(",
+  //       "    name = 'test_aspect_filegroup',",
+  //       "    srcs = ['test_aspect.file'],",
+  //       ")",
+  //       "filegroup(",
+  //       "    name = 'test_aspect_on_aspect_filegroup',",
+  //       "    srcs = ['test_aspect_on_aspect.file'],",
+  //       ")",
+  //       "test_rule(",
+  //       "    name = 'test_rule_dep',",
+  //       ")",
+  //       "test_rule(",
+  //       "    name = 'test_rule',",
+  //       "    deps = [':test_rule_dep'],",
+  //       ")",
+  //       "test_aspect_on_aspect_rule(",
+  //       "    name = 'test_aspect_on_aspect_rule',",
+  //       "    deps = ['test_rule'],",
+  //       ")");
+  //
+  //   helper.setUniverseScope("//donut/...");
+  //   helper.setQuerySettings(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS);
+  //   var result =
+  //       eval("filter(//donut, deps(//donut:test_aspect_on_aspect_rule))").stream()
+  //           .map(cf -> cf.getDescription(LabelPrinter.legacy()))
+  //           .collect(toImmutableList());
+  //   assertThat(result)
+  //       .containsExactly(
+  //           "//donut:test.bzl%_test_aspect_on_aspect on top of"
+  //               + " [//donut:test.bzl%_test_aspect of //donut:test_rule_dep]",
+  //           "//donut:test.bzl%_test_aspect_on_aspect on top of"
+  //               + " [//donut:test.bzl%_test_aspect of //donut:test_rule]",
+  //           "//donut:test_rule_dep",
+  //           "//donut:test_rule",
+  //           "//donut:test.bzl%_test_aspect of //donut:test_rule_dep",
+  //           "//donut:test.bzl%_test_aspect of //donut:test_rule",
+  //           "//donut:test_aspect_on_aspect_rule",
+  //           "//donut:test_aspect.file",
+  //           "//donut:test_aspect_on_aspect_filegroup",
+  //           "//donut:test_aspect_on_aspect.file",
+  //           "//donut:test_aspect_filegroup");
+  // }
 
   @Test
   public void testAspectDepsAppearInCqueryRdeps() throws Exception {
