@@ -66,6 +66,14 @@ import net.starlark.java.eval.StarlarkValue;
             + "<li>Values that are already strings are left as-is." //
             + "<li><a href='../builtins/File.html'><code>File</code></a> objects are turned into"
             + " their     <code>File.path</code> values." //
+            + "<li><a href='../builtins/Label.html'><code>Label</code></a> objects are turned into"
+            + " a string representation that resolves back to the same object when resolved in the"
+            + " context of the main repository. If possible, the string representation uses the"
+            + " apparent name of a repository in favor of the repository's canonical name, which"
+            + " makes this representation suited for use in BUILD files. While the exact form of"
+            + " the representation is not guaranteed, typical examples are"
+            + " <code>//foo:bar</code>, <code>@repo//foo:bar</code> and"
+            + " <code>@@canonical_name~//foo:bar.bzl</code>."
             + "<li>All other types are turned into strings in an <i>unspecified</i> manner. For "
             + "    this reason, you should avoid passing values that are not of string or "
             + "    <code>File</code> type to <code>add()</code>, and if you pass them to "
