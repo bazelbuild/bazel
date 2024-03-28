@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
@@ -24,10 +26,7 @@ import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import java.util.Collection;
-import java.util.Optional;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Performs {@code cquery} processing. */
@@ -58,7 +57,7 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode
       BuildRequest request,
       CommandEnvironment env,
       TopLevelConfigurations configurations,
-      Collection<SkyKey> transitiveConfigurationKeys,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
       WalkableGraph walkableGraph)
       throws InterruptedException {
     ImmutableList<QueryFunction> extraFunctions =
@@ -75,7 +74,7 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode
         env.getReporter(),
         extraFunctions,
         configurations,
-        transitiveConfigurationKeys,
+        transitiveConfigurations,
         mainRepoTargetParser,
         env.getPackageManager().getPackagePath(),
         () -> walkableGraph,

@@ -115,6 +115,23 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   private final Supplier<WalkableGraph> walkableGraphSupplier;
   protected WalkableGraph graph;
 
+  /**
+   * Stores every configuration in the transitive closure of the build graph as a map from its
+   * user-friendly hash to the configuration itself.
+   *
+   * <p>This is used to find configured targets in, e.g. {@code somepath} queries. Given {@code
+   * somepath(//foo, //bar)}, cquery finds the configured targets for {@code //foo} and {@code
+   * //bar} by creating a {@link ConfiguredTargetKey} from their labels and <i>some</i>
+   * configuration, then querying the {@link WalkableGraph} to find the matching configured target.
+   *
+   * <p>Having this map lets cquery choose from all available configurations in the graph,
+   * particularly including configurations that aren't the top-level.
+   *
+   * <p>This can also be used in cquery's {@code config} function to match against explicitly
+   * specified configs. This, in particular, is where having user-friendly hashes is invaluable.
+   */
+  protected final ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations;
+
   protected RecursivePackageProviderBackedTargetPatternResolver resolver;
 
   public PostAnalysisQueryEnvironment(
@@ -122,6 +139,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -129,6 +147,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       LabelPrinter labelPrinter) {
     super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions, labelPrinter);
     this.topLevelConfigurations = topLevelConfigurations;
+    this.transitiveConfigurations = transitiveConfigurations;
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.pkgPath = pkgPath;
     this.walkableGraphSupplier = walkableGraphSupplier;
