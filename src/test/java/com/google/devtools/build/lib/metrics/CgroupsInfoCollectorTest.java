@@ -21,16 +21,21 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
+import com.google.devtools.build.lib.sandbox.cgroups.controller.Controller;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.io.IOException;
 
 @RunWith(JUnit4.class)
 public class CgroupsInfoCollectorTest {
 
   @Test
-  public void testCollectResourceUsage_returnsValidCgroupMemoryUsage() {
+  public void testCollectResourceUsage_returnsValidCgroupInfoMemoryUsage() {
     Clock clock = BlazeClock.instance();
     CgroupsInfo cgroupsInfo1 = mock(CgroupsInfo.class);
     when(cgroupsInfo1.getMemoryUsageInKb()).thenReturn(1000);
@@ -46,6 +51,24 @@ public class CgroupsInfoCollectorTest {
         CgroupsInfoCollector.instance()
             .collectResourceUsage(
                 ImmutableMap.of(1L, cgroupsInfo1, 2L, cgroupsInfo2, 3L, cgroupsInfo3), clock);
+    assertThat(snapshot.getPidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);
+  }
+
+
+  @Test
+  public void testCollectResourceUsage_returnsValidCgroupMemoryUsage() throws IOException {
+    Clock clock = BlazeClock.instance();
+    ImmutableMap.Builder<Long, Cgroup> pidToCgroups = ImmutableMap.builder();
+    for (int i = 1; i < 4; i++) {
+      VirtualCGroup cg = mock(VirtualCGroup.class);
+      when(cg.getMemoryUsageInKb()).thenReturn(i * 1000);
+      when(cg.exists()).thenReturn(i != 2);
+      pidToCgroups.put((long) i, cg);
+    }
+
+    ResourceSnapshot snapshot =
+        CgroupsInfoCollector.instance()
+            .collectResourceUsage(pidToCgroups.build(), clock);
 
     // Results from cgroups 2 should not be in the snapshot since it doesn't exist.
     assertThat(snapshot.getPidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);

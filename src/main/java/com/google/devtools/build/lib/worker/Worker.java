@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -77,10 +78,7 @@ public abstract class Worker {
     return status;
   }
 
-  @Nullable
-  public CgroupsInfo getCgroup() {
-    return cgroup;
-  }
+  abstract public Cgroup getCgroup();
 
   HashCode getWorkerFilesCombinedHash() {
     return workerKey.getWorkerFilesCombinedHash();

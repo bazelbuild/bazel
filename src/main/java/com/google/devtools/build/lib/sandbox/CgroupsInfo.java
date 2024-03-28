@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** This class manages cgroups directories for memory-limiting sandboxed processes. */
-public abstract class CgroupsInfo {
+public abstract class CgroupsInfo implements Cgroup {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 

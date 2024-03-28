@@ -128,7 +128,8 @@ public final class WorkerLifecycleManagerTest {
                       workerIds++,
                       fileSystem.getPath("/workDir"),
                       fileSystem.getPath("/logDir"),
-                      options));
+                      options,
+                      null));
             })
         .when(factoryMock)
         .makeObject(any());

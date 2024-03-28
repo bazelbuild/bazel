@@ -67,7 +67,7 @@ public class WorkerPoolTest {
   private static class TestWorker extends SingleplexWorker {
     TestWorker(
         WorkerKey workerKey, int workerId, Path workDir, Path logFile, WorkerOptions options) {
-      super(workerKey, workerId, workDir, logFile, options);
+      super(workerKey, workerId, workDir, logFile, options, null);
     }
   }
 
