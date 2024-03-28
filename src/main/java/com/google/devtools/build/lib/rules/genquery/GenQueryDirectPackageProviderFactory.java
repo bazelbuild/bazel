@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.TargetLoadingUtil;
 import com.google.devtools.build.lib.skyframe.TargetLoadingUtil.TargetAndErrorIfAny;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.PartialReevaluationMailbox;
@@ -79,7 +80,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
       super(ImmutableList.sortedCopyOf(arg));
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(ImmutableList<Label> arg) {
       return interner.intern(new Key(arg));

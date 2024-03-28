@@ -25,7 +25,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
@@ -189,9 +189,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
     AnalysisProtosV2.ConfiguredTarget parentRuleProto =
         getRuleProtoByName(resultsList, "//test:parent_rule");
-    Set<ConfiguredTarget> keyedTargets = eval("deps(//test:parent_rule)");
+    Set<CqueryNode> keyedTargets = eval("deps(//test:parent_rule)");
 
-    ConfiguredTarget parentRule = getKeyedTargetByLabel(keyedTargets, "//test:parent_rule");
+    CqueryNode parentRule = getKeyedTargetByLabel(keyedTargets, "//test:parent_rule");
     assertThat(parentRuleProto.getConfiguration().getChecksum())
         .isEqualTo(parentRule.getConfigurationChecksum());
 
@@ -211,7 +211,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
     AnalysisProtosV2.ConfiguredTarget transitionRuleProto =
         getRuleProtoByName(resultsList, "//test:transition_rule");
-    ConfiguredTarget transitionRule = getKeyedTargetByLabel(keyedTargets, "//test:transition_rule");
+    CqueryNode transitionRule = getKeyedTargetByLabel(keyedTargets, "//test:transition_rule");
     assertThat(transitionRuleProto.getConfiguration().getChecksum())
         .isEqualTo(transitionRule.getConfigurationChecksum());
 
@@ -227,7 +227,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     assertThat(depRuleConfiguration.getMnemonic()).matches("k8-opt-exec-.*");
     assertThat(depRuleConfiguration.getIsTool()).isTrue();
 
-    ConfiguredTarget depRule = getKeyedTargetByLabel(keyedTargets, "//test:dep");
+    CqueryNode depRule = getKeyedTargetByLabel(keyedTargets, "//test:dep");
 
     assertThat(depRuleProto.getConfiguration().getChecksum())
         .isEqualTo(depRule.getConfigurationChecksum());
@@ -263,7 +263,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         .containsExactly(patchedConfiguredRuleInput, depConfiguredRuleInput);
   }
 
-  private ConfiguredTarget getKeyedTargetByLabel(Set<ConfiguredTarget> keyedTargets, String label) {
+  private CqueryNode getKeyedTargetByLabel(Set<CqueryNode> keyedTargets, String label) {
     return Iterables.getOnlyElement(
         keyedTargets.stream()
             .filter(t -> label.equals(t.getLabel().getCanonicalForm()))
@@ -486,7 +486,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
-    PostAnalysisQueryEnvironment<ConfiguredTarget> env =
+    PostAnalysisQueryEnvironment<CqueryNode> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ProtoOutputFormatterCallback callback =

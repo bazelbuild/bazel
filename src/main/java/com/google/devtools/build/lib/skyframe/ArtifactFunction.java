@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.actions.MiddlemanType.RUNFILES_MIDDL
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraver
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -586,8 +584,8 @@ public final class ArtifactFunction implements SkyFunction {
 
   private static final class DirectoryArtifactTraversalRequest extends TraversalRequest {
 
-    private static final Interner<DirectoryArtifactTraversalRequest> interner =
-        BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<DirectoryArtifactTraversalRequest> interner =
+        SkyKey.newInterner();
 
     static DirectoryArtifactTraversalRequest create(
         DirectTraversalRoot root, boolean skipTestingForSubpackage, Artifact artifact) {
@@ -645,6 +643,11 @@ public final class ArtifactFunction implements SkyFunction {
     protected TraversalRequest duplicateWithOverrides(
         DirectTraversalRoot newRoot, boolean newSkipTestingForSubpackage) {
       return create(newRoot, newSkipTestingForSubpackage, artifact);
+    }
+
+    @Override
+    public SkyKeyInterner<DirectoryArtifactTraversalRequest> getSkyKeyInterner() {
+      return interner;
     }
 
     @Override
