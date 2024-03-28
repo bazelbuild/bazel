@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -74,7 +75,11 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void add() throws Exception {
     CommandLine commandLine =
-        builder.add("one").add("two").add("three").build(/* flagPerLine= */ false);
+        builder
+            .add("one")
+            .add("two")
+            .add("three")
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "one", "two", "three");
   }
 
@@ -85,7 +90,7 @@ public final class StarlarkCustomCommandLineTest {
             .addFormatted("one", "--arg1=%s")
             .addFormatted("two", "--arg2=%s")
             .addFormatted("three", "--arg3=%s")
-            .build(/* flagPerLine= */ false);
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "--arg1=one", "--arg2=two", "--arg3=three");
   }
 
@@ -95,7 +100,7 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setArgName("--arg"))
             .add(vectorArg("four").setArgName("--other_arg"))
-            .build(/* flagPerLine= */ false);
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "--arg", "one", "two", "three", "--other_arg", "four");
   }
 
@@ -105,7 +110,7 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setTerminateWith("end1"))
             .add(vectorArg("four").setTerminateWith("end2"))
-            .build(/* flagPerLine= */ false);
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "one", "two", "three", "end1", "four", "end2");
   }
 
@@ -115,7 +120,7 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setFormatEach("--arg=%s"))
             .add(vectorArg("four").setFormatEach("--other_arg=%s"))
-            .build(/* flagPerLine= */ false);
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "--arg=one", "--arg=two", "--arg=three", "--other_arg=four");
   }
 
@@ -125,7 +130,7 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setBeforeEach("b4"))
             .add(vectorArg("four").setBeforeEach("and"))
-            .build(/* flagPerLine= */ false);
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "b4", "one", "b4", "two", "b4", "three", "and", "four");
   }
 
@@ -135,7 +140,7 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setJoinWith("..."))
             .add(vectorArg("four").setJoinWith("n/a"))
-            .build(/* flagPerLine= */ false);
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "one...two...three", "four");
   }
 
@@ -145,7 +150,7 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setJoinWith("...").setFormatJoined("--arg=%s"))
             .add(vectorArg("four").setJoinWith("n/a").setFormatJoined("--other_arg=%s"))
-            .build(/* flagPerLine= */ false);
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "--arg=one...two...three", "--other_arg=four");
   }
 
@@ -156,7 +161,7 @@ public final class StarlarkCustomCommandLineTest {
             .add("before")
             .add(vectorArg().omitIfEmpty(true).setJoinWith(",").setFormatJoined("--empty=%s"))
             .add("after")
-            .build(/* flagPerLine= */ false);
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "before", "after");
   }
 
@@ -167,7 +172,7 @@ public final class StarlarkCustomCommandLineTest {
             .add("before")
             .add(vectorArg().omitIfEmpty(false).setJoinWith(",").setFormatJoined("--empty=%s"))
             .add("after")
-            .build(/* flagPerLine= */ false);
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "before", "--empty=", "after");
   }
 
@@ -184,7 +189,7 @@ public final class StarlarkCustomCommandLineTest {
             .add("single_arg")
             .recordArgStart()
             .add(vectorArg("", "line", "four", "has", "no").setTerminateWith("flag"))
-            .build(/* flagPerLine= */ true);
+            .build(/* flagPerLine= */ true, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(
         commandLine,
         "--this=is line one",
@@ -198,7 +203,9 @@ public final class StarlarkCustomCommandLineTest {
       throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
-        builder.add(vectorArg(tree).setExpandDirectories(true)).build(/* flagPerLine= */ false);
+        builder
+            .add(vectorArg(tree).setExpandDirectories(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     ActionKeyContext actionKeyContext = new ActionKeyContext();
     Fingerprint fingerprint = new Fingerprint();
 
@@ -212,7 +219,9 @@ public final class StarlarkCustomCommandLineTest {
   public void vectorArgAddToFingerprint_expandFileset_includesInDigest() throws Exception {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
-        builder.add(vectorArg(fileset).setExpandDirectories(true)).build(/* flagPerLine= */ false);
+        builder
+            .add(vectorArg(fileset).setExpandDirectories(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
     FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
     ActionKeyContext actionKeyContext = new ActionKeyContext();
@@ -231,7 +240,9 @@ public final class StarlarkCustomCommandLineTest {
   public void vectorArgAddToFingerprint_expandTreeArtifact_includesInDigest() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
-        builder.add(vectorArg(tree).setExpandDirectories(true)).build(/* flagPerLine= */ false);
+        builder
+            .add(vectorArg(tree).setExpandDirectories(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
     ActionKeyContext actionKeyContext = new ActionKeyContext();
     Fingerprint fingerprint = new Fingerprint();
@@ -249,7 +260,9 @@ public final class StarlarkCustomCommandLineTest {
   public void vectorArgAddToFingerprint_expandFilesetMissingExpansion_fails() {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
-        builder.add(vectorArg(fileset).setExpandDirectories(true)).build(/* flagPerLine= */ false);
+        builder
+            .add(vectorArg(fileset).setExpandDirectories(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     ActionKeyContext actionKeyContext = new ActionKeyContext();
     Fingerprint fingerprint = new Fingerprint();
 
@@ -262,7 +275,9 @@ public final class StarlarkCustomCommandLineTest {
   public void vectorArgArguments_expandsTreeArtifact() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
-        builder.add(vectorArg(tree).setExpandDirectories(true)).build(/* flagPerLine= */ false);
+        builder
+            .add(vectorArg(tree).setExpandDirectories(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     ArtifactExpander artifactExpander =
@@ -279,7 +294,9 @@ public final class StarlarkCustomCommandLineTest {
   public void vectorArgArguments_expandsFileset() throws Exception {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
-        builder.add(vectorArg(fileset).setExpandDirectories(true)).build(/* flagPerLine= */ false);
+        builder
+            .add(vectorArg(fileset).setExpandDirectories(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
     FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
     ArtifactExpander artifactExpander =
@@ -296,7 +313,9 @@ public final class StarlarkCustomCommandLineTest {
   public void vectorArgArguments_treeArtifactMissingExpansion_returnsEmptyList() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
-        builder.add(vectorArg(tree).setExpandDirectories(true)).build(/* flagPerLine= */ false);
+        builder
+            .add(vectorArg(tree).setExpandDirectories(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
 
     // TODO(b/167696101): Fail arguments computation when we are missing the directory from inputs.
     assertThat(commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP)).isEmpty();
@@ -306,7 +325,9 @@ public final class StarlarkCustomCommandLineTest {
   public void vectorArgArguments_filesetMissingExpansion_fails() {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
-        builder.add(vectorArg(fileset).setExpandDirectories(true)).build(/* flagPerLine= */ false);
+        builder
+            .add(vectorArg(fileset).setExpandDirectories(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
 
     assertThrows(
         CommandLineExpansionException.class,
