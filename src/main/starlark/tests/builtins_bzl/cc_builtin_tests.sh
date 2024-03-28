@@ -56,9 +56,10 @@ function test_starlark_cc() {
   mkdir -p "src/conditions"
   cp "$(rlocation "io_bazel/src/conditions/BUILD")" "src/conditions/BUILD"
 
-  cat >> WORKSPACE<<EOF
-local_repository(
-    name = "test_repo",
+  cat >> MODULE.bazel<<EOF
+bazel_dep(name = "test_repo", repo_name = "my_test_repo")
+local_path_override(
+    module_name = "test_repo",
     path = "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library2",
 )
 EOF
