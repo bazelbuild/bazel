@@ -388,8 +388,16 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         """
         def _impl(name):
             pass
-        exported = macro(implementation=_impl)
-        s = struct(unexported = macro(implementation=_impl))
+        exported = macro(
+            implementation=_impl,
+            doc = "Exported macro",
+        )
+        s = struct(
+            unexported = macro(
+                implementation=_impl,
+                doc = "Unexported macro",
+            ),
+        )
         """);
 
     MacroFunction exported = (MacroFunction) ev.lookup("exported");
@@ -403,6 +411,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     assertThat(ev.eval("repr(exported)")).isEqualTo("<macro exported>");
     assertThat(ev.eval("repr(s.unexported)")).isEqualTo("<macro>");
+
+    assertThat(exported.getDocumentation()).hasValue("Exported macro");
+    assertThat(unexported.getDocumentation()).hasValue("Unexported macro");
+
+    assertThat(exported.getExtensionLabel()).isEqualTo(FAKE_LABEL);
+    assertThat(unexported.getExtensionLabel()).isNull();
   }
 
   private RuleClass getRuleClass(String name) throws Exception {

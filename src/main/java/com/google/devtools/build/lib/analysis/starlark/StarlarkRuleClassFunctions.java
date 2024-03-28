@@ -316,7 +316,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   @Override
-  public StarlarkCallable macro(StarlarkFunction implementation, StarlarkThread thread)
+  public StarlarkCallable macro(StarlarkFunction implementation, Object doc, StarlarkThread thread)
       throws EvalException {
     // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
     // top-level symbols (due to StarlarkGlobalsImpl relying on the Starlark#addMethods overload
@@ -328,7 +328,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     MacroClass.Builder builder = new MacroClass.Builder(implementation);
-    return new MacroFunction(builder);
+    return new MacroFunction(
+        builder, Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
@@ -1028,13 +1029,36 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // Initially null, then non-null once exported.
     @Nullable private MacroClass macroClass = null;
 
-    public MacroFunction(MacroClass.Builder builder) {
+    // Initially null, then non-null once exported.
+    @Nullable private Label starlarkLabel;
+
+    @Nullable private final String documentation;
+
+    public MacroFunction(MacroClass.Builder builder, Optional<String> documentation) {
       this.builder = builder;
+      this.documentation = documentation.orElse(null);
     }
 
     @Override
     public String getName() {
       return macroClass != null ? macroClass.getName() : "unexported macro";
+    }
+
+    /**
+     * Returns the value of the doc parameter passed to {@code macro()} in Starlark, or an empty
+     * Optional if a doc string was not provided.
+     */
+    public Optional<String> getDocumentation() {
+      return Optional.ofNullable(documentation);
+    }
+
+    /**
+     * Returns the label of the .bzl module where macro() was called, or null if the rule has not
+     * been exported yet.
+     */
+    @Nullable
+    public Label getExtensionLabel() {
+      return starlarkLabel;
     }
 
     // TODO(#19922): Define getDocumentation() and interaction with ModuleInfoExtractor, analogous
@@ -1092,12 +1116,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       return Starlark.NONE;
     }
 
+    /** Export a MacroFunction from a Starlark file with a given name. */
     @Override
-    public void export(EventHandler handler, Label label, String exportedName) {
+    public void export(EventHandler handler, Label starlarkLabel, String exportedName) {
       checkState(builder != null && macroClass == null);
       builder.setName(exportedName);
       this.macroClass = builder.build();
       this.builder = null;
+      this.starlarkLabel = starlarkLabel;
     }
 
     @Override

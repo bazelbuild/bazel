@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
@@ -40,6 +41,7 @@ import com.google.devtools.build.skydoc.rendering.StarlarkFunctionInfoExtractor;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.MacroInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionTagClassInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
@@ -191,6 +193,8 @@ final class ModuleInfoExtractor {
       if (shouldVisitVerifiedForAncestor || shouldVisit(qualifiedName)) {
         if (value instanceof StarlarkRuleFunction) {
           visitRule(qualifiedName, (StarlarkRuleFunction) value);
+        } else if (value instanceof MacroFunction) {
+          visitMacroFunction(qualifiedName, (MacroFunction) value);
         } else if (value instanceof StarlarkProvider) {
           visitProvider(qualifiedName, (StarlarkProvider) value);
         } else if (value instanceof StarlarkFunction) {
@@ -218,6 +222,8 @@ final class ModuleInfoExtractor {
 
     protected void visitRule(String qualifiedName, StarlarkRuleFunction value)
         throws ExtractionException {}
+
+    protected void visitMacroFunction(String qualifiedName, MacroFunction value) {}
 
     protected void visitProvider(String qualifiedName, StarlarkProvider value)
         throws ExtractionException {}
@@ -375,6 +381,22 @@ final class ModuleInfoExtractor {
         ruleInfoBuilder.setAdvertisedProviders(buildProviderNameGroup(advertisedProviders));
       }
       moduleInfoBuilder.addRuleInfo(ruleInfoBuilder);
+    }
+
+    @Override
+    protected void visitMacroFunction(String qualifiedName, MacroFunction macroFunction) {
+      MacroInfo.Builder macroInfoBuilder = MacroInfo.newBuilder();
+      // Record the name under which this symbol is made accessible, which may differ from the
+      // symbol's exported name
+      macroInfoBuilder.setMacroName(qualifiedName);
+      // ... but record the origin rule key for cross references.
+      macroInfoBuilder.setOriginKey(
+          OriginKey.newBuilder()
+              .setName(macroFunction.getName())
+              .setFile(labelRenderer.render(macroFunction.getExtensionLabel())));
+      macroFunction.getDocumentation().ifPresent(macroInfoBuilder::setDocString);
+      // TODO(#19922): add and document macro attributes
+      moduleInfoBuilder.addMacroInfo(macroInfoBuilder);
     }
 
     @Override
