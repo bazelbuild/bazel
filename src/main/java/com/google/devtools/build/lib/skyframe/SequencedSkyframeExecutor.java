@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
@@ -475,7 +476,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     long startTime = System.nanoTime();
     FilesystemValueChecker fsvc =
         new FilesystemValueChecker(
-            Preconditions.checkNotNull(tsgm.get()), syscallCache, fsvcThreads);
+            Preconditions.checkNotNull(tsgm.get()),
+            syscallCache,
+            outputService == null
+                ? XattrProviderOverrider.NO_OVERRIDE
+                : outputService::getXattrProvider,
+            fsvcThreads);
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
     recordingDiffer.invalidate(
         fsvc.getDirtyActionValues(

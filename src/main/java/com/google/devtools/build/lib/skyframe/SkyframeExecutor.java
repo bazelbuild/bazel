@@ -176,6 +176,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesKnowledge;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ImmutableBatchDirtyResult;
+import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
@@ -3250,7 +3251,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
       invalidateValuesMarkedForInvalidation(eventHandler);
 
-      FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, syscallCache, fsvcThreads);
+      FilesystemValueChecker fsvc =
+          new FilesystemValueChecker(
+              tsgm,
+              syscallCache,
+              outputService == null
+                  ? XattrProviderOverrider.NO_OVERRIDE
+                  : outputService::getXattrProvider,
+              fsvcThreads);
 
       Set<Root> diffPackageRootsUnderWhichToCheck =
           getDiffPackageRootsUnderWhichToCheck(pathEntriesWithoutDiffInformation);
@@ -3314,7 +3322,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       logger.atInfo().log(
           "About to scan %d external files",
           externalFilesKnowledge.nonOutputExternalFilesSeen.size());
-      FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, syscallCache, fsvcThreads);
+      FilesystemValueChecker fsvc =
+          new FilesystemValueChecker(
+              tsgm,
+              syscallCache,
+              outputService == null
+                  ? XattrProviderOverrider.NO_OVERRIDE
+                  : outputService::getXattrProvider,
+              fsvcThreads);
       ImmutableBatchDirtyResult batchDirtyResult;
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyExternalKeys")) {
         Map<SkyKey, SkyValue> externalDirtyNodes = new ConcurrentHashMap<>();
@@ -3674,7 +3689,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
-          new FilesystemValueChecker(tsgm, syscallCache, /* numThreads= */ 200)
+          new FilesystemValueChecker(
+                  tsgm,
+                  syscallCache,
+                  outputService == null
+                      ? XattrProviderOverrider.NO_OVERRIDE
+                      : outputService::getXattrProvider,
+                  /* numThreads= */ 200)
               .getDirtyKeys(
                   memoizingEvaluator.getValues(),
                   DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker());
