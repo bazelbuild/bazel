@@ -68,6 +68,8 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
   public enum Phase {
     WORKSPACE,
     LOADING,
+    /** Evaluation for a rule initializer, which does not allow all loading phase operations. */
+    INITIALIZER,
     ANALYSIS
   }
 
@@ -139,7 +141,7 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
   public static void checkLoadingOrWorkspacePhase(StarlarkThread thread, String function)
       throws EvalException {
     BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
-    if (ctx == null) {
+    if (ctx == null || ctx.phase == Phase.INITIALIZER) {
       throw Starlark.errorf(
           "'%s' cannot be called from %s", function, thread.getContextDescription());
     }
@@ -156,13 +158,33 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
   public static void checkLoadingPhase(StarlarkThread thread, String function)
       throws EvalException {
     BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
-    if (ctx == null) {
+    if (ctx == null || ctx.phase == Phase.INITIALIZER) {
       throw Starlark.errorf(
           "'%s' cannot be called from %s", function, thread.getContextDescription());
     }
     if (ctx.phase != Phase.LOADING) {
       throw Starlark.errorf(
           "'%s' can only be called from a BUILD file, or a macro invoked from a BUILD file",
+          function);
+    }
+  }
+
+  /**
+   * Checks that the current StarlarkThread is in the loading phase or in a rule initializer.
+   *
+   * @param function name of a function that requires this check
+   */
+  public static void checkLoadingPhaseOrInitializer(StarlarkThread thread, String function)
+      throws EvalException {
+    BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+    if (ctx == null) {
+      throw Starlark.errorf(
+          "'%s' cannot be called from %s", function, thread.getContextDescription());
+    }
+    if (ctx.phase != Phase.LOADING && ctx.phase != Phase.INITIALIZER) {
+      throw Starlark.errorf(
+          "'%s' can only be called from a BUILD file, a macro invoked from a BUILD file, or a"
+              + " rule initializer",
           function);
     }
   }

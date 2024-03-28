@@ -65,4 +65,6 @@ public abstract class TargetDefinitionContext extends BazelStarlarkContext {
     }
     return (TargetDefinitionContext) ctx;
   }
+
+  public abstract LabelConverter getLabelConverter();
 }

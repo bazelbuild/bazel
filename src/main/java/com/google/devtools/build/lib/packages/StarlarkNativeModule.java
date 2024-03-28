@@ -628,13 +628,13 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "native.package_relative_label");
+    BazelStarlarkContext.checkLoadingPhaseOrInitializer(thread, "native.package_relative_label");
     if (input instanceof Label) {
       return (Label) input;
     }
     try {
       String s = (String) input;
-      return getContext(thread).getLabelConverter().convert(s);
+      return getTargetDefinitionContext(thread).getLabelConverter().convert(s);
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label in native.package_relative_label: %s", e.getMessage());
     }
@@ -901,5 +901,18 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         cpuSemaphore.acquire();
       }
     }
+  }
+
+  private static TargetDefinitionContext getTargetDefinitionContext(StarlarkThread thread)
+      throws EvalException {
+    var value = TargetDefinitionContext.fromOrNull(thread);
+    if (value == null) {
+      // if TargetDefinitionContext is missing, we're not called from a BUILD file. This happens if
+      // someone uses native.some_func() in the wrong place.
+      throw Starlark.errorf(
+          "The native module can be accessed only from a BUILD thread. "
+              + "Wrap the function in a macro and call it from a BUILD file");
+    }
+    return value;
   }
 }
