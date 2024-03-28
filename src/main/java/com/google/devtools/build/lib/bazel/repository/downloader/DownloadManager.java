@@ -268,7 +268,6 @@ public class DownloadManager {
       if (repositoryCache.isEnabled()) {
         isCachingByProvidedChecksum = true;
 
-        try {
           Path cachedDestination =
               repositoryCache.get(cacheKey, destination, cacheKeyType, canonicalId);
           if (cachedDestination != null) {
@@ -276,9 +275,6 @@ public class DownloadManager {
             eventHandler.post(new RepositoryCacheHitEvent(context, cacheKey, mainUrl));
             return cachedDestination;
           }
-        } catch (IOException e) {
-          // Ignore error trying to get. We'll just download again.
-        }
       }
 
       if (rewrittenUrls.isEmpty()) {
