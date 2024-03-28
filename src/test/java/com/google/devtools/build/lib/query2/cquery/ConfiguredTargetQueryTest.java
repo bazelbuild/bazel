@@ -91,7 +91,14 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Cq
   @Override
   @Test
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
-    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+    writeFile(
+        "test/BUILD",
+        """
+        java_library(
+            name = "my_java",
+            srcs = ["foo.java"],
+        )
+        """);
 
     Set<CqueryNode> result = eval("//test:my_java+//test:foo.java");
 

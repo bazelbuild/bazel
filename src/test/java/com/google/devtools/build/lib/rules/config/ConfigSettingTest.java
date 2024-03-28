@@ -141,13 +141,17 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   private void writeSimpleExample() throws Exception {
-    scratch.file("pkg/BUILD",
-        "config_setting(",
-        "    name = 'foo',",
-        "    values = {",
-        "        'compilation_mode': 'dbg',",
-        "        'stamp': '1',",
-        "    })");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        config_setting(
+            name = "foo",
+            values = {
+                "compilation_mode": "dbg",
+                "stamp": "1",
+            },
+        )
+        """);
   }
 
   private ConfigMatchingProvider getConfigMatchingProvider(String label) throws Exception {
@@ -384,12 +388,16 @@ public class ConfigSettingTest extends BuildViewTestCase {
    */
   @Test
   public void multiValueDict() throws Exception {
-    scratch.file("test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'define': 'foo=bar',",
-        "    })");
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "define": "foo=bar",
+            },
+        )
+        """);
 
     useConfiguration("");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
@@ -409,11 +417,14 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void invalidDefineProducesError() throws Exception {
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'define': 'foo',", // Value should be "foo=<something>".
-        "    })");
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "define": "foo",  # Value should be "foo=<something>".
+            },
+        )
+        """);
 
     checkError(
         "//test:match", "Variable definitions must be in the form of a 'name=value' assignment");
@@ -421,13 +432,17 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void multipleDefines() throws Exception {
-    scratch.file("test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    define_values = {",
-        "        'foo1': 'bar',",
-        "        'foo2': 'baz',",
-        "    })");
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            define_values = {
+                "foo1": "bar",
+                "foo2": "baz",
+            },
+        )
+        """);
 
     useConfiguration("");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
@@ -451,11 +466,14 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void multiValueDictSettingAlwaysSingleEntry() throws Exception {
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'define': 'foo=bar,baz=bat',",
-        "    })");
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "define": "foo=bar,baz=bat",
+            },
+        )
+        """);
 
     useConfiguration("");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
@@ -471,15 +489,19 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void definesCrossAttributes() throws Exception {
-    scratch.file("test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'define': 'a=c'",
-        "    },",
-        "    define_values = {",
-        "        'b': 'd',",
-        "    })");
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            define_values = {
+                "b": "d",
+            },
+            values = {
+                "define": "a=c",
+            },
+        )
+        """);
 
     useConfiguration("");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
@@ -497,12 +519,16 @@ public class ConfigSettingTest extends BuildViewTestCase {
    */
   @Test
   public void multiValueListSingleExpectedValue() throws Exception {
-    scratch.file("test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'copt': '-Dfoo',",
-        "    })");
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "copt": "-Dfoo",
+            },
+        )
+        """);
 
     useConfiguration("");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
@@ -543,11 +569,14 @@ public class ConfigSettingTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'allow_multiple_option': 'one,two',", // This produces ["one", "two"]
-        "    })");
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "allow_multiple_option": "one,two",  # This produces ["one", "two"]
+            },
+        )
+        """);
 
     useConfiguration(flags.toArray(new String[flags.size()]));
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isEqualTo(matchExpected);
@@ -561,11 +590,14 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void multiValueListSingleValueThatLooksLikeMultiple() throws Exception {
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'copt': 'one,two',", // This produces ["one,two"]
-        "    })");
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "copt": "one,two",  # This produces ["one,two"]
+            },
+        )
+        """);
 
     useConfiguration("");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
@@ -590,13 +622,17 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void requiredConfigFragmentMatcher() throws Exception {
-    scratch.file("test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'copt': '-Dfoo',",
-        "        'javacopt': '-Dbar'",
-        "    })");
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "copt": "-Dfoo",
+                "javacopt": "-Dbar",
+            },
+        )
+        """);
 
     Rule target = (Rule) getTarget("//test:match");
     assertThat(target.getRuleClassObject().getOptionReferenceFunction().apply(target))
@@ -608,21 +644,24 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--copt=-Dright", "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+            values = {
+                "copt": "-Dright",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = ["right"],
+            default_value = "right",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
@@ -631,19 +670,22 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--copt=-Dright", "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    values = {},",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+            values = {},
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = ["right"],
+            default_value = "right",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
@@ -652,13 +694,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--copt=-Dright");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {},",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "    },",
-        ")");
+        """
+        config_setting(
+            name = "match",
+            flag_values = {},
+            values = {
+                "copt": "-Dright",
+            },
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
@@ -667,21 +711,27 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--copt=-Dright", "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':flag': 'wrong',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dwrong',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":flag": "wrong",
+            },
+            transitive_configs = [":flag"],
+            values = {
+                "copt": "-Dwrong",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
@@ -690,19 +740,25 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':flag': 'wrong',",
-        "    },",
-        "    values = {},",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":flag": "wrong",
+            },
+            transitive_configs = [":flag"],
+            values = {},
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
@@ -711,21 +767,27 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--copt=-Dright", "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':flag': 'wrong',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":flag": "wrong",
+            },
+            transitive_configs = [":flag"],
+            values = {
+                "copt": "-Dright",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
@@ -734,13 +796,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--copt=-Dright");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {},",
-        "    values = {",
-        "        'copt': '-Dwrong',",
-        "    },",
-        ")");
+        """
+        config_setting(
+            name = "match",
+            flag_values = {},
+            values = {
+                "copt": "-Dwrong",
+            },
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
@@ -749,21 +813,27 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--copt=-Dright", "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dwrong',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+            values = {
+                "copt": "-Dwrong",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
@@ -772,25 +842,38 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'bad',",
-        "    },",
-        "    values = {},",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "bad",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {},
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
@@ -799,25 +882,32 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "feature_flag_setter(",
-        "    name = 'setter',",
-        "    exports_setting = ':match',",
-        "    flag_values = {':flag': 'actual'},",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':flag': 'actual',",
-        "    },",
-        "    values = {},",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['default', 'actual'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        feature_flag_setter(
+            name = "setter",
+            exports_setting = ":match",
+            flag_values = {":flag": "actual"},
+            transitive_configs = [":flag"],
+        )
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":flag": "actual",
+            },
+            transitive_configs = [":flag"],
+            values = {},
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "actual",
+            ],
+            default_value = "default",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:setter")).isTrue();
   }
 
@@ -826,25 +916,32 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "feature_flag_setter(",
-        "    name = 'setter',",
-        "    exports_setting = ':match',",
-        "    flag_values = {':flag': 'actual'},",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':flag': 'default',",
-        "    },",
-        "    values = {},",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['default', 'actual'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        feature_flag_setter(
+            name = "setter",
+            exports_setting = ":match",
+            flag_values = {":flag": "actual"},
+            transitive_configs = [":flag"],
+        )
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":flag": "default",
+            },
+            transitive_configs = [":flag"],
+            values = {},
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "actual",
+            ],
+            default_value = "default",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:setter")).isFalse();
   }
 
@@ -857,48 +954,70 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "copt": "-Dright",
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "copt": "-Dright",
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -914,46 +1033,68 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "copt": "-Dright",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -969,46 +1110,62 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag2'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+            values = {
+                "copt": "-Dright",
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag2": "good",
+            },
+            transitive_configs = [":flag2"],
+            values = {
+                "copt": "-Dright",
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -1025,46 +1182,67 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "constraint_setting(name = 'setting_b')",
-        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_b',",
-        "    ],",
-        "    transitive_configs = [':flag2'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        constraint_setting(name = "setting_b")
+
+        constraint_value(
+            name = "value_b",
+            constraint_setting = "setting_b",
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+            values = {
+                "copt": "-Dright",
+            },
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_b",
+            ],
+            flag_values = {
+                ":flag2": "good",
+            },
+            transitive_configs = [":flag2"],
+            values = {
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -1080,48 +1258,72 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "constraint_setting(name = 'setting_b')",
-        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "        ':value_b',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    values = {",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        constraint_setting(name = "setting_b")
+
+        constraint_value(
+            name = "value_b",
+            constraint_setting = "setting_b",
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+                ":value_b",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "copt": "-Dright",
+            },
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+            values = {
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -1137,49 +1339,76 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "constraint_setting(name = 'setting_b')",
-        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_b',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        constraint_setting(name = "setting_b")
+
+        constraint_value(
+            name = "value_b",
+            constraint_setting = "setting_b",
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "copt": "-Dright",
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_b",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "copt": "-Dright",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -1195,48 +1424,69 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "constraint_setting(name = 'setting_b')",
-        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "        ':value_b',",
-        "    ],",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag2'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        constraint_setting(name = "setting_b")
+
+        constraint_value(
+            name = "value_b",
+            constraint_setting = "setting_b",
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+                ":value_b",
+            ],
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+            values = {
+                "copt": "-Dright",
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag2": "good",
+            },
+            transitive_configs = [":flag2"],
+            values = {
+                "copt": "-Dright",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -1251,26 +1501,38 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "config_setting(",
-        "    name = 'configA',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_setting(",
-        "    name = 'configB',",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        config_setting(
+            name = "configA",
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        config_setting(
+            name = "configB",
+            constraint_values = [
+                ":value_a",
+            ],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:configA")
                 .refines(getConfigMatchingProvider("//test:configB")))
@@ -1290,50 +1552,77 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "constraint_setting(name = 'setting_b')",
-        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "        ':value_b',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_b',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        constraint_setting(name = "setting_b")
+
+        constraint_value(
+            name = "value_b",
+            constraint_setting = "setting_b",
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+                ":value_b",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "copt": "-Dright",
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_b",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "copt": "-Dright",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -1349,50 +1638,74 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "constraint_setting(name = 'setting_b')",
-        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "        ':value_b',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        constraint_setting(name = "setting_b")
+
+        constraint_value(
+            name = "value_b",
+            constraint_setting = "setting_b",
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+                ":value_b",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "copt": "-Dright",
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+            values = {
+                "copt": "-Dright",
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -1408,49 +1721,73 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "constraint_setting(name = 'setting_b')",
-        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "        'javacopt': '-Dgood',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "        ':value_b',",
-        "    ],",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    values = {",
-        "        'copt': '-Dright',",
-        "    },",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "    ],",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        constraint_setting(name = "setting_b")
+
+        constraint_value(
+            name = "value_b",
+            constraint_setting = "setting_b",
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+                ":value_b",
+            ],
+            flag_values = {
+                ":flag": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+            values = {
+                "copt": "-Dright",
+                "javacopt": "-Dgood",
+            },
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_a",
+            ],
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+            values = {
+                "copt": "-Dright",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -1461,42 +1798,62 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void refinesSettingWithSubsetConstraintValues() throws Exception {
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'setting_a')",
-        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
-        "constraint_setting(name = 'setting_b')",
-        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
-        "constraint_setting(name = 'setting_c')",
-        "constraint_value(name = 'value_c', constraint_setting = 'setting_c')",
-        "platform(",
-        "    name = 'refined_platform',",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "        ':value_b',",
-        "        ':value_c',",
-        "    ],",
-        ")",
-        "platform(",
-        "    name = 'other_platform',",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "        ':value_b',",
-        "    ],",
-        ")",
-        "config_setting(",
-        "    name = 'refined',",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "        ':value_b',",
-        "        ':value_c',",
-        "    ],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    constraint_values = [",
-        "        ':value_a',",
-        "        ':value_b',",
-        "    ],",
-        ");");
+        """
+        constraint_setting(name = "setting_a")
+
+        constraint_value(
+            name = "value_a",
+            constraint_setting = "setting_a",
+        )
+
+        constraint_setting(name = "setting_b")
+
+        constraint_value(
+            name = "value_b",
+            constraint_setting = "setting_b",
+        )
+
+        constraint_setting(name = "setting_c")
+
+        constraint_value(
+            name = "value_c",
+            constraint_setting = "setting_c",
+        )
+
+        platform(
+            name = "refined_platform",
+            constraint_values = [
+                ":value_a",
+                ":value_b",
+                ":value_c",
+            ],
+        )
+
+        platform(
+            name = "other_platform",
+            constraint_values = [
+                ":value_a",
+                ":value_b",
+            ],
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = [
+                ":value_a",
+                ":value_b",
+                ":value_c",
+            ],
+        )
+
+        config_setting(
+            name = "other",
+            constraint_values = [
+                ":value_a",
+                ":value_b",
+            ],
+        )
+        """);
     useConfiguration("--platforms=//test:refined_platform");
     assertThat(
             getConfigMatchingProvider("//test:refined")
@@ -1509,23 +1866,30 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'alias_matcher',",
-        "    flag_values = {",
-        "        ':alias': 'right',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "alias(",
-        "    name = 'alias',",
-        "    actual = 'flag',",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        config_setting(
+            name = "alias_matcher",
+            flag_values = {
+                ":alias": "right",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        alias(
+            name = "alias",
+            actual = "flag",
+            transitive_configs = [":flag"],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:alias_matcher")).isTrue();
   }
 
@@ -1534,36 +1898,51 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'refined',",
-        "    flag_values = {",
-        "        ':alias': 'right',",
-        "        ':flag2': 'good',",
-        "    },",
-        "    transitive_configs = [':flag', ':flag2'],",
-        ")",
-        "config_setting(",
-        "    name = 'other',",
-        "    flag_values = {",
-        "        ':flag': 'right',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "alias(",
-        "    name = 'alias',",
-        "    actual = 'flag',",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['good', 'bad'],",
-        "    default_value = 'good',",
-        ")");
+        """
+        config_setting(
+            name = "refined",
+            flag_values = {
+                ":alias": "right",
+                ":flag2": "good",
+            },
+            transitive_configs = [
+                ":flag",
+                ":flag2",
+            ],
+        )
+
+        config_setting(
+            name = "other",
+            flag_values = {
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        alias(
+            name = "alias",
+            actual = "flag",
+            transitive_configs = [":flag"],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "good",
+                "bad",
+            ],
+            default_value = "good",
+        )
+        """);
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
@@ -1651,19 +2030,29 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void buildsettings_matchesFromDefault() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_flag')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':cheese': 'parmesan',",
-        "    },",
-        ")",
-        "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+        """
+        load("//test:build_settings.bzl", "string_flag")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":cheese": "parmesan",
+            },
+        )
+
+        string_flag(
+            name = "cheese",
+            build_setting_default = "parmesan",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
@@ -1671,19 +2060,29 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void buildsettings_matchesFromCommandLine() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_flag')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':cheese': 'gouda',",
-        "    },",
-        ")",
-        "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+        """
+        load("//test:build_settings.bzl", "string_flag")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":cheese": "gouda",
+            },
+        )
+
+        string_flag(
+            name = "cheese",
+            build_setting_default = "parmesan",
+        )
+        """);
 
     useConfiguration("--//test:cheese=gouda");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
@@ -1697,19 +2096,29 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void buildsettings_convertedType() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "bool_flag = rule(implementation = _impl, build_setting = config.bool(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        bool_flag = rule(implementation = _impl, build_setting = config.bool(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'bool_flag')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':cheese': 'True',",
-        "    },",
-        ")",
-        "bool_flag(name = 'cheese', build_setting_default = True)");
+        """
+        load("//test:build_settings.bzl", "bool_flag")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":cheese": "True",
+            },
+        )
+
+        bool_flag(
+            name = "cheese",
+            build_setting_default = True,
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
@@ -1717,19 +2126,29 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void buildsettings_doesntMatch() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_flag')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':cheese': 'parmesan',",
-        "    },",
-        ")",
-        "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+        """
+        load("//test:build_settings.bzl", "string_flag")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":cheese": "parmesan",
+            },
+        )
+
+        string_flag(
+            name = "cheese",
+            build_setting_default = "parmesan",
+        )
+        """);
 
     useConfiguration("--//test:cheese=gouda");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
@@ -1739,19 +2158,29 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void buildsettings_badType() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "int_flag = rule(implementation = _impl, build_setting = config.int(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        int_flag = rule(implementation = _impl, build_setting = config.int(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'int_flag')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':wishes': 'gouda',",
-        "    },",
-        ")",
-        "int_flag(name = 'wishes', build_setting_default = 3)");
+        """
+        load("//test:build_settings.bzl", "int_flag")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":wishes": "gouda",
+            },
+        )
+
+        int_flag(
+            name = "wishes",
+            build_setting_default = 3,
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:match");
@@ -1762,22 +2191,32 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void buildsettings_allowMultipleWorks() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.string(flag = True, allow_multiple = True),",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True, allow_multiple = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_flag')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':cheese': 'pepperjack',",
-        "    },",
-        ")",
-        "string_flag(name = 'cheese', build_setting_default = 'gouda')");
+        """
+        load("//test:build_settings.bzl", "string_flag")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":cheese": "pepperjack",
+            },
+        )
+
+        string_flag(
+            name = "cheese",
+            build_setting_default = "gouda",
+        )
+        """);
     useConfiguration("--//test:cheese=pepperjack", "--//test:cheese=brie");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
@@ -1786,22 +2225,32 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void buildsettings_repeatableWorks() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_list_flag = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.string_list(flag = True, repeatable = True),",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        string_list_flag = rule(
+            implementation = _impl,
+            build_setting = config.string_list(flag = True, repeatable = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_list_flag')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':cheese': 'pepperjack',",
-        "    },",
-        ")",
-        "string_list_flag(name = 'cheese', build_setting_default = ['gouda'])");
+        """
+        load("//test:build_settings.bzl", "string_list_flag")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":cheese": "pepperjack",
+            },
+        )
+
+        string_list_flag(
+            name = "cheese",
+            build_setting_default = ["gouda"],
+        )
+        """);
 
     useConfiguration("--//test:cheese=pepperjack", "--//test:cheese=pepperjack=brie");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
@@ -1811,16 +2260,25 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void buildsettings_repeatableWithoutFlagErrors() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_list_setting = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.string_list(repeatable = True),",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        string_list_setting = rule(
+            implementation = _impl,
+            build_setting = config.string_list(repeatable = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_list_setting')",
-        "string_list_setting(name = 'cheese', build_setting_default = ['gouda'])");
+        """
+        load("//test:build_settings.bzl", "string_list_setting")
+
+        string_list_setting(
+            name = "cheese",
+            build_setting_default = ["gouda"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:cheese");
@@ -1831,19 +2289,26 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void notBuildSettingOrFeatureFlag() throws Exception {
     scratch.file(
         "test/rules.bzl",
-        "def _impl(ctx):",
-        "  return DefaultInfo()",
-        "default_info_rule = rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+            return DefaultInfo()
+
+        default_info_rule = rule(implementation = _impl)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'default_info_rule')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':cheese': 'gouda',",
-        "    },",
-        ")",
-        "default_info_rule(name = 'cheese')");
+        """
+        load("//test:rules.bzl", "default_info_rule")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":cheese": "gouda",
+            },
+        )
+
+        default_info_rule(name = "cheese")
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:match");
@@ -1857,26 +2322,37 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_flag')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':cheese': 'parmesan',",
-        "        ':flag': 'right',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "string_flag(name = 'cheese', build_setting_default = 'parmesan')",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        load("//test:build_settings.bzl", "string_flag")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":cheese": "parmesan",
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        string_flag(
+            name = "cheese",
+            build_setting_default = "parmesan",
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = ["right"],
+            default_value = "right",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
@@ -1886,26 +2362,40 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_flag')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':cheese': 'parmesan',",
-        "        ':flag': 'wrong',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "string_flag(name = 'cheese', build_setting_default = 'parmesan')",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        load("//test:build_settings.bzl", "string_flag")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":cheese": "parmesan",
+                ":flag": "wrong",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        string_flag(
+            name = "cheese",
+            build_setting_default = "parmesan",
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
@@ -1915,26 +2405,37 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_flag')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':cheese': 'gouda',",
-        "        ':flag': 'right',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "string_flag(name = 'cheese', build_setting_default = 'parmesan')",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right'],",
-        "    default_value = 'right',",
-        ")");
+        """
+        load("//test:build_settings.bzl", "string_flag")
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":cheese": "gouda",
+                ":flag": "right",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        string_flag(
+            name = "cheese",
+            build_setting_default = "parmesan",
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = ["right"],
+            default_value = "right",
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
@@ -1942,21 +2443,34 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void constraintValue() throws Exception {
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'notable_building')",
-        "constraint_value(name = 'empire_state', constraint_setting = 'notable_building')",
-        "constraint_value(name = 'space_needle', constraint_setting = 'notable_building')",
-        "platform(",
-        "    name = 'new_york_platform',",
-        "    constraint_values = [':empire_state'],",
-        ")",
-        "platform(",
-        "    name = 'seattle_platform',",
-        "    constraint_values = [':space_needle'],",
-        ")",
-        "config_setting(",
-        "    name = 'match',",
-        "    constraint_values = [':empire_state'],",
-        ");");
+        """
+        constraint_setting(name = "notable_building")
+
+        constraint_value(
+            name = "empire_state",
+            constraint_setting = "notable_building",
+        )
+
+        constraint_value(
+            name = "space_needle",
+            constraint_setting = "notable_building",
+        )
+
+        platform(
+            name = "new_york_platform",
+            constraint_values = [":empire_state"],
+        )
+
+        platform(
+            name = "seattle_platform",
+            constraint_values = [":space_needle"],
+        )
+
+        config_setting(
+            name = "match",
+            constraint_values = [":empire_state"],
+        )
+        """);
 
     useConfiguration("--experimental_platforms=//test:new_york_platform");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
@@ -1970,35 +2484,58 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void multipleConstraintValues() throws Exception {
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'notable_building')",
-        "constraint_value(name = 'empire_state', constraint_setting = 'notable_building')",
-        "constraint_setting(name = 'museum')",
-        "constraint_value(name = 'cloisters', constraint_setting = 'museum')",
-        "constraint_setting(name = 'theme_park')",
-        "constraint_value(name = 'coney_island', constraint_setting = 'theme_park')",
-        "platform(",
-        "    name = 'manhattan_platform',",
-        "    constraint_values = [",
-        "        ':empire_state',",
-        "        ':cloisters',",
-        "    ],",
-        ")",
-        "platform(",
-        "    name = 'museum_platform',",
-        "    constraint_values = [':cloisters'],",
-        ")",
-        "platform(",
-        "    name = 'new_york_platform',",
-        "    constraint_values = [",
-        "        ':empire_state',",
-        "        ':cloisters',",
-        "        ':coney_island',",
-        "    ],",
-        ")",
-        "config_setting(",
-        "    name = 'match',",
-        "    constraint_values = [':empire_state', ':cloisters'],",
-        ");");
+        """
+        constraint_setting(name = "notable_building")
+
+        constraint_value(
+            name = "empire_state",
+            constraint_setting = "notable_building",
+        )
+
+        constraint_setting(name = "museum")
+
+        constraint_value(
+            name = "cloisters",
+            constraint_setting = "museum",
+        )
+
+        constraint_setting(name = "theme_park")
+
+        constraint_value(
+            name = "coney_island",
+            constraint_setting = "theme_park",
+        )
+
+        platform(
+            name = "manhattan_platform",
+            constraint_values = [
+                ":empire_state",
+                ":cloisters",
+            ],
+        )
+
+        platform(
+            name = "museum_platform",
+            constraint_values = [":cloisters"],
+        )
+
+        platform(
+            name = "new_york_platform",
+            constraint_values = [
+                ":empire_state",
+                ":cloisters",
+                ":coney_island",
+            ],
+        )
+
+        config_setting(
+            name = "match",
+            constraint_values = [
+                ":empire_state",
+                ":cloisters",
+            ],
+        )
+        """);
     useConfiguration("--experimental_platforms=//test:manhattan_platform");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
     useConfiguration("--experimental_platforms=//test:museum_platform");
@@ -2011,27 +2548,40 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void definesAndConstraints() throws Exception {
     scratch.file(
         "test/BUILD",
-        "constraint_setting(name = 'notable_building')",
-        "constraint_value(name = 'empire_state', constraint_setting = 'notable_building')",
-        "constraint_value(name = 'space_needle', constraint_setting = 'notable_building')",
-        "platform(",
-        "    name = 'new_york_platform',",
-        "    constraint_values = [':empire_state'],",
-        ")",
-        "platform(",
-        "    name = 'seattle_platform',",
-        "    constraint_values = [':space_needle'],",
-        ")",
-        "config_setting(",
-        "    name = 'match',",
-        "    constraint_values = [':empire_state'],",
-        "    values = {",
-        "        'define': 'a=c',",
-        "    },",
-        "    define_values = {",
-        "        'b': 'd',",
-        "    },",
-        ");");
+        """
+        constraint_setting(name = "notable_building")
+
+        constraint_value(
+            name = "empire_state",
+            constraint_setting = "notable_building",
+        )
+
+        constraint_value(
+            name = "space_needle",
+            constraint_setting = "notable_building",
+        )
+
+        platform(
+            name = "new_york_platform",
+            constraint_values = [":empire_state"],
+        )
+
+        platform(
+            name = "seattle_platform",
+            constraint_values = [":space_needle"],
+        )
+
+        config_setting(
+            name = "match",
+            constraint_values = [":empire_state"],
+            define_values = {
+                "b": "d",
+            },
+            values = {
+                "define": "a=c",
+            },
+        )
+        """);
 
     useConfiguration(
         "--experimental_platforms=//test:new_york_platform", "--define", "a=c", "--define", "b=d");
@@ -2111,11 +2661,14 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void licensesDefault() throws Exception {
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'copt': '-Dfoo',",
-        "    })");
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "copt": "-Dfoo",
+            },
+        )
+        """);
 
     useConfiguration("--copt", "-Dfoo");
     assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
@@ -2126,11 +2679,14 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void thirdPartyLicenseRequirement() throws Exception {
     scratch.file(
         "third_party/test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'copt': '-Dfoo',",
-        "    })");
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "copt": "-Dfoo",
+            },
+        )
+        """);
 
     useConfiguration("--copt", "-Dfoo");
     assertThat(getLicenses("//third_party/test:match")).containsExactly(LicenseType.NONE);
@@ -2141,12 +2697,16 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void packageLicensesIgnored() throws Exception {
     scratch.file(
         "test/BUILD",
-        "licenses(['restricted'])",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {",
-        "        'copt': '-Dfoo',",
-        "    })");
+        """
+        licenses(["restricted"])
+
+        config_setting(
+            name = "match",
+            values = {
+                "copt": "-Dfoo",
+            },
+        )
+        """);
 
     useConfiguration("--copt", "-Dfoo");
     assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
@@ -2157,12 +2717,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void ruleLicensesUsed() throws Exception {
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    licenses = ['restricted'],",
-        "    values = {",
-        "        'copt': '-Dfoo',",
-        "    })");
+        """
+        config_setting(
+            name = "match",
+            licenses = ["restricted"],
+            values = {
+                "copt": "-Dfoo",
+            },
+        )
+        """);
 
     useConfiguration("--copt", "-Dfoo");
     assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
@@ -2172,18 +2735,36 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void aliasedStarlarkFlag() throws Exception {
     scratch.file(
         "test/flagdef.bzl",
-        "def _impl(ctx):",
-        "    return []",
-        "my_flag = rule(",
-        "    implementation = _impl,",
-        "    build_setting = config.string(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        my_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
 
     scratch.file(
         "test/BUILD",
-        "load('//test:flagdef.bzl', 'my_flag')",
-        "my_flag(name = 'flag', build_setting_default = 'default')",
-        "alias(name = 'alias', actual = ':flag')",
-        "config_setting(name = 'alias_setting', flag_values = {':alias': 'specified'})");
+        """
+        load("//test:flagdef.bzl", "my_flag")
+
+        my_flag(
+            name = "flag",
+            build_setting_default = "default",
+        )
+
+        alias(
+            name = "alias",
+            actual = ":flag",
+        )
+
+        config_setting(
+            name = "alias_setting",
+            flag_values = {":alias": "specified"},
+        )
+        """);
 
     useConfiguration("--//test:flag=specified");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:alias_setting")).isTrue();
@@ -2193,27 +2774,39 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void simpleStarlarkFlag() throws Exception {
     scratch.file(
         "test/flagdef.bzl",
-        "def _impl(ctx):",
-        "    return []",
-        "my_flag = rule(",
-        "    implementation = _impl,",
-        "    build_setting = config.string(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        my_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:flagdef.bzl', 'my_flag')",
-        "my_flag(",
-        "    name = 'flag',",
-        "    build_setting_default = 'actual_flag_value')",
-        "config_setting(",
-        "    name = 'matches',",
-        "    flag_values = {",
-        "        ':flag': 'actual_flag_value',",
-        "    })",
-        "config_setting(",
-        "    name = 'doesntmatch',",
-        "    flag_values = {",
-        "        ':flag': 'other_flag_value',",
-        "    })");
+        """
+        load("//test:flagdef.bzl", "my_flag")
+
+        my_flag(
+            name = "flag",
+            build_setting_default = "actual_flag_value",
+        )
+
+        config_setting(
+            name = "matches",
+            flag_values = {
+                ":flag": "actual_flag_value",
+            },
+        )
+
+        config_setting(
+            name = "doesntmatch",
+            flag_values = {
+                ":flag": "other_flag_value",
+            },
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:matches")).isTrue();
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:doesntmatch")).isFalse();
   }
@@ -2224,27 +2817,39 @@ public class ConfigSettingTest extends BuildViewTestCase {
     // must match exactly.
     scratch.file(
         "test/flagdef.bzl",
-        "def _impl(ctx):",
-        "    return []",
-        "my_flag = rule(",
-        "    implementation = _impl,",
-        "    build_setting = config.string_list(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        my_flag = rule(
+            implementation = _impl,
+            build_setting = config.string_list(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:flagdef.bzl', 'my_flag')",
-        "my_flag(",
-        "    name = 'one_value_flag',",
-        "    build_setting_default = ['one'])",
-        "config_setting(",
-        "    name = 'matches',",
-        "    flag_values = {",
-        "        ':one_value_flag': 'one',",
-        "    })",
-        "config_setting(",
-        "    name = 'doesntmatch',",
-        "    flag_values = {",
-        "        ':one_value_flag': 'other',",
-        "    })");
+        """
+        load("//test:flagdef.bzl", "my_flag")
+
+        my_flag(
+            name = "one_value_flag",
+            build_setting_default = ["one"],
+        )
+
+        config_setting(
+            name = "matches",
+            flag_values = {
+                ":one_value_flag": "one",
+            },
+        )
+
+        config_setting(
+            name = "doesntmatch",
+            flag_values = {
+                ":one_value_flag": "other",
+            },
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:matches")).isTrue();
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:doesntmatch")).isFalse();
   }
@@ -2255,32 +2860,49 @@ public class ConfigSettingTest extends BuildViewTestCase {
     // value "foo" must match *any* entry in the list.
     scratch.file(
         "test/flagdef.bzl",
-        "def _impl(ctx):",
-        "    return []",
-        "my_flag = rule(",
-        "    implementation = _impl,",
-        "    build_setting = config.string_list(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        my_flag = rule(
+            implementation = _impl,
+            build_setting = config.string_list(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:flagdef.bzl', 'my_flag')",
-        "my_flag(",
-        "    name = 'two_value_flag',",
-        "    build_setting_default = ['one', 'two'])",
-        "config_setting(",
-        "    name = 'matches_one',",
-        "    flag_values = {",
-        "        ':two_value_flag': 'one',",
-        "    })",
-        "config_setting(",
-        "    name = 'matches_two',",
-        "    flag_values = {",
-        "        ':two_value_flag': 'two',",
-        "    })",
-        "config_setting(",
-        "    name = 'doesntmatch',",
-        "    flag_values = {",
-        "        ':two_value_flag': 'other',",
-        "    })");
+        """
+        load("//test:flagdef.bzl", "my_flag")
+
+        my_flag(
+            name = "two_value_flag",
+            build_setting_default = [
+                "one",
+                "two",
+            ],
+        )
+
+        config_setting(
+            name = "matches_one",
+            flag_values = {
+                ":two_value_flag": "one",
+            },
+        )
+
+        config_setting(
+            name = "matches_two",
+            flag_values = {
+                ":two_value_flag": "two",
+            },
+        )
+
+        config_setting(
+            name = "doesntmatch",
+            flag_values = {
+                ":two_value_flag": "other",
+            },
+        )
+        """);
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:matches_one")).isTrue();
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:matches_two")).isTrue();
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:doesntmatch")).isFalse();
@@ -2290,27 +2912,39 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void canOnlyMatchSingleValueInMultiValueFlags() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_list_flag = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.string_list(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_list_flag = rule(
+            implementation = _impl,
+            build_setting = config.string_list(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_list_flag')",
-        "string_list_flag(name = 'gouda', build_setting_default = ['smoked'])",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':gouda': 'smoked,fresh',",
-        "    },",
-        ")",
-        "filegroup(",
-        "  name = 'fg',",
-        "  srcs = select({",
-        "      ':match': []",
-        "  }),",
-        ")");
+        """
+        load("//test:build_settings.bzl", "string_list_flag")
+
+        string_list_flag(
+            name = "gouda",
+            build_setting_default = ["smoked"],
+        )
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":gouda": "smoked,fresh",
+            },
+        )
+
+        filegroup(
+            name = "fg",
+            srcs = select({
+                ":match": [],
+            }),
+        )
+        """);
     reporter.removeHandler(failFastHandler); // expect errors
     assertThat(getConfiguredTarget("//test:fg")).isNull();
     assertContainsEvent(
@@ -2322,27 +2956,39 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void singleValueThatLooksLikeMultiValueIsOkay() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.string(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_settings.bzl', 'string_flag')",
-        "string_flag(name = 'gouda', build_setting_default = 'smoked,fresh')",
-        "config_setting(",
-        "    name = 'match',",
-        "    flag_values = {",
-        "        ':gouda': 'smoked,fresh',",
-        "    },",
-        ")",
-        "filegroup(",
-        "  name = 'fg',",
-        "  srcs = select({",
-        "      ':match': []",
-        "  }),",
-        ")");
+        """
+        load("//test:build_settings.bzl", "string_flag")
+
+        string_flag(
+            name = "gouda",
+            build_setting_default = "smoked,fresh",
+        )
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":gouda": "smoked,fresh",
+            },
+        )
+
+        filegroup(
+            name = "fg",
+            srcs = select({
+                ":match": [],
+            }),
+        )
+        """);
     assertThat(getConfiguredTarget("//test:fg")).isNotNull();
     assertNoEvents();
   }
@@ -2351,10 +2997,12 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void labelInValuesError() throws Exception {
     scratch.file(
         "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = {'//foo:bar': 'value'},",
-        ")");
+        """
+        config_setting(
+            name = "match",
+            values = {"//foo:bar": "value"},
+        )
+        """);
     reporter.removeHandler(failFastHandler); // expect errors
     assertThat(getConfiguredTarget("//test:match")).isNull();
     assertContainsEvent(

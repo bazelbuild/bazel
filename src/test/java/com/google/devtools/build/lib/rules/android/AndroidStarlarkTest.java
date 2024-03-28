@@ -176,10 +176,28 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
 
     scratch.file(
         "test/starlark/BUILD",
-        "load('//test/starlark:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'test', deps = [':main1', ':main2'], dep = ':main1')",
-        "cc_binary(name = 'main1', srcs = ['main1.c'])",
-        "cc_binary(name = 'main2', srcs = ['main2.c'])");
+        """
+        load("//test/starlark:my_rule.bzl", "my_rule")
+
+        my_rule(
+            name = "test",
+            dep = ":main1",
+            deps = [
+                ":main1",
+                ":main2",
+            ],
+        )
+
+        cc_binary(
+            name = "main1",
+            srcs = ["main1.c"],
+        )
+
+        cc_binary(
+            name = "main2",
+            srcs = ["main2.c"],
+        )
+        """);
   }
 
   @Before

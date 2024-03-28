@@ -103,16 +103,23 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'my_rule',",
-        "  deps = select({",
-        "    ':garfield': ['lasagna.java', 'naps.java'],",
-        "    '//conditions:default': ['mondays.java']",
-        "  })",
-        ")",
-        "config_setting(",
-        "  name = 'garfield',",
-        "  values = {'foo': 'cat'}",
-        ")");
+        """
+        my_rule(
+            name = "my_rule",
+            deps = select({
+                ":garfield": [
+                    "lasagna.java",
+                    "naps.java",
+                ],
+                "//conditions:default": ["mondays.java"],
+            }),
+        )
+
+        config_setting(
+            name = "garfield",
+            values = {"foo": "cat"},
+        )
+        """);
 
     AnalysisProtosV2.ConfiguredTarget myRuleProto =
         Iterables.getOnlyElement(
@@ -174,13 +181,22 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
     writeFile(
         "test/BUILD",
-        "parent_rule(name = 'parent_rule',",
-        "  deps = [':transition_rule'],",
-        ")",
-        "my_rule(name = 'transition_rule',",
-        "  deps = [':patched', ':dep'],",
-        ")",
-        "simple_rule(name = 'dep')");
+        """
+        parent_rule(
+            name = "parent_rule",
+            deps = [":transition_rule"],
+        )
+
+        my_rule(
+            name = "transition_rule",
+            deps = [
+                ":dep",
+                ":patched",
+            ],
+        )
+
+        simple_rule(name = "dep")
+        """);
 
     AnalysisProtosV2.CqueryResult cqueryResult =
         getProtoOutput(
@@ -338,8 +354,14 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
     writeFile(
         "test/BUILD",
-        "simple_rule(name = 'my_rule')",
-        "alias(name = 'my_alias', actual = ':my_rule')");
+        """
+        simple_rule(name = "my_rule")
+
+        alias(
+            name = "my_alias",
+            actual = ":my_rule",
+        )
+        """);
 
     AnalysisProtosV2.ConfiguredTarget alias =
         Iterables.getOnlyElement(
@@ -360,19 +382,24 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
     writeFile(
         "test/BUILD",
-        "alias(",
-        "  name = 'my_alias_rule',",
-        "  actual = select({",
-        "    ':config1': ':target1',",
-        "    '//conditions:default': ':target2',",
-        "  }),",
-        ")",
-        "config_setting(",
-        "  name = 'config1',",
-        "  values = {'foo': 'woof'},",
-        ")",
-        "simple_rule(name = 'target1')",
-        "simple_rule(name = 'target2')");
+        """
+        alias(
+            name = "my_alias_rule",
+            actual = select({
+                ":config1": ":target1",
+                "//conditions:default": ":target2",
+            }),
+        )
+
+        config_setting(
+            name = "config1",
+            values = {"foo": "woof"},
+        )
+
+        simple_rule(name = "target1")
+
+        simple_rule(name = "target2")
+        """);
     getHelper().useConfiguration("--foo=woof");
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
 
@@ -405,10 +432,15 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
     writeFile(
         "test/BUILD",
-        "my_rule(",
-        "  name = 'my_rule',",
-        "  deps = ['lasagna.java', 'naps.java'],",
-        ")");
+        """
+        my_rule(
+            name = "my_rule",
+            deps = [
+                "lasagna.java",
+                "naps.java",
+            ],
+        )
+        """);
     AnalysisProtosV2.CqueryResult prototype = AnalysisProtosV2.CqueryResult.getDefaultInstance();
     AnalysisProtosV2.CqueryResult protoOutput =
         getProtoOutput("//test:*", ruleClassProvider, prototype.getParserForType());
@@ -454,10 +486,15 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
     writeFile(
         "test/BUILD",
-        "my_rule(",
-        "  name = 'my_rule',",
-        "  deps = ['lasagna.java', 'naps.java'],",
-        ")");
+        """
+        my_rule(
+            name = "my_rule",
+            deps = [
+                "lasagna.java",
+                "naps.java",
+            ],
+        )
+        """);
     Build.QueryResult prototype = Build.QueryResult.getDefaultInstance();
     Build.QueryResult protoOutput =
         getProtoOutput("//test:*", ruleClassProvider, prototype.getParserForType());

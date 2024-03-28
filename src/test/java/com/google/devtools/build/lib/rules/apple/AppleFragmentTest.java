@@ -36,32 +36,38 @@ public class AppleFragmentTest extends BuildViewTestCase {
   public void setup() throws Exception {
     scratch.file(
         "rules.bzl",
-        "MyInfo = provider()",
-        "def _my_binary_impl(ctx):",
-        "    out = ctx.actions.declare_file(ctx.label.name)",
-        "    ctx.actions.write(out, '')",
-        "    return [",
-        "        DefaultInfo(executable = out),",
-        "        MyInfo(",
-        "            exec_cpu = ctx.fragments.apple.single_arch_cpu,",
-        "        ),",
-        "    ]",
-        "my_binary = rule(",
-        "    fragments = ['apple'],",
-        "    implementation = _my_binary_impl,",
-        ")",
-        "def _my_rule_impl(ctx):",
-        "    return ctx.attr._tool[MyInfo]",
-        "my_rule = rule(",
-        "    _my_rule_impl,",
-        "    attrs = {",
-        "        '_tool': attr.label(",
-        "            cfg = 'exec',",
-        "            executable = True,",
-        "            default = ('//:bin'),",
-        "        ),",
-        "    },",
-        ")");
+        """
+        MyInfo = provider()
+
+        def _my_binary_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.write(out, "")
+            return [
+                DefaultInfo(executable = out),
+                MyInfo(
+                    exec_cpu = ctx.fragments.apple.single_arch_cpu,
+                ),
+            ]
+
+        my_binary = rule(
+            fragments = ["apple"],
+            implementation = _my_binary_impl,
+        )
+
+        def _my_rule_impl(ctx):
+            return ctx.attr._tool[MyInfo]
+
+        my_rule = rule(
+            _my_rule_impl,
+            attrs = {
+                "_tool": attr.label(
+                    cfg = "exec",
+                    executable = True,
+                    default = ("//:bin"),
+                ),
+            },
+        )
+        """);
     scratch.file(
         "BUILD",
         "load(':rules.bzl', 'my_binary', 'my_rule')",
