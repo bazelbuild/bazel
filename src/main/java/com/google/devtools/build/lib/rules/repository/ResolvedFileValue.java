@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.repository;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -49,7 +50,7 @@ public class ResolvedFileValue implements SkyValue {
       this.path = path;
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static ResolvedFileKey create(RootedPath path) {
       return interner.intern(new ResolvedFileKey(path));
