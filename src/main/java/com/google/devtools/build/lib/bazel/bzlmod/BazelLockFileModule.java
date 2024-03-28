@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableTable;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -107,15 +107,19 @@ public class BazelLockFileModule extends BlazeModule {
         updatedExtensionMap = new HashMap<>();
 
     // Keep old extensions if they are still valid.
-    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> oldExtensionUsages =
-        BazelDepGraphFunction.getExtensionUsagesById(oldLockfile.getModuleDepGraph());
     for (var entry : oldLockfile.getModuleExtensions().entrySet()) {
       var moduleExtensionId = entry.getKey();
-      var factorToLockedExtension = entry.getValue();
-      ModuleExtensionEvalFactors firstEntryFactors =
-          factorToLockedExtension.keySet().iterator().next();
-      if (shouldKeepExtension(moduleExtensionId, firstEntryFactors, oldExtensionUsages)) {
-        updatedExtensionMap.put(moduleExtensionId, factorToLockedExtension);
+      ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>
+          factorsToKeepBuilder = new ImmutableMap.Builder<>();
+      for (var factorAndExtension : entry.getValue().entrySet()) {
+        if (shouldKeepExtension(
+            moduleExtensionId, factorAndExtension.getKey(), factorAndExtension.getValue())) {
+          factorsToKeepBuilder.put(factorAndExtension.getKey(), factorAndExtension.getValue());
+        }
+      }
+      var factorsToKeep = factorsToKeepBuilder.build();
+      if (!factorsToKeep.isEmpty()) {
+        updatedExtensionMap.put(moduleExtensionId, factorsToKeep);
       }
     }
 
@@ -164,7 +168,7 @@ public class BazelLockFileModule extends BlazeModule {
   private boolean shouldKeepExtension(
       ModuleExtensionId extensionId,
       ModuleExtensionEvalFactors lockedExtensionKey,
-      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> oldExtensionUsages) {
+      LockFileModuleExtension lockedExtension) {
 
     // If there is a new event for this extension, compare it with the existing ones
     ModuleExtensionResolutionEvent extEvent = extensionResolutionEventsMap.get(extensionId);
@@ -185,9 +189,11 @@ public class BazelLockFileModule extends BlazeModule {
     // that irrelevant changes (e.g. locations or imports) don't cause the extension to be removed.
     // Note: Extension results can still be stale for other reasons, e.g. because their transitive
     // bzl hash changed, but such changes will be detected in SingleExtensionEvalFunction.
-    return ModuleExtensionUsage.trimForEvaluation(
-            moduleResolutionEvent.getExtensionUsagesById().row(extensionId))
-        .equals(ModuleExtensionUsage.trimForEvaluation(oldExtensionUsages.row(extensionId)));
+    return Arrays.equals(
+        ModuleExtensionUsage.hashForEvaluation(
+            GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
+            moduleResolutionEvent.getExtensionUsagesById().row(extensionId)),
+        lockedExtension.getUsagesDigest());
   }
 
   /**
