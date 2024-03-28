@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
@@ -119,7 +119,7 @@ public final class OneVersionCheckActionBuilder {
     return VectorArg.of(jarsToCheck).mapped(EXPAND_TO_JAR_AND_TARGET);
   }
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final CommandLineItem.MapFn<Artifact> EXPAND_TO_JAR_AND_TARGET =
       (jar, args) ->
           args.accept(jar.getExecPathString() + "," + getArtifactOwnerGeneralizedLabel(jar));
