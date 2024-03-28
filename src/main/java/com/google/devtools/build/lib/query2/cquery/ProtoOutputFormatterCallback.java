@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResult;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResultOrBuilder;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.CqueryTransitionResolver.EvaluateException;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -56,6 +57,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /** Proto output formatter for cquery results. */
 class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -80,9 +82,22 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private static class ConfigurationCache {
     private final Map<BuildConfigurationEvent, Integer> cache = new HashMap<>();
+    private final Function<BuildConfigurationKey, BuildConfigurationValue> configurationGetter;
+
+    private ConfigurationCache(
+        Function<BuildConfigurationKey, BuildConfigurationValue> configurationGetter) {
+      this.configurationGetter = configurationGetter;
+    }
 
     public int getId(BuildConfigurationEvent buildConfigurationEvent) {
       return cache.computeIfAbsent(buildConfigurationEvent, event -> cache.size() + 1);
+    }
+
+    public int getId(BuildOptions options) {
+      BuildConfigurationValue configurationValue =
+          configurationGetter.apply(BuildConfigurationKey.create(options));
+      BuildConfigurationEvent buildConfigurationEvent = configurationValue.toBuildEvent();
+      return getId(buildConfigurationEvent);
     }
 
     public ImmutableList<Configuration> getConfigurations() {
@@ -110,20 +125,21 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final OutputType outputType;
   private final AspectResolver resolver;
   private final SkyframeExecutor skyframeExecutor;
-  private final ConfigurationCache configurationCache = new ConfigurationCache();
+  private final ConfigurationCache configurationCache =
+      new ConfigurationCache(this::getConfiguration);
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
   private final RuleClassProvider ruleClassProvider;
 
   private final Map<Label, Target> partialResultMap;
   private final LabelPrinter labelPrinter;
-  private ConfiguredTarget currentTarget;
+  private CqueryNode currentTarget;
 
   ProtoOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<CqueryNode> accessor,
       AspectResolver resolver,
       OutputType outputType,
       RuleClassProvider ruleClassProvider,
@@ -222,7 +238,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult)
+  public void processOutput(Iterable<CqueryNode> partialResult)
       throws InterruptedException, IOException {
     partialResult.forEach(
         kct -> partialResultMap.put(kct.getOriginalLabel(), accessor.getTarget(kct)));
@@ -237,7 +253,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver, skyframeExecutor.getDigestFunction().getHashFunction());
-    for (ConfiguredTarget keyedConfiguredTarget : partialResult) {
+    for (CqueryNode keyedConfiguredTarget : partialResult) {
       AnalysisProtosV2.ConfiguredTarget.Builder builder =
           AnalysisProtosV2.ConfiguredTarget.newBuilder();
 
@@ -261,9 +277,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                           .setLabel(labelPrinter.toString(resolvedTransition.label())));
             } else {
               for (BuildOptions options : resolvedTransition.options()) {
-                BuildConfigurationEvent buildConfigurationEvent =
-                    getConfiguration(BuildConfigurationKey.create(options)).toBuildEvent();
-                int configurationId = configurationCache.getId(buildConfigurationEvent);
+                int configurationId = configurationCache.getId(options);
 
                 targetBuilder
                     .getRuleBuilder()

@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  * focused on completeness, should output full configuration checksums.
  */
 public abstract class CqueryThreadsafeCallback
-    extends NamedThreadSafeOutputFormatterCallback<ConfiguredTarget> {
+    extends NamedThreadSafeOutputFormatterCallback<CqueryNode> {
 
   protected final ExtendedEventHandler eventHandler;
   protected final CqueryOptions options;
@@ -64,7 +64,7 @@ public abstract class CqueryThreadsafeCallback
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<CqueryNode> accessor,
       boolean uniquifyResults) {
     this.eventHandler = eventHandler;
     this.options = options;
@@ -119,4 +119,3 @@ public abstract class CqueryThreadsafeCallback
     return config == null ? "null" : config.shortId();
   }
 }
-

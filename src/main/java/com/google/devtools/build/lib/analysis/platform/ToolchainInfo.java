@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
@@ -59,7 +59,7 @@ public final class ToolchainInfo extends NativeInfo implements ToolchainInfoApi 
     }
   }
 
-  @AutoCodec.VisibleForSerialization final ImmutableSortedMap<String, Object> values;
+  @VisibleForSerialization final ImmutableSortedMap<String, Object> values;
   private ImmutableSet<String> fieldNames; // initialized lazily (with monitor synchronization)
 
   /** Constructs a ToolchainInfo. The {@code values} map itself is not retained. */
