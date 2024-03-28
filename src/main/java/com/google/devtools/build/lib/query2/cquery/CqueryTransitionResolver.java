@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.NonAttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
@@ -126,7 +126,7 @@ public class CqueryTransitionResolver {
    * @see ResolvedTransition for more details.
    * @param configuredTarget the configured target whose dependencies are being looked up.
    */
-  public ImmutableSet<ResolvedTransition> dependencies(ConfiguredTarget configuredTarget)
+  public ImmutableSet<ResolvedTransition> dependencies(CqueryNode configuredTarget)
       throws EvaluateException, InterruptedException {
     if (!(configuredTarget instanceof RuleConfiguredTarget)) {
       return ImmutableSet.of();
@@ -250,7 +250,7 @@ public class CqueryTransitionResolver {
   }
 
   @Nullable
-  private ConfigurationTransition getRuleTransition(ConfiguredTarget configuredTarget) {
+  private ConfigurationTransition getRuleTransition(CqueryNode configuredTarget) {
     if (configuredTarget instanceof RuleConfiguredTarget) {
       return computeTransition(
           accessor.getTarget(configuredTarget).getAssociatedRule(),

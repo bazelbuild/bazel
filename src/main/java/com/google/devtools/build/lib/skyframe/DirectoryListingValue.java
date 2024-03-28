@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -62,7 +63,7 @@ public abstract class DirectoryListingValue implements SkyValue {
   }
 
   /** Key type for DirectoryListingValue. */
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   public static class Key extends AbstractSkyKey<RootedPath> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -71,7 +72,7 @@ public abstract class DirectoryListingValue implements SkyValue {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(RootedPath arg) {
       return interner.intern(new Key(arg));

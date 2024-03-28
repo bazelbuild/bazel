@@ -98,13 +98,4 @@ public @interface AutoCodec {
    * com.google.devtools.build.lib.skyframe.serialization.SerializationContext#addExplicitlyAllowedClass}.
    */
   Class<?>[] explicitlyAllowClass() default {};
-
-  /**
-   * Signals that the annotated element is only visible for use by serialization. It should not be
-   * used by other callers.
-   *
-   * <p>TODO(janakr): Add an ErrorProne checker to enforce this.
-   */
-  @Target({ElementType.TYPE, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
-  @interface VisibleForSerialization {}
 }

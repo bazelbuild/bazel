@@ -12,6 +12,23 @@ filegroup(
 )
 
 java_library(
+    name = "cquery-node",
+    srcs = [
+        "CqueryNode.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "abstract-blaze-query-env",
     srcs = [
         "AbstractBlazeQueryEnvironment.java",
