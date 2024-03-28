@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ModifiedOutputsReceiver;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
+import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -509,7 +510,10 @@ public final class FilesystemValueCheckerTest {
   private Collection<SkyKey> getDirtyActionValues(ImmutableMap<SkyKey, SkyValue> valuesMap)
       throws InterruptedException {
     return new FilesystemValueChecker(
-            /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST)
         .getDirtyActionValues(
             valuesMap,
             batchStat.getBatchStat(fs),
@@ -540,14 +544,22 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void testEmpty() throws Exception {
     FilesystemValueChecker checker =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST);
+        new FilesystemValueChecker(
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST);
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
 
   @Test
   public void testSimple() throws Exception {
     FilesystemValueChecker checker =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST);
+        new FilesystemValueChecker(
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST);
 
     Path path = fs.getPath("/foo");
     FileSystemUtils.createEmptyFile(path);
@@ -584,7 +596,11 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void testDirtySymlink() throws Exception {
     FilesystemValueChecker checker =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST);
+        new FilesystemValueChecker(
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST);
 
     Path path = fs.getPath("/foo");
     FileSystemUtils.writeContentAsLatin1(path, "foo contents");
@@ -648,7 +664,11 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void testExplicitFiles() throws Exception {
     FilesystemValueChecker checker =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST);
+        new FilesystemValueChecker(
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST);
 
     Path path1 = fs.getPath("/foo1");
     Path path2 = fs.getPath("/foo2");
@@ -705,7 +725,11 @@ public final class FilesystemValueCheckerTest {
 
     fs.readlinkThrowsIoException = false;
     FilesystemValueChecker checker =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST);
+        new FilesystemValueChecker(
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST);
     Diff diff = getDirtyFilesystemKeys(evaluator, checker);
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(diff.changedKeysWithNewValues()).isEmpty();
@@ -726,7 +750,11 @@ public final class FilesystemValueCheckerTest {
     assertThat(result.hasError()).isTrue();
 
     FilesystemValueChecker checker =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST);
+        new FilesystemValueChecker(
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST);
     Diff diff = getDirtyFilesystemKeys(evaluator, checker);
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(diff.changedKeysWithNewValues()).isEmpty();
@@ -790,7 +818,10 @@ public final class FilesystemValueCheckerTest {
     assertThat(evaluator.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -806,7 +837,11 @@ public final class FilesystemValueCheckerTest {
       Artifact file, SkyKey actionKey, BatchStat batchStatter, TimestampGranularityMonitor tsgm)
       throws InterruptedException {
     assertThat(
-            new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(
+                    tsgm,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -815,7 +850,11 @@ public final class FilesystemValueCheckerTest {
                     (ignored, ignored2) -> {}))
         .containsExactly(actionKey);
     assertThat(
-            new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(
+                    tsgm,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -824,7 +863,11 @@ public final class FilesystemValueCheckerTest {
                     (ignored, ignored2) -> {}))
         .containsExactly(actionKey);
     assertThat(
-            new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(
+                    tsgm,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -833,7 +876,11 @@ public final class FilesystemValueCheckerTest {
                     (ignored, ignored2) -> {}))
         .containsExactly(actionKey);
     assertThat(
-            new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(
+                    tsgm,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -844,7 +891,11 @@ public final class FilesystemValueCheckerTest {
                     (ignored, ignored2) -> {}))
         .isEmpty();
     assertThat(
-            new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(
+                    tsgm,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -892,7 +943,11 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.touchFile(tree.getPath().getRelative(touchedTreePath));
 
     Collection<SkyKey> dirtyActionKeys =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -916,7 +971,11 @@ public final class FilesystemValueCheckerTest {
     assertThat(tree.getPath().delete()).isTrue();
 
     Collection<SkyKey> dirtyActionKeys =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -943,7 +1002,11 @@ public final class FilesystemValueCheckerTest {
     tree.getPath().createSymbolicLink(dummyEmptyDir);
 
     Collection<SkyKey> dirtyActionKeys =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -968,7 +1031,11 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeIsoLatin1(treeFile.getPath(), "other text");
 
     Collection<SkyKey> dirtyActionKeys =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -994,7 +1061,11 @@ public final class FilesystemValueCheckerTest {
     TreeFileArtifact newFile = TreeFileArtifact.createTreeOutput(tree, "file2");
     FileSystemUtils.writeIsoLatin1(newFile.getPath());
     Collection<SkyKey> dirtyActionValues =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -1019,7 +1090,11 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeIsoLatin1(newFile.getPath());
 
     Collection<SkyKey> dirtyActionKeys =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -1044,7 +1119,11 @@ public final class FilesystemValueCheckerTest {
     assertThat(treeFile.getPath().delete()).isTrue();
 
     Collection<SkyKey> dirtyActionKeys =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -1077,7 +1156,11 @@ public final class FilesystemValueCheckerTest {
     assertThat(tree2File.getPath().delete()).isTrue();
 
     Collection<SkyKey> dirtyActionKeys =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -1111,7 +1194,11 @@ public final class FilesystemValueCheckerTest {
     assertThat(tree2File.getPath().delete()).isTrue();
 
     Collection<SkyKey> dirtyActionKeys =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -1156,7 +1243,11 @@ public final class FilesystemValueCheckerTest {
     assertThat(treeCFile.getPath().delete()).isTrue();
 
     Collection<SkyKey> dirtyActionKeys =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -1184,7 +1275,11 @@ public final class FilesystemValueCheckerTest {
     assertThat(treeFile.getPath().delete()).isTrue();
 
     Collection<SkyKey> dirtyActionKeys =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
             .getDirtyActionValues(
                 evaluator.getValues(),
                 batchStat.getBatchStat(fs),
@@ -1355,7 +1450,10 @@ public final class FilesystemValueCheckerTest {
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1369,7 +1467,10 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(out1.getPath(), "new-foo-content");
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1381,7 +1482,7 @@ public final class FilesystemValueCheckerTest {
 
   @Test
   public void testRemoteAndLocalArtifacts_identicalContent() throws Exception {
-    // Test that even if injected remote artifacts and local files are identical, the generating
+    // Test that even if injected remote artifacts and local files are NO_OVERRIDE, the generating
     // actions are marked as dirty.
     SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
@@ -1410,7 +1511,10 @@ public final class FilesystemValueCheckerTest {
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1419,12 +1523,15 @@ public final class FilesystemValueCheckerTest {
                     (ignored, ignored2) -> {}))
         .isEmpty();
 
-    // Create identical "out1" artifact on the filesystem and test that it invalidates the
+    // Create NO_OVERRIDE "out1" artifact on the filesystem and test that it invalidates the
     // generating action's SkyKey.
     FileSystemUtils.writeContentAsLatin1(out1.getPath(), "foo-content");
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1465,7 +1572,10 @@ public final class FilesystemValueCheckerTest {
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1505,7 +1615,10 @@ public final class FilesystemValueCheckerTest {
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1519,7 +1632,10 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(fooArtifact.getPath(), "new-foo-content");
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1531,7 +1647,7 @@ public final class FilesystemValueCheckerTest {
 
   @Test
   public void testRemoteAndLocalTreeArtifacts_identicalContent() throws Exception {
-    // Test that even if injected remote tree artifacts and local files are identical, the
+    // Test that even if injected remote tree artifacts and local files are NO_OVERRIDE, the
     // generating actions are marked as dirty.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
 
@@ -1559,7 +1675,10 @@ public final class FilesystemValueCheckerTest {
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1568,13 +1687,16 @@ public final class FilesystemValueCheckerTest {
                     (ignored, ignored2) -> {}))
         .isEmpty();
 
-    // Create identical dir/foo on the local disk and test that it invalidates the associated sky
+    // Create NO_OVERRIDE dir/foo on the local disk and test that it invalidates the associated sky
     // key.
     TreeFileArtifact fooArtifact = TreeFileArtifact.createTreeOutput(treeArtifact, "foo");
     FileSystemUtils.writeContentAsLatin1(fooArtifact.getPath(), "foo-content");
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1613,7 +1735,10 @@ public final class FilesystemValueCheckerTest {
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1656,7 +1781,10 @@ public final class FilesystemValueCheckerTest {
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1682,7 +1810,11 @@ public final class FilesystemValueCheckerTest {
         };
     Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
     FilesystemValueChecker checker =
-        new FilesystemValueChecker(/* tsgm= */ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST);
+        new FilesystemValueChecker(
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST);
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 
