@@ -91,6 +91,17 @@ java_library(
 )
 
 java_library(
+    name = "script_util",
+    srcs = ["ScriptUtil.java"],
+    deps = [
+        ":os",
+        ":shell_escaper",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
@@ -101,7 +112,7 @@ java_library(
     deps = [
         ":describable_execution_unit",
         ":os",
-        ":shell_escaper",
+        ":script_util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",

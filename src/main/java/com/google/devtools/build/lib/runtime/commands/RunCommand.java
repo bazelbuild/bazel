@@ -88,13 +88,12 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.RunCommand.Code;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.util.CommandDescriptionForm;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.ScriptUtil;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -638,17 +637,12 @@ public class RunCommand implements BlazeCommand {
               + " --shell_executable=/bin/bash",
           Code.NO_SHELL_SPECIFIED);
     }
-    String unisolatedCommand =
-        CommandFailureUtils.describeCommand(
-            CommandDescriptionForm.COMPLETE_UNISOLATED,
-            /* prettyPrintArgs= */ false,
-            runCommandLine.args,
-            runCommandLine.runEnvironment,
-            ENV_VARIABLES_TO_CLEAR,
+    String scriptContents =
+        generateScriptContents(
+            shExecutable.getPathString(),
             runCommandLine.workingDir.getPathString(),
-            builtTargets.configuration.checksum(),
-            /* executionPlatformLabel= */ null);
-    String scriptContents = getScriptContents(shExecutable, unisolatedCommand);
+            runCommandLine.runEnvironment,
+            runCommandLine.args);
     if (runOptions.emitScriptPathInExecRequest) {
       execRequest.setScriptPath(
           CommandProtos.ScriptPath.newBuilder()
@@ -1088,14 +1082,6 @@ public class RunCommand implements BlazeCommand {
     return workingDir;
   }
 
-  private static String getScriptContents(PathFragment shellExecutable, String cmd) {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return "@echo off\n" + cmd + " %*";
-    } else {
-      return "#!" + shellExecutable.getPathString() + "\n" + cmd + " \"$@\"";
-    }
-  }
-
   private static void writeScript(
       CommandEnvironment env, PathFragment scriptPathFrag, String scriptContent)
       throws IOException {
@@ -1308,5 +1294,34 @@ public class RunCommand implements BlazeCommand {
     private FailureDetail createFailureDetail() {
       return RunCommand.createFailureDetail(getMessage(), detailedCode);
     }
+  }
+
+  private static String generateScriptContents(
+      String shExecutable, String workingDir, Map<String, String> environment, List<String> args) {
+    StringBuilder result = new StringBuilder();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      result.append("@echo off\n");
+    } else {
+      result.append("#!").append(shExecutable).append("\n");
+    }
+
+    // cd <cwd> &&
+    ScriptUtil.emitChangeDirectory(result, workingDir);
+    // exec ...
+    ScriptUtil.emitExec(result);
+    // env -u UNSET_ME ... KEY=VAL ...
+    ScriptUtil.emitEnvPrefix(
+        result, /* ignoreEnvironment= */ false, environment, ENV_VARIABLES_TO_CLEAR);
+
+    for (int i = 0; i < args.size(); i++) {
+      if (i != 0) {
+        result.append(" ");
+      }
+      ScriptUtil.emitCommandElement(result, args.get(i), i == 0);
+    }
+
+    result.append(OS.getCurrent() == OS.WINDOWS ? " %*" : " \"$@\"");
+
+    return result.toString();
   }
 }
