@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-
 import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -62,12 +60,9 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -94,23 +89,6 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
 
   private final ConfiguredTargetAccessor accessor;
 
-  /**
-   * F Stores every configuration in the transitive closure of the build graph as a map from its
-   * user-friendly hash to the configuration itself.
-   *
-   * <p>This is used to find configured targets in, e.g. {@code somepath} queries. Given {@code
-   * somepath(//foo, //bar)}, cquery finds the configured targets for {@code //foo} and {@code
-   * //bar} by creating a {@link ConfiguredTargetKey} from their labels and <i>some</i>
-   * configuration, then querying the {@link WalkableGraph} to find the matching configured target.
-   *
-   * <p>Having this map lets cquery choose from all available configurations in the graph,
-   * particularly including configurations that aren't the top-level.
-   *
-   * <p>This can also be used in cquery's {@code config} function to match against explicitly
-   * specified configs. This, in particular, is where having user-friendly hashes is invaluable.
-   */
-  private final ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations;
-
   @Override
   protected KeyExtractor<CqueryNode, ActionLookupKey> getConfiguredTargetKeyExtractor() {
     return configuredTargetKeyExtractor;
@@ -121,7 +99,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
-      Collection<SkyKey> transitiveConfigurationKeys,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -134,6 +112,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
+        transitiveConfigurations,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
@@ -141,8 +120,6 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         labelPrinter);
     this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
     this.configuredTargetKeyExtractor = CqueryNode::getLookupKey;
-    this.transitiveConfigurations =
-        getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraphSupplier.get());
     this.topLevelArtifactContext = topLevelArtifactContext;
   }
 
@@ -151,7 +128,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
-      Collection<SkyKey> transitiveConfigurationKeys,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -164,7 +141,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
-        transitiveConfigurationKeys,
+        transitiveConfigurations,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
@@ -183,17 +160,6 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
 
   private static ImmutableList<QueryFunction> getCqueryFunctions() {
     return ImmutableList.of(new ConfigFunction());
-  }
-
-  private static ImmutableMap<String, BuildConfigurationValue> getTransitiveConfigurations(
-      Collection<SkyKey> transitiveConfigurationKeys, WalkableGraph graph)
-      throws InterruptedException {
-    // BuildConfigurationKey and BuildConfigurationValue should be 1:1
-    // so merge function intentionally omitted
-    return graph.getSuccessfulValues(transitiveConfigurationKeys).values().stream()
-        .map(BuildConfigurationValue.class::cast)
-        .sorted(Comparator.comparing(BuildConfigurationValue::checksum))
-        .collect(toImmutableMap(BuildConfigurationValue::checksum, Function.identity()));
   }
 
   @Override
@@ -314,8 +280,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
                     partialResult -> {
                       List<CqueryNode> transformedResult = new ArrayList<>();
                       for (Target target : partialResult) {
-                        transformedResult.addAll(
-                            getConfiguredTargetsForConfigFunction(target.getLabel()));
+                        transformedResult.addAll(getConfiguredTargetsForLabel(target.getLabel()));
                       }
                       callback.process(transformedResult);
                     },
@@ -372,7 +337,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
    *
    * <p>If there are no matches, returns an empty list.
    */
-  private ImmutableList<CqueryNode> getConfiguredTargetsForConfigFunction(Label label)
+  private ImmutableList<CqueryNode> getConfiguredTargetsForLabel(Label label)
       throws InterruptedException {
     ImmutableList.Builder<CqueryNode> ans = ImmutableList.builder();
     for (BuildConfigurationValue config : transitiveConfigurations.values()) {
