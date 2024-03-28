@@ -148,6 +148,10 @@ function test_bazel_layering_check() {
     fail "module map files were not generated"
   fi
 
+  CC="${clang_tool}" bazel build \
+    //hello:hello --copt=-DFORCE_REBUILD=1 --spawn_strategy=local --linkopt=-fuse-ld=gold --features=layering_check \
+    &> "${TEST_log}" || fail "Build with layering_check failed without sandboxing"
+
   # Specifying -fuse-ld=gold explicitly to override -fuse-ld=/usr/bin/ld.gold
   # passed in by cc_configure because Ubuntu-16.04 ships with an old
   # clang version that doesn't accept that.
