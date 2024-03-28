@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.io;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.RootedPath;
 
 /** Exception indicating that a symlink has an unbounded expansion on resolution. */

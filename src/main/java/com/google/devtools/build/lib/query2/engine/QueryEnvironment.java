@@ -647,7 +647,10 @@ public interface QueryEnvironment<T> {
     NO_NODEP_DEPS,
 
     /** Include aspect-generated output. No-op for query, which always follows aspects. */
-    INCLUDE_ASPECTS;
+    INCLUDE_ASPECTS,
+
+    /** Include configured aspect targets in cquery output. */
+    EXPLICIT_ASPECTS;
   }
 
   /**
