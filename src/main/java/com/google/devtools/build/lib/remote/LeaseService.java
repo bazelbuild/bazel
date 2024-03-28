@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.common.eventbus.AllowConcurrentEvents;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -30,6 +31,7 @@ public class LeaseService {
   @Nullable private final ActionCache actionCache;
   private final AtomicBoolean leaseExtensionStarted = new AtomicBoolean(false);
   @Nullable LeaseExtension leaseExtension;
+  private final AtomicBoolean hasMissingActionInputs = new AtomicBoolean(false);
 
   public LeaseService(
       MemoizingEvaluator memoizingEvaluator,
@@ -48,12 +50,18 @@ public class LeaseService {
     }
   }
 
-  public void finalizeExecution(Set<ActionInput> missingActionInputs) {
+  @AllowConcurrentEvents
+  @Subscribe
+  public void onLostInputs(LostInputsEvent event) {
+    hasMissingActionInputs.set(true);
+  }
+
+  public void finalizeExecution() {
     if (leaseExtension != null) {
       leaseExtension.stop();
     }
 
-    if (!missingActionInputs.isEmpty()) {
+    if (hasMissingActionInputs.getAndSet(false)) {
       handleMissingInputs();
     }
   }
