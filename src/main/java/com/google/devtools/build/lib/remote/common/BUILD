@@ -31,12 +31,21 @@ java_library(
 )
 
 java_library(
+    name = "lost_inputs_event",
+    srcs = ["LostInputsEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+    ],
+)
+
+java_library(
     name = "common",
     srcs = glob(
         ["*.java"],
         exclude = [
             "BulkTransferException.java",
             "CacheNotFoundException.java",
+            "LostInputsEvent.java",
         ],
     ),
     deps = [
