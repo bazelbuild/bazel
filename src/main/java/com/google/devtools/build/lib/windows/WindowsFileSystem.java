@@ -70,13 +70,6 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
-    // Make sure the target path doesn't exist to avoid permission denied error on Windows.
-    delete(targetPath);
-    super.renameTo(sourcePath, targetPath);
-  }
-
-  @Override
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
     PathFragment targetPath =
