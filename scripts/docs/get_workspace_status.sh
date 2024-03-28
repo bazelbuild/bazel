@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-RELEASE_NAME=$(source scripts/release/common.sh; get_full_release_name)
+RELEASE_NAME=$(source scripts/release/common.sh; get_release_name)
 
 if [[ -z "$RELEASE_NAME" ]]; then
   echo BUILD_SCM_REVISION UNSAFE_"$(git rev-parse --abbrev-ref HEAD)"
