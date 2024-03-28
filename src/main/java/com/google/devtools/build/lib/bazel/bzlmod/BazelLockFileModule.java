@@ -109,17 +109,16 @@ public class BazelLockFileModule extends BlazeModule {
     // Keep old extensions if they are still valid.
     for (var entry : oldLockfile.getModuleExtensions().entrySet()) {
       var moduleExtensionId = entry.getKey();
-      ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>
-          factorsToKeepBuilder = new ImmutableMap.Builder<>();
-      for (var factorAndExtension : entry.getValue().entrySet()) {
-        if (shouldKeepExtension(
-            moduleExtensionId, factorAndExtension.getKey(), factorAndExtension.getValue())) {
-          factorsToKeepBuilder.put(factorAndExtension.getKey(), factorAndExtension.getValue());
-        }
-      }
-      var factorsToKeep = factorsToKeepBuilder.build();
-      if (!factorsToKeep.isEmpty()) {
-        updatedExtensionMap.put(moduleExtensionId, factorsToKeep);
+      var factorToLockedExtension = entry.getValue();
+      ModuleExtensionEvalFactors firstEntryFactors =
+          factorToLockedExtension.keySet().iterator().next();
+      LockFileModuleExtension firstEntryExtension =
+          factorToLockedExtension.values().iterator().next();
+      // All entries for a single extension share the same usages digest, so it suffices to check
+      // the first entry.
+      if (shouldKeepExtension(
+          moduleExtensionId, firstEntryFactors, firstEntryExtension.getUsagesDigest())) {
+        updatedExtensionMap.put(moduleExtensionId, factorToLockedExtension);
       }
     }
 
@@ -162,13 +161,13 @@ public class BazelLockFileModule extends BlazeModule {
    * </ol>
    *
    * @param lockedExtensionKey object holding the old extension id and state of os and arch
-   * @param oldExtensionUsages the usages of this extension in the existing lockfile
+   * @param oldUsagesDigest the digest of usages of this extension in the existing lockfile
    * @return True if this extension should still be in lockfile, false otherwise
    */
   private boolean shouldKeepExtension(
       ModuleExtensionId extensionId,
       ModuleExtensionEvalFactors lockedExtensionKey,
-      LockFileModuleExtension lockedExtension) {
+      byte[] oldUsagesDigest) {
 
     // If there is a new event for this extension, compare it with the existing ones
     ModuleExtensionResolutionEvent extEvent = extensionResolutionEventsMap.get(extensionId);
@@ -193,7 +192,7 @@ public class BazelLockFileModule extends BlazeModule {
         ModuleExtensionUsage.hashForEvaluation(
             GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
             moduleResolutionEvent.getExtensionUsagesById().row(extensionId)),
-        lockedExtension.getUsagesDigest());
+        oldUsagesDigest);
   }
 
   /**
