@@ -41,14 +41,16 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   public final void initializeJvmPackage() throws Exception {
     scratch.file(
         "jvm/BUILD",
-        "java_runtime(",
-        "    name = 'jvm-k8',",
-        "    srcs = [",
-        "        'k8/a', ",
-        "        'k8/b',",
-        "    ], ",
-        "    java_home = 'k8',",
-        ")");
+        """
+        java_runtime(
+            name = "jvm-k8",
+            srcs = [
+                "k8/a",
+                "k8/b",
+            ],
+            java_home = "k8",
+        )
+        """);
   }
 
   private JavaRuntimeInfo getJavaRuntimeInfo(ProviderCollection collection)
@@ -185,16 +187,20 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   @Test
   public void javaHomeGenerated() throws Exception {
     scratch.file(
-        "a/BUILD", //
-        "genrule(name='gen',",
-        "    cmd = '', ",
-        "    outs = ['generated_java_home/bin/java'],",
-        ")",
-        "java_runtime(",
-        "    name = 'jvm', ",
-        "    java = 'generated_java_home/bin/java', ",
-        "    java_home = 'generated_java_home',",
-        ")");
+        "a/BUILD",
+        """
+        genrule(
+            name = "gen",
+            outs = ["generated_java_home/bin/java"],
+            cmd = "",
+        )
+
+        java_runtime(
+            name = "jvm",
+            java = "generated_java_home/bin/java",
+            java_home = "generated_java_home",
+        )
+        """);
     ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
     assertThat(getJavaRuntimeInfo(jvm).javaHome())
         .isEqualTo(getGenfilesArtifactWithNoOwner("a/generated_java_home").getExecPathString());
@@ -203,17 +209,21 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   @Test
   public void javaRuntimeVersion_isAccessibleByNativeCode() throws Exception {
     scratch.file(
-        "a/BUILD", //
-        "genrule(name='gen',",
-        "    cmd = '', ",
-        "    outs = ['generated_java_home/bin/java'],",
-        ")",
-        "java_runtime(",
-        "    name = 'jvm', ",
-        "    java = 'generated_java_home/bin/java', ",
-        "    java_home = 'generated_java_home',",
-        "    version = 234,",
-        ")");
+        "a/BUILD",
+        """
+        genrule(
+            name = "gen",
+            outs = ["generated_java_home/bin/java"],
+            cmd = "",
+        )
+
+        java_runtime(
+            name = "jvm",
+            java = "generated_java_home/bin/java",
+            java_home = "generated_java_home",
+            version = 234,
+        )
+        """);
     ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
     assertThat(getJavaRuntimeInfo(jvm).version()).isEqualTo(234);
   }
@@ -256,58 +266,73 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   public void disallowLegacyJavabaseFlag_unset() throws Exception {
     scratch.file(
         "a/defs.bzl",
-        "def _ht(settings, attrs):",
-        "    return {",
-        "        '//command_line_option:javabase': '//tools/jdk:jdk',",
-        "        '//command_line_option:host_javabase': '//tools/jdk:remote_jdk11',",
-        "        '//command_line_option:java_toolchain': '//tools/jdk:remote_toolchain',",
-        "        '//command_line_option:host_java_toolchain': '//tools/jdk:remote_toolchain',",
-        "    }",
-        "",
-        "ht = transition(",
-        "    implementation = _ht,",
-        "    inputs = [",
-        "        '//command_line_option:javabase',",
-        "        '//command_line_option:host_javabase',",
-        "        '//command_line_option:java_toolchain',",
-        "        '//command_line_option:host_java_toolchain',",
-        "    ],",
-        "    outputs = [",
-        "        '//command_line_option:javabase',",
-        "        '//command_line_option:host_javabase',",
-        "        '//command_line_option:java_toolchain',",
-        "        '//command_line_option:host_java_toolchain',",
-        "    ],",
-        ")",
-        "",
-        "def _r(ctx):",
-        "    return [DefaultInfo(files = ctx.attr.d[0].files)]",
-        "",
-        "r = rule(",
-        "    attrs = {",
-        "        'd': attr.label(",
-        "            cfg = ht,",
-        "            mandatory = True,",
-        "        ),",
-        "    },",
-        "    implementation = _r,",
-        ")");
+        """
+        def _ht(settings, attrs):
+            return {
+                "//command_line_option:javabase": "//tools/jdk:jdk",
+                "//command_line_option:host_javabase": "//tools/jdk:remote_jdk11",
+                "//command_line_option:java_toolchain": "//tools/jdk:remote_toolchain",
+                "//command_line_option:host_java_toolchain": "//tools/jdk:remote_toolchain",
+            }
+
+        ht = transition(
+            implementation = _ht,
+            inputs = [
+                "//command_line_option:javabase",
+                "//command_line_option:host_javabase",
+                "//command_line_option:java_toolchain",
+                "//command_line_option:host_java_toolchain",
+            ],
+            outputs = [
+                "//command_line_option:javabase",
+                "//command_line_option:host_javabase",
+                "//command_line_option:java_toolchain",
+                "//command_line_option:host_java_toolchain",
+            ],
+        )
+
+        def _r(ctx):
+            return [DefaultInfo(files = ctx.attr.d[0].files)]
+
+        r = rule(
+            attrs = {
+                "d": attr.label(
+                    cfg = ht,
+                    mandatory = True,
+                ),
+            },
+            implementation = _r,
+        )
+        """);
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = ['//...'],",
-        ")",
-        "filegroup(",
-        "    name = 'srcs',",
-        "    srcs = glob(['**']),",
-        "    visibility = ['//tools/allowlists:__pkg__'],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = ["//..."],
+        )
+
+        filegroup(
+            name = "srcs",
+            srcs = glob(["**"]),
+            visibility = ["//tools/allowlists:__pkg__"],
+        )
+        """);
     scratch.file(
-        "a/BUILD", //
-        "load(':defs.bzl', 'r')",
-        "java_binary(name = 'd', main_class = 'D')",
-        "r(name = 't', d = ':d')");
+        "a/BUILD",
+        """
+        load(":defs.bzl", "r")
+
+        java_binary(
+            name = "d",
+            main_class = "D",
+        )
+
+        r(
+            name = "t",
+            d = ":d",
+        )
+        """);
 
     useConfiguration("--experimental_disallow_legacy_java_toolchain_flags");
     reporter.removeHandler(failFastHandler);

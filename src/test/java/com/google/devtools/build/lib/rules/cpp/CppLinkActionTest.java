@@ -241,14 +241,19 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   public void testLibOptsAndLibSrcsAreInCorrectOrder() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  srcs = ['some-dir/libbar.so', 'some-other-dir/qux.so'],",
-        "  linkopts = [",
-        "    '-ldl',",
-        "    '-lutil',",
-        "  ],",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                "some-dir/libbar.so",
+                "some-other-dir/qux.so",
+            ],
+            linkopts = [
+                "-ldl",
+                "-lutil",
+            ],
+        )
+        """);
     scratch.file("x/some-dir/libbar.so");
     scratch.file("x/some-other-dir/qux.so");
 
@@ -276,12 +281,14 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'libfoo.so',",
-        "  srcs = ['foo.cc'],",
-        "  linkshared = 1,",
-        "  linkstatic = 0,",
-        ")");
+        """
+        cc_binary(
+            name = "libfoo.so",
+            srcs = ["foo.cc"],
+            linkshared = 1,
+            linkstatic = 0,
+        )
+        """);
     useConfiguration("--legacy_whole_archive");
     assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
   }
@@ -296,10 +303,15 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   public void testExposesRuntimeLibrarySearchDirectoriesVariable() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                "some-dir/bar.so",
+                "some-other-dir/qux.so",
+            ],
+        )
+        """);
     scratch.file("x/some-dir/bar.so");
     scratch.file("x/some-other-dir/qux.so");
 
@@ -328,9 +340,25 @@ public final class CppLinkActionTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     scratch.file(
         "x/BUILD",
-        "cc_test(name='a', srcs=['a.cc'], features=['dynamic_link_test_srcs'])",
-        "cc_binary(name='b', srcs=['a.cc'])",
-        "cc_test(name='c', srcs=['a.cc'], features=['dynamic_link_test_srcs'], linkstatic=1)");
+        """
+        cc_test(
+            name = "a",
+            srcs = ["a.cc"],
+            features = ["dynamic_link_test_srcs"],
+        )
+
+        cc_binary(
+            name = "b",
+            srcs = ["a.cc"],
+        )
+
+        cc_test(
+            name = "c",
+            srcs = ["a.cc"],
+            features = ["dynamic_link_test_srcs"],
+            linkstatic = 1,
+        )
+        """);
     scratch.file("x/a.cc", "int main() {}");
     useConfiguration("--force_pic");
 
@@ -1141,14 +1169,17 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   public void testExposesLinkstampObjects() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'bin',",
-        "  deps = [':lib'],",
-        ")",
-        "cc_library(",
-        "  name = 'lib',",
-        "  linkstamp = 'linkstamp.cc',",
-        ")");
+        """
+        cc_binary(
+            name = "bin",
+            deps = [":lib"],
+        )
+
+        cc_library(
+            name = "lib",
+            linkstamp = "linkstamp.cc",
+        )
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
     SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/bin");
     assertThat(artifactsToStrings(linkAction.getInputs()))
@@ -1165,7 +1196,16 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     useConfiguration();
 
     scratch.file(
-        "foo/BUILD", "cc_binary(", "  name = 'foo',", "  srcs = ['space .cc', 'quote\".cc'],", ")");
+        "foo/BUILD",
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                'quote".cc',
+                "space .cc",
+            ],
+        )
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:foo");
     SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "foo/foo");
 

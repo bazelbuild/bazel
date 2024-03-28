@@ -93,11 +93,15 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoEnabledWithImplicit() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
 
     LtoBackendAction backendAction = setupAndRunToolchainActions("--features=implicit_fsafdo");
@@ -110,11 +114,15 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoEnabledWithFeatureWithoutImplicit() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
 
     LtoBackendAction backendAction =
@@ -128,11 +136,15 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoEnabledWithExplicitFeature() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
 
     LtoBackendAction backendAction = setupAndRunToolchainActions("--features=fsafdo");
@@ -145,11 +157,15 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoDisabledWithFeatureWithoutImplicit() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
 
     LtoBackendAction backendAction = setupAndRunToolchainActions();
@@ -165,11 +181,15 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoDisabledWithExplicitFeature() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
 
     LtoBackendAction backendAction =
@@ -183,11 +203,15 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoDisabledForNonAutoFDO() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
 
     AnalysisMock.get()
@@ -228,12 +252,20 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoDisabledForXFdo() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
 
     AnalysisMock.get()

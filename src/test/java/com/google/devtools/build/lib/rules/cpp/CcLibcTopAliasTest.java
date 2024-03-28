@@ -38,11 +38,14 @@ public class CcLibcTopAliasTest extends BuildViewTestCase {
   @Test
   public void testCcLibcTopAliasWithGrteTopArgument() throws Exception {
     scratch.file("a/BUILD", "cc_libc_top_alias(name='current_cc_libc_top')");
-    scratch.file("b/BUILD",
-        "filegroup(",
-        "    name = 'everything',",
-        "    srcs = []",
-        ")");
+    scratch.file(
+        "b/BUILD",
+        """
+        filegroup(
+            name = "everything",
+            srcs = [],
+        )
+        """);
     //value of this property replaced to :everything in {@code LibcTopLabelConverter}
     useConfiguration("--grte_top=//b:some_string");
 
@@ -55,20 +58,32 @@ public class CcLibcTopAliasTest extends BuildViewTestCase {
   public void aspectOnCcLibcTopAlias() throws Exception {
     scratch.file(
         "a/defs.bzl",
-        "def _my_aspect_impl(target, ctx):",
-        "  return []",
-        "my_aspect = aspect(implementation = _my_aspect_impl)",
-        "def _apply_aspect_impl(ctx):",
-        "  pass",
-        "apply_aspect = rule(",
-        "  implementation = _apply_aspect_impl,",
-        "  attrs = {'on': attr.label(aspects = [my_aspect])},",
-        ")");
+        """
+        def _my_aspect_impl(target, ctx):
+            return []
+
+        my_aspect = aspect(implementation = _my_aspect_impl)
+
+        def _apply_aspect_impl(ctx):
+            pass
+
+        apply_aspect = rule(
+            implementation = _apply_aspect_impl,
+            attrs = {"on": attr.label(aspects = [my_aspect])},
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load(':defs.bzl', 'apply_aspect')",
-        "apply_aspect(name = 'apply_aspect', on = ':current_cc_libc_top')",
-        "cc_libc_top_alias(name = 'current_cc_libc_top')");
+        """
+        load(":defs.bzl", "apply_aspect")
+
+        apply_aspect(
+            name = "apply_aspect",
+            on = ":current_cc_libc_top",
+        )
+
+        cc_libc_top_alias(name = "current_cc_libc_top")
+        """);
 
     assertThat(getConfiguredTarget("//a:apply_aspect")).isNotNull();
     assertThat(getAspect("//a:defs.bzl%my_aspect")).isNotNull();

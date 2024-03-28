@@ -36,10 +36,32 @@ public class CcCompileOnlyTest extends CompileOnlyTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
     useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
-    scratch.file("package/BUILD",
-        "cc_binary(name='foo', srcs=['foo.cc', ':bar'], deps = [':foolib'])",
-        "cc_library(name='foolib', srcs=['foolib.cc'])",
-        "genrule(name='bar', outs=['bar.h', 'bar.cc'], cmd='touch $(OUTS)')");
+    scratch.file(
+        "package/BUILD",
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                "foo.cc",
+                ":bar",
+            ],
+            deps = [":foolib"],
+        )
+
+        cc_library(
+            name = "foolib",
+            srcs = ["foolib.cc"],
+        )
+
+        genrule(
+            name = "bar",
+            outs = [
+                "bar.h",
+                "bar.cc",
+            ],
+            cmd = "touch $(OUTS)",
+        )
+        """);
     scratch.file("package/foo.cc",
         "#include <stdio.h>",
         "int main() {",

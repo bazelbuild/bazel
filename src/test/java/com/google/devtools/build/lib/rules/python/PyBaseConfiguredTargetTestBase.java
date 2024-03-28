@@ -126,11 +126,14 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   public void requiresProvider() throws Exception {
     scratch.file(
         "pkg/rules.bzl",
-        "def _myrule_impl(ctx):",
-        "    return []",
-        "myrule = rule(",
-        "    implementation = _myrule_impl,",
-        ")");
+        """
+        def _myrule_impl(ctx):
+            return []
+
+        myrule = rule(
+            implementation = _myrule_impl,
+        )
+        """);
     checkError(
         "pkg",
         "foo",

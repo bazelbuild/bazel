@@ -67,7 +67,13 @@ public final class CppSysrootTest extends BuildViewTestCase {
 
   @Test
   public void testHostGrteTop() throws Exception {
-    scratch.file("a/grte/top/BUILD", "filegroup(name='everything')", "cc_library(name='library')");
+    scratch.file(
+        "a/grte/top/BUILD",
+        """
+        filegroup(name = "everything")
+
+        cc_library(name = "library")
+        """);
     useConfiguration("--host_grte_top=//a/grte/top");
     BuildConfigurationValue target = getTargetConfiguration();
     CcToolchainProvider targetCcProvider = getCcToolchainProvider(target);
@@ -185,13 +191,17 @@ public final class CppSysrootTest extends BuildViewTestCase {
     scratch.file("b/grte/top/BUILD", "filegroup(name='everything')");
     scratch.file(
         "c/grte/top/BUILD",
-        "alias(",
-        "  name = 'everything',",
-        "  actual=select(",
-        "      {'//test/config_setting:defines' : '//a/grte/top:everything',",
-        "       '//conditions:default' : '//b/grte/top:everything'}",
-        "  )",
-        ")");
+        """
+        alias(
+            name = "everything",
+            actual = select(
+                {
+                    "//test/config_setting:defines": "//a/grte/top:everything",
+                    "//conditions:default": "//b/grte/top:everything",
+                },
+            ),
+        )
+        """);
     useConfiguration("--grte_top=//c/grte/top:everything");
     CcToolchainProvider ccProvider = getCcToolchainProvider(getTargetConfiguration());
     assertThat(ccProvider.getSysroot()).isEqualTo("b/grte/top");

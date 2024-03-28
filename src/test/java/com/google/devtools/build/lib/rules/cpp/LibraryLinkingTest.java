@@ -97,9 +97,13 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
 
     scratch.overwriteFile(
         "custom_malloc/BUILD",
-        "cc_library(name = 'custom_malloc',",
-        "           srcs = ['custom_malloc.cc'],",
-        "           linkopts = ['-Lmalloc_dir -lmalloc_opt']);");
+        """
+        cc_library(
+            name = "custom_malloc",
+            srcs = ["custom_malloc.cc"],
+            linkopts = ["-Lmalloc_dir -lmalloc_opt"],
+        )
+        """);
 
     ConfiguredTarget ccLib = getConfiguredTarget("//custom_malloc:custom_malloc");
     final String linkOpt1 = "-Lmalloc_dir";

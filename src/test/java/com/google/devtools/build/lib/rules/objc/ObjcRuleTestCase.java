@@ -228,25 +228,31 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private ConfiguredTarget addLibWithDepOnFrameworkImport() throws Exception {
     scratch.file(
         "fx/defs.bzl",
-        "def _custom_static_framework_import_impl(ctx):",
-        "    return [",
-        "        CcInfo(",
-        "            compilation_context=cc_common.create_compilation_context(",
-        "                framework_includes=depset(ctx.attr.framework_search_paths)",
-        "            ),",
-        "        )",
-        "    ]",
-        "custom_static_framework_import = rule(",
-        "    _custom_static_framework_import_impl,",
-        "    attrs={'framework_search_paths': attr.string_list()},",
-        ")");
+        """
+        def _custom_static_framework_import_impl(ctx):
+            return [
+                CcInfo(
+                    compilation_context = cc_common.create_compilation_context(
+                        framework_includes = depset(ctx.attr.framework_search_paths),
+                    ),
+                ),
+            ]
+
+        custom_static_framework_import = rule(
+            _custom_static_framework_import_impl,
+            attrs = {"framework_search_paths": attr.string_list()},
+        )
+        """);
     scratch.file(
         "fx/BUILD",
-        "load(':defs.bzl', 'custom_static_framework_import')",
-        "custom_static_framework_import(",
-        "    name = 'fx',",
-        "    framework_search_paths = ['fx'],",
-        ")");
+        """
+        load(":defs.bzl", "custom_static_framework_import")
+
+        custom_static_framework_import(
+            name = "fx",
+            framework_search_paths = ["fx"],
+        )
+        """);
     return createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setList("deps", "//fx:fx")
@@ -443,12 +449,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         ")");
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//...",
+            ],
+        )
+        """);
   }
 
   protected CommandAction compileAction(String ownerLabel, String objFileName) throws Exception {
