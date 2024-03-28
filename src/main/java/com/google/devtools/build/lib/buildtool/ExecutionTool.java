@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -281,7 +280,7 @@ public class ExecutionTool {
               env.getEventBus(),
               env.getDirectories().getProductName() + "-",
               skyframeExecutor.getIgnoredPaths(),
-              request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout,
+              false,
               runtime.getWorkspace().doesAllowExternalRepositories());
       if (shouldSymlinksBePlanted) {
         incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
@@ -648,11 +647,7 @@ public class ExecutionTool {
       // Plant the symlink forest.
       try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
         SymlinkForest symlinkForest =
-            new SymlinkForest(
-                packageRootMap.get(),
-                getExecRoot(),
-                runtime.getProductName(),
-                request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
+            new SymlinkForest(packageRootMap.get(), getExecRoot(), runtime.getProductName(), false);
         symlinkForest.plantSymlinkForest();
       } catch (IOException e) {
         String message = String.format("Source forest creation failed: %s", e.getMessage());

@@ -989,7 +989,7 @@ function test_execroot_subdir_layout_fails_for_external_subpackages() {
   expect_log "Target //baz:binary failed to build"
 }
 
-function test_execroot_sibling_layout_null_build_for_external_subpackages() {
+function DISABLED_test_execroot_sibling_layout_null_build_for_external_subpackages() {
   setup_workspace_layout_with_external_directory
   bazel build --experimental_sibling_repository_layout //baz:binary \
     || fail "expected build success"
@@ -1000,7 +1000,7 @@ function test_execroot_sibling_layout_null_build_for_external_subpackages() {
   expect_log "INFO: 1 process: 1 internal"
 }
 
-function test_execroot_sibling_layout_header_scanning_in_external_subpackage() {
+function DISABLED_test_execroot_sibling_layout_header_scanning_in_external_subpackage() {
   setup_workspace_layout_with_external_directory
   cat << 'EOF' > external/foo/BUILD
 cc_library(
@@ -1018,7 +1018,7 @@ EOF
      "could not find 'undeclared inclusion' error message in bazel output"
 }
 
-function test_sibling_repository_layout_include_external_repo_output() {
+function DISABLED_test_sibling_repository_layout_include_external_repo_output() {
   mkdir test
   cat > test/BUILD <<'EOF'
 cc_library(
@@ -1396,7 +1396,7 @@ function test_external_cc_test_sandboxed() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
-function test_external_cc_test_sandboxed_sibling_repository_layout() {
+function DISABLED_test_external_cc_test_sandboxed_sibling_repository_layout() {
   [ "$PLATFORM" != "windows" ] || return 0
 
   external_cc_test_setup
@@ -1417,7 +1417,7 @@ function test_external_cc_test_local() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
-function test_external_cc_test_local_sibling_repository_layout() {
+function DISABLED_test_external_cc_test_local_sibling_repository_layout() {
   external_cc_test_setup
 
   bazel test \

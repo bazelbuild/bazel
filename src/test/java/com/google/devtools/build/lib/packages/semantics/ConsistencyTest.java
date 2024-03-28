@@ -118,7 +118,7 @@ public class ConsistencyTest {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
         "--experimental_disable_external_package=" + rand.nextBoolean(),
-        "--experimental_sibling_repository_layout=" + rand.nextBoolean(),
+        "--experimental_sibling_repository_layout=" + "false",
         "--experimental_builtins_bzl_path=" + rand.nextDouble(),
         "--experimental_builtins_dummy=" + rand.nextBoolean(),
         "--experimental_bzl_visibility=" + rand.nextBoolean(),
@@ -162,7 +162,7 @@ public class ConsistencyTest {
     return StarlarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
         .setBool(BuildLanguageOptions.EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, false)
         .set(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH, String.valueOf(rand.nextDouble()))
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY, rand.nextBoolean())

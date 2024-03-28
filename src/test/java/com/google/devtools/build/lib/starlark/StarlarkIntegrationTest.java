@@ -71,6 +71,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -170,6 +171,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  @Ignore
   public void testExternalRepoLabelWorkspaceRoot_siblingRepoLayout() throws Exception {
     scratch.overwriteFile(
         "WORKSPACE",

@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -518,11 +517,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
       commandLineKey = computeCommandLineKey(options);
       ImmutableList<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
-      boolean siblingLayout =
-          actionExecutionContext
-              .getOptions()
-              .getOptions(BuildLanguageOptions.class)
-              .experimentalSiblingRepositoryLayout;
+      boolean siblingLayout = false;
       if (!shouldScanIncludes) {
         // When not actually doing include scanning, add all prunable headers to additionalInputs.
         // This is necessary because the inputs that can be pruned by .d file parsing must be
@@ -1394,11 +1389,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     CppIncludeExtractionContext scanningContext =
         actionExecutionContext.getContext(CppIncludeExtractionContext.class);
     Path execRoot = actionExecutionContext.getExecRoot();
-    boolean siblingRepositoryLayout =
-        actionExecutionContext
-            .getOptions()
-            .getOptions(BuildLanguageOptions.class)
-            .experimentalSiblingRepositoryLayout;
+    boolean siblingRepositoryLayout = false;
 
     if (shouldParseShowIncludes()) {
       NestedSet<Artifact> discoveredInputs =

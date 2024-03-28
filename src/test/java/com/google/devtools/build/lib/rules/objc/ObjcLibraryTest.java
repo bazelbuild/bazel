@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.List;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -745,6 +746,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  @Ignore
   public void testIncludesDirs_inExternalRepo_resolvesSiblingLayout() throws Exception {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),

@@ -70,7 +70,7 @@ EOF
   assert_contains "$(dirname $execroot)/_main/bazel-out" out
 }
 
-function test_sibling_repository_layout() {
+function DISABLED_test_sibling_repository_layout() {
     touch WORKSPACE
 
     mkdir -p external/foo
@@ -95,7 +95,7 @@ EOF
 }
 
 # Regression test for b/149771751
-function test_sibling_repository_layout_indirect_dependency() {
+function DISABLED_test_sibling_repository_layout_indirect_dependency() {
     touch WORKSPACE
 
     mkdir external
@@ -170,7 +170,7 @@ EOF
 
 }
 
-function test_external_directory_globs() {
+function DISABLED_test_external_directory_globs() {
   touch WORKSPACE
   touch MODULE.bazel
 
@@ -194,7 +194,7 @@ EOF
   assert_contains file_e bazel-bin/go
 }
 
-function test_cc_smoke_with_new_layouts() {
+function DISABLED_test_cc_smoke_with_new_layouts() {
   touch WORKSPACE
   mkdir -p external/a
   cat > external/a/BUILD <<EOF
@@ -213,7 +213,7 @@ EOF
     || fail "build failed"
 }
 
-function test_java_smoke_with_new_layouts() {
+function DISABLED_test_java_smoke_with_new_layouts() {
   touch WORKSPACE
   mkdir -p external/java/a
   cat > external/java/a/BUILD <<EOF

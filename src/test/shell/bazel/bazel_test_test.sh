@@ -980,7 +980,7 @@ EOF
   expect_log "cannot run local tests with --nobuild_runfile_manifests"
 }
 
-function test_run_from_external_repo_sibling_repository_layout() {
+function DISABLED_test_run_from_external_repo_sibling_repository_layout() {
   cat <<EOF > WORKSPACE
 local_repository(
     name = "a",

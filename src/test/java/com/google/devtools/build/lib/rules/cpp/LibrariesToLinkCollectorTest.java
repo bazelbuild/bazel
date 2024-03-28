@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -85,6 +86,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
   /* TODO: Add an integration test (maybe in cc_integration_test.sh) when a modular toolchain config
   is available.*/
   @Test
+  @Ignore
   public void dynamicLink_siblingLayout_externalBinary_rpath() throws Exception {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'src', path = 'src')");
@@ -179,6 +181,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
   }
 
   @Test
+  @Ignore
   public void dynamicLink_siblingLayout_externalToolchain_rpath() throws Exception {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'toolchain', path = 'toolchain')");

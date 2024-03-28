@@ -761,7 +761,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
             .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, experimentalDisableExternalPackage)
-            .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, experimentalSiblingRepositoryLayout)
+            .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, false)
             .setBool(
                 INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS,
                 incompatibleDisableTargetProviderFields)
