@@ -36,6 +36,9 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.AllowConcurrentEvents;
+import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -53,6 +56,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
@@ -71,6 +75,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -115,6 +120,7 @@ public abstract class ActionInputPrefetcherTestBase {
   protected Path execRoot;
   protected ArtifactRoot artifactRoot;
   protected TempPathGenerator tempPathGenerator;
+  protected EventBus eventBus;
 
   protected ActionExecutionMetadata action;
 
@@ -134,6 +140,8 @@ public abstract class ActionInputPrefetcherTestBase {
     Path tempDir = fs.getPath("/tmp");
     tempDir.createDirectoryAndParents();
     tempPathGenerator = new TempPathGenerator(tempDir);
+
+    eventBus = new EventBus();
   }
 
   protected Artifact createRemoteArtifact(
@@ -804,11 +812,20 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
-  public void missingInputs_addedToList() {
+  public void missingInputs_sendLostInputsEvent() {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    Artifact a = createRemoteArtifact("file", "hello world", metadata, /* cas= */ null);
+    var unused = createRemoteArtifact("file", "hello world", metadata, /* cas= */ null);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+    var lostInputsEvents = new ConcurrentLinkedQueue<LostInputsEvent>();
+    eventBus.register(
+        new Object() {
+          @Subscribe
+          @AllowConcurrentEvents
+          public void onLostInputsEvent(LostInputsEvent event) {
+            lostInputsEvents.add(event);
+          }
+        });
 
     assertThrows(
         Exception.class,
@@ -817,7 +834,7 @@ public abstract class ActionInputPrefetcherTestBase {
                 prefetcher.prefetchFiles(
                     action, metadata.keySet(), metadata::get, Priority.MEDIUM)));
 
-    assertThat(prefetcher.getMissingActionInputs()).contains(a);
+    assertThat(lostInputsEvents).hasSize(1);
   }
 
   protected static void wait(ListenableFuture<Void> future)
