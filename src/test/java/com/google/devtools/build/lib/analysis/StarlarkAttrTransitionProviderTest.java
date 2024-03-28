@@ -2910,6 +2910,137 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void allowMultipleNativeOptionWithOptionalAssignmentConverter() throws Exception {
+    // Added to support --action_env and --host_action_env.
+    writeAllowlistFile();
+    scratch.file(
+        "test/rules.bzl",
+        "def _t_impl(settings, attr):",
+        "    return {",
+        "        '//command_line_option:allow_multiple_with_optional_assignment_converter':",
+        "        ['a=1', 'b=2', 'c'] }",
+        "t = transition(",
+        "    implementation = _t_impl,",
+        "    inputs = [],",
+        "    outputs ="
+            + " ['//command_line_option:allow_multiple_with_optional_assignment_converter'],",
+        ")",
+        "r = rule(",
+        "    implementation = lambda ctx: [],",
+        "    attrs = {",
+        "        'dep': attr.label(cfg = t),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        ")");
+    scratch.file(
+        "test/BUILD", "load(':rules.bzl', 'r')", "r(name = 'dep')", "r(name = 'c', dep = ':dep')");
+
+    // See CoreOptions.actionEnvironment for this option's parsing semantics.
+    assertThat(
+            getDirectPrerequisite(getConfiguredTarget("//test:c"), "//test:dep")
+                .getConfigurationKey()
+                .getOptions()
+                .get(DummyTestOptions.class)
+                .allowMultipleWithOptionalAssignmentConverter)
+        .containsExactly(Map.entry("a", "1"), Map.entry("b", "2"), Maps.immutableEntry("c", null));
+    assertNoEvents();
+  }
+
+  @Test
+  public void allowMultipleNativeOptionWithOptionalAssignmentPassTopLevel() throws Exception {
+    // Check that Starlark transitions faithfully propagate inputs from the top-level command line.
+    // In other words String -> Java type -> Starlark type -> Java type stays consistent.
+    //
+    // Added to support --action_env and --host_action_env.
+    writeAllowlistFile();
+    scratch.file(
+        "test/rules.bzl",
+        "def _t_impl(settings, attr):",
+        "    return {",
+        "        '//command_line_option:allow_multiple_with_optional_assignment_converter':",
+        "       "
+            + " settings['//command_line_option:allow_multiple_with_optional_assignment_converter']",
+        "    }",
+        "t = transition(",
+        "    implementation = _t_impl,",
+        "    inputs = ['//command_line_option:allow_multiple_with_optional_assignment_converter'],",
+        "    outputs ="
+            + " ['//command_line_option:allow_multiple_with_optional_assignment_converter'],",
+        ")",
+        "r = rule(",
+        "    implementation = lambda ctx: [],",
+        "    attrs = {",
+        "        'dep': attr.label(cfg = t),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        ")");
+    scratch.file(
+        "test/BUILD", "load(':rules.bzl', 'r')", "r(name = 'dep')", "r(name = 'c', dep = ':dep')");
+
+    useConfiguration(
+        "--allow_multiple_with_optional_assignment_converter=a=1",
+        "--allow_multiple_with_optional_assignment_converter=b=2",
+        "--allow_multiple_with_optional_assignment_converter=a=2",
+        "--allow_multiple_with_optional_assignment_converter=c");
+    ConfiguredTarget parentCt = getConfiguredTarget("//test:c");
+    ConfiguredTarget depCt = getDirectPrerequisite(parentCt, "//test:dep");
+
+    assertThat(
+            parentCt
+                .getConfigurationKey()
+                .getOptions()
+                .get(DummyTestOptions.class)
+                .allowMultipleWithOptionalAssignmentConverter)
+        .isEqualTo(
+            depCt
+                .getConfigurationKey()
+                .getOptions()
+                .get(DummyTestOptions.class)
+                .allowMultipleWithOptionalAssignmentConverter);
+    assertNoEvents();
+  }
+
+  @Test
+  public void allowMultipleNativeOptionWithListConverter() throws Exception {
+    // See allowMultiple definition in Option.java for a list-returning converter means.
+    writeAllowlistFile();
+    scratch.file(
+        "test/rules.bzl",
+        "def _t_impl(settings, attr):",
+        "    return { '//command_line_option:allow_multiple_with_list_converter': ['foo,bar',"
+            + " 'baz'] }",
+        "t = transition(",
+        "    implementation = _t_impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:allow_multiple_with_list_converter'],",
+        ")",
+        "r = rule(",
+        "    implementation = lambda ctx: [],",
+        "    attrs = {",
+        "        'dep': attr.label(cfg = t),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        ")");
+    scratch.file(
+        "test/BUILD", "load(':rules.bzl', 'r')", "r(name = 'dep')", "r(name = 'c', dep = ':dep')");
+
+    assertThat(
+            getDirectPrerequisite(getConfiguredTarget("//test:c"), "//test:dep")
+                .getConfigurationKey()
+                .getOptions()
+                .get(DummyTestOptions.class)
+                .allowMultipleWithListConverter)
+        .containsExactly("foo", "bar", "baz");
+    assertNoEvents();
+  }
+
+  @Test
   public void testTransitionPreservesNonDefaultInputOnlySetting() throws Exception {
     writeAllowlistFile();
     scratch.file(

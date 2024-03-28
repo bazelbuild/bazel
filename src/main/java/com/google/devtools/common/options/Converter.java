@@ -34,6 +34,33 @@ public interface Converter<T> {
    */
   String getTypeDescription();
 
+  /**
+   * Can this converter reverse-convert to a Starlark-readable value?
+   *
+   * <p>If so, {@link #reverseForStarlark} implements the reverse conversion. If not, {@link
+   * #reverseForStarlark} throws an {@link UnsupportedOperationException}.
+   */
+  default boolean starlarkConvertible() {
+    return false;
+  }
+
+  /**
+   * If {@link #starlarkConvertible()} is true, this reverses a converted value back to a
+   * Starlark-readable form.
+   *
+   * <p>If {@link #starlarkConvertible()} is true, throws an {@link UnsupportedOperationException}.
+   *
+   * @param converted If the option this value represents isn't {@link Option#allowMultiple}, an
+   *     object of the option's Java type. Else an entry in the option's {@link java.util.List}.
+   *     Always of type T. Referenced as an {@link Object} because calling code can call any
+   *     converter.
+   * @return A {@link String} version of the input. Calling {@link #convert} on this value should
+   *     faithfully reproduce {@code converted}.
+   */
+  default String reverseForStarlark(Object converted) {
+    throw new UnsupportedOperationException("This converter doesn't support Starlark reversal.");
+  }
+
   /** A converter that never reads its context parameter. */
   abstract class Contextless<T> implements Converter<T> {
 

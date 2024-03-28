@@ -88,5 +88,11 @@ public abstract class AssignmentConverterTest {
     public void missingValue() throws Exception {
       assertThat(convert("NAME")).isEqualTo(Maps.immutableEntry("NAME", null));
     }
+
+    @Test
+    public void reverseConversionForStarlark() throws Exception {
+      assertThat(converter.reverseForStarlark(converter.convert("a"))).isEqualTo("a");
+      assertThat(converter.reverseForStarlark(converter.convert("a=1"))).isEqualTo("a=1");
+    }
   }
 }

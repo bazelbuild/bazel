@@ -684,6 +684,20 @@ public final class Converters {
     }
 
     @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      @SuppressWarnings("unchecked")
+      Map.Entry<String, String> typedValue = (Map.Entry<String, String>) converted;
+      return typedValue.getValue() == null
+          ? typedValue.getKey()
+          : String.format("%s=%s", typedValue.getKey(), typedValue.getValue());
+    }
+
+    @Override
     public String getTypeDescription() {
       return "a 'name=value' assignment with an optional value part";
     }
