@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
@@ -36,7 +37,7 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<CqueryNode> accessor,
       TopLevelArtifactContext topLevelArtifactContext) {
     // Different targets may provide the same artifact, so we deduplicate the collection of all
     // results at the end.
@@ -50,14 +51,17 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult)
+  public void processOutput(Iterable<CqueryNode> partialResult)
       throws IOException, InterruptedException {
-    for (ConfiguredTarget target : partialResult) {
-      if (!TopLevelArtifactHelper.shouldConsiderForDisplay(target)
-          && !(target instanceof InputFileConfiguredTarget)) {
+    for (CqueryNode target : partialResult) {
+      if (!(target instanceof ConfiguredTarget)
+          || (!TopLevelArtifactHelper.shouldConsiderForDisplay(target)
+              && !(target instanceof InputFileConfiguredTarget))) {
         continue;
       }
-      TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
+
+      var cf = (ConfiguredTarget) target;
+      TopLevelArtifactHelper.getAllArtifactsToBuild(cf, topLevelArtifactContext)
           .getImportantArtifacts()
           .toList()
           .stream()

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.HashMap;
 
@@ -120,28 +120,28 @@ public enum Order {
     this.emptyDepset = new Depset(null, this.emptySet);
   }
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final Order STABLE_ORDER_CONSTANT = STABLE_ORDER;
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final Order COMPILE_ORDER_CONSTANT = COMPILE_ORDER;
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final Order LINK_ORDER_CONSTANT = LINK_ORDER;
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final Order NAIVE_LINK_ORDER_CONSTANT = NAIVE_LINK_ORDER;
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final NestedSet<?> EMPTY_STABLE = STABLE_ORDER.emptySet();
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final NestedSet<?> EMPTY_COMPILE = COMPILE_ORDER.emptySet();
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final NestedSet<?> EMPTY_LINK = LINK_ORDER.emptySet();
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final NestedSet<?> EMPTY_NAIVE_LINK = NAIVE_LINK_ORDER.emptySet();
 
   /**

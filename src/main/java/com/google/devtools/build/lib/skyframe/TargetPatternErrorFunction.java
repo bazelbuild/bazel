@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -37,7 +38,7 @@ public class TargetPatternErrorFunction implements SkyFunction {
     return Key.create(e.getMessage(), e.getDetailedExitCode());
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -49,7 +50,7 @@ public class TargetPatternErrorFunction implements SkyFunction {
       this.detailedExitCode = detailedExitCode;
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(String message, DetailedExitCode detailedExitCode) {
       return interner.intern(new Key(message, detailedExitCode));

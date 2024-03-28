@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -37,7 +38,7 @@ import javax.annotation.Nullable;
  *
  * <p>This class is an implementation detail of {@link DirectoryListingValue}.
  */
-@AutoCodec.VisibleForSerialization
+@VisibleForSerialization
 public final class DirectoryListingStateValue implements SkyValue {
 
   private final CompactSortedDirents compactSortedDirents;
@@ -57,7 +58,7 @@ public final class DirectoryListingStateValue implements SkyValue {
   }
 
   /** Key type for DirectoryListingStateValue. */
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   public static class Key extends AbstractSkyKey<RootedPath> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -66,7 +67,7 @@ public final class DirectoryListingStateValue implements SkyValue {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(RootedPath arg) {
       return interner.intern(new Key(arg));

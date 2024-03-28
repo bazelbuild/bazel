@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -51,7 +52,7 @@ public class WorkspaceFileValue implements SkyValue {
       this.idx = idx;
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static WorkspaceFileKey create(RootedPath path, int idx) {
       return interner.intern(new WorkspaceFileKey(path, idx));

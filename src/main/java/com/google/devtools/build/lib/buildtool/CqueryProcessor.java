@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -29,7 +29,7 @@ import java.util.Collection;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Performs {@code cquery} processing. */
-public final class CqueryProcessor extends PostAnalysisQueryProcessor<ConfiguredTarget> {
+public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode> {
 
   public CqueryProcessor(
       QueryExpression queryExpression, TargetPattern.Parser mainRepoTargetParser) {
