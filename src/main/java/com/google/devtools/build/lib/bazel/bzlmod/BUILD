@@ -97,7 +97,6 @@ java_library(
     name = "bazel_lockfile_module",
     srcs = ["BazelLockFileModule.java"],
     deps = [
-        ":common",
         ":exception",
         ":resolution",
         ":resolution_impl",
