@@ -67,6 +67,12 @@ EOF
 # be a cycle.
 toolchain_type(name = 'yolo')
 EOF
+  mkdir override/host
+  touch override/host/BUILD
+  cat > override/host/extension.bzl <<EOF
+def host_platform_repo(**kwargs):
+  pass
+EOF
 
   cd platforms_can_be_overridden || fail "couldn't cd into workspace"
   # platforms is one of the WELL_KNOWN_MODULES, so it cannot be overridden by a workspace repository.

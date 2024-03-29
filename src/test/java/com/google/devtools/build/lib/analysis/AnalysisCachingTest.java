@@ -996,8 +996,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "--max_config_changes_to_show=-1", "--platforms=" + TestConstants.PLATFORM_LABEL);
     update("//test:top");
     useConfiguration(
-        "--max_config_changes_to_show=-1",
-        "--platforms=" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":piii");
+        "--max_config_changes_to_show=-1", "--platforms=" + TestConstants.PIII_PLATFORM_LABEL);
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");

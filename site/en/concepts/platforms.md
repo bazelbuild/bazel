@@ -193,7 +193,8 @@ Project owners should define explicit
 they want to build for. These are then triggered with `--platforms`.
 
 When `--platforms` isn't set, Bazel defaults to a `platform` representing the
-local build machine. This is auto-generated at `@local_config_platform//:host`
+local build machine. This is auto-generated at `@platforms//host` (aliased as
+`@bazel_tools//tools:host_platform`)
 so there's no need to explicitly define it. It maps the local machine's `OS`
 and `CPU` with `constraint_value`s declared in
 [`@platforms`](https://github.com/bazelbuild/platforms){: .external}.
