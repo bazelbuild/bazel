@@ -11,7 +11,7 @@ bazel_dep(name = "rules_proto", version = "4.0.0")
 bazel_dep(name = "rules_python", version = "0.22.1")
 
 bazel_dep(name = "buildozer", version = "7.1.1.1")
-bazel_dep(name = "platforms", version = "0.0.7")
+bazel_dep(name = "platforms", version = "0.0.9")
 bazel_dep(name = "protobuf", version = "3.19.6", repo_name = "com_google_protobuf")
 bazel_dep(name = "zlib", version = "1.3")
 

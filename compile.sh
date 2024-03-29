@@ -65,8 +65,8 @@ log "Building output/bazel"
 # host.
 bazel_build "src:bazel_nojdk${EXE_EXT}" \
   --action_env=PATH \
-  --host_platform=@local_config_platform//:host \
-  --platforms=@local_config_platform//:host \
+  --host_platform=@platforms//host \
+  --platforms=@platforms//host \
   || fail "Could not build Bazel"
 bazel_bin_path="$(get_bazel_bin_path)/src/bazel_nojdk${EXE_EXT}"
 [ -e "$bazel_bin_path" ] \

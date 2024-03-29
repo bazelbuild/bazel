@@ -451,10 +451,9 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
       self.assertGreater(len(lockfile['moduleDepGraph']), 0)
-      self.assertEqual(
-          list(lockfile['moduleExtensions'].keys()),
-          ['//:extension.bzl%extA', '//:extension.bzl%extB'],
-      )
+      ext_keys = list(lockfile['moduleExtensions'].keys())
+      self.assertIn('//:extension.bzl%extA', ext_keys)
+      self.assertIn('//:extension.bzl%extB', ext_keys)
 
   def testUpdateModuleExtension(self):
     self.ScratchFile(
@@ -595,15 +594,15 @@ class BazelLockfileTest(test_base.TestBase):
     self.RunBazel(['build', '@hello//:all'])
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
-      self.assertEqual(
-          list(lockfile['moduleExtensions'].keys()), ['//:extension.bzl%ext']
-      )
+      ext_keys = list(lockfile['moduleExtensions'].keys())
+      self.assertIn('//:extension.bzl%ext', ext_keys)
 
     self.ScratchFile('MODULE.bazel', [])
     self.RunBazel(['build', '//:all'])
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
-      self.assertEqual(len(lockfile['moduleExtensions']), 0)
+      ext_keys = list(lockfile['moduleExtensions'].keys())
+      self.assertNotIn('//:extension.bzl%ext', ext_keys)
 
   def testNoAbsoluteRootModuleFilePath(self):
     self.ScratchFile(

@@ -13,7 +13,7 @@
     "compatibilityMode": "ERROR"
   },
   "localOverrideHashes": {
-    "bazel_tools": "c39369b3c967ee39996bff8b21f23ae9489120b4a5703a6eed0d7f7753449dcc"
+    "bazel_tools": "7631c24ab20d40e76d3fe317703b2519af9dc7e10edeef7bfe1d362f0495b513"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -150,12 +150,29 @@
           "hasNonDevUseExtension": true
         },
         {
+          "extensionBzlFile": "@bazel_tools//tools/android:android_extensions.bzl",
+          "extensionName": "android_sdk_proxy_extensions",
+          "usingModule": "bazel_tools@_",
+          "location": {
+            "file": "@@bazel_tools//:MODULE.bazel",
+            "line": 46,
+            "column": 45
+          },
+          "imports": {
+            "android_external": "android_external"
+          },
+          "devImports": [],
+          "tags": [],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
           "extensionBzlFile": "@buildozer//:buildozer_binary.bzl",
           "extensionName": "buildozer_binary",
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 47,
+            "line": 50,
             "column": 33
           },
           "imports": {
@@ -173,8 +190,8 @@
         "rules_license": "rules_license@0.0.7",
         "rules_proto": "rules_proto@5.3.0-21.7",
         "rules_python": "rules_python@0.22.1",
-        "buildozer": "buildozer@7.1.1.1",
-        "platforms": "platforms@0.0.7",
+        "buildozer": "buildozer@6.4.0.2",
+        "platforms": "platforms@0.0.9",
         "com_google_protobuf": "protobuf@21.7",
         "zlib": "zlib@1.3",
         "build_bazel_apple_support": "apple_support@1.5.0",
@@ -190,7 +207,7 @@
       "toolchainsToRegister": [],
       "extensionUsages": [],
       "deps": {
-        "platforms": "platforms@0.0.7",
+        "platforms": "platforms@0.0.9",
         "bazel_tools": "bazel_tools@_"
       }
     },
@@ -223,7 +240,7 @@
         }
       ],
       "deps": {
-        "platforms": "platforms@0.0.7",
+        "platforms": "platforms@0.0.9",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       },
@@ -327,7 +344,7 @@
         }
       ],
       "deps": {
-        "platforms": "platforms@0.0.7",
+        "platforms": "platforms@0.0.9",
         "rules_cc": "rules_cc@0.0.9",
         "bazel_skylib": "bazel_skylib@1.3.0",
         "rules_proto": "rules_proto@5.3.0-21.7",
@@ -489,7 +506,7 @@
         }
       ],
       "deps": {
-        "platforms": "platforms@0.0.7",
+        "platforms": "platforms@0.0.9",
         "bazel_skylib": "bazel_skylib@1.3.0",
         "rules_proto": "rules_proto@5.3.0-21.7",
         "com_google_protobuf": "protobuf@21.7",
@@ -512,10 +529,10 @@
         }
       }
     },
-    "buildozer@7.1.1.1": {
+    "buildozer@6.4.0.2": {
       "name": "buildozer",
-      "version": "7.1.1.1",
-      "key": "buildozer@7.1.1.1",
+      "version": "6.4.0.2",
+      "key": "buildozer@6.4.0.2",
       "repoName": "buildozer",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [],
@@ -523,9 +540,9 @@
         {
           "extensionBzlFile": "@buildozer//:buildozer_binary.bzl",
           "extensionName": "buildozer_binary",
-          "usingModule": "buildozer@7.1.1.1",
+          "usingModule": "buildozer@6.4.0.2",
           "location": {
-            "file": "https://bcr.bazel.build/modules/buildozer/7.1.1.1/MODULE.bazel",
+            "file": "https://bcr.bazel.build/modules/buildozer/6.4.0.2/MODULE.bazel",
             "line": 7,
             "column": 33
           },
@@ -538,17 +555,17 @@
               "tagName": "buildozer",
               "attributeValues": {
                 "sha256": {
-                  "darwin-amd64": "6286bbbcb5314d675fcb4ede30edf397a68c611005412c937b2cc0c4bf4b714b",
-                  "darwin-arm64": "0a2f70aa7b864de9bf71d1aac39659017b7a84169506e350d9ec77c609265212",
-                  "linux-amd64": "9a7424aca7ca911c85cfedeadf065f0d95c492e80f0e29bd07ea98f6eb087259",
-                  "linux-arm64": "07c8ed5ca3efea7e20756e9060660b7e658c781953c60650a1b99cd8bb857fcf",
-                  "windows-amd64": "edad2e85cc691b064de9675db8e732b2c5a4ada0b32282ecdf4b18692cc8d3fe"
+                  "darwin-amd64": "d29e347ecd6b5673d72cb1a8de05bf1b06178dd229ff5eb67fad5100c840cc8e",
+                  "darwin-arm64": "9b9e71bdbec5e7223871e913b65d12f6d8fa026684daf991f00e52ed36a6978d",
+                  "linux-amd64": "8dfd6345da4e9042daa738d7fdf34f699c5dfce4632f7207956fceedd8494119",
+                  "linux-arm64": "6559558fded658c8fa7432a9d011f7c4dcbac6b738feae73d2d5c352e5f605fa",
+                  "windows-amd64": "e7f05bf847f7c3689dd28926460ce6e1097ae97380ac8e6ae7147b7b706ba19b"
                 },
-                "version": "7.1.1"
+                "version": "6.4.0"
               },
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/buildozer/7.1.1.1/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/buildozer/6.4.0.2/MODULE.bazel",
                 "line": 8,
                 "column": 27
               }
@@ -567,25 +584,43 @@
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
-            "https://github.com/fmeum/buildozer/releases/download/v7.1.1.1/buildozer-v7.1.1.1.tar.gz"
+            "https://github.com/fmeum/buildozer/releases/download/v6.4.0.2/buildozer-v6.4.0.2.tar.gz"
           ],
-          "integrity": "sha256-wjmMsVBR96yT+WOlwN8g1gZRkc/VSPPnTjckHmIs9m8=",
-          "strip_prefix": "buildozer-7.1.1.1",
+          "integrity": "sha256-k7tFKQMR2AygxpmZfH0yEPnQmF3efFgD9rBPkj+Yz/8=",
+          "strip_prefix": "buildozer-6.4.0.2",
           "remote_patches": {
-            "https://bcr.bazel.build/modules/buildozer/7.1.1.1/patches/module_dot_bazel_version.patch": "sha256-dOIwFLCmsm5pLgHK9aPnVXTjEsvn3xC4aHTXpbyrR2o="
+            "https://bcr.bazel.build/modules/buildozer/6.4.0.2/patches/module_dot_bazel_version.patch": "sha256-gKANF2HMilj7bWmuXs4lbBIAAansuWC4IhWGB/CerjU="
           },
           "remote_patch_strip": 1
         }
       }
     },
-    "platforms@0.0.7": {
+    "platforms@0.0.9": {
       "name": "platforms",
-      "version": "0.0.7",
-      "key": "platforms@0.0.7",
+      "version": "0.0.9",
+      "key": "platforms@0.0.9",
       "repoName": "platforms",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [],
-      "extensionUsages": [],
+      "extensionUsages": [
+        {
+          "extensionBzlFile": "@platforms//host:extension.bzl",
+          "extensionName": "host_platform",
+          "usingModule": "platforms@0.0.9",
+          "location": {
+            "file": "https://bcr.bazel.build/modules/platforms/0.0.9/MODULE.bazel",
+            "line": 9,
+            "column": 30
+          },
+          "imports": {
+            "host_platform": "host_platform"
+          },
+          "devImports": [],
+          "tags": [],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        }
+      ],
       "deps": {
         "rules_license": "rules_license@0.0.7",
         "bazel_tools": "bazel_tools@_",
@@ -596,9 +631,9 @@
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
-            "https://github.com/bazelbuild/platforms/releases/download/0.0.7/platforms-0.0.7.tar.gz"
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.9/platforms-0.0.9.tar.gz"
           ],
-          "integrity": "sha256-OlYcmee9vpFzqmU/1Xn+hJ8djWc5V4CrR3Cx84FDHVE=",
+          "integrity": "sha256-XtpTnIQSZQMcL4LYrno6ZJC9YhduDAOPxGnqv5H2FJs=",
           "strip_prefix": "",
           "remote_patches": {},
           "remote_patch_strip": 0
@@ -698,7 +733,7 @@
       "toolchainsToRegister": [],
       "extensionUsages": [],
       "deps": {
-        "platforms": "platforms@0.0.7",
+        "platforms": "platforms@0.0.9",
         "rules_cc": "rules_cc@0.0.9",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
@@ -751,7 +786,7 @@
       ],
       "deps": {
         "bazel_skylib": "bazel_skylib@1.3.0",
-        "platforms": "platforms@0.0.7",
+        "platforms": "platforms@0.0.9",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       },
@@ -781,7 +816,7 @@
       ],
       "extensionUsages": [],
       "deps": {
-        "platforms": "platforms@0.0.7",
+        "platforms": "platforms@0.0.9",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       },
@@ -840,7 +875,7 @@
       "extensionUsages": [],
       "deps": {
         "rules_cc": "rules_cc@0.0.9",
-        "platforms": "platforms@0.0.7",
+        "platforms": "platforms@0.0.9",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       },
@@ -873,7 +908,7 @@
         "rules_proto": "rules_proto@5.3.0-21.7",
         "com_google_protobuf": "protobuf@21.7",
         "com_google_absl": "abseil-cpp@20211102.0",
-        "platforms": "platforms@0.0.7",
+        "platforms": "platforms@0.0.9",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       },
@@ -987,7 +1022,7 @@
       "extensionUsages": [],
       "deps": {
         "com_google_absl": "abseil-cpp@20211102.0",
-        "platforms": "platforms@0.0.7",
+        "platforms": "platforms@0.0.9",
         "rules_cc": "rules_cc@0.0.9",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
@@ -1068,9 +1103,26 @@
         ]
       }
     },
+    "@@bazel_tools//tools/android:android_extensions.bzl%android_sdk_proxy_extensions": {
+      "general": {
+        "bzlTransitiveDigest": "xzTLX/dmwndUXrtAEpduaGAghCOoe2tPssAL9iIVlfo=",
+        "usagesDigest": "x7fdOxuT/Cd/ZXZa8OyoLFxU34+IE1KtcbASixO3XJM=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "android_external": {
+            "bzlFile": "@@bazel_tools//tools/android:android_extensions.bzl",
+            "ruleClassName": "android_external_repository",
+            "attributes": {}
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
     "@@bazel_tools//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "7AujGJs5Ol86xb0COHH2NGNawngyUwI8KmJ0yVuSZ+E=",
+        "bzlTransitiveDigest": "xzTLX/dmwndUXrtAEpduaGAghCOoe2tPssAL9iIVlfo=",
         "usagesDigest": "LPw+9iUcnRY1k89ZEMEZ/AtOYIK2LgSeKnaiYVCDaag=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -1098,7 +1150,7 @@
     },
     "@@bazel_tools//tools/cpp:cc_configure.bzl%cc_configure_extension": {
       "general": {
-        "bzlTransitiveDigest": "PHpT2yqMGms2U4L3E/aZ+WcQalmZWm+ILdP3yiLsDhA=",
+        "bzlTransitiveDigest": "kOmQSSXx3QJNSJrErTFZzy7Jpc0NDAA1fiURpFLFH5A=",
         "usagesDigest": "+YUfVsec8fjmT1xohAjYSdZ308PSnMfO5f1mLULO1sE=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -1163,7 +1215,7 @@
     },
     "@@bazel_tools//tools/test:extensions.bzl%remote_coverage_tools_extension": {
       "general": {
-        "bzlTransitiveDigest": "93Butk3OEer7nGZxtwV/qwe+zpX6eMh1OIi+8Lq+6nY=",
+        "bzlTransitiveDigest": "AL+K5m+GCP3XRzLPqpKAq4GsjIVDXgUveWm8nih4ju0=",
         "usagesDigest": "O3U7dkKl24l4dKwsK8Y1uf1SAa/eEwLfw4BRsHGugwc=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -1186,7 +1238,7 @@
     "@@buildozer~//:buildozer_binary.bzl%buildozer_binary": {
       "general": {
         "bzlTransitiveDigest": "EleDU/FQ1+e/RgkW3aIDmdaxZEthvoWQhsqFTxiSgMI=",
-        "usagesDigest": "iUUnI5Kz29mJCp8hciKngpgoHU7Mkfe+Fid0AOgNOHo=",
+        "usagesDigest": "4M43O2sMrjql57L5jklxPaVTLbRZANfEXyODcR5XstI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1196,14 +1248,31 @@
             "ruleClassName": "_buildozer_binary_repo",
             "attributes": {
               "sha256": {
-                "darwin-amd64": "6286bbbcb5314d675fcb4ede30edf397a68c611005412c937b2cc0c4bf4b714b",
-                "darwin-arm64": "0a2f70aa7b864de9bf71d1aac39659017b7a84169506e350d9ec77c609265212",
-                "linux-amd64": "9a7424aca7ca911c85cfedeadf065f0d95c492e80f0e29bd07ea98f6eb087259",
-                "linux-arm64": "07c8ed5ca3efea7e20756e9060660b7e658c781953c60650a1b99cd8bb857fcf",
-                "windows-amd64": "edad2e85cc691b064de9675db8e732b2c5a4ada0b32282ecdf4b18692cc8d3fe"
+                "darwin-amd64": "d29e347ecd6b5673d72cb1a8de05bf1b06178dd229ff5eb67fad5100c840cc8e",
+                "darwin-arm64": "9b9e71bdbec5e7223871e913b65d12f6d8fa026684daf991f00e52ed36a6978d",
+                "linux-amd64": "8dfd6345da4e9042daa738d7fdf34f699c5dfce4632f7207956fceedd8494119",
+                "linux-arm64": "6559558fded658c8fa7432a9d011f7c4dcbac6b738feae73d2d5c352e5f605fa",
+                "windows-amd64": "e7f05bf847f7c3689dd28926460ce6e1097ae97380ac8e6ae7147b7b706ba19b"
               },
-              "version": "7.1.1"
+              "version": "6.4.0"
             }
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
+    "@@platforms//host:extension.bzl%host_platform": {
+      "general": {
+        "bzlTransitiveDigest": "xelQcPZH8+tmuOHVjL9vDxMnnQNMlwj0SlvgoqBkm4U=",
+        "usagesDigest": "n09YBuQPPWD2ruteuyEi0J/rtBYGRWuaq/aBOPdseDE=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "host_platform": {
+            "bzlFile": "@@platforms//host:extension.bzl",
+            "ruleClassName": "host_platform_repo",
+            "attributes": {}
           }
         },
         "recordedRepoMappingEntries": []
@@ -1211,7 +1280,7 @@
     },
     "@@rules_java~//java:extensions.bzl%toolchains": {
       "general": {
-        "bzlTransitiveDigest": "g6ePEnDe+cica1jeM4cr5pdiFxzK27/ZwwgBz0qcotU=",
+        "bzlTransitiveDigest": "Q1jn8wFEVBEfiV1W71qDFOM2MzdJMZuk83csUrBnhvM=",
         "usagesDigest": "1/Dwy6r0Nf/YUE94OFi5Yy0Mo+TrPxA3U8hBaEzYH5s=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -1777,7 +1846,7 @@
     },
     "@@rules_jvm_external~//:extensions.bzl%maven": {
       "general": {
-        "bzlTransitiveDigest": "s/CmQ+qQgXPq+FR5/0BRBmZ1xJgvIA9uQa2rGcsiSUA=",
+        "bzlTransitiveDigest": "yXprMX4LqzJwuZlbtT9WNeu7p2iEYw7j4R1NP9pc4Ow=",
         "usagesDigest": "L+U25+BzBiliO0i3XrvqC5up0f210dPakCjqg5MBrp4=",
         "recordedFileInputs": {
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "10442a5ae27d9ff4c2003e5ab71643bf0d8b48dcf968b4173fa274c3232a8c06"
@@ -2801,7 +2870,7 @@
     },
     "@@rules_jvm_external~//:non-module-deps.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "lN2hsTr54Jl4C0fITlL6g7MlqCCtezLQgeENrmdNBtg=",
+        "bzlTransitiveDigest": "Td87llNSs5GZ/kAxu6pAqfEXBZ3HdkSqRmUzvIfbFWg=",
         "usagesDigest": "HWGzpnxaDzDwBkFxYvT/plvwcfNrPZGTg9ZYibwxNGw=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -2829,7 +2898,7 @@
     },
     "@@rules_python~//python/extensions:python.bzl%python": {
       "general": {
-        "bzlTransitiveDigest": "V8RFcR2uLgEQnCHK7DYDVnthwCmRsY0zbyChXOGKGGE=",
+        "bzlTransitiveDigest": "NGtTMUqs2EEJeXu6mXdpmYRrQGZiJV7S3mxeod3Hm7M=",
         "usagesDigest": "2dLy/xmv7+TD8WRYYIxtxZMeS4nrJZGIDSMkYRE0elw=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -2859,7 +2928,7 @@
     },
     "@@rules_python~//python/extensions/private:internal_deps.bzl%internal_deps": {
       "general": {
-        "bzlTransitiveDigest": "WppdGtl0faMPVX6wx7nN1JlV+cw9XwxYaGfXa5nWObM=",
+        "bzlTransitiveDigest": "5c1tkdV6L67SQOZWc9MUoS5ZnsSxeDKsh9urs01jZSM=",
         "usagesDigest": "MZDuELgGnEk5m0vRt+s02bhPv0B21Oi1jm1KuRqZ5FY=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
