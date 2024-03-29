@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import tempfile
 from absl.testing import absltest
+
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import scratchFile
@@ -868,6 +869,38 @@ class BazelModuleTest(test_base.TestBase):
     )
 
     self.RunBazel(['build', '@my_jar//jar'])
+
+  def testInclude(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name="foo")',
+            'bazel_dep(name="bbb", version="1.0")',
+            'include("//java:MODULE.bazel.segment")',
+        ],
+    )
+    self.ScratchFile('java/BUILD')
+    self.ScratchFile(
+        'java/MODULE.bazel.segment',
+        [
+            'bazel_dep(name="aaa", version="1.0", repo_name="lol")',
+        ],
+    )
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@lol//:lib_aaa"],',
+        ')',
+    ])
+    self.ScratchFile('main.cc', [
+        '#include "aaa.h"',
+        'int main() {',
+        '    hello_aaa("main function");',
+        '}',
+    ])
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => aaa@1.0', stdout)
 
 
 if __name__ == '__main__':

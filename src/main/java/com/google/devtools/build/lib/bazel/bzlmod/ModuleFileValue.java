@@ -69,13 +69,26 @@ public abstract class ModuleFileValue implements SkyValue {
     public abstract ImmutableMap<RepositoryName, String>
         getNonRegistryOverrideCanonicalRepoNameLookup();
 
+    /**
+     * TODO: This field is a hack. It's not needed by anything other than {@code ModCommand}, during
+     *  the {@code bazel mod tidy} command. Doing it this way assumes that {@code bazel mod tidy}
+     *  cannot touch any included segments. This is unsatisfactory; we should do it properly at some
+     *  point, although that seems quite difficult.
+     */
+    public abstract ImmutableMap<String, CompiledModuleFile> getIncludeLabelToCompiledModuleFile();
+
     public static RootModuleFileValue create(
         InterimModule module,
         String moduleFileHash,
         ImmutableMap<String, ModuleOverride> overrides,
-        ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup) {
+        ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup,
+        ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile) {
       return new AutoValue_ModuleFileValue_RootModuleFileValue(
-          module, moduleFileHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
+          module,
+          moduleFileHash,
+          overrides,
+          nonRegistryOverrideCanonicalRepoNameLookup,
+          includeLabelToCompiledModuleFile);
     }
   }
 
