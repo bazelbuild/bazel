@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -2769,18 +2770,20 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   @Test
   public void testArgsApparentRepoLabel() throws Exception {
-    scratch.file("MODULE.bazel");
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name = 'foo', version = '1.0')");
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
+    invalidatePackages();
+
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     ev.exec(
         "actions = ruleContext.actions",
         "a = []",
-        // bazel_tools is a well-known Bazel module whose canonical repo name is bazel_tools.
-        "a.append(actions.args().add(Label('@bazel_tools')))",
-        "a.append(actions.args().add('-flag', Label('@@bazel_tools//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@bazel_tools//:foo'), format = '_%s_'))",
-        "a.append(actions.args().add_all(['foo', Label('@@bazel_tools//:foo')]))",
-        "a.append(actions.args().add_all(depset([Label('@@repo~//:foo'), Label('@@bazel_tools//:foo')])))",
+        "a.append(actions.args().add(Label('@@foo~//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@foo~//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@foo~//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@foo~//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@repo~//:foo'), Label('@@foo~//:foo')])))",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -2795,15 +2798,15 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(action.getArguments())
         .containsExactly(
             "foo/t.exe",
-            "@bazel_tools//:bazel_tools",
+            "@foo//:foo",
             "-flag",
-            "@bazel_tools//:foo",
+            "@foo//:foo",
             "-flag",
-            "_@bazel_tools//:foo_",
+            "_@foo//:foo_",
             "foo",
-            "@bazel_tools//:foo",
+            "@foo//:foo",
             "@@repo~//:foo",
-            "@bazel_tools//:foo")
+            "@foo//:foo")
         .inOrder();
   }
 
