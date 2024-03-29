@@ -17,10 +17,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.StarlarkProviderIdentifier.forKey;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndroidConfig;
+import static com.google.devtools.build.lib.rules.android.AndroidSdkProvider.ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -160,6 +162,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
                     ImmutableSet.of(ProtoLangToolchainProvider.PROVIDER_ID)))
+            .add(attr(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL).value(toolchainType))
             .addToolchainTypes(
                 ToolchainTypeRequirement.builder(toolchainType).mandatory(true).build())
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
