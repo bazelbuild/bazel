@@ -46,28 +46,30 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
   public void javaLibraryWithJavacopts() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "genrule(",
-        "    name = 'gen_b',",
-        "    outs = ['B.java'],",
-        "    cmd = '<some command>',",
-        ")",
-        "genrule(",
-        "    name = 'gen_c',",
-        "    outs = ['C.java'],",
-        "    cmd = '<some command>',",
-        ")",
-        "java_library(",
-        "    name = 'a',",
-        "    javacopts = [",
-        "        '-XepOpt:foo:bar=$(location B.java)',",
-        "        '-XepOpt:baz=$(location C.java),$(location B.java)',",
-        "    ],",
-        "    srcs = [",
-        "        'A.java',",
-        "        'B.java',",
-        "        'C.java',",
-        "    ],",
-        ")");
+        """
+        genrule(
+            name = 'gen_b',
+            outs = ['B.java'],
+            cmd = '<some command>',
+        )
+        genrule(
+            name = 'gen_c',
+            outs = ['C.java'],
+            cmd = '<some command>',
+        )
+        java_library(
+            name = 'a',
+            javacopts = [
+                '-XepOpt:foo:bar=$(location B.java)',
+                '-XepOpt:baz=$(location C.java),$(location B.java)',
+            ],
+            srcs = [
+                'A.java',
+                'B.java',
+                'C.java',
+            ],
+        )
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/com/google/test:a");
     Artifact compiledArtifact =
@@ -137,27 +139,31 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "pkg/BUILD",
-        "load('//defs:defs.bzl', 'my_rule')",
-        "genrule(",
-        "    name = 'gen_src',",
-        "    outs = ['gen_src.txt'],",
-        "    cmd = '<some command>',",
-        ")",
-        "my_rule(",
-        "    name = 'my_rule',",
-        "    out = 'out.bin',",
-        "    srcs = [",
-        "        ':gen_src',",
-        "        'source.txt',",
-        "    ],",
-        ")");
+        """
+        load('//defs:defs.bzl', 'my_rule')
+        genrule(
+            name = 'gen_src',
+            outs = ['gen_src.txt'],
+            cmd = '<some command>',
+        )
+        my_rule(
+            name = 'my_rule',
+            out = 'out.bin',
+            srcs = [
+                ':gen_src',
+                'source.txt',
+            ],
+        )
+        """);
     scratch.file(
         "tool/BUILD",
-        "sh_binary(",
-        "    name = 'tool',",
-        "    srcs = ['tool.sh'],",
-        "    visibility = ['//visibility:public'],",
-        ")");
+        """
+        sh_binary(
+            name = 'tool',
+            srcs = ['tool.sh'],
+            visibility = ['//visibility:public'],
+        )
+        """);
   }
 
   @Test

@@ -166,8 +166,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "has_dupe/BUILD",
-        "cc_library(name='dep')",
-        "cc_library(name='has_dupe', deps=[':dep', ':dep'])");
+        """
+        cc_library(name='dep')
+        cc_library(name='has_dupe', deps=[':dep', ':dep'])
+        """);
 
     Package pkg = loadPackage("has_dupe");
     assertContainsEvent(
@@ -203,8 +205,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "fruit/kiwi/BUILD",
-        "genrule(name='kiwi1', srcs=[], outs=['a'], cmd='')",
-        "genrule(name='kiwi2', srcs=[], outs=['a/b'], cmd='')");
+        """
+        genrule(name='kiwi1', srcs=[], outs=['a'], cmd='')
+        genrule(name='kiwi2', srcs=[], outs=['a/b'], cmd='')
+        """);
     loadPackage("fruit/kiwi");
     assertContainsEvent(
         "output file 'a/b' of rule 'kiwi2' conflicts with output file 'a' of rule 'kiwi1'");
@@ -215,8 +219,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "fruit/kiwi/BUILD",
-        "genrule(name='kiwi1', srcs=[], outs=['a/b'], cmd='')",
-        "genrule(name='kiwi2', srcs=[], outs=['a'], cmd='')");
+        """
+        genrule(name='kiwi1', srcs=[], outs=['a/b'], cmd='')
+        genrule(name='kiwi2', srcs=[], outs=['a'], cmd='')
+        """);
     loadPackage("fruit/kiwi");
     assertContainsEvent(
         "output file 'a' of rule 'kiwi2' conflicts with output file 'a/b' of rule 'kiwi1'");
@@ -317,12 +323,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "dup/BUILD",
-        "proto_library(name = 'dup_proto',",
-        "              srcs  = ['dup.proto'],",
-        "              cc_api_version = 2)",
-        "",
-        "cc_library(name = 'dup_proto',",
-        "           srcs = ['dup.pb.cc', 'dup.pb.h'])");
+        """
+        proto_library(name = 'dup_proto',
+                      srcs  = ['dup.proto'],
+                      cc_api_version = 2)
+
+        cc_library(name = 'dup_proto',
+                   srcs = ['dup.pb.cc', 'dup.pb.h'])
+        """);
     Package pkg = loadPackage("dup");
     assertContainsEvent("cc_library rule 'dup_proto' conflicts with existing proto_library rule");
     assertThat(pkg.containsErrors()).isTrue();
@@ -346,14 +354,16 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     // "out2" still has rule1 as its getGeneratingRule().
     scratch.file(
         "conflict/BUILD",
-        "genrule(name = 'rule1',",
-        "        cmd = '',",
-        "        srcs = ['in1', 'in2'],",
-        "        outs = ['out1', 'out2'])",
-        "genrule(name = 'rule2',",
-        "        cmd = '',",
-        "        srcs = ['in3', 'in4'],",
-        "        outs = ['out3', 'out2'])");
+        """
+        genrule(name = 'rule1',
+                cmd = '',
+                srcs = ['in1', 'in2'],
+                outs = ['out1', 'out2'])
+        genrule(name = 'rule2',
+                cmd = '',
+                srcs = ['in3', 'in4'],
+                outs = ['out3', 'out2'])
+        """);
     Package pkg = loadPackage("conflict");
     assertContainsEvent(
         "generated file 'out2' in rule 'rule2' "
@@ -455,12 +465,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testTestSuitesImplicitlyDependOnAllRulesInPackage() throws Exception {
     scratch.file(
         "x/BUILD",
-        "java_test(name='j', tags = ['nodeployjar'])",
-        "test_suite(name='t1')",
-        "test_suite(name='t2', tests=[])",
-        "test_suite(name='t3', tests=['//foo'])",
-        "test_suite(name='t4', tests=['//foo'])",
-        "cc_test(name='c')");
+        """
+        java_test(name='j', tags = ['nodeployjar'])
+        test_suite(name='t1')
+        test_suite(name='t2', tests=[])
+        test_suite(name='t3', tests=['//foo'])
+        test_suite(name='t4', tests=['//foo'])
+        cc_test(name='c')
+        """);
     Package pkg = loadPackage("x");
 
     // Things to note:
@@ -512,8 +524,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     emptyFile("fruit/data/berry/blue");
     scratch.file(
         "fruit/BUILD",
-        "cc_library(name = 'yes', srcs = glob(['data/*']))",
-        "cc_library(name = 'no',  srcs = glob(['data/*'], exclude_directories=0))");
+        """
+        cc_library(name = 'yes', srcs = glob(['data/*']))
+        cc_library(name = 'no',  srcs = glob(['data/*'], exclude_directories=0))
+        """);
     Package pkg = loadPackage("fruit");
     assertNoEvents();
     List<Label> yesFiles = attributes(pkg.getRule("yes")).get("srcs", BuildType.LABEL_LIST);
@@ -542,8 +556,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     emptyFile("rg/foo/wiz/quid/gav.cc");
     scratch.file(
         "rg/BUILD",
-        "cc_library(name = 'ri', srcs = glob(['**/*.cc']))",
-        "cc_library(name = 're', srcs = glob(['*.cc'], exclude=['**/*.c']))");
+        """
+        cc_library(name = 'ri', srcs = glob(['**/*.cc']))
+        cc_library(name = 're', srcs = glob(['*.cc'], exclude=['**/*.c']))
+        """);
     Package pkg = loadPackage("rg");
     assertNoEvents();
 
@@ -744,8 +760,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file("p/@f.txt");
     scratch.file(
         "p/BUILD",
-        "name = glob(['*.txt'])[0]",
-        "name == ':@f.txt' or fail('got %s' % name)"); // observe prepended colon
+        """
+        name = glob(['*.txt'])[0]
+        name == ':@f.txt' or fail('got %s' % name)
+        """); // observe
+    // prepended colon
     loadPackage("p"); // no error
   }
 
@@ -883,9 +902,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testDefaultTestonlyPropagation() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "package(default_testonly = 1)",
-        "sh_library(name = 'foo', srcs=['b'])",
-        "sh_library(name = 'bar', srcs=['b'], testonly = 0)");
+        """
+        package(default_testonly = 1)
+        sh_library(name = 'foo', srcs=['b'])
+        sh_library(name = 'bar', srcs=['b'], testonly = 0)
+        """);
     Package pkg = loadPackage("foo");
 
     Rule fooRule = (Rule) pkg.getTarget("foo");
@@ -921,9 +942,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testPackageFeatures() throws Exception {
     scratch.file(
         "a/BUILD",
-        "sh_library(name='before')",
-        "package(features=['b', 'c'])",
-        "sh_library(name='after')");
+        """
+        sh_library(name='before')
+        package(features=['b', 'c'])
+        sh_library(name='after')
+        """);
     Package pkg = loadPackage("a");
     assertThat(pkg.getPackageArgs().features())
         .isEqualTo(FeatureSet.parse(ImmutableList.of("b", "c")));
@@ -1151,10 +1174,12 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   private void defineMacroBzl() throws Exception {
     setBuildLanguageOptions("--experimental_enable_first_class_macros");
     scratch.file(
-        "pkg/my_macro.bzl", //
-        "def _impl(name):",
-        "    pass",
-        "my_macro = macro(implementation = _impl)");
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(implementation = _impl)
+        """);
   }
 
   @Test
@@ -1287,12 +1312,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     defineMacroBzl();
     scratch.file(
         "pkg/BUILD",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "cc_library(",
-        "    name = 'lib',",
-        "    srcs = ['foo', 'bar'],",
-        ")");
+        """
+        load(':my_macro.bzl', 'my_macro')
+        my_macro(name = 'foo')
+        cc_library(
+            name = 'lib',
+            srcs = ['foo', 'bar'],
+        )
+        """);
     Package pkg = loadPackage("pkg");
     assertThat(pkg.getTarget("bar")).isInstanceOf(InputFile.class);
     assertThat(pkg.getTargets()).doesNotContainKey("foo");

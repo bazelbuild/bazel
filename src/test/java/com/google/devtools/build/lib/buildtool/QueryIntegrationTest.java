@@ -601,12 +601,14 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
     write(
         "package/inc.bzl",
-        "def _impl(ctx): pass",
-        "myrule = rule(implementation = _impl)",
-        "def f():",
-        "  g()",
-        "def g():",
-        "  myrule(name='a')");
+        """
+        def _impl(ctx): pass
+        myrule = rule(implementation = _impl)
+        def f():
+          g()
+        def g():
+          myrule(name='a')
+        """);
 
     write("package/BUILD", "load('inc.bzl', 'f')\n" + "f()");
 
@@ -654,14 +656,21 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void ruleStackInProtoOutput() throws Exception {
     write(
         "p/inc.bzl",
-        "def _impl(ctx): pass",
-        "myrule = rule(implementation = _impl)",
-        "def f():",
-        "  g()",
-        "def g():",
-        "  myrule(name='a')");
+        """
+        def _impl(ctx): pass
+        myrule = rule(implementation = _impl)
+        def f():
+          g()
+        def g():
+          myrule(name='a')
+        """);
 
-    write("p/BUILD", "load('inc.bzl', 'f')", "f()");
+    write(
+        "p/BUILD",
+        """
+        load('inc.bzl', 'f')
+        f()
+        """);
     ProtoQueryOutput result =
         getProtoQueryResult("//p:a", "--output=proto", "--proto:instantiation_stack=true");
     assertSuccessfulExitCode(result.getQueryOutput());
@@ -687,13 +696,21 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
     write(
         "package/inc.bzl",
-        "def g(name):",
-        "    native.filegroup(name = name)",
-        "",
-        "def f(name):",
-        "    g(name)");
+        """
+        def g(name):
+            native.filegroup(name = name)
 
-    write("package/BUILD", "load(\"inc.bzl\", \"f\")", "f(name = \"a\")", "f(name = \"b\")");
+        def f(name):
+            g(name)
+        """);
+
+    write(
+        "package/BUILD",
+        """
+        load("inc.bzl", "f")
+        f(name = "a")
+        f(name = "b")
+        """);
     QueryOutput result = getQueryResult("//package:all", "--output=build");
     assertSuccessfulExitCode(result);
 
