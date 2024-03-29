@@ -152,6 +152,20 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         attributes.toArray(new Attribute[0]));
   }
 
+  // Helper method to paper over how some test cases don't supply the mandatory name attribute for
+  // historic reasons.
+  private static ImmutableMap<String, Object> ensureNameAttrValuePresent(
+      Map<String, Object> attrValues) {
+    if (attrValues.containsKey("name")) {
+      return ImmutableMap.copyOf(attrValues);
+    } else {
+      return ImmutableMap.<String, Object>builder()
+          .putAll(attrValues)
+          .put("name", "my-name")
+          .buildOrThrow();
+    }
+  }
+
   @Test
   public void testRuleClassBasics() throws Exception {
     RuleClass ruleClassA = createRuleClassA();
@@ -932,6 +946,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException("Rule has illegal label", e);
     }
+    attributeValues = ensureNameAttrValuePresent(attributeValues);
     Rule rule =
         ruleClass.createRule(
             pkgBuilder,

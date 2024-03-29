@@ -127,6 +127,7 @@ public class RuleClass implements RuleClassData {
   static final Attribute NAME_ATTRIBUTE =
       attr("name", STRING_NO_INTERN)
           .nonconfigurable("All rules have a non-customizable \"name\" attribute")
+          .mandatory()
           .build();
 
   /**
