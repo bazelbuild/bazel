@@ -2769,6 +2769,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   @Test
   public void testArgsApparentRepoLabel() throws Exception {
+    scratch.file("MODULE.bazel");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     ev.exec(
