@@ -244,11 +244,13 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "duplicaterulename/BUILD",
-        "proto_library(name = 'spellcheck_proto',",
-        "         srcs = ['spellcheck.proto'],",
-        "         cc_api_version = 2)",
-        "cc_library(name = 'spellcheck_proto')", // conflict error stops execution
-        "x = 1//0"); // not reached
+        """
+        proto_library(name = 'spellcheck_proto',
+                 srcs = ['spellcheck.proto'],
+                 cc_api_version = 2)
+        cc_library(name = 'spellcheck_proto')  # conflict error stops execution
+        x = 1//0  # not reached
+        """);
     Package pkg = loadPackage("duplicaterulename");
     assertContainsEvent(
         "cc_library rule 'spellcheck_proto' conflicts with" + " existing proto_library rule");
@@ -401,14 +403,16 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "error/BUILD",
-        "genrule(name = 'rule1',",
-        "        cmd = ':',",
-        "        outs = ['out.1'])",
-        "list = ['bad']",
-        "x = 1//0", // dynamic error
-        "genrule(name = 'rule2',",
-        "        cmd = ':',",
-        "        outs = list)");
+        """
+        genrule(name = 'rule1',
+                cmd = ':',
+                outs = ['out.1'])
+        list = ['bad']
+        x = 1//0  # dynamic error
+        genrule(name = 'rule2',
+                cmd = ':',
+                outs = list)
+        """);
     Package pkg = loadPackage("error");
     assertContainsEvent("division by zero");
 

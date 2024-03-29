@@ -2269,11 +2269,13 @@ public abstract class AbstractQueryTest<T> {
   public void testSiblings_matchesTargetNamedAll() throws Exception {
     writeFile(
         "foo/BUILD",
-        // NOTE: target named 'all' collides with, takes precedence over the ':all' wildcard
-        "sh_library(name = 'all')",
-        "sh_library(name = 'ball')",
-        "sh_library(name = 'call')",
-        "sh_library(name = 'doll')");
+        """
+        # NOTE: target named 'all' collides with, takes precedence over the ':all' wildcard
+        sh_library(name = 'all')
+        sh_library(name = 'ball')
+        sh_library(name = 'call')
+        sh_library(name = 'doll')
+        """);
     assertThat(evalToString("//foo:all")).isEqualTo("//foo:all");
     assertThat(evalToString("kind(' rule', siblings(//foo:BUILD))"))
         .isEqualTo("//foo:all //foo:ball //foo:call //foo:doll");

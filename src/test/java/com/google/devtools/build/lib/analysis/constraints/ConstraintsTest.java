@@ -1305,28 +1305,31 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   public void refinedEnvironmentCheckingBadCaseChooseLowestLevelCulprit() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
     writeDepsForSelectTests();
-    scratch.file("hello/BUILD",
-        "cc_library(",
-        "    name = 'lib2',",  // Even though both lib1 and lib2 refine away b, lib2 is the culprit.
-        "    srcs = [],",
-        "    deps = select({",
-        "        '//config:a': ['//deps:dep_a'],",
-        "        '//config:b': ['//deps:dep_b'],",
-        "    }),",
-        "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])",
-        "cc_library(",
-        "    name = 'lib1',",
-        "    srcs = [],",
-        "    deps = select({",
-        "        '//config:a': [':lib2'],",
-        "        '//config:b': ['//deps:dep_b'],",
-        "    }),",
-        "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])",
-        "cc_library(",
-        "    name = 'depender',",
-        "    srcs = [],",
-        "    deps = [':lib1'],",
-        "    compatible_with = ['//buildenv/foo:b'])");
+    scratch.file(
+        "hello/BUILD",
+        """
+        cc_library(
+            name = 'lib2',  # Even though both lib1 and lib2 refine away b, lib2 is the culprit.
+            srcs = [],
+            deps = select({
+                '//config:a': ['//deps:dep_a'],
+                '//config:b': ['//deps:dep_b'],
+            }),
+            compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])
+        cc_library(
+            name = 'lib1',
+            srcs = [],
+            deps = select({
+                '//config:a': [':lib2'],
+                '//config:b': ['//deps:dep_b'],
+            }),
+            compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])
+        cc_library(
+            name = 'depender',
+            srcs = [],
+            deps = [':lib1'],
+            compatible_with = ['//buildenv/foo:b'])
+        """);
     useConfiguration("--define", "mode=a");
     reporter.removeHandler(failFastHandler);
     // Invalid because "--define mode=a" refines :lib to "compatible_with = ['//buildenv/foo:a']".

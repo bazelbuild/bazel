@@ -147,14 +147,16 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
-        "def my_rule_impl(ctx):",
-        "   dep = ctx.attr.deps[0]",
-        "   objc_provider = dep[apple_common.Objc]", // this is line 3
-        "   return []",
-        "my_rule = rule(implementation = my_rule_impl,",
-        "   attrs = {",
-        "   'deps': attr.label_list(allow_files = False, mandatory = False),",
-        "})");
+        """
+        def my_rule_impl(ctx):
+           dep = ctx.attr.deps[0]
+           objc_provider = dep[apple_common.Objc]  # this is line 3
+           return []
+        my_rule = rule(implementation = my_rule_impl,
+           attrs = {
+           'deps': attr.label_list(allow_files = False, mandatory = False),
+        })
+        """);
     scratch.file("examples/apple_starlark/a.cc");
     scratch.file(
         "examples/apple_starlark/BUILD",

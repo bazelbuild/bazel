@@ -686,20 +686,22 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     // field for these rules.
     scratch.file(
         "pkg/BUILD",
-        "extra_action(",
-        "    name = 'foo',",
-        "    cmd = 'cmd',",
-        "    out_templates = ['foo.out'],",
-        "    tools = [':tool1', ':tool2']", // not allowed in Starlark-defined rules
-        ")",
-        "cc_binary(",
-        "    name = 'tool1',",
-        "    srcs = ['tool1.cc'],",
-        ")",
-        "cc_binary(",
-        "    name = 'tool2',",
-        "    srcs = ['tool2.cc'],",
-        ")");
+        """
+        extra_action(
+            name = 'foo',
+            cmd = 'cmd',
+            out_templates = ['foo.out'],
+            tools = [':tool1', ':tool2']  # not allowed in Starlark-defined rules
+        )
+        cc_binary(
+            name = 'tool1',
+            srcs = ['tool1.cc'],
+        )
+        cc_binary(
+            name = 'tool2',
+            srcs = ['tool2.cc'],
+        )
+        """);
     StarlarkRuleContext ruleContext = createRuleContext("//pkg:foo");
     setRuleContext(ruleContext);
     assertThat((Boolean) ev.eval("hasattr(ruleContext.executable, 'tools')")).isFalse();
@@ -2853,9 +2855,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     // lambda
     scratch.file(
         "p/inc.bzl",
-        "def _impl(ctx):",
-        "  ctx.actions.args().add_all([], map_each=lambda x: x)", // error
-        "r = rule(implementation=_impl)");
+        """
+        def _impl(ctx):
+          ctx.actions.args().add_all([], map_each=lambda x: x)  # error
+        r = rule(implementation=_impl)
+        """);
     scratch.file(
         "p/BUILD",
         """
@@ -2872,10 +2876,12 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     // non-global def
     scratch.file(
         "q/inc.bzl",
-        "def _impl(ctx):",
-        "  def id(x): return x",
-        "  ctx.actions.args().add_all([], map_each=id)", // error
-        "r = rule(implementation=_impl)");
+        """
+        def _impl(ctx):
+          def id(x): return x
+          ctx.actions.args().add_all([], map_each=id)  # error
+        r = rule(implementation=_impl)
+        """);
     scratch.file(
         "q/BUILD",
         """

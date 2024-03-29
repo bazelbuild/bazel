@@ -1049,79 +1049,83 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   public void testInstrumentedFilesInfo_coverageEnabled() throws Exception {
     scratch.file(
         "test/starlark/extension.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "",
-        "def custom_rule_impl(ctx):",
-        "    metadata = ctx.actions.declare_file(ctx.label.name + '.metadata')",
-        "    ctx.actions.write(metadata, '')",
-        "    return [",
-        "        coverage_common.instrumented_files_info(",
-        "            ctx,",
-        "            extensions = ['txt'],",
-        "            source_attributes = [",
-        "                'label_src',",
-        "                'label_list_srcs',",
-        "                'dict_srcs',",
-        // Missing attrs are ignored (this allows common configuration for sets of rules where
-        // only some define the specified attributes, e.g. *_library/binary).
-        "                'missing_src_attr',",
-        "            ],",
-        "            dependency_attributes = [",
-        "                'label_dep',",
-        "                'label_list_deps',",
-        "                'dict_deps',",
-        // Missing attrs are ignored
-        "                'missing_dep_attr',",
-        "            ],",
-        "            metadata_files = [metadata],",
-        "        ),",
-        "    ]",
-        "",
-        "custom_rule = rule(",
-        "    implementation = custom_rule_impl,",
-        "    attrs = {",
-        "        'label_src': attr.label(allow_files=True),",
-        "        'label_list_srcs': attr.label_list(allow_files=True),",
-        "        'dict_srcs': attr.label_keyed_string_dict(allow_files=True),",
-        // Generally deps don't set allow_files=True, but want to assert that source files in
-        // dependency_attributes are ignored, since source files don't provide
-        // InstrumentedFilesInfo. (For example, files put directly into data are assumed to not be
-        // source code that gets coverage instrumented.)
-        "        'label_dep': attr.label(allow_files=True),",
-        "        'label_list_deps': attr.label_list(allow_files=True),",
-        "        'dict_deps': attr.label_keyed_string_dict(allow_files=True),",
-        "    },",
-        ")",
-        "",
-        "def test_rule_impl(ctx):",
-        "  return [MyInfo(",
-        // The point of this is to assert that these fields can be read in analysistest.
-        // Normally, this information wouldn't be forwarded via a different provider.
-        "    instrumented_files = ctx.attr.target[InstrumentedFilesInfo].instrumented_files,",
-        "    metadata_files = ctx.attr.target[InstrumentedFilesInfo].metadata_files)]",
-        "",
-        "test_rule = rule(implementation = test_rule_impl,",
-        "  attrs = {'target': attr.label(mandatory = True)})");
+        """
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+
+        def custom_rule_impl(ctx):
+            metadata = ctx.actions.declare_file(ctx.label.name + '.metadata')
+            ctx.actions.write(metadata, '')
+            return [
+                coverage_common.instrumented_files_info(
+                    ctx,
+                    extensions = ['txt'],
+                    source_attributes = [
+                        'label_src',
+                        'label_list_srcs',
+                        'dict_srcs',
+        # Missing attrs are ignored (this allows common configuration for sets of rules where
+        # only some define the specified attributes, e.g. *_library/binary).
+                        'missing_src_attr',
+                    ],
+                    dependency_attributes = [
+                        'label_dep',
+                        'label_list_deps',
+                        'dict_deps',
+        # Missing attrs are ignored
+                        'missing_dep_attr',
+                    ],
+                    metadata_files = [metadata],
+                ),
+            ]
+
+        custom_rule = rule(
+            implementation = custom_rule_impl,
+            attrs = {
+                'label_src': attr.label(allow_files=True),
+                'label_list_srcs': attr.label_list(allow_files=True),
+                'dict_srcs': attr.label_keyed_string_dict(allow_files=True),
+        # Generally deps don't set allow_files=True, but want to assert that source files in
+        # dependency_attributes are ignored, since source files don't provide
+        # InstrumentedFilesInfo. (For example, files put directly into data are assumed to not be
+        # source code that gets coverage instrumented.)
+                'label_dep': attr.label(allow_files=True),
+                'label_list_deps': attr.label_list(allow_files=True),
+                'dict_deps': attr.label_keyed_string_dict(allow_files=True),
+            },
+        )
+
+        def test_rule_impl(ctx):
+          return [MyInfo(
+        # The point of this is to assert that these fields can be read in analysistest.
+        # Normally, this information wouldn't be forwarded via a different provider.
+            instrumented_files = ctx.attr.target[InstrumentedFilesInfo].instrumented_files,
+            metadata_files = ctx.attr.target[InstrumentedFilesInfo].metadata_files)]
+
+        test_rule = rule(implementation = test_rule_impl,
+          attrs = {'target': attr.label(mandatory = True)})
+        """);
 
     scratch.file(
         "test/starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'custom_rule', 'test_rule')",
-        "",
-        "cc_library(name='label_dep', srcs = [':label_dep.cc'])",
-        "cc_library(name='label_list_dep', srcs = [':label_list_dep.cc'])",
-        "cc_library(name='dict_dep', srcs = [':dict_dep.cc'])",
-        "custom_rule(",
-        "    name = 'cr',",
-        "    label_src = ':label_src.txt',",
-        //   Check that srcs with the wrong extension are ignored.
-        "    label_list_srcs = [':label_list_src.txt', ':label_list_src.ignored'],",
-        "    dict_srcs = {':dict_src.txt': ''},",
-        "    label_dep = ':label_dep',",
-        //   Check that files in dependency attributes are ignored.
-        "    label_list_deps = [':label_list_dep', ':file_in_deps_is_ignored.txt'],",
-        "    dict_deps= {':dict_dep': ''},",
-        ")",
-        "test_rule(name = 'test', target = ':cr')");
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule', 'test_rule')
+
+        cc_library(name='label_dep', srcs = [':label_dep.cc'])
+        cc_library(name='label_list_dep', srcs = [':label_list_dep.cc'])
+        cc_library(name='dict_dep', srcs = [':dict_dep.cc'])
+        custom_rule(
+            name = 'cr',
+            label_src = ':label_src.txt',
+        #   Check that srcs with the wrong extension are ignored.
+            label_list_srcs = [':label_list_src.txt', ':label_list_src.ignored'],
+            dict_srcs = {':dict_src.txt': ''},
+            label_dep = ':label_dep',
+        #   Check that files in dependency attributes are ignored.
+            label_list_deps = [':label_list_dep', ':file_in_deps_is_ignored.txt'],
+            dict_deps= {':dict_dep': ''},
+        )
+        test_rule(name = 'test', target = ':cr')
+        """);
 
     useConfiguration("--collect_code_coverage");
 
@@ -1354,19 +1358,21 @@ custom_rule = rule(
   public void testInstrumentedFilesForwardedFromDepsByDefault() throws Exception {
     scratch.file(
         "test/starlark/extension.bzl",
-        "def wrapper_impl(ctx):",
-        // This wrapper doesn't configure InstrumentedFilesInfo.
-        "    return []",
-        "",
-        "wrapper = rule(implementation = wrapper_impl,",
-        "    attrs = {",
-        "        'srcs': attr.label_list(allow_files = True),",
-        "        'wrapped': attr.label(mandatory = True),",
-        "        'wrapped_list': attr.label_list(),",
-        // Exec deps aren't forwarded by default, since they don't provide code/binaries executed
-        // at runtime.
-        "        'tool': attr.label(cfg = 'exec', executable = True, mandatory = True),",
-        "    })");
+        """
+        # This wrapper doesn't configure InstrumentedFilesInfo.
+        def wrapper_impl(ctx):
+            return []
+
+        wrapper = rule(implementation = wrapper_impl,
+            attrs = {
+                'srcs': attr.label_list(allow_files = True),
+                'wrapped': attr.label(mandatory = True),
+                'wrapped_list': attr.label_list(),
+                # Exec deps aren't forwarded by default, since they don't provide code/binaries
+                # executed at runtime.
+                'tool': attr.label(cfg = 'exec', executable = True, mandatory = True),
+            })
+        """);
 
     scratch.file(
         "test/starlark/BUILD",
@@ -2435,16 +2441,18 @@ dep_rule = rule(
   public void testOutputsObjectInDifferentRuleInaccessible() throws Exception {
     scratch.file(
         "test/rule.bzl",
-        "PInfo = provider(fields = ['outputs'])",
-        "def _impl(ctx):",
-        "   o = ctx.actions.declare_file('x.sh')",
-        "   ctx.actions.write(o, 'echo Stuff', is_executable = True)",
-        "   return [PInfo(outputs = ctx.outputs), DefaultInfo(executable = o)]",
-        "my_rule = rule(_impl, executable = True)",
-        "def _dep_impl(ctx):",
-        "   o = ctx.attr.dep[PInfo].outputs.executable", // this is line 8
-        "   pass",
-        "my_dep_rule = rule(_dep_impl, attrs = { 'dep' : attr.label() })");
+        """
+        PInfo = provider(fields = ['outputs'])
+        def _impl(ctx):
+           o = ctx.actions.declare_file('x.sh')
+           ctx.actions.write(o, 'echo Stuff', is_executable = True)
+           return [PInfo(outputs = ctx.outputs), DefaultInfo(executable = o)]
+        my_rule = rule(_impl, executable = True)
+        def _dep_impl(ctx):
+           o = ctx.attr.dep[PInfo].outputs.executable  # this is line 8
+           pass
+        my_dep_rule = rule(_dep_impl, attrs = { 'dep' : attr.label() })
+        """);
 
     scratch.file(
         "test/BUILD",
@@ -2809,19 +2817,21 @@ dep_rule = rule(
         """);
     scratch.file(
         "test/BUILD",
-        "load('//test:extension.bzl', 'my_analysis_test', 'parent')",
-        "cc_library(name = 'dep')",
-        "my_analysis_test(",
-        "  name = 'test',",
-        "  target_under_test = ':dep',",
-        ")",
-        "parent(",
-        "  name = 'parent',",
-        // Needs to be testonly to depend on a test rule.
-        "  testonly = True,",
-        "  one = ':dep',",
-        "  two = ':test',",
-        ")");
+        """
+        load('//test:extension.bzl', 'my_analysis_test', 'parent')
+        cc_library(name = 'dep')
+        my_analysis_test(
+          name = 'test',
+          target_under_test = ':dep',
+        )
+        parent(
+          name = 'parent',
+          # Needs to be testonly to depend on a test rule.
+          testonly = True,
+          one = ':dep',
+          two = ':test',
+        )
+        """);
     useConfiguration("--compilation_mode=fastbuild");
     getConfiguredTarget("//test:parent");
   }

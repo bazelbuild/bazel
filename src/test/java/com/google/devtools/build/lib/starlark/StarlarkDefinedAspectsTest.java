@@ -568,18 +568,20 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectsNonExported() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   return []",
-        "",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "",
-        "def mk_aspect():",
-        "   return aspect(implementation=_aspect_impl)",
-        "my_rule = rule(",
-        "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : attr.label_list(aspects = [mk_aspect()]) },", // line 11
-        ")");
+        """
+        def _aspect_impl(target, ctx):
+           return []
+
+        def _rule_impl(ctx):
+           pass
+
+        def mk_aspect():
+           return aspect(implementation=_aspect_impl)
+        my_rule = rule(
+           implementation=_rule_impl,
+           attrs = { 'attr' : attr.label_list(aspects = [mk_aspect()]) },  # line 11
+        )
+        """);
 
     scratch.file(
         "test/BUILD",
@@ -645,14 +647,16 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void providerNonExported() throws Exception {
     scratch.file(
         "test/rule.bzl",
-        "def mk_provider():",
-        "   return provider()",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "my_rule = rule(",
-        "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : attr.label_list(providers = [mk_provider()]) },", // line 7
-        ")");
+        """
+        def mk_provider():
+           return provider()
+        def _rule_impl(ctx):
+           pass
+        my_rule = rule(
+           implementation=_rule_impl,
+           attrs = { 'attr' : attr.label_list(providers = [mk_provider()]) },  # line 7
+        )
+        """);
 
     scratch.file(
         "test/BUILD",
@@ -1563,18 +1567,20 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParametersBadDefault() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectBadDefault = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.string(values=['a'], default='b') },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectBadDefault]) },", // line 11
-        ")");
+        """
+        def _impl(target, ctx):
+           return struct()
+        def _rule_impl(ctx):
+           return struct()
+        MyAspectBadDefault = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.string(values=['a'], default='b') },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectBadDefault]) },  # line 11
+        )
+        """);
     scratch.file(
         "test/BUILD",
         """
@@ -9195,21 +9201,23 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'r1', 'r2')",
-        "r1(",
-        "  name = 't1',",
-        // base_keys of aspect a on t3 are [c, b]
-        "  deps = [':t2', ':t3'],",
-        ")",
-        "r2(",
-        "  name = 't2',",
-        // aspects reaching t3 will be [b, c, b, a], after deduplicating aspects path, it will be
-        // [b, c, a] and as a result the base_keys of aspect a will be [b, c]
-        "  deps = [':t3'],",
-        ")",
-        "r2(",
-        "  name = 't3',",
-        ")");
+        """
+        load('//test:defs.bzl', 'r1', 'r2')
+        r1(
+          name = 't1',
+        # base_keys of aspect a on t3 are [c, b]
+          deps = [':t2', ':t3'],
+        )
+        r2(
+          name = 't2',
+          # aspects reaching t3 will be [b, c, b, a], after deduplicating aspects path, it will be
+          # [b, c, a] and as a result the base_keys of aspect a will be [b, c]
+          deps = [':t3'],
+        )
+        r2(
+          name = 't3',
+        )
+        """);
 
     update("//test:t1");
 
@@ -9301,27 +9309,29 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'r1', 'r2', 'r3')",
-        "r1(",
-        "  name = 't1',",
-        // t1 propagate aspect (a) to targets (t2 and t3)
-        "  deps = [':t2', ':t3'],",
-        ")",
-        "r2(",
-        "  name = 't2',",
-        // t2 propagates aspects (c, b) to target t4 and aspect a is propagated from the prev level
-        // aspects path on t4 is [c, b, a], this means a can see b and b can see c
-        "  deps = [':t4'],",
-        ")",
-        "r3(",
-        "  name = 't3',",
-        // t3 propagates aspects (b, c) to target t4 and aspect a is propagated from the prev level
-        // aspects path on t4 is [b, c, a], this means a can see b but b cannot see c
-        " deps = [':t4'],",
-        ")",
-        "r1(",
-        "  name = 't4',",
-        ")");
+        """
+load('//test:defs.bzl', 'r1', 'r2', 'r3')
+r1(
+  name = 't1',
+  # t1 propagate aspect (a) to targets (t2 and t3)
+  deps = [':t2', ':t3'],
+)
+r2(
+  name = 't2',
+  # t2 propagates aspects (c, b) to target t4 and aspect a is propagated from the prev level
+  # aspects path on t4 is [c, b, a], this means a can see b and b can see c
+  deps = [':t4'],
+)
+r3(
+  name = 't3',
+# t3 propagates aspects (b, c) to target t4 and aspect a is propagated from the prev level
+# aspects path on t4 is [b, c, a], this means a can see b but b cannot see c
+ deps = [':t4'],
+)
+r1(
+  name = 't4',
+)
+""");
 
     AnalysisResult analysisResult = update("//test:t1");
 

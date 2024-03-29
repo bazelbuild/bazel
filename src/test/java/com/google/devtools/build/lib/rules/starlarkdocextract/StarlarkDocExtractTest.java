@@ -636,33 +636,35 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "pkg/foo.bzl", //
         "load('//pkg:source_dep.bzl', 'f')");
     scratch.file(
-        "pkg/BUILD", //
-        "load('//:bzl_library.bzl', 'bzl_library')",
-        "load('//:util.bzl', 'generate_out_without_declaring_it_as_a_target')",
-        "genrule(",
-        "    name = 'some_rule',",
-        "    outs = ['declared_derived_dep.bzl'],",
-        "    cmd = 'touch $@'",
-        ")",
-        // //pkg:generate_source_dep_without_declaring_it_as_a_target masks the source_dep.bzl
-        // source artifact with a non-target, derived artifact having the same root-relative path.
-        "generate_out_without_declaring_it_as_a_target(",
-        "    name = 'generate_source_dep_without_declaring_it_as_a_target',",
-        "    out = 'source_dep.bzl'",
-        ")",
-        "bzl_library(",
-        "    name = 'deps_bzl',",
-        "    srcs = [",
-        "        'declared_derived_dep.bzl',",
-        "        'source_dep.bzl',",
-        "        'generate_source_dep_without_declaring_it_as_a_target',",
-        "    ],",
-        ")",
-        "starlark_doc_extract(",
-        "    name = 'extract',",
-        "    src = 'foo.bzl',",
-        "    deps = ['deps_bzl']",
-        ")");
+        "pkg/BUILD",
+        """
+        load('//:bzl_library.bzl', 'bzl_library')
+        load('//:util.bzl', 'generate_out_without_declaring_it_as_a_target')
+        genrule(
+            name = 'some_rule',
+            outs = ['declared_derived_dep.bzl'],
+            cmd = 'touch $@'
+        )
+        # //pkg:generate_source_dep_without_declaring_it_as_a_target masks the source_dep.bzl
+        # source artifact with a non-target, derived artifact having the same root-relative path.
+        generate_out_without_declaring_it_as_a_target(
+            name = 'generate_source_dep_without_declaring_it_as_a_target',
+            out = 'source_dep.bzl'
+        )
+        bzl_library(
+            name = 'deps_bzl',
+            srcs = [
+                'declared_derived_dep.bzl',
+                'source_dep.bzl',
+                'generate_source_dep_without_declaring_it_as_a_target',
+            ],
+        )
+        starlark_doc_extract(
+            name = 'extract',
+            src = 'foo.bzl',
+            deps = ['deps_bzl']
+        )
+        """);
 
     getConfiguredTarget("//pkg:extract");
     assertNoEvents();

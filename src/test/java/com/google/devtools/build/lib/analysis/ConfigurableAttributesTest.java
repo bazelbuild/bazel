@@ -569,13 +569,15 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file("bar/BUILD");
     scratch.file(
         "foo/BUILD",
-        "genrule(",
-        "    name = 'g',",
-        "    outs = ['g.out'],",
-        // With an invalid target and a real target, validate skyframe error handling.
-        // See http://b/162021059 for details.
-        "    cmd = select({'//bar:fake': '', '//conditions:a': ''})",
-        ")");
+        """
+        genrule(
+            name = 'g',
+            outs = ['g.out'],
+            # With an invalid target and a real target, validate skyframe error handling.
+            # See http://b/162021059 for details.
+            cmd = select({'//bar:fake': '', '//conditions:a': ''})
+        )
+        """);
     assertThat(getConfiguredTarget("//foo:g")).isNull();
     assertContainsEvent("bar/BUILD: no such target '//bar:fake'");
     assertContainsEvent("foo/BUILD:1:8: errors encountered resolving select() keys for //foo:g");
@@ -775,18 +777,20 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void multipleMatchesUnambiguous() throws Exception {
     scratch.file(
         "conditions/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {'define': 'a=1'})",
-        "config_setting(",
-        "    name = 'b',",
-        "    values = {'compilation_mode': 'opt'})",
-        "config_setting(",
-        "    name = 'c',",
-        "    values = {'foo': 'baz'})",
-        "config_setting(",
-        "    name = 'b_a_c',", // Named to come alphabetically after a and b but before c.
-        "    values = {'define': 'a=1', 'foo': 'baz', 'compilation_mode': 'opt'})");
+        """
+        config_setting(
+            name = 'a',
+            values = {'define': 'a=1'})
+        config_setting(
+            name = 'b',
+            values = {'compilation_mode': 'opt'})
+        config_setting(
+            name = 'c',
+            values = {'foo': 'baz'})
+        config_setting(
+            name = 'b_a_c',  # Named to come alphabetically after a and b but before c.
+            values = {'define': 'a=1', 'foo': 'baz', 'compilation_mode': 'opt'})
+        """);
     scratch.file(
         "java/a/BUILD",
         """
@@ -1860,16 +1864,18 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_config_setting_private_default_visibility=false");
     scratch.file(
         "c/BUILD",
-        "alias(",
-        "    name = 'foo_alias',",
-        "    actual = ':foo',",
-        // Current flag combo skips this and directly checks the config_setting's visibility.
-        "    visibility = ['//visibility:private']",
-        ")",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        ")");
+        """
+        alias(
+            name = 'foo_alias',
+            actual = ':foo',
+            # Current flag combo skips this and directly checks the config_setting's visibility.
+            visibility = ['//visibility:private']
+        )
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+        )
+        """);
     scratch.file(
         "a/BUILD",
         """
@@ -1895,17 +1901,19 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_config_setting_private_default_visibility=false");
     scratch.file(
         "c/BUILD",
-        "alias(",
-        "    name = 'foo_alias',",
-        "    actual = ':foo',",
-        // Current flag combo skips this and directly checks the config_setting's visibility.
-        "    visibility = ['//visibility:public']",
-        ")",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        "    visibility = ['//visibility:private']",
-        ")");
+        """
+        alias(
+            name = 'foo_alias',
+            actual = ':foo',
+            # Current flag combo skips this and directly checks the config_setting's visibility.
+            visibility = ['//visibility:public']
+        )
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+            visibility = ['//visibility:private']
+        )
+        """);
     scratch.file(
         "a/BUILD",
         """
