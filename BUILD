@@ -271,7 +271,7 @@ platform(
     constraint_values = [
         ":highcpu_machine",
     ],
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
 )
 
 platform(

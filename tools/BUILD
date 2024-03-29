@@ -91,3 +91,8 @@ sh_binary(
     name = "upload_bazel_mirror",
     srcs = ["upload_bazel_mirror.sh"],
 )
+
+alias(
+    name = "host_platform",
+    actual = "@platforms//host",
+)

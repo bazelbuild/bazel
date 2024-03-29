@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
+load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 load("@rules_java//java:defs.bzl", "java_binary", "java_import")
 
 def _bool_flag_impl(_unused_ctx):

@@ -902,7 +902,7 @@ EOF
 
   BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build  '//:ok' --toolchain_resolution_debug=@bazel_tools//tools/cpp:toolchain_type &>"$TEST_log" && \
     fail "Toolchains shouldn't be found"
-  expect_log "ToolchainResolution: No @@bazel_tools//tools/cpp:toolchain_type toolchain found for target platform @@local_config_platform//:host."
+  expect_log "ToolchainResolution: No @@bazel_tools//tools/cpp:toolchain_type toolchain found for target platform @@platforms//host:host."
 }
 
 function setup_workspace_layout_with_external_directory() {

@@ -1961,9 +1961,7 @@ my_transition = transition(
                 .getOptions()
                 .get(PlatformOptions.class)
                 .platforms)
-        .containsExactly(
-            Label.parseCanonicalUnchecked(
-                TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host"));
+        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL_ALIAS));
   }
 
   @Test

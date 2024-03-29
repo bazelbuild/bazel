@@ -10,3 +10,9 @@ maybe(
     local_config_platform,
     "local_config_platform",
 )
+
+load("@platforms//host:extension.bzl", "host_platform_repo")
+maybe(
+    host_platform_repo,
+    "host_platform",
+)

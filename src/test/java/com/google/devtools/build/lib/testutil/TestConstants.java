@@ -146,8 +146,8 @@ public class TestConstants {
    */
   public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
       ImmutableList.of(
-          "--platforms=@local_config_platform//:host",
-          "--host_platform=@local_config_platform//:host",
+          "--platforms=@bazel_tools//tools:host_platform",
+          "--host_platform=@bazel_tools//tools:host_platform",
           // TODO(#7849): Remove after flag flip.
           "--incompatible_use_toolchain_resolution_for_java_rules");
 
@@ -159,15 +159,13 @@ public class TestConstants {
   public static final String APPLE_PLATFORM_PATH = "build_bazel_apple_support/platforms";
   public static final String APPLE_PLATFORM_PACKAGE_ROOT = "@build_bazel_apple_support//platforms";
   public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";
-  public static final String LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT =
-      "@local_config_platform//";
 
   public static final String PLATFORMS_PATH = "embedded_tools/platforms";
   public static final String CONSTRAINTS_PATH = "platforms_workspace";
-  public static final String LOCAL_CONFIG_PLATFORM_PATH = "local_config_platform_workspace";
 
-  public static final String PLATFORM_LABEL =
-      LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host";
+  public static final String PLATFORM_LABEL = "@platforms//host";
+  public static final String PLATFORM_LABEL_ALIAS = "@bazel_tools//tools:host_platform";
+  public static final String PIII_PLATFORM_LABEL = "@platforms//host:piii";
 
   public static final Label ANDROID_DEFAULT_SDK =
      Label.parseCanonicalUnchecked("@bazel_tools//tools/android:sdk");
