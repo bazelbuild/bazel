@@ -74,7 +74,8 @@ public class RepositoryCacheTest {
   /** Test that the put method correctly stores the downloaded file into the cache. */
   @Test
   public void testPutCacheValue() throws Exception {
-    repositoryCache.put(downloadedFileSha256, downloadedFile, KeyType.SHA256);
+    repositoryCache.put(
+        downloadedFileSha256, downloadedFile, KeyType.SHA256, /* canonicalId= */ null);
 
     Path cacheEntry = KeyType.SHA256.getCachePath(contentAddressableCachePath).getChild(downloadedFileSha256);
     Path cacheValue = cacheEntry.getChild(RepositoryCache.DEFAULT_CACHE_FILENAME);
@@ -88,7 +89,7 @@ public class RepositoryCacheTest {
    */
   @Test
   public void testPutCacheValueWithoutHash() throws Exception {
-    String cacheKey = repositoryCache.put(downloadedFile, KeyType.SHA256);
+    String cacheKey = repositoryCache.put(downloadedFile, KeyType.SHA256, /* canonicalId= */ null);
     assertThat(cacheKey).isEqualTo(downloadedFileSha256);
 
     Path cacheEntry =
@@ -105,8 +106,10 @@ public class RepositoryCacheTest {
    */
   @Test
   public void testPutCacheValueIdempotent() throws Exception {
-    repositoryCache.put(downloadedFileSha256, downloadedFile, KeyType.SHA256);
-    repositoryCache.put(downloadedFileSha256, downloadedFile, KeyType.SHA256);
+    repositoryCache.put(
+        downloadedFileSha256, downloadedFile, KeyType.SHA256, /* canonicalId= */ null);
+    repositoryCache.put(
+        downloadedFileSha256, downloadedFile, KeyType.SHA256, /* canonicalId= */ null);
 
     Path cacheEntry = KeyType.SHA256.getCachePath(contentAddressableCachePath).getChild(downloadedFileSha256);
     Path cacheValue = cacheEntry.getChild(RepositoryCache.DEFAULT_CACHE_FILENAME);
@@ -119,11 +122,14 @@ public class RepositoryCacheTest {
   @Test
   public void testGetCacheValue() throws Exception {
     // Inject file into cache
-    repositoryCache.put(downloadedFileSha256, downloadedFile, KeyType.SHA256);
+    repositoryCache.put(
+        downloadedFileSha256, downloadedFile, KeyType.SHA256, /* canonicalId= */ null);
 
     Path targetDirectory = scratch.dir("/external");
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
-    Path actualTargetPath = repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256);
+    Path actualTargetPath =
+        repositoryCache.get(
+            downloadedFileSha256, targetPath, KeyType.SHA256, /* canonicalId= */ null);
 
     // Check that the contents are the same.
     assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
@@ -138,7 +144,9 @@ public class RepositoryCacheTest {
   public void testGetNullCacheValue() throws Exception {
     Path targetDirectory = scratch.dir("/external");
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
-    Path actualTargetPath = repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256);
+    Path actualTargetPath =
+        repositoryCache.get(
+            downloadedFileSha256, targetPath, KeyType.SHA256, /* canonicalId= */ null);
 
     assertThat(actualTargetPath).isNull();
   }
@@ -148,7 +156,7 @@ public class RepositoryCacheTest {
     String invalidSha = "foo";
     thrown.expect(IOException.class);
     thrown.expectMessage("Invalid key \"foo\" of type SHA-256");
-    repositoryCache.put(invalidSha, downloadedFile, KeyType.SHA256);
+    repositoryCache.put(invalidSha, downloadedFile, KeyType.SHA256, /* canonicalId= */ null);
   }
 
   @Test
@@ -165,7 +173,7 @@ public class RepositoryCacheTest {
     thrown.expectMessage("does not match expected");
     thrown.expectMessage("Please delete the directory");
 
-    repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256);
+    repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256, /* canonicalId= */ null);
   }
 
   @Test
@@ -215,7 +223,9 @@ public class RepositoryCacheTest {
         repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256, "barid");
     assertThat(lookupOtherId).isNull();
 
-    Path lookupNoId = repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256);
+    Path lookupNoId =
+        repositoryCache.get(
+            downloadedFileSha256, targetPath, KeyType.SHA256, /* canonicalId= */ null);
     assertThat(lookupNoId).isEqualTo(targetPath);
   }
 }
