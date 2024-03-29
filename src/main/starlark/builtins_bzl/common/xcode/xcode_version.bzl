@@ -14,8 +14,10 @@
 
 """Rule definition for the xcode_version rule."""
 
+load(":common/objc/apple_common.bzl", "apple_common")
+
 def _xcode_version_impl(ctx):
-    xcode_version_properties = _builtins.internal.XcodeProperties(
+    xcode_version_properties = apple_common.XcodeProperties(
         version = ctx.attr.version,
         default_ios_sdk_version = ctx.attr.default_ios_sdk_version,
         default_visionos_sdk_version = ctx.attr.default_visionos_sdk_version,

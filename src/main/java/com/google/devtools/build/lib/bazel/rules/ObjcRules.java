@@ -27,11 +27,10 @@ import com.google.devtools.build.lib.rules.apple.XcodeVersionRuleData;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleToolchain;
-import com.google.devtools.build.lib.rules.objc.BazelXcodeConfig;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.XcodeConfigAlias.XcodeConfigAliasRule;
-import com.google.devtools.build.lib.rules.objc.XcodeConfigRule;
+import com.google.devtools.build.lib.rules.objc.XcodeConfigInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleBootstrap;
 
 /** Rules for Objective-C support in Bazel. */
@@ -55,12 +54,13 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
     builder.addRuleDefinition(new EmptyRule("objc_import") {});
     builder.addRuleDefinition(new EmptyRule("objc_library") {});
-    builder.addRuleDefinition(new XcodeConfigRule(BazelXcodeConfig.class));
     builder.addRuleDefinition(new XcodeConfigAliasRule());
     builder.addRuleDefinition(new EmptyRule("available_xcodes") {});
+    builder.addRuleDefinition(new EmptyRule("xcode_config") {});
     builder.addRuleDefinition(new EmptyRule("xcode_version") {});
 
     builder.addStarlarkBuiltinsInternal("AvailableXcodesInfo", AvailableXcodesInfo.PROVIDER);
+    builder.addStarlarkBuiltinsInternal("XcodeConfigInfo", XcodeConfigInfo.PROVIDER);
     builder.addStarlarkBuiltinsInternal("XcodeProperties", XcodeVersionProperties.PROVIDER);
     builder.addStarlarkBuiltinsInternal("XcodeVersionRuleData", XcodeVersionRuleData.PROVIDER);
 

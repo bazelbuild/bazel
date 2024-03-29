@@ -132,7 +132,7 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(
-              attr(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)
+              attr(XcodeConfigInfo.XCODE_CONFIG_ATTR_NAME, LABEL)
                   .allowedRuleClasses("xcode_config")
                   .checkConstraints()
                   .value(getXcodeConfigLabel(toolsRepository)))

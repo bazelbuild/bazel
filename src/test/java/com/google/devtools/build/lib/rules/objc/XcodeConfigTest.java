@@ -19,10 +19,8 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.XcodeConfigEvent;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
@@ -34,12 +32,8 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeConfigRuleInfo;
-import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeConfigRuleInfo.Availability;
-import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeVersionInfo;
 import java.util.List;
 import java.util.Map;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -47,22 +41,6 @@ import org.junit.runners.JUnit4;
 /** Unit tests for the {@code xcode_config} rule. */
 @RunWith(JUnit4.class)
 public class XcodeConfigTest extends BuildViewTestCase {
-  private static class EventRecorder {
-    public XcodeConfigEvent xcodeConfigEvent;
-
-    @Subscribe
-    public synchronized void setXcodeConfigInfo(XcodeConfigEvent xcodeConfigEvent) {
-      // We only care about the top level xcode_config, so drop earlier events.
-      this.xcodeConfigEvent = xcodeConfigEvent;
-    }
-  }
-
-  private final EventRecorder eventRecorder = new EventRecorder();
-
-  @Before
-  public void setUp() {
-    eventBus.register(eventRecorder);
-  }
 
   @Test
   public void testEmptyConfig_noVersionFlag() throws Exception {
@@ -393,9 +371,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
-
-    assertContainsEvent("You passed --experimental_prefer_mutual_xcode=false");
-    assertContainsEvent("consider using --experimental_prefer_mutual_xcode=true");
   }
 
   @Test
@@ -475,7 +450,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
             + " macosMinimumOsVersion='1.8',"
             + " visionosSdkVersion='1.9',"
             + " visionosMinimumOsVersion='1.10',"
-            + " xcodeVersion='1.11'))]",
+            + " xcodeVersion='1.11',"
+            + " availability = 'UNKNOWN',"
+            + " xcodeVersionFlag='0.0',"
+            + " includeXcodeExecutionInfo = False))]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
     scratch.file(
         "foo/BUILD",
@@ -505,8 +483,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
                 DottedVersion.fromStringUnchecked("1.10"),
                 DottedVersion.fromStringUnchecked("1.11"),
                 XcodeConfigInfo.Availability.UNKNOWN,
-                /* xcodeVersionFlagValue= */ "",
-                /* includeXcodeReqs= */ false));
+                /* xcodeVersionFlag= */ "",
+                /* includeXcodeExecutionInfo= */ false));
   }
 
   @Test
@@ -527,7 +505,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
             + " macosMinimumOsVersion='1.8',"
             + " visionosSdkVersion='1.9',"
             + " visionosMinimumOsVersion='1.10',"
-            + " xcodeVersion='1.11'))]",
+            + " xcodeVersion='1.11',"
+            + " availability = 'UNKNOWN',"
+            + " xcodeVersionFlag='0.0',"
+            + " includeXcodeExecutionInfo = False))]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
     scratch.file(
         "foo/BUILD",
@@ -560,7 +541,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
             + " macosMinimumOsVersion='1.8',"
             + " visionosSdkVersion='1.9',"
             + " visionosMinimumOsVersion='1.10',"
-            + " xcodeVersion='1.11')",
+            + " xcodeVersion='1.11',"
+            + " availability = 'UNKNOWN',"
+            + " xcodeVersionFlag='0.0',"
+            + " includeXcodeExecutionInfo = False)",
         "  return [result(xcode_version=xcode_version.xcode_version(),"
             + "min_os=xcode_version.minimum_os_for_platform_type(ctx.fragments.apple.single_arch_platform.platform_type)),]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() },  fragments = ['apple'])");
@@ -826,7 +810,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
         "--xcode_version=6 specified, but '6' is not an available Xcode version. "
-            + "available versions: [5.1.2, 8.4]. If you believe you have '6' installed");
+            + "If you believe you have '6' installed");
   }
 
   @Test
@@ -863,7 +847,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
-        "'5' is registered to multiple labels (//xcode:version512, //xcode:version5)");
+        "'5' is registered to multiple labels (@@//xcode:version512, @@//xcode:version5)");
   }
 
   @Test
@@ -877,7 +861,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
-        "'5' is registered to multiple labels (//xcode:version512, //xcode:version5)");
+        "'5' is registered to multiple labels (@@//xcode:version512, @@//xcode:version5)");
   }
 
   @Test
@@ -906,7 +890,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
-        "'5.1.2' is registered to multiple labels (//xcode:version512, //xcode:version5)");
+        "'5.1.2' is registered to multiple labels (@@//xcode:version512, @@//xcode:version5)");
   }
 
   @Test
@@ -919,7 +903,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
-        "'5.1.2' is registered to multiple labels (//xcode:version512, //xcode:version5)");
+        "'5.1.2' is registered to multiple labels (@@//xcode:version512, @@//xcode:version5)");
   }
 
   @Test
@@ -1402,7 +1386,7 @@ r = rule(
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
-        "default label '//xcode:version512' must be contained in versions attribute");
+        "default label '@@//xcode:version512' must be contained in versions attribute");
   }
 
   @Test
@@ -1583,21 +1567,7 @@ provider_grabber = rule(
         .addExplicitVersion("version64", "6.4", false, "6.0", "foo", "6")
         .write(scratch, "xcode/BUILD");
     getConfiguredTarget("//xcode:foo");
-    XcodeConfigRuleInfo expected =
-        XcodeConfigRuleInfo.newBuilder()
-            .setSelectedVersion("5.1.2")
-            .setDefaultVersion("5.1.2")
-            .setSelectedVersionAvailability(Availability.UNKNOWN)
-            .addExplicitVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("5.1.2")
-                    .addAllAliases(ImmutableList.of("5", "5.1")))
-            .addExplicitVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("6.4")
-                    .addAllAliases(ImmutableList.of("6.0", "foo", "6")))
-            .build();
-    assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+    assertXcodeVersion("5.1.2");
   }
 
   @Test
@@ -1608,22 +1578,7 @@ provider_grabber = rule(
         .write(scratch, "xcode/BUILD");
     useConfiguration("--xcode_version=6.4");
     getConfiguredTarget("//xcode:foo");
-    XcodeConfigRuleInfo expected =
-        XcodeConfigRuleInfo.newBuilder()
-            .setSelectedVersion("6.4")
-            .setDefaultVersion("5.1.2")
-            .setSelectedVersionAvailability(Availability.UNKNOWN)
-            .addExplicitVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("5.1.2")
-                    .addAllAliases(ImmutableList.of("5", "5.1")))
-            .addExplicitVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("6.4")
-                    .addAllAliases(ImmutableList.of("6.0", "foo", "6")))
-            .setXcodeVersionFlag("6.4")
-            .build();
-    assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+    assertXcodeVersion("6.4");
   }
 
   @Test
@@ -1636,20 +1591,7 @@ provider_grabber = rule(
 
     useConfiguration("--xcode_version_config=//xcode:foo");
     getConfiguredTarget("//xcode:foo");
-    XcodeConfigRuleInfo expected =
-        XcodeConfigRuleInfo.newBuilder()
-            .setSelectedVersion("8.4")
-            .setDefaultVersion("8.4")
-            .setSelectedVersionAvailability(Availability.BOTH)
-            .addRemoteVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("5.1.2")
-                    .addAllAliases(ImmutableList.of("5", "5.1")))
-            .addRemoteVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .addLocalVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .addMutualVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .build();
-    assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+    assertXcodeVersion("8.4");
   }
 
   @Test
@@ -1686,21 +1628,7 @@ provider_grabber = rule(
         .write(scratch, "xcode/BUILD");
     useConfiguration("--xcode_version=5.1.2");
     getConfiguredTarget("//xcode:foo");
-    XcodeConfigRuleInfo expected =
-        XcodeConfigRuleInfo.newBuilder()
-            .setSelectedVersion("5.1.2")
-            .setDefaultVersion("8.4")
-            .setSelectedVersionAvailability(Availability.REMOTE)
-            .addRemoteVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("5.1.2")
-                    .addAllAliases(ImmutableList.of("5", "5.1")))
-            .addRemoteVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .addLocalVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .addMutualVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .setXcodeVersionFlag("5.1.2")
-            .build();
-    assertThat(this.eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+    assertXcodeVersion("5.1.2");
   }
 
   @Test

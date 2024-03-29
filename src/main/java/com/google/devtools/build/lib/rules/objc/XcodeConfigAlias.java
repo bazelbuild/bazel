@@ -39,7 +39,7 @@ public final class XcodeConfigAlias implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ConfiguredTarget actual =
-        (ConfiguredTarget) ruleContext.getPrerequisite(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME);
+        (ConfiguredTarget) ruleContext.getPrerequisite(XcodeConfigInfo.XCODE_CONFIG_ATTR_NAME);
     return AliasConfiguredTarget.create(ruleContext, actual, ruleContext.getVisibility());
   }
 

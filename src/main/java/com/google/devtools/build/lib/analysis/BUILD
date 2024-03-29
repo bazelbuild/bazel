@@ -146,7 +146,6 @@ java_library(
         ":visibility_provider",
         ":visibility_provider_impl",
         ":workspace_status_action",
-        ":xcode_config_event",
     ],
 )
 
@@ -1297,15 +1296,6 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "xcode_config_event",
-    srcs = ["XcodeConfigEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/protobuf:xcode_java_proto",
     ],
 )
 

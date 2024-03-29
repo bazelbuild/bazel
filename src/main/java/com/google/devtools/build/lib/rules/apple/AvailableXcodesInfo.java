@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -47,11 +48,19 @@ public class AvailableXcodesInfo extends NativeInfo {
   }
 
   /** Returns the available xcode versions from {@code available_xcodes}. */
+  @StarlarkMethod(
+      name = "available_versions",
+      structField = true,
+      doc = "Returns the available Xcode versions from available_xcodes.")
   public Iterable<XcodeVersionRuleData> getAvailableVersions() {
     return availableXcodes;
   }
 
   /** Returns the default xcode version from {@code available_xcodes}. */
+  @StarlarkMethod(
+      name = "default_version",
+      structField = true,
+      doc = "Returns the default Xcode version from available_xcodes.")
   public XcodeVersionRuleData getDefaultVersion() {
     return defaultVersion;
   }

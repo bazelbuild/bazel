@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -58,30 +59,26 @@ public class XcodeVersionRuleData extends NativeInfo {
     return PROVIDER;
   }
 
-  /**
-   * Returns the label of the owning target of this provider.
-   */
+  /** Returns the label of the owning target of this provider. */
+  @StarlarkMethod(name = "label", structField = true, documented = false)
   public Label getLabel() {
     return label;
   }
 
-  /**
-   * Returns the official xcode version the owning {@code xcode_version} target is referencing.
-   */
+  /** Returns the official xcode version the owning {@code xcode_version} target is referencing. */
+  @StarlarkMethod(name = "version", structField = true, documented = false)
   public DottedVersion getVersion() {
     return xcodeVersionProperties.getXcodeVersion().get();
   }
 
-  /**
-   * Returns the properties of the {@code xcode_version} target's referenced xcode version.
-   */
+  /** Returns the properties of the {@code xcode_version} target's referenced xcode version. */
+  @StarlarkMethod(name = "xcode_version_properties", structField = true, documented = false)
   public XcodeVersionProperties getXcodeVersionProperties() {
     return xcodeVersionProperties;
   }
 
-  /**
-   * Returns the accepted string aliases for this xcode version.
-   */
+  /** Returns the accepted string aliases for this xcode version. */
+  @StarlarkMethod(name = "aliases", structField = true, documented = false)
   public List<String> getAliases() {
     return aliases;
   }

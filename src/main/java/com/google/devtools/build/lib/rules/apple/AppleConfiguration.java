@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationAp
 import com.google.devtools.build.lib.util.CPU;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration containing flags required for Apple platforms and tools. */
@@ -79,6 +81,17 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
+  private final String xcodeVersionFlag;
+  private final DottedVersion iosSdkVersionFlag;
+  private final DottedVersion macOsSdkVersionFlag;
+  private final DottedVersion tvOsSdkVersionFlag;
+  private final DottedVersion watchOsSdkVersionFlag;
+  private final DottedVersion iosMinimumOsFlag;
+  private final DottedVersion macosMinimumOsFlag;
+  private final DottedVersion tvosMinimumOsFlag;
+  private final DottedVersion watchosMinimumOsFlag;
+  private final boolean preferMutualXcode;
+  private final boolean includeXcodeExecRequirements;
 
   public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
@@ -89,6 +102,19 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
+    // AppleConfiguration should not have this knowledge. This is a temporary workaround
+    // for Starlarkification, until apple rules are toolchainized.
+    this.xcodeVersionFlag = options.xcodeVersion;
+    this.iosSdkVersionFlag = DottedVersion.maybeUnwrap(options.iosSdkVersion);
+    this.macOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.macOsSdkVersion);
+    this.tvOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.tvOsSdkVersion);
+    this.watchOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.watchOsSdkVersion);
+    this.iosMinimumOsFlag = DottedVersion.maybeUnwrap(options.iosMinimumOs);
+    this.macosMinimumOsFlag = DottedVersion.maybeUnwrap(options.macosMinimumOs);
+    this.tvosMinimumOsFlag = DottedVersion.maybeUnwrap(options.tvosMinimumOs);
+    this.watchosMinimumOsFlag = DottedVersion.maybeUnwrap(options.watchosMinimumOs);
+    this.preferMutualXcode = options.preferMutualXcode;
+    this.includeXcodeExecRequirements = options.includeXcodeExecutionRequirements;
   }
 
   /** A class that contains information pertaining to Apple CPUs. */
@@ -371,6 +397,62 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
       default:
         throw new IllegalArgumentException("Unsupported platform type " + platformType);
     }
+  }
+
+  @Nullable
+  @Override
+  public String getXcodeVersionFlag() throws EvalException {
+    return xcodeVersionFlag;
+  }
+
+  @Override
+  public DottedVersion iosSdkVersionFlag() throws EvalException {
+    return iosSdkVersionFlag;
+  }
+
+  @Override
+  public DottedVersion macOsSdkVersionFlag() throws EvalException {
+    return macOsSdkVersionFlag;
+  }
+
+  @Override
+  public DottedVersion tvOsSdkVersionFlag() throws EvalException {
+    return tvOsSdkVersionFlag;
+  }
+
+  @Override
+  public DottedVersion watchOsSdkVersionFlag() throws EvalException {
+    return watchOsSdkVersionFlag;
+  }
+
+  @Override
+  public DottedVersion iosMinimumOsFlag() throws EvalException {
+    return iosMinimumOsFlag;
+  }
+
+  @Override
+  public DottedVersion macOsMinimumOsFlag() throws EvalException {
+    return macosMinimumOsFlag;
+  }
+
+  @Override
+  public DottedVersion tvOsMinimumOsFlag() throws EvalException {
+    return tvosMinimumOsFlag;
+  }
+
+  @Override
+  public DottedVersion watchOsMinimumOsFlag() throws EvalException {
+    return watchosMinimumOsFlag;
+  }
+
+  @Override
+  public boolean shouldPreferMutualXcode() throws EvalException {
+    return preferMutualXcode;
+  }
+
+  @Override
+  public boolean includeXcodeExecRequirementsFlag() throws EvalException {
+    return includeXcodeExecRequirements;
   }
 
   /**

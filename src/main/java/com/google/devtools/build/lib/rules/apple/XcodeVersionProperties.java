@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodePropertiesApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A tuple containing information about a version of xcode and its properties. */
@@ -56,7 +58,11 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   // user, evaluated on the local system, or set to a sensible default.
   // Unfortunately, until the local system evaluation hook is created, this constraint would break
   // some users.
-  public static XcodeVersionProperties unknownXcodeVersionProperties() {
+  @StarlarkMethod(
+      name = "unknownXcodeVersionProperties",
+      documented = false,
+      useStarlarkThread = true)
+  public XcodeVersionProperties unknownXcodeVersionProperties(StarlarkThread thread) {
     return new XcodeVersionProperties(null);
   }
 
@@ -64,7 +70,7 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
    * Constructor for when only the xcode version is specified, but no property information is
    * specified.
    */
-  XcodeVersionProperties(DottedVersion xcodeVersion) {
+  public XcodeVersionProperties(Object xcodeVersion) {
     this(xcodeVersion, null, null, null, null, null);
   }
 
@@ -73,13 +79,16 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
    * semi-sensible default will be assigned to the property value.
    */
   XcodeVersionProperties(
-      DottedVersion xcodeVersion,
+      @Nullable Object xcodeVersion,
       @Nullable String defaultIosSdkVersion,
       @Nullable String defaultVisionosSdkVersion,
       @Nullable String defaultWatchosSdkVersion,
       @Nullable String defaultTvosSdkVersion,
       @Nullable String defaultMacosSdkVersion) {
-    this.xcodeVersion = Optional.fromNullable(xcodeVersion);
+    this.xcodeVersion =
+        Starlark.isNullOrNone(xcodeVersion)
+            ? Optional.absent()
+            : Optional.of((DottedVersion) xcodeVersion);
     this.defaultIosSdkVersion =
         Strings.isNullOrEmpty(defaultIosSdkVersion)
             ? DottedVersion.fromStringUnchecked(DEFAULT_IOS_SDK_VERSION)
@@ -219,21 +228,33 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
 
     @Override
     public XcodePropertiesApi createInfo(
-        String starlarkVersion,
-        String starlarkDefaultIosSdkVersion,
-        String starlarkDefaultVisionosSdkVersion,
-        String starlarkDefaultWatchosSdkVersion,
-        String starlarkDefaultTvosSdkVersion,
-        String starlarkDefaultMacosSdkVersion,
+        Object starlarkVersion,
+        Object starlarkDefaultIosSdkVersion,
+        Object starlarkDefaultVisionosSdkVersion,
+        Object starlarkDefaultWatchosSdkVersion,
+        Object starlarkDefaultTvosSdkVersion,
+        Object starlarkDefaultMacosSdkVersion,
         StarlarkThread thread)
         throws EvalException {
       return new XcodeVersionProperties(
-          DottedVersion.fromStringUnchecked(starlarkVersion),
-          starlarkDefaultIosSdkVersion,
-          starlarkDefaultVisionosSdkVersion,
-          starlarkDefaultWatchosSdkVersion,
-          starlarkDefaultTvosSdkVersion,
-          starlarkDefaultMacosSdkVersion);
+          Starlark.isNullOrNone(starlarkVersion)
+              ? null
+              : DottedVersion.fromStringUnchecked((String) starlarkVersion),
+          Starlark.isNullOrNone(starlarkDefaultIosSdkVersion)
+              ? null
+              : (String) starlarkDefaultIosSdkVersion,
+          Starlark.isNullOrNone(starlarkDefaultVisionosSdkVersion)
+              ? null
+              : (String) starlarkDefaultVisionosSdkVersion,
+          Starlark.isNullOrNone(starlarkDefaultWatchosSdkVersion)
+              ? null
+              : (String) starlarkDefaultWatchosSdkVersion,
+          Starlark.isNullOrNone(starlarkDefaultTvosSdkVersion)
+              ? null
+              : (String) starlarkDefaultTvosSdkVersion,
+          Starlark.isNullOrNone(starlarkDefaultMacosSdkVersion)
+              ? null
+              : (String) starlarkDefaultMacosSdkVersion);
     }
   }
 }

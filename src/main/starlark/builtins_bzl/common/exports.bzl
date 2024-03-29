@@ -35,6 +35,7 @@ load("@_builtins//:common/proto/proto_lang_toolchain.bzl", "proto_lang_toolchain
 load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
 load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
 load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
+load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
 load("@_builtins//:common/xcode/xcode_version.bzl", "xcode_version")
 load(":common/cc/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
 load(":common/cc/fdo_profile.bzl", "fdo_profile")
@@ -97,6 +98,7 @@ exported_rules = {
     "propeller_optimize": propeller_optimize,
     "xcode_version": xcode_version,
     "available_xcodes": available_xcodes,
+    "xcode_config": xcode_config,
 }
 
 # A list of Starlark functions callable from native rules implementation.
