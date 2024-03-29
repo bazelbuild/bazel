@@ -24,19 +24,15 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
-import com.google.devtools.build.lib.util.CPU;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /** Create a local repository that describes the auto-detected host platform. */
 public class LocalConfigPlatformFunction extends RepositoryFunction {
@@ -60,18 +56,13 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException {
-
-    CPU hostCpu = CPU.getCurrent();
-    OS hostOs = OS.getCurrent();
-
     String name = rule.getName();
     try {
       outputDirectory.createDirectoryAndParents();
       RepositoryFunction.writeFile(outputDirectory, "WORKSPACE", workspaceFileContent(name));
       RepositoryFunction.writeFile(outputDirectory, "MODULE.bazel", moduleFileContent(name));
-      RepositoryFunction.writeFile(outputDirectory, "BUILD.bazel", buildFileContent(name));
-      RepositoryFunction.writeFile(
-          outputDirectory, "constraints.bzl", constraintFileContent(hostCpu, hostOs));
+      RepositoryFunction.writeFile(outputDirectory, "BUILD.bazel", buildFileContent());
+      RepositoryFunction.writeFile(outputDirectory, "constraints.bzl", constraintFileContent());
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException("Could not create content for " + name + ": " + e.getMessage()),
@@ -104,50 +95,6 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 
-  @Nullable
-  static String cpuToConstraint(CPU cpu) {
-    switch (cpu) {
-      case X86_32:
-        return "@platforms//cpu:x86_32";
-      case X86_64:
-        return "@platforms//cpu:x86_64";
-      case PPC:
-        return "@platforms//cpu:ppc";
-      case ARM:
-        return "@platforms//cpu:arm";
-      case AARCH64:
-        return "@platforms//cpu:aarch64";
-      case S390X:
-        return "@platforms//cpu:s390x";
-      case MIPS64:
-        return "@platforms//cpu:mips64";
-      case RISCV64:
-        return "@platforms//cpu:riscv64";
-      default:
-        // Unknown, so skip it.
-        return null;
-    }
-  }
-
-  @Nullable
-  static String osToConstraint(OS os) {
-    switch (os) {
-      case DARWIN:
-        return "@platforms//os:osx";
-      case FREEBSD:
-        return "@platforms//os:freebsd";
-      case OPENBSD:
-        return "@platforms//os:openbsd";
-      case LINUX:
-        return "@platforms//os:linux";
-      case WINDOWS:
-        return "@platforms//os:windows";
-      default:
-        // Unknown, so skip it.
-        return null;
-    }
-  }
-
   private static String workspaceFileContent(String repositoryName) {
     return format(
         ImmutableList.of(
@@ -167,41 +114,24 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
         repositoryName);
   }
 
-  private static String buildFileContent(String repositoryName) {
+  private static String buildFileContent() {
     return format(
         ImmutableList.of(
             "# DO NOT EDIT: automatically generated BUILD file for local_config_platform",
             "package(default_visibility = ['//visibility:public'])",
-            "load(':constraints.bzl', 'HOST_CONSTRAINTS')",
-            "platform(name = 'host',",
-            "  # Auto-detected host platform constraints.",
-            "  constraint_values = HOST_CONSTRAINTS,",
-            ")",
+            "alias(name = 'host', actual = '@platforms//host')",
             "exports_files([",
             "  # Export constraints.bzl for use in downstream bzl_library targets.",
             "  'constraints.bzl',",
-            "])"),
-        repositoryName);
+            "])"));
   }
 
-  private static String constraintFileContent(CPU hostCpu, OS hostOs) {
-    List<String> contents = new ArrayList<>();
-    contents.add(
-        "# DO NOT EDIT: automatically generated constraints list for local_config_platform");
-    contents.add("# Auto-detected host platform constraints.");
-    contents.add("HOST_CONSTRAINTS = [");
-
-    String cpuConstraint = cpuToConstraint(hostCpu);
-    if (cpuConstraint != null) {
-      contents.add("  '" + cpuConstraint + "',");
-    }
-    String osConstraint = osToConstraint(hostOs);
-    if (osConstraint != null) {
-      contents.add("  '" + osConstraint + "',");
-    }
-    contents.add("]");
-
-    return format(contents);
+  private static String constraintFileContent() {
+    return format(
+        ImmutableList.of(
+            "# DO NOT EDIT: automatically generated constraints list for local_config_platform",
+            "load('@platforms//host:constraints.bzl', _HOST_CONSTRAINTS='HOST_CONSTRAINTS')",
+            "HOST_CONSTRAINTS = _HOST_CONSTRAINTS"));
   }
 
   private static String format(List<String> lines, Object... params) {

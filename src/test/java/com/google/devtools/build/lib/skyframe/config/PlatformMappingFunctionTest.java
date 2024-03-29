@@ -51,7 +51,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
 
   private static final Label DEFAULT_TARGET_PLATFORM =
-      Label.parseCanonicalUnchecked("@local_config_platform//:host");
+      Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform");
 
   private BuildOptions defaultBuildOptions;
 

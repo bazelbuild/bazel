@@ -2330,9 +2330,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     // When --platforms is empty and no platform mapping triggers, PlatformMappingValue sets
     // --platforms to PlatformOptions.computeTargetPlatform(), which defaults to the host.
     assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
-        .containsExactly(
-            Label.parseCanonicalUnchecked(
-                TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host"));
+        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL_ALIAS));
   }
 
   @Test
@@ -2382,7 +2380,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "platforms/BUILD",
         "platform(name = 'my_platform',",
-        "    parents = ['" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host'],",
+        "    parents = ['" + TestConstants.PLATFORM_LABEL + "'],",
         "    constraint_values = [],",
         ")");
     scratch.file(
@@ -2426,7 +2424,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "platforms/BUILD",
         "platform(name = 'my_platform',",
-        "    parents = ['" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host'],",
+        "    parents = ['" + TestConstants.PLATFORM_LABEL + "'],",
         "    constraint_values = [],",
         ")");
     scratch.file(

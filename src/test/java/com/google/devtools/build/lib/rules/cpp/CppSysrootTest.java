@@ -151,26 +151,23 @@ public final class CppSysrootTest extends BuildViewTestCase {
   @Test
   public void testSysrootWithExecConfig() throws Exception {
     // The exec BuildConfigurationValue shouldn't provide a sysroot option by default.
-    for (String platform : new String[] {"piii", "host"}) {
-      useConfiguration(
-          "--platforms=" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":" + platform);
+    for (String platform :
+        new String[] {TestConstants.PLATFORM_LABEL, TestConstants.PIII_PLATFORM_LABEL}) {
+      useConfiguration("--platforms=" + platform);
       BuildConfigurationValue config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }
     // The exec BuildConfigurationValue should work with label grte_top options.
     scratch.file("a/grte/top/BUILD", "filegroup(name='everything')");
-    for (String platform : new String[] {"piii", "host"}) {
-      useConfiguration(
-          "--platforms=" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":" + platform,
-          "--host_grte_top=//a/grte/top");
+    for (String platform :
+        new String[] {TestConstants.PLATFORM_LABEL, TestConstants.PIII_PLATFORM_LABEL}) {
+      useConfiguration("--platforms=" + platform, "--host_grte_top=//a/grte/top");
       BuildConfigurationValue config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "a/grte/top", true);
 
       // "--grte_top" does *not* set the exec grte_top,
       // so we don't get "a/grte/top" here, but instead the default "/usr/grte/v1"
-      useConfiguration(
-          "--platforms=" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":" + platform,
-          "--grte_top=//a/grte/top");
+      useConfiguration("--platforms=" + platform, "--grte_top=//a/grte/top");
       config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }
