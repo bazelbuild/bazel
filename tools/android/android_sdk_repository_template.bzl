@@ -125,7 +125,7 @@ def create_android_sdk_rules(
         ] + [
             "platforms/android-%d/%s" % (api_level, filename)
             for api_level in api_levels
-            for filename in ["android.jar", "framework.aidl"]
+            for filename in ["android.jar", "framework.aidl", "data/api-versions.xml"]
         ] + select({
             ":windows": windows_only_files,
             "//conditions:default": linux_only_files,
