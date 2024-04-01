@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.Option;
@@ -94,7 +95,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         "platforms:",
         "  //:sample",
         "    --internal_option=from_mapping");
-    scratch.file("BUILD", "platform(", "    name = 'sample',", ")");
+    scratch.file("BUILD", "platform(name = 'sample')");
     invalidatePackages(false);
 
     BuildOptions baseOptions = createBuildOptions("--platforms=//:sample");
@@ -109,7 +110,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   @Test
   public void createKey_platformMapping_invalidFile() throws Exception {
     scratch.file("/workspace/platform_mappings", "not a mapping file");
-    scratch.file("BUILD", "platform(", "    name = 'sample',", ")");
+    scratch.file("BUILD", "platform(name = 'sample')");
     invalidatePackages(false);
 
     BuildOptions baseOptions = createBuildOptions("--platforms=//:sample");
@@ -119,7 +120,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   @Test
   public void createKey_platformMapping_invalidOption() throws Exception {
     scratch.file("/workspace/platform_mappings", "platforms:", "  //:sample", "    --fake_option");
-    scratch.file("BUILD", "platform(", "    name = 'sample',", ")");
+    scratch.file("BUILD", "platform(name = 'sample')");
     invalidatePackages(false);
 
     BuildOptions baseOptions = createBuildOptions("--platforms=//:sample");
@@ -127,13 +128,19 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   private BuildConfigurationKey fetch(BuildOptions options)
-      throws InterruptedException, OptionsParsingException, PlatformMappingException {
+      throws InterruptedException,
+          OptionsParsingException,
+          PlatformMappingException,
+          InvalidPlatformException {
     ImmutableMap<String, BuildConfigurationKey> result = fetch(ImmutableMap.of("only", options));
     return result.get("only");
   }
 
   private ImmutableMap<String, BuildConfigurationKey> fetch(Map<String, BuildOptions> options)
-      throws InterruptedException, OptionsParsingException, PlatformMappingException {
+      throws InterruptedException,
+          OptionsParsingException,
+          PlatformMappingException,
+          InvalidPlatformException {
     Sink sink = new Sink();
     BuildConfigurationKeyProducer producer =
         new BuildConfigurationKeyProducer(sink, StateMachine.DONE, options);
@@ -147,6 +154,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   private static class Sink implements BuildConfigurationKeyProducer.ResultSink {
     @Nullable private OptionsParsingException optionsParsingException;
     @Nullable private PlatformMappingException platformMappingException;
+    @Nullable private InvalidPlatformException invalidPlatformException;
     @Nullable private ImmutableMap<String, BuildConfigurationKey> keys;
 
     @Override
@@ -160,17 +168,25 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     }
 
     @Override
+    public void acceptPlatformFlagsError(InvalidPlatformException e) {
+      this.invalidPlatformException = e;
+    }
+
+    @Override
     public void acceptTransitionedConfigurations(ImmutableMap<String, BuildConfigurationKey> keys) {
       this.keys = keys;
     }
 
     ImmutableMap<String, BuildConfigurationKey> options()
-        throws OptionsParsingException, PlatformMappingException {
+        throws OptionsParsingException, PlatformMappingException, InvalidPlatformException {
       if (this.optionsParsingException != null) {
         throw this.optionsParsingException;
       }
       if (this.platformMappingException != null) {
         throw this.platformMappingException;
+      }
+      if (this.invalidPlatformException != null) {
+        throw this.invalidPlatformException;
       }
       if (this.keys != null) {
         return this.keys;

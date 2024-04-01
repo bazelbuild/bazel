@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyProducer;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyProducer.ResultSink;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -65,6 +66,8 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
       throw new BuildConfigurationKeyFunctionException(e);
     } catch (PlatformMappingException e) {
       throw new BuildConfigurationKeyFunctionException(e);
+    } catch (InvalidPlatformException e) {
+      throw new BuildConfigurationKeyFunctionException(e);
     }
   }
 
@@ -73,6 +76,7 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
     @Nullable private ImmutableMap<String, BuildConfigurationKey> transitionedOptions;
     @Nullable private OptionsParsingException transitionError;
     @Nullable private PlatformMappingException platformMappingException;
+    @Nullable private InvalidPlatformException invalidPlatformException;
 
     @Override
     public void acceptTransitionError(OptionsParsingException e) {
@@ -85,17 +89,26 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
     }
 
     @Override
+    public void acceptPlatformFlagsError(InvalidPlatformException e) {
+      this.invalidPlatformException = e;
+    }
+
+    @Override
     public void acceptTransitionedConfigurations(
         ImmutableMap<String, BuildConfigurationKey> transitionedOptions) {
       this.transitionedOptions = transitionedOptions;
     }
 
-    void checkErrors() throws OptionsParsingException, PlatformMappingException {
+    void checkErrors()
+        throws OptionsParsingException, PlatformMappingException, InvalidPlatformException {
       if (this.transitionError != null) {
         throw this.transitionError;
       }
       if (this.platformMappingException != null) {
         throw this.platformMappingException;
+      }
+      if (this.invalidPlatformException != null) {
+        throw this.invalidPlatformException;
       }
     }
 
@@ -117,6 +130,11 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
     public BuildConfigurationKeyFunctionException(
         PlatformMappingException platformMappingException) {
       super(platformMappingException, Transience.PERSISTENT);
+    }
+
+    public BuildConfigurationKeyFunctionException(
+        InvalidPlatformException invalidPlatformException) {
+      super(invalidPlatformException, Transience.PERSISTENT);
     }
   }
 }

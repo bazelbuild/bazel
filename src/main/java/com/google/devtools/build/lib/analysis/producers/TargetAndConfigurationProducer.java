@@ -527,6 +527,11 @@ public final class TargetAndConfigurationProducer
     }
 
     @Override
+    public void acceptPlatformFlagsError(InvalidPlatformException e) {
+      emitErrorMessage(e.getMessage());
+    }
+
+    @Override
     public void acceptPlatformInfo(PlatformInfo info) {
       this.platformInfo = info;
     }
@@ -621,6 +626,11 @@ public final class TargetAndConfigurationProducer
 
       @Override
       public void acceptPlatformMappingError(PlatformMappingException e) {
+        emitErrorMessage(e.getMessage());
+      }
+
+      @Override
+      public void acceptPlatformFlagsError(InvalidPlatformException e) {
         emitErrorMessage(e.getMessage());
       }
 
