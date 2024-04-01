@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -218,7 +219,7 @@ public class StarlarkCustomCommandLineTest {
       VectorArg.Builder vectorArgBuilder) {
     return new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
         .add(vectorArgBuilder)
-        .build(/*flagPerLine=*/ false);
+        .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
   }
 
   private static ArtifactExpander createArtifactExpander(

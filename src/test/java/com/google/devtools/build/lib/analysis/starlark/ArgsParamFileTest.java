@@ -23,6 +23,7 @@ import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -143,7 +144,10 @@ public class ArgsParamFileTest extends BuildViewTestCase {
     byte[] bytes;
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       ParameterFile.writeParameterFile(
-          outputStream, args.build().arguments(), args.getParameterFileType(), UTF_8);
+          outputStream,
+          args.build(() -> RepositoryMapping.ALWAYS_FALLBACK).arguments(),
+          args.getParameterFileType(),
+          UTF_8);
       bytes = outputStream.toByteArray();
     }
     try (ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);

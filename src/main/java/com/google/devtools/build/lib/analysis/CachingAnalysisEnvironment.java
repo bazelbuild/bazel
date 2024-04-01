@@ -30,10 +30,13 @@ import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -383,6 +386,19 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     }
     BuildInfoCollection collection = collectionValue.getCollection();
     return stamp ? collection.getStampedBuildInfo() : collection.getRedactedBuildInfo();
+  }
+
+  @Override
+  public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+    var mainRepoMapping =
+        (RepositoryMappingValue)
+            skyframeEnv.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    if (mainRepoMapping == null) {
+      // This isn't expected to happen since the main repository mapping is computed before the
+      // analysis phase.
+      throw new MissingDepException("Restart due to missing main repository mapping");
+    }
+    return mainRepoMapping.getRepositoryMapping();
   }
 
   @Override
