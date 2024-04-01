@@ -54,6 +54,16 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Immutable
   public static final class LinkOptions {
     private final ImmutableList<String> linkOptions;
+
+    // This needs to be here to satisfy two constraints:
+    // 1. We cannot use reference equality so that when this object is serialized and then
+    // de-serialized, equality still works
+    // 2. Link options created from different configured targets but with the same contents must
+    // not be equal. If they were, the following error case would happen: if A depends on B1 and C1
+    // B1 depends on B2, C1 depends on C2 and B2 and C2 both have "-l<something>" in their linkopts,
+    // the nested set containing the linkopts would remove one of them, thereby moving
+    // "-l<something>" before the object files of C2 on the linker command line, thus making the
+    // symbols in them invisible from C2.
     private final Object symbolForEquality;
 
     private LinkOptions(ImmutableList<String> linkOptions, Object symbolForEquality) {
