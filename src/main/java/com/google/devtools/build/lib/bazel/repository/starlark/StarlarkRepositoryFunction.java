@@ -198,6 +198,12 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                       RepositoryName.createUnvalidated(rule.getName()),
                       "fetch interrupted due to memory pressure; restarting."));
           return fetch(rule, outputDirectory, directories, env, recordedInputValues, key);
+        } finally {
+          // At this point, the worker thread has definitely finished. But in some corner cases (see
+          // b/330892334), a Skyframe restart might still happen; to ensure we're not tricked into
+          // a deadlock, we clean up the worker thread and so that next time we come into fetch(),
+          // we actually restart the entire computation.
+          state.close();
         }
     }
     // TODO(wyv): use a switch expression above instead and remove this.

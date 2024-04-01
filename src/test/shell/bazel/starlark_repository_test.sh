@@ -3238,4 +3238,35 @@ EOF
   echo "$sha $cache_entry" | sha256sum --check || fail "sha256 mismatch"
 }
 
+function test_keep_going_weird_deadlock() {
+  # regression test for b/330892334
+  if "$is_windows"; then
+    # no symlinks on windows
+    return
+  fi
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r=use_repo_rule("//:r.bzl", "r")
+r(name="r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+r=repository_rule(lambda rctx: rctx.read(Label("//blarg")))
+EOF
+
+  # make //blarg a bad package by creating a symlink cycle (note that just the package not
+  # existing is not enough to make the PackageLookupFunction fail)
+  mkdir blarg
+  cd blarg
+  ln -s BUILD DUILB
+  ln -s DUILB BUILD
+  cd ..
+
+  # now build both //blarg and @r. The latter depends on the former, which is in error.
+  # with --keep_going, this could result in a deadlock.
+  bazel build --keep_going //blarg @r >& $TEST_log && fail "bazel somehow succeeded"
+  # the fact that the invocation didn't time out should suffice as success.
+  true
+}
+
 run_suite "local repository tests"
