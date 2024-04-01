@@ -1,64 +1,64 @@
-name: cherry-picker
+# name: cherry-picker
 
-on:
-  pull_request_target:
-    types: [closed]
-  issues:
-    types: [closed, milestoned]
+# on:
+#   pull_request_target:
+#     types: [closed]
+#   issues:
+#     types: [closed, milestoned]
 
-permissions:
-  contents: read
+# permissions:
+#   contents: read
 
-env:
-  GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
+# env:
+#   GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
 
-jobs:
-  cherry-picker-on-closed:
-    if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@63c24ba6bd7ba022e95695ff85de572c04a18142
-        with:
-          egress-policy: audit
-      - if: github.event.pull_request
-        name: Run cherrypicker on closed PR
-        uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
-        with:
-          triggered-on: closed
-          pr-number: ${{ github.event.number }}
-          is-prod: False
-      - if: github.event.issue
-        name: Run cherrypicker on closed issue
-        uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
-        with:
-          triggered-on: closed
-          pr-number: ${{ github.event.issue.number }}
-          is-prod: False
-  cherry-picker-on-milestoned:
-    if: github.event.action == 'milestoned'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@63c24ba6bd7ba022e95695ff85de572c04a18142
-        with:
-          egress-policy: audit
-      - if: startsWith(github.event.issue.body, 'Forked from')
-        name: Run cherrypicker on comment
-        uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
-        with:
-          triggered-on: commented
-          pr-number: ${{ github.event.issue.body }}
-          milestone-title: ${{ github.event.milestone.title }}
-          milestoned-issue-number: ${{ github.event.issue.number }}
-          is-prod: False
-      - if: startsWith(github.event.issue.body, '### Commit IDs')
-        name: Run cherrypicker on demand
-        uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
-        with:
-          triggered-on: ondemand
-          milestone-title: ${{ github.event.milestone.title }}
-          milestoned-issue-number: ${{ github.event.issue.number }}
-          issue-title: ${{ github.event.issue.title }}
-          issue-body: ${{ github.event.issue.body }}
-          is-prod: False
+# jobs:
+#   cherry-picker-on-closed:
+#     if: github.event.action == 'closed'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Harden Runner
+#         uses: step-security/harden-runner@63c24ba6bd7ba022e95695ff85de572c04a18142
+#         with:
+#           egress-policy: audit
+#       - if: github.event.pull_request
+#         name: Run cherrypicker on closed PR
+#         uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
+#         with:
+#           triggered-on: closed
+#           pr-number: ${{ github.event.number }}
+#           is-prod: False
+#       - if: github.event.issue
+#         name: Run cherrypicker on closed issue
+#         uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
+#         with:
+#           triggered-on: closed
+#           pr-number: ${{ github.event.issue.number }}
+#           is-prod: False
+#   cherry-picker-on-milestoned:
+#     if: github.event.action == 'milestoned'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Harden Runner
+#         uses: step-security/harden-runner@63c24ba6bd7ba022e95695ff85de572c04a18142
+#         with:
+#           egress-policy: audit
+#       - if: startsWith(github.event.issue.body, 'Forked from')
+#         name: Run cherrypicker on comment
+#         uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
+#         with:
+#           triggered-on: commented
+#           pr-number: ${{ github.event.issue.body }}
+#           milestone-title: ${{ github.event.milestone.title }}
+#           milestoned-issue-number: ${{ github.event.issue.number }}
+#           is-prod: False
+#       - if: startsWith(github.event.issue.body, '### Commit IDs')
+#         name: Run cherrypicker on demand
+#         uses: iancha1992/continuous-integration/actions/cherry_picker@updatelockfile_PRs
+#         with:
+#           triggered-on: ondemand
+#           milestone-title: ${{ github.event.milestone.title }}
+#           milestoned-issue-number: ${{ github.event.issue.number }}
+#           issue-title: ${{ github.event.issue.title }}
+#           issue-body: ${{ github.event.issue.body }}
+#           is-prod: False
