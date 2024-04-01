@@ -239,6 +239,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       AspectParameters params,
       RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
+
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
 
     // No-op out of the aspect in the android_binary rule if the Starlark dex/desugar will execute
@@ -289,6 +290,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
       String minSdkFilenamePart = minSdkVersion > 0 ? "--min_sdk_version=" + minSdkVersion : "";
       for (Artifact jar : runtimeJars) {
+        Artifact desugaredJar = desugaredJars.apply(jar);
         for (Set<String> incrementalDexopts : aspectDexopts) {
           // Since we're potentially dexing the same jar multiple times with different flags, we
           // need to write unique artifacts for each flag combination. Here, it is convenient to
@@ -305,7 +307,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
               createDexArchiveAction(
                   ruleContext,
                   ASPECT_DEXBUILDER_PREREQ,
-                  desugaredJars.apply(jar),
+                  desugaredJar,
                   incrementalDexopts,
                   minSdkVersion,
                   AndroidBinary.getDxArtifact(ruleContext, uniqueFilename));
@@ -383,7 +385,14 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       }
     }
     result.addProvider(desugaredJars.build());
-    return Functions.forMap(newlyDesugared);
+
+    return key -> {
+      if (newlyDesugared.containsKey(key)) {
+        return newlyDesugared.get(key);
+      }
+      // Fall back to the original un-desugared artifact.
+      return key;
+    };
   }
 
   @Nullable
