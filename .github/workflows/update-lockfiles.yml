@@ -21,6 +21,10 @@ jobs:
         uses: step-security/harden-runner@63c24ba6bd7ba022e95695ff85de572c04a18142
         with:
           egress-policy: audit
+      - name: Update lockfile(s) on closed PR
+        uses: iancha1992/continuous-integration/actions/update-lockfile@updatelockfile_PRs
+        with:
+          release-branch: ${{ github.event.base_ref }}
   print-job:
     runs-on: ubuntu-latest
     steps:
@@ -29,13 +33,14 @@ jobs:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: |
           echo "$GITHUB_CONTEXT"
-  update-lockfile-on-closed-PR:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Update lockfile(s) on closed PR
-        uses: iancha1992/continuous-integration/actions/update-lockfile@updatelockfile_PRs
-        with:
-          release-branch: ${{ github.event.base_ref }}
+  # update-lockfile-on-closed-PR:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Update lockfile(s) on closed PR
+  #       uses: iancha1992/continuous-integration/actions/update-lockfile@updatelockfile_PRs
+  #       with:
+  #         release-branch: ${{ github.event.base_ref }}
+
 # jobs:
 #   cherry-picker-on-closed:
 #     if: github.event.action == 'closed'
