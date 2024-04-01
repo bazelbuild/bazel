@@ -625,10 +625,17 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   @Test
   public void resolve_invalidHostPlatform() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
-    useConfiguration("--host_platform=//invalid:not_a_platform");
+
+    // Manually create a configuration key: trying to call `useConfiguration` will immediately throw
+    // the exception this is checking for.
+    BuildOptions newOptions = targetConfigKey.getOptions().clone();
+    newOptions.get(PlatformOptions.class).hostPlatform =
+        Label.parseCanonicalUnchecked("//invalid:not_a_platform");
+    BuildConfigurationKey configKey = BuildConfigurationKey.create(newOptions);
+
     ToolchainContextKey key =
         ToolchainContextKey.key()
-            .configurationKey(targetConfigKey)
+            .configurationKey(configKey)
             .toolchainTypes(testToolchainType)
             .build();
 
