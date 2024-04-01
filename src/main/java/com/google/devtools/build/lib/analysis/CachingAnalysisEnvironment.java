@@ -27,9 +27,12 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -366,6 +369,19 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       throw new MissingDepException("Restart due to missing build info");
     }
     return workspaceStatusValue;
+  }
+
+  @Override
+  public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+    var mainRepoMapping =
+        (RepositoryMappingValue)
+            skyframeEnv.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    if (mainRepoMapping == null) {
+      // This isn't expected to happen since the main repository mapping is computed before the
+      // analysis phase.
+      throw new MissingDepException("Restart due to missing main repository mapping");
+    }
+    return mainRepoMapping.getRepositoryMapping();
   }
 
   @Override
