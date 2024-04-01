@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -45,6 +46,9 @@ import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.TriState;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashMap;
@@ -243,6 +247,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * a result of applying this transition.
    *
    * @param previousSettings a map representing the previous build settings
+   * @param attributeMapper a map of attributes
+   * @param optionInfoMap info about each option's {@link Option} type
+   * @param handler handler for messages
    * @return a map of changed build setting maps; each element of the map represents a different
    *     child configuration (split transitions will have multiple elements in this map with keys
    *     provided by the transition impl, patch transitions should have a single element keyed by
@@ -253,7 +260,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    */
   @Nullable
   public abstract ImmutableMap<String, Map<String, Object>> evaluate(
-      Map<String, Object> previousSettings, StructImpl attributeMap, EventHandler eventHandler)
+      Map<String, Object> previousSettings,
+      StructImpl attributeMapper,
+      ImmutableMap<String, OptionInfo> optionInfoMap,
+      EventHandler handler)
       throws InterruptedException;
 
   public static StarlarkDefinedConfigTransition newRegularTransition(
@@ -305,6 +315,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     public ImmutableMap<String, Map<String, Object>> evaluate(
         Map<String, Object> previousSettings,
         StructImpl attributeMapper,
+        ImmutableMap<String, OptionInfo> optionInfoMap,
         EventHandler eventHandler) {
       return ImmutableMap.of(PATCH_TRANSITION_KEY, changedSettings);
     }
@@ -377,13 +388,18 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      * <p>The returned (outer) Dict will be immutable but all the underlying entries will have
      * mutability given by the entryMu param.
      *
-     * @param settings map os settings to copy over
+     * @param settings map os settings to copy over * {@code optionInfoMap} info about each option's
+     *     {@link Option} type
+     * @param optionInfoMap info about each option's {@link Option} type
      * @param entryMu Mutability context to use when copying individual entries
      * @throws UnreadableInputSettingException when entry in build setting is not convertable (using
      *     {@link Starlark#fromJava})
      */
     private static Dict<String, Object> createBuildSettingsDict(
-        Map<String, Object> settings, Mutability entryMu) throws UnreadableInputSettingException {
+        Map<String, Object> settings,
+        ImmutableMap<String, OptionInfo> optionInfoMap,
+        Mutability entryMu)
+        throws UnreadableInputSettingException {
 
       // Need to convert contained values into Starlark readable values.
       Dict.Builder<String, Object> builder = Dict.builder();
@@ -391,7 +407,15 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         try {
           builder.put(entry.getKey(), Starlark.fromJava(entry.getValue(), entryMu));
         } catch (Starlark.InvalidStarlarkValueException e) {
-          builder.put(entry.getKey(), getTransitionSafeString(entry.getKey(), entry.getValue()));
+          // Starlark#frromJava doesn't know how to read this value. Try again with a special
+          // allowlist of types we know how to make Starlark-compatible. This is not complete. If a
+          // value a) isn't Starlark-convertible and b) not special-cased here, Bazel emits a "can't
+          // process this setting" error.
+          builder.put(
+              entry.getKey(),
+              Starlark.fromJava(
+                  getTransitionSafeString(entry.getKey(), entry.getValue(), optionInfoMap),
+                  entryMu));
         }
       }
 
@@ -421,11 +445,21 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
     /**
      * Converts a Java-native flag value to a Starlark-readable string, or throws an exception if
-     * the flag's type can't be cleanly represented in Starlark.
+     * the flag's type can't be represented in Starlark.
+     *
+     * <p>This only kicks in for values {@link Starlark#fromJava} failed to directly convert. That
+     * implies they need extra processing, which is what happens here.
+     *
+     * <p>This is incomplete. It only handles types we explicitly know are Starlark-convertible or
+     * that handle {@link Converter#starlarkConvertible()}. Other flags emit a "can't process this
+     * setting" error.
      */
-    private static String getTransitionSafeString(String name, Object value)
+    private static Object getTransitionSafeString(
+        String name, Object value, ImmutableMap<String, OptionInfo> optionInfoMap)
         throws UnreadableInputSettingException {
       if (value instanceof RegexFilter) {
+        // RegExFilter doesn't serialize to the same value it originally had on the command line.
+        // Call toOriginalString, to do that properly.
         return Verify.verifyNotNull(((RegexFilter) value).toOriginalString());
       }
       if (value instanceof PathFragment
@@ -435,9 +469,42 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           || value instanceof OutputPathsMode
           || value instanceof IncludeConfigFragmentsEnum
           || SAFE_NATIVE_FLAG_TYPES.contains(value.getClass().getSimpleName())) {
+        // Starlark#fromJava doesn't understand these Bazel-specific Java types. But their
+        // toString() methods serialize cleanly.
         return value.toString();
       }
-      throw new UnreadableInputSettingException(name, value.getClass());
+      // See if the option's converter knows how to produce to Starlark values.
+      OptionDefinition optionDef =
+          optionInfoMap.get(name.substring(COMMAND_LINE_OPTION_PREFIX.length())).getDefinition();
+      if (!optionDef.getConverter().starlarkConvertible()) {
+        throw new UnreadableInputSettingException(name, value.getClass());
+      }
+      if (optionDef.allowsMultiple()) {
+        // allowMultiple() options are complicated (see the definition of allowMultiple() in
+        // Option.java). They must be typed as a List<T>. Their converters can return either T or
+        // List<T>. In the latter case, the typed value is a concatenation of all the converted
+        // lists.
+        //
+        // Option metadata doesn't include enough information to know which version of the converter
+        // it uses. Also note we can't encode this information in the converter because different
+        // options may use the same converter with or without allowMultiple.
+        //
+        // For lack of direct support, this code infers the right logic.
+        var asList = ((List<?>) value);
+        // If this is an empty list, Starlark#fromJava should have handled it.
+        Verify.verify(!asList.isEmpty());
+        // The converter matches the option with generics. So we don't actually know how their types
+        // compare at runtime. We know allowMultiple options must be typed List<T>. We assume if the
+        // converter doesn't return a list, it returns a single T. Else it returns a List<T>. This
+        // works as long as the option isn't a List<List<?>>. This verification check confirms that.
+        Verify.verify(!(asList.get(0) instanceof List));
+        return asList.stream()
+            .map(o -> optionDef.getConverter().reverseForStarlark(o))
+            .collect(toImmutableList());
+      } else {
+        // This isn't allowMultiple, so the converter is a straightforward reversal.
+        return optionDef.getConverter().reverseForStarlark(value);
+      }
     }
 
     /**
@@ -454,7 +521,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      * splits (i.e. accessing later via {@code ctx.split_attrs}).
      *
      * @param previousSettings a map representing the previous build settings
-     * @param attributeMapper a map of attributes
+     * @param attrObject the attributes of the rule to which this transition is attached
+     * @param optionInfoMap info about each option's {@link Option} type
+     * @param handler handler for messages
      * @return a map of the changed settings. An empty map is shorthand for the transition not
      *     changing any settings ({@code return {} } is simpler than assigning every output setting
      *     to itself). A null return means an error occurred and results are unusable.
@@ -463,7 +532,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     @Nullable
     @Override
     public ImmutableMap<String, Map<String, Object>> evaluate(
-        Map<String, Object> previousSettings, StructImpl attributeMapper, EventHandler handler)
+        Map<String, Object> previousSettings,
+        StructImpl attrObject,
+        ImmutableMap<String, OptionInfo> optionInfoMap,
+        EventHandler handler)
         throws InterruptedException {
       // Call the Starlark function.
       Object result;
@@ -478,7 +550,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         //  are used as inputs to the configuration.
         SymbolGenerator<Object> dummySymbolGenerator = new SymbolGenerator<>(new Object());
 
-        Dict<String, Object> previousSettingsDict = createBuildSettingsDict(previousSettings, mu);
+        Dict<String, Object> previousSettingsDict =
+            createBuildSettingsDict(previousSettings, optionInfoMap, mu);
 
         // Create a new {@link BazelStarlarkContext} for the new thread. We need to
         // create a new context every time because {@link BazelStarlarkContext}s
@@ -487,7 +560,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
         result =
             Starlark.fastcall(
-                thread, impl, new Object[] {previousSettingsDict, attributeMapper}, new Object[0]);
+                thread, impl, new Object[] {previousSettingsDict, attrObject}, new Object[0]);
       } catch (UnreadableInputSettingException ex) {
         // TODO(blaze-configurability-team): Ideally, the error would happen (and thus location)
         //   at the transition() call during loading phase. Instead, error happens at the impl
