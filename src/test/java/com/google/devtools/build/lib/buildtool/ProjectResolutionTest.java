@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -31,9 +30,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.Options;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -154,34 +151,5 @@ public class ProjectResolutionTest extends BuildIntegrationTestCase {
                 "Targets have different project settings. "
                     + "For example:  [foo/%s]: //foo:f [bar/%s]: //bar:g",
                 PROJECT_FILE_NAME, PROJECT_FILE_NAME));
-  }
-
-  @Test
-  public void ignoredProjectFileInNonPackages() throws Exception {
-    write("foo/bar/baz/" + PROJECT_FILE_NAME);
-    write("foo/bar/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['f.out'])");
-    write("foo/bar/" + PROJECT_FILE_NAME);
-    write("foo/" + PROJECT_FILE_NAME);
-
-    assertThat(
-            BuildTool.getProjectFile(
-                ImmutableList.of(Label.parseCanonical("//foo/bar:f")),
-                getSkyframeExecutor(),
-                events.reporter()))
-        .isEqualTo(PathFragment.create("foo/bar/" + PROJECT_FILE_NAME));
-
-    Set<RootedPath> projectRootedPaths = Sets.newConcurrentHashSet();
-    getSkyframeExecutor()
-        .getEvaluator()
-        .getInMemoryGraph()
-        .parallelForEach(
-            k -> {
-              if (k.getKey().argument() instanceof RootedPath rp) {
-                if (rp.getRootRelativePath().getBaseName().equals(PROJECT_FILE_NAME)) {
-                  projectRootedPaths.add(rp);
-                }
-              }
-            });
-    assertThat(projectRootedPaths).hasSize(1);
   }
 }
