@@ -308,11 +308,6 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
    */
   private static Element createValueElement(
       Document doc, Type<?> type, Iterable<Object> values, LabelPrinter labelPrinter) {
-    // "Import static" with method scope:
-    Type<?> LABEL_LIST = BuildType.LABEL_LIST;
-    Type<?> LICENSE = BuildType.LICENSE;
-    Type<?> STRING_LIST = Types.STRING_LIST;
-
     final Element elem;
     final boolean hasMultipleValues = Iterables.size(values) > 1;
     Type<?> elemType = type.getListElementType();
@@ -339,18 +334,18 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
           }
         }
       }
-    } else if (type == LICENSE) {
+    } else if (type == BuildType.LICENSE) {
       elem = createSingleValueElement(doc, "license", hasMultipleValues);
       if (!hasMultipleValues) {
         License license = (License) Iterables.getOnlyElement(values);
 
         Element exceptions =
-            createValueElement(doc, LABEL_LIST, license.getExceptions(), labelPrinter);
+            createValueElement(doc, BuildType.LABEL_LIST, license.getExceptions(), labelPrinter);
         exceptions.setAttribute("name", "exceptions");
         elem.appendChild(exceptions);
 
         Element licenseTypes =
-            createValueElement(doc, STRING_LIST, license.getLicenseTypes(), labelPrinter);
+            createValueElement(doc, Types.STRING_LIST, license.getLicenseTypes(), labelPrinter);
         licenseTypes.setAttribute("name", "license-types");
         elem.appendChild(licenseTypes);
       }
