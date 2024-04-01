@@ -24,7 +24,7 @@ jobs:
       - name: Update lockfile(s) on closed PR
         uses: iancha1992/continuous-integration/actions/update-lockfile@updatelockfile_PRs
         with:
-          release-branch: ${{ github.event.base_ref }}
+          release-branch: ${{ github.base_ref }}
   print-job:
     runs-on: ubuntu-latest
     steps:
