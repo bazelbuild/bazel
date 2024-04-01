@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.buildtool;
 
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -81,6 +80,6 @@ public class ContextProviderInitializationTest extends BuildIntegrationTestCase 
 
   @Test
   public void testContextProviderInitializationFailure() {
-    assertThrows(AbruptExitException.class, () -> runtimeWrapper.executeBuild(ImmutableList.of()));
+    assertThrows(AbruptExitException.class, this::buildTarget);
   }
 }

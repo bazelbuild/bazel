@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.commands.CleanCommand;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
@@ -781,17 +782,24 @@ public abstract class BuildIntegrationTestCase {
     return getRequest().getTopLevelArtifactContext();
   }
 
-  /**
-   * Convenience wrapper around buildTool.syncPackageCache() and buildTool.build() that creates and
-   * executes a BuildRequest. Returns the BuildRequest on success (it is also subsequently
-   * accessible via {@link #getRequest}, even in case of abnormal termination). Also redirects the
-   * output from the reporter's event handler to go to this.OutErr during the build, and redirects
-   * System.out/System.err to go via the reporter (and hence to this.OutErr) during the build.
-   */
   public BuildResult buildTarget(String... targets) throws Exception {
-    events.setOutErr(this.outErr);
+    events.setOutErr(outErr);
     runtimeWrapper.executeBuild(Arrays.asList(targets));
     return runtimeWrapper.getLastResult();
+  }
+
+  /** Runs the {@code info} command. */
+  public void info() throws Exception {
+    events.setOutErr(outErr);
+    runtimeWrapper.newCommand(InfoCommand.class);
+    runtimeWrapper.executeNonBuildCommand();
+  }
+
+  /** Runs the {@code clean} command. */
+  public void clean() throws Exception {
+    events.setOutErr(outErr);
+    runtimeWrapper.newCommand(CleanCommand.class);
+    runtimeWrapper.executeNonBuildCommand();
   }
 
   /** Utility function: parse a string as a label. */
