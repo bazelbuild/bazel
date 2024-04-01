@@ -22,6 +22,7 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -217,7 +218,19 @@ public class RepositoryCache {
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     cacheEntry.createDirectoryAndParents();
     FileSystemUtils.copyFile(sourcePath, tmpName);
-    FileSystemUtils.moveFile(tmpName, cacheValue);
+    try {
+      tmpName.renameTo(cacheValue);
+    } catch (FileAccessException e) {
+      // On Windows, atomically replacing a file that is currently opened (e.g. due to a concurrent
+      // get on the cache) results in renameTo throwing this exception, which wraps an
+      // AccessDeniedException. This case is benign since if the target path already exists, we know
+      // that another thread won the race to place the file in the cache. As the exception is rather
+      // generic and could result from other failure types, we rethrow the exception if the cache
+      // entry hasn't been created.
+      if (!cacheValue.exists()) {
+        throw e;
+      }
+    }
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
       String idHash = keyType.newHasher().putBytes(canonicalId.getBytes(UTF_8)).hash().toString();

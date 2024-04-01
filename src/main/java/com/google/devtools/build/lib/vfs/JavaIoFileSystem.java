@@ -22,10 +22,14 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -316,25 +320,34 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
-    File sourceFile = getIoFile(sourcePath);
-    File targetFile = getIoFile(targetPath);
-    if (!sourceFile.renameTo(targetFile)) {
-      if (!sourceFile.exists()) {
-        throw new FileNotFoundException(sourcePath + ERR_NO_SUCH_FILE_OR_DIR);
-      }
-      if (targetFile.exists()) {
-        if (targetFile.isDirectory() && targetFile.list().length > 0) {
-          throw new IOException(targetPath + ERR_DIRECTORY_NOT_EMPTY);
-        } else if (sourceFile.isDirectory() && targetFile.isFile()) {
-          throw new IOException(sourcePath + " -> " + targetPath + ERR_NOT_A_DIRECTORY);
-        } else if (sourceFile.isFile() && targetFile.isDirectory()) {
-          throw new IOException(sourcePath + " -> " + targetPath + ERR_IS_DIRECTORY);
-        } else {
-          throw new IOException(sourcePath + " -> " + targetPath  + ERR_PERMISSION_DENIED);
-        }
-      } else {
-        throw new FileAccessException(sourcePath + " -> " + targetPath + ERR_PERMISSION_DENIED);
-      }
+    java.nio.file.Path source = getNioPath(sourcePath);
+    java.nio.file.Path target = getNioPath(targetPath);
+    // Replace NIO exceptions with the types used by the native Unix filesystem implementation where
+    // necessary.
+    try {
+      Files.move(
+          source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } catch (NoSuchFileException originalException) {
+      FileNotFoundException newException =
+          new FileNotFoundException(originalException.getMessage() + ERR_NO_SUCH_FILE_OR_DIR);
+      newException.initCause(originalException);
+      throw newException;
+    } catch (AccessDeniedException originalException) {
+      FileAccessException newException =
+          new FileAccessException(originalException.getMessage() + ERR_PERMISSION_DENIED);
+      newException.initCause(originalException);
+      throw newException;
+    } catch (FileSystemException e) {
+      // Rewrite exception messages to be identical to the ones produced by the native Unix
+      // filesystem implementation. Bazel forces the root locale for the JVM, so the error messages
+      // should be stable.
+      String filesPart = sourcePath + " -> " + targetPath;
+      throw switch (e.getReason()) {
+        case "Directory not empty" -> new IOException(filesPart + ERR_DIRECTORY_NOT_EMPTY, e);
+        case "Not a directory" -> new IOException(filesPart + ERR_NOT_A_DIRECTORY, e);
+        case "Is a directory" -> new IOException(filesPart + ERR_IS_DIRECTORY, e);
+        default -> e;
+      };
     }
   }
 

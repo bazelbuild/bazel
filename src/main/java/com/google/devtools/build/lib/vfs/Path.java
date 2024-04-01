@@ -534,11 +534,11 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Renames the file denoted by the current path to the location "target", not following symbolic
-   * links.
+   * Atomically renames the file denoted by the current path to the location "target", not following
+   * symbolic links.
    *
    * <p>Files cannot be atomically renamed across devices; copying is required. Use {@link
-   * FileSystemUtils#copyFile} followed by {@link Path#delete}.
+   * FileSystemUtils#moveFile(Path, Path)} instead.
    *
    * @throws IOException if the rename failed for any reason
    */
