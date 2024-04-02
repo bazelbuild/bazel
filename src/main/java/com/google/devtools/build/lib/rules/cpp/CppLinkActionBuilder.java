@@ -679,6 +679,16 @@ public class CppLinkActionBuilder {
     actionOutputsBuilder.add(thinltoMergedObjectFile);
     addObjectFile(thinltoMergedObjectFile);
 
+    CcToolchainVariables.Builder buildVariables =
+        LinkBuildVariables.setupLtoIndexingVariables(
+            linkActionConstruction.getBinDirectory().getExecPath(),
+            thinltoParamFile.getExecPathString(),
+            thinltoMergedObjectFile.getExecPathString(),
+            toolchain,
+            featureConfiguration,
+            ltoOutputRootPrefix,
+            ltoObjRootPrefix);
+
     return buildLinkAction(
         /* isLtoIndexing= */ true,
         objectFileInputs,
@@ -687,7 +697,8 @@ public class CppLinkActionBuilder {
         /* linkstampMap= */ ImmutableMap.of(),
         /* linkstampObjectFileInputs */ ImmutableSet.of(),
         /* linkstampObjectArtifacts= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* actionOutputs= */ actionOutputsBuilder.build());
+        /* actionOutputs= */ actionOutputsBuilder.build(),
+        buildVariables.build());
   }
 
   /** Builds the Action as configured and returns it. */
@@ -767,6 +778,20 @@ public class CppLinkActionBuilder {
       actionOutputsBuilder.add(interfaceOutput);
     }
 
+    CcToolchainVariables.Builder buildVariables =
+        LinkBuildVariables.setupLinkingVariables(
+            output.getExecPathString(),
+            SolibSymlinkAction.getDynamicLibrarySoname(
+                output.getRootRelativePath(),
+                /* preserveName= */ false,
+                linkActionConstruction.getContext().getConfiguration().getMnemonic()),
+            thinltoParamFile != null ? thinltoParamFile.getExecPathString() : null,
+            toolchain,
+            featureConfiguration,
+            toolchain.getInterfaceSoBuilder().getExecPathString(),
+            interfaceOutput != null ? interfaceOutput.getExecPathString() : null,
+            fdoContext);
+
     return buildLinkAction(
         /* isLtoIndexing= */ false,
         objectFileInputs,
@@ -775,7 +800,8 @@ public class CppLinkActionBuilder {
         linkstampMap,
         linkstampObjectFileInputs,
         linkstampObjectArtifacts,
-        actionOutputsBuilder.build());
+        actionOutputsBuilder.build(),
+        buildVariables.build());
   }
 
   private CppLinkAction buildLinkAction(
@@ -786,7 +812,8 @@ public class CppLinkActionBuilder {
       ImmutableMap<Linkstamp, Artifact> linkstampMap,
       ImmutableSet<LinkerInput> linkstampObjectFileInputs,
       NestedSet<Artifact> linkstampObjectArtifacts,
-      ImmutableSet<Artifact> actionOutputs)
+      ImmutableSet<Artifact> actionOutputs,
+      CcToolchainVariables additionalBuildVariables)
       throws EvalException {
     Preconditions.checkNotNull(featureConfiguration);
 
@@ -848,34 +875,20 @@ public class CppLinkActionBuilder {
 
     // Add build variables necessary to template link args into the crosstool.
     CcToolchainVariables.Builder buildVariablesBuilder =
-        LinkBuildVariables.setupVariables(
+        LinkBuildVariables.setupCommonVariables(
             getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
-            linkActionConstruction.getBinDirectory().getExecPath(),
-            output.getExecPathString(),
-            SolibSymlinkAction.getDynamicLibrarySoname(
-                output.getRootRelativePath(),
-                /* preserveName= */ false,
-                linkActionConstruction.getContext().getConfiguration().getMnemonic()),
             linkType.equals(LinkTargetType.DYNAMIC_LIBRARY),
             canSplitCommandLine() ? "LINKER_PARAM_FILE_PLACEHOLDER" : null,
-            thinltoParamFile != null ? thinltoParamFile.getExecPathString() : null,
-            thinltoMergedObjectFile != null ? thinltoMergedObjectFile.getExecPathString() : null,
             mustKeepDebug,
             toolchain,
             featureConfiguration,
             useTestOnlyFlags,
-            isLtoIndexing,
             userLinkFlags.build(),
-            toolchain.getInterfaceSoBuilder().getExecPathString(),
-            interfaceOutput != null ? interfaceOutput.getExecPathString() : null,
-            ltoOutputRootPrefix,
-            ltoObjRootPrefix,
             fdoContext,
             collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
             collectedLibrariesToLink.getLibrariesToLink(),
-            collectedLibrariesToLink.getLibrarySearchDirectories(),
-            /* addIfsoRelatedVariables= */ true);
-
+            collectedLibrariesToLink.getLibrarySearchDirectories());
+    buildVariablesBuilder.addAllNonTransitive(additionalBuildVariables);
     for (VariablesExtension extraVariablesExtension : variablesExtensions) {
       extraVariablesExtension.addVariables(buildVariablesBuilder);
     }

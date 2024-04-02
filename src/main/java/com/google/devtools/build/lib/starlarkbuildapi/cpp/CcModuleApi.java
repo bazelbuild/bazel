@@ -1211,7 +1211,7 @@ public interface CcModuleApi<
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
       StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      throws EvalException;
 
   @StarlarkMethod(name = "empty_variables", documented = false, useStarlarkThread = true)
   CcToolchainVariablesT getVariables(StarlarkThread thread) throws EvalException;

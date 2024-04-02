@@ -386,32 +386,23 @@ public abstract class CcModule
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       throw Starlark.errorf("FDO instrumentation not supported");
     }
     CcToolchainProvider ccToolchainProvider =
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
-    return LinkBuildVariables.setupVariables(
+    CcToolchainVariables.Builder linkBuildVariables =
+        LinkBuildVariables.setupCommonVariables(
             isUsingLinkerNotArchiver,
-            /* binDirectoryPath= */ null,
-            convertFromNoneable(outputFile, /* defaultValue= */ null),
-            /* runtimeSolibName= */ null,
             isCreatingSharedLibrary,
             convertFromNoneable(paramFile, /* defaultValue= */ null),
-            /* thinltoParamFile= */ null,
-            /* thinltoMergedObjectFile= */ null,
             mustKeepDebug,
             ccToolchainProvider,
             featureConfiguration.getFeatureConfiguration(),
             useTestOnlyFlags,
-            /* isLtoIndexing= */ false,
             userFlagsToIterable(userLinkFlags),
-            /* interfaceLibraryBuilder= */ null,
-            /* interfaceLibraryOutput= */ null,
-            /* ltoOutputRootPrefix= */ null,
-            /* ltoObjRootPrefix= */ null,
             /* fdoContext= */ null,
             Depset.noneableCast(
                 runtimeLibrarySearchDirectories,
@@ -419,9 +410,17 @@ public abstract class CcModule
                 "runtime_library_search_directories"),
             /* librariesToLink= */ null,
             Depset.noneableCast(
-                librarySearchDirectories, String.class, "library_search_directories"),
-            /* addIfsoRelatedVariables= */ false)
-        .build();
+                librarySearchDirectories, String.class, "library_search_directories"));
+    // output exec path
+    if (outputFile != Starlark.NONE) {
+      if (!(outputFile instanceof String)) {
+        throw Starlark.errorf(
+            "Parameter 'output' expected String, got '%s'", Starlark.type(outputFile));
+      }
+      linkBuildVariables.addStringVariable(
+          LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), (String) outputFile);
+    }
+    return linkBuildVariables.build();
   }
 
   @Override
