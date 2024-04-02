@@ -240,25 +240,6 @@ public class CppLinkActionBuilder {
     this.linkActionConstruction = linkActionConstruction;
   }
 
-  /** Returns the action name for purposes of querying the crosstool. */
-  private String getActionName(boolean isLtoIndexing) {
-    // We check that this action is not lto-indexing, or when it is, it's either for executable
-    // or transitive or nodeps dynamic library.
-    Preconditions.checkArgument(
-        !isLtoIndexing || linkType.isExecutable() || linkType.isDynamicLibrary());
-    if (isLtoIndexing) {
-      if (linkType.isExecutable()) {
-        return CppActionNames.LTO_INDEX_EXECUTABLE;
-      } else if (linkType.isTransitiveDynamicLibrary()) {
-        return CppActionNames.LTO_INDEX_DYNAMIC_LIBRARY;
-      } else {
-        return CppActionNames.LTO_INDEX_NODEPS_DYNAMIC_LIBRARY;
-      }
-    }
-
-    return linkType.getActionName();
-  }
-
   /** Returns linker inputs that are not libraries. */
   public Set<LinkerInput> getObjectFiles() {
     return objectFiles;
@@ -696,8 +677,23 @@ public class CppLinkActionBuilder {
             .addAll(cppConfiguration.getLtoIndexOptions())
             .build();
 
+    // We check that this action is not lto-indexing, or when it is, it's either for executable
+    // or transitive or nodeps dynamic library.
+    Preconditions.checkArgument(linkType.isExecutable() || linkType.isDynamicLibrary());
+
+    final String actionName;
+    if (linkType.isExecutable()) {
+      actionName = CppActionNames.LTO_INDEX_EXECUTABLE;
+    } else if (linkType.isTransitiveDynamicLibrary()) {
+      actionName = CppActionNames.LTO_INDEX_DYNAMIC_LIBRARY;
+    } else {
+      actionName = CppActionNames.LTO_INDEX_NODEPS_DYNAMIC_LIBRARY;
+    }
+
     return buildLinkAction(
-        /* isLtoIndexing= */ true,
+        actionName,
+        /* mnemonic= */ mnemonic == null ? "CppLTOIndexing" : mnemonic,
+        /* progressMessage= */ "LTO indexing %{output}",
         objectFileInputs,
         uniqueLibraries,
         /* ltoMapping= */ ImmutableMap.of(),
@@ -724,6 +720,10 @@ public class CppLinkActionBuilder {
       throw Starlark.errorf(
           "Expected action_config for '%s' to be configured", linkType.getActionName());
     }
+    if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
+      throw Starlark.errorf(
+          "Expected action_config for '%s' to be configured", linkType.getActionName());
+    }
 
     Map<Artifact, Artifact> ltoMapping = new HashMap<>();
 
@@ -732,6 +732,10 @@ public class CppLinkActionBuilder {
       for (LtoBackendArtifacts a : allLtoArtifacts) {
         ltoMapping.put(a.getBitcodeFile(), a.getObjectFile());
       }
+    }
+
+    if (thinltoParamFile != null) {
+      addNonCodeInput(thinltoParamFile);
     }
 
     ImmutableSet<Linkstamp> linkstamps = linkstampsBuilder.build();
@@ -807,7 +811,9 @@ public class CppLinkActionBuilder {
             .build();
 
     return buildLinkAction(
-        /* isLtoIndexing= */ false,
+        linkType.getActionName(),
+        /* mnemonic= */ mnemonic == null ? "CppLink" : mnemonic,
+        "Linking %{output}",
         objectFileInputs,
         libraries.build(),
         ltoMapping,
@@ -820,7 +826,9 @@ public class CppLinkActionBuilder {
   }
 
   private CppLinkAction buildLinkAction(
-      boolean isLtoIndexing,
+      String actionName,
+      String mnemonic,
+      String progressMessage,
       ImmutableSet<LinkerInput> objectFileInputs,
       NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries,
       Map<Artifact, Artifact> ltoMapping,
@@ -926,7 +934,7 @@ public class CppLinkActionBuilder {
 
     LinkCommandLine.Builder linkCommandLineBuilder =
         new LinkCommandLine.Builder()
-            .setActionName(getActionName(isLtoIndexing))
+            .setActionName(actionName)
             .setLinkTargetType(linkType)
             .setSplitCommandLine(canSplitCommandLine())
             .setParameterFileType(
@@ -966,41 +974,31 @@ public class CppLinkActionBuilder {
             .addTransitive(nonCodeInputsAsNestedSet)
             .addTransitive(dependencyInputsBuilder.build());
 
-    if (thinltoParamFile != null && !isLtoIndexing) {
-      inputsBuilder.add(thinltoParamFile);
-    }
-
     ImmutableMap<String, String> toolchainEnv =
-        CppHelper.getEnvironmentVariables(
-            featureConfiguration, buildVariables, getActionName(isLtoIndexing));
+        CppHelper.getEnvironmentVariables(featureConfiguration, buildVariables, actionName);
 
     // If the crosstool uses action_configs to configure cc compilation, collect execution info
     // from there, otherwise, use no execution info.
     // TODO(b/27903698): Assert that the crosstool has an action_config for this action.
 
-    if (featureConfiguration.actionIsConfigured(getActionName(isLtoIndexing))) {
-      for (String req :
-          featureConfiguration.getToolRequirementsForAction(getActionName(isLtoIndexing))) {
+    if (featureConfiguration.actionIsConfigured(actionName)) {
+      for (String req : featureConfiguration.getToolRequirementsForAction(actionName)) {
         executionInfo.put(req, "");
       }
     }
-    linkActionConstruction
-        .getConfig()
-        .modifyExecutionInfo(executionInfo, CppLinkAction.getMnemonic(mnemonic, isLtoIndexing));
+    linkActionConstruction.getConfig().modifyExecutionInfo(executionInfo, mnemonic);
 
-    if (!isLtoIndexing) {
+    if (!linkstampMap.isEmpty()) {
       final ImmutableList<Artifact> buildInfoHeaderArtifacts =
-          linkstampMap.isEmpty()
-              ? ImmutableList.of()
-              : isStampingEnabled
-                  ? toolchain
-                      .getCcBuildInfoTranslator()
-                      .getOutputGroup("non_redacted_build_info_files")
-                      .toList()
-                  : toolchain
-                      .getCcBuildInfoTranslator()
-                      .getOutputGroup("redacted_build_info_files")
-                      .toList();
+          isStampingEnabled
+              ? toolchain
+                  .getCcBuildInfoTranslator()
+                  .getOutputGroup("non_redacted_build_info_files")
+                  .toList()
+              : toolchain
+                  .getCcBuildInfoTranslator()
+                  .getOutputGroup("redacted_build_info_files")
+                  .toList();
 
       Set<String> seenLinkstampSources = new HashSet<>();
       for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
@@ -1047,9 +1045,9 @@ public class CppLinkActionBuilder {
     return new CppLinkAction(
         getOwner(),
         mnemonic,
+        progressMessage,
         inputsBuilder.build(),
         actionOutputs,
-        isLtoIndexing,
         linkCommandLine,
         linkActionConstruction.getConfig().getActionEnvironment(),
         toolchainEnv,
