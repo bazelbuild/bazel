@@ -17,7 +17,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.MutableActionGraph;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -72,8 +72,7 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
     @Override
     @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
-        throws InterruptedException, RuleErrorException,
-            MutableActionGraph.ActionConflictException {
+        throws InterruptedException, RuleErrorException, ActionConflictException {
       if (!ALLOWLISTED_LABELS.contains(ruleContext.getLabel())) {
         ruleContext.ruleError("Rule " + ruleContext.getLabel() + " cannot use private rule");
         return null;
