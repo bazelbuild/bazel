@@ -228,21 +228,13 @@ public class JavaRuntimeTest extends BuildViewTestCase {
     assertThat(getJavaRuntimeInfo(jvm).version()).isEqualTo(234);
   }
 
-  // bypass default toolchain flags added by BuildViewTestCase#useConfiguration
-  // TODO(cushon): delete this helper method once useConfiguration stops passing toolchain flags
-  private void useConfigurationInternal(String... args) throws Exception {
-    targetConfig = createConfiguration(args);
-    targetConfigKey = targetConfig.getKey();
-    createBuildView();
-  }
-
   @Test
   public void disallowLegacyJavabaseFlag() {
     InvalidConfigurationException e =
         assertThrows(
             InvalidConfigurationException.class,
             () ->
-                useConfigurationInternal(
+                useConfiguration(
                     "--experimental_disallow_legacy_java_toolchain_flags",
                     "--javabase=//no/such:label"));
     assertThat(e).hasMessageThat().contains("--javabase=//no/such:label is no longer supported");
@@ -254,7 +246,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
         assertThrows(
             InvalidConfigurationException.class,
             () ->
-                useConfigurationInternal(
+                useConfiguration(
                     "--experimental_disallow_legacy_java_toolchain_flags",
                     "--host_javabase=//no/such:label"));
     assertThat(e)
