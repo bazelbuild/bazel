@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -77,10 +79,9 @@ public abstract class PackageLookupValue implements SkyValue {
 
   protected PackageLookupValue() {}
 
-  public static PackageLookupValue success(
+  public static PackageLookupValue successfulExternalPackageLookup(
       RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
-    return new SuccessfulPackageLookupValue(
-        repository, root, buildFileName, /* hasProjectFile= */ false);
+    return SuccessfulExternalPackageLookupValue.create(repository, root, buildFileName);
   }
 
   public static PackageLookupValue success(Root root, BuildFileName buildFileName) {
@@ -89,7 +90,7 @@ public abstract class PackageLookupValue implements SkyValue {
 
   public static PackageLookupValue success(
       Root root, BuildFileName buildFileName, boolean hasProjectFile) {
-    return new SuccessfulPackageLookupValue(null, root, buildFileName, hasProjectFile);
+    return SuccessfulPackageLookupValue.create(root, buildFileName, hasProjectFile);
   }
 
   public static PackageLookupValue invalidPackageName(String errorMsg) {
@@ -181,14 +182,11 @@ public abstract class PackageLookupValue implements SkyValue {
     }
   }
 
-  /** Successful lookup value. */
+  /** Successful lookup value for a package in the main repo. */
+  @AutoCodec
   public static class SuccessfulPackageLookupValue extends PackageLookupValue {
-    /**
-     * The repository value the meaning of the path depends on (e.g., an external repository
-     * controlling a symbolic link the path goes trough). Can be {@code null}, if does not depend on
-     * such a repository; will always be {@code null} for packages in the main repository.
-     */
-    @Nullable private final RepositoryDirectoryValue repository;
+    private static final Interner<SuccessfulPackageLookupValue> INTERNER =
+        BlazeInterners.newWeakInterner();
 
     private final Root root;
     private final BuildFileName buildFileName;
@@ -196,14 +194,23 @@ public abstract class PackageLookupValue implements SkyValue {
     private final boolean hasProjectFile;
 
     SuccessfulPackageLookupValue(
-        @Nullable RepositoryDirectoryValue repository,
         Root root,
         BuildFileName buildFileName,
         boolean hasProjectFile) {
-      this.repository = repository;
       this.root = root;
       this.buildFileName = buildFileName;
       this.hasProjectFile = hasProjectFile;
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    static SuccessfulPackageLookupValue create(
+        Root root, BuildFileName buildFileName, boolean hasProjectFile) {
+      // In practice there will be very few unique values. Most successful package lookups succeed
+      // against the first root (maybe there's only a single root!), there are only a few possible
+      // build file names (for Blaze there's just one!), and hasProjectFile is just a bit of
+      // information.
+      return INTERNER.intern(new SuccessfulPackageLookupValue(root, buildFileName, hasProjectFile));
     }
 
     @Override
@@ -242,14 +249,59 @@ public abstract class PackageLookupValue implements SkyValue {
         return false;
       }
       SuccessfulPackageLookupValue other = (SuccessfulPackageLookupValue) obj;
-      return root.equals(other.root)
-          && buildFileName == other.buildFileName
-          && Objects.equal(repository, other.repository);
+      return root.equals(other.root) && buildFileName == other.buildFileName;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(root.hashCode(), buildFileName.hashCode(), repository);
+      return Objects.hashCode(root.hashCode(), buildFileName.hashCode());
+    }
+  }
+
+  /** Successful lookup value for a package in an external repo. */
+  @AutoCodec
+  public static class SuccessfulExternalPackageLookupValue extends SuccessfulPackageLookupValue {
+    private static final Interner<SuccessfulExternalPackageLookupValue> INTERNER =
+        BlazeInterners.newWeakInterner();
+
+    /**
+     * The repository value, so as to be sensitive to changes to realpaths of external repositories.
+     */
+    private final RepositoryDirectoryValue repository;
+
+    SuccessfulExternalPackageLookupValue(
+        RepositoryDirectoryValue repository,
+        Root root,
+        BuildFileName buildFileName,
+        boolean hasProjectFile) {
+      super(root, buildFileName, hasProjectFile);
+      this.repository = repository;
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    static SuccessfulExternalPackageLookupValue create(
+        RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
+      return INTERNER.intern(
+          new SuccessfulExternalPackageLookupValue(
+              repository, root, buildFileName, /* hasProjectFile= */ false));
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof SuccessfulExternalPackageLookupValue)) {
+        return false;
+      }
+      if (!super.equals(obj)) {
+        return false;
+      }
+      SuccessfulExternalPackageLookupValue other = (SuccessfulExternalPackageLookupValue) obj;
+      return repository.equals(other.repository);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(super.hashCode(), repository);
     }
   }
 
