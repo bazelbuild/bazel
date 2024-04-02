@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.events.Event;
@@ -193,7 +193,6 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   private void checkActionAndArtifactConflicts(
       ImmutableList<ActionAnalysisMetadata> actions, ActionTemplateExpansionKey key)
       throws ActionConflictException,
-          ArtifactPrefixConflictException,
           InterruptedException,
           Actions.ArtifactGeneratedByOtherRuleException {
     Actions.assignOwnersAndThrowIfConflict(actionKeyContext, actions, key);
