@@ -591,7 +591,8 @@ public final class RemoteModule extends BlazeModule {
               buildRequestId,
               invocationId,
               remoteOptions.remoteInstanceName,
-              remoteOptions.remoteAcceptCached));
+              remoteOptions.remoteAcceptCached,
+              env.getReporter()));
     } else {
       if (enableDiskCache) {
         try {
@@ -1009,6 +1010,7 @@ public final class RemoteModule extends BlazeModule {
               env.getSkyframeExecutor().getEvaluator(),
               env.getBlazeWorkspace().getPersistentActionCache(),
               leaseExtension);
+      env.getEventBus().register(leaseService);
 
       remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);

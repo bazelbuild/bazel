@@ -31,6 +31,11 @@ public final class CacheNotFoundException extends IOException {
     this.missingDigest = missingDigest;
   }
 
+  public CacheNotFoundException(Digest missingDigest, String filename) {
+    this.missingDigest = missingDigest;
+    this.filename = filename;
+  }
+
   public void setFilename(@Nullable String filename) {
     this.filename = filename;
   }
