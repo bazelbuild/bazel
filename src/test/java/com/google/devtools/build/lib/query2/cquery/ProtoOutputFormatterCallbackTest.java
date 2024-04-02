@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
@@ -56,7 +56,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -118,10 +117,10 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         )
         """);
 
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     AnalysisProtosV2.ConfiguredTarget myRuleProto =
         Iterables.getOnlyElement(
-            getProtoOutput(
-                    "//test:my_rule", ruleClassProvider, AnalysisProtosV2.CqueryResult.parser())
+            getProtoOutput("//test:my_rule", AnalysisProtosV2.CqueryResult.parser())
                 .getResultsList());
     List<Build.Attribute> attributes = myRuleProto.getTarget().getRule().getAttributeList();
     for (Build.Attribute attribute : attributes) {
@@ -136,8 +135,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     getHelper().useConfiguration("--foo=cat");
     myRuleProto =
         Iterables.getOnlyElement(
-            getProtoOutput(
-                    "//test:my_rule", ruleClassProvider, AnalysisProtosV2.CqueryResult.parser())
+            getProtoOutput("//test:my_rule", AnalysisProtosV2.CqueryResult.parser())
                 .getResultsList());
     attributes = myRuleProto.getTarget().getRule().getAttributeList();
     for (Build.Attribute attribute : attributes) {
@@ -170,7 +168,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             MockRule.define(
                 "parent_rule",
                 (builder, env) ->
-                    builder.add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
+                    builder
+                        .add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+                        .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
 
     ConfiguredRuleClassProvider ruleClassProvider =
         setRuleClassProviders(ruleWithPatch, parentRuleClass, getSimpleRule()).build();
@@ -181,6 +181,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         """
         parent_rule(
             name = "parent_rule",
+            srcs = ["parent.source"],
             deps = [":transition_rule"],
         )
 
@@ -195,9 +196,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         simple_rule(name = "dep")
         """);
 
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     AnalysisProtosV2.CqueryResult cqueryResult =
-        getProtoOutput(
-            "deps(//test:parent_rule)", ruleClassProvider, AnalysisProtosV2.CqueryResult.parser());
+        getProtoOutput("deps(//test:parent_rule)", AnalysisProtosV2.CqueryResult.parser());
     List<Configuration> configurations = cqueryResult.getConfigurationsList();
     assertThat(configurations).hasSize(2);
 
@@ -254,17 +255,24 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     // Targets without a configuration have a configuration_id of 0.
     AnalysisProtosV2.ConfiguredTarget fileTargetProto =
         resultsList.stream()
-            .filter(result -> "//test:patched".equals(result.getTarget().getSourceFile().getName()))
+            .filter(result -> result.getTarget().getSourceFile().getName().equals("//test:patched"))
             .findAny()
             .orElseThrow();
     assertThat(fileTargetProto.getConfigurationId()).isEqualTo(0);
 
-    // Targets whose deps have no transitions should appear without configuration information.
     assertThat(parentRuleProto.getTarget().getRule().getConfiguredRuleInputList())
         .containsExactly(
-            ConfiguredRuleInput.newBuilder().setLabel("//test:transition_rule").build());
+            // Targets whose deps have no transitions should appear with identifical configuration
+            // information to their parent:
+            ConfiguredRuleInput.newBuilder()
+                .setLabel("//test:transition_rule")
+                .setConfigurationChecksum(parentRuleProto.getConfiguration().getChecksum())
+                .setConfigurationId(parentRuleProto.getConfigurationId())
+                .build(),
+            // Source file deps have no configurations:
+            ConfiguredRuleInput.newBuilder().setLabel("//test:parent.source").build());
 
-    // Targets with deps with transitions should show them.
+    // Targets with deps with transitions should show distinct configurations.
     ConfiguredRuleInput patchedConfiguredRuleInput =
         ConfiguredRuleInput.newBuilder().setLabel("//test:patched").build();
     ConfiguredRuleInput depConfiguredRuleInput =
@@ -279,11 +287,205 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         .containsExactly(patchedConfiguredRuleInput, depConfiguredRuleInput);
   }
 
+  @Test
+  public void configuredRuleInputsFromAspects() throws Exception {
+    options.transitions = Transitions.LITE;
+    writeFile(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+        my_rule(
+            name = "parent",
+            deps = [":child"],
+        )
+        my_rule(name = "child")
+        my_rule(name = "aspect_exec_config_dep")
+        my_rule(name = "aspect_same_config_dep")
+        """);
+    writeFile(
+        "test/defs.bzl",
+        """
+        my_aspect = aspect(
+            implementation = lambda target, ctx: [],
+            attr_aspects = ["deps"],
+            attrs = {
+                "_aspect_exec_deps": attr.label_list(
+                    cfg = "exec",
+                    default = [":aspect_exec_config_dep"]
+                ),
+                "_aspect_deps": attr.label_list(default = [":aspect_same_config_dep"]),
+            }
+        )
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = { "deps": attr.label_list(aspects = [my_aspect]) }
+        )
+        """);
+
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
+    AnalysisProtosV2.CqueryResult cqueryResult =
+        getProtoOutput("deps(//test:parent)", AnalysisProtosV2.CqueryResult.parser());
+    List<Configuration> configurations = cqueryResult.getConfigurationsList();
+    assertThat(configurations).hasSize(3); // Target config, exec config, host platform config.
+
+    List<AnalysisProtosV2.ConfiguredTarget> resultsList = cqueryResult.getResultsList();
+    AnalysisProtosV2.ConfiguredTarget parentRuleProto =
+        getRuleProtoByName(resultsList, "//test:parent");
+    AnalysisProtosV2.ConfiguredTarget directDepProto =
+        getRuleProtoByName(resultsList, "//test:child");
+    AnalysisProtosV2.ConfiguredTarget aspectDepSameConfigProto =
+        getRuleProtoByName(resultsList, "//test:aspect_same_config_dep");
+    AnalysisProtosV2.ConfiguredTarget aspectDepExecConfigProto =
+        getRuleProtoByName(resultsList, "//test:aspect_exec_config_dep");
+
+    assertThat(parentRuleProto.getTarget().getRule().getConfiguredRuleInputList())
+        .containsAtLeast(
+            ConfiguredRuleInput.newBuilder()
+                .setLabel("//test:child")
+                .setConfigurationChecksum(
+                    getConfigurationForId(
+                            cqueryResult.getConfigurationsList(),
+                            directDepProto.getConfigurationId())
+                        .getChecksum())
+                .setConfigurationId(directDepProto.getConfigurationId())
+                .build(),
+            ConfiguredRuleInput.newBuilder()
+                .setLabel("//test:aspect_same_config_dep")
+                .setConfigurationChecksum(
+                    getConfigurationForId(
+                            cqueryResult.getConfigurationsList(),
+                            aspectDepSameConfigProto.getConfigurationId())
+                        .getChecksum())
+                .setConfigurationId(aspectDepSameConfigProto.getConfigurationId())
+                .build(),
+            ConfiguredRuleInput.newBuilder()
+                .setLabel("//test:aspect_exec_config_dep")
+                .setConfigurationChecksum(
+                    getConfigurationForId(
+                            cqueryResult.getConfigurationsList(),
+                            aspectDepExecConfigProto.getConfigurationId())
+                        .getChecksum())
+                .setConfigurationId(aspectDepExecConfigProto.getConfigurationId())
+                .build());
+
+    assertThat(parentRuleProto.getConfigurationId()).isEqualTo(directDepProto.getConfigurationId());
+    assertThat(parentRuleProto.getConfigurationId())
+        .isEqualTo(aspectDepSameConfigProto.getConfigurationId());
+    assertThat(parentRuleProto.getConfigurationId())
+        .isNotEqualTo(aspectDepExecConfigProto.getConfigurationId());
+  }
+
+  /** Tests an alias's output. */
+  @Test
+  public void aliasOutput() throws Exception {
+    writeFile(
+        "fake_licenses/BUILD",
+        """
+        load("//test:defs.bzl", "my_rule")
+        my_rule(name = "license")
+        """);
+    writeFile(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+        package(
+            default_applicable_licenses = ["//fake_licenses:license"],
+        )
+        alias(
+            name = "my_alias",
+            actual = ":my_target",
+        )
+        my_rule(name = "my_target")
+        """);
+    writeFile(
+        "test/defs.bzl",
+        """
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {},
+        )
+        """);
+
+    options.transitions = Transitions.LITE;
+    AnalysisProtosV2.CqueryResult cqueryResult =
+        getProtoOutput("deps(//test:my_alias)", AnalysisProtosV2.CqueryResult.parser());
+
+    AnalysisProtosV2.ConfiguredTarget aliasProto =
+        getRuleProtoByName(cqueryResult.getResultsList(), "//test:my_alias");
+    AnalysisProtosV2.ConfiguredTarget actualProto =
+        getRuleProtoByName(cqueryResult.getResultsList(), "//test:my_target");
+
+    // Expect the alias's "name" field references the alias's label, not its actual.
+    assertThat(aliasProto.getTarget().getRule().getName()).isEqualTo("//test:my_alias");
+    assertThat(aliasProto.getTarget().getRule().getRuleInputList())
+        .containsExactly("//test:my_target");
+    assertThat(aliasProto.getTarget().getRule().getConfiguredRuleInputList())
+        .containsExactly(
+            ConfiguredRuleInput.newBuilder()
+                .setLabel("//test:my_target")
+                .setConfigurationChecksum(
+                    getConfigurationForId(
+                            cqueryResult.getConfigurationsList(), actualProto.getConfigurationId())
+                        .getChecksum())
+                .setConfigurationId(actualProto.getConfigurationId())
+                .build(),
+            ConfiguredRuleInput.newBuilder()
+                .setLabel("//fake_licenses:license")
+                // Don't use the aliases' configuration because top-level aliases include test
+                // configuration, which all non-test deps trim out.
+                .setConfigurationChecksum(
+                    getConfigurationForId(
+                            cqueryResult.getConfigurationsList(), actualProto.getConfigurationId())
+                        .getChecksum())
+                .setConfigurationId(actualProto.getConfigurationId())
+                .build());
+  }
+
+  /** Tests output where one of the deps is an alias. */
+  @Test
+  public void outputOnAliasDep() throws Exception {
+    writeFile(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+        my_rule(
+            name = "my_target",
+            deps = [":my_alias"],
+        )
+        alias(
+            name = "my_alias",
+            actual = ":my_child",
+        )
+        my_rule(name = "my_child")
+        """);
+    writeFile(
+        "test/defs.bzl",
+        """
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = { "deps": attr.label_list() },
+        )
+        """);
+
+    options.transitions = Transitions.LITE;
+    AnalysisProtosV2.CqueryResult cqueryResult =
+        getProtoOutput("deps(//test:my_target)", AnalysisProtosV2.CqueryResult.parser());
+    Build.Rule targetRule =
+        getRuleProtoByName(cqueryResult.getResultsList(), "//test:my_target").getTarget().getRule();
+
+    assertThat(targetRule.getRuleInputList()).contains("//test:my_alias");
+    assertThat(targetRule.getRuleInputList()).doesNotContain("//test:my_child");
+    assertThat(targetRule.getConfiguredRuleInputList().stream().map(s -> s.getLabel()))
+        .contains("//test:my_alias");
+    assertThat(targetRule.getConfiguredRuleInputList().stream().map(s -> s.getLabel()))
+        .doesNotContain("//test:my_child");
+  }
+
   private CqueryNode getKeyedTargetByLabel(Set<CqueryNode> keyedTargets, String label) {
     return Iterables.getOnlyElement(
         keyedTargets.stream()
             .filter(t -> label.equals(t.getLabel().getCanonicalForm()))
-            .collect(Collectors.toSet()));
+            .collect(toImmutableSet()));
   }
 
   private Configuration getConfigurationForId(List<Configuration> configurations, int id) {
@@ -314,10 +516,10 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         )
         """);
 
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     AnalysisProtosV2.ConfiguredTarget alias =
         Iterables.getOnlyElement(
-            getProtoOutput(
-                    "//test:my_alias", ruleClassProvider, AnalysisProtosV2.CqueryResult.parser())
+            getProtoOutput("//test:my_alias", AnalysisProtosV2.CqueryResult.parser())
                 .getResultsList());
 
     assertThat(alias.getTarget().getRule().getName()).isEqualTo("//test:my_alias");
@@ -354,10 +556,10 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     getHelper().useConfiguration("--foo=woof");
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
 
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     List<AnalysisProtosV2.ConfiguredTarget> myAliasRuleProto =
         getProtoOutput(
                 "deps(//test:my_alias_rule)",
-                ruleClassProvider,
                 AnalysisProtosV2.CqueryResult.parser())
             .getResultsList();
 
@@ -393,17 +595,18 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         )
         """);
     AnalysisProtosV2.CqueryResult prototype = AnalysisProtosV2.CqueryResult.getDefaultInstance();
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     AnalysisProtosV2.CqueryResult protoOutput =
-        getProtoOutput("//test:*", ruleClassProvider, prototype.getParserForType());
+        getProtoOutput("//test:*", prototype.getParserForType());
 
     AnalysisProtosV2.CqueryResult textprotoOutput =
-        getProtoFromTextprotoOutput("//test:*", ruleClassProvider, prototype);
+        getProtoFromTextprotoOutput("//test:*", prototype);
 
     AnalysisProtosV2.CqueryResult jsonprotoOutput =
-        getProtoFromJsonprotoOutput("//test:*", ruleClassProvider, prototype);
+        getProtoFromJsonprotoOutput("//test:*", prototype);
 
     ImmutableList<AnalysisProtosV2.CqueryResult> streamedProtoOutput =
-        getStreamedProtoOutput("//test:*", ruleClassProvider, prototype.getParserForType());
+        getStreamedProtoOutput("//test:*", prototype.getParserForType());
     AnalysisProtosV2.CqueryResult.Builder combinedStreamedProtoBuilder =
         AnalysisProtosV2.CqueryResult.newBuilder();
     for (AnalysisProtosV2.CqueryResult result : streamedProtoOutput) {
@@ -447,17 +650,15 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         )
         """);
     Build.QueryResult prototype = Build.QueryResult.getDefaultInstance();
-    Build.QueryResult protoOutput =
-        getProtoOutput("//test:*", ruleClassProvider, prototype.getParserForType());
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    Build.QueryResult protoOutput = getProtoOutput("//test:*", prototype.getParserForType());
 
-    Build.QueryResult textprotoOutput =
-        getProtoFromTextprotoOutput("//test:*", ruleClassProvider, prototype);
+    Build.QueryResult textprotoOutput = getProtoFromTextprotoOutput("//test:*", prototype);
 
-    Build.QueryResult jsonprotoOutput =
-        getProtoFromJsonprotoOutput("//test:*", ruleClassProvider, prototype);
+    Build.QueryResult jsonprotoOutput = getProtoFromJsonprotoOutput("//test:*", prototype);
 
     ImmutableList<Build.QueryResult> streamedProtoOutput =
-        getStreamedProtoOutput("//test:*", ruleClassProvider, prototype.getParserForType());
+        getStreamedProtoOutput("//test:*", prototype.getParserForType());
     Build.QueryResult.Builder combinedStreamedProtoBuilder = Build.QueryResult.newBuilder();
     for (Build.QueryResult result : streamedProtoOutput) {
       if (!result.getTargetList().isEmpty()) {
@@ -476,18 +677,15 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     return () -> MockRule.define("simple_rule");
   }
 
-  private <T extends Message> T getProtoOutput(
-      String queryExpression, RuleClassProvider ruleClassProvider, Parser<T> parser)
+  private <T extends Message> T getProtoOutput(String queryExpression, Parser<T> parser)
       throws Exception {
-    InputStream in = queryAndGetInputStream(queryExpression, ruleClassProvider, OutputType.BINARY);
+    InputStream in = queryAndGetInputStream(queryExpression, OutputType.BINARY);
     return parser.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
   }
 
   private <T extends Message> ImmutableList<T> getStreamedProtoOutput(
-      String queryExpression, RuleClassProvider ruleClassProvider, Parser<T> parser)
-      throws Exception {
-    InputStream in =
-        queryAndGetInputStream(queryExpression, ruleClassProvider, OutputType.DELIMITED_BINARY);
+      String queryExpression, Parser<T> parser) throws Exception {
+    InputStream in = queryAndGetInputStream(queryExpression, OutputType.DELIMITED_BINARY);
     ImmutableList.Builder<T> builder = new ImmutableList.Builder<>();
     T result;
     while ((result = parser.parseDelimitedFrom(in, ExtensionRegistry.getEmptyRegistry())) != null) {
@@ -496,9 +694,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     return builder.build();
   }
 
-  private <T extends Message> T getProtoFromTextprotoOutput(
-      String queryExpression, RuleClassProvider ruleClassProvider, T prototype) throws Exception {
-    InputStream in = queryAndGetInputStream(queryExpression, ruleClassProvider, OutputType.TEXT);
+  private <T extends Message> T getProtoFromTextprotoOutput(String queryExpression, T prototype)
+      throws Exception {
+    InputStream in = queryAndGetInputStream(queryExpression, OutputType.TEXT);
     Message.Builder builder = prototype.newBuilderForType();
     TextFormat.getParser().merge(new InputStreamReader(in, UTF_8), builder);
     @SuppressWarnings("unchecked")
@@ -506,9 +704,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     return message;
   }
 
-  private <T extends Message> T getProtoFromJsonprotoOutput(
-      String queryExpression, RuleClassProvider ruleClassProvider, T prototype) throws Exception {
-    InputStream in = queryAndGetInputStream(queryExpression, ruleClassProvider, OutputType.JSON);
+  private <T extends Message> T getProtoFromJsonprotoOutput(String queryExpression, T prototype)
+      throws Exception {
+    InputStream in = queryAndGetInputStream(queryExpression, OutputType.JSON);
     Message.Builder builder = prototype.newBuilderForType();
     JsonFormat.parser().merge(new InputStreamReader(in, UTF_8), builder);
     @SuppressWarnings("unchecked")
@@ -516,13 +714,11 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     return message;
   }
 
-  private InputStream queryAndGetInputStream(
-      String queryExpression, RuleClassProvider ruleClassProvider, OutputType outputType)
+  private InputStream queryAndGetInputStream(String queryExpression, OutputType outputType)
       throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
-    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     PostAnalysisQueryEnvironment<CqueryNode> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -536,7 +732,6 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             options.aspectDeps.createResolver(
                 getHelper().getPackageManager(), NullEventHandler.INSTANCE),
             outputType,
-            ruleClassProvider,
             LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);
     return new ByteArrayInputStream(out.toByteArray());
