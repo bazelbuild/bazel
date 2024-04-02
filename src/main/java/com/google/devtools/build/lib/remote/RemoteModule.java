@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.RegexPatternOption;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
@@ -330,8 +331,8 @@ public final class RemoteModule extends BlazeModule {
     // used without Build without the Bytes.
     ImmutableList.Builder<Pattern> patternsToDownloadBuilder = ImmutableList.builder();
     if (remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL) {
-      for (String regex : remoteOptions.remoteDownloadRegex) {
-        patternsToDownloadBuilder.add(Pattern.compile(regex));
+      for (RegexPatternOption patternOption : remoteOptions.remoteDownloadRegex) {
+        patternsToDownloadBuilder.add(patternOption.regexPattern());
       }
     }
 
