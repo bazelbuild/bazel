@@ -88,7 +88,9 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
         for extension in extensions:
             for local_name, repo_spec in extension["generatedRepoSpecs"].items():
                 rule_class = repo_spec["ruleClassName"]
-                if rule_class == "http_archive" or rule_class == "http_file" or rule_class == "http_jar":
+
+                # TODO(pcloudy): Remove "kotlin_compiler_repository" after https://github.com/bazelbuild/rules_kotlin/issues/1106 is fixed
+                if rule_class == "http_archive" or rule_class == "http_file" or rule_class == "http_jar" or rule_class == "kotlin_compiler_repository":
                     attributes = repo_spec["attributes"]
                     repo_name = repo_name_prefix + local_name
 

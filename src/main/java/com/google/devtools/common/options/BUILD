@@ -1,3 +1,4 @@
+load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
 
 # Description:
@@ -33,13 +34,13 @@ java_library(
     ],
 )
 
-java_library(
+java_11_library(
     name = "options",
     exported_plugins = ["//src/main/java/com/google/devtools/common/options/processor:options_preprocessor"],
     exports = [":options_internal"],
 )
 
-java_library(
+java_11_library(
     name = "options_internal",
     srcs = glob(
         ["*.java"],

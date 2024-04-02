@@ -1,3 +1,4 @@
+load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -30,7 +31,7 @@ java_library(
     ],
 )
 
-java_library(
+java_11_library(
     name = "os",
     srcs = ["OS.java"],
 )
@@ -155,7 +156,7 @@ java_library(
     ],
 )
 
-java_library(
+java_11_library(
     name = "pair",
     srcs = [
         "Pair.java",

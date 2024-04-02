@@ -1,6 +1,8 @@
 # Packaging
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("//src:build_defs.bzl", "transition_java_language_8_archive")
 load("//src:release_archive.bzl", "release_archive")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
@@ -487,6 +489,12 @@ release_archive(
     ],
 )
 
+transition_java_language_8_archive(
+    name = "java_tools_java8.zip",
+    archive_zip = ":java_tools.zip",
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
 release_archive(
     name = "turbine_direct_graal_zip",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_graal"],
@@ -506,6 +514,12 @@ release_archive(
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
     ],
+)
+
+transition_java_language_8_archive(
+    name = "java_tools_prebuilt_java8.zip",
+    archive_zip = ":java_tools_prebuilt.zip",
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 # Following targets used by the java_tools_binaries Buildkite pipeline to upload
@@ -600,4 +614,9 @@ filegroup(
         "@bazel_tools_repo_cache//:files",
         "@workspace_repo_cache//:files",
     ],
+)
+
+bzl_library(
+    name = "build_defs_bzl",
+    srcs = ["build_defs.bzl"],
 )

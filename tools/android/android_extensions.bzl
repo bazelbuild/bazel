@@ -24,8 +24,8 @@ def _remote_android_tools_extensions_impl(_ctx):
     )
     http_jar(
         name = "android_gmaven_r8",
-        sha256 = "57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d",
-        url = "https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar",
+        sha256 = "59753e70a74f918389cc87f1b7d66b5c0862932559167425708ded159e3de439",
+        url = "https://maven.google.com/com/android/tools/r8/8.3.37/r8-8.3.37.jar",
     )
 
 remote_android_tools_extensions = module_extension(

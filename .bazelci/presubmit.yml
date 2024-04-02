@@ -1,7 +1,7 @@
 ---
 
 tasks:
-  centos7_java11_devtoolset10:
+  centos7:
     shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -48,15 +48,6 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      # https://github.com/bazelbuild/bazel/issues/21593
-      # --
-      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:AllTests"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:antxmlresultwriter_integration_test"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:junit4_testbridge_integration_test"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:utf8_test_log_test"
-      # --
     include_json_profile:
       - build
       - test
@@ -106,15 +97,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # https://github.com/bazelbuild/bazel/issues/21593
-      # --
-      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:AllTests"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:antxmlresultwriter_integration_test"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:junit4_testbridge_integration_test"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:utf8_test_log_test"
-      # --
     include_json_profile:
       - build
       - test
@@ -174,15 +156,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # https://github.com/bazelbuild/bazel/issues/21593
-      # --
-      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:AllTests"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:antxmlresultwriter_integration_test"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:junit4_testbridge_integration_test"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:utf8_test_log_test"
-      # --
     include_json_profile:
       - build
       - test
@@ -251,12 +224,10 @@ tasks:
       - "-//src/test/py/bazel:bazel_module_test"
       - "-//src/test/shell/integration:target_compatible_with_test"
       - "-//src/test/shell/integration:bazel_json_worker_test"
-      - "-//src/test/shell/bazel:bazel_coverage_java_jdk17_toolchain_head_test"
-      - "-//src/test/shell/bazel:bazel_java_test_jdk11_toolchain_head"
+      - "-//src/test/shell/bazel:bazel_coverage_java_jdk21_toolchain_head_test"
       # - "-//src/test/shell/bazel/android:aar_integration_test"
       - "-//src/test/shell/bazel:bazel_coverage_java_test"
-      - "-//src/test/shell/bazel:bazel_coverage_java_jdk11_toolchain_head_test"
-      - "-//src/test/shell/bazel:bazel_java_test_jdk17_toolchain_head"
+      - "-//src/test/shell/bazel:bazel_java_test_jdk21_toolchain_head"
       - "-//src/test/shell/bazel:starlark_git_repository_test"
       - "-//src/test/shell/integration:build_event_stream_test"
       - "-//third_party/ijar/test:zip_test"
@@ -266,7 +237,7 @@ tasks:
       - "-//src/test/shell/integration:bazel_sandboxed_worker_test"
       - "-//src/test/shell/integration:client_test"
       - "-//src/test/shell/bazel/remote:remote_execution_test"
-      - "-//src/test/shell/bazel:bazel_coverage_java_jdk17_toolchain_released_test"
+      - "-//src/test/shell/bazel:bazel_coverage_java_jdk21_toolchain_released_test"
       - "-//src/test/py/bazel:bazel_vendor_test"
       - "-//src/test/shell/integration:sandboxing_test"
       - "-//src/test/shell/bazel:bazel_java_test"
@@ -275,17 +246,7 @@ tasks:
       # - "-//src/test/shell/bazel/android:desugarer_integration_test_with_head_android_tools"
       - "-//src/test/py/bazel:bazel_external_repository_test"
       # - "-//src/test/shell/bazel/android:resource_processing_integration_test"
-      - "-//src/test/shell/bazel:bazel_coverage_java_jdk11_toolchain_released_test"
       # - "-//src/test/shell/bazel/android:aar_integration_test_with_head_android_tools"
-      # https://github.com/bazelbuild/bazel/issues/21593
-      # --
-      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:AllTests"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:antxmlresultwriter_integration_test"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:junit4_testbridge_integration_test"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:utf8_test_log_test"
-      # --
       - "-//src/tools/singlejar:zip64_test"
       - "-//src/test/py/bazel:launcher_test"
       - "-//src/test/shell/integration:bazel_worker_test"
@@ -393,8 +354,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote:RemoteTests"
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
-      # https://github.com/bazelbuild/bazel/issues/21593
-      - "-//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:DownloaderTestSuite"
     include_json_profile:
       - build
       - test
@@ -423,22 +382,24 @@ tasks:
         -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
     build_flags:
-      - "--config=ubuntu2004_java11"
+      - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
-      - "--experimental_remote_merkle_tree_cache"
+      # https://github.com/bazelbuild/bazel/issues/21628
+      # - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src/main/java/..."
     test_flags:
-      - "--config=ubuntu2004_java11"
+      - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
-      - "--experimental_remote_merkle_tree_cache"
+      # https://github.com/bazelbuild/bazel/issues/21628
+      # - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
     test_targets:
       - "//scripts/..."
