@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "c07897f4cf2ea76f689df2779f50aed06ea638d666542078234ebb0efd3ea5a5",
+  "moduleFileHash": "525ee3c0bf7e50b0fa80ee9913550a2cb74c992321fcd2499e8e8db037832efd",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -30,8 +30,7 @@
         "@graalvm_toolchains//:gvm",
         "@bazel_tools//tools/python:autodetecting_toolchain",
         "@local_config_winsdk//:all",
-        "//src/main/res:empty_rc_toolchain",
-        "//:bazel_java_toolchain_definition"
+        "//src/main/res:empty_rc_toolchain"
       ],
       "extensionUsages": [
         {
@@ -332,7 +331,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 333,
+                "line": 330,
                 "column": 22
               }
             }
@@ -517,7 +516,7 @@
             "column": 31
           },
           "imports": {
-            "rbe_ubuntu2004_java11": "rbe_ubuntu2004_java11"
+            "rbe_ubuntu2004": "rbe_ubuntu2004"
           },
           "devImports": [],
           "tags": [],
@@ -580,7 +579,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 355,
+            "line": 352,
             "column": 35
           },
           "imports": {
@@ -597,7 +596,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 358,
+            "line": 355,
             "column": 42
           },
           "imports": {
@@ -2424,7 +2423,7 @@
       "general": {
         "bzlTransitiveDigest": "KBarN1/r/5veMYz+cUHOlEzjGUdmUkxNYymHZwCJULg=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "c07897f4cf2ea76f689df2779f50aed06ea638d666542078234ebb0efd3ea5a5",
+          "@@//MODULE.bazel": "525ee3c0bf7e50b0fa80ee9913550a2cb74c992321fcd2499e8e8db037832efd",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "d24bb292cacf33965aed94ceb73997b618b92094a603f41704978b2408c20d70"
         },
         "recordedDirentsInputs": {},
@@ -2930,16 +2929,16 @@
     },
     "//:rbe_extension.bzl%bazel_rbe_deps": {
       "general": {
-        "bzlTransitiveDigest": "oNMQ9KtzGcqNHdpe8zMO3lRAVIKWWDmz8n5SMubtIIc=",
+        "bzlTransitiveDigest": "3Qxu4ylcYD3RTWLhk5k/59p/CwZ4tLdSgYnmBXYgAtc=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
-          "rbe_ubuntu2004_java11": {
+          "rbe_ubuntu2004": {
             "bzlFile": "@@_main~bazel_test_deps~bazelci_rules//:rbe_repo.bzl",
             "ruleClassName": "rbe_preconfig",
             "attributes": {
-              "toolchain": "ubuntu2004-bazel-java11"
+              "toolchain": "ubuntu2004"
             }
           }
         },
