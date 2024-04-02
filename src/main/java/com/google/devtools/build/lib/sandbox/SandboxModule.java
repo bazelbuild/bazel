@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.base.Preconditions;
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -531,13 +531,19 @@ public final class SandboxModule extends BlazeModule {
    */
   private static void checkSandboxBaseTopOnlyContainsPersistentDirs(Path sandboxBase) {
     try {
-      Preconditions.checkState(
-          SANDBOX_BASE_PERSISTENT_DIRS.containsAll(
-              sandboxBase.getDirectoryEntries().stream()
-                  .map(Path::getBaseName)
-                  .collect(toImmutableList())),
-          "Found unexpected files in sandbox base. Please report this in"
-              + " https://github.com/bazelbuild/bazel/issues.");
+      ImmutableList<String> directoryEntries =
+          sandboxBase.getDirectoryEntries().stream()
+              .map(Path::getBaseName)
+              .collect(toImmutableList());
+      if (!SANDBOX_BASE_PERSISTENT_DIRS.containsAll(directoryEntries)) {
+        StringBuilder message =
+            new StringBuilder(
+                "Found unexpected entries in sandbox base. Please report this in"
+                    + " https://github.com/bazelbuild/bazel/issues.");
+        message.append(" The entries are: ");
+        Joiner.on(", ").appendTo(message, directoryEntries);
+        throw new IllegalStateException(message.toString());
+      }
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to clean up sandbox base %s", sandboxBase);
     }
