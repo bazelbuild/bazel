@@ -47,29 +47,30 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
     write(
         "foo/pruning.bzl",
         """
-def _impl(ctx):
-    inputs = ctx.attr.inputs.files
-    output = ctx.actions.declare_file(ctx.label.name + ".out")
-    unused_file = ctx.actions.declare_file(ctx.label.name + ".unused")
-    ctx.actions.run(
-        # Make sure original inputs are one level down, so 'leaf unrolling' doesn't get them
-        inputs = depset(transitive = [ctx.attr.filler.files, inputs]),
-        outputs = [output, unused_file],
-        arguments = [output.path, unused_file.path] + [f.path for f in inputs.to_list()],
-        executable = ctx.executable.executable,
-        unused_inputs_list = unused_file,
-    )
-    return DefaultInfo(files = depset([output]))
+        def _impl(ctx):
+            inputs = ctx.attr.inputs.files
+            output = ctx.actions.declare_file(ctx.label.name + ".out")
+            unused_file = ctx.actions.declare_file(ctx.label.name + ".unused")
+            ctx.actions.run(
+                # Make sure original inputs are one level down,
+                # so 'leaf unrolling' doesn't get them
+                inputs = depset(transitive = [ctx.attr.filler.files, inputs]),
+                outputs = [output, unused_file],
+                arguments = [output.path, unused_file.path] + [f.path for f in inputs.to_list()],
+                executable = ctx.executable.executable,
+                unused_inputs_list = unused_file,
+            )
+            return DefaultInfo(files = depset([output]))
 
-build_rule = rule(
-    attrs = {
-        "inputs": attr.label(allow_files = True),
-        "filler": attr.label(allow_files = True),
-        "executable": attr.label(executable = True, allow_files = True, cfg = "exec"),
-    },
-    implementation = _impl,
-)
-""");
+        build_rule = rule(
+            attrs = {
+                "inputs": attr.label(allow_files = True),
+                "filler": attr.label(allow_files = True),
+                "executable": attr.label(executable = True, allow_files = True, cfg = "exec"),
+            },
+            implementation = _impl,
+        )
+        """);
     write("foo/unused.sh", "touch $1", "shift", "unused=$1", "shift", "echo $@ > $unused")
         .setExecutable(true);
     write("foo/gen_run.sh", "true").setExecutable(true);

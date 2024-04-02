@@ -503,11 +503,13 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "embedded_tools/tools/allowlists/android_binary_allowlist/BUILD",
         """
-package_group(
-    name = "enable_starlark_dex_desugar_proguard",
-    includes = ["@@//tools/allowlists/android_binary_allowlist:enable_starlark_dex_desugar_proguard"],
-)
-""");
+        package_group(
+            name = "enable_starlark_dex_desugar_proguard",
+            includes = [
+            "@@//tools/allowlists/android_binary_allowlist:enable_starlark_dex_desugar_proguard",
+            ],
+        )
+        """);
     config.create(
         "tools/allowlists/android_binary_allowlist/BUILD",
         "package_group(name='enable_starlark_dex_desugar_proguard', packages=[])");

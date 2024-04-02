@@ -1206,25 +1206,24 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "tools/builtins/exports.bzl",
         """
+        coverage_common = _builtins.toplevel.coverage_common
 
-coverage_common = _builtins.toplevel.coverage_common
+        def _impl(ctx):
+          file1 = ctx.actions.declare_file(ctx.label.name + '.file1')
+          ctx.actions.write(file1, '')
+          file2 = ctx.actions.declare_file(ctx.label.name + '.file2')
+          ctx.actions.write(file2, '')
+          return coverage_common.instrumented_files_info(
+            ctx,
+            coverage_support_files = depset([file1, file2]),
+          )
 
-def _impl(ctx):
-  file1 = ctx.actions.declare_file(ctx.label.name + '.file1')
-  ctx.actions.write(file1, '')
-  file2 = ctx.actions.declare_file(ctx.label.name + '.file2')
-  ctx.actions.write(file2, '')
-  return coverage_common.instrumented_files_info(
-    ctx,
-    coverage_support_files = depset([file1, file2]),
-  )
+        overridden_extra_action = rule(implementation = _impl)
 
-overridden_extra_action = rule(implementation = _impl)
-
-exported_toplevels = {}
-exported_rules = {'+extra_action': overridden_extra_action}
-exported_to_java = {}
-""");
+        exported_toplevels = {}
+        exported_rules = {'+extra_action': overridden_extra_action}
+        exported_to_java = {}
+        """);
     scratch.file("test/starlark/BUILD", "extra_action(name = 'foo')");
 
     useConfiguration(
@@ -1247,27 +1246,26 @@ exported_to_java = {}
     scratch.file(
         "tools/builtins/exports.bzl",
         """
+        coverage_common = _builtins.toplevel.coverage_common
 
-coverage_common = _builtins.toplevel.coverage_common
+        def _impl(ctx):
+          file1 = ctx.actions.declare_file(ctx.label.name + '.file1')
+          ctx.actions.write(file1, '')
+          file2 = ctx.actions.declare_file(ctx.label.name + '.file2')
+          ctx.actions.write(file2, '')
+          return coverage_common.instrumented_files_info(
+            ctx,
+            coverage_support_files = [depset([file1]), file2],
+          )
 
-def _impl(ctx):
-  file1 = ctx.actions.declare_file(ctx.label.name + '.file1')
-  ctx.actions.write(file1, '')
-  file2 = ctx.actions.declare_file(ctx.label.name + '.file2')
-  ctx.actions.write(file2, '')
-  return coverage_common.instrumented_files_info(
-    ctx,
-    coverage_support_files = [depset([file1]), file2],
-  )
+        overridden_extra_action = rule(
+          implementation = _impl,
+        )
 
-overridden_extra_action = rule(
-  implementation = _impl,
-)
-
-exported_toplevels = {}
-exported_rules = {'+extra_action': overridden_extra_action}
-exported_to_java = {}
-""");
+        exported_toplevels = {}
+        exported_rules = {'+extra_action': overridden_extra_action}
+        exported_to_java = {}
+        """);
     scratch.file("test/starlark/BUILD", "extra_action(name = 'foo')");
     scratch.file("test/starlark/bin.sh", "");
 
@@ -1288,23 +1286,22 @@ exported_to_java = {}
     scratch.file(
         "foo/starlark/extension.bzl",
         """
+        def custom_rule_impl(ctx):
+          return [
+            coverage_common.instrumented_files_info(
+              ctx,
+              coverage_support_files = ctx.files.srcs,
+              coverage_environment = {'k1' : 'v1'},
+            ),
+          ]
 
-def custom_rule_impl(ctx):
-  return [
-    coverage_common.instrumented_files_info(
-      ctx,
-      coverage_support_files = ctx.files.srcs,
-      coverage_environment = {'k1' : 'v1'},
-    ),
-  ]
-
-custom_rule = rule(
-  implementation = custom_rule_impl,
-  attrs = {
-    'srcs': attr.label_list(allow_files=True),
-  },
-)
-""");
+        custom_rule = rule(
+          implementation = custom_rule_impl,
+          attrs = {
+            'srcs': attr.label_list(allow_files=True),
+          },
+        )
+        """);
     scratch.file(
         "foo/starlark/BUILD",
         """
@@ -1685,29 +1682,28 @@ custom_rule = rule(
     scratch.file(
         "test/starlark/rules.bzl",
         """
+        FooInfo = provider()
+        BarInfo = provider()
 
-FooInfo = provider()
-BarInfo = provider()
+        def _top_level_rule_impl(ctx):
+          print('My Dep Providers:', ctx.attr.my_dep)
 
-def _top_level_rule_impl(ctx):
-  print('My Dep Providers:', ctx.attr.my_dep)
+        def _dep_rule_impl(name):
+          providers = [
+              FooInfo(),
+              BarInfo(),
+          ]
+          return providers
 
-def _dep_rule_impl(name):
-  providers = [
-      FooInfo(),
-      BarInfo(),
-  ]
-  return providers
+        top_level_rule = rule(
+            implementation=_top_level_rule_impl,
+            attrs={'my_dep':attr.label()}
+        )
 
-top_level_rule = rule(
-    implementation=_top_level_rule_impl,
-    attrs={'my_dep':attr.label()}
-)
-
-dep_rule = rule(
-    implementation=_dep_rule_impl,
-)
-""");
+        dep_rule = rule(
+            implementation=_dep_rule_impl,
+        )
+        """);
 
     scratch.file(
         "test/starlark/BUILD",
@@ -2973,34 +2969,33 @@ dep_rule = rule(
     scratch.file(
         "test/extension.bzl",
         """
+        def analysis_test_rule_impl(ctx):
+          return [AnalysisTestResultInfo(success = True, message = 'message contents')]
+        def middle_rule_impl(ctx):
+          return []
+        def inner_rule_impl(ctx):
+          return [AnalysisTestResultInfo(success = True, message = 'message contents')]
 
-def analysis_test_rule_impl(ctx):
-  return [AnalysisTestResultInfo(success = True, message = 'message contents')]
-def middle_rule_impl(ctx):
-  return []
-def inner_rule_impl(ctx):
-  return [AnalysisTestResultInfo(success = True, message = 'message contents')]
+        my_transition = analysis_test_transition(
+            settings = {
+                '//command_line_option:foo' : 'yeehaw' }
+        )
 
-my_transition = analysis_test_transition(
-    settings = {
-        '//command_line_option:foo' : 'yeehaw' }
-)
-
-inner_rule_test = rule(
-  implementation = analysis_test_rule_impl,
-  analysis_test = True,
-)
-middle_rule = rule(
-  implementation = middle_rule_impl,
-  attrs = {'dep':  attr.label()}
-)
-outer_rule_test = rule(
-  implementation = analysis_test_rule_impl,
-  analysis_test = True,
-  attrs = {
-    'dep':  attr.label(cfg = my_transition),
-  })
-""");
+        inner_rule_test = rule(
+          implementation = analysis_test_rule_impl,
+          analysis_test = True,
+        )
+        middle_rule = rule(
+          implementation = middle_rule_impl,
+          attrs = {'dep':  attr.label()}
+        )
+        outer_rule_test = rule(
+          implementation = analysis_test_rule_impl,
+          analysis_test = True,
+          attrs = {
+            'dep':  attr.label(cfg = my_transition),
+          })
+        """);
 
     scratch.file(
         "test/BUILD",
@@ -3181,28 +3176,27 @@ outer_rule_test = rule(
     scratch.file(
         "test/extension.bzl",
         """
+        def outer_rule_impl(ctx):
+          return [AnalysisTestResultInfo(success = True, message = 'message contents')]
+        def dep_rule_impl(ctx):
+          return []
 
-def outer_rule_impl(ctx):
-  return [AnalysisTestResultInfo(success = True, message = 'message contents')]
-def dep_rule_impl(ctx):
-  return []
-
-my_transition = analysis_test_transition(
-    settings = {
-        '//command_line_option:foo' : 'yeehaw' }
-)
-dep_rule = rule(
-  implementation = dep_rule_impl,
-  attrs = {'dep':  attr.label()}
-)
-outer_rule = rule(
-  implementation = outer_rule_impl,
-# analysis_test = True,
-  fragments = ['java'],
-  attrs = {
-    'dep':  attr.label(cfg = my_transition),
-  })
-""");
+        my_transition = analysis_test_transition(
+            settings = {
+                '//command_line_option:foo' : 'yeehaw' }
+        )
+        dep_rule = rule(
+          implementation = dep_rule_impl,
+          attrs = {'dep':  attr.label()}
+        )
+        outer_rule = rule(
+          implementation = outer_rule_impl,
+        # analysis_test = True,
+          fragments = ['java'],
+          attrs = {
+            'dep':  attr.label(cfg = my_transition),
+          })
+        """);
 
     scratch.file(
         "test/BUILD",

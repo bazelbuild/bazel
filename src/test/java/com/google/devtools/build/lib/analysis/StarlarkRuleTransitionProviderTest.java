@@ -139,17 +139,18 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/transitions.bzl",
         """
-def _impl(settings, attr):
-    return {
-        "//command_line_option:foo": settings["//command_line_option:foo"].replace("pre", "post")
-    }
+        def _impl(settings, attr):
+            return {
+                "//command_line_option:foo":
+                    settings["//command_line_option:foo"].replace("pre", "post")
+            }
 
-my_transition = transition(
-    implementation = _impl,
-    inputs = ["//command_line_option:foo"],
-    outputs = ["//command_line_option:foo"],
-)
-""");
+        my_transition = transition(
+            implementation = _impl,
+            inputs = ["//command_line_option:foo"],
+            outputs = ["//command_line_option:foo"],
+        )
+        """);
 
     scratch.file(
         "test/rules.bzl",

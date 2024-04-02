@@ -760,27 +760,27 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "x/extension.bzl",
         """
-def _aspect_impl(target, ctx):
-    ctx.actions.do_nothing(mnemonic = "Mnemonic")
-    return []
+        def _aspect_impl(target, ctx):
+            ctx.actions.do_nothing(mnemonic = "Mnemonic")
+            return []
 
-aspect1 = aspect(
-    _aspect_impl,
-    attr_aspects = ["deps"],
-    attrs = {"param": attr.string(values = ["a", "b"])}
-)
-aspect2 = aspect(_aspect_impl, attr_aspects = ["deps"])
+        aspect1 = aspect(
+            _aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {"param": attr.string(values = ["a", "b"])}
+        )
+        aspect2 = aspect(_aspect_impl, attr_aspects = ["deps"])
 
-def _rule_impl(ctx):
-    return []
+        def _rule_impl(ctx):
+            return []
 
-injector1 = rule(
-    _rule_impl,
-    attrs = {"deps": attr.label_list(aspects = [aspect1]), "param": attr.string()}
-)
-injector2 = rule(_rule_impl, attrs = {"deps": attr.label_list(aspects = [aspect2])})
-null_rule = rule(_rule_impl, attrs = {"deps": attr.label_list()})
-""");
+        injector1 = rule(
+            _rule_impl,
+            attrs = {"deps": attr.label_list(aspects = [aspect1]), "param": attr.string()}
+        )
+        injector2 = rule(_rule_impl, attrs = {"deps": attr.label_list(aspects = [aspect2])})
+        null_rule = rule(_rule_impl, attrs = {"deps": attr.label_list()})
+        """);
 
     scratch.file(
         "pkg1/BUILD",

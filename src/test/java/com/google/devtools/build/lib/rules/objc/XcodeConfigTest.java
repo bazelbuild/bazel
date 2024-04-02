@@ -1162,28 +1162,30 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "x/r.bzl",
         """
-MyInfo = provider()
+        MyInfo = provider()
 
-def _impl(ctx):
-    conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
-    ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
-    tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
-    return MyInfo(
-        xcode = conf.xcode_version(),
-        ios_sdk = conf.sdk_version_for_platform(ios),
-        tvos_sdk = conf.sdk_version_for_platform(tvos),
-        macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),
-        watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),
-        availability = conf.availability(),
-        execution_info = conf.execution_info(),
-    )
+        def _impl(ctx):
+            conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
+            ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
+            tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
+            return MyInfo(
+                xcode = conf.xcode_version(),
+                ios_sdk = conf.sdk_version_for_platform(ios),
+                tvos_sdk = conf.sdk_version_for_platform(tvos),
+                macos_min = conf.minimum_os_for_platform_type(
+                    apple_common.platform_type.macos),
+                watchos_min = conf.minimum_os_for_platform_type(
+                    apple_common.platform_type.watchos),
+                availability = conf.availability(),
+                execution_info = conf.execution_info(),
+            )
 
-r = rule(
-    implementation = _impl,
-    attrs = {"_xcode": attr.label(default = Label("//x:a"))},
-    fragments = ["apple"],
-)
-""");
+        r = rule(
+            implementation = _impl,
+            attrs = {"_xcode": attr.label(default = Label("//x:a"))},
+            fragments = ["apple"],
+        )
+        """);
 
     useConfiguration(
         "--xcode_version_config=//x:c", "--tvos_sdk_version=2.5", "--watchos_minimum_os=4.5");
@@ -1252,28 +1254,30 @@ r = rule(
     scratch.file(
         "x/r.bzl",
         """
-MyInfo = provider()
+        MyInfo = provider()
 
-def _impl(ctx):
-    conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
-    ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
-    tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
-    return MyInfo(
-        xcode = conf.xcode_version(),
-        ios_sdk = conf.sdk_version_for_platform(ios),
-        tvos_sdk = conf.sdk_version_for_platform(tvos),
-        macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),
-        watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),
-        availability = conf.availability(),
-        execution_info = conf.execution_info(),
-    )
+        def _impl(ctx):
+            conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
+            ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
+            tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
+            return MyInfo(
+                xcode = conf.xcode_version(),
+                ios_sdk = conf.sdk_version_for_platform(ios),
+                tvos_sdk = conf.sdk_version_for_platform(tvos),
+                macos_min = conf.minimum_os_for_platform_type(
+                    apple_common.platform_type.macos),
+                watchos_min = conf.minimum_os_for_platform_type(
+                    apple_common.platform_type.watchos),
+                availability = conf.availability(),
+                execution_info = conf.execution_info(),
+            )
 
-r = rule(
-    implementation = _impl,
-    attrs = {"_xcode": attr.label(default = Label("//x:a"))},
-    fragments = ["apple"],
-)
-""");
+        r = rule(
+            implementation = _impl,
+            attrs = {"_xcode": attr.label(default = Label("//x:a"))},
+            fragments = ["apple"],
+        )
+        """);
 
     useConfiguration("--xcode_version_config=//x:c");
     ConfiguredTarget r = getConfiguredTarget("//x:r");
@@ -1331,27 +1335,29 @@ r = rule(
     scratch.file(
         "x/r.bzl",
         """
-MyInfo = provider()
+        MyInfo = provider()
 
-def _impl(ctx):
-    conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
-    ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
-    tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
-    return MyInfo(
-        xcode = conf.xcode_version(),
-        ios_sdk = conf.sdk_version_for_platform(ios),
-        tvos_sdk = conf.sdk_version_for_platform(tvos),
-        macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),
-        watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),
-        availability = conf.availability(),
-    )
+        def _impl(ctx):
+            conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
+            ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
+            tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
+            return MyInfo(
+                xcode = conf.xcode_version(),
+                ios_sdk = conf.sdk_version_for_platform(ios),
+                tvos_sdk = conf.sdk_version_for_platform(tvos),
+                macos_min = conf.minimum_os_for_platform_type(
+                    apple_common.platform_type.macos),
+                watchos_min = conf.minimum_os_for_platform_type(
+                    apple_common.platform_type.watchos),
+                availability = conf.availability(),
+            )
 
-r = rule(
-    implementation = _impl,
-    attrs = {"_xcode": attr.label(default = Label("//x:a"))},
-    fragments = ["apple"],
-)
-""");
+        r = rule(
+            implementation = _impl,
+            attrs = {"_xcode": attr.label(default = Label("//x:a"))},
+            fragments = ["apple"],
+        )
+        """);
 
     useConfiguration("--xcode_version_config=//x:c");
     ConfiguredTarget r = getConfiguredTarget("//x:r");
@@ -1489,32 +1495,35 @@ r = rule(
     scratch.file(
         "x/provider_grabber.bzl",
         """
-def _aspect_impl(target, ctx):
-    conf = ctx.attr._xcode_dep[apple_common.XcodeVersionConfig]
-    return [conf]
+        def _aspect_impl(target, ctx):
+            conf = ctx.attr._xcode_dep[apple_common.XcodeVersionConfig]
+            return [conf]
 
-MyAspect = aspect(
-    implementation = _aspect_impl,
-    attrs = {
-        "_xcode_dep": attr.label(
-            default = configuration_field(
-                fragment = "apple",
-                name = "xcode_config_label",
-            ),
-        ),
-    },
-    fragments = ["apple"],
-)
+        MyAspect = aspect(
+            implementation = _aspect_impl,
+            attrs = {
+                "_xcode_dep": attr.label(
+                    default = configuration_field(
+                        fragment = "apple",
+                        name = "xcode_config_label",
+                    ),
+                ),
+            },
+            fragments = ["apple"],
+        )
 
-def _rule_impl(ctx):
-    conf = ctx.attr.dep[0][apple_common.XcodeVersionConfig]
-    return [conf]
+        def _rule_impl(ctx):
+            conf = ctx.attr.dep[0][apple_common.XcodeVersionConfig]
+            return [conf]
 
-provider_grabber = rule(
-    implementation = _rule_impl,
-    attrs = {"dep": attr.label_list(mandatory = True, allow_files = True, aspects = [MyAspect])},
-)
-""");
+        provider_grabber = rule(
+            implementation = _rule_impl,
+            attrs = {"dep": attr.label_list(
+                mandatory = True,
+                allow_files = True,
+                aspects = [MyAspect])},
+        )
+        """);
 
     scratch.file(
         "x/BUILD",

@@ -6871,28 +6871,30 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/rule.bzl",
         """
-load("//myinfo:myinfo.bzl", "MyInfo")
+        load("//myinfo:myinfo.bzl", "MyInfo")
 
-def _impl(ctx):
-    linker_input = cc_common.create_linker_input(owner = ctx.label, user_link_flags = ["-l"])
-    linking_context = cc_common.create_linking_context(
-        linker_inputs = depset([linker_input]),
-    )
-    linking_context = cc_common.create_linking_context(
-        libraries_to_link = [],
-    )
-    cc_info = CcInfo(linking_context = linking_context)
-    if cc_info.linking_context.linker_inputs.to_list()[0] == linker_input:
-        pass
-    return [cc_info]
+        def _impl(ctx):
+            linker_input = cc_common.create_linker_input(
+                owner = ctx.label,
+                user_link_flags = ["-l"])
+            linking_context = cc_common.create_linking_context(
+                linker_inputs = depset([linker_input]),
+            )
+            linking_context = cc_common.create_linking_context(
+                libraries_to_link = [],
+            )
+            cc_info = CcInfo(linking_context = linking_context)
+            if cc_info.linking_context.linker_inputs.to_list()[0] == linker_input:
+                pass
+            return [cc_info]
 
-crule = rule(
-    _impl,
-    attrs = {
-    },
-    fragments = ["cpp"],
-)
-""");
+        crule = rule(
+            _impl,
+            attrs = {
+            },
+            fragments = ["cpp"],
+        )
+        """);
 
     assertThat(getConfiguredTarget("//foo:a")).isNotNull();
     assertNoEvents();
@@ -7156,59 +7158,60 @@ crule = rule(
     scratch.file(
         "a/rule.bzl",
         """
-def _impl(ctx):
-    out = ctx.actions.declare_file(ctx.label.name)
-    ctx.actions.run_shell(
-        inputs = [ctx.executable.cc_binary],
-        tools = [],
-        outputs = [out],
-        command = "cp %s %s" % (ctx.executable.cc_binary.path, out.path),
-    )
-    wrapped_defaultinfo = ctx.attr.cc_binary[DefaultInfo]
-    runfiles = ctx.runfiles(files = [out])
-    wrapped_default_runfiles = wrapped_defaultinfo.default_runfiles.files.to_list()
-    if ctx.executable.cc_binary in wrapped_default_runfiles:
-        wrapped_default_runfiles.remove(ctx.executable.cc_binary)
-    result = [
-        DefaultInfo(
-            executable = out,
-            files = depset([out]),
-            runfiles = runfiles.merge(ctx.runfiles(files = wrapped_default_runfiles)),
-        ),
-    ]
-    if ctx.file.stripped_file:
-        wrapped_dbginfo = ctx.attr.cc_binary[DebugPackageInfo]
-        result.append(
-            DebugPackageInfo(
-                target_label = ctx.label,
-                stripped_file = ctx.file.stripped_file if wrapped_dbginfo.stripped_file else None,
-                unstripped_file = out,
-                dwp_file = ctx.file.dwp_file if wrapped_dbginfo.dwp_file else None,
-            ),
-        )
-    return result
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.run_shell(
+                inputs = [ctx.executable.cc_binary],
+                tools = [],
+                outputs = [out],
+                command = "cp %s %s" % (ctx.executable.cc_binary.path, out.path),
+            )
+            wrapped_defaultinfo = ctx.attr.cc_binary[DefaultInfo]
+            runfiles = ctx.runfiles(files = [out])
+            wrapped_default_runfiles = wrapped_defaultinfo.default_runfiles.files.to_list()
+            if ctx.executable.cc_binary in wrapped_default_runfiles:
+                wrapped_default_runfiles.remove(ctx.executable.cc_binary)
+            result = [
+                DefaultInfo(
+                    executable = out,
+                    files = depset([out]),
+                    runfiles = runfiles.merge(ctx.runfiles(files = wrapped_default_runfiles)),
+                ),
+            ]
+            if ctx.file.stripped_file:
+                wrapped_dbginfo = ctx.attr.cc_binary[DebugPackageInfo]
+                result.append(
+                    DebugPackageInfo(
+                        target_label = ctx.label,
+                        stripped_file =
+                            ctx.file.stripped_file if wrapped_dbginfo.stripped_file else None,
+                        unstripped_file = out,
+                        dwp_file = ctx.file.dwp_file if wrapped_dbginfo.dwp_file else None,
+                    ),
+                )
+            return result
 
-wrapped_binary = rule(
-    _impl,
-    attrs = {
-        "cc_binary": attr.label(
-            allow_single_file = True,
-            mandatory = True,
+        wrapped_binary = rule(
+            _impl,
+            attrs = {
+                "cc_binary": attr.label(
+                    allow_single_file = True,
+                    mandatory = True,
+                    executable = True,
+                    cfg = "target",
+                ),
+                "stripped_file": attr.label(
+                    allow_single_file = True,
+                    default = None,
+                ),
+                "dwp_file": attr.label(
+                    allow_single_file = True,
+                    default = None,
+                ),
+            },
             executable = True,
-            cfg = "target",
-        ),
-        "stripped_file": attr.label(
-            allow_single_file = True,
-            default = None,
-        ),
-        "dwp_file": attr.label(
-            allow_single_file = True,
-            default = None,
-        ),
-    },
-    executable = True,
-)
-""");
+        )
+        """);
     scratch.file(
         "a/BUILD",
         """

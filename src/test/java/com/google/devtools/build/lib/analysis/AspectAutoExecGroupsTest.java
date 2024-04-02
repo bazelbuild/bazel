@@ -43,19 +43,22 @@ public class AspectAutoExecGroupsTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "rule/test_toolchain.bzl",
         """
-def _impl(ctx):
-    return [platform_common.ToolchainInfo(
-        tool = ctx.executable._tool,
-        files_to_run = ctx.attr._tool[DefaultInfo].files_to_run,
-    )]
+        def _impl(ctx):
+            return [platform_common.ToolchainInfo(
+                tool = ctx.executable._tool,
+                files_to_run = ctx.attr._tool[DefaultInfo].files_to_run,
+            )]
 
-test_toolchain = rule(
-    implementation = _impl,
-    attrs = {
-        "_tool": attr.label(default = "//toolchain:b_tool", executable = True, cfg = "exec"),
-    },
-)
-""");
+        test_toolchain = rule(
+            implementation = _impl,
+            attrs = {
+                "_tool": attr.label(
+                    default = "//toolchain:b_tool",
+                    executable = True,
+                    cfg = "exec"),
+            },
+        )
+        """);
     scratch.overwriteFile(
         "rule/BUILD",
         """

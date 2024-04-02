@@ -9310,28 +9310,28 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/BUILD",
         """
-load('//test:defs.bzl', 'r1', 'r2', 'r3')
-r1(
-  name = 't1',
-  # t1 propagate aspect (a) to targets (t2 and t3)
-  deps = [':t2', ':t3'],
-)
-r2(
-  name = 't2',
-  # t2 propagates aspects (c, b) to target t4 and aspect a is propagated from the prev level
-  # aspects path on t4 is [c, b, a], this means a can see b and b can see c
-  deps = [':t4'],
-)
-r3(
-  name = 't3',
-# t3 propagates aspects (b, c) to target t4 and aspect a is propagated from the prev level
-# aspects path on t4 is [b, c, a], this means a can see b but b cannot see c
- deps = [':t4'],
-)
-r1(
-  name = 't4',
-)
-""");
+        load('//test:defs.bzl', 'r1', 'r2', 'r3')
+        r1(
+          name = 't1',
+          # t1 propagate aspect (a) to targets (t2 and t3)
+          deps = [':t2', ':t3'],
+        )
+        r2(
+          name = 't2',
+          # t2 propagates aspects (c, b) to target t4 and aspect a is propagated from the prev
+          # level aspects path on t4 is [c, b, a], this means a can see b and b can see c
+          deps = [':t4'],
+        )
+        r3(
+          name = 't3',
+        # t3 propagates aspects (b, c) to target t4 and aspect a is propagated from the prev level
+        # aspects path on t4 is [b, c, a], this means a can see b but b cannot see c
+         deps = [':t4'],
+        )
+        r1(
+          name = 't4',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:t1");
 
