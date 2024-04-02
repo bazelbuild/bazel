@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -73,8 +72,8 @@ public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTe
   }
 
   @Override
-  protected EventCollectionApparatus createEvents() {
-    return new EventCollectionApparatus(ImmutableSet.of(EventKind.FINISH));
+  protected ImmutableSet<EventKind> additionalEventsToCollect() {
+    return ImmutableSet.of(EventKind.FINISH);
   }
 
   @Test

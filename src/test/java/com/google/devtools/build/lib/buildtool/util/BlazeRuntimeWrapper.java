@@ -380,6 +380,7 @@ public class BlazeRuntimeWrapper {
   }
 
   private void beforeCommand() throws Exception {
+    events.clear();
     Reporter reporter = env.getReporter();
     Profiler.instance()
         .start(

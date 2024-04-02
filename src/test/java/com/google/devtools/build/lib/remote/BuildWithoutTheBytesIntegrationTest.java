@@ -232,7 +232,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // 3 = workspace status action + //:foo + //:foobar
     assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(3);
     actionEventCollector.clear();
-    events.clear();
 
     buildTarget("//a:foobar");
 

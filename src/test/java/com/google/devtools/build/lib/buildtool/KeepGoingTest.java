@@ -236,7 +236,6 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
     write("keepgoing/badsrc.sh", "exit 0");
     buildTarget("//keepgoing:topgen");
     write("keepgoing/badsrc.sh", "exit 42");
-    events.clear();
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//keepgoing:topgen"));
     assertThat(e).hasMessageThat().isNull();

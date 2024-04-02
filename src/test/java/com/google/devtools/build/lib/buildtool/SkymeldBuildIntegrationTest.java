@@ -849,7 +849,6 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsError(
         "in deps attribute of my_rule rule //foo:analysis_failure: rule '//foo:missing' does not"
             + " exist");
-    events.clear();
 
     // Null build
     if (keepGoing) {

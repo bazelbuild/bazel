@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
@@ -105,11 +104,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Override
-  protected EventCollectionApparatus createEvents() {
-    ImmutableSet.Builder<EventKind> eventsSet = ImmutableSet.builder();
-    eventsSet.addAll(EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT);
-    eventsSet.add(EventKind.PROGRESS);
-    return new EventCollectionApparatus(eventsSet.build());
+  protected ImmutableSet<EventKind> additionalEventsToCollect() {
+    return ImmutableSet.of(EventKind.STDOUT, EventKind.STDERR, EventKind.PROGRESS);
   }
 
   private static class CustomFileSystem extends UnixFileSystem {
@@ -870,12 +866,13 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth2:three",
         "//depth2:three.sh");
 
+    events.clear();
+
     QueryOutput twoDep =
         getQueryResult("deps(//depth:one, 2)", "--experimental_ui_debug_all_events");
 
-    events.clear();
     // Restricting the query, however, should not cause reloading.
-    events.assertDoesNotContainEvent("Loading package:");
+    assertDoesNotContainEvent("Loading package:");
 
     assertQueryOutputContains(
         twoDep,
@@ -1030,7 +1027,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
                 }));
     QueryOutput queryResult = getQueryResult("deps(//foo:all + //bar:all)", "--nokeep_going");
     assertExitCode(queryResult, ExitCode.ANALYSIS_FAILURE);
-    events.assertDoesNotContainEvent("deppackage");
+    assertDoesNotContainEvent("deppackage");
   }
 
   private void assertExitCode(QueryOutput result, ExitCode expected) {

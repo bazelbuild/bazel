@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
@@ -164,7 +163,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
 
     assertThrows(expectedExceptionClass(), () -> buildTarget("//vegetables:q"));
 
-    assertContainsEvent(events.collector(), "is not within the scope of the query");
+    assertContainsEvent("is not within the scope of the query");
   }
 
   // Regression test for http://b/29964062.
@@ -766,12 +765,11 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
       assertQueryResult("//cycle:gen", "//cycle:cycle");
     } else {
       assertThrows(expectedExceptionClass(), () -> buildTarget("//cycle:gen"));
-      assertContainsEvent(
-          events.collector(), "in sh_library rule //cycle:cycle: cycle in dependency graph");
+      assertContainsEvent("in sh_library rule //cycle:cycle: cycle in dependency graph");
     }
   }
 
-  protected void writeAspectDefinition(String aspectPackage, String extraDep) throws Exception {
+  private void writeAspectDefinition(String aspectPackage, String extraDep) throws Exception {
     write(aspectPackage + "/BUILD");
     write(
         aspectPackage + "/aspect.bzl",
@@ -893,7 +891,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   private String getQueryResult(String queryTarget) throws Exception {
-    var unused = buildTarget(queryTarget);
+    buildTarget(queryTarget);
     Artifact output = Iterables.getOnlyElement(getArtifacts(queryTarget));
     assertThat(
             getSkyframeExecutor().getEvaluator().getValues().keySet().stream()

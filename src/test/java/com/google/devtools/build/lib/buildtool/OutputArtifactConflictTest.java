@@ -364,7 +364,6 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
         my_rule(name = "first")
         """);
-    events.clear();
     buildTarget("//foo:first");
 
     events.assertNoWarningsOrErrors();
@@ -416,7 +415,6 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         assertThrowsExceptionWhenBuildingTargets(keepGoing, "//foo:first", "//foo:second");
     assertThat(errorCode)
         .isEqualTo(keepGoing ? Code.NOT_ALL_TARGETS_ANALYZED : Code.ACTION_CONFLICT);
-    events.clear();
 
     // Verify that they still don't fail individually, so no state remains
     buildTarget("//foo:first");

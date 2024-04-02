@@ -82,7 +82,6 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
               + " '//dummy:in'");
       events.assertContainsEventWithFrequency("missing input file", 1);
       events.assertDoesNotContainEvent("Failed to determine build info");
-      events.clear();
     }
   }
 
@@ -115,7 +114,6 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
       events.assertContainsError("foo/BUILD:2:8: //foo:foo: missing input file '//foo:missing.sh'");
       events.assertContainsEventWithFrequency("missing input file", 1);
       events.assertDoesNotContainEvent("Failed to determine build info");
-      events.clear();
     }
   }
 

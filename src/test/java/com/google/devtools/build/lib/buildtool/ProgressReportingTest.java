@@ -14,13 +14,11 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainEvent;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -28,7 +26,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -47,17 +44,11 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
     void accept(PathFragment path, PathOp op);
   }
 
-  private Receiver receiver;
-
-  @Before
-  public final void getIgnoreReceiver() throws Exception  {
-    receiver = (x, y) -> {};
-  }
+  private Receiver receiver = (x, y) -> {};
 
   @Override
-  protected boolean realFileSystem() {
-    // Must have real filesystem for MockTools to give us an environment we can execute actions in.
-    return true;
+  protected ImmutableSet<EventKind> additionalEventsToCollect() {
+    return ImmutableSet.of(EventKind.PROGRESS, EventKind.START);
   }
 
   @Override
@@ -94,14 +85,11 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
             + "        cmd = 'echo test > $@',"
             + "        tools = [':tool'])");
 
-    EventCollector collector = new EventCollector(EventKind.START);
-    events.addHandler(collector);
-
     buildTarget("//x");
 
-    assertContainsEvent(collector, "Executing genrule //x:tool [for tool]");
-    assertContainsEvent(collector, "Executing genrule //x:x");
-    assertDoesNotContainEvent(collector, "Executing genrule //x:x [for tool]");
+    assertContainsEvent("Executing genrule //x:tool [for tool]");
+    assertContainsEvent("Executing genrule //x:x");
+    assertDoesNotContainEvent("Executing genrule //x:x [for tool]");
   }
 
   @Test
@@ -116,7 +104,7 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
         )
         """);
     buildTarget("//x");
-    final Path output = Iterables.getOnlyElement(getArtifacts("//x:x")).getPath();
+    Path output = Iterables.getOnlyElement(getArtifacts("//x:x")).getPath();
     assertThat(output.delete()).isTrue();
     receiver =
         (path, op) -> {
@@ -132,12 +120,10 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
           }
         };
     addOptions("--progress_report_interval=1");
-    EventCollector collector = new EventCollector(EventKind.PROGRESS);
-    events.addHandler(collector);
 
     buildTarget("//x");
-    assertContainsEvent(collector, "Preparing:");
-    assertContainsEvent(collector, "Executing genrule //x:x");
+    assertContainsEvent("Preparing:");
+    assertContainsEvent("Executing genrule //x:x");
   }
 
   @Test
@@ -166,12 +152,10 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
         "--local_ram_resources=1000",
         "--local_cpu_resources=1",
         "--show_progress_rate_limit=-1");
-    EventCollector collector = new EventCollector(EventKind.PROGRESS);
-    events.addHandler(collector);
     buildTarget("//x:x", "//x:y");
 
-    assertContainsEvent(collector, "Scheduling:");
-    assertContainsEvent(collector, "Executing genrule //x:x");
-    assertContainsEvent(collector, "Executing genrule //x:y");
+    assertContainsEvent("Scheduling:");
+    assertContainsEvent("Executing genrule //x:x");
+    assertContainsEvent("Executing genrule //x:y");
   }
 }

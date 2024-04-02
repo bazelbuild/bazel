@@ -72,7 +72,6 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
               "tree/BUILD:[0-9]+:[0-9]+: Compiling all C\\+\\+ files in tree/dir failed: Artifact"
                   + " '.*/tree/dir/other.file' expanded from the directory artifact '.*/tree/dir'"
                   + " is neither header nor source file"));
-      events.clear();
     }
   }
 
@@ -166,8 +165,7 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
                     .isEmpty());
 
     // Warning is not replayed on a no-op incremental build.
-    events.clear();
     buildTarget("//cc:cc");
-    events.assertDoesNotContainEvent("This is a warning");
+    assertDoesNotContainEvent("This is a warning");
   }
 }
