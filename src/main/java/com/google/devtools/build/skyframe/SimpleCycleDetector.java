@@ -164,6 +164,7 @@ public class SimpleCycleDetector implements CycleDetector {
                   key,
                   directDeps,
                   Sets.difference(entry.getAllRemainingDirtyDirectDeps(), removedDeps),
+                  entry.getMaxTransitiveSourceVersion(),
                   evaluatorContext);
         } catch (UndonePreviouslyRequestedDeps undoneDeps) {
           // All children were finished according to the CHILDREN_FINISHED sentinel, and cycle

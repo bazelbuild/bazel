@@ -200,7 +200,7 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
   }
 
   @Override
-  public final synchronized void markRebuilding() {
+  public synchronized void markRebuilding() {
     checkNotNull(dirtyBuildingState, this).markRebuilding();
   }
 

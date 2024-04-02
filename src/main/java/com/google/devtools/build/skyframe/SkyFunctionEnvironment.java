@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -157,20 +158,25 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       SkyKey skyKey,
       GroupedDeps previouslyRequestedDeps,
       Set<SkyKey> oldDeps,
+      @Nullable Version maxTransitiveSourceVersionSoFar,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException, UndonePreviouslyRequestedDeps {
-    if (skyKey.supportsPartialReevaluation()) {
-      return new SkyFunctionEnvironment.PartialReevaluation(
-          skyKey, previouslyRequestedDeps, oldDeps, evaluatorContext);
-    }
+    Version maxTransitiveSourceVersion =
+        skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC
+            ? firstNonNull(maxTransitiveSourceVersionSoFar, evaluatorContext.getMinimalVersion())
+            : null;
 
-    return new SkyFunctionEnvironment(
-        skyKey,
-        previouslyRequestedDeps,
-        /* bubbleErrorInfo= */ null,
-        oldDeps,
-        evaluatorContext,
-        /* throwIfPreviouslyRequestedDepsUndone= */ true);
+    return skyKey.supportsPartialReevaluation()
+        ? new SkyFunctionEnvironment.PartialReevaluation(
+            skyKey, previouslyRequestedDeps, oldDeps, evaluatorContext, maxTransitiveSourceVersion)
+        : new SkyFunctionEnvironment(
+            skyKey,
+            previouslyRequestedDeps,
+            /* bubbleErrorInfo= */ null,
+            oldDeps,
+            evaluatorContext,
+            /* throwIfPreviouslyRequestedDepsUndone= */ true,
+            maxTransitiveSourceVersion);
   }
 
   static SkyFunctionEnvironment createForError(
@@ -187,7 +193,10 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           checkNotNull(bubbleErrorInfo),
           oldDeps,
           evaluatorContext,
-          /* throwIfPreviouslyRequestedDepsUndone= */ false);
+          /* throwIfPreviouslyRequestedDepsUndone= */ false,
+          // Cycles can lead to a state where the versions of done children don't accurately reflect
+          // the state that led to this node's value. Be conservative then.
+          /* maxTransitiveSourceVersion= */ null);
     } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
       throw new IllegalStateException(undonePreviouslyRequestedDeps);
     }
@@ -199,20 +208,15 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext,
-      boolean throwIfPreviouslyRequestedDepsUndone)
+      boolean throwIfPreviouslyRequestedDepsUndone,
+      @Nullable Version maxTransitiveSourceVersion)
       throws UndonePreviouslyRequestedDeps, InterruptedException {
     this.skyKey = checkNotNull(skyKey);
     this.previouslyRequestedDeps = checkNotNull(previouslyRequestedDeps);
     this.bubbleErrorInfo = bubbleErrorInfo;
     this.oldDeps = checkNotNull(oldDeps);
     this.evaluatorContext = checkNotNull(evaluatorContext);
-    // Cycles can lead to a state where the versions of done children don't accurately reflect the
-    // state that led to this node's value. Be conservative then.
-    this.maxTransitiveSourceVersion =
-        bubbleErrorInfo == null
-                && skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC
-            ? evaluatorContext.getMinimalVersion()
-            : null;
+    this.maxTransitiveSourceVersion = maxTransitiveSourceVersion;
     this.previouslyRequestedDepsValues = batchPrefetch(throwIfPreviouslyRequestedDepsUndone);
   }
 
@@ -1117,7 +1121,8 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         SkyKey skyKey,
         GroupedDeps previouslyRequestedDeps,
         Set<SkyKey> oldDeps,
-        ParallelEvaluatorContext evaluatorContext)
+        ParallelEvaluatorContext evaluatorContext,
+        @Nullable Version maxTransitiveSourceVersion)
         throws UndonePreviouslyRequestedDeps, InterruptedException {
       super(
           skyKey,
@@ -1125,7 +1130,8 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           /* bubbleErrorInfo= */ null,
           oldDeps,
           evaluatorContext,
-          false);
+          false,
+          maxTransitiveSourceVersion);
     }
 
     @Override
@@ -1166,24 +1172,6 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         maybeUpdateMaxTransitiveSourceVersion(depEntry);
       }
       return valueOrNullMarker;
-    }
-
-    @Nullable
-    @Override
-    public Version getMaxTransitiveSourceVersionSoFar() {
-      // Currently, this is only used by ActionSketchFunction and that is not a PartialReevaluation
-      // node. It could return the wrong value for PartialReevaluation nodes, because they do not
-      // batchPrefetch all their previously requested deps during each restart.
-      //
-      // Note that, if we wanted to support this method for PartialReevaluation nodes, then we have
-      // a couple options:
-      // * we could implement a version that returns a definitely correct answer by first checking
-      //   all previously requested deps (by, e.g., calling #ensurePreviouslyRequestedDepsFetched),
-      //   with the understanding that doing so may be inefficient.
-      // * we could delegate storage of the "max transitive source version so far" to one of the
-      //   objects whose lifetime extends across all of a node's reevaluations within a single
-      //   Skyframe request, such as the SkyKeyComputeState cache.
-      throw new UnsupportedOperationException();
     }
 
     @Override
