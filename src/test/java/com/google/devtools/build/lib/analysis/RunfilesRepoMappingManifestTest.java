@@ -395,15 +395,18 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='bare_rule',version='1.0')");
     scratch.overwriteFile(
         "defs.bzl",
-        "def _get_repo_mapping_impl(ctx):",
-        "    files_to_run = ctx.attr.bin[DefaultInfo].files_to_run",
-        "    return [",
-        "        DefaultInfo(files = depset([files_to_run.repo_mapping_manifest])),",
-        "    ]",
-        "get_repo_mapping = rule(",
-        "    implementation = _get_repo_mapping_impl,",
-        "    attrs = {'bin':attr.label(cfg='target',executable=True)}",
-        ")");
+        """
+        def _get_repo_mapping_impl(ctx):
+            files_to_run = ctx.attr.bin[DefaultInfo].files_to_run
+            return [
+                DefaultInfo(files = depset([files_to_run.repo_mapping_manifest])),
+            ]
+
+        get_repo_mapping = rule(
+            implementation = _get_repo_mapping_impl,
+            attrs = {"bin": attr.label(cfg = "target", executable = True)},
+        )
+        """);
     scratch.overwriteFile(
         "BUILD",
         "load('@bare_rule//:defs.bzl', 'bare_binary')",

@@ -38,4 +38,29 @@ public interface XattrProvider {
   default byte[] getxattr(Path path, String xattrName, Symlinks followSymlinks) throws IOException {
     return path.getxattr(xattrName, followSymlinks);
   }
+
+  /** Delegates to another {@link XattrProvider}. */
+  class DelegatingXattrProvider implements XattrProvider {
+    private final XattrProvider delegate;
+
+    public DelegatingXattrProvider(XattrProvider delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public byte[] getFastDigest(Path path) throws IOException {
+      return delegate.getFastDigest(path);
+    }
+
+    @Override
+    public byte[] getxattr(Path path, String xattrName) throws IOException {
+      return delegate.getxattr(path, xattrName);
+    }
+
+    @Override
+    public byte[] getxattr(Path path, String xattrName, Symlinks followSymlinks)
+        throws IOException {
+      return delegate.getxattr(path, xattrName, followSymlinks);
+    }
+  }
 }

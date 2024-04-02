@@ -271,7 +271,7 @@ platform(
     constraint_values = [
         ":highcpu_machine",
     ],
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
 )
 
 platform(
@@ -282,7 +282,7 @@ platform(
     ],
 )
 
-REMOTE_PLATFORMS = ("rbe_ubuntu2004_java11",)
+REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
 
 [
     platform(

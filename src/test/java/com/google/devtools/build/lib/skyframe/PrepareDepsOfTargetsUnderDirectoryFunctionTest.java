@@ -178,9 +178,22 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
    * and a test rule "aTest".
    */
   private void createPackages() throws IOException {
-    scratch.file("a/BUILD",
-        "genrule(name='a', cmd='', srcs=['//b:b.txt'], outs=['a.out'])",
-        "sh_test(name='aTest', size='small', srcs=['aTest.sh'])");
+    scratch.file(
+        "a/BUILD",
+        """
+        genrule(
+            name = "a",
+            srcs = ["//b:b.txt"],
+            outs = ["a.out"],
+            cmd = "",
+        )
+
+        sh_test(
+            name = "aTest",
+            size = "small",
+            srcs = ["aTest.sh"],
+        )
+        """);
     scratch.file("b/BUILD",
         "exports_files(['b.txt'])");
   }

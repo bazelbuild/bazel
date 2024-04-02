@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
@@ -21,9 +23,7 @@ import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryHelper;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import java.util.Collection;
 
 /**
  * {@link QueryHelper} for {@link ConfiguredTargetQueryTest}. Big warts: uses an {@link
@@ -37,7 +37,7 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<CqueryN
   protected ConfiguredTargetQueryEnvironment getPostAnalysisQueryEnvironment(
       WalkableGraph walkableGraph,
       TopLevelConfigurations topLevelConfigurations,
-      Collection<SkyKey> transitiveConfigurationKeys)
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations)
       throws InterruptedException {
     ImmutableList<QueryFunction> extraFunctions =
         ImmutableList.copyOf(ConfiguredTargetQueryEnvironment.CQUERY_FUNCTIONS);
@@ -46,7 +46,7 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<CqueryN
         getReporter(),
         extraFunctions,
         topLevelConfigurations,
-        transitiveConfigurationKeys,
+        transitiveConfigurations,
         mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,

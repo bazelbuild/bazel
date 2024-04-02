@@ -38,6 +38,7 @@ java_library(
         "ActionCacheChecker.java",
         "ActionCacheUtils.java",
         "ActionCompletionEvent.java",
+        "ActionConflictException.java",
         "ActionContext.java",
         "ActionContextMarker.java",
         "ActionEnvironment.java",
@@ -105,7 +106,6 @@ java_library(
         "InputMetadataProvider.java",
         "LostInputsActionExecutionException.java",
         "LostInputsExecException.java",
-        "LostOutputsException.java",
         "MapBasedActionGraph.java",
         "MiddlemanAction.java",
         "MiddlemanFactory.java",
@@ -136,6 +136,7 @@ java_library(
         "StoppedScanningActionEvent.java",
         "TestExecException.java",
         "TestMiddlemanObserver.java",
+        "TopLevelOutputException.java",
         "TotalAndConfiguredTargetOnlyMetric.java",
         "UserExecException.java",
         "cache/ActionCache.java",
@@ -449,6 +450,9 @@ java_library(
     deps = [
         ":actions",
         ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
     ],
 )

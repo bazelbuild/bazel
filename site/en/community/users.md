@@ -386,6 +386,13 @@ where they explain how Bazel sped up their builds. The build duration went from
 55 minutes to 10 minutes by using Bazel, and down to 5 minutes with remote
 caching.
 
+### [Trunk.io](https://trunk.io/merge/trunk-merge-and-bazel){: .external}
+<img src="/community/images/trunk-logo-dark.svg" width="150" align="right">
+
+Trunk is a San Francisco-based company backed by Andreessen Horowitz and Initialized Capital. Trunk offers a powerful pull request merge service with first-class support for the Bazel build system. By leveraging Bazel's understanding of dependencies within a codebase, Trunk's merge service intelligently creates parallel merge lanes, allowing independent changes to be tested and merged simultaneously.
+
+> Trunk’s internal monorepo builds modern C++ 20 and typescript all while leveraging bazel graph knowledge to selectively test and merge code.
+
 ### [Twitter](https://twitter.com/){: .external}
 
 Twitter has made the decision to migrate from Pants to Bazel as their primary

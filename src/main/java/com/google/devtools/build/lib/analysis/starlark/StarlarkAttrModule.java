@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
@@ -574,7 +575,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         "string_list",
         Starlark.toJavaOptional(doc, String.class),
         optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
-        Type.STRING_LIST,
+        Types.STRING_LIST,
         thread);
   }
 
@@ -591,7 +592,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         "int_list",
         Starlark.toJavaOptional(doc, String.class),
         optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
-        Type.INTEGER_LIST,
+        Types.INTEGER_LIST,
         thread);
   }
 
@@ -741,7 +742,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         "string_dict",
         Starlark.toJavaOptional(doc, String.class),
         optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
-        Type.STRING_DICT,
+        Types.STRING_DICT,
         thread);
   }
 
@@ -758,7 +759,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         "string_list_dict",
         Starlark.toJavaOptional(doc, String.class),
         optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
-        Type.STRING_LIST_DICT,
+        Types.STRING_LIST_DICT,
         thread);
   }
 

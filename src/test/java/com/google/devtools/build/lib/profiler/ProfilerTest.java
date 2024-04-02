@@ -1041,6 +1041,6 @@ public final class ProfilerTest {
     assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
     assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
     // One of the cache hit checks spilled over and used half of the second bucket.
-    assertThat(second.args()).containsExactly("local action cache", 0.5);
+    assertThat(second.args()).containsExactly("action", 0.0, "local action cache", 0.5);
   }
 }

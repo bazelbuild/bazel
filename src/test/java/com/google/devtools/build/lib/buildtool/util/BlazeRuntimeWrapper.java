@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildtool.util;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 
@@ -23,16 +24,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
-import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -48,7 +43,6 @@ import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
-import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -74,9 +68,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
@@ -103,13 +95,11 @@ public class BlazeRuntimeWrapper {
   private final BlazeRuntime runtime;
   private CommandEnvironment env;
   private final EventCollectionApparatus events;
-  private boolean commandCreated;
+  private BlazeCommand command;
 
   private BuildRequest lastRequest;
   private BuildResult lastResult;
   private BuildConfigurationValue configuration;
-  private BuildConfigurationValue execConfiguration;
-  private ImmutableSet<ConfiguredTarget> topLevelTargets;
 
   private OptionsParser optionsParser;
   private final List<String> optionsToParse = new ArrayList<>();
@@ -121,7 +111,7 @@ public class BlazeRuntimeWrapper {
 
   private final List<String> workspaceSetupWarnings = new ArrayList<>();
 
-  public BlazeRuntimeWrapper(
+  BlazeRuntimeWrapper(
       EventCollectionApparatus events,
       ServerDirectories serverDirectories,
       BlazeDirectories directories,
@@ -145,11 +135,6 @@ public class BlazeRuntimeWrapper {
                       resetOptions();
                       env.getEventBus().register(this);
                     }
-                  }
-
-                  @Subscribe
-                  public void analysisPhaseComplete(AnalysisPhaseCompleteEvent e) {
-                    topLevelTargets = ImmutableSet.copyOf(e.getTopLevelTargets());
                   }
                 })
             .addBlazeModule(
@@ -193,11 +178,11 @@ public class BlazeRuntimeWrapper {
             command.getAnnotation(Command.class),
             "BlazeCommand %s missing command annotation",
             command);
+    this.command = command.getDeclaredConstructor().newInstance();
     additionalOptionsClasses.addAll(
         BlazeCommandUtils.getOptions(
             command, runtime.getBlazeModules(), runtime.getRuleClassProvider()));
     initializeOptionsParser(commandAnnotation);
-    commandCreated = true;
     if (env != null) {
       runtime.afterCommand(env, BlazeCommandResult.success());
     }
@@ -322,72 +307,55 @@ public class BlazeRuntimeWrapper {
     return OptionsParser.builder().optionsClasses(options).build();
   }
 
-  public void executeBuild(List<String> targets) throws Exception {
-    if (!commandCreated) {
-      // If you didn't create a command we do it for you
-      newCommand();
+  void executeNonBuildCommand() throws Exception {
+    checkNotNull(command, "No command created, try calling newCommand()");
+    checkState(
+        !env.commandActuallyBuilds(),
+        "%s is a build command, did you mean to call executeBuild()?",
+        env.getCommandName());
+
+    try {
+      beforeCommand();
+      lastRequest = null;
+      lastResult = null;
+
+      BlazeCommandResult result;
+      Crash crash = null;
+      try {
+        result = command.exec(env, optionsParser);
+      } catch (RuntimeException | Error e) {
+        crash = Crash.from(e);
+        throw e;
+      } finally {
+        commandComplete(crash);
+      }
+      checkState(
+          result.getDetailedExitCode().equals(DetailedExitCode.success()),
+          "%s command resulted in %s",
+          env.getCommandName(),
+          result);
+    } finally {
+      afterCommand();
     }
-    commandCreated = false;
-    BuildTool buildTool = new BuildTool(env);
-    Reporter reporter = env.getReporter();
-    try (OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher()) {
-      Profiler.instance()
-          .start(
-              /* profiledTasks= */ ImmutableSet.of(),
-              /* stream= */ null,
-              /* format= */ null,
-              /* outputBase= */ null,
-              /* buildID= */ null,
-              /* recordAllDurations= */ false,
-              new JavaClock(),
-              /* execStartTimeNanos= */ 42,
-              /* slimProfile= */ false,
-              /* includePrimaryOutput= */ false,
-              /* includeTargetLabel= */ false,
-              /* collectTaskHistograms= */ true,
-              new CollectLocalResourceUsage(
-                  runtime.getBugReporter(),
-                  WorkerProcessMetricsCollector.instance(),
-                  env.getLocalResourceManager(),
-                  /* collectWorkerDataInProfiler= */ false,
-                  /* collectLoadAverage= */ false,
-                  /* collectSystemNetworkUsage= */ false,
-                  /* collectResourceManagerEstimation= */ false,
-                  /* collectPressureStallIndicators= */ false));
+  }
 
-      StoredEventHandler storedEventHandler = new StoredEventHandler();
-      reporter.addHandler(storedEventHandler);
+  void executeBuild(List<String> targets) throws Exception {
+    if (command == null) {
+      newCommand(BuildCommand.class); // If you didn't create a command we do it for you.
+    }
+    checkState(
+        env.commandActuallyBuilds(),
+        "%s is not a build command, did you mean to call executeNonBuildCommand()?",
+        env.getCommandName());
 
-      env.decideKeepIncrementalState();
-
-      // This cannot go into newCommand, because we hook up the EventCollectionApparatus as a
-      // module, and after that ran, further changes to the apparatus aren't reflected on the
-      // reporter.
-      for (BlazeModule module : runtime.getBlazeModules()) {
-        module.beforeCommand(env);
-      }
-      reporter.removeHandler(storedEventHandler);
-
-      EventBus eventBus = env.getEventBus();
-      for (Object subscriber : eventBusSubscribers) {
-        eventBus.register(subscriber);
-      }
-
-      // Replay events from decideKeepIncrementalState and beforeCommand, just as
-      // BlazeCommandDispatcher does.
-      storedEventHandler.replayOn(reporter);
-
-      env.beforeCommand(InvocationPolicy.getDefaultInstance());
-
+    try {
+      beforeCommand();
       lastRequest = createRequest(env.getCommandName(), targets);
       lastResult = new BuildResult(lastRequest.getStartTime());
 
-      for (BlazeModule module : runtime.getBlazeModules()) {
-        env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());
-      }
-
       Crash crash = null;
       DetailedExitCode detailedExitCode = DetailedExitCode.of(createGenericDetailedFailure());
+      BuildTool buildTool = new BuildTool(env);
       try {
         try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
           env.syncPackageLoading(lastRequest);
@@ -400,44 +368,83 @@ public class BlazeRuntimeWrapper {
         throw e;
       } finally {
         env.getTimestampGranularityMonitor().waitForTimestampGranularity(lastRequest.getOutErr());
-        this.configuration = lastResult.getBuildConfiguration();
-        this.execConfiguration = null; // Lazily instantiated only upon request.
+        configuration = lastResult.getBuildConfiguration();
         finalizeBuildResult(lastResult);
         buildTool.stopRequest(
             lastResult, crash != null ? crash.getThrowable() : null, detailedExitCode);
-        getSkyframeExecutor().notifyCommandComplete(reporter);
-        if (crash != null) {
-          runtime
-              .getBugReporter()
-              .handleCrash(crash, CrashContext.keepAlive().reportingTo(reporter));
-        }
+        commandComplete(crash);
       }
     } finally {
-      Profiler.instance().stop();
+      afterCommand();
     }
   }
 
-  private BuildConfigurationValue createExecConfig(BuildConfigurationValue targetConfig)
-      throws Exception {
-    BuildOptions targetOptions = targetConfig.getOptions();
-    BuildOptions execOptions =
-        Iterables.getOnlyElement(
-            ExecutionTransitionFactory.createFactory()
-                .create(
-                    AttributeTransitionData.builder()
-                        .attributes(FakeAttributeMapper.empty())
-                        .executionPlatform(Label.parseCanonicalUnchecked("//platform:exec"))
-                        .analysisData(
-                            getSkyframeExecutor()
-                                .getStarlarkExecTransitionForTesting(
-                                    targetOptions, events.reporter()))
-                        .build())
-                .apply(
-                    new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()),
-                    events.reporter())
-                .values());
-    return getSkyframeExecutor()
-        .getConfiguration(events.reporter(), execOptions, /*keepGoig*/ false);
+  private void beforeCommand() throws Exception {
+    events.clear();
+    Reporter reporter = env.getReporter();
+    Profiler.instance()
+        .start(
+            /* profiledTasks= */ ImmutableSet.of(),
+            /* stream= */ null,
+            /* format= */ null,
+            /* outputBase= */ null,
+            /* buildID= */ null,
+            /* recordAllDurations= */ false,
+            new JavaClock(),
+            /* execStartTimeNanos= */ 42,
+            /* slimProfile= */ false,
+            /* includePrimaryOutput= */ false,
+            /* includeTargetLabel= */ false,
+            /* collectTaskHistograms= */ true,
+            new CollectLocalResourceUsage(
+                runtime.getBugReporter(),
+                WorkerProcessMetricsCollector.instance(),
+                env.getLocalResourceManager(),
+                /* collectWorkerDataInProfiler= */ false,
+                /* collectLoadAverage= */ false,
+                /* collectSystemNetworkUsage= */ false,
+                /* collectResourceManagerEstimation= */ false,
+                /* collectPressureStallIndicators= */ false));
+
+    StoredEventHandler storedEventHandler = new StoredEventHandler();
+    reporter.addHandler(storedEventHandler);
+
+    env.decideKeepIncrementalState();
+
+    // This cannot go into newCommand, because we hook up the EventCollectionApparatus as a module,
+    // and after that ran, further changes to the apparatus aren't reflected on the reporter.
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      module.beforeCommand(env);
+    }
+    reporter.removeHandler(storedEventHandler);
+
+    EventBus eventBus = env.getEventBus();
+    for (Object subscriber : eventBusSubscribers) {
+      eventBus.register(subscriber);
+    }
+
+    // Replay events from decideKeepIncrementalState and beforeCommand, just as
+    // BlazeCommandDispatcher does.
+    storedEventHandler.replayOn(reporter);
+
+    env.beforeCommand(InvocationPolicy.getDefaultInstance());
+
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());
+    }
+  }
+
+  private void commandComplete(@Nullable Crash crash) throws Exception {
+    Reporter reporter = env.getReporter();
+    getSkyframeExecutor().notifyCommandComplete(reporter);
+    if (crash != null) {
+      runtime.getBugReporter().handleCrash(crash, CrashContext.keepAlive().reportingTo(reporter));
+    }
+  }
+
+  private void afterCommand() throws Exception {
+    command = null;
+    Profiler.instance().stop();
   }
 
   private static FailureDetail createGenericDetailedFailure() {
@@ -475,16 +482,6 @@ public class BlazeRuntimeWrapper {
   @Nullable // Null if no build has been run.
   public BuildConfigurationValue getConfiguration() {
     return configuration;
-  }
-
-  public BuildConfigurationValue getExecConfiguration() throws Exception {
-    if (execConfiguration == null) {
-      // Lazily instantiate the exec configuration only when requested. This stops the extra
-      // Skyframe evaluation from interfering with tests that don't care about the exec oonfig
-      // but due care about # of Skyframe calls: particularly MetricsCollectorTest.
-      this.execConfiguration = this.configuration == null ? null : createExecConfig(configuration);
-    }
-    return execConfiguration;
   }
 
   public List<String> getCrashMessages() {

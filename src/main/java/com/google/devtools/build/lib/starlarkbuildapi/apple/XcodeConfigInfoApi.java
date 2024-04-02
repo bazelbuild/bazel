@@ -20,10 +20,12 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 
 /**
  * An interface for an info type containing the set of Apple versions computed from command line
@@ -32,7 +34,8 @@ import net.starlark.java.eval.EvalException;
 @StarlarkBuiltin(
     name = "XcodeVersionConfig",
     category = DocCategory.PROVIDER,
-    doc = "The set of Apple versions computed from command line options and the xcode_config rule.")
+    doc = "The set of Apple versions computed from command line options and the xcode_config rule.",
+    documented = false)
 public interface XcodeConfigInfoApi<
         ApplePlatformApiT extends ApplePlatformApi,
         ApplePlatformTypeApiT extends ApplePlatformTypeApi>
@@ -147,11 +150,38 @@ public interface XcodeConfigInfoApi<
               name = "xcodeVersion",
               named = true,
               positional = false,
-              doc = "The selected Xcode version from this config."),
+              doc = "The selected Xcode version from this config.",
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              }),
+          @Param(
+              name = "availability",
+              named = true,
+              positional = false,
+              doc =
+                  "The availability of this Xcode version ('LOCAL', 'REMOTE', 'BOTH', or"
+                      + " 'UNKNOWN')."),
+          @Param(
+              name = "xcodeVersionFlag",
+              named = true,
+              positional = false,
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = NoneType.class),
+              },
+              doc = "The value of the --xcode_version flag."),
+          @Param(
+              name = "includeXcodeExecutionInfo",
+              named = true,
+              positional = false,
+              doc =
+                  "Whether to pass on Xcode-related info to execution requirements, e.g."
+                      + " 'requires-xcode' or 'requires-xcode-label"),
         },
         selfCall = true)
     @StarlarkConstructor
-    XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
+    XcodeConfigInfoApi<?, ?> create(
         String iosSdkVersion,
         String iosMinimumOsVersion,
         String visionosSdkVersion,
@@ -162,7 +192,10 @@ public interface XcodeConfigInfoApi<
         String tvosMinimumOsVersion,
         String macosSdkVersion,
         String macosMinimumOsVersion,
-        String xcodeVersion)
+        Object xcodeVersion,
+        String availability,
+        Object xcodeVersionFlag,
+        boolean includeExecutionInfo)
         throws EvalException;
   }
 }

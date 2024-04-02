@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
+import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
@@ -126,6 +127,8 @@ public class CommandEnvironment {
   private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
   private boolean buildInfoPosted = false;
+  private Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent =
+      Optional.empty();
   @Nullable private WorkspaceInfoFromDiff workspaceInfoFromDiff;
 
   // This AtomicReference is set to:
@@ -947,6 +950,15 @@ public class CommandEnvironment {
     buildInfoPosted = true;
   }
 
+  @Subscribe
+  public void additionalConfigurationChangeEvent(AdditionalConfigurationChangeEvent event) {
+    additionalConfigurationChangeEvent = Optional.of(event);
+  }
+
+  public Optional<AdditionalConfigurationChangeEvent> getAdditionalConfigurationChangeEvent() {
+    return additionalConfigurationChangeEvent;
+  }
+
   /**
    * Returns the number of the invocation attempt, starting at 1 and increasing by 1 for each new
    * attempt. Can be used to determine if there is a build retry by {@code
@@ -954,5 +966,25 @@ public class CommandEnvironment {
    */
   public int getAttemptNumber() {
     return attemptNumber;
+  }
+
+  /**
+   * Checks if the command builds.
+   *
+   * <p>Not all 'build = true' annotated commands actually run a build.
+   */
+  public boolean commandActuallyBuilds() {
+    if (!command.builds()) {
+      return false;
+    }
+    // 'clean' and 'info' set 'build = true' to make build options accessible to users (and info
+    // uses them), but does not run a build.
+    if (command.name().equals("clean")) {
+      return false;
+    }
+    if (command.name().equals("info")) {
+      return false;
+    }
+    return true;
   }
 }

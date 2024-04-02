@@ -246,6 +246,12 @@ public interface ActionAnalysisMetadata {
 
   static ImmutableMap<String, String> mergeMaps(
       ImmutableMap<String, String> first, ImmutableMap<String, String> second) {
+    if (first.isEmpty()) {
+      return second;
+    }
+    if (second.isEmpty()) {
+      return first;
+    }
     return ImmutableMap.<String, String>builderWithExpectedSize(first.size() + second.size())
         .putAll(first)
         .putAll(second)

@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -210,7 +210,7 @@ public interface AndroidSemantics {
     boolean hasMigrationTag =
         ruleContext
             .attributes()
-            .get("tags", Type.STRING_LIST)
+            .get("tags", Types.STRING_LIST)
             .contains("__ANDROID_RULES_MIGRATION__");
     if (!hasMigrationTag) {
       registerMigrationRuleError(ruleContext);

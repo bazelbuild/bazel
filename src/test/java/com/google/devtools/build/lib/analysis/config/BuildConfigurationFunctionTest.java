@@ -52,21 +52,27 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
   private void writeAllowlistFile() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//test/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//test/...",
+            ],
+        )
+        """);
   }
 
   private void writeBuildSettingsBzl() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        "BuildSettingInfo = provider(fields = ['value'])",
-        "def _impl(ctx):",
-        "  return [BuildSettingInfo(value = ctx.build_setting_value)]",
-        "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True))");
+        """
+        BuildSettingInfo = provider(fields = ["value"])
+
+        def _impl(ctx):
+            return [BuildSettingInfo(value = ctx.build_setting_value)]
+
+        string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))
+        """);
   }
 
   private CoreOptions getCoreOptions(ConfiguredTarget target) {
@@ -83,31 +89,55 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     writeBuildSettingsBzl();
     scratch.file(
         "test/transitions.bzl",
-        "def _foo_impl(settings, attr):",
-        "  return {'//test:foo': 'transitioned'}",
-        "foo_transition = transition(implementation = _foo_impl, inputs = [],",
-        "  outputs = ['//test:foo'])");
+        """
+        def _foo_impl(settings, attr):
+            return {"//test:foo": "transitioned"}
+
+        foo_transition = transition(
+            implementation = _foo_impl,
+            inputs = [],
+            outputs = ["//test:foo"],
+        )
+        """);
     scratch.file(
         "test/rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "load('//test:transitions.bzl', 'foo_transition')",
-        "def _impl(ctx):",
-        "  return MyInfo(dep = ctx.attr.dep)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep': attr.label(cfg = foo_transition), ",
-        "  })",
-        "def _basic_impl(ctx):",
-        "  return []",
-        "simple = rule(_basic_impl)");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+        load("//test:transitions.bzl", "foo_transition")
+
+        def _impl(ctx):
+            return MyInfo(dep = ctx.attr.dep)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(cfg = foo_transition),
+            },
+        )
+
+        def _basic_impl(ctx):
+            return []
+
+        simple = rule(_basic_impl)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'simple')",
-        "load('//test:build_settings.bzl', 'string_flag')",
-        "string_flag(name = 'foo', build_setting_default='default')",
-        "my_rule(name = 'test', dep = ':dep')",
-        "simple(name = 'dep')");
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        load("//test:rules.bzl", "my_rule", "simple")
+
+        string_flag(
+            name = "foo",
+            build_setting_default = "default",
+        )
+
+        my_rule(
+            name = "test",
+            dep = ":dep",
+        )
+
+        simple(name = "dep")
+        """);
 
     useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
@@ -133,29 +163,49 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
-        "def _opt_impl(settings, attr):",
-        "  return {'//command_line_option:compilation_mode': 'opt'}",
-        "opt_transition = transition(implementation = _opt_impl, inputs = [],",
-        "  outputs = ['//command_line_option:compilation_mode'])");
+        """
+        def _opt_impl(settings, attr):
+            return {"//command_line_option:compilation_mode": "opt"}
+
+        opt_transition = transition(
+            implementation = _opt_impl,
+            inputs = [],
+            outputs = ["//command_line_option:compilation_mode"],
+        )
+        """);
     scratch.file(
         "test/rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "load('//test:transitions.bzl', 'opt_transition')",
-        "def _impl(ctx):",
-        "  return MyInfo(dep = ctx.attr.dep)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep': attr.label(cfg = opt_transition), ",
-        "  })",
-        "def _basic_impl(ctx):",
-        "  return []",
-        "simple = rule(_basic_impl)");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+        load("//test:transitions.bzl", "opt_transition")
+
+        def _impl(ctx):
+            return MyInfo(dep = ctx.attr.dep)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(cfg = opt_transition),
+            },
+        )
+
+        def _basic_impl(ctx):
+            return []
+
+        simple = rule(_basic_impl)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'simple')",
-        "my_rule(name = 'test', dep = ':dep')",
-        "simple(name = 'dep')");
+        """
+        load("//test:rules.bzl", "my_rule", "simple")
+
+        my_rule(
+            name = "test",
+            dep = ":dep",
+        )
+
+        simple(name = "dep")
+        """);
 
     useConfiguration(
         "--compilation_mode=fastbuild",
@@ -182,35 +232,63 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     writeBuildSettingsBzl();
     scratch.file(
         "test/transitions.bzl",
-        "def _toggle_impl(settings, attr):",
-        "  if (settings['//test:foo'] != 'default'):",
-        "    return {'//test:foo': 'default'}",
-        "  else:",
-        "    return {'//test:foo': 'transitioned'}",
-        "toggle_foo_transition = transition(implementation = _toggle_impl,",
-        "  inputs = ['//test:foo'], outputs = ['//test:foo'])");
+        """
+        def _toggle_impl(settings, attr):
+            if (settings["//test:foo"] != "default"):
+                return {"//test:foo": "default"}
+            else:
+                return {"//test:foo": "transitioned"}
+
+        toggle_foo_transition = transition(
+            implementation = _toggle_impl,
+            inputs = ["//test:foo"],
+            outputs = ["//test:foo"],
+        )
+        """);
     scratch.file(
         "test/rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "load('//test:transitions.bzl', 'toggle_foo_transition')",
-        "def _impl(ctx):",
-        "  return MyInfo(dep = ctx.attr.dep)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep': attr.label(cfg = toggle_foo_transition), ",
-        "  })",
-        "def _basic_impl(ctx):",
-        "  return []",
-        "simple = rule(_basic_impl)");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+        load("//test:transitions.bzl", "toggle_foo_transition")
+
+        def _impl(ctx):
+            return MyInfo(dep = ctx.attr.dep)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(cfg = toggle_foo_transition),
+            },
+        )
+
+        def _basic_impl(ctx):
+            return []
+
+        simple = rule(_basic_impl)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'simple')",
-        "load('//test:build_settings.bzl', 'string_flag')",
-        "string_flag(name = 'foo', build_setting_default='default')",
-        "my_rule(name = 'test', dep = ':middle')",
-        "my_rule(name = 'middle', dep = ':root')",
-        "simple(name = 'root')");
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        load("//test:rules.bzl", "my_rule", "simple")
+
+        string_flag(
+            name = "foo",
+            build_setting_default = "default",
+        )
+
+        my_rule(
+            name = "test",
+            dep = ":middle",
+        )
+
+        my_rule(
+            name = "middle",
+            dep = ":root",
+        )
+
+        simple(name = "root")
+        """);
 
     useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
@@ -251,35 +329,65 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
-        "def _platform_impl(settings, attr):",
-        "  return {'//command_line_option:platforms': [attr.platform]}",
-        "platform_transition = transition(implementation = _platform_impl, inputs = [],",
-        "  outputs = ['//command_line_option:platforms'])");
+        """
+        def _platform_impl(settings, attr):
+            return {"//command_line_option:platforms": [attr.platform]}
+
+        platform_transition = transition(
+            implementation = _platform_impl,
+            inputs = [],
+            outputs = ["//command_line_option:platforms"],
+        )
+        """);
     scratch.file(
         "test/rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "load('//test:transitions.bzl', 'platform_transition')",
-        "def _impl(ctx):",
-        "  return MyInfo(dep = ctx.attr.dep)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep': attr.label(), ",
-        "  })",
-        "def _basic_impl(ctx):",
-        "  return []",
-        "as_platform = rule(",
-        "  implementation = _basic_impl,",
-        "  cfg = platform_transition,",
-        "  attrs = {",
-        "    'platform': attr.label(default = '//platforms:alpha'),",
-        "  })");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+        load("//test:transitions.bzl", "platform_transition")
+
+        def _impl(ctx):
+            return MyInfo(dep = ctx.attr.dep)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(),
+            },
+        )
+
+        def _basic_impl(ctx):
+            return []
+
+        as_platform = rule(
+            implementation = _basic_impl,
+            cfg = platform_transition,
+            attrs = {
+                "platform": attr.label(default = "//platforms:alpha"),
+            },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'as_platform')",
-        "my_rule(name = 'test', dep = ':dep')",
-        "as_platform(name = 'dep', platform='//platforms:beta')");
-    scratch.file("platforms/BUILD", "platform(name = 'alpha')", "platform(name = 'beta')");
+        """
+        load("//test:rules.bzl", "as_platform", "my_rule")
+
+        my_rule(
+            name = "test",
+            dep = ":dep",
+        )
+
+        as_platform(
+            name = "dep",
+            platform = "//platforms:beta",
+        )
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(name = "alpha")
+
+        platform(name = "beta")
+        """);
     scratch.file(
         "tools/platform_mappings",
         "platforms:",
@@ -323,35 +431,65 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
-        "def _platform_impl(settings, attr):",
-        "  return {'//command_line_option:platforms': [attr.platform]}",
-        "platform_transition = transition(implementation = _platform_impl, inputs = [],",
-        "  outputs = ['//command_line_option:platforms'])");
+        """
+        def _platform_impl(settings, attr):
+            return {"//command_line_option:platforms": [attr.platform]}
+
+        platform_transition = transition(
+            implementation = _platform_impl,
+            inputs = [],
+            outputs = ["//command_line_option:platforms"],
+        )
+        """);
     scratch.file(
         "test/rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "load('//test:transitions.bzl', 'platform_transition')",
-        "def _impl(ctx):",
-        "  return MyInfo(dep = ctx.attr.dep)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep': attr.label(), ",
-        "  })",
-        "def _basic_impl(ctx):",
-        "  return []",
-        "as_platform = rule(",
-        "  implementation = _basic_impl,",
-        "  cfg = platform_transition,",
-        "  attrs = {",
-        "    'platform': attr.label(default = '//platforms:alpha'),",
-        "  })");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+        load("//test:transitions.bzl", "platform_transition")
+
+        def _impl(ctx):
+            return MyInfo(dep = ctx.attr.dep)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(),
+            },
+        )
+
+        def _basic_impl(ctx):
+            return []
+
+        as_platform = rule(
+            implementation = _basic_impl,
+            cfg = platform_transition,
+            attrs = {
+                "platform": attr.label(default = "//platforms:alpha"),
+            },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'as_platform')",
-        "my_rule(name = 'test', dep = ':dep')",
-        "as_platform(name = 'dep', platform='//platforms:beta')");
-    scratch.file("platforms/BUILD", "platform(name = 'alpha')", "platform(name = 'beta')");
+        """
+        load("//test:rules.bzl", "as_platform", "my_rule")
+
+        my_rule(
+            name = "test",
+            dep = ":dep",
+        )
+
+        as_platform(
+            name = "dep",
+            platform = "//platforms:beta",
+        )
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(name = "alpha")
+
+        platform(name = "beta")
+        """);
 
     // Test just wants to transition some options not usually explicitly in the output path
     // so if those options are changed/removed, just replace them here.

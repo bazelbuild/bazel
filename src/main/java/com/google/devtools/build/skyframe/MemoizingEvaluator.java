@@ -239,6 +239,24 @@ public interface MemoizingEvaluator {
   void dumpDeps(PrintStream out, Predicate<String> filter) throws InterruptedException;
 
   /**
+   * Emits the graph representation in the DOT description format of SkyFunction dependencies of the
+   * keys matching the given filter to the given output stream.
+   *
+   * <p>Useful for understanding the high level dependency edges established by Skyframe lookups.
+   * calls.
+   *
+   * <p>The nodes are {@link SkyFunctionName}s. They do not include individual SkyKey information
+   * since the most basic builds already create way too many nodes to generate a useful graph image.
+   *
+   * <p>Edges are de-duplicated (e.g. all FILE -> FILE_STATE edges show up as a single edge), and
+   * the output may show cycles (e.g. ACTION_EXECUTION -> ARTIFACT -> ACTION_EXECUTION -> ...)
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpFunctionGraph(PrintStream out, Predicate<String> filter) throws InterruptedException;
+
+  /**
    * Writes a detailed summary of the graph to the given output stream. For each key matching the
    * given filter, prints the key name and its reverse deps.
    *

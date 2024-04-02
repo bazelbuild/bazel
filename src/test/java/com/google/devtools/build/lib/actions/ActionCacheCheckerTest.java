@@ -1567,6 +1567,11 @@ public class ActionCacheCheckerTest {
     }
 
     @Override
+    public int size() {
+      return delegate.size();
+    }
+
+    @Override
     public void accountHit() {
       delegate.accountHit();
     }

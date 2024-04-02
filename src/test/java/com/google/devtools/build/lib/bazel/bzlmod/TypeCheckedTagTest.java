@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Mutability;
@@ -111,7 +112,7 @@ public class TypeCheckedTagTest {
     TypeCheckedTag typeCheckedTag =
         TypeCheckedTag.create(
             createTagClass(
-                attr("foo", Type.STRING_LIST_DICT)
+                attr("foo", Types.STRING_LIST_DICT)
                     .value(ImmutableMap.of("key", ImmutableList.of("value1", "value2")))
                     .build()),
             buildTag("tag_name").build(),
@@ -132,12 +133,12 @@ public class TypeCheckedTagTest {
             createTagClass(
                 attr("foo", Type.STRING).mandatory().build(),
                 attr("bar", Type.INTEGER).value(StarlarkInt.of(3)).build(),
-                attr("quux", Type.STRING_LIST).build()),
+                attr("quux", Types.STRING_LIST).build()),
             buildTag("tag_name")
                 .addAttr("foo", "fooValue")
                 .addAttr("quux", StarlarkList.immutableOf("quuxValue1", "quuxValue2"))
                 .build(),
-            /*labelConverter=*/ null);
+            /* labelConverter= */ null);
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo", "bar", "quux");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo("fooValue");
     assertThat(getattr(typeCheckedTag, "bar")).isEqualTo(StarlarkInt.of(3));

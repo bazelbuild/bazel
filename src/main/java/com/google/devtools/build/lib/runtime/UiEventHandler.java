@@ -749,6 +749,11 @@ public final class UiEventHandler implements EventHandler {
     refreshSoon();
   }
 
+  @Subscribe
+  public void crash(CrashEvent event) {
+    stateTracker.handleCrash();
+  }
+
   private void checkActivities() {
     if (stateTracker.hasActivities()) {
       refreshSoon();

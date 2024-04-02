@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionBuilder.UTF8_ENVIRONMENT;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -78,6 +79,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
   private static final String DIRECT_CLASSPATH_MNEMONIC = "Turbine";
 
   private final boolean insertDependencies;
+  private final boolean inMemoryJdeps;
   private final NestedSet<Artifact> additionalArtifactsForPathMapping;
 
   private JavaHeaderCompileAction(
@@ -93,6 +95,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       String mnemonic,
       OutputPathsMode outputPathsMode,
       boolean insertDependencies,
+      boolean inMemoryJdeps,
       NestedSet<Artifact> additionalArtifactsForPathMapping) {
     super(
         owner,
@@ -107,7 +110,22 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         mnemonic,
         outputPathsMode);
     this.insertDependencies = insertDependencies;
+    this.inMemoryJdeps = inMemoryJdeps;
     this.additionalArtifactsForPathMapping = additionalArtifactsForPathMapping;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecutionInfo() {
+    var result = super.getExecutionInfo();
+    if (!inMemoryJdeps) {
+      return result;
+    }
+    Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
+    return mergeMaps(
+        result,
+        ImmutableMap.of(
+            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+            outputDepsProto.getExecPathString()));
   }
 
   @Override
@@ -474,11 +492,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       executionInfo.putAll(
           TargetUtils.getExecutionInfo(
               ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
-      if (javaConfiguration.inmemoryJdepsFiles()) {
-        executionInfo.put(
-            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-            outputDepsProto.getExecPathString());
-      }
 
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
@@ -522,7 +535,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                     .modifiedExecutionInfo(
                         executionInfo.buildKeepingLast(), DIRECT_CLASSPATH_MNEMONIC),
                 /* progressMessage= */ progressMessage,
-
                 /* mnemonic= */ DIRECT_CLASSPATH_MNEMONIC,
                 /* outputPathsMode= */ PathMappers.getOutputPathsMode(
                     ruleContext.getConfiguration()),
@@ -530,6 +542,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                 // available to downstream actions. Else just do enough work to locally create the
                 // full .jdeps from the .stripped .jdeps produced on the executor.
                 /* insertDependencies= */ classpathMode == JavaClasspathMode.BAZEL,
+                javaConfiguration.inmemoryJdepsFiles(),
                 additionalArtifactsForPathMapping));
         return;
       }

@@ -761,10 +761,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.saveFeatureState;
   }
 
-  public boolean useStandaloneLtoIndexingCommandLines() {
-    return cppOptions.useStandaloneLtoIndexingCommandLines;
-  }
-
   public boolean useSpecificToolFiles() {
     return cppOptions.useSpecificToolFiles;
   }

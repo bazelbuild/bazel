@@ -36,11 +36,14 @@ public final class AllowlistTest extends BuildViewTestCase {
   public void testDirectPackage() throws Exception {
     scratch.file(
         "allowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    packages=[",
-        "        '//direct',",
-        "    ])");
+        """
+        package_group(
+            name = "allowlist",
+            packages = [
+                "//direct",
+            ],
+        )
+        """);
     scratch.file("direct/BUILD", "rule_with_allowlist(name='x')");
     getConfiguredTarget("//direct:x");
     assertNoEvents();
@@ -50,11 +53,14 @@ public final class AllowlistTest extends BuildViewTestCase {
   public void testRecursivePackage() throws Exception {
     scratch.file(
         "allowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    packages=[",
-        "        '//recursive/...',",
-        "    ])");
+        """
+        package_group(
+            name = "allowlist",
+            packages = [
+                "//recursive/...",
+            ],
+        )
+        """);
     scratch.file("recursive/x/BUILD", "rule_with_allowlist(name='y')");
     getConfiguredTarget("//recursive/x:y");
     assertNoEvents();
@@ -64,11 +70,14 @@ public final class AllowlistTest extends BuildViewTestCase {
   public void testAbsentPackage() throws Exception {
     scratch.file(
         "allowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    packages=[",
-        "        '//somethingelse/...',",
-        "    ])");
+        """
+        package_group(
+            name = "allowlist",
+            packages = [
+                "//somethingelse/...",
+            ],
+        )
+        """);
     checkError("absent", "x", "Dummy is not available.", "rule_with_allowlist(name='x')");
   }
 
@@ -76,11 +85,14 @@ public final class AllowlistTest extends BuildViewTestCase {
   public void testCatchAll() throws Exception {
     scratch.file(
         "allowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    packages=[",
-        "        '//...',",
-        "    ])");
+        """
+        package_group(
+            name = "allowlist",
+            packages = [
+                "//...",
+            ],
+        )
+        """);
     scratch.file("notingroup/BUILD", "rule_with_allowlist(name='x')");
     getConfiguredTarget("//notingroup:x");
     assertNoEvents();
@@ -107,21 +119,33 @@ public final class AllowlistTest extends BuildViewTestCase {
   public void testIncludes() throws Exception {
     scratch.file(
         "suballowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    packages=[",
-        "        '//x',",
-        "    ])");
+        """
+        package_group(
+            name = "allowlist",
+            packages = [
+                "//x",
+            ],
+        )
+        """);
     scratch.file(
         "allowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    includes=[",
-        "        '//suballowlist:allowlist',",
-        "    ],",
-        "    packages=[",
-        "    ])");
-    scratch.file("x/BUILD", "rule_with_allowlist(", "name='x'", ")");
+        """
+        package_group(
+            name = "allowlist",
+            includes = [
+                "//suballowlist:allowlist",
+            ],
+            packages = [
+            ],
+        )
+        """);
+    scratch.file(
+        "x/BUILD",
+        """
+        rule_with_allowlist(
+            name = "x",
+        )
+        """);
     getConfiguredTarget("//x:x");
     assertNoEvents();
   }
@@ -130,11 +154,14 @@ public final class AllowlistTest extends BuildViewTestCase {
   public void targetInAllowlist_targetAsStringParameter() throws Exception {
     scratch.file(
         "allowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    packages=[",
-        "        '//direct',",
-        "    ])");
+        """
+        package_group(
+            name = "allowlist",
+            packages = [
+                "//direct",
+            ],
+        )
+        """);
     scratch.file(
         "test/rule.bzl",
         "def _impl(ctx):",
@@ -156,8 +183,11 @@ public final class AllowlistTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('//test:rule.bzl', 'custom_rule')",
-        "custom_rule(name='allowlist_rule')");
+        """
+        load("//test:rule.bzl", "custom_rule")
+
+        custom_rule(name = "allowlist_rule")
+        """);
 
     getConfiguredTarget("//test:allowlist_rule");
 
@@ -168,11 +198,14 @@ public final class AllowlistTest extends BuildViewTestCase {
   public void targetInAllowlist_targetAsLabelParameter() throws Exception {
     scratch.file(
         "allowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    packages=[",
-        "        '//test',",
-        "    ])");
+        """
+        package_group(
+            name = "allowlist",
+            packages = [
+                "//test",
+            ],
+        )
+        """);
     scratch.file(
         "test/rule.bzl",
         "def _impl(ctx):",
@@ -194,8 +227,11 @@ public final class AllowlistTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('//test:rule.bzl', 'custom_rule')",
-        "custom_rule(name='allowlist_rule')");
+        """
+        load("//test:rule.bzl", "custom_rule")
+
+        custom_rule(name = "allowlist_rule")
+        """);
 
     getConfiguredTarget("//test:allowlist_rule");
 
@@ -206,11 +242,14 @@ public final class AllowlistTest extends BuildViewTestCase {
   public void targetNotInAllowlist() throws Exception {
     scratch.file(
         "allowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    packages=[",
-        "        '//direct',",
-        "    ])");
+        """
+        package_group(
+            name = "allowlist",
+            packages = [
+                "//direct",
+            ],
+        )
+        """);
     scratch.file(
         "test/rule.bzl",
         "def _impl(ctx):",
@@ -232,8 +271,11 @@ public final class AllowlistTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('//test:rule.bzl', 'custom_rule')",
-        "custom_rule(name='allowlist_rule')");
+        """
+        load("//test:rule.bzl", "custom_rule")
+
+        custom_rule(name = "allowlist_rule")
+        """);
 
     getConfiguredTarget("//test:allowlist_rule");
 
@@ -244,11 +286,14 @@ public final class AllowlistTest extends BuildViewTestCase {
   public void targetNotInAllowlist_negativePath() throws Exception {
     scratch.file(
         "allowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    packages=[",
-        "        '-//direct',",
-        "    ])");
+        """
+        package_group(
+            name = "allowlist",
+            packages = [
+                "-//direct",
+            ],
+        )
+        """);
     scratch.file(
         "test/rule.bzl",
         "def _impl(ctx):",
@@ -270,8 +315,11 @@ public final class AllowlistTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('//test:rule.bzl', 'custom_rule')",
-        "custom_rule(name='allowlist_rule')");
+        """
+        load("//test:rule.bzl", "custom_rule")
+
+        custom_rule(name = "allowlist_rule")
+        """);
 
     getConfiguredTarget("//test:allowlist_rule");
 

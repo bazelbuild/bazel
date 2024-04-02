@@ -335,18 +335,36 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
     scratch.file(
         "/foo/BUILD",
-        "cc_library(name = 'foo',",
-        "           hdrs = ['foo.hpp'])",
-        "cc_library(name = 'foo2',",
-        "           hdrs = ['foo.hpp'],",
-        "           include_prefix = 'prf')");
+        """
+        cc_library(
+            name = "foo",
+            hdrs = ["foo.hpp"],
+        )
+
+        cc_library(
+            name = "foo2",
+            hdrs = ["foo.hpp"],
+            include_prefix = "prf",
+        )
+        """);
     scratch.file(
         "x/BUILD",
-        "cc_library(name = 'bar',",
-        "           hdrs = ['bar.hpp'])",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['bin.cc'],",
-        "          deps = ['bar', '@pkg//:foo', '@pkg//:foo2'])");
+        """
+        cc_library(
+            name = "bar",
+            hdrs = ["bar.hpp"],
+        )
+
+        cc_binary(
+            name = "bin",
+            srcs = ["bin.cc"],
+            deps = [
+                "bar",
+                "@pkg//:foo",
+                "@pkg//:foo2",
+            ],
+        )
+        """);
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 

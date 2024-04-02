@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.platform;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo.ExecPropertiesException;
@@ -344,6 +345,52 @@ public class PlatformInfoTest extends BuildViewTestCase {
             "Platform specifies exec_properties but its parent //foo:parent_platform specifies"
                 + " remote_execution_properties. Prefer exec_properties over the deprecated"
                 + " remote_execution_properties.");
+  }
+
+  @Test
+  public void flags_empty() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    // Don't add any flags
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).isEmpty();
+  }
+
+  @Test
+  public void flags() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.addFlags(ImmutableList.of("--cpu=k8", "--//starlark:flag=other"));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=k8", "--//starlark:flag=other");
+  }
+
+  @Test
+  public void flags_parentPlatform_keep() throws Exception {
+    PlatformInfo parent = PlatformInfo.builder().addFlags(ImmutableList.of("--cpu=k8")).build();
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.addFlags(ImmutableList.of("--//starlark:flag=other"));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags())
+        .containsExactly("--cpu=k8", "--//starlark:flag=other")
+        .inOrder();
+  }
+
+  @Test
+  public void flags_parentPlatform_inheritance() throws Exception {
+    PlatformInfo parent = PlatformInfo.builder().addFlags(ImmutableList.of("--cpu=arm")).build();
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.addFlags(ImmutableList.of("--cpu=k8"));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=arm", "--cpu=k8").inOrder();
   }
 
   @Test

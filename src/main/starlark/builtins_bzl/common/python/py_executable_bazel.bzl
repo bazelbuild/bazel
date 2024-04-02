@@ -94,15 +94,11 @@ def create_executable_rule(*, attrs, **kwargs):
 
 def py_executable_bazel_impl(ctx, *, is_test, inherited_environment):
     """Common code for executables for Baze."""
-    result = py_executable_base_impl(
+    return py_executable_base_impl(
         ctx = ctx,
         semantics = create_binary_semantics_bazel(),
         is_test = is_test,
         inherited_environment = inherited_environment,
-    )
-    return struct(
-        providers = result.providers,
-        **result.legacy_providers
     )
 
 def create_binary_semantics_bazel():
@@ -138,7 +134,7 @@ def _get_debugger_deps(ctx, runtime_details):
 
 def _get_extra_providers(ctx, main_py, runtime_details):
     _ = ctx, main_py, runtime_details  # @unused
-    return {}, []
+    return []
 
 def _get_stamp_flag(ctx):
     # NOTE: Undocumented API; private to builtins

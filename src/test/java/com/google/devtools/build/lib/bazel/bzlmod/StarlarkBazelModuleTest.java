@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Optional;
 import net.starlark.java.eval.StarlarkList;
@@ -84,7 +85,7 @@ public class StarlarkBazelModuleTest {
             .setTagClasses(
                 ImmutableMap.of(
                     "dep", createTagClass(attr("coord", Type.STRING).build()),
-                    "repos", createTagClass(attr("repos", Type.STRING_LIST).build()),
+                    "repos", createTagClass(attr("repos", Types.STRING_LIST).build()),
                     "pom",
                         createTagClass(
                             attr("pom_xmls", BuildType.LABEL_LIST)

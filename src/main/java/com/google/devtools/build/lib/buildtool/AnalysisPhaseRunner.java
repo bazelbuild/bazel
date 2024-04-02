@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.List;
@@ -95,6 +96,11 @@ public final class AnalysisPhaseRunner {
       loadingResult = evaluateTargetPatterns(env, request, validator);
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
+
+    // TODO: b/324127375 - Use with incoming --scl_config flag.
+    PathFragment unusedProjectFile =
+        BuildTool.getProjectFile(
+            loadingResult.getTargetLabels(), env.getSkyframeExecutor(), env.getReporter());
 
     // Compute the heuristic instrumentation filter if needed.
     if (request.needsInstrumentationFilter()) {
@@ -254,7 +260,8 @@ public final class AnalysisPhaseRunner {
               /* buildResultListener= */ null,
               /* executionSetupCallback= */ null,
               /* buildConfigurationsCreatedCallback= */ null,
-              /* buildDriverKeyTestContext= */ null);
+              /* buildDriverKeyTestContext= */ null,
+              env.getAdditionalConfigurationChangeEvent());
     } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }

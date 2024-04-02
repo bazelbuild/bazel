@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;

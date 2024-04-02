@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.base.Preconditions;
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -227,27 +227,36 @@ public final class SandboxModule extends BlazeModule {
     // previous builds. However, on the very first build of an instance of the server, we must
     // wipe old contents to avoid reusing stale directories.
     if (firstBuild && sandboxBase.exists()) {
-      if (trashBase.exists()) {
-        // Delete stale trash from a previous server instance.
-        Path staleTrash = getStaleTrashDir(trashBase);
-        trashBase.renameTo(staleTrash);
-        trashBase.createDirectory();
-        treeDeleter.deleteTree(staleTrash);
-      } else {
-        trashBase.createDirectory();
-      }
-      // We can delete other dirs asynchronously (if the flag is on).
-      for (Path entry : sandboxBase.getDirectoryEntries()) {
-        if (entry.getBaseName().equals(AsynchronousTreeDeleter.MOVED_TRASH_DIR)) {
-          continue;
-        }
-        if (entry.getBaseName().equals(SandboxHelpers.INACCESSIBLE_HELPER_DIR)) {
-          entry.deleteTree();
-        } else if (entry.isDirectory()) {
-          treeDeleter.deleteTree(entry);
+      try {
+        if (trashBase.exists()) {
+          // Delete stale trash from a previous server instance.
+          Path staleTrash = getStaleTrashDir(trashBase);
+          trashBase.renameTo(staleTrash);
+          trashBase.createDirectory();
+          treeDeleter.deleteTree(staleTrash);
         } else {
-          entry.delete();
+          trashBase.createDirectory();
         }
+        // We can delete other dirs asynchronously (if the flag is on).
+        for (Path entry : sandboxBase.getDirectoryEntries()) {
+          if (entry.getBaseName().equals(AsynchronousTreeDeleter.MOVED_TRASH_DIR)) {
+            continue;
+          }
+          if (entry.getBaseName().equals(SandboxHelpers.INACCESSIBLE_HELPER_DIR)) {
+            entry.deleteTree();
+          } else if (entry.isDirectory()) {
+            treeDeleter.deleteTree(entry);
+          } else {
+            entry.delete();
+          }
+        }
+      } catch (IOException e) {
+        // We have observed asynchronous deletion failing when running Bazel under Docker, see
+        // #21719. Different RUN commands with `bazel build` will write to different layers in the
+        // docker image. The overlay filesystem is different and the renaming of the directories
+        // that we need to do for asynchronous deletion will fail. When that happens we fall back to
+        // synchronous deletion here.
+        sandboxBase.deleteTree();
       }
     }
     firstBuild = false;
@@ -517,13 +526,19 @@ public final class SandboxModule extends BlazeModule {
    */
   private static void checkSandboxBaseTopOnlyContainsPersistentDirs(Path sandboxBase) {
     try {
-      Preconditions.checkState(
-          SANDBOX_BASE_PERSISTENT_DIRS.containsAll(
-              sandboxBase.getDirectoryEntries().stream()
-                  .map(Path::getBaseName)
-                  .collect(toImmutableList())),
-          "Found unexpected files in sandbox base. Please report this in"
-              + " https://github.com/bazelbuild/bazel/issues.");
+      ImmutableList<String> directoryEntries =
+          sandboxBase.getDirectoryEntries().stream()
+              .map(Path::getBaseName)
+              .collect(toImmutableList());
+      if (!SANDBOX_BASE_PERSISTENT_DIRS.containsAll(directoryEntries)) {
+        StringBuilder message =
+            new StringBuilder(
+                "Found unexpected entries in sandbox base. Please report this in"
+                    + " https://github.com/bazelbuild/bazel/issues.");
+        message.append(" The entries are: ");
+        Joiner.on(", ").appendTo(message, directoryEntries);
+        throw new IllegalStateException(message.toString());
+      }
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to clean up sandbox base %s", sandboxBase);
     }

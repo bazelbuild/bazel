@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -84,6 +85,7 @@ public class ModuleFileFunction implements SkyFunction {
   public static final Precomputed<Map<String, ModuleOverride>> MODULE_OVERRIDES =
       new Precomputed<>("module_overrides");
 
+  private final BazelStarlarkEnvironment starlarkEnv;
   private final RegistryFactory registryFactory;
   private final Path workspaceRoot;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
@@ -103,9 +105,11 @@ public class ModuleFileFunction implements SkyFunction {
    *     non-registry overrides.
    */
   public ModuleFileFunction(
+      BazelStarlarkEnvironment starlarkEnv,
       RegistryFactory registryFactory,
       Path workspaceRoot,
       ImmutableMap<String, NonRegistryOverride> builtinModules) {
+    this.starlarkEnv = starlarkEnv;
     this.registryFactory = registryFactory;
     this.workspaceRoot = workspaceRoot;
     this.builtinModules = builtinModules;
@@ -157,7 +161,7 @@ public class ModuleFileFunction implements SkyFunction {
     String moduleFileHash =
         new Fingerprint().addBytes(getModuleFileResult.moduleFile.getContent()).hexDigestAndReset();
 
-    ModuleFileGlobals moduleFileGlobals =
+    ModuleThreadContext moduleThreadContext =
         execModuleFile(
             getModuleFileResult.moduleFile,
             getModuleFileResult.registry,
@@ -168,12 +172,13 @@ public class ModuleFileFunction implements SkyFunction {
             // We try to prevent most side effects of yanked modules, in particular print().
             /* printIsNoop= */ getModuleFileResult.yankedInfo != null,
             starlarkSemantics,
+            starlarkEnv,
             env.getListener());
 
     // Perform some sanity checks.
     InterimModule module;
     try {
-      module = moduleFileGlobals.buildModule();
+      module = moduleThreadContext.buildModule();
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
@@ -242,6 +247,7 @@ public class ModuleFileFunction implements SkyFunction {
         MODULE_OVERRIDES.get(env),
         IGNORE_DEV_DEPS.get(env),
         starlarkSemantics,
+        starlarkEnv,
         env.getListener());
   }
 
@@ -257,22 +263,24 @@ public class ModuleFileFunction implements SkyFunction {
       Map<String, ModuleOverride> commandOverrides,
       boolean ignoreDevDeps,
       StarlarkSemantics starlarkSemantics,
+      BazelStarlarkEnvironment starlarkEnv,
       ExtendedEventHandler eventHandler)
       throws ModuleFileFunctionException, InterruptedException {
     String moduleFileHash = new Fingerprint().addBytes(moduleFileContents).hexDigestAndReset();
-    ModuleFileGlobals moduleFileGlobals =
+    ModuleThreadContext moduleThreadContext =
         execModuleFile(
             ModuleFile.create(moduleFileContents, moduleFilePath.asPath().toString()),
             /* registry= */ null,
             ModuleKey.ROOT,
             ignoreDevDeps,
-            /* printIsNoop= */ builtinModules,
-            false,
+            builtinModules,
+            /* printIsNoop= */ false,
             starlarkSemantics,
+            starlarkEnv,
             eventHandler);
     InterimModule module;
     try {
-      module = moduleFileGlobals.buildModule();
+      module = moduleThreadContext.buildModule();
     } catch (EvalException e) {
       eventHandler.handle(Event.error(e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for the root module");
@@ -290,7 +298,7 @@ public class ModuleFileFunction implements SkyFunction {
       }
     }
 
-    ImmutableMap<String, ModuleOverride> moduleOverrides = moduleFileGlobals.buildOverrides();
+    ImmutableMap<String, ModuleOverride> moduleOverrides = moduleThreadContext.buildOverrides();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.<String, ModuleOverride>builder()
             .putAll(moduleOverrides)
@@ -317,7 +325,7 @@ public class ModuleFileFunction implements SkyFunction {
         module, moduleFileHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
   }
 
-  private static ModuleFileGlobals execModuleFile(
+  private static ModuleThreadContext execModuleFile(
       ModuleFile moduleFile,
       @Nullable Registry registry,
       ModuleKey moduleKey,
@@ -325,6 +333,7 @@ public class ModuleFileFunction implements SkyFunction {
       ImmutableMap<String, NonRegistryOverride> builtinModules,
       boolean printIsNoop,
       StarlarkSemantics starlarkSemantics,
+      BazelStarlarkEnvironment starlarkEnv,
       ExtendedEventHandler eventHandler)
       throws ModuleFileFunctionException, InterruptedException {
     StarlarkFile starlarkFile =
@@ -334,8 +343,8 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf(Code.BAD_MODULE, "error parsing MODULE.bazel file for %s", moduleKey);
     }
 
-    ModuleFileGlobals moduleFileGlobals =
-        new ModuleFileGlobals(builtinModules, moduleKey, registry, ignoreDevDeps);
+    ModuleThreadContext context =
+        new ModuleThreadContext(builtinModules, moduleKey, registry, ignoreDevDeps);
     try (SilentCloseable c =
             Profiler.instance()
                 .profile(ProfilerTask.BZLMOD, () -> "evaluate module file: " + moduleKey);
@@ -343,9 +352,11 @@ public class ModuleFileFunction implements SkyFunction {
       new DotBazelFileSyntaxChecker("MODULE.bazel files", /* canLoadBzl= */ false)
           .check(starlarkFile);
       net.starlark.java.eval.Module predeclaredEnv =
-          getPredeclaredEnv(moduleFileGlobals, starlarkSemantics);
+          net.starlark.java.eval.Module.withPredeclared(
+              starlarkSemantics, starlarkEnv.getStarlarkGlobals().getModuleToplevels());
       Program program = Program.compileFile(starlarkFile, predeclaredEnv);
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      context.storeInThread(thread);
       if (printIsNoop) {
         thread.setPrintHandler((t, msg) -> {});
       } else {
@@ -368,7 +379,7 @@ public class ModuleFileFunction implements SkyFunction {
       eventHandler.handle(Event.error(e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
     }
-    return moduleFileGlobals;
+    return context;
   }
 
   private static class GetModuleFileResult {
@@ -498,13 +509,6 @@ public class ModuleFileFunction implements SkyFunction {
           path,
           e.getMessage());
     }
-  }
-
-  private static net.starlark.java.eval.Module getPredeclaredEnv(
-      ModuleFileGlobals moduleFileGlobals, StarlarkSemantics starlarkSemantics) {
-    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    Starlark.addMethods(env, moduleFileGlobals, starlarkSemantics);
-    return net.starlark.java.eval.Module.withPredeclared(starlarkSemantics, env.buildOrThrow());
   }
 
   @FormatMethod

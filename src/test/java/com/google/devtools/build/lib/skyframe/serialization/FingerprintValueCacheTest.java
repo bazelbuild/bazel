@@ -28,6 +28,10 @@ import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public final class FingerprintValueCacheTest {
+  // FingerprintValueService delegates getOrClaimPutOperation and getOrClaimGetOperation to
+  // FingerprintValueCache. The tests here test the logic in FingerprintValueCache but go through
+  // through the FingerprintValueService to improve coverage there.
+
   enum Distinguisher {
     NULL_DISTINGUISHER(/* value= */ null),
     NON_NULL_DISTINGUISHER(/* value= */ new Object());
@@ -48,80 +52,84 @@ public final class FingerprintValueCacheTest {
 
   @Test
   public void putOperation_isCached(@TestParameter Distinguisher distinguisher) {
-    FingerprintValueCache cache = new FingerprintValueCache();
+    FingerprintValueService service =
+        FingerprintValueService.createForTesting(/* exerciseDeserializationForTesting= */ false);
 
     Object value = new Object();
 
     SettableFuture<PutOperation> op1 = SettableFuture.create();
-    Object result = cache.getOrClaimPutOperation(value, distinguisher.value(), op1);
+    Object result = service.getOrClaimPutOperation(value, distinguisher.value(), op1);
     assertThat(result).isNull();
 
     SettableFuture<PutOperation> op2 = SettableFuture.create();
-    result = cache.getOrClaimPutOperation(value, distinguisher.value(), op2);
+    result = service.getOrClaimPutOperation(value, distinguisher.value(), op2);
     assertThat(result).isSameInstanceAs(op1);
   }
 
   @Test
   public void getOperation_isCached(@TestParameter Distinguisher distinguisher) {
-    FingerprintValueCache cache = new FingerprintValueCache();
+    FingerprintValueService service =
+        FingerprintValueService.createForTesting(/* exerciseDeserializationForTesting= */ false);
 
     ByteString fingerprint = ByteString.copyFromUtf8("foo");
 
     SettableFuture<Object> op1 = SettableFuture.create();
-    Object result = cache.getOrClaimGetOperation(fingerprint, distinguisher.value(), op1);
+    Object result = service.getOrClaimGetOperation(fingerprint, distinguisher.value(), op1);
     assertThat(result).isNull();
 
     SettableFuture<Object> op2 = SettableFuture.create();
-    result = cache.getOrClaimGetOperation(fingerprint, distinguisher.value(), op2);
+    result = service.getOrClaimGetOperation(fingerprint, distinguisher.value(), op2);
     assertThat(result).isSameInstanceAs(op1);
   }
 
   @Test
   public void putOperation_isUnwrapped(@TestParameter Distinguisher distinguisher) {
-    FingerprintValueCache cache = new FingerprintValueCache();
+    FingerprintValueService service =
+        FingerprintValueService.createForTesting(/* exerciseDeserializationForTesting= */ false);
 
     Object value = new Object();
 
     SettableFuture<PutOperation> putOp1 = SettableFuture.create();
-    Object putResult = cache.getOrClaimPutOperation(value, distinguisher.value(), putOp1);
+    Object putResult = service.getOrClaimPutOperation(value, distinguisher.value(), putOp1);
     assertThat(putResult).isNull();
 
     // Sets the `PutOperation` in `putOp1`, which triggers the first stage of unwrapping and
-    // populates the reverse cache.
+    // populates the reverse service.
     ByteString fingerprint = ByteString.copyFromUtf8("foo");
     SettableFuture<Void> writeStatus = SettableFuture.create();
     putOp1.set(PutOperation.create(fingerprint, writeStatus));
 
     // A get of `fingerprint` now returns `value` immediately.
     SettableFuture<Object> getOp = SettableFuture.create();
-    Object getResult = cache.getOrClaimGetOperation(fingerprint, distinguisher.value(), getOp);
+    Object getResult = service.getOrClaimGetOperation(fingerprint, distinguisher.value(), getOp);
     assertThat(getResult).isSameInstanceAs(value);
 
     // A second "put" of `value' sees the original, wrapped `putOp1`.
     SettableFuture<PutOperation> putOp2 = SettableFuture.create();
-    putResult = cache.getOrClaimPutOperation(value, distinguisher.value(), putOp2);
+    putResult = service.getOrClaimPutOperation(value, distinguisher.value(), putOp2);
     assertThat(putResult).isSameInstanceAs(putOp1);
 
     // Setting the write status fully unwraps the value.
     writeStatus.set(null);
-    putResult = cache.getOrClaimPutOperation(value, distinguisher.value(), putOp2);
+    putResult = service.getOrClaimPutOperation(value, distinguisher.value(), putOp2);
     assertThat(putResult).isSameInstanceAs(fingerprint);
   }
 
   @Test
   public void getOperation_isUnwrapped(@TestParameter Distinguisher distinguisher) {
-    FingerprintValueCache cache = new FingerprintValueCache();
+    FingerprintValueService service =
+        FingerprintValueService.createForTesting(/* exerciseDeserializationForTesting= */ false);
 
     ByteString fingerprint = ByteString.copyFromUtf8("foo");
 
     SettableFuture<Object> getOp = SettableFuture.create();
-    Object result = cache.getOrClaimGetOperation(fingerprint, distinguisher.value(), getOp);
+    Object result = service.getOrClaimGetOperation(fingerprint, distinguisher.value(), getOp);
     assertThat(result).isNull();
 
     // The first put operation is owned by the caller.
     Object value = new Object();
     SettableFuture<PutOperation> putOp = SettableFuture.create();
-    Object putResult = cache.getOrClaimPutOperation(value, distinguisher.value(), putOp);
+    Object putResult = service.getOrClaimPutOperation(value, distinguisher.value(), putOp);
     assertThat(putResult).isNull();
 
     // Completes the `getOp`, causing it to be unwrapped.
@@ -129,7 +137,7 @@ public final class FingerprintValueCacheTest {
 
     // The next put operation gets the unwrapped fingerprint.
     SettableFuture<PutOperation> putOp2 = SettableFuture.create();
-    putResult = cache.getOrClaimPutOperation(value, distinguisher.value(), putOp2);
+    putResult = service.getOrClaimPutOperation(value, distinguisher.value(), putOp2);
     assertThat(putResult).isSameInstanceAs(fingerprint);
 
     // Completing `putOp` overwrites values, but this is benign because `value`s fingerprint should
@@ -138,7 +146,7 @@ public final class FingerprintValueCacheTest {
     putOp.set(PutOperation.create(fingerprint2, immediateVoidFuture()));
 
     SettableFuture<PutOperation> putOp3 = SettableFuture.create();
-    putResult = cache.getOrClaimPutOperation(value, distinguisher.value(), putOp3);
+    putResult = service.getOrClaimPutOperation(value, distinguisher.value(), putOp3);
     assertThat(putResult).isSameInstanceAs(fingerprint2);
   }
 
@@ -146,7 +154,8 @@ public final class FingerprintValueCacheTest {
   public void distinguisher_distinguishesSameFingerprint() {
     // Puts two values with the same fingerprint, but different distinguishers, then verifies that
     // they are distinguishable on retrieval.
-    FingerprintValueCache cache = new FingerprintValueCache();
+    FingerprintValueService service =
+        FingerprintValueService.createForTesting(/* exerciseDeserializationForTesting= */ false);
 
     ByteString fingerprint = ByteString.copyFromUtf8("foo");
 
@@ -155,20 +164,20 @@ public final class FingerprintValueCacheTest {
 
     Object value1 = new Object();
     Object distinguisher1 = new Object();
-    Object result = cache.getOrClaimPutOperation(value1, distinguisher1, put);
+    Object result = service.getOrClaimPutOperation(value1, distinguisher1, put);
     assertThat(result).isNull();
 
     Object value2 = new Object();
     Object distinguisher2 = new Object();
     // Reusing `put` here is fine because it's the same fingerprint.
-    result = cache.getOrClaimPutOperation(value2, distinguisher2, put);
+    result = service.getOrClaimPutOperation(value2, distinguisher2, put);
     assertThat(result).isNull();
 
     // The correct values are returned for the distinguisher values.
     SettableFuture<Object> unusedGetOperation = SettableFuture.create();
-    result = cache.getOrClaimGetOperation(fingerprint, distinguisher1, unusedGetOperation);
+    result = service.getOrClaimGetOperation(fingerprint, distinguisher1, unusedGetOperation);
     assertThat(result).isSameInstanceAs(value1);
-    result = cache.getOrClaimGetOperation(fingerprint, distinguisher2, unusedGetOperation);
+    result = service.getOrClaimGetOperation(fingerprint, distinguisher2, unusedGetOperation);
     assertThat(result).isSameInstanceAs(value2);
   }
 
@@ -176,20 +185,21 @@ public final class FingerprintValueCacheTest {
   public void exerciseDeserializationForTesting_doesNotAddReverseEntry(
       @TestParameter Distinguisher distinguisher,
       @TestParameter boolean exerciseDeserializationForTesting) {
-    FingerprintValueCache cache = new FingerprintValueCache(exerciseDeserializationForTesting);
+    FingerprintValueService service =
+        FingerprintValueService.createForTesting(exerciseDeserializationForTesting);
 
-    // Puts the `fingerprint` to `value` association in the cache.
+    // Puts the `fingerprint` to `value` association in the service.
     ByteString fingerprint = ByteString.copyFromUtf8("foo");
     Object value = new Object();
     Object result =
-        cache.getOrClaimPutOperation(
+        service.getOrClaimPutOperation(
             value,
             distinguisher.value(),
             immediateFuture(PutOperation.create(fingerprint, immediateVoidFuture())));
     assertThat(result).isNull();
 
     SettableFuture<Object> getOperation = SettableFuture.create();
-    result = cache.getOrClaimGetOperation(fingerprint, distinguisher.value(), getOperation);
+    result = service.getOrClaimGetOperation(fingerprint, distinguisher.value(), getOperation);
     if (exerciseDeserializationForTesting) {
       // Ordinarily, the reverse `value` to `fingerprint` would also be added to the cache, but it's
       // not because `exerciseDeserializationForTesting` is true.

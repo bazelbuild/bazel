@@ -55,9 +55,19 @@ public abstract class TransitiveDataDependencyTest extends BuildIntegrationTestC
 
   @Test
   public void testTransitiveDataDepIsBuilt() throws Exception {
-    write("data/BUILD",
-          "cc_library(name = 'needsdata', data = [':data_bin'])",
-          "cc_binary(name = 'data_bin', srcs = ['data_bin.c'])");
+    write(
+        "data/BUILD",
+        """
+        cc_library(
+            name = "needsdata",
+            data = [":data_bin"],
+        )
+
+        cc_binary(
+            name = "data_bin",
+            srcs = ["data_bin.c"],
+        )
+        """);
     write("data/data_bin.c", "int main() { return 0; }");
 
     buildTarget("//data:needsdata");
@@ -123,10 +133,20 @@ public abstract class TransitiveDataDependencyTest extends BuildIntegrationTestC
 
   @Test
   public void testMissingInputFilesKeepGoing() throws Exception {
-    write("data/BUILD",
-        "# Comment line",
-        "cc_library(name = 'needsdata1', data = [':data_file1'])",
-        "cc_library(name = 'needsdata2', data = [':data_file2'])");
+    write(
+        "data/BUILD",
+        """
+        # Comment line
+        cc_library(
+            name = "needsdata1",
+            data = [":data_file1"],
+        )
+
+        cc_library(
+            name = "needsdata2",
+            data = [":data_file2"],
+        )
+        """);
     write("data/data_file2", "data_file2 exists");
 
     RecordingOutErr recOutErr = new RecordingOutErr();

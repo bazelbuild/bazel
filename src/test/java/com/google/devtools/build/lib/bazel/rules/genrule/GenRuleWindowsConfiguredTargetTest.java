@@ -76,11 +76,15 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
   public void testCmdBatchIsPreferred() throws Exception {
     scratch.file(
         "genrule1/BUILD",
-        "genrule(name = 'hello_world',",
-        "outs = ['message.txt'],",
-        "cmd  = 'echo \"Hello, default cmd.\" >$(location message.txt)',",
-        "cmd_bash  = 'echo \"Hello, Bash cmd.\" >$(location message.txt)',",
-        "cmd_bat  = 'echo \"Hello, Batch cmd.\" >$(location message.txt)')");
+        """
+        genrule(
+            name = "hello_world",
+            outs = ["message.txt"],
+            cmd = 'echo "Hello, default cmd." >$(location message.txt)',
+            cmd_bash = 'echo "Hello, Bash cmd." >$(location message.txt)',
+            cmd_bat = 'echo "Hello, Batch cmd." >$(location message.txt)',
+        )
+        """);
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
@@ -99,12 +103,16 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
   public void testCmdPsIsPreferred() throws Exception {
     scratch.file(
         "genrule1/BUILD",
-        "genrule(name = 'hello_world',",
-        "outs = ['message.txt'],",
-        "cmd  = 'echo \"Hello, default cmd.\" >$(location message.txt)',",
-        "cmd_bash  = 'echo \"Hello, Bash cmd.\" >$(location message.txt)',",
-        "cmd_bat  = 'echo \"Hello, Batch cmd.\" >$(location message.txt)',",
-        "cmd_ps  = 'echo \"Hello, Powershell cmd.\" >$(location message.txt)')");
+        """
+        genrule(
+            name = "hello_world",
+            outs = ["message.txt"],
+            cmd = 'echo "Hello, default cmd." >$(location message.txt)',
+            cmd_bash = 'echo "Hello, Bash cmd." >$(location message.txt)',
+            cmd_bat = 'echo "Hello, Batch cmd." >$(location message.txt)',
+            cmd_ps = 'echo "Hello, Powershell cmd." >$(location message.txt)',
+        )
+        """);
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
@@ -165,10 +173,14 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
   public void testCmdBashIsPreferred() throws Exception {
     scratch.file(
         "genrule1/BUILD",
-        "genrule(name = 'hello_world',",
-        "outs = ['message.txt'],",
-        "cmd  = 'echo \"Hello, default cmd.\" >$(location message.txt)',",
-        "cmd_bash  = 'echo \"Hello, Bash cmd.\" >$(location message.txt)')");
+        """
+        genrule(
+            name = "hello_world",
+            outs = ["message.txt"],
+            cmd = 'echo "Hello, default cmd." >$(location message.txt)',
+            cmd_bash = 'echo "Hello, Bash cmd." >$(location message.txt)',
+        )
+        """);
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);

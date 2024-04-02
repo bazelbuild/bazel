@@ -36,22 +36,26 @@ public class AndroidHostServiceFixtureTest extends AndroidBuildViewTestCase {
   public void setup() throws Exception {
     scratch.file(
         "java/com/server/BUILD",
-        "java_binary(",
-        "  name = 'server',",
-        "  main_class = 'does.not.exist',",
-        "  srcs = [],",
-        ")");
+        """
+        java_binary(
+          name = 'server',
+          main_class = 'does.not.exist',
+          srcs = [],
+        )
+        """);
     scratch.file(
         "java/com/app/BUILD",
-        "android_binary(",
-        "  name = 'support',",
-        "  manifest = 'AndroidManifest.xml',",
-        ")",
-        "genrule(",
-        "  name = 'genrule',",
-        "  outs = ['generated.apk'],",
-        "  cmd = 'touch $(OUTS)',",
-        ")");
+        """
+        android_binary(
+          name = 'support',
+          manifest = 'AndroidManifest.xml',
+        )
+        genrule(
+          name = 'genrule',
+          outs = ['generated.apk'],
+          cmd = 'touch $(OUTS)',
+        )
+        """);
   }
 
   @Test
@@ -60,10 +64,12 @@ public class AndroidHostServiceFixtureTest extends AndroidBuildViewTestCase {
         scratchConfiguredTarget(
             "javatests/com/app/BUILD",
             "fixture",
-            "android_host_service_fixture(",
-            "  name = 'fixture',",
-            "  executable = '//java/com/server',",
-            ")");
+            """
+            android_host_service_fixture(
+              name = 'fixture',
+              executable = '//java/com/server',
+            )
+            """);
     assertThat(hostServiceFixture).isNotNull();
     assertThat(
             ActionsTestUtil.prettyArtifactNames(
@@ -85,11 +91,13 @@ public class AndroidHostServiceFixtureTest extends AndroidBuildViewTestCase {
         scratchConfiguredTarget(
             "javatests/com/app/BUILD",
             "fixture",
-            "android_host_service_fixture(",
-            "  name = 'fixture',",
-            "  executable = '//java/com/server',",
-            "  service_names = ['proxy', 'echo'],",
-            ")");
+            """
+            android_host_service_fixture(
+              name = 'fixture',
+              executable = '//java/com/server',
+              service_names = ['proxy', 'echo'],
+            )
+            """);
     assertThat(getHostServiceFixtureInfoProvider(hostServiceFixture).getServiceNames())
         .containsExactly("proxy", "echo")
         .inOrder();
@@ -101,15 +109,17 @@ public class AndroidHostServiceFixtureTest extends AndroidBuildViewTestCase {
         scratchConfiguredTarget(
             "javatests/com/app/BUILD",
             "fixture",
-            "android_host_service_fixture(",
-            "  name = 'fixture',",
-            "  executable = '//java/com/server',",
-            "  service_names = ['proxy', 'echo'],",
-            "  support_apks = [",
-            "    '//java/com/app:support',",
-            "    '//java/com/app:generated.apk',",
-            "  ],",
-            ")");
+            """
+            android_host_service_fixture(
+              name = 'fixture',
+              executable = '//java/com/server',
+              service_names = ['proxy', 'echo'],
+              support_apks = [
+                '//java/com/app:support',
+                '//java/com/app:generated.apk',
+              ],
+            )
+            """);
     assertThat(
             ActionsTestUtil.prettyArtifactNames(
                 getHostServiceFixtureInfoProvider(hostServiceFixture).getSupportApks()))
@@ -121,15 +131,17 @@ public class AndroidHostServiceFixtureTest extends AndroidBuildViewTestCase {
   public void testProvidesProvidesTestArgs() throws Exception {
     scratch.file(
         "javatests/com/app/BUILD",
-        "android_host_service_fixture(",
-        "  name = 'fixture_with_no_test_args',",
-        "  executable = '//java/com/server',",
-        ")",
-        "android_host_service_fixture(",
-        "  name = 'fixture_with_test_args',",
-        "  executable = '//java/com/server',",
-        "  provides_test_args = 1,",
-        ")");
+        """
+        android_host_service_fixture(
+          name = 'fixture_with_no_test_args',
+          executable = '//java/com/server',
+        )
+        android_host_service_fixture(
+          name = 'fixture_with_test_args',
+          executable = '//java/com/server',
+          provides_test_args = 1,
+        )
+        """);
     assertThat(
             getHostServiceFixtureInfoProvider(
                     getConfiguredTarget("//javatests/com/app:fixture_with_no_test_args"))
@@ -146,15 +158,17 @@ public class AndroidHostServiceFixtureTest extends AndroidBuildViewTestCase {
   public void testProvidesDaemon() throws Exception {
     scratch.file(
         "javatests/com/app/BUILD",
-        "android_host_service_fixture(",
-        "  name = 'no_daemon',",
-        "  executable = '//java/com/server',",
-        ")",
-        "android_host_service_fixture(",
-        "  name = 'daemon',",
-        "  executable = '//java/com/server',",
-        "  daemon = 1,",
-        ")");
+        """
+        android_host_service_fixture(
+          name = 'no_daemon',
+          executable = '//java/com/server',
+        )
+        android_host_service_fixture(
+          name = 'daemon',
+          executable = '//java/com/server',
+          daemon = 1,
+        )
+        """);
     assertThat(
             getHostServiceFixtureInfoProvider(getConfiguredTarget("//javatests/com/app:no_daemon"))
                 .getDaemon())

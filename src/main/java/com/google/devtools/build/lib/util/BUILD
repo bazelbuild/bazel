@@ -1,5 +1,5 @@
-load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
+load("//src:build_defs.bzl", "java_11_library")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -91,6 +91,17 @@ java_library(
 )
 
 java_library(
+    name = "script_util",
+    srcs = ["ScriptUtil.java"],
+    deps = [
+        ":os",
+        ":shell_escaper",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
@@ -101,7 +112,7 @@ java_library(
     deps = [
         ":describable_execution_unit",
         ":os",
-        ":shell_escaper",
+        ":script_util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -158,6 +169,15 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "memory_accountant",
+    srcs = ["MemoryAccountant.java"],
+    deps = [
+        ":object_graph_traverser",
+        ":shallow_object_size_computer",
     ],
 )
 
@@ -389,5 +409,15 @@ java_library(
         ":abrupt_exit_exception",
         ":detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+    ],
+)
+
+java_library(
+    name = "concurrency_meter",
+    srcs = ["ConcurrencyMeter.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
     ],
 )

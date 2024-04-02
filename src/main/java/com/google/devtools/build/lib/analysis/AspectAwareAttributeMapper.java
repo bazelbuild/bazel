@@ -71,6 +71,8 @@ class AspectAwareAttributeMapper implements AttributeMap {
         throw new IllegalArgumentException(String.format(
             "attribute %s has type %s, not expected type %s",
             attributeName, attribute.getType(), type));
+      } else if (attribute.isImplicit()) {
+        return type.cast(attribute.getDefaultValue(/* rule= */ null));
       } else {
         throw new UnsupportedOperationException(
             String.format(

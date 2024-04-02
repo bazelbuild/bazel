@@ -32,11 +32,14 @@ public abstract class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
   public final void createFiles() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_binary(name = 'app',",
-        "               srcs = ['A.java'],",
-        "               manifest = 'AndroidManifest.xml',",
-        "               resource_files = glob(['res/**']),",
-        "              )");
+        """
+        android_binary(
+            name = "app",
+            srcs = ["A.java"],
+            manifest = "AndroidManifest.xml",
+            resource_files = glob(["res/**"]),
+        )
+        """);
     scratch.file(
         "java/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");

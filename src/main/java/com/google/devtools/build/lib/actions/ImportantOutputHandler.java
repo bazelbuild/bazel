@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
 
 /** Context to be informed of top-level outputs and their runfiles. */
@@ -24,9 +27,32 @@ public interface ImportantOutputHandler extends ActionContext {
    *
    * <p>The handler may verify that remotely stored outputs are still available. Returns a map from
    * digest to output for any artifacts that need to be regenerated via action rewinding.
+   *
+   * @throws ImportantOutputException for an issue processing the outputs, not including lost
+   *     outputs which are reported in the returned map
    */
   ImmutableMap<String, ActionInput> processAndGetLostArtifacts(
-      Collection<? extends ActionInput> outputs, InputMetadataProvider metadataProvider);
+      Collection<? extends ActionInput> outputs, InputMetadataProvider metadataProvider)
+      throws ImportantOutputException, InterruptedException;
 
   ImportantOutputHandler NO_OP = (outputs, metadataProvider) -> ImmutableMap.of();
+
+  /** Represents an exception encountered during {@link #processAndGetLostArtifacts}. */
+  final class ImportantOutputException extends Exception implements DetailedException {
+    private final FailureDetail failureDetail;
+
+    public ImportantOutputException(Throwable cause, FailureDetail failureDetail) {
+      super(failureDetail.getMessage(), cause);
+      this.failureDetail = failureDetail;
+    }
+
+    public FailureDetail getFailureDetail() {
+      return failureDetail;
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return DetailedExitCode.of(failureDetail);
+    }
+  }
 }

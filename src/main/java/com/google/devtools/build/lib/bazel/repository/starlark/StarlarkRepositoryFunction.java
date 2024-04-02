@@ -199,6 +199,12 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                       RepositoryName.createUnvalidated(rule.getName()),
                       "fetch interrupted due to memory pressure; restarting."));
           return fetch(rule, outputDirectory, directories, env, recordedInputValues, key);
+        } finally {
+          // At this point, the worker thread has definitely finished. But in some corner cases (see
+          // b/330892334), a Skyframe restart might still happen; to ensure we're not tricked into
+          // a deadlock, we clean up the worker thread and so that next time we come into fetch(),
+          // we actually restart the entire computation.
+          state.close();
         }
     }
     // TODO(wyv): use a switch expression above instead and remove this.
@@ -376,7 +382,18 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must create a directory"), Transience.TRANSIENT);
     }
 
+    // Make sure the fetched repo has a boundary file.
     if (!WorkspaceFileHelper.isValidRepoRoot(outputDirectory)) {
+      if (outputDirectory.isSymbolicLink()) {
+        // The created repo is actually just a symlink to somewhere else (think local_repository).
+        // In this case, we shouldn't try to create the repo boundary file ourselves, but report an
+        // error instead.
+        throw new RepositoryFunctionException(
+            new IOException(
+                "No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + outputDirectory),
+            Transience.TRANSIENT);
+      }
+      // Otherwise, we can just create an empty REPO.bazel file.
       try {
         FileSystemUtils.createEmptyFile(outputDirectory.getRelative(LabelConstants.REPO_FILE_NAME));
         if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {

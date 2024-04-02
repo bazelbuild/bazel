@@ -27,7 +27,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
@@ -43,27 +42,29 @@ using blaze_util::GetLastErrorString;
 using std::string;
 using std::vector;
 
+// ${XDG_CACHE_HOME}/bazel, a.k.a. ~/.cache/bazel by default (which is the
+// fallback when XDG_CACHE_HOME is not set)
 string GetOutputRoot() {
-  string base;
-  string home = GetHomeDir();
-  if (!home.empty()) {
-    base = home;
-  } else {
-    char buf[2048];
-    struct passwd pwbuf;
-    struct passwd *pw = nullptr;
-    int uid = getuid();
-    int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
-    if (r == 0 && pw != nullptr) {
-      base = pw->pw_dir;
+  string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
+  if (xdg_cache_home.empty()) {
+    string home = GetHomeDir();  // via $HOME env variable
+    if (home.empty()) {
+      // Fall back to home dir from password database
+      char buf[2048];
+      struct passwd pwbuf;
+      struct passwd *pw = nullptr;
+      int uid = getuid();
+      int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
+      if (r == 0 && pw != nullptr) {
+        home = pw->pw_dir;
+      } else {
+        return "/tmp";
+      }
     }
+    xdg_cache_home = blaze_util::JoinPath(home, ".cache");
   }
 
-  if (!base.empty()) {
-    return blaze_util::JoinPath(base, ".cache/bazel");
-  }
-
-  return "/tmp";
+  return blaze_util::JoinPath(xdg_cache_home, "bazel");
 }
 
 void WarnFilesystemType(const blaze_util::Path &output_base) {

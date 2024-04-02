@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,7 +54,9 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
 
-    useConfiguration("--cpu=k8", "--noincompatible_remove_legacy_whole_archive");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_remove_legacy_whole_archive");
     ConfiguredTarget genlib =
         scratchConfiguredTarget(
             "genrule",
@@ -94,9 +97,13 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
 
     scratch.overwriteFile(
         "custom_malloc/BUILD",
-        "cc_library(name = 'custom_malloc',",
-        "           srcs = ['custom_malloc.cc'],",
-        "           linkopts = ['-Lmalloc_dir -lmalloc_opt']);");
+        """
+        cc_library(
+            name = "custom_malloc",
+            srcs = ["custom_malloc.cc"],
+            linkopts = ["-Lmalloc_dir -lmalloc_opt"],
+        )
+        """);
 
     ConfiguredTarget ccLib = getConfiguredTarget("//custom_malloc:custom_malloc");
     final String linkOpt1 = "-Lmalloc_dir";

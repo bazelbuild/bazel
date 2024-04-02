@@ -106,7 +106,8 @@ systems. These are all located in
 [https://github.com/bazelbuild/platforms](https://github.com/bazelbuild/platforms){: .external}.
 
 Bazel ships with the following special platform definition:
-`@local_config_platform//:host`. This is the autodetected host platform value -
+`@platforms//host` (aliased as `@bazel_tools//tools:host_platform`). This is the
+autodetected host platform value -
 represents autodetected platform for the system Bazel is running on.
 
 ## Specifying a platform for a build {:#specifying-build-platform}
@@ -114,15 +115,15 @@ represents autodetected platform for the system Bazel is running on.
 You can specify the host and target platforms for a build using the following
 command-line flags:
 
-*  `--host_platform` - defaults to `@local_config_platform//:host`
-   *  `@local_config_platform` is a repo backed by a repo rule that detects the
-      host OS and CPU and writes the platform target.
-   *  It also creates `@local_config_platform//:constraints.bzl`, which exposes
+*  `--host_platform` - defaults to `@bazel_tools//tools:host_platform`
+   *  This target is aliased to `@platforms//host`, which is backed by a repo
+      rule that detects the host OS and CPU and writes the platform target.
+   *  There's also `@platforms//host:constraints.bzl`, which exposes
       an array called `HOST_CONSTRAINTS`, which can be used in other BUILD and
       Starlark files.
 *  `--platforms` - defaults to the host platform
    *  This means that when no other flags are set,
-      `@local_config_platform//:host` is the target platform.
+      `@platforms//host` is the target platform.
    *  If `--host_platform` is set and not `--platforms`, the value of
       `--host_platform` is both the host and target platform.
 

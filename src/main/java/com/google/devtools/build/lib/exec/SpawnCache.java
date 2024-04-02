@@ -86,6 +86,8 @@ public interface SpawnCache extends ActionContext {
     public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context) {
       return SpawnCache.NO_RESULT_NO_STORE;
     }
+
+    private NoSpawnCache() {}
   }
 
   /** A no-op implementation that has no results and performs no stores. */

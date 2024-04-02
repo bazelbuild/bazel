@@ -61,9 +61,9 @@ public final class CppLinkAction extends SpawnAction {
   CppLinkAction(
       ActionOwner owner,
       String mnemonic,
+      String progressMessage,
       NestedSet<Artifact> inputs,
       ImmutableSet<Artifact> outputs,
-      boolean isLtoIndexing,
       LinkCommandLine linkCommandLine,
       ActionEnvironment env,
       ImmutableMap<String, String> toolchainEnv,
@@ -78,8 +78,8 @@ public final class CppLinkAction extends SpawnAction {
         /* commandLines= */ linkCommandLine.getCommandLines(),
         /* env= */ env,
         /* executionInfo= */ executionRequirements,
-        /* progressMessage= */ (isLtoIndexing ? "LTO indexing %{output}" : "Linking %{output}"),
-        /* mnemonic= */ getMnemonic(mnemonic, isLtoIndexing),
+        /* progressMessage= */ progressMessage,
+        /* mnemonic= */ mnemonic,
         /* outputPathsMode= */ OutputPathsMode.OFF);
 
     this.linkCommandLine = linkCommandLine;
@@ -116,13 +116,6 @@ public final class CppLinkAction extends SpawnAction {
     fp.addString(LINK_GUID);
     super.computeKey(actionKeyContext, artifactExpander, fp);
     fp.addStringMap(toolchainEnv);
-  }
-
-  static String getMnemonic(String mnemonic, boolean isLtoIndexing) {
-    if (mnemonic == null) {
-      return isLtoIndexing ? "CppLTOIndexing" : "CppLink";
-    }
-    return mnemonic;
   }
 
   /** Estimates resource consumption when this action is executed locally. */

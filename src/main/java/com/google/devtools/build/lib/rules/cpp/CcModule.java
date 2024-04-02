@@ -143,6 +143,7 @@ public abstract class CcModule
               BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
               BuiltinRestriction.allowlistEntry(
                   "", "rust/private"),
+              BuiltinRestriction.allowlistEntry("", "third_party/crubit"),
               BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
               BuiltinRestriction.allowlistEntry("rules_android", ""),
               BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"),
@@ -252,16 +253,6 @@ public abstract class CcModule
     isCalledFromStarlarkCcCommon(thread);
     return StarlarkList.immutableCopyOf(
         featureConfiguration.getFeatureConfiguration().getToolRequirementsForAction(actionName));
-  }
-
-  @Override
-  public boolean isEnabled(
-      FeatureConfigurationForStarlark featureConfiguration,
-      String featureName,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return featureConfiguration.getFeatureConfiguration().isEnabled(featureName);
   }
 
   @Override
@@ -379,46 +370,47 @@ public abstract class CcModule
       Object userLinkFlags,
       Object outputFile,
       Object paramFile,
-      Object defFile,
       boolean isUsingLinkerNotArchiver,
       boolean isCreatingSharedLibrary,
       boolean mustKeepDebug,
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       throw Starlark.errorf("FDO instrumentation not supported");
     }
     CcToolchainProvider ccToolchainProvider =
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
-    return LinkBuildVariables.setupVariables(
-        isUsingLinkerNotArchiver,
-        /* binDirectoryPath= */ null,
-        convertFromNoneable(outputFile, /* defaultValue= */ null),
-        /* runtimeSolibName= */ null,
-        isCreatingSharedLibrary,
-        convertFromNoneable(paramFile, /* defaultValue= */ null),
-        /* thinltoParamFile= */ null,
-        /* thinltoMergedObjectFile= */ null,
-        mustKeepDebug,
-        ccToolchainProvider,
-        featureConfiguration.getFeatureConfiguration(),
-        useTestOnlyFlags,
-        /* isLtoIndexing= */ false,
-        userFlagsToIterable(userLinkFlags),
-        /* interfaceLibraryBuilder= */ null,
-        /* interfaceLibraryOutput= */ null,
-        /* ltoOutputRootPrefix= */ null,
-        /* ltoObjRootPrefix= */ null,
-        convertFromNoneable(defFile, /* defaultValue= */ null),
-        /* fdoContext= */ null,
-        Depset.noneableCast(
-            runtimeLibrarySearchDirectories, String.class, "runtime_library_search_directories"),
-        /* librariesToLink= */ null,
-        Depset.noneableCast(librarySearchDirectories, String.class, "library_search_directories"),
-        /* addIfsoRelatedVariables= */ false);
+    CcToolchainVariables.Builder linkBuildVariables =
+        LinkBuildVariables.setupCommonVariables(
+            isUsingLinkerNotArchiver,
+            isCreatingSharedLibrary,
+            convertFromNoneable(paramFile, /* defaultValue= */ null),
+            mustKeepDebug,
+            ccToolchainProvider,
+            featureConfiguration.getFeatureConfiguration(),
+            useTestOnlyFlags,
+            userFlagsToIterable(userLinkFlags),
+            /* fdoContext= */ null,
+            Depset.noneableCast(
+                runtimeLibrarySearchDirectories,
+                String.class,
+                "runtime_library_search_directories"),
+            /* librariesToLink= */ null,
+            Depset.noneableCast(
+                librarySearchDirectories, String.class, "library_search_directories"));
+    // output exec path
+    if (outputFile != Starlark.NONE) {
+      if (!(outputFile instanceof String)) {
+        throw Starlark.errorf(
+            "Parameter 'output' expected String, got '%s'", Starlark.type(outputFile));
+      }
+      linkBuildVariables.addStringVariable(
+          LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), (String) outputFile);
+    }
+    return linkBuildVariables.build();
   }
 
   @Override
@@ -1911,7 +1903,6 @@ public abstract class CcModule
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
-      Object winDefFileObject,
       Object testOnlyTargetObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
@@ -1935,7 +1926,6 @@ public abstract class CcModule
     } else {
       staticLinkTargetType = LinkTargetType.STATIC_LIBRARY;
     }
-    Artifact winDefFile = convertFromNoneable(winDefFileObject, /* defaultValue= */ null);
     List<CcLinkingContext> ccLinkingContexts =
         Sequence.cast(linkingContextsObjects, CcLinkingContext.class, "linking_contexts");
     CcLinkingHelper helper =
@@ -1960,7 +1950,6 @@ public abstract class CcModule
             .emitInterfaceSharedLibraries(true)
             .setLinkedDLLNameSuffix(
                 convertFromNoneable(linkedDllNameSuffix, /* defaultValue= */ ""))
-            .setDefFile(winDefFile)
             .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(convertFromNoneable(testOnlyTargetObject, false))
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
@@ -2369,8 +2358,6 @@ public abstract class CcModule
       Object mainOutputObject,
       Object linkerOutputsObject,
       Object useTestOnlyFlags,
-      Object pdbFile,
-      Object winDefFile,
       Object useShareableArtifactFactory,
       Object buildConfig,
       StarlarkThread thread)
@@ -2462,8 +2449,6 @@ public abstract class CcModule
                         ccToolchainProvider.getCppConfiguration(), actualFeatureConfiguration))
             .setLinkerOutputArtifact(convertFromNoneable(mainOutput, null))
             .setUseTestOnlyFlags(convertFromNoneable(useTestOnlyFlags, false))
-            .setPdbFile(convertFromNoneable(pdbFile, null))
-            .setDefFile(convertFromNoneable(winDefFile, null))
             .addLinkerOutputs(linkerOutputs);
     if (staticLinkTargetType != null) {
       helper.setShouldCreateDynamicLibrary(false).setStaticLinkType(staticLinkTargetType);

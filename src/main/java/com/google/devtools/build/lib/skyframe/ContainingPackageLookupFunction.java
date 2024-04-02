@@ -38,7 +38,8 @@ public class ContainingPackageLookupFunction implements SkyFunction {
     }
 
     if (pkgLookupValue.packageExists()) {
-      return ContainingPackageLookupValue.withContainingPackage(dir, pkgLookupValue.getRoot());
+      return ContainingPackageLookupValue.withContainingPackage(
+          dir, pkgLookupValue.getRoot(), pkgLookupValue.hasProjectFile());
     }
 
     // Does the requested package cross into a sub-repository, which we should report via the
@@ -52,7 +53,7 @@ public class ContainingPackageLookupFunction implements SkyFunction {
     }
 
     if (ErrorReason.REPOSITORY_NOT_FOUND.equals(pkgLookupValue.getErrorReason())) {
-      return new ContainingPackageLookupValue.NoContainingPackage(pkgLookupValue.getErrorMsg());
+      return ContainingPackageLookupValue.noContainingPackage(pkgLookupValue.getErrorMsg());
     }
     PathFragment parentDir = dir.getPackageFragment().getParentDirectory();
     if (parentDir == null) {

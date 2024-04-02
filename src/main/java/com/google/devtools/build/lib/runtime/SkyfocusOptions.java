@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -47,13 +48,14 @@ public final class SkyfocusOptions extends OptionsBase {
 
   @Option(
       name = "experimental_skyfocus_dump_keys",
-      defaultValue = "false",
+      defaultValue = "none",
       effectTags = OptionEffectTag.TERMINAL_OUTPUT,
       documentationCategory = OptionDocumentationCategory.LOGGING,
+      converter = SkyfocusDumpEnumConverter.class,
       help =
           "For debugging Skyfocus. Dump the focused SkyKeys (roots, leafs, focused deps, focused"
               + " rdeps).")
-  public boolean dumpKeys;
+  public SkyfocusDumpOption dumpKeys;
 
   @Option(
       name = "experimental_skyfocus_dump_post_gc_stats",
@@ -64,4 +66,24 @@ public final class SkyfocusOptions extends OptionsBase {
           "For debugging Skyfocus. If enabled, trigger manual GC before/after focusing to report"
               + " heap sizes reductions. This will increase the Skyfocus latency.")
   public boolean dumpPostGcStats;
+
+  /** Options to dump the state of the Skyframe graph before/after Skyfocus. */
+  public enum SkyfocusDumpOption {
+    NONE,
+
+    /**
+     * Dump the counts and reductions of SkyKeys in the graph, working set, and verification set.
+     */
+    COUNT,
+
+    /** Dump the string representation of SkyKeys in the working set and verification set. */
+    VERBOSE,
+  }
+
+  /** Enum converter for SkyframeDumpOption. */
+  private static class SkyfocusDumpEnumConverter extends EnumConverter<SkyfocusDumpOption> {
+    public SkyfocusDumpEnumConverter() {
+      super(SkyfocusDumpOption.class, "Skyframe Dump option");
+    }
+  }
 }

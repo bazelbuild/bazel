@@ -207,7 +207,7 @@ function test_android_binary() {
 
   cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
-  bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" \
+  bazel build -s //java/bazel:bin \
     --android_platforms=//test_android_platforms:x86,//test_android_platforms:x86_64,//test_android_platforms:armeabi-v7a,//test_android_platforms:arm64-v8a \
      || fail "build failed"
   check_num_sos
@@ -223,7 +223,7 @@ function test_android_binary_sibling_repository_layout() {
   cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
   bazel build --experimental_sibling_repository_layout -s \
-      //java/bazel:bin --fat_apk_cpu="$cpus" \
+      //java/bazel:bin \
       --android_platforms=//test_android_platforms:x86,//test_android_platforms:x86_64,//test_android_platforms:armeabi-v7a,//test_android_platforms:arm64-v8a \
       || fail "build failed"
   check_num_sos
@@ -239,7 +239,6 @@ function test_android_binary_clang() {
   cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
   bazel build -s //java/bazel:bin \
-      --fat_apk_cpu="$cpus" \
       --android_compiler=clang5.0.300080 \
       --android_platforms=//test_android_platforms:x86,//test_android_platforms:x86_64,//test_android_platforms:armeabi-v7a,//test_android_platforms:arm64-v8a \
       || fail "build failed"
@@ -266,16 +265,12 @@ EOF
   bazel build //:foo \
     --compiler=clang5.0.300080 \
     --cpu=armeabi-v7a \
-    --crosstool_top=//external:android/crosstool \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
     || fail "build failed"
 
   bazel build //:foo \
     --features=compiler_param_file \
     --compiler=clang5.0.300080 \
     --cpu=armeabi-v7a \
-    --crosstool_top=//external:android/crosstool \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
     || fail "build failed with --features=compiler_param_file"
 }
 
@@ -340,15 +335,11 @@ int main() { return 0; }
 EOF
   bazel build //:foo.stripped \
     --cpu=armeabi-v7a \
-    --crosstool_top=//external:android/crosstool \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
     || fail "build failed"
 
   bazel build //:foo.stripped \
     --features=compiler_param_file \
     --cpu=armeabi-v7a \
-    --crosstool_top=//external:android/crosstool \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
     || fail "build failed with --features=compiler_param_file"
 }
 
@@ -367,54 +358,12 @@ int main() { return 0; }
 EOF
   bazel build //:foo.stripped \
     --cpu=armeabi-v7a \
-    --crosstool_top=//external:android/crosstool \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
     || fail "build failed"
 
   bazel build //:foo.stripped \
     --features=compiler_param_file \
     --cpu=armeabi-v7a \
-    --crosstool_top=//external:android/crosstool \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
     || fail "build failed with --features=compiler_param_file"
-}
-
-function test_crosstool_libcpp() {
-  create_new_workspace
-  setup_android_sdk_support
-  setup_android_ndk_support
-  cat > BUILD <<EOF
-cc_binary(
-    name = "foo",
-    srcs = ["foo.cc"],
-    linkopts = ["-ldl", "-lm"],
-)
-EOF
-  cat > foo.cc <<EOF
-#include <string>
-#include <jni.h>
-#include <android/log.h>
-#include <cstdio>
-#include <iostream>
-
-using namespace std;
-int main(){
-  string foo = "foo";
-  string bar = "bar";
-  string foobar = foo + bar;
-  return 0;
-}
-EOF
-  assert_build //:foo \
-    --cpu=armeabi-v7a \
-    --crosstool_top=@androidndk//:toolchain-libcpp \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
-
-  assert_build //:foo \
-    --features=compiler_param_file \
-    --cpu=armeabi-v7a \
-    --crosstool_top=@androidndk//:toolchain-libcpp \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 }
 
 function test_platforms_and_toolchains() {
@@ -444,15 +393,11 @@ int main(){
 }
 EOF
   assert_build //:foo \
-    --cpu=armeabi-v7a \
-    --crosstool_top=@androidndk//:toolchain-libcpp \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+    --cpu=armeabi-v7a
 
   assert_build //:foo \
     --features=compiler_param_file \
-    --cpu=armeabi-v7a \
-    --crosstool_top=@androidndk//:toolchain-libcpp \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+    --cpu=armeabi-v7a
 }
 
 run_suite "Android NDK integration tests"

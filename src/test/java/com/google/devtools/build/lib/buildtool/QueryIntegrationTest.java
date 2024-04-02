@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
@@ -105,11 +104,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Override
-  protected EventCollectionApparatus createEvents() {
-    ImmutableSet.Builder<EventKind> eventsSet = ImmutableSet.builder();
-    eventsSet.addAll(EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT);
-    eventsSet.add(EventKind.PROGRESS);
-    return new EventCollectionApparatus(eventsSet.build());
+  protected ImmutableSet<EventKind> additionalEventsToCollect() {
+    return ImmutableSet.of(EventKind.STDOUT, EventKind.STDERR, EventKind.PROGRESS);
   }
 
   private static class CustomFileSystem extends UnixFileSystem {
@@ -311,8 +307,17 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void testInputFileElementContainsPackageGroups() throws Exception {
     write(
         "fruit/BUILD",
-        "package_group(name='coconut', packages=['//fruit/walnut'])",
-        "exports_files(['chestnut'], visibility=[':coconut'])");
+        """
+        package_group(
+            name = "coconut",
+            packages = ["//fruit/walnut"],
+        )
+
+        exports_files(
+            ["chestnut"],
+            visibility = [":coconut"],
+        )
+        """);
 
     Document result = getXmlQueryResult("//fruit:chestnut");
     Element resultNode = getResultNode(result, "//fruit:chestnut");
@@ -327,9 +332,25 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void testNonStrictTests() throws Exception {
     write(
         "donut/BUILD",
-        "sh_binary(name = 'thief', srcs = ['thief.sh'])",
-        "cc_test(name = 'shop', srcs = ['shop.cc'])",
-        "test_suite(name = 'cop', tests = [':thief', ':shop'])");
+        """
+        sh_binary(
+            name = "thief",
+            srcs = ["thief.sh"],
+        )
+
+        cc_test(
+            name = "shop",
+            srcs = ["shop.cc"],
+        )
+
+        test_suite(
+            name = "cop",
+            tests = [
+                ":shop",
+                ":thief",
+            ],
+        )
+        """);
 
     // This should not throw an exception, and return 0 targets.
     ProtoQueryOutput result = getProtoQueryResult("tests(//donut:cop)");
@@ -343,8 +364,17 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     options.add("--strict_test_suite=true");
     write(
         "donut/BUILD",
-        "sh_binary(name = 'thief', srcs = ['thief.sh'])",
-        "test_suite(name = 'cop', tests = [':thief'])");
+        """
+        sh_binary(
+            name = "thief",
+            srcs = ["thief.sh"],
+        )
+
+        test_suite(
+            name = "cop",
+            tests = [":thief"],
+        )
+        """);
 
     ProtoQueryOutput result = getProtoQueryResult("tests(//donut:cop)");
     BlazeCommandResult blazeCommandResult = result.getQueryOutput().getBlazeCommandResult();
@@ -462,11 +492,17 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void siblingsFunction() throws Exception {
     write(
         "foo/BUILD",
-        "sh_library(name='t1')",
-        "sh_library(name='t2')",
-        "sh_library(name='t3')",
-        "sh_library(name='t4')",
-        "sh_library(name='t5')");
+        """
+        sh_library(name = "t1")
+
+        sh_library(name = "t2")
+
+        sh_library(name = "t3")
+
+        sh_library(name = "t4")
+
+        sh_library(name = "t5")
+        """);
 
     QueryOutput result = getQueryResult("siblings(//foo:t1)");
     assertSuccessfulExitCode(result);
@@ -477,9 +513,22 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void samePackageDirectRDepsFunction() throws Exception {
     write(
         "foo/BUILD",
-        "sh_library(name='t1', srcs=['t1.sh'])",
-        "sh_library(name='t2', srcs=['t2.sh'])",
-        "sh_library(name='t3', srcs=['t2.sh'])");
+        """
+        sh_library(
+            name = "t1",
+            srcs = ["t1.sh"],
+        )
+
+        sh_library(
+            name = "t2",
+            srcs = ["t2.sh"],
+        )
+
+        sh_library(
+            name = "t3",
+            srcs = ["t2.sh"],
+        )
+        """);
 
     QueryOutput result = getQueryResult("same_pkg_direct_rdeps(//foo:t1.sh)");
     assertSuccessfulExitCode(result);
@@ -548,12 +597,14 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
     write(
         "package/inc.bzl",
-        "def _impl(ctx): pass",
-        "myrule = rule(implementation = _impl)",
-        "def f():",
-        "  g()",
-        "def g():",
-        "  myrule(name='a')");
+        """
+        def _impl(ctx): pass
+        myrule = rule(implementation = _impl)
+        def f():
+          g()
+        def g():
+          myrule(name='a')
+        """);
 
     write("package/BUILD", "load('inc.bzl', 'f')\n" + "f()");
 
@@ -601,14 +652,21 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   public void ruleStackInProtoOutput() throws Exception {
     write(
         "p/inc.bzl",
-        "def _impl(ctx): pass",
-        "myrule = rule(implementation = _impl)",
-        "def f():",
-        "  g()",
-        "def g():",
-        "  myrule(name='a')");
+        """
+        def _impl(ctx): pass
+        myrule = rule(implementation = _impl)
+        def f():
+          g()
+        def g():
+          myrule(name='a')
+        """);
 
-    write("p/BUILD", "load('inc.bzl', 'f')", "f()");
+    write(
+        "p/BUILD",
+        """
+        load('inc.bzl', 'f')
+        f()
+        """);
     ProtoQueryOutput result =
         getProtoQueryResult("//p:a", "--output=proto", "--proto:instantiation_stack=true");
     assertSuccessfulExitCode(result.getQueryOutput());
@@ -634,13 +692,21 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
     write(
         "package/inc.bzl",
-        "def g(name):",
-        "    native.filegroup(name = name)",
-        "",
-        "def f(name):",
-        "    g(name)");
+        """
+        def g(name):
+            native.filegroup(name = name)
 
-    write("package/BUILD", "load(\"inc.bzl\", \"f\")", "f(name = \"a\")", "f(name = \"b\")");
+        def f(name):
+            g(name)
+        """);
+
+    write(
+        "package/BUILD",
+        """
+        load("inc.bzl", "f")
+        f(name = "a")
+        f(name = "b")
+        """);
     QueryOutput result = getQueryResult("//package:all", "--output=build");
     assertSuccessfulExitCode(result);
 
@@ -703,13 +769,48 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
     write(
         "depth/BUILD",
-        "sh_binary(name = 'one', srcs = ['one.sh'], deps = [':two'])",
-        "sh_library(name = 'two', srcs = ['two.sh'],",
-        "           deps = [':div2', ':three', '//depth2:three'])",
-        "sh_library(name = 'three', srcs = ['three.sh'], deps = [':four'])",
-        "sh_library(name = 'four', srcs = ['four.sh'], deps = [':div2', ':five'])",
-        "sh_library(name = 'five', srcs = ['five.sh'])",
-        "sh_library(name = 'div2', srcs = ['two.sh'])");
+        """
+        sh_binary(
+            name = "one",
+            srcs = ["one.sh"],
+            deps = [":two"],
+        )
+
+        sh_library(
+            name = "two",
+            srcs = ["two.sh"],
+            deps = [
+                ":div2",
+                ":three",
+                "//depth2:three",
+            ],
+        )
+
+        sh_library(
+            name = "three",
+            srcs = ["three.sh"],
+            deps = [":four"],
+        )
+
+        sh_library(
+            name = "four",
+            srcs = ["four.sh"],
+            deps = [
+                ":div2",
+                ":five",
+            ],
+        )
+
+        sh_library(
+            name = "five",
+            srcs = ["five.sh"],
+        )
+
+        sh_library(
+            name = "div2",
+            srcs = ["two.sh"],
+        )
+        """);
 
     write("depth2/BUILD", "sh_library(name = 'three', srcs = ['three.sh'])");
     write("depth/one.sh", "");
@@ -765,12 +866,13 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth2:three",
         "//depth2:three.sh");
 
+    events.clear();
+
     QueryOutput twoDep =
         getQueryResult("deps(//depth:one, 2)", "--experimental_ui_debug_all_events");
 
-    events.clear();
     // Restricting the query, however, should not cause reloading.
-    events.assertDoesNotContainEvent("Loading package:");
+    assertDoesNotContainEvent("Loading package:");
 
     assertQueryOutputContains(
         twoDep,
@@ -925,7 +1027,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
                 }));
     QueryOutput queryResult = getQueryResult("deps(//foo:all + //bar:all)", "--nokeep_going");
     assertExitCode(queryResult, ExitCode.ANALYSIS_FAILURE);
-    events.assertDoesNotContainEvent("deppackage");
+    assertDoesNotContainEvent("deppackage");
   }
 
   private void assertExitCode(QueryOutput result, ExitCode expected) {

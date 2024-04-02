@@ -83,16 +83,25 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     scratch.file("test/repo2/WORKSPACE");
     scratch.file(
         "test/repo2/defs.bzl",
-        "def _impl(ctx):",
-        "  pass",
-        "my_flag = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.int(flag = True),",
-        ")");
+        """
+        def _impl(ctx):
+            pass
+
+        my_flag = rule(
+            implementation = _impl,
+            build_setting = config.int(flag = True),
+        )
+        """);
     scratch.file(
         "test/repo2/BUILD",
-        "load(':defs.bzl', 'my_flag')",
-        "my_flag(name = 'flag2', build_setting_default=2)");
+        """
+        load(":defs.bzl", "my_flag")
+
+        my_flag(
+            name = "flag2",
+            build_setting_default = 2,
+        )
+        """);
 
     rewriteWorkspace(
         "workspace(name = 'starlark_options_test')",
@@ -171,16 +180,25 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testNonFlagParsing() throws Exception {
     scratch.file(
         "test/build_setting.bzl",
-        "def _build_setting_impl(ctx):",
-        "  return []",
-        "int_flag = rule(",
-        "  implementation = _build_setting_impl,",
-        "  build_setting = config.int(flag=False)",
-        ")");
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        int_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.int(flag = False),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'int_flag')",
-        "int_flag(name = 'my_int_setting', build_setting_default = 42)");
+        """
+        load("//test:build_setting.bzl", "int_flag")
+
+        int_flag(
+            name = "my_int_setting",
+            build_setting_default = 42,
+        )
+        """);
 
     OptionsParsingException e =
         assertThrows(
@@ -271,17 +289,30 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testMultipleFlags() throws Exception {
     scratch.file(
         "test/build_setting.bzl",
-        "def _build_setting_impl(ctx):",
-        "  return []",
-        "int_flag = rule(",
-        "  implementation = _build_setting_impl,",
-        "  build_setting = config.int(flag=True)",
-        ")");
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        int_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.int(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'int_flag')",
-        "int_flag(name = 'my_int_setting', build_setting_default = 42)",
-        "int_flag(name = 'my_other_int_setting', build_setting_default = 77)");
+        """
+        load("//test:build_setting.bzl", "int_flag")
+
+        int_flag(
+            name = "my_int_setting",
+            build_setting_default = 42,
+        )
+
+        int_flag(
+            name = "my_other_int_setting",
+            build_setting_default = 77,
+        )
+        """);
 
     OptionsParsingResult result =
         parseStarlarkOptions("--//test:my_int_setting=0 --//test:my_other_int_setting=0");
@@ -299,12 +330,21 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testNonBuildSetting() throws Exception {
     scratch.file(
         "test/rules.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        ")");
-    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
+        """
+        def _impl(ctx):
+            return []
+
+        my_rule = rule(
+            implementation = _impl,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(name = "my_rule")
+        """);
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:my_rule"));
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: //test:my_rule");
@@ -315,14 +355,17 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testNonRuleConfiguredTarget() throws Exception {
     scratch.file(
         "test/BUILD",
-        "genrule(",
-        "  name = 'my_gen',",
-        "  srcs = ['x.in'],",
-        "  outs = ['x.cc'],",
-        "  cmd = '$(locations :tool) $< >$@',",
-        "  tools = [':tool'],",
-        ")",
-        "cc_library(name = 'tool-dep')");
+        """
+        genrule(
+            name = "my_gen",
+            srcs = ["x.in"],
+            outs = ["x.cc"],
+            cmd = "$(locations :tool) $< >$@",
+            tools = [":tool"],
+        )
+
+        cc_library(name = "tool-dep")
+        """);
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:x.in"));
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: //test:x.in");
@@ -432,16 +475,25 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testAllowMultipleStringFlag() throws Exception {
     scratch.file(
         "test/build_setting.bzl",
-        "def _build_setting_impl(ctx):",
-        "  return []",
-        "allow_multiple_flag = rule(",
-        "  implementation = _build_setting_impl,",
-        "  build_setting = config.string(flag=True, allow_multiple=True)",
-        ")");
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        allow_multiple_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.string(flag = True, allow_multiple = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'allow_multiple_flag')",
-        "allow_multiple_flag(name = 'cats', build_setting_default = 'tabby')");
+        """
+        load("//test:build_setting.bzl", "allow_multiple_flag")
+
+        allow_multiple_flag(
+            name = "cats",
+            build_setting_default = "tabby",
+        )
+        """);
 
     OptionsParsingResult result = parseStarlarkOptions("--//test:cats=calico --//test:cats=bengal");
 
@@ -455,16 +507,25 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testRepeatedStringListFlag() throws Exception {
     scratch.file(
         "test/build_setting.bzl",
-        "def _build_setting_impl(ctx):",
-        "  return []",
-        "repeated_flag = rule(",
-        "  implementation = _build_setting_impl,",
-        "  build_setting = config.string_list(flag=True, repeatable=True)",
-        ")");
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        repeated_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.string_list(flag = True, repeatable = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'repeated_flag')",
-        "repeated_flag(name = 'cats', build_setting_default = ['tabby'])");
+        """
+        load("//test:build_setting.bzl", "repeated_flag")
+
+        repeated_flag(
+            name = "cats",
+            build_setting_default = ["tabby"],
+        )
+        """);
 
     OptionsParsingResult result = parseStarlarkOptions("--//test:cats=calico --//test:cats=bengal");
 
@@ -477,15 +538,27 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void flagReferencesExactlyOneTarget() throws Exception {
     scratch.file(
         "test/build_setting.bzl",
-        "string_flag = rule(",
-        "  implementation = lambda ctx, attr: [],",
-        "  build_setting = config.string(flag=True)",
-        ")");
+        """
+        string_flag = rule(
+            implementation = lambda ctx, attr: [],
+            build_setting = config.string(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'string_flag')",
-        "string_flag(name = 'one', build_setting_default = '')",
-        "string_flag(name = 'two', build_setting_default = '')");
+        """
+        load("//test:build_setting.bzl", "string_flag")
+
+        string_flag(
+            name = "one",
+            build_setting_default = "",
+        )
+
+        string_flag(
+            name = "two",
+            build_setting_default = "",
+        )
+        """);
 
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:all"));

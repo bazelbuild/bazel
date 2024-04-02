@@ -94,16 +94,26 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     writeFile(
         "test/BUILD",
-        "rule_with_transitions(name = 'my_rule',",
-        "  patch_dep = ':dep-1',",
-        "  split_dep = ':dep-2',",
-        "  string_dep = 'some string',",
-        "  patch_dep_list = [':dep-3', ':dep-4']",
-        ")",
-        "no_attribute_rule(name = 'dep-1')",
-        "no_attribute_rule(name = 'dep-2')",
-        "no_attribute_rule(name = 'dep-3')",
-        "no_attribute_rule(name = 'dep-4')");
+        """
+        rule_with_transitions(
+            name = "my_rule",
+            patch_dep = ":dep-1",
+            patch_dep_list = [
+                ":dep-3",
+                ":dep-4",
+            ],
+            split_dep = ":dep-2",
+            string_dep = "some string",
+        )
+
+        no_attribute_rule(name = "dep-1")
+
+        no_attribute_rule(name = "dep-2")
+
+        no_attribute_rule(name = "dep-3")
+
+        no_attribute_rule(name = "dep-4")
+        """);
 
     helper.setUniverseScope("//test:*");
   }
@@ -192,9 +202,19 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     helper.useRuleClassProvider(setRuleClassProviders(ruleWithDep).build());
     writeFile(
         "test/BUILD",
-        "alias(name = 'alias', actual = ':actual')",
-        "rule_with_dep(name = 'actual', dep = ':dep')",
-        "rule_with_dep(name = 'dep')");
+        """
+        alias(
+            name = "alias",
+            actual = ":actual",
+        )
+
+        rule_with_dep(
+            name = "actual",
+            dep = ":dep",
+        )
+
+        rule_with_dep(name = "dep")
+        """);
 
     CqueryNode dep = Iterables.getOnlyElement(eval("labels('dep', '//test:alias')"));
     assertThat(dep.getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//test:dep"));
@@ -217,12 +237,31 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     helper.useRuleClassProvider(setRuleClassProviders(ruleWithExecDep, simpleRule).build());
     writeFile(
         "test/BUILD",
-        "alias(name = 'other_my_rule', actual = ':my_rule')",
-        "rule_with_exec_dep(name = 'my_rule', exec_dep = ':exec_dep')",
-        "alias(name = 'other_exec_dep', actual = ':exec_dep')",
-        "simple_rule(name='exec_dep')",
-        "alias(name = 'other_impl_dep', actual = 'impl_dep')",
-        "simple_rule(name='impl_dep')");
+        """
+        alias(
+            name = "other_my_rule",
+            actual = ":my_rule",
+        )
+
+        rule_with_exec_dep(
+            name = "my_rule",
+            exec_dep = ":exec_dep",
+        )
+
+        alias(
+            name = "other_exec_dep",
+            actual = ":exec_dep",
+        )
+
+        simple_rule(name = "exec_dep")
+
+        alias(
+            name = "other_impl_dep",
+            actual = "impl_dep",
+        )
+
+        simple_rule(name = "impl_dep")
+        """);
 
     CqueryNode other = Iterables.getOnlyElement(eval("//test:other_my_rule"));
     CqueryNode myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
@@ -232,7 +271,10 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     // Regression test for b/73496081 in which alias-ed configured targets were skipping filtering.
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
-    assertThat(evalToListOfStrings("deps(//test:other_my_rule)-//test:other_my_rule"))
+    assertThat(
+            evalToListOfStrings(
+                "deps(//test:other_my_rule)-//test:other_my_rule"
+                    + getDependencyCorrectionWithGen()))
         .isEqualTo(evalToListOfStrings("//test:my_rule"));
   }
 
@@ -276,51 +318,69 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     writeFile(
         "test/BUILD",
-        "my_rule(",
-        "  name = 'my_rule',",
-        "  target = ':target_dep',",
-        "  exec = ':exec_dep',",
-        "  deps = [':dep'],",
-        ")",
-        "simple_rule(name = 'target_dep', dep=':dep')",
-        "simple_rule(name = 'exec_dep', dep=':dep')",
-        "simple_rule(name = 'dep')");
+        """
+        my_rule(
+            name = "my_rule",
+            exec = ":exec_dep",
+            target = ":target_dep",
+            deps = [":dep"],
+        )
+
+        simple_rule(
+            name = "target_dep",
+            dep = ":dep",
+        )
+
+        simple_rule(
+            name = "exec_dep",
+            dep = ":dep",
+        )
+
+        simple_rule(name = "dep")
+        """);
   }
 
   private void createConfigTransitioningRuleClass() throws Exception {
     overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//test/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//test/...",
+            ],
+        )
+        """);
     writeFile(
         "test/rules.bzl",
-        "def _rule_impl(ctx):",
-        "    return []",
-        "string_flag = rule(",
-        "    implementation = _rule_impl,",
-        "    build_setting = config.string()",
-        ")",
-        "def _transition_impl(settings, attr):",
-        "    return {'//test:my_flag': 'custom string'}",
-        "my_transition = transition(",
-        "    implementation = _transition_impl,",
-        "    inputs = [],",
-        "    outputs = ['//test:my_flag'],",
-        ")",
-        "rule_with_deps_transition = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(cfg = my_transition),",
-        "    }",
-        ")",
-        "simple_rule = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {}",
-        ")");
+        """
+        def _rule_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _rule_impl,
+            build_setting = config.string(),
+        )
+
+        def _transition_impl(settings, attr):
+            return {"//test:my_flag": "custom string"}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = ["//test:my_flag"],
+        )
+        rule_with_deps_transition = rule(
+            implementation = _rule_impl,
+            attrs = {
+                "deps": attr.label_list(cfg = my_transition),
+            },
+        )
+        simple_rule = rule(
+            implementation = _rule_impl,
+            attrs = {},
+        )
+        """);
   }
 
   @Test
@@ -348,7 +408,14 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
   @Test
   public void testConfig_nullConfig() throws Exception {
-    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+    writeFile(
+        "test/BUILD",
+        """
+        java_library(
+            name = "my_java",
+            srcs = ["foo.java"],
+        )
+        """);
 
     assertThat(getConfiguration(Iterables.getOnlyElement(eval("config(//test:foo.java,null)"))))
         .isNull();
@@ -359,14 +426,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     createConfigTransitioningRuleClass();
     writeFile(
         "test/BUILD",
-        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
-        "string_flag(",
-        "    name = 'my_flag',",
-        "    build_setting_default = '')",
-        "rule_with_deps_transition(",
-        "    name = 'buildme',",
-        "    deps = [':mydep'])",
-        "simple_rule(name = 'mydep')");
+        """
+        load("//test:rules.bzl", "rule_with_deps_transition", "simple_rule", "string_flag")
+
+        string_flag(
+            name = "my_flag",
+            build_setting_default = "",
+        )
+
+        rule_with_deps_transition(
+            name = "buildme",
+            deps = [":mydep"],
+        )
+
+        simple_rule(name = "mydep")
+        """);
 
     // If we don't set --universe_scope=//test:buildme, cquery builds both //test:buildme and
     // //test:mydep as top-level targets. That means //test:mydep will have two configured targets:
@@ -433,7 +507,14 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
   @Test
   public void testConfig_exprArgumentFailure() throws Exception {
-    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+    writeFile(
+        "test/BUILD",
+        """
+        java_library(
+            name = "my_java",
+            srcs = ["foo.java"],
+        )
+        """);
 
     EvalThrowsResult evalThrowsResult =
         evalThrows(
@@ -499,7 +580,14 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   @Override
   @Test
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
-    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+    writeFile(
+        "test/BUILD",
+        """
+        java_library(
+            name = "my_java",
+            srcs = ["foo.java"],
+        )
+        """);
 
     Set<CqueryNode> result = eval("//test:my_java+//test:foo.java");
 
@@ -521,14 +609,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     createConfigTransitioningRuleClass();
     writeFile(
         "test/BUILD",
-        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
-        "string_flag(",
-        "    name = 'my_flag',",
-        "    build_setting_default = '')",
-        "rule_with_deps_transition(",
-        "    name = 'buildme',",
-        "    deps = [':mydep'])",
-        "simple_rule(name = 'mydep')");
+        """
+        load("//test:rules.bzl", "rule_with_deps_transition", "simple_rule", "string_flag")
+
+        string_flag(
+            name = "my_flag",
+            build_setting_default = "",
+        )
+
+        rule_with_deps_transition(
+            name = "buildme",
+            deps = [":mydep"],
+        )
+
+        simple_rule(name = "mydep")
+        """);
 
     // If we don't set --universe_scope=//test:buildme, then cquery builds both //test:buildme and
     // //test:mydep as top-level targets. That means //test:mydep will have two configured targets:
@@ -578,9 +673,19 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     helper.useRuleClassProvider(setRuleClassProviders(ruleDropOptions, simpleRule).build());
     writeFile(
         "test/BUILD",
-        "rule_drop_options(name = 'top', dep = ':foo')",
-        "simple_rule(name='foo', deps = [':bar'])",
-        "simple_rule(name='bar')");
+        """
+        rule_drop_options(
+            name = "top",
+            dep = ":foo",
+        )
+
+        simple_rule(
+            name = "foo",
+            deps = [":bar"],
+        )
+
+        simple_rule(name = "bar")
+        """);
 
     Set<CqueryNode> result = eval("somepath(//test:top, filter(//test:bar, deps(//test:top)))");
     assertThat(result).isNotEmpty();
@@ -591,14 +696,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     createConfigTransitioningRuleClass();
     writeFile(
         "test/BUILD",
-        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
-        "string_flag(",
-        "    name = 'my_flag',",
-        "    build_setting_default = '')",
-        "rule_with_deps_transition(",
-        "    name = 'transitioner',",
-        "    deps = [':simple'])",
-        "simple_rule(name = 'simple')");
+        """
+        load("//test:rules.bzl", "rule_with_deps_transition", "simple_rule", "string_flag")
+
+        string_flag(
+            name = "my_flag",
+            build_setting_default = "",
+        )
+
+        rule_with_deps_transition(
+            name = "transitioner",
+            deps = [":simple"],
+        )
+
+        simple_rule(name = "simple")
+        """);
 
     helper.setUniverseScope("//test:transitioner,//test:simple");
     Set<CqueryNode> result = eval("//test:simple");
@@ -613,14 +725,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     createConfigTransitioningRuleClass();
     writeFile(
         "test/BUILD",
-        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
-        "string_flag(",
-        "    name = 'my_flag',",
-        "    build_setting_default = '')",
-        "rule_with_deps_transition(",
-        "    name = 'transitioner',",
-        "    deps = [':simple'])",
-        "simple_rule(name = 'simple')");
+        """
+        load("//test:rules.bzl", "rule_with_deps_transition", "simple_rule", "string_flag")
+
+        string_flag(
+            name = "my_flag",
+            build_setting_default = "",
+        )
+
+        rule_with_deps_transition(
+            name = "transitioner",
+            deps = [":simple"],
+        )
+
+        simple_rule(name = "simple")
+        """);
 
     helper.setUniverseScope("//test:transitioner,//test:simple");
     Set<CqueryNode> result = eval("config(//test:simple, target)");
@@ -631,49 +750,59 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   public void testAspectDepsAppearInCqueryDeps() throws Exception {
     writeFile(
         "donut/test.bzl",
-        "TestAspectInfo = provider('TestAspectInfo', fields = ['info'])",
-        "def _test_aspect_impl(target, ctx):",
-        "    return [",
-        "        TestAspectInfo(",
-        "            info = depset([target.label]),",
-        "        ),",
-        "    ]",
-        "",
-        "_test_aspect = aspect(",
-        "    implementation = _test_aspect_impl,",
-        "    attr_aspects = ['deps'],",
-        "    attrs = {",
-        "        '_test_attr': attr.label(",
-        "            allow_files = True,",
-        "            default = Label('//donut:test_filegroup'),",
-        "        ),",
-        "    },",
-        "    provides = [TestAspectInfo],",
-        ")",
-        "def _test_impl(ctx):",
-        "    pass",
-        "test_rule = rule(",
-        "    _test_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(",
-        "            aspects = [_test_aspect],",
-        "        ),",
-        "    },",
-        ")");
+        """
+        TestAspectInfo = provider("TestAspectInfo", fields = ["info"])
+
+        def _test_aspect_impl(target, ctx):
+            return [
+                TestAspectInfo(
+                    info = depset([target.label]),
+                ),
+            ]
+
+        _test_aspect = aspect(
+            implementation = _test_aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {
+                "_test_attr": attr.label(
+                    allow_files = True,
+                    default = Label("//donut:test_filegroup"),
+                ),
+            },
+            provides = [TestAspectInfo],
+        )
+
+        def _test_impl(ctx):
+            pass
+
+        test_rule = rule(
+            _test_impl,
+            attrs = {
+                "deps": attr.label_list(
+                    aspects = [_test_aspect],
+                ),
+            },
+        )
+        """);
     writeFile(
         "donut/BUILD",
-        "load(':test.bzl', 'test_rule')",
-        "filegroup(",
-        "    name = 'test_filegroup',",
-        "    srcs = ['test.bzl'],",
-        ")",
-        "test_rule(",
-        "    name = 'test_rule_dep',",
-        ")",
-        "test_rule(",
-        "    name = 'test_rule',",
-        "    deps = [':test_rule_dep'],",
-        ")");
+        """
+        load(":test.bzl", "test_rule")
+
+        filegroup(
+            name = "test_filegroup",
+            srcs = ["test.bzl"],
+        )
+
+        test_rule(
+            name = "test_rule_dep",
+        )
+
+        test_rule(
+            name = "test_rule",
+            deps = [":test_rule_dep"],
+        )
+        """);
 
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS);
     var result =
@@ -693,90 +822,107 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   public void testAspectOnAspectDepsAppearInCqueryDeps() throws Exception {
     writeFile(
         "donut/test.bzl",
-        "TestAspectInfo = provider('TestAspectInfo', fields = ['info'])",
-        "TestAspectOnAspectInfo = provider('TestAspectOnAspectInfo', fields = ['info'])",
-        "def _test_aspect_impl(target, ctx):",
-        "    return [",
-        "        TestAspectInfo(",
-        "            info = depset([target.label]),",
-        "        ),",
-        "    ]",
-        "_test_aspect = aspect(",
-        "    implementation = _test_aspect_impl,",
-        "    attr_aspects = ['deps'],",
-        "    attrs = {",
-        "        '_test_attr': attr.label(",
-        "            allow_files = True,",
-        "            default = Label('//donut:test_aspect_filegroup'),",
-        "        ),",
-        "    },",
-        "    provides = [TestAspectInfo],",
-        ")",
-        "def _test_aspect_on_aspect_impl(target, ctx):",
-        "    return [",
-        "        TestAspectOnAspectInfo(",
-        "            info = depset(",
-        "                direct = [target.label],",
-        "                transitive = [target[TestAspectInfo].info],",
-        "            ),",
-        "        ),",
-        "    ]",
-        "_test_aspect_on_aspect = aspect(",
-        "    implementation = _test_aspect_on_aspect_impl,",
-        "    attr_aspects = ['deps'],",
-        "    attrs = {",
-        "        '_test_attr': attr.label(",
-        "            allow_files = True,",
-        "            default = Label('//donut:test_aspect_on_aspect_filegroup'),",
-        "        ),",
-        "    },",
-        "    required_aspect_providers = [TestAspectInfo],",
-        "    provides = [TestAspectOnAspectInfo],",
-        ")",
-        "def _test_impl(ctx):",
-        "    pass",
-        "test_rule = rule(",
-        "    _test_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(",
-        "            aspects = [_test_aspect],",
-        "        ),",
-        "    },",
-        ")",
-        "def _test_aspect_on_aspect_rule_impl(ctx):",
-        "    pass",
-        "test_aspect_on_aspect_rule = rule(",
-        "    _test_aspect_on_aspect_rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(",
-        "            aspects = [_test_aspect, _test_aspect_on_aspect],",
-        "        ),",
-        "    },",
-        ")");
+        """
+        TestAspectInfo = provider("TestAspectInfo", fields = ["info"])
+        TestAspectOnAspectInfo = provider("TestAspectOnAspectInfo", fields = ["info"])
+
+        def _test_aspect_impl(target, ctx):
+            return [
+                TestAspectInfo(
+                    info = depset([target.label]),
+                ),
+            ]
+
+        _test_aspect = aspect(
+            implementation = _test_aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {
+                "_test_attr": attr.label(
+                    allow_files = True,
+                    default = Label("//donut:test_aspect_filegroup"),
+                ),
+            },
+            provides = [TestAspectInfo],
+        )
+
+        def _test_aspect_on_aspect_impl(target, ctx):
+            return [
+                TestAspectOnAspectInfo(
+                    info = depset(
+                        direct = [target.label],
+                        transitive = [target[TestAspectInfo].info],
+                    ),
+                ),
+            ]
+
+        _test_aspect_on_aspect = aspect(
+            implementation = _test_aspect_on_aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {
+                "_test_attr": attr.label(
+                    allow_files = True,
+                    default = Label("//donut:test_aspect_on_aspect_filegroup"),
+                ),
+            },
+            required_aspect_providers = [TestAspectInfo],
+            provides = [TestAspectOnAspectInfo],
+        )
+
+        def _test_impl(ctx):
+            pass
+
+        test_rule = rule(
+            _test_impl,
+            attrs = {
+                "deps": attr.label_list(
+                    aspects = [_test_aspect],
+                ),
+            },
+        )
+
+        def _test_aspect_on_aspect_rule_impl(ctx):
+            pass
+
+        test_aspect_on_aspect_rule = rule(
+            _test_aspect_on_aspect_rule_impl,
+            attrs = {
+                "deps": attr.label_list(
+                    aspects = [_test_aspect, _test_aspect_on_aspect],
+                ),
+            },
+        )
+        """);
     writeFile("donut/test_aspect.file");
     writeFile("donut/test_aspect_on_aspect.file");
     writeFile(
         "donut/BUILD",
-        "load(':test.bzl', 'test_rule', 'test_aspect_on_aspect_rule')",
-        "filegroup(",
-        "    name = 'test_aspect_filegroup',",
-        "    srcs = ['test_aspect.file'],",
-        ")",
-        "filegroup(",
-        "    name = 'test_aspect_on_aspect_filegroup',",
-        "    srcs = ['test_aspect_on_aspect.file'],",
-        ")",
-        "test_rule(",
-        "    name = 'test_rule_dep',",
-        ")",
-        "test_rule(",
-        "    name = 'test_rule',",
-        "    deps = [':test_rule_dep'],",
-        ")",
-        "test_aspect_on_aspect_rule(",
-        "    name = 'test_aspect_on_aspect_rule',",
-        "    deps = ['test_rule'],",
-        ")");
+        """
+        load(":test.bzl", "test_aspect_on_aspect_rule", "test_rule")
+
+        filegroup(
+            name = "test_aspect_filegroup",
+            srcs = ["test_aspect.file"],
+        )
+
+        filegroup(
+            name = "test_aspect_on_aspect_filegroup",
+            srcs = ["test_aspect_on_aspect.file"],
+        )
+
+        test_rule(
+            name = "test_rule_dep",
+        )
+
+        test_rule(
+            name = "test_rule",
+            deps = [":test_rule_dep"],
+        )
+
+        test_aspect_on_aspect_rule(
+            name = "test_aspect_on_aspect_rule",
+            deps = ["test_rule"],
+        )
+        """);
 
     helper.setUniverseScope("//donut/...");
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS);
@@ -805,49 +951,59 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   public void testAspectDepsAppearInCqueryRdeps() throws Exception {
     writeFile(
         "donut/test.bzl",
-        "TestAspectInfo = provider('TestAspectInfo', fields = ['info'])",
-        "def _test_aspect_impl(target, ctx):",
-        "    return [",
-        "        TestAspectInfo(",
-        "            info = depset([target.label]),",
-        "        ),",
-        "    ]",
-        "",
-        "_test_aspect = aspect(",
-        "    implementation = _test_aspect_impl,",
-        "    attr_aspects = ['deps'],",
-        "    attrs = {",
-        "        '_test_attr': attr.label(",
-        "            allow_files = True,",
-        "            default = Label('//donut:test_filegroup'),",
-        "        ),",
-        "    },",
-        "    provides = [TestAspectInfo],",
-        ")",
-        "def _test_impl(ctx):",
-        "    pass",
-        "test_rule = rule(",
-        "    _test_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(",
-        "            aspects = [_test_aspect],",
-        "        ),",
-        "    },",
-        ")");
+        """
+        TestAspectInfo = provider("TestAspectInfo", fields = ["info"])
+
+        def _test_aspect_impl(target, ctx):
+            return [
+                TestAspectInfo(
+                    info = depset([target.label]),
+                ),
+            ]
+
+        _test_aspect = aspect(
+            implementation = _test_aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {
+                "_test_attr": attr.label(
+                    allow_files = True,
+                    default = Label("//donut:test_filegroup"),
+                ),
+            },
+            provides = [TestAspectInfo],
+        )
+
+        def _test_impl(ctx):
+            pass
+
+        test_rule = rule(
+            _test_impl,
+            attrs = {
+                "deps": attr.label_list(
+                    aspects = [_test_aspect],
+                ),
+            },
+        )
+        """);
     writeFile(
         "donut/BUILD",
-        "load(':test.bzl', 'test_rule')",
-        "filegroup(",
-        "    name = 'test_filegroup',",
-        "    srcs = ['test.bzl'],",
-        ")",
-        "test_rule(",
-        "    name = 'test_rule_dep',",
-        ")",
-        "test_rule(",
-        "    name = 'test_rule',",
-        "    deps = [':test_rule_dep'],",
-        ")");
+        """
+        load(":test.bzl", "test_rule")
+
+        filegroup(
+            name = "test_filegroup",
+            srcs = ["test.bzl"],
+        )
+
+        test_rule(
+            name = "test_rule_dep",
+        )
+
+        test_rule(
+            name = "test_rule",
+            deps = [":test_rule_dep"],
+        )
+        """);
 
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS);
     var result =

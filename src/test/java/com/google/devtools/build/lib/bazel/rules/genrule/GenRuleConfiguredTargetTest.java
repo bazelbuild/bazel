@@ -57,16 +57,22 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void createFiles() throws Exception {
     scratch.file(
         "hello/BUILD",
-        "genrule(",
-        "    name = 'z',",
-        "    outs = ['x/y'],",
-        "    cmd = 'echo hi > $(@D)/y',",
-        ")",
-        "genrule(",
-        "    name = 'w',",
-        "    outs = ['a/b', 'c/d'],",
-        "    cmd = 'echo hi | tee $(@D)/a/b $(@D)/c/d',",
-        ")");
+        """
+        genrule(
+            name = "z",
+            outs = ["x/y"],
+            cmd = "echo hi > $(@D)/y",
+        )
+
+        genrule(
+            name = "w",
+            outs = [
+                "a/b",
+                "c/d",
+            ],
+            cmd = "echo hi | tee $(@D)/a/b $(@D)/c/d",
+        )
+        """);
   }
 
   @Override
@@ -78,9 +84,22 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testToolchainOverridesJavabase() throws Exception {
-    scratch.file("a/BUILD",
-        "genrule(name='gr', srcs=[], outs=['out'], cmd='JAVABASE=$(JAVABASE)', toolchains=[':v'])",
-        "make_variable_tester(name='v', variables={'JAVABASE': 'REPLACED'})");
+    scratch.file(
+        "a/BUILD",
+        """
+        genrule(
+            name = "gr",
+            srcs = [],
+            outs = ["out"],
+            cmd = "JAVABASE=$(JAVABASE)",
+            toolchains = [":v"],
+        )
+
+        make_variable_tester(
+            name = "v",
+            variables = {"JAVABASE": "REPLACED"},
+        )
+        """);
 
     String cmd = getCommand("//a:gr");
     assertThat(cmd).endsWith("JAVABASE=REPLACED");
@@ -122,10 +141,14 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testFilesToBuildIsOuts() throws Exception {
     scratch.file(
         "genrule1/BUILD",
-        "genrule(name = 'hello_world',",
-        "srcs = ['ignore_me.txt'],",
-        "outs = ['message.txt'],",
-        "cmd  = 'echo \"Hello, world.\" >$(location message.txt)')");
+        """
+        genrule(
+            name = "hello_world",
+            srcs = ["ignore_me.txt"],
+            outs = ["message.txt"],
+            cmd = 'echo "Hello, world." >$(location message.txt)',
+        )
+        """);
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     assertThat(getFilesToBuild(getConfiguredTarget("//genrule1:hello_world")).toList())
         .containsExactly(messageArtifact);
@@ -135,10 +158,14 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testActionIsShellCommand() throws Exception {
     scratch.file(
         "genrule1/BUILD",
-        "genrule(name = 'hello_world',",
-        "srcs = ['ignore_me.txt'],",
-        "outs = ['message.txt'],",
-        "cmd  = 'echo \"Hello, world.\" >$(location message.txt)')");
+        """
+        genrule(
+            name = "hello_world",
+            srcs = ["ignore_me.txt"],
+            outs = ["message.txt"],
+            cmd = 'echo "Hello, world." >$(location message.txt)',
+        )
+        """);
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
@@ -162,16 +189,27 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testDependentGenrule() throws Exception {
     scratch.file(
         "genrule1/BUILD",
-        "genrule(name = 'hello_world',",
-        "srcs = ['ignore_me.txt'],",
-        "outs = ['message.txt'],",
-        "cmd  = 'echo \"Hello, world.\" >$(location message.txt)')");
+        """
+        genrule(
+            name = "hello_world",
+            srcs = ["ignore_me.txt"],
+            outs = ["message.txt"],
+            cmd = 'echo "Hello, world." >$(location message.txt)',
+        )
+        """);
     scratch.file(
         "genrule2/BUILD",
-        "genrule(name = 'goodbye_world',",
-        "srcs = ['goodbye.txt', '//genrule1:hello_world'],",
-        "outs = ['farewell.txt'],",
-        "cmd  = 'echo $(SRCS) >$(location farewell.txt)')");
+        """
+        genrule(
+            name = "goodbye_world",
+            srcs = [
+                "goodbye.txt",
+                "//genrule1:hello_world",
+            ],
+            outs = ["farewell.txt"],
+            cmd = "echo $(SRCS) >$(location farewell.txt)",
+        )
+        """);
 
     getConfiguredTarget("//genrule2:goodbye_world");
 
@@ -207,14 +245,21 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testDependenciesViaFiles() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'bar',",
-        "        srcs = ['bar_in.txt'],",
-        "        cmd = 'touch $(OUTS)',",
-        "        outs = ['bar_out.txt'])",
-        "genrule(name = 'baz',",
-        "        srcs = ['bar_out.txt'],",
-        "        cmd = 'touch $(OUTS)',",
-        "        outs = ['baz_out.txt'])");
+        """
+        genrule(
+            name = "bar",
+            srcs = ["bar_in.txt"],
+            outs = ["bar_out.txt"],
+            cmd = "touch $(OUTS)",
+        )
+
+        genrule(
+            name = "baz",
+            srcs = ["bar_out.txt"],
+            outs = ["baz_out.txt"],
+            cmd = "touch $(OUTS)",
+        )
+        """);
 
     FileConfiguredTarget bazOutTarget = getFileConfiguredTarget("//foo:baz_out.txt");
     Action bazAction = getGeneratingAction(bazOutTarget.getArtifact());
@@ -230,14 +275,24 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testOutputDirExpansion() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'bar',",
-        "        srcs = ['bar_in.txt'],",
-        "        cmd = 'touch $(@D)',",
-        "        outs = ['bar/bar_out.txt'])",
-        "genrule(name = 'baz',",
-        "        srcs = ['bar/bar_out.txt'],",
-        "        cmd = 'touch $(@D)',",
-        "        outs = ['logs/baz_out.txt', 'logs/baz.log'])");
+        """
+        genrule(
+            name = "bar",
+            srcs = ["bar_in.txt"],
+            outs = ["bar/bar_out.txt"],
+            cmd = "touch $(@D)",
+        )
+
+        genrule(
+            name = "baz",
+            srcs = ["bar/bar_out.txt"],
+            outs = [
+                "logs/baz_out.txt",
+                "logs/baz.log",
+            ],
+            cmd = "touch $(@D)",
+        )
+        """);
 
     getConfiguredTarget("//foo:bar");
 
@@ -274,14 +329,24 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testRuleDirExpansion() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'bar',",
-        "        srcs = ['bar_in.txt'],",
-        "        cmd = 'touch $(RULEDIR)',",
-        "        outs = ['bar/bar_out.txt'])",
-        "genrule(name = 'baz',",
-        "        srcs = ['bar/bar_out.txt'],",
-        "        cmd = 'touch $(RULEDIR)',",
-        "        outs = ['baz/baz_out.txt', 'logs/baz.log'])");
+        """
+        genrule(
+            name = "bar",
+            srcs = ["bar_in.txt"],
+            outs = ["bar/bar_out.txt"],
+            cmd = "touch $(RULEDIR)",
+        )
+
+        genrule(
+            name = "baz",
+            srcs = ["bar/bar_out.txt"],
+            outs = [
+                "baz/baz_out.txt",
+                "logs/baz.log",
+            ],
+            cmd = "touch $(RULEDIR)",
+        )
+        """);
 
     // Make sure the expansion for $(RULE_DIR) results in the directory of the BUILD file ("foo")
     String expectedRegex = "touch b.{4}-out.*foo";
@@ -304,15 +369,22 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testMessage() throws Exception {
     scratch.file(
         "genrule3/BUILD",
-        "genrule(name = 'hello_world',",
-        "    srcs = ['ignore_me.txt'],",
-        "    outs = ['hello.txt'],",
-        "    cmd  = 'echo \"Hello, world.\" >hello.txt')",
-        "genrule(name = 'goodbye_world',",
-        "    srcs = ['ignore_me.txt'],",
-        "    outs = ['goodbye.txt'],",
-        "    message = 'Generating message',",
-        "    cmd  = 'echo \"Goodbye, world.\" >goodbye.txt')");
+        """
+        genrule(
+            name = "hello_world",
+            srcs = ["ignore_me.txt"],
+            outs = ["hello.txt"],
+            cmd = 'echo "Hello, world." >hello.txt',
+        )
+
+        genrule(
+            name = "goodbye_world",
+            srcs = ["ignore_me.txt"],
+            outs = ["goodbye.txt"],
+            cmd = 'echo "Goodbye, world." >goodbye.txt',
+            message = "Generating message",
+        )
+        """);
     assertThat(getSpawnAction("//genrule3:hello_world").getProgressMessage())
         .isEqualTo("Executing genrule //genrule3:hello_world");
     assertThat(getSpawnAction("//genrule3:goodbye_world").getProgressMessage())
@@ -324,13 +396,20 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testBinaryTargetsExpandToExecutable() throws Exception {
     scratch.file(
         "genrule3/BUILD",
-        "genrule(name = 'hello_world',",
-        "    srcs = ['ignore_me.txt'],",
-        "    tools = ['echo'],",
-        "    outs = ['message.txt'],",
-        "    cmd  = '$(location :echo) \"Hello, world.\" >message.txt')",
-        "cc_binary(name = 'echo',",
-        "    srcs = ['echo.cc'])");
+        """
+        genrule(
+            name = "hello_world",
+            srcs = ["ignore_me.txt"],
+            outs = ["message.txt"],
+            cmd = '$(location :echo) "Hello, world." >message.txt',
+            tools = ["echo"],
+        )
+
+        cc_binary(
+            name = "echo",
+            srcs = ["echo.cc"],
+        )
+        """);
     String regex = "b.{4}-out/.*/bin/genrule3/echo(\\.exe)? \"Hello, world.\" >message.txt";
     assertThat(getCommand("//genrule3:hello_world")).containsMatch(regex);
   }
@@ -339,14 +418,21 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testOutputToBindir() throws Exception {
     scratch.file(
         "x/BUILD",
-        "genrule(name='bin', ",
-        "        outs=['bin.out'],",
-        "        cmd=':',",
-        "        output_to_bindir=1)",
-        "genrule(name='genfiles', ",
-        "        outs=['genfiles.out'],",
-        "        cmd=':',",
-        "        output_to_bindir=0)");
+        """
+        genrule(
+            name = "bin",
+            outs = ["bin.out"],
+            cmd = ":",
+            output_to_bindir = 1,
+        )
+
+        genrule(
+            name = "genfiles",
+            outs = ["genfiles.out"],
+            cmd = ":",
+            output_to_bindir = 0,
+        )
+        """);
 
     assertThat(getFileConfiguredTarget("//x:bin.out").getArtifact())
         .isEqualTo(getBinArtifact("bin.out", getConfiguredTarget("//x:bin")));
@@ -358,14 +444,27 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testMultipleOutputsToBindir() throws Exception {
     scratch.file(
         "x/BUILD",
-        "genrule(name='bin', ",
-        "        outs=['bin_a.out', 'bin_b.out'],",
-        "        cmd=':',",
-        "        output_to_bindir=1)",
-        "genrule(name='genfiles', ",
-        "        outs=['genfiles_a.out', 'genfiles_b.out'],",
-        "        cmd=':',",
-        "        output_to_bindir=0)");
+        """
+        genrule(
+            name = "bin",
+            outs = [
+                "bin_a.out",
+                "bin_b.out",
+            ],
+            cmd = ":",
+            output_to_bindir = 1,
+        )
+
+        genrule(
+            name = "genfiles",
+            outs = [
+                "genfiles_a.out",
+                "genfiles_b.out",
+            ],
+            cmd = ":",
+            output_to_bindir = 0,
+        )
+        """);
 
     ConfiguredTarget binCt = getConfiguredTarget("//x:bin");
     ConfiguredTarget genCt = getConfiguredTarget("//x:genfiles");
@@ -383,9 +482,16 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testMultipleOutsPreservesOrdering() throws Exception {
     scratch.file(
         "multiple/outs/BUILD",
-        "genrule(name='test', ",
-        "        outs=['file1.out', 'file2.out'],",
-        "        cmd='touch $(OUTS)')");
+        """
+        genrule(
+            name = "test",
+            outs = [
+                "file1.out",
+                "file2.out",
+            ],
+            cmd = "touch $(OUTS)",
+        )
+        """);
     String regex =
         "touch b.{4}-out/.*/multiple/outs/file1.out "
             + "b.{4}-out/.*/multiple/outs/file2.out";
@@ -396,11 +502,27 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testToolsAreExecConfiguration() throws Exception {
     scratch.file(
         "config/BUILD",
-        "genrule(name='src', outs=['src.out'], cmd=':')",
-        "genrule(name='tool', outs=['tool.out'], cmd=':')",
-        "genrule(name='config', ",
-        "        srcs=[':src'], tools=[':tool'], outs=['out'],",
-        "        cmd='$(location :tool)')");
+        """
+        genrule(
+            name = "src",
+            outs = ["src.out"],
+            cmd = ":",
+        )
+
+        genrule(
+            name = "tool",
+            outs = ["tool.out"],
+            cmd = ":",
+        )
+
+        genrule(
+            name = "config",
+            srcs = [":src"],
+            outs = ["out"],
+            cmd = "$(location :tool)",
+            tools = [":tool"],
+        )
+        """);
 
     ConfiguredTarget parentTarget = getConfiguredTarget("//config");
 
@@ -441,10 +563,14 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testLabelsContainingAtDAreExpanded() throws Exception {
     scratch.file(
         "puck/BUILD",
-        "genrule(name='gen', ",
-        "        tools=['puck'],",
-        "        outs=['out'],",
-        "        cmd='echo $(@D)')");
+        """
+        genrule(
+            name = "gen",
+            outs = ["out"],
+            cmd = "echo $(@D)",
+            tools = ["puck"],
+        )
+        """);
     String regex = "echo b.{4}-out/.*/puck";
     assertThat(getCommand("//puck:gen")).containsMatch(regex);
   }
@@ -518,9 +644,13 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testGenruleSetup() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'foo_sh',",
-        "        outs = [ 'foo.sh' ],", // Shell script files are known to be executable.
-        "        cmd = 'touch $@')");
+        """
+        genrule(
+            name = "foo_sh",
+            outs = ["foo.sh"],  # Shell script files are known to be executable.
+            cmd = "touch $@",
+        )
+        """);
 
     assertThat(getCommand("//foo:foo_sh")).contains(GENRULE_SETUP_PATH);
   }
@@ -528,10 +658,38 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   private void createStampingTargets() throws Exception {
     scratch.file(
         "u/BUILD",
-        "genrule(name='foo_stamp', srcs=[], outs=['uu'], stamp=1, cmd='')",
-        "genrule(name='foo_nostamp', srcs=[], outs=['vv'], stamp=0, cmd='')",
-        "genrule(name='foo_autostamp', srcs=[], outs=['aa'], stamp=-1, cmd='')",
-        "genrule(name='foo_default', srcs=[], outs=['xx'], cmd='')");
+        """
+        genrule(
+            name = "foo_stamp",
+            srcs = [],
+            outs = ["uu"],
+            cmd = "",
+            stamp = 1,
+        )
+
+        genrule(
+            name = "foo_nostamp",
+            srcs = [],
+            outs = ["vv"],
+            cmd = "",
+            stamp = 0,
+        )
+
+        genrule(
+            name = "foo_autostamp",
+            srcs = [],
+            outs = ["aa"],
+            cmd = "",
+            stamp = -1,
+        )
+
+        genrule(
+            name = "foo_default",
+            srcs = [],
+            outs = ["xx"],
+            cmd = "",
+        )
+        """);
   }
 
   private void assertStamped(String target) throws Exception {
@@ -625,11 +783,27 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   public void testToolsHaveExecOutputDir() throws Exception {
     scratch.file(
         "config/BUILD",
-        "genrule(name='src', outs=['src.out'], cmd=':')",
-        "genrule(name='tool', outs=['tool.out'], cmd=':')",
-        "genrule(name='config', ",
-        "        srcs=[':src'], tools=[':tool'], outs=['out'],",
-        "        cmd='$(location :tool)')");
+        """
+        genrule(
+            name = "src",
+            outs = ["src.out"],
+            cmd = ":",
+        )
+
+        genrule(
+            name = "tool",
+            outs = ["tool.out"],
+            cmd = ":",
+        )
+
+        genrule(
+            name = "config",
+            srcs = [":src"],
+            outs = ["out"],
+            cmd = "$(location :tool)",
+            tools = [":tool"],
+        )
+        """);
 
     ConfiguredTarget parentTarget = getConfiguredTarget("//config");
 

@@ -418,6 +418,9 @@ public interface ActionCache {
    */
   void dump(PrintStream out);
 
+  /** The number of entries in the cache. */
+  int size();
+
   /** Accounts one cache hit. */
   void accountHit();
 

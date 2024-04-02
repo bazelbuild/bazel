@@ -94,6 +94,7 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
@@ -494,6 +495,14 @@ public final class ModCommand implements BlazeCommand {
                         e ->
                             (BzlmodRepoRuleValue)
                                 result.get(BzlmodRepoRuleValue.key(e.getValue()))));
+        for (Map.Entry<String, BzlmodRepoRuleValue> entry : targetRepoRuleValues.entrySet()) {
+          if (entry.getValue() == BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
+            return reportAndCreateFailureResult(
+                env,
+                String.format("In repo argument %s: no such repo", entry.getKey()),
+                Code.INVALID_ARGUMENTS);
+          }
+        }
       }
     } catch (InterruptedException e) {
       String errorMessage = "mod command interrupted: " + e.getMessage();
@@ -589,6 +598,11 @@ public final class ModCommand implements BlazeCommand {
     } catch (InterruptedException | CommandException e) {
       String suffix = "";
       if (e instanceof AbnormalTerminationException) {
+        if (((AbnormalTerminationException) e).getResult().getTerminationStatus().getRawExitCode()
+            == 3) {
+          // Buildozer exits with exit code 3 if it didn't make any changes.
+          return BlazeCommandResult.success();
+        }
         suffix =
             ":\n" + new String(((AbnormalTerminationException) e).getResult().getStderr(), UTF_8);
       }
@@ -629,6 +643,7 @@ public final class ModCommand implements BlazeCommand {
                 modTidyValue.moduleOverrides(),
                 modTidyValue.ignoreDevDeps(),
                 modTidyValue.starlarkSemantics(),
+                env.getRuntime().getRuleClassProvider().getBazelStarlarkEnvironment(),
                 env.getReporter());
       } catch (SkyFunctionException | InterruptedException e) {
         return reportAndCreateFailureResult(

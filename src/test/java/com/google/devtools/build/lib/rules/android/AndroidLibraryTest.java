@@ -103,32 +103,57 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     scratch.file("java/srcs/a.foo", "foo");
     scratch.file(
         "java/srcs/BUILD",
-        "android_library(",
-        "    name = 'valid',",
-        "    srcs = [",
-        "        'a.java',",
-        "        'b.srcjar',",
-        "        ':gvalid',",
-        "        ':gmix',",
-        "    ],",
-        ")",
-        "android_library(",
-        "    name = 'invalid',",
-        "    srcs = [",
-        "        'a.foo',",
-        "        ':ginvalid',",
-        "    ],",
-        ")",
-        "android_library(",
-        "    name = 'mix',",
-        "    srcs = [",
-        "        'a.java',",
-        "        'a.foo',",
-        "    ],",
-        ")",
-        "genrule(name = 'gvalid', srcs = ['a.java'], outs = ['b.java'], cmd = '')",
-        "genrule(name = 'ginvalid', srcs = ['a.java'], outs = ['b.foo'], cmd = '')",
-        "genrule(name = 'gmix', srcs = ['a.java'], outs = ['c.java', 'c.foo'], cmd = '')");
+        """
+        android_library(
+            name = "valid",
+            srcs = [
+                "a.java",
+                "b.srcjar",
+                ":gmix",
+                ":gvalid",
+            ],
+        )
+
+        android_library(
+            name = "invalid",
+            srcs = [
+                "a.foo",
+                ":ginvalid",
+            ],
+        )
+
+        android_library(
+            name = "mix",
+            srcs = [
+                "a.foo",
+                "a.java",
+            ],
+        )
+
+        genrule(
+            name = "gvalid",
+            srcs = ["a.java"],
+            outs = ["b.java"],
+            cmd = "",
+        )
+
+        genrule(
+            name = "ginvalid",
+            srcs = ["a.java"],
+            outs = ["b.foo"],
+            cmd = "",
+        )
+
+        genrule(
+            name = "gmix",
+            srcs = ["a.java"],
+            outs = [
+                "c.java",
+                "c.foo",
+            ],
+            cmd = "",
+        )
+        """);
     assertSrcsValidityForRuleType("//java/srcs", "android_library", ".java or .srcjar");
   }
 
@@ -242,10 +267,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     useConfiguration("--strict_java_deps=OFF");
     scratch.file(
         "java/android/strict/BUILD",
-        "android_library(",
-        "    name = 'b',",
-        "    srcs = ['B.java'],",
-        ")");
+        """
+        android_library(
+            name = "b",
+            srcs = ["B.java"],
+        )
+        """);
     Artifact artifact = getFileConfiguredTarget("//java/android/strict:libb.jar").getArtifact();
     JavaCompileAction compileAction = (JavaCompileAction) getGeneratingAction(artifact);
     assertThat(getStrictJavaDepsMode(compileAction)).isEqualTo(StrictDepsMode.OFF);
@@ -255,10 +282,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testStrictAndroidDepsOn() throws Exception {
     scratch.file(
         "java/android/strict/BUILD",
-        "android_library(",
-        "    name = 'b',",
-        "    srcs = ['B.java'],",
-        ")");
+        """
+        android_library(
+            name = "b",
+            srcs = ["B.java"],
+        )
+        """);
     Artifact artifact = getFileConfiguredTarget("//java/android/strict:libb.jar").getArtifact();
     JavaCompileAction compileAction = (JavaCompileAction) getGeneratingAction(artifact);
     assertThat(getStrictJavaDepsMode(compileAction)).isEqualTo(StrictDepsMode.ERROR);
@@ -269,10 +298,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     useConfiguration("--strict_java_deps=WARN");
     scratch.file(
         "java/android/strict/BUILD",
-        "android_library(",
-        "    name = 'b',",
-        "    srcs = ['B.java'],",
-        ")");
+        """
+        android_library(
+            name = "b",
+            srcs = ["B.java"],
+        )
+        """);
     Artifact artifact = getFileConfiguredTarget("//java/android/strict:libb.jar").getArtifact();
     JavaCompileAction compileAction = (JavaCompileAction) getGeneratingAction(artifact);
     assertThat(getStrictJavaDepsMode(compileAction)).isEqualTo(StrictDepsMode.WARN);
@@ -301,21 +332,25 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testJavaPluginProcessorPath() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "java_library(",
-        "    name = 'plugin_dep',",
-        "    srcs = [ 'ProcessorDep.java'],",
-        ")",
-        "java_plugin(",
-        "    name = 'plugin',",
-        "    srcs = ['AnnotationProcessor.java'],",
-        "    processor_class = 'com.google.process.stuff',",
-        "    deps = [ ':plugin_dep' ],",
-        ")",
-        "android_library(",
-        "    name = 'to_be_processed',",
-        "    plugins = [':plugin'],",
-        "    srcs = ['ToBeProcessed.java'],",
-        ")");
+        """
+        java_library(
+            name = "plugin_dep",
+            srcs = ["ProcessorDep.java"],
+        )
+
+        java_plugin(
+            name = "plugin",
+            srcs = ["AnnotationProcessor.java"],
+            processor_class = "com.google.process.stuff",
+            deps = [":plugin_dep"],
+        )
+
+        android_library(
+            name = "to_be_processed",
+            srcs = ["ToBeProcessed.java"],
+            plugins = [":plugin"],
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/test:to_be_processed");
 
     OutputFileConfiguredTarget output =
@@ -340,20 +375,24 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testPluginCommandLine() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "java_library(",
-        "    name = 'plugin_dep',",
-        "    srcs = [ 'ProcessorDep.java'],",
-        ")",
-        "java_plugin(",
-        "    name = 'plugin',",
-        "    srcs = ['AnnotationProcessor.java'],",
-        "    processor_class = 'com.google.process.stuff',",
-        "    deps = [ ':plugin_dep' ],",
-        ")",
-        "android_library(",
-        "    name = 'to_be_processed',",
-        "    srcs = ['ToBeProcessed.java'],",
-        ")");
+        """
+        java_library(
+            name = "plugin_dep",
+            srcs = ["ProcessorDep.java"],
+        )
+
+        java_plugin(
+            name = "plugin",
+            srcs = ["AnnotationProcessor.java"],
+            processor_class = "com.google.process.stuff",
+            deps = [":plugin_dep"],
+        )
+
+        android_library(
+            name = "to_be_processed",
+            srcs = ["ToBeProcessed.java"],
+        )
+        """);
 
     useConfiguration("--plugin=//java/test:plugin");
     ConfiguredTarget target = getConfiguredTarget("//java/test:to_be_processed");
@@ -414,16 +453,19 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testAlwaysAllowDepsWithoutSrcsIfLocalResources() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'],",
-        ")",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = glob(['res/**']),",
-        "    deps = [':a'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["a.java"],
+        )
+
+        android_library(
+            name = "r",
+            manifest = "AndroidManifest.xml",
+            resource_files = glob(["res/**"]),
+            deps = [":a"],
+        )
+        """);
 
     scratch.file(
         "java/android/res/values/strings.xml",
@@ -439,24 +481,29 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testTransitiveDependencyThroughExports() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "android_library(",
-        "    name = 'somelib',",
-        "    srcs = ['Lib.java'],",
-        "    deps = [':somealias'],",
-        ")",
-        "android_library(",
-        "    name = 'somealias',",
-        "    exports = [':somedep'],",
-        ")",
-        "android_library(",
-        "    name = 'somedep',",
-        "    srcs = ['Dependency.java'],",
-        "    deps = [ ':otherdep' ],",
-        ")",
-        "android_library(",
-        "    name = 'otherdep',",
-        "    srcs = ['OtherDependency.java'],",
-        ")");
+        """
+        android_library(
+            name = "somelib",
+            srcs = ["Lib.java"],
+            deps = [":somealias"],
+        )
+
+        android_library(
+            name = "somealias",
+            exports = [":somedep"],
+        )
+
+        android_library(
+            name = "somedep",
+            srcs = ["Dependency.java"],
+            deps = [":otherdep"],
+        )
+
+        android_library(
+            name = "otherdep",
+            srcs = ["OtherDependency.java"],
+        )
+        """);
     ConfiguredTarget libTarget = getConfiguredTarget("//java/test:somelib");
     assertThat(
             actionsTestUtil()
@@ -470,19 +517,23 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testTransitiveStrictDeps() throws Exception {
     scratch.file(
         "java/peach/BUILD",
-        "android_library(",
-        "    name='a',",
-        "    exports=[':b'],",
-        ")",
-        "android_library(",
-        "    name='b',",
-        "    srcs=['B.java'],",
-        "    deps=[':c'],",
-        ")",
-        "android_library(",
-        "    name='c',",
-        "    srcs=['C.java'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            exports = [":b"],
+        )
+
+        android_library(
+            name = "b",
+            srcs = ["B.java"],
+            deps = [":c"],
+        )
+
+        android_library(
+            name = "c",
+            srcs = ["C.java"],
+        )
+        """);
 
     useConfiguration("--strict_java_deps=ERROR");
 
@@ -499,14 +550,17 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testEmitOutputDeps() throws Exception {
     scratch.file(
         "java/deps/BUILD",
-        "android_library(",
-        "    name = 'a',",
-        "    exports = [':b'],",
-        ")",
-        "android_library(",
-        "    name = 'b',",
-        "    srcs = ['B.java'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            exports = [":b"],
+        )
+
+        android_library(
+            name = "b",
+            srcs = ["B.java"],
+        )
+        """);
 
     useConfiguration("--java_deps");
 
@@ -526,31 +580,37 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testDependencyArtifactsWithExports() throws Exception {
     scratch.file(
         "java/classpath/BUILD",
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    deps = [",
-        "        ':b',",
-        "        ':c',",
-        "    ],",
-        ")",
-        "android_library(",
-        "    name = 'b',",
-        "    exports = [':d'],",
-        ")",
-        "android_library(",
-        "    name = 'c',",
-        "    srcs = ['C.java'],",
-        "    exports = [':e'],",
-        ")",
-        "android_library(",
-        "    name = 'd',",
-        "    srcs = ['D.java'],",
-        ")",
-        "android_library(",
-        "    name = 'e',",
-        "    srcs = ['E.java'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            deps = [
+                ":b",
+                ":c",
+            ],
+        )
+
+        android_library(
+            name = "b",
+            exports = [":d"],
+        )
+
+        android_library(
+            name = "c",
+            srcs = ["C.java"],
+            exports = [":e"],
+        )
+
+        android_library(
+            name = "d",
+            srcs = ["D.java"],
+        )
+
+        android_library(
+            name = "e",
+            srcs = ["E.java"],
+        )
+        """);
 
     JavaCompileAction aAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/classpath:liba.jar");
@@ -584,20 +644,24 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testExportsWithStrictJavaDepsFlag() throws Exception {
     scratch.file(
         "java/exports/BUILD",
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'],",
-        ")",
-        "android_library(",
-        "    name = 'b',",
-        "    srcs = ['b.java'],",
-        "    exports = ['a'],",
-        ")",
-        "android_library(",
-        "    name = 'c',",
-        "    srcs = ['c.java'],",
-        "    deps = [':b'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["a.java"],
+        )
+
+        android_library(
+            name = "b",
+            srcs = ["b.java"],
+            exports = ["a"],
+        )
+
+        android_library(
+            name = "c",
+            srcs = ["c.java"],
+            deps = [":b"],
+        )
+        """);
 
     useConfiguration("--strict_java_deps=WARN");
 
@@ -615,16 +679,19 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testExportsRunfiles() throws Exception {
     scratch.file(
         "java/exports/BUILD",
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'],",
-        "    data = ['data.txt'],",
-        ")",
-        "android_library(",
-        "    name = 'b',",
-        "    srcs = ['b.java'],",
-        "    exports = [':a'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["a.java"],
+            data = ["data.txt"],
+        )
+
+        android_library(
+            name = "b",
+            srcs = ["b.java"],
+            exports = [":a"],
+        )
+        """);
 
     ConfiguredTarget bTarget = getConfiguredTarget("//java/exports:b");
 
@@ -637,10 +704,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testSimpleIdl() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'idl',",
-        "    idl_srcs = ['a.aidl'],",
-        ")");
+        """
+        android_library(
+            name = "idl",
+            idl_srcs = ["a.aidl"],
+        )
+        """);
     getConfiguredTarget("//java/android:idl");
     assertNoEvents();
   }
@@ -651,10 +720,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     scratch.file("java/android/a/BUILD", "exports_files(['A.aidl'])");
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'idl',",
-        "    idl_srcs = ['//java/android/a:A.aidl'],",
-        ")");
+        """
+        android_library(
+            name = "idl",
+            idl_srcs = ["//java/android/a:A.aidl"],
+        )
+        """);
     getConfiguredTarget("//java/android:idl");
     assertContainsEvent(
         "do not import '//java/android/a:A.aidl' directly. You should either"
@@ -665,14 +736,16 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testIdlClassJarAction() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'idl',",
-        "    idl_srcs = [",
-        "        'a.aidl',",
-        "        'b.aidl',",
-        "        'c.aidl',",
-        "    ],",
-        ")");
+        """
+        android_library(
+            name = "idl",
+            idl_srcs = [
+                "a.aidl",
+                "b.aidl",
+                "c.aidl",
+            ],
+        )
+        """);
     ConfiguredTarget idlTarget = getConfiguredTarget("//java/android:idl");
     NestedSet<Artifact> outputGroup =
         getOutputGroup(idlTarget, AndroidIdlHelper.IDL_JARS_OUTPUT_GROUP);
@@ -706,15 +779,18 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testIdlOutputGroupTransitivity() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'lib',",
-        "    idl_srcs = ['a.aidl'],",
-        "    deps = [':dep'],",
-        ")",
-        "android_library(",
-        "    name = 'dep',",
-        "    idl_srcs = ['b.aidl'],",
-        ")");
+        """
+        android_library(
+            name = "lib",
+            idl_srcs = ["a.aidl"],
+            deps = [":dep"],
+        )
+
+        android_library(
+            name = "dep",
+            idl_srcs = ["b.aidl"],
+        )
+        """);
     ConfiguredTarget idlTarget = getConfiguredTarget("//java/android:lib");
     NestedSet<Artifact> outputGroup =
         getOutputGroup(idlTarget, AndroidIdlHelper.IDL_JARS_OUTPUT_GROUP);
@@ -749,26 +825,31 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testExportedPluginsAreInherited() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "java_plugin(",
-        "    name = 'plugin',",
-        "    srcs = [ 'Plugin.java' ],",
-        "    processor_class = 'com.google.process.stuff',",
-        ")",
-        "android_library(",
-        "    name = 'exporting_lib',",
-        "    srcs = [ 'ExportingLib.java' ],",
-        "    exported_plugins = [ ':plugin' ],",
-        ")",
-        "android_library(",
-        "    name = 'consuming_lib',",
-        "    srcs = [ 'ConsumingLib.java' ],",
-        "    deps = [ ':exporting_lib' ],",
-        ")",
-        "android_library(",
-        "    name = 'leaf_lib',",
-        "    srcs = [ 'LeafLib.java' ],",
-        "    deps = [ ':consuming_lib' ],",
-        ")");
+        """
+        java_plugin(
+            name = "plugin",
+            srcs = ["Plugin.java"],
+            processor_class = "com.google.process.stuff",
+        )
+
+        android_library(
+            name = "exporting_lib",
+            srcs = ["ExportingLib.java"],
+            exported_plugins = [":plugin"],
+        )
+
+        android_library(
+            name = "consuming_lib",
+            srcs = ["ConsumingLib.java"],
+            deps = [":exporting_lib"],
+        )
+
+        android_library(
+            name = "leaf_lib",
+            srcs = ["LeafLib.java"],
+            deps = [":consuming_lib"],
+        )
+        """);
 
     getConfiguredTarget("//java/test:consuming_lib");
     getConfiguredTarget("//java/test:leaf_lib");
@@ -814,27 +895,32 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     scratch.file(
         "java/com/google/android/hello/BUILD",
-        "android_library(",
-        "    name = 'library',",
-        "    srcs = ['MainActivity.java'],",
-        "    idl_srcs = ['IMyInterface.aidl'],",
-        ")",
-        "android_library(",
-        "    name = 'library_no_idl',",
-        "    srcs = ['MainActivity.java'],",
-        ")",
-        "android_binary(",
-        "    name = 'binary',",
-        "    deps = [':library'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    proguard_specs = ['proguard-spec.pro'],",
-        ")",
-        "android_binary(",
-        "    name = 'binary_no_idl',",
-        "    deps = [':library_no_idl'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    proguard_specs = ['proguard-spec.pro'],",
-        ")");
+        """
+        android_library(
+            name = "library",
+            srcs = ["MainActivity.java"],
+            idl_srcs = ["IMyInterface.aidl"],
+        )
+
+        android_library(
+            name = "library_no_idl",
+            srcs = ["MainActivity.java"],
+        )
+
+        android_binary(
+            name = "binary",
+            manifest = "AndroidManifest.xml",
+            proguard_specs = ["proguard-spec.pro"],
+            deps = [":library"],
+        )
+
+        android_binary(
+            name = "binary_no_idl",
+            manifest = "AndroidManifest.xml",
+            proguard_specs = ["proguard-spec.pro"],
+            deps = [":library_no_idl"],
+        )
+        """);
     useConfiguration("--extra_toolchains=//sdk:sdk_toolchain");
 
     // Targets with AIDL-generated sources also get AIDL support lib Proguard specs
@@ -862,14 +948,16 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testResourcesMultipleDirectoriesFromPackage() throws Exception {
     scratch.file(
         "c/b/m/a/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    custom_package = 'com.google.android.apps.a',",
-        "    resource_files = [",
-        "        'b_/res/values/strings.xml',",
-        "    ],",
-        ")");
+        """
+        android_library(
+            name = "r",
+            custom_package = "com.google.android.apps.a",
+            manifest = "AndroidManifest.xml",
+            resource_files = [
+                "b_/res/values/strings.xml",
+            ],
+        )
+        """);
     scratch.file(
         "c/b/m/a/b_/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
@@ -883,11 +971,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testSimpleResources() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = glob(['res/**']),",
-        ")");
+        """
+        android_library(
+            name = "r",
+            manifest = "AndroidManifest.xml",
+            resource_files = glob(["res/**"]),
+        )
+        """);
     scratch.file(
         "java/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
@@ -904,11 +994,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testResourcesWithConfigurationQualifier() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = glob(['res/**']),",
-        ")");
+        """
+        android_library(
+            name = "r",
+            manifest = "AndroidManifest.xml",
+            resource_files = glob(["res/**"]),
+        )
+        """);
     scratch.file(
         "java/android/res/values-en/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
@@ -926,11 +1018,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testResourcesInOtherPackage_exported() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['//java/other:res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "r",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["//java/other:res/values/strings.xml"],
+        )
+        """);
     scratch.file("java/other/BUILD", "exports_files(['res/values/strings.xml'])");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
@@ -943,17 +1037,21 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testResourcesInOtherPackage_filegroup() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['//java/other:fg'],",
-        ")");
+        """
+        android_library(
+            name = "r",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["//java/other:fg"],
+        )
+        """);
     scratch.file(
         "java/other/BUILD",
-        "filegroup(",
-        "    name = 'fg',",
-        "    srcs = ['res/values/strings.xml'],",
-        ")");
+        """
+        filegroup(
+            name = "fg",
+            srcs = ["res/values/strings.xml"],
+        )
+        """);
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
     assertThat(getResourceCompilationInputFiles(resource))
@@ -966,15 +1064,18 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testResourcesInOtherPackage_filegroupWithExternalSources() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = [':fg'],",
-        ")",
-        "filegroup(",
-        "    name = 'fg',",
-        "    srcs = ['//java/other:res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "r",
+            manifest = "AndroidManifest.xml",
+            resource_files = [":fg"],
+        )
+
+        filegroup(
+            name = "fg",
+            srcs = ["//java/other:res/values/strings.xml"],
+        )
+        """);
     scratch.file("java/other/BUILD", "exports_files(['res/values/strings.xml'])");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
@@ -988,21 +1089,26 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testResourcesInOtherPackage_doubleFilegroup() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = [':fg'],",
-        ")",
-        "filegroup(",
-        "    name = 'fg',",
-        "    srcs = ['//java/other:fg'],",
-        ")");
+        """
+        android_library(
+            name = "r",
+            manifest = "AndroidManifest.xml",
+            resource_files = [":fg"],
+        )
+
+        filegroup(
+            name = "fg",
+            srcs = ["//java/other:fg"],
+        )
+        """);
     scratch.file(
         "java/other/BUILD",
-        "filegroup(",
-        "    name = 'fg',",
-        "    srcs = ['res/values/strings.xml'],",
-        ")");
+        """
+        filegroup(
+            name = "fg",
+            srcs = ["res/values/strings.xml"],
+        )
+        """);
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
     assertThat(getResourceCompilationInputFiles(resource))
@@ -1129,10 +1235,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testFileLocation() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        ")");
+        """
+        android_library(
+            name = "r",
+            manifest = "AndroidManifest.xml",
+        )
+        """);
     ConfiguredTarget foo = getConfiguredTarget("//java/android:r");
     assertThat(
             ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(foo), "r.srcjar").getRoot())
@@ -1143,13 +1251,15 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testWithRenameManifestPackage() throws Exception {
     scratch.file(
         "a/r/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    srcs = ['Foo.java'],",
-        "    custom_package = 'com.google.android.bar',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "r",
+            srcs = ["Foo.java"],
+            custom_package = "com.google.android.bar",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+        )
+        """);
     ConfiguredTarget r = getConfiguredTarget("//a/r:r");
     assertNoEvents();
     assertContainsSublist(
@@ -1160,29 +1270,34 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testNeverlinkResources_androidResourcesInfo() throws Exception {
     scratch.file(
         "java/apps/android/BUILD",
-        "android_library(",
-        "    name = 'foo',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    deps = [",
-        "        ':lib',",
-        "        ':lib_neverlink',",
-        "    ],",
-        ")",
-        "android_library(",
-        "    name = 'lib_neverlink',",
-        "    neverlink = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    deps = [':bar'],",
-        ")",
-        "android_library(",
-        "    name = 'lib',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    deps = [':bar'],",
-        ")",
-        "android_library(",
-        "    name = 'bar',",
-        "    manifest = 'AndroidManifest.xml',",
-        ")");
+        """
+        android_library(
+            name = "foo",
+            manifest = "AndroidManifest.xml",
+            deps = [
+                ":lib",
+                ":lib_neverlink",
+            ],
+        )
+
+        android_library(
+            name = "lib_neverlink",
+            manifest = "AndroidManifest.xml",
+            neverlink = 1,
+            deps = [":bar"],
+        )
+
+        android_library(
+            name = "lib",
+            manifest = "AndroidManifest.xml",
+            deps = [":bar"],
+        )
+
+        android_library(
+            name = "bar",
+            manifest = "AndroidManifest.xml",
+        )
+        """);
     Function<ValidatedAndroidResources, Label> getLabel = ValidatedAndroidResources::getLabel;
     ConfiguredTarget foo = getConfiguredTarget("//java/apps/android:foo");
     assertThat(
@@ -1225,23 +1340,27 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testNeverlinkResources_compileAndRuntimeJars() throws Exception {
     scratch.file(
         "java/apps/android/BUILD",
-        "android_library(",
-        "    name = 'foo',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    exports = [",
-        "        ':lib',",
-        "        ':lib_neverlink',",
-        "    ],",
-        ")",
-        "android_library(",
-        "    name = 'lib_neverlink',",
-        "    neverlink = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        ")",
-        "android_library(",
-        "    name = 'lib',",
-        "    manifest = 'AndroidManifest.xml',",
-        ")");
+        """
+        android_library(
+            name = "foo",
+            manifest = "AndroidManifest.xml",
+            exports = [
+                ":lib",
+                ":lib_neverlink",
+            ],
+        )
+
+        android_library(
+            name = "lib_neverlink",
+            manifest = "AndroidManifest.xml",
+            neverlink = 1,
+        )
+
+        android_library(
+            name = "lib",
+            manifest = "AndroidManifest.xml",
+        )
+        """);
 
     ConfiguredTarget foo = getConfiguredTarget("//java/apps/android:foo");
     ConfiguredTarget lib = getConfiguredTarget("//java/apps/android:lib");
@@ -1278,11 +1397,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     // smaller actions.
     scratch.file(
         "java/android/app/foo/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = glob(['res/**']),",
-        ")");
+        """
+        android_library(
+            name = "r",
+            manifest = "AndroidManifest.xml",
+            resource_files = glob(["res/**"]),
+        )
+        """);
     scratch.file(
         "java/android/app/foo/res/values/strings.xml",
         "<resources>",
@@ -1323,22 +1444,28 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testGeneratedManifestPackage() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'l',",
-        "    srcs = ['foo.java'],",
-        ")",
-        "android_library(",
-        "    name = 'l2',",
-        "    custom_package = 'foo',",
-        "    srcs = ['foo.java'],",
-        ")");
+        """
+        android_library(
+            name = "l",
+            srcs = ["foo.java"],
+        )
+
+        android_library(
+            name = "l2",
+            srcs = ["foo.java"],
+            custom_package = "foo",
+        )
+        """);
     scratch.file(
         "third_party/android/BUILD",
-        "licenses(['notice'])",
-        "android_library(",
-        "    name = 'l',",
-        "    srcs = ['foo.java'],",
-        ")");
+        """
+        licenses(["notice"])
+
+        android_library(
+            name = "l",
+            srcs = ["foo.java"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//java/android:l");
     Artifact manifest = getBinArtifact("_generated/l/AndroidManifest.xml", target);
@@ -1360,16 +1487,19 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testGeneratedIdlSrcs() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "genrule(",
-        "    name = 'idl',",
-        "    outs = ['MyInterface.aidl'],",
-        "    cmd = 'touch $@',",
-        ")",
-        "android_library(",
-        "    name = 'lib',",
-        "    idl_srcs = [':idl'],",
-        "    idl_parcelables = ['MyParcelable.aidl'],",
-        ")");
+        """
+        genrule(
+            name = "idl",
+            outs = ["MyInterface.aidl"],
+            cmd = "touch $@",
+        )
+
+        android_library(
+            name = "lib",
+            idl_parcelables = ["MyParcelable.aidl"],
+            idl_srcs = [":idl"],
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/android:lib");
 
     PathFragment genfilesJavaPath =
@@ -1391,14 +1521,17 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testMultipleLibsSameIdls() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'idl1',",
-        "    idl_srcs = ['MyInterface.aidl'],",
-        ")",
-        "android_library(",
-        "    name = 'idl2',",
-        "    idl_srcs = ['MyInterface.aidl'],",
-        ")");
+        """
+        android_library(
+            name = "idl1",
+            idl_srcs = ["MyInterface.aidl"],
+        )
+
+        android_library(
+            name = "idl2",
+            idl_srcs = ["MyInterface.aidl"],
+        )
+        """);
     getConfiguredTarget("//java/android:idl1");
     getConfiguredTarget("//java/android:idl2");
   }
@@ -1407,20 +1540,23 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testIdeInfoProvider() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "genrule(",
-        "    name='genrule',",
-        "    srcs=[],",
-        "    outs=['assets/genrule.so'],",
-        "    cmd='',",
-        ")",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    idl_srcs = [ 'MyInterface.aidl' ],",
-        "    resource_files = glob(['res/**']),",
-        "    assets_dir = 'assets',",
-        "    assets = glob(['assets/**']) + [':genrule']",
-        ")");
+        """
+        genrule(
+            name = "genrule",
+            srcs = [],
+            outs = ["assets/genrule.so"],
+            cmd = "",
+        )
+
+        android_library(
+            name = "r",
+            assets = glob(["assets/**"]) + [":genrule"],
+            assets_dir = "assets",
+            idl_srcs = ["MyInterface.aidl"],
+            manifest = "AndroidManifest.xml",
+            resource_files = glob(["res/**"]),
+        )
+        """);
     scratch.file(
         "java/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
@@ -1483,26 +1619,30 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testIdeInfoProviderGeneratedIdl() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "genrule(",
-        "    name='genrule',",
-        "    srcs=[],",
-        "    outs=['assets/genrule.so'],",
-        "    cmd='',",
-        ")",
-        "genrule(",
-        "    name = 'idl',",
-        "    outs = ['MyGeneratedInterface.aidl'],",
-        "    cmd = 'touch $@',",
-        ")",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    idl_srcs = [ ':idl' ],",
-        "    idl_parcelables = [ 'MyInterface.aidl' ],",
-        "    resource_files = glob(['res/**']),",
-        "    assets_dir = 'assets',",
-        "    assets = glob(['assets/**']) + [':genrule']",
-        ")");
+        """
+        genrule(
+            name = "genrule",
+            srcs = [],
+            outs = ["assets/genrule.so"],
+            cmd = "",
+        )
+
+        genrule(
+            name = "idl",
+            outs = ["MyGeneratedInterface.aidl"],
+            cmd = "touch $@",
+        )
+
+        android_library(
+            name = "r",
+            assets = glob(["assets/**"]) + [":genrule"],
+            assets_dir = "assets",
+            idl_parcelables = ["MyInterface.aidl"],
+            idl_srcs = [":idl"],
+            manifest = "AndroidManifest.xml",
+            resource_files = glob(["res/**"]),
+        )
+        """);
     scratch.file(
         "java/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
@@ -1526,17 +1666,20 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testAndroidLibraryWithMessagesDoNotCrash() throws Exception {
     scratch.file(
         "java/com/google/atest/BUILD",
-        "filegroup(",
-        "    name = 'sources',",
-        "    srcs = [",
-        "        'source.java',",
-        "        'message.xmb',",
-        "    ],",
-        ")",
-        "android_library(",
-        "    name = 'alib',",
-        "    srcs  = [':sources'],",
-        ")");
+        """
+        filegroup(
+            name = "sources",
+            srcs = [
+                "message.xmb",
+                "source.java",
+            ],
+        )
+
+        android_library(
+            name = "alib",
+            srcs = [":sources"],
+        )
+        """);
     getConfiguredTarget("//java/com/google/atest:alib");
   }
 
@@ -1544,23 +1687,27 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testMultipleDirectDependentResourceDirectories() throws Exception {
     scratch.file(
         "java/android/resources/d1/BUILD",
-        "android_library(",
-        "    name = 'd1',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['d1-res/values/strings.xml'],",
-        "    assets = ['assets-d1/some/random/file'],",
-        "    assets_dir = 'assets-d1',",
-        "    deps = ['//java/android/resources/d2:d2'],",
-        ")");
+        """
+        android_library(
+            name = "d1",
+            assets = ["assets-d1/some/random/file"],
+            assets_dir = "assets-d1",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["d1-res/values/strings.xml"],
+            deps = ["//java/android/resources/d2"],
+        )
+        """);
     scratch.file(
         "java/android/resources/d2/BUILD",
-        "android_library(",
-        "    name = 'd2',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    assets = ['assets-d2/some/random/file'],",
-        "    assets_dir = 'assets-d2',",
-        "    resource_files = ['d2-res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "d2",
+            assets = ["assets-d2/some/random/file"],
+            assets_dir = "assets-d2",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["d2-res/values/strings.xml"],
+        )
+        """);
     ConfiguredTarget resource = getConfiguredTarget("//java/android/resources/d1:d1");
     assertThat(getResourceCompilationInputFiles(resource))
         .contains("java/android/resources/d1/d1-res/values/strings.xml");
@@ -1582,33 +1729,39 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testTransitiveDependentResourceDirectories() throws Exception {
     scratch.file(
         "java/android/resources/d1/BUILD",
-        "android_library(",
-        "    name = 'd1',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['d1-res/values/strings.xml'],",
-        "    assets = ['assets-d1/some/random/file'],",
-        "    assets_dir = 'assets-d1',",
-        "    deps = ['//java/android/resources/d2:d2']",
-        ")");
+        """
+        android_library(
+            name = "d1",
+            assets = ["assets-d1/some/random/file"],
+            assets_dir = "assets-d1",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["d1-res/values/strings.xml"],
+            deps = ["//java/android/resources/d2"],
+        )
+        """);
     scratch.file(
         "java/android/resources/d2/BUILD",
-        "android_library(",
-        "    name = 'd2',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    assets = ['assets-d2/some/random/file'],",
-        "    assets_dir = 'assets-d2',",
-        "    resource_files = ['d2-res/values/strings.xml'],",
-        "    deps = ['//java/android/resources/d3:d3'],",
-        ")");
+        """
+        android_library(
+            name = "d2",
+            assets = ["assets-d2/some/random/file"],
+            assets_dir = "assets-d2",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["d2-res/values/strings.xml"],
+            deps = ["//java/android/resources/d3"],
+        )
+        """);
     scratch.file(
         "java/android/resources/d3/BUILD",
-        "android_library(",
-        "    name = 'd3',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    assets = ['assets-d3/some/random/file'],",
-        "    assets_dir = 'assets-d3',",
-        "    resource_files = ['d3-res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "d3",
+            assets = ["assets-d3/some/random/file"],
+            assets_dir = "assets-d3",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["d3-res/values/strings.xml"],
+        )
+        """);
 
     ConfiguredTarget resource = getConfiguredTarget("//java/android/resources/d1:d1");
     assertThat(getResourceCompilationInputFiles(resource))
@@ -1634,12 +1787,14 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void rClassGeneration_withAnnotationFeature_addsFlag() throws Exception {
     scratch.file(
         "java/lib1/BUILD",
-        "android_library(",
-        "    name = 'lib1',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        "    features = ['annotate_r_fields_from_transitive_deps'],",
-        ")");
+        """
+        android_library(
+            name = "lib1",
+            features = ["annotate_r_fields_from_transitive_deps"],
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+        )
+        """);
 
     List<String> lib1args =
         getGeneratingSpawnActionArgs(getResourceArtifact(getConfiguredTarget("//java/lib1")));
@@ -1651,11 +1806,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void rClassGeneration_withoutAnnotationFeature_omitsFlag() throws Exception {
     scratch.file(
         "java/lib1/BUILD",
-        "android_library(",
-        "    name = 'lib1',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "lib1",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+        )
+        """);
 
     List<String> lib1args =
         getGeneratingSpawnActionArgs(getResourceArtifact(getConfiguredTarget("//java/lib1")));
@@ -1667,28 +1824,35 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void transitiveResourceDependencies_omitTransitiveResources() throws Exception {
     scratch.file(
         "java/lib1/BUILD",
-        "package(features=['android_resources_strict_deps'])",
-        "android_library(",
-        "    name = 'lib1',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        "    deps = ['//java/lib2'],",
-        ")");
+        """
+        package(features = ["android_resources_strict_deps"])
+
+        android_library(
+            name = "lib1",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+            deps = ["//java/lib2"],
+        )
+        """);
     scratch.file(
         "java/lib2/BUILD",
-        "android_library(",
-        "    name = 'lib2',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        "    deps = ['//java/lib3'],",
-        ")");
+        """
+        android_library(
+            name = "lib2",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+            deps = ["//java/lib3"],
+        )
+        """);
     scratch.file(
         "java/lib3/BUILD",
-        "android_library(",
-        "    name = 'lib3',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "lib3",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//java/lib1");
 
@@ -1708,29 +1872,35 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     useConfiguration("--features=android_resources_strict_deps");
     scratch.file(
         "java/lib1/BUILD",
-        "android_library(",
-        "    name = 'lib1',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        "    deps = ['//java/lib2'],",
-        // disable feature, which was presumably set in a global blazerc (above).
-        "    features=['-android_resources_strict_deps'],",
-        ")");
+        """
+        android_library(
+            name = "lib1",
+            # disable feature, which was presumably set in a global blazerc (above).
+            features = ["-android_resources_strict_deps"],
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+            deps = ["//java/lib2"],
+        )
+        """);
     scratch.file(
         "java/lib2/BUILD",
-        "android_library(",
-        "    name = 'lib2',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        "    deps = ['//java/lib3'],",
-        ")");
+        """
+        android_library(
+            name = "lib2",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+            deps = ["//java/lib3"],
+        )
+        """);
     scratch.file(
         "java/lib3/BUILD",
-        "android_library(",
-        "    name = 'lib3',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "lib3",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//java/lib1");
 
@@ -1743,11 +1913,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testCustomJavacopts() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    javacopts = ['-g:lines,source'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            javacopts = ["-g:lines,source"],
+        )
+        """);
 
     JavaCompileAction javacAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/android:liba.jar");
@@ -1761,20 +1933,24 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testSrcjarStrictDeps() throws Exception {
     scratch.file(
         "java/strict/BUILD",
-        "android_library(",
-        "    name='a',",
-        "    srcs=['A.java'],",
-        "    deps=[':b'],",
-        ")",
-        "android_library(",
-        "    name='b',",
-        "    srcs=['b.srcjar'],",
-        "    deps=[':c'],",
-        ")",
-        "android_library(",
-        "    name='c',",
-        "    srcs=['C.java'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            deps = [":b"],
+        )
+
+        android_library(
+            name = "b",
+            srcs = ["b.srcjar"],
+            deps = [":c"],
+        )
+
+        android_library(
+            name = "c",
+            srcs = ["C.java"],
+        )
+        """);
 
     JavaCompileAction javacAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/strict:liba.jar");
@@ -1807,15 +1983,18 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void hjarPredecessors() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    deps = [':b'],",
-        ")",
-        "android_library(",
-        "    name = 'b',",
-        "    srcs = ['B.java'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            deps = [":b"],
+        )
+
+        android_library(
+            name = "b",
+            srcs = ["B.java"],
+        )
+        """);
 
     useConfiguration("--java_header_compilation");
     Action a = getGeneratingActionForLabel("//java/test:liba.jar");
@@ -1828,35 +2007,42 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void resourcesFromRuntimeDepsAreIncluded() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'dummyParentLibrary',",
-        "    deps = [':dummyLibraryOne',",
-        "    ':dummyLibraryTwo'],",
-        "    srcs = ['libraryParent.java'],",
-        ")",
-        "android_library(",
-        "    name = 'dummyLibraryOne',",
-        "    exports_manifest = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/drawable/dummyResource1.png'],",
-        "    srcs = ['libraryOne.java'],",
-        ")",
-        "android_library(",
-        "    name = 'dummyLibraryTwo',",
-        "    exports_manifest = 1,",
-        "    neverlink = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/drawable/dummyResource2.png'],",
-        "    deps = ['dummyLibraryNested'],",
-        "    srcs = ['libraryTwo.java'],",
-        ")",
-        "android_library(",
-        "    name = 'dummyLibraryNested',",
-        "    exports_manifest = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/drawable/dummyResource1.png'],",
-        "    srcs = ['libraryOne.java'],",
-        ")");
+        """
+        android_library(
+            name = "dummyParentLibrary",
+            srcs = ["libraryParent.java"],
+            deps = [
+                ":dummyLibraryOne",
+                ":dummyLibraryTwo",
+            ],
+        )
+
+        android_library(
+            name = "dummyLibraryOne",
+            srcs = ["libraryOne.java"],
+            exports_manifest = 1,
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/drawable/dummyResource1.png"],
+        )
+
+        android_library(
+            name = "dummyLibraryTwo",
+            srcs = ["libraryTwo.java"],
+            exports_manifest = 1,
+            manifest = "AndroidManifest.xml",
+            neverlink = 1,
+            resource_files = ["res/drawable/dummyResource2.png"],
+            deps = ["dummyLibraryNested"],
+        )
+
+        android_library(
+            name = "dummyLibraryNested",
+            srcs = ["libraryOne.java"],
+            exports_manifest = 1,
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/drawable/dummyResource1.png"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//java/android:dummyLibraryOne");
     AndroidLibraryAarInfo provider = target.get(AndroidLibraryAarInfo.PROVIDER);
@@ -1900,19 +2086,22 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
     scratch.file(
         "java/a/BUILD",
-        "android_library(",
-        "    name = 'a', ",
-        "    srcs = ['A.java'],",
-        "    deps = [':b'],",
-        "    manifest = 'a/AndroidManifest.xml',",
-        "    resource_files = ['res/values/a.xml'],",
-        ")",
-        "android_library(",
-        "    name = 'b', ",
-        "    srcs = ['B.java'],",
-        "    manifest = 'b/AndroidManifest.xml',",
-        "    resource_files = ['res/values/b.xml'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            manifest = "a/AndroidManifest.xml",
+            resource_files = ["res/values/a.xml"],
+            deps = [":b"],
+        )
+
+        android_library(
+            name = "b",
+            srcs = ["B.java"],
+            manifest = "b/AndroidManifest.xml",
+            resource_files = ["res/values/b.xml"],
+        )
+        """);
 
     useConfiguration("--extra_toolchains=//sdk:sdk_toolchain");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
@@ -1943,12 +2132,14 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void aapt2ArtifactGenerationSkippedWhenSdkIsNotDefined() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        "android_library(",
-        "    name = 'a', ",
-        "    srcs = ['A.java'],",
-        "    manifest = 'a/AndroidManifest.xml',",
-        "    resource_files = ['res/values/a.xml'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            manifest = "a/AndroidManifest.xml",
+            resource_files = ["res/values/a.xml"],
+        )
+        """);
 
     RuleConfiguredTarget a = (RuleConfiguredTarget) getConfiguredTarget("//java/a:a");
     ActionsTestUtil.assertNoArtifactEndingWith(
@@ -1960,34 +2151,16 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   @Test
   public void compileDataBindingOutputWhenDataBindingEnabled() throws Exception {
     scratch.file(
-        "sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'aapt',",
-        "    aapt2 = 'aapt2',",
-        "    adb = 'adb',",
-        "    aidl = 'aidl',",
-        "    android_jar = 'android.jar',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    framework_aidl = 'framework_aidl',",
-        "    main_dex_classes = 'main_dex_classes',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'proguard',",
-        "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign',",
-        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
-        ")");
-    scratch.file(
         "java/a/BUILD",
-        "android_library(",
-        "    name = 'a', ",
-        "    srcs = ['A.java'],",
-        "    enable_data_binding = 1,",
-        "    manifest = 'a/AndroidManifest.xml',",
-        "    resource_files = ['res/values/a.xml']",
-        ")");
-    useConfiguration("--android_sdk=//sdk:sdk");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            enable_data_binding = 1,
+            manifest = "a/AndroidManifest.xml",
+            resource_files = ["res/values/a.xml"],
+        )
+        """);
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
 
     SpawnAction compileAction =
@@ -2007,12 +2180,14 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testUseManifestFromResourceApk() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        "android_library(",
-        "    name = 'a', ",
-        "    srcs = ['A.java'],",
-        "    manifest = 'a/AndroidManifest.xml',",
-        "    resource_files = ['res/values/a.xml'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            manifest = "a/AndroidManifest.xml",
+            resource_files = ["res/values/a.xml"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//java/a:a");
 
@@ -2025,18 +2200,21 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testAndroidLibraryValidatesProguardSpec() throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
-        "android_library(",
-        "    name = 'l2',",
-        "    srcs = ['MoreMaps.java'],",
-        "    proguard_specs = ['library_spec.cfg'],",
-        ")",
-        "android_binary(",
-        "    name = 'b',",
-        "    srcs = ['HelloApp.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    deps = [':l2'],",
-        "    proguard_specs = ['proguard-spec.pro'],",
-        ")");
+        """
+        android_library(
+            name = "l2",
+            srcs = ["MoreMaps.java"],
+            proguard_specs = ["library_spec.cfg"],
+        )
+
+        android_binary(
+            name = "b",
+            srcs = ["HelloApp.java"],
+            manifest = "AndroidManifest.xml",
+            proguard_specs = ["proguard-spec.pro"],
+            deps = [":l2"],
+        )
+        """);
     Set<Artifact> transitiveArtifacts =
         actionsTestUtil()
             .artifactClosureOf(
@@ -2058,16 +2236,19 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testAndroidLibraryValidatesProguardSpecWithoutBinary() throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
-        "android_library(",
-        "    name = 'l2',",
-        "    srcs = ['MoreMaps.java'],",
-        "    proguard_specs = ['library_spec.cfg'],",
-        ")",
-        "android_library(",
-        "    name = 'l3',",
-        "    srcs = ['MoreMaps.java'],",
-        "    deps = [':l2'],",
-        ")");
+        """
+        android_library(
+            name = "l2",
+            srcs = ["MoreMaps.java"],
+            proguard_specs = ["library_spec.cfg"],
+        )
+
+        android_library(
+            name = "l3",
+            srcs = ["MoreMaps.java"],
+            deps = [":l2"],
+        )
+        """);
     Action action =
         actionsTestUtil()
             .getActionForArtifactEndingWith(
@@ -2098,29 +2279,35 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testForwardedDeps() throws Exception {
     scratch.file(
         "java/fwdeps/BUILD",
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'],",
-        ")",
-        "android_library(",
-        "    name = 'b1',",
-        "    exports = [':a'],",
-        ")",
-        "android_library(",
-        "    name = 'b2',",
-        "    srcs = [],",
-        "    exports = [':a'],",
-        ")",
-        "android_library(",
-        "    name = 'c1',",
-        "    srcs = ['c1.java'],",
-        "    deps = [':b1'],",
-        ")",
-        "android_library(",
-        "    name = 'c2',",
-        "    srcs = ['c2.java'],",
-        "    deps = [':b2'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["a.java"],
+        )
+
+        android_library(
+            name = "b1",
+            exports = [":a"],
+        )
+
+        android_library(
+            name = "b2",
+            srcs = [],
+            exports = [":a"],
+        )
+
+        android_library(
+            name = "c1",
+            srcs = ["c1.java"],
+            deps = [":b1"],
+        )
+
+        android_library(
+            name = "c2",
+            srcs = ["c2.java"],
+            deps = [":b2"],
+        )
+        """);
     ConfiguredTarget c1Target = getConfiguredTarget("//java/fwdeps:c1");
     ConfiguredTarget c2Target = getConfiguredTarget("//java/fwdeps:c2");
 
@@ -2145,20 +2332,24 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testExportsAreIndirectNotDirect() throws Exception {
     scratch.file(
         "java/exports/BUILD",
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'],",
-        ")",
-        "android_library(",
-        "    name = 'b',",
-        "    srcs = ['b.java'],",
-        "    exports = ['a'],",
-        ")",
-        "android_library(",
-        "    name = 'c',",
-        "    srcs = ['c.java'],",
-        "    deps = [':b'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["a.java"],
+        )
+
+        android_library(
+            name = "b",
+            srcs = ["b.java"],
+            exports = ["a"],
+        )
+
+        android_library(
+            name = "c",
+            srcs = ["c.java"],
+            deps = [":b"],
+        )
+        """);
 
     ConfiguredTarget aTarget = getConfiguredTarget("//java/exports:a");
     ConfiguredTarget bTarget = getConfiguredTarget("//java/exports:b");
@@ -2191,11 +2382,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testAndroidJavacoptsCanBeOverridden() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    javacopts = ['-g:lines,source'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            javacopts = ["-g:lines,source"],
+        )
+        """);
 
     JavaCompileAction javacAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/android:liba.jar");
@@ -2208,19 +2401,22 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testAarGeneration_localResources() throws Exception {
     scratch.file(
         "java/android/aartest/BUILD",
-        "android_library(",
-        "    name = 'aartest',",
-        "    deps = ['dep'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        "    assets = ['assets/some/random/file'],",
-        "    assets_dir = 'assets',",
-        ")",
-        "android_library(",
-        "    name = 'dep',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['dep/res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "aartest",
+            assets = ["assets/some/random/file"],
+            assets_dir = "assets",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+            deps = ["dep"],
+        )
+
+        android_library(
+            name = "dep",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["dep/res/values/strings.xml"],
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/android/aartest:aartest");
     Artifact aar = getBinArtifact("aartest.aar", target);
     SpawnAction action =
@@ -2242,15 +2438,18 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testAarGeneration_noResources() throws Exception {
     scratch.file(
         "java/android/aartest/BUILD",
-        "android_library(",
-        "    name = 'aartest',",
-        "    exports = ['dep'],",
-        ")",
-        "android_library(",
-        "    name = 'dep',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['dep/res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "aartest",
+            exports = ["dep"],
+        )
+
+        android_library(
+            name = "dep",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["dep/res/values/strings.xml"],
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/android/aartest:aartest");
     Artifact aar = getBinArtifact("aartest.aar", target);
     SpawnAction action =
@@ -2270,25 +2469,29 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testAarProvider_localResources() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'test',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        "    deps = [",
-        "        ':t1',",
-        "        ':t2',",
-        "    ],",
-        ")",
-        "android_library(",
-        "    name = 't1',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        ")",
-        "android_library(",
-        "    name = 't2',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "test",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+            deps = [
+                ":t1",
+                ":t2",
+            ],
+        )
+
+        android_library(
+            name = "t1",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+        )
+
+        android_library(
+            name = "t2",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/android:test");
     ConfiguredTarget t1Target = getConfiguredTarget("//java/android:t1");
     ConfiguredTarget t2Target = getConfiguredTarget("//java/android:t2");
@@ -2315,15 +2518,18 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testAarProvider_noResources() throws Exception {
     scratch.file(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'test',",
-        "    exports = [':transitive'],",
-        ")",
-        "android_library(",
-        "    name = 'transitive',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/strings.xml'],",
-        ")");
+        """
+        android_library(
+            name = "test",
+            exports = [":transitive"],
+        )
+
+        android_library(
+            name = "transitive",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/strings.xml"],
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/android:test");
     final AndroidLibraryAarInfo provider = target.get(AndroidLibraryAarInfo.PROVIDER);
     ConfiguredTarget transitiveTarget = getConfiguredTarget("//java/android:transitive");
@@ -2340,14 +2546,16 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   @Test
   public void nativeHeaderOutputs() throws Exception {
     scratch.file(
-        "java/com/google/jni/BUILD", //
-        "android_library(",
-        "    name = 'jni',",
-        "    srcs = [",
-        "        'Foo.java',",
-        "        'Bar.java',",
-        "    ],",
-        ")");
+        "java/com/google/jni/BUILD",
+        """
+        android_library(
+            name = "jni",
+            srcs = [
+                "Bar.java",
+                "Foo.java",
+            ],
+        )
+        """);
 
     FileConfiguredTarget target = getFileConfiguredTarget("//java/com/google/jni:libjni.jar");
     JavaCompileAction action = (JavaCompileAction) getGeneratingAction(target.getArtifact());
@@ -2373,40 +2581,50 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void starlarkJavaInfoToAndroidLibraryAttributes() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "def _impl(ctx):",
-        "    dep_params = ctx.attr.dep[JavaInfo]",
-        "    return [dep_params]",
-        "my_rule = rule(",
-        "    _impl,",
-        "    attrs = {",
-        "        'dep': attr.label(),",
-        "    },",
-        ")");
+        """
+        def _impl(ctx):
+            dep_params = ctx.attr.dep[JavaInfo]
+            return [dep_params]
+
+        my_rule = rule(
+            _impl,
+            attrs = {
+                "dep": attr.label(),
+            },
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "android_library(",
-        "    name = 'al_bottom_for_deps',",
-        "    srcs = ['java/A.java'],",
-        ")",
-        "android_library(",
-        "    name = 'jl_bottom_for_exports',",
-        "    srcs = ['java/A2.java'],",
-        ")",
-        "my_rule(",
-        "    name = 'mya',",
-        "    dep = ':al_bottom_for_deps',",
-        ")",
-        "my_rule(",
-        "    name = 'myb',",
-        "    dep = ':jl_bottom_for_exports',",
-        ")",
-        "android_library(",
-        "    name = 'lib_foo',",
-        "    srcs = ['java/B.java'],",
-        "    deps = [':mya'],",
-        "    exports = [':myb'],",
-        ")");
+        """
+        load(":extension.bzl", "my_rule")
+
+        android_library(
+            name = "al_bottom_for_deps",
+            srcs = ["java/A.java"],
+        )
+
+        android_library(
+            name = "jl_bottom_for_exports",
+            srcs = ["java/A2.java"],
+        )
+
+        my_rule(
+            name = "mya",
+            dep = ":al_bottom_for_deps",
+        )
+
+        my_rule(
+            name = "myb",
+            dep = ":jl_bottom_for_exports",
+        )
+
+        android_library(
+            name = "lib_foo",
+            srcs = ["java/B.java"],
+            exports = [":myb"],
+            deps = [":mya"],
+        )
+        """);
 
     // Test that all bottom jars are on the runtime classpath of lib_android.
     ConfiguredTarget target = getConfiguredTarget("//foo:lib_foo");
@@ -2430,19 +2648,22 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testLocalResourcesFirstInJavaCompilationClasspath() throws Exception {
     scratch.file(
         "java/foo/BUILD",
-        "android_library(",
-        "    name='dep',",
-        "    srcs=['dep.java'], ",
-        "    resource_files=['res/values/dep.xml'],",
-        "    manifest='AndroidManifest.xml',",
-        ")",
-        "android_library(",
-        "    name='lib',",
-        "    srcs=['lib.java'],",
-        "    resource_files=['res/values/lib.xml'],",
-        "    manifest='AndroidManifest.xml',",
-        "    deps=[':dep']",
-        ")");
+        """
+        android_library(
+            name = "dep",
+            srcs = ["dep.java"],
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/dep.xml"],
+        )
+
+        android_library(
+            name = "lib",
+            srcs = ["lib.java"],
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/lib.xml"],
+            deps = [":dep"],
+        )
+        """);
 
     JavaCompileAction javacAction =
         (JavaCompileAction)
@@ -2467,16 +2688,19 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testAndroidCcLinkParamsProvider() throws Exception {
     scratch.file(
         "java/foo/BUILD",
-        "cc_library(",
-        "    name='cc_dep',",
-        "    srcs=['dep.cc'],",
-        "    linkopts = ['-CC_DEP'],",
-        ")",
-        "android_library(",
-        "    name='lib',",
-        "    srcs=['lib.java'],",
-        "    deps=[':cc_dep']",
-        ")");
+        """
+        cc_library(
+            name = "cc_dep",
+            srcs = ["dep.cc"],
+            linkopts = ["-CC_DEP"],
+        )
+
+        android_library(
+            name = "lib",
+            srcs = ["lib.java"],
+            deps = [":cc_dep"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//java/foo:lib");
 

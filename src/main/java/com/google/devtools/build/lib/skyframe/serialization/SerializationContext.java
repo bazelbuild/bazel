@@ -62,6 +62,26 @@ public abstract class SerializationContext implements SerializationDependencyPro
     serializeWithCodec(castCodec, object, codedOut);
   }
 
+  /**
+   * Serializes {@code child} with {@code codec} into a key-value store.
+   *
+   * <p>This globally memoizes {@code child} by <em>reference</em>.
+   *
+   * <p>NOTE: This is only supported by {@link SharedValueSerializationContext}.
+   *
+   * @param child <em>non-null</em> object to be serialized
+   * @param distinguisher an optional distinguisher see {@link
+   *     FingerprintValueCache.FingerprintWithDistinguisher}
+   */
+  public <T> void putSharedValue(
+      T child,
+      @Nullable Object distinguisher,
+      DeferredObjectCodec<T> codec,
+      CodedOutputStream codedOut)
+      throws IOException, SerializationException {
+    throw new UnsupportedOperationException();
+  }
+
   @Override
   public final <T> T getDependency(Class<T> type) {
     return checkNotNull(dependencies.getInstance(type), "Missing dependency of type %s", type);

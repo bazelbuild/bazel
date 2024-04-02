@@ -1,17 +1,11 @@
 toc:
-- label: "7.0"
+- label: '7.1'
+  path: /versions/7.1.0
+- label: '7.0'
   path: /versions/7.0.0
-- label: "6.5"
+- label: '6.5'
   path: /versions/6.5.0
-- label: "6.4"
+- label: '6.4'
   path: /versions/6.4.0
-- label: "6.3"
-  path: /versions/6.3.0
-- label: "6.2"
-  path: /versions/6.2.0
-- label: "6.1"
-  path: /versions/6.1.0
-- label: "6.0"
-  path: /versions/6.0.0
 - label: "5.4.1"
   path: https://docs.bazel.build/versions/5.4.1/bazel-overview.html

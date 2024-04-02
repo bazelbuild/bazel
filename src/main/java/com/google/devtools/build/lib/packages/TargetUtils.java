@@ -161,7 +161,7 @@ public final class TargetUtils {
 
   public static List<String> getStringListAttr(Target target, String attrName) {
     Preconditions.checkArgument(target instanceof Rule);
-    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING_LIST);
+    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Types.STRING_LIST);
   }
 
   public static String getStringAttr(Target target, String attrName) {
@@ -230,7 +230,8 @@ public final class TargetUtils {
    * undefined otherwise.
    */
   private static boolean hasConstraint(Rule rule, String keyword) {
-    return NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)
+    return NonconfigurableAttributeMapper.of(rule)
+        .get(CONSTRAINTS_ATTR, Types.STRING_LIST)
         .contains(keyword);
   }
 
@@ -242,7 +243,7 @@ public final class TargetUtils {
     // tags may contain duplicate values.
     Map<String, String> map = new HashMap<>();
     for (String tag :
-        NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
+        NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Types.STRING_LIST)) {
       if (legalExecInfoKeys(tag)) {
         map.put(tag, "");
       }

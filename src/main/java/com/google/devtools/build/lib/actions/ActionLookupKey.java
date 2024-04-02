@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  *
  * <p>Whether a configured target creates actions cannot be inferred from its {@link
  * com.google.devtools.build.lib.cmdline.Label} without performing analysis, so this class is used
- * for both types. Non-{@link ActionLookupValue} nodes are not accessed during the execution phase.
+ * for both types. Only {@link ActionLookupValue} nodes are accessed during the execution phase.
  *
  * <p>All subclasses of {@link ActionLookupValue} "own" artifacts with {@link ArtifactOwner}s that
  * are subclasses of {@link ActionLookupKey}. This allows callers to easily find the value key,

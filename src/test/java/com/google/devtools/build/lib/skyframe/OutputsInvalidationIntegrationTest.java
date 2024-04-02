@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -57,6 +56,7 @@ public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTe
     when(outputService.getFilesSystemName()).thenReturn("fileSystemName");
     when(outputService.startBuild(any(), any(), anyBoolean()))
         .thenReturn(ModifiedFileSet.EVERYTHING_MODIFIED);
+    when(outputService.getXattrProvider(any())).thenAnswer(i -> i.getArgument(0));
   }
 
   @Override
@@ -72,8 +72,8 @@ public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTe
   }
 
   @Override
-  protected EventCollectionApparatus createEvents() {
-    return new EventCollectionApparatus(ImmutableSet.of(EventKind.FINISH));
+  protected ImmutableSet<EventKind> additionalEventsToCollect() {
+    return ImmutableSet.of(EventKind.FINISH);
   }
 
   @Test
@@ -177,8 +177,19 @@ public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTe
   public void outputFileModified_invalidatesOnlyAffectedAction() throws Exception {
     write(
         "foo/BUILD",
-        "genrule(name='foo', outs=['foo.out'], cmd='touch $@')",
-        "genrule(name='bar', outs=['bar.out'], cmd='touch $@')");
+        """
+        genrule(
+            name = "foo",
+            outs = ["foo.out"],
+            cmd = "touch $@",
+        )
+
+        genrule(
+            name = "bar",
+            outs = ["bar.out"],
+            cmd = "touch $@",
+        )
+        """);
     buildTarget("//foo:all");
     MoreAsserts.assertContainsEvent(events.collector(), "Executing genrule //foo:foo");
     MoreAsserts.assertContainsEvent(events.collector(), "Executing genrule //foo:bar");

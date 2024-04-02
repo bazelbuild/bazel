@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -204,6 +205,11 @@ final class DependencyProducer
 
   @Override
   public void acceptPlatformMappingError(PlatformMappingException e) {
+    sink.acceptDependencyError(DependencyError.of(e));
+  }
+
+  @Override
+  public void acceptPlatformFlagsError(InvalidPlatformException e) {
     sink.acceptDependencyError(DependencyError.of(e));
   }
 

@@ -13,13 +13,13 @@
 # limitations under the License.
 """Rules for configuring the C++ toolchain (experimental)."""
 
-load("@bazel_tools//tools/cpp:windows_cc_configure.bzl", "configure_windows_toolchain")
-load("@bazel_tools//tools/cpp:unix_cc_configure.bzl", "configure_unix_toolchain")
 load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "get_cpu_value",
     "resolve_labels",
 )
+load("@bazel_tools//tools/cpp:unix_cc_configure.bzl", "configure_unix_toolchain")
+load("@bazel_tools//tools/cpp:windows_cc_configure.bzl", "configure_windows_toolchain")
 
 def cc_autoconf_toolchains_impl(repository_ctx):
     """Generate BUILD file with 'toolchain' targets for the local host C++ toolchain.

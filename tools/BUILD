@@ -73,6 +73,7 @@ filegroup(
 filegroup(
     name = "bzl_srcs",
     srcs = [
+        "//tools:build_defs.bzl",
         "//tools/android:bzl_srcs",
         "//tools/build_defs:bzl_srcs",
         "//tools/build_rules:bzl_srcs",
@@ -89,4 +90,9 @@ filegroup(
 sh_binary(
     name = "upload_bazel_mirror",
     srcs = ["upload_bazel_mirror.sh"],
+)
+
+alias(
+    name = "host_platform",
+    actual = "@platforms//host",
 )

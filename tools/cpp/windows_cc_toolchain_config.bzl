@@ -723,6 +723,25 @@ def _impl(ctx):
             name = "generate_pdb_file",
         )
 
+        generate_linkmap_feature = feature(
+            name = "generate_linkmap",
+            flag_sets = [
+                flag_set(
+                    actions = [
+                        ACTION_NAMES.cpp_link_executable,
+                    ],
+                    flag_groups = [
+                        flag_group(
+                            flags = [
+                                "/MAP:%{output_execpath}.map",
+                            ],
+                            expand_if_available = "output_execpath",
+                        ),
+                    ],
+                ),
+            ],
+        )
+
         output_execpath_flags_feature = feature(
             name = "output_execpath_flags",
             flag_sets = [
@@ -1123,6 +1142,7 @@ def _impl(ctx):
             parse_showincludes_feature,
             no_dotd_file_feature,
             generate_pdb_file_feature,
+            generate_linkmap_feature,
             shared_flag_feature,
             linkstamps_feature,
             output_execpath_flags_feature,

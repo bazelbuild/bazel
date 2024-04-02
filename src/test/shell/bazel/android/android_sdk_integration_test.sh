@@ -80,23 +80,6 @@ EOF
     " Is the path in android_sdk_repository() or \$ANDROID_SDK_HOME set correctly?"
 }
 
-# Check that the build succeeds if an android_sdk is specified with --android_sdk
-function test_specifying_android_sdk_flag() {
-  create_new_workspace
-  setup_android_sdk_support
-  create_android_binary
-  setup_android_platforms
-
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-android_sdk_repository(
-    name = "a",
-)
-EOF
-  ANDROID_HOME=$ANDROID_SDK bazel build --android_sdk=@a//:sdk-24 \
-    --android_platforms=//test_android_platforms:simple \
-    //java/bazel:bin || fail "build with --android_sdk failed"
-}
-
 # Regression test for https://github.com/bazelbuild/bazel/issues/2621.
 function test_android_sdk_repository_returns_null_if_env_vars_missing() {
   create_new_workspace

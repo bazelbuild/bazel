@@ -246,7 +246,8 @@ public final class AnalysisAndExecutionPhaseRunner {
             env.getBuildResultListener(),
             executionSetupCallback,
             buildConfigurationCreatedCallback,
-            buildDriverKeyTestContext);
+            buildDriverKeyTestContext,
+            env.getAdditionalConfigurationChangeEvent());
   }
 
   /**

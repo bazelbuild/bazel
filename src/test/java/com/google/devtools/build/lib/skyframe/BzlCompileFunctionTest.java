@@ -79,12 +79,14 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file("/workspace/tools/build_rules/BUILD");
     scratch.file(
-        "foo/BUILD", //
-        "genrule(",
-        "    name = 'foo',",
-        "    outs = ['out.txt'],",
-        "    cmd = 'echo hello >@'",
-        ")");
+        "foo/BUILD",
+        """
+        genrule(
+            name = "foo",
+            outs = ["out.txt"],
+            cmd = "echo hello >@",
+        )
+        """);
     mockFS.throwIOExceptionFor = PathFragment.create("/workspace/foo/BUILD");
     invalidatePackages(/*alsoConfigs=*/ false); // We don't want to fail early on config creation.
 

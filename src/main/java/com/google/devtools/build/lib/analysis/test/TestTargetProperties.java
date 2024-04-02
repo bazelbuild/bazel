@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
@@ -83,7 +84,7 @@ public class TestTargetProperties {
     Preconditions.checkState(TargetUtils.isTestRule(rule));
     size = TestSize.getTestSize(rule);
     timeout = TestTimeout.getTestTimeout(rule);
-    tags = ruleContext.attributes().get("tags", Type.STRING_LIST);
+    tags = ruleContext.attributes().get("tags", Types.STRING_LIST);
 
     // We need to use method on ruleConfiguredTarget to perform validation.
     isFlaky = ruleContext.attributes().get("flaky", Type.BOOLEAN);

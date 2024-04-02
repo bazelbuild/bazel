@@ -120,7 +120,6 @@ public class PackageIdentifierTest {
                 RepositoryMapping.create(
                     ImmutableMap.of("foo", RepositoryName.create("bar")), RepositoryName.MAIN)))
         .isEqualTo("//some/pkg");
-    assertThat(pkg.getDisplayForm(null)).isEqualTo("//some/pkg");
   }
 
   @Test
@@ -140,6 +139,5 @@ public class PackageIdentifierTest {
                     ImmutableMap.of("local", RepositoryName.create("other_repo")),
                     RepositoryName.MAIN)))
         .isEqualTo("@@canonical//some/pkg");
-    assertThat(pkg.getDisplayForm(null)).isEqualTo("@@canonical//some/pkg");
   }
 }

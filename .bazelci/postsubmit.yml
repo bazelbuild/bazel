@@ -320,13 +320,17 @@ tasks:
   rbe_ubuntu2004:
     platform: ubuntu2004
     name: "RBE"
+    environment:
+      # Use last_green to pickup the fix for https://github.com/bazelbuild/bazel/issues/21604.
+      # TODO(chiwang): Remove this after Bazel 7.2.0 is released.
+      USE_BAZEL_VERSION: last_green
     shell_commands:
       - sed -i.bak
         -e 's/^# android_sdk_repository/android_sdk_repository/'
         -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
     build_flags:
-      - "--config=ubuntu2004_java11"
+      - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
@@ -337,7 +341,7 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src/main/java/..."
     test_flags:
-      - "--config=ubuntu2004_java11"
+      - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
@@ -371,15 +375,10 @@ tasks:
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/py/bazel:mod_command_test"
       - "-//src/test/shell/bazel:verify_workspace"
-      # TODO(pcloudy): Re-enable after rbe platform switch to JDK 21
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:AllTests"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:antxmlresultwriter_integration_test"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:junit4_testbridge_integration_test"
-      - "-//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:utf8_test_log_test"
     include_json_profile:
       - build
       - test
-  kythe_ubuntu2004:
+  kythe_ubuntu2204:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
       -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod

@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** A codec that serializes arbitrary types. */
 public final class DynamicCodec extends AsyncObjectCodec<Object> {
@@ -45,9 +46,26 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
   }
 
   @SuppressWarnings("AvoidObjectArrays") // less overhead
-  public DynamicCodec(Class<?> type, FieldHandler[] handlers) {
+  private DynamicCodec(Class<?> type, FieldHandler[] handlers) {
     this.type = type;
     this.handlers = handlers;
+  }
+
+  /** Creates a codec instance with custom handlers for specified fields. */
+  public static DynamicCodec createWithOverrides(
+      Class<?> type, Map<Field, FieldHandler> overrides) {
+    LinkedHashMap<Field, FieldHandler> handlers = getFieldHandlerMap(type);
+    for (Map.Entry<Field, FieldHandler> override : overrides.entrySet()) {
+      FieldHandler previous = handlers.put(override.getKey(), override.getValue());
+      if (previous == null) {
+        throw new IllegalArgumentException(
+            String.format(
+                "An override was specified for %s but no such field was present in the default"
+                    + " dynamic codec for %s.",
+                override.getKey(), type));
+      }
+    }
+    return new DynamicCodec(type, handlers.values().toArray(FieldHandler[]::new));
   }
 
   @Override
@@ -113,7 +131,7 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
    * fresh copy that the caller may freely modify.
    */
   @SuppressWarnings("NonApiType") // type communicates fixed ordering
-  public static <T> LinkedHashMap<Field, FieldHandler> getFieldHandlerMap(Class<T> type) {
+  private static <T> LinkedHashMap<Field, FieldHandler> getFieldHandlerMap(Class<T> type) {
     LinkedHashMap<Field, FieldHandler> handlers = new LinkedHashMap<>();
     for (Field field : getSerializableFields(type)) {
       handlers.put(field, getHandlerForField(field));

@@ -424,8 +424,8 @@ under package's first level subdirectory <code>foo/</code>; if
 <code>exclude_directories</code> is set to </code>0</code>, <code>foo</code>
 directory itself also matches the pattern; in this case, <code>**</code> is
 considered to match zero path segments</li>
-<li><code>**/a.txt</code> matches every <code>a.txt</code> file in every
-non-subpackage subdirectory of this package</li>
+<li><code>**/a.txt</code> matches <code>a.txt</code> files in this package's
+directory plus non-subpackage subdirectories.</li>
 <li><code>**/bar/**/*.txt</code> matches every <code>.txt</code> file in every
 non-subpackage subdirectory of this package, if at least one directory on the
 resulting path is called <code>bar</code>, such as

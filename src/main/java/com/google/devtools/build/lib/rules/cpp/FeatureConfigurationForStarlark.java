@@ -19,8 +19,12 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Wrapper for {@link FeatureConfiguration}, {@link CppConfiguration}, and {@link BuildOptions}.
@@ -62,5 +66,15 @@ public class FeatureConfigurationForStarlark implements FeatureConfigurationApi 
     printer.append("<FeatureConfiguration(");
     printer.append(Joiner.on(", ").join(featureConfiguration.getEnabledFeatureNames()));
     printer.append(")>");
+  }
+
+  @StarlarkMethod(
+      name = "is_enabled",
+      parameters = {@Param(name = "feature")},
+      documented = false,
+      useStarlarkThread = true)
+  public boolean isEnabled(String feature, StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return featureConfiguration.isEnabled(feature);
   }
 }

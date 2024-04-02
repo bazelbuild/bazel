@@ -424,6 +424,7 @@ public abstract class PackageFunction implements SkyFunction {
               .setMessage(packageLookupValue.getErrorMsg())
               .setPackageLoadingCode(PackageLoading.Code.REPOSITORY_MISSING)
               .build();
+        case INVALID_PROJECT_FILE:
         case INVALID_PACKAGE_NAME:
           throw exceptionBuilder
               .setType(PackageFunctionException.Type.INVALID_PACKAGE_NAME)

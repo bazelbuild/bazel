@@ -30,13 +30,10 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
-import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -193,26 +190,6 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
       extends SkyFunctionException {
     BuildTopLevelAspectsDetailsFunctionException(TopLevelAspectsDetailsBuildFailedException cause) {
       super(cause, Transience.PERSISTENT);
-    }
-  }
-
-  private static final class TopLevelAspectsDetailsBuildFailedException extends Exception
-      implements SaneAnalysisException {
-    private final DetailedExitCode detailedExitCode;
-
-    private TopLevelAspectsDetailsBuildFailedException(String errorMessage, Code code) {
-      super(errorMessage);
-      this.detailedExitCode =
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(errorMessage)
-                  .setAnalysis(Analysis.newBuilder().setCode(code))
-                  .build());
-    }
-
-    @Override
-    public DetailedExitCode getDetailedExitCode() {
-      return detailedExitCode;
     }
   }
 

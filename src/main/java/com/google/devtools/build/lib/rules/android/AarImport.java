@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -34,11 +34,9 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.java.ImportDepsCheckActionBuilder;
@@ -473,14 +471,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static SpawnAction createAarNativeLibsFilterActions(
       RuleContext ruleContext, Artifact aar, Artifact outputZip) throws RuleErrorException {
 
-    BuildConfigurationValue configuration = ruleContext.getConfiguration();
-
     String cpu = null;
-    AndroidConfiguration androidConfiguration =
-        configuration.getFragment(AndroidConfiguration.class);
-
-    if (androidConfiguration.incompatibleUseToolchainResolution()) {
-
       // Maps a CPU name as used in an AAR to the corresponding CPU constraint.
       ImmutableMap<String, ConstraintValueInfo> aarCpuToConstraint =
           ImmutableMap.of(
@@ -508,10 +499,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 ruleContext.getToolchainContexts().getTargetPlatform().label(),
                 ruleContext.getLabel()));
       }
-
-    } else {
-      cpu = configuration.getCpu();
-    }
 
     SpawnAction.Builder actionBuilder = new SpawnAction.Builder();
     ParamFileInfo paramFileInfo = getParamFileInfo(ruleContext);

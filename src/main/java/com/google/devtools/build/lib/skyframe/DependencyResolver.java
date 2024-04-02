@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptio
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
@@ -705,8 +706,13 @@ public final class DependencyResolver {
           case ASPECT_CREATION:
             throw error.aspectCreation();
           case PLATFORM_MAPPING:
-            PlatformMappingException e = error.platformMapping();
-            throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
+            PlatformMappingException platformMappingException = error.platformMapping();
+            throw new ConfiguredValueCreationException(
+                ctgValue.getTarget(), platformMappingException.getMessage());
+          case INVALID_PLATFORM:
+            InvalidPlatformException invalidPlatformException = error.invalidPlatform();
+            throw new ConfiguredValueCreationException(
+                ctgValue.getTarget(), invalidPlatformException.getMessage());
         }
       }
       if (!state.transitiveState.hasRootCause() && state.dependencyMap == null) {

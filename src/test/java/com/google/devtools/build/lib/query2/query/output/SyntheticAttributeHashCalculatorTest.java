@@ -65,8 +65,19 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
 
     scratch.overwriteFile(
         "pkg/BUILD",
-        "genrule(name='rule_that_moves_x', cmd='touch $@', outs=['whatever'])",
-        "genrule(name='x', cmd='touch $@', outs=['y'])");
+        """
+        genrule(
+            name = "rule_that_moves_x",
+            outs = ["whatever"],
+            cmd = "touch $@",
+        )
+
+        genrule(
+            name = "x",
+            outs = ["y"],
+            cmd = "touch $@",
+        )
+        """);
     invalidatePackages();
     Rule ruleAfter = (Rule) getTarget("//pkg:x");
 
@@ -154,8 +165,15 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
         "pkg/BUILD",
-        "genrule(name='x', cmd='touch $@', outs=['z'])",
-        "genrule(name='missing_attributes')");
+        """
+        genrule(
+            name = "x",
+            outs = ["z"],
+            cmd = "touch $@",
+        )
+
+        genrule(name = "missing_attributes")
+        """);
     invalidatePackages();
     Rule ruleAfter = (Rule) getTarget("//pkg:x");
     assertThat(ruleAfter.containsErrors()).isTrue();
@@ -182,29 +200,41 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
   public void testComputeIncludeAttributeSourceAspectsChangesHash() throws Exception {
     scratch.file(
         "a/defs.bzl",
-        "def _test_aspect_impl(target, ctx):",
-        "  return []",
-        "test_aspect = aspect(",
-        "  implementation = _test_aspect_impl,",
-        "  attr_aspects = ['deps'],",
-        "  attrs = {",
-        "    '_aspect_attr_1': attr.label(default = '//a:c'),",
-        "    '_aspect_attr_2': attr.label(default = '//a:d'),",
-        "  },",
-        ")",
-        "def _lib_impl(ctx):",
-        "  return",
-        "test_lib = rule(",
-        "  implementation = _lib_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects = [test_aspect]),",
-        "  },",
-        ")");
+        """
+        def _test_aspect_impl(target, ctx):
+            return []
+
+        test_aspect = aspect(
+            implementation = _test_aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {
+                "_aspect_attr_1": attr.label(default = "//a:c"),
+                "_aspect_attr_2": attr.label(default = "//a:d"),
+            },
+        )
+
+        def _lib_impl(ctx):
+            return
+
+        test_lib = rule(
+            implementation = _lib_impl,
+            attrs = {
+                "deps": attr.label_list(aspects = [test_aspect]),
+            },
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load('defs.bzl', 'test_lib')",
-        "test_lib(name = 'a', deps = [':b'])",
-        "test_lib(name = 'b')");
+        """
+        load("defs.bzl", "test_lib")
+
+        test_lib(
+            name = "a",
+            deps = [":b"],
+        )
+
+        test_lib(name = "b")
+        """);
     Rule rule = (Rule) getTarget("//a:a");
 
     String hashWithAttributeAspects =

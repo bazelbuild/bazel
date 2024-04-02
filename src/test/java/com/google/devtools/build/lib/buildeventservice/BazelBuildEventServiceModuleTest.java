@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
-import com.google.devtools.build.lib.buildtool.util.BlazeRuntimeWrapper;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
@@ -267,16 +266,13 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     }
 
     connectivityModule = new FailingConnectivityStatusProvider();
-
-    BlazeRuntimeWrapper runtimeWrapper =
-        new BlazeRuntimeWrapper(
-            events, serverDirectories, directories, binTools, getRuntimeBuilder());
+    reinitializeAndPreserveOptions();
 
     BazelBuildEventServiceModule besModule =
-        runtimeWrapper.getRuntime().getBlazeModule(BazelBuildEventServiceModule.class);
-    runtimeWrapper.addOptions("--bes_backend=does.not.exist:1234");
-    runtimeWrapper.addOptions("--spawn_strategy=standalone");
-    runtimeWrapper.executeBuild(ImmutableList.of());
+        getRuntime().getBlazeModule(BazelBuildEventServiceModule.class);
+    addOptions("--bes_backend=does.not.exist:1234");
+    addOptions("--spawn_strategy=standalone");
+    buildTarget();
     assertThat(besModule.getBepTransports()).isEmpty();
   }
 

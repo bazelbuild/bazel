@@ -34,8 +34,7 @@ import net.starlark.java.syntax.Location;
  * An exception indicating that there was a problem during the construction of a
  * ConfiguredTargetValue.
  */
-public final class ConfiguredValueCreationException extends Exception
-    implements SaneAnalysisException {
+public final class ConfiguredValueCreationException extends AbstractSaneAnalysisException {
 
   @Nullable private final Location location;
   private final BuildEventId configuration;

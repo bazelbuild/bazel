@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 /** Exceptions from {@link BzlLoadFunction}. */
-public final class BzlLoadFailedException extends Exception implements SaneAnalysisException {
+public final class BzlLoadFailedException extends AbstractSaneAnalysisException {
   private final Transience transience;
   private final DetailedExitCode detailedExitCode;
 

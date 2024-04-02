@@ -438,7 +438,7 @@ public final class SpawnInputExpander {
                     inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree(),
                     artifactExpander,
                     pathMapper,
-                    visitor);
+                    childVisitor);
               }
             }
 

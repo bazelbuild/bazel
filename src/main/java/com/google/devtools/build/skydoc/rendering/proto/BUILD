@@ -1,6 +1,8 @@
 # TODO(arostovtsev): move this package to docgen or rules/starlarkdocextract when we remove legacy Stardoc.
 
 load("@rules_java//java:defs.bzl", "java_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 package(
     default_visibility = [
@@ -12,9 +14,6 @@ package(
         "//src/test/java/com/google/devtools/build/skydoc:__subpackages__",
     ],
 )
-
-load("//tools/build_rules:utilities.bzl", "java_library_srcs")
-load("@rules_proto//proto:defs.bzl", "proto_library")
 
 licenses(["notice"])  # Apache 2.0
 

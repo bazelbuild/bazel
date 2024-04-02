@@ -86,7 +86,7 @@ public final class TestTargetUtils {
       Collection<String> requiredTags,
       Collection<String> excludedTags) {
     AttributeMap nonConfigurableAttrs = NonconfigurableAttributeMapper.of(testTarget);
-    Set<String> testTags = new HashSet<>(nonConfigurableAttrs.get("tags", Type.STRING_LIST));
+    Set<String> testTags = new HashSet<>(nonConfigurableAttrs.get("tags", Types.STRING_LIST));
     testTags.add(nonConfigurableAttrs.get("size", Type.STRING));
     return testMatchesFilters(testTags, requiredTags, excludedTags);
   }
@@ -100,7 +100,7 @@ public final class TestTargetUtils {
    */
   public static void filterTests(Rule testSuite, Set<Target> tests) {
     List<String> tagsAttribute =
-        NonconfigurableAttributeMapper.of(testSuite).get("tags", Type.STRING_LIST);
+        NonconfigurableAttributeMapper.of(testSuite).get("tags", Types.STRING_LIST);
     // Split the tags list into positive and negative tags
     Pair<Collection<String>, Collection<String>> tagLists = sortTagsBySense(tagsAttribute);
     Collection<String> positiveTags = tagLists.first;

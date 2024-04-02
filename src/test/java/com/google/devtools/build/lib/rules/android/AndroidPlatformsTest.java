@@ -64,10 +64,13 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
   public void chooseSdk() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        "android_binary(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    manifest = 'AndroidManifest.xml')");
+        """
+        android_binary(
+            name = "a",
+            srcs = ["A.java"],
+            manifest = "AndroidManifest.xml",
+        )
+        """);
 
     useConfiguration(EXTRA_SDK_TOOLCHAINS_FLAG, "--platforms=//android_platforms:x86_platform");
     Artifact apkX86 =
@@ -88,14 +91,19 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
   public void chooseNdk() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        "cc_library(",
-        "    name = 'cclib',",
-        "    srcs  = ['cclib.cc'])",
-        "android_binary(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    deps = [':cclib'],",
-        "    manifest = 'AndroidManifest.xml')");
+        """
+        cc_library(
+            name = "cclib",
+            srcs = ["cclib.cc"],
+        )
+
+        android_binary(
+            name = "a",
+            srcs = ["A.java"],
+            manifest = "AndroidManifest.xml",
+            deps = [":cclib"],
+        )
+        """);
 
     useConfiguration(EXTRA_SDK_TOOLCHAINS_FLAG, "--platforms=//android_platforms:x86_platform");
     ConfiguredTarget x86Binary = getConfiguredTarget("//java/a:a");

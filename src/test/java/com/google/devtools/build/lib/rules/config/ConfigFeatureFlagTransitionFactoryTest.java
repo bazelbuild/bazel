@@ -160,38 +160,68 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
   public void transition_equalsTester() throws Exception {
     scratch.file(
         "a/BUILD",
-        "filegroup(",
-        "    name = 'not_a_flagsetter',",
-        "    srcs = [])",
-        "feature_flag_setter(",
-        "    name = 'empty',",
-        "    flag_values = {})",
-        "feature_flag_setter(",
-        "    name = 'empty2',",
-        "    flag_values = {})",
-        "feature_flag_setter(",
-        "    name = 'flag_setter_a',",
-        "    flag_values = {':flag': 'a'})",
-        "feature_flag_setter(",
-        "    name = 'flag_setter_a2',",
-        "    flag_values = {':flag': 'a'})",
-        "feature_flag_setter(",
-        "    name = 'flag_setter_b',",
-        "    flag_values = {':flag': 'b'})",
-        "feature_flag_setter(",
-        "    name = 'flag2_setter',",
-        "    flag_values = {':flag2': 'a'})",
-        "feature_flag_setter(",
-        "    name = 'both_setter',",
-        "    flag_values = {':flag': 'a', ':flag2': 'a'})",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['a', 'b'],",
-        "    default_value = 'a')",
-        "config_feature_flag(",
-        "    name = 'flag2',",
-        "    allowed_values = ['a', 'b'],",
-        "    default_value = 'a')");
+        """
+        filegroup(
+            name = "not_a_flagsetter",
+            srcs = [],
+        )
+
+        feature_flag_setter(
+            name = "empty",
+            flag_values = {},
+        )
+
+        feature_flag_setter(
+            name = "empty2",
+            flag_values = {},
+        )
+
+        feature_flag_setter(
+            name = "flag_setter_a",
+            flag_values = {":flag": "a"},
+        )
+
+        feature_flag_setter(
+            name = "flag_setter_a2",
+            flag_values = {":flag": "a"},
+        )
+
+        feature_flag_setter(
+            name = "flag_setter_b",
+            flag_values = {":flag": "b"},
+        )
+
+        feature_flag_setter(
+            name = "flag2_setter",
+            flag_values = {":flag2": "a"},
+        )
+
+        feature_flag_setter(
+            name = "both_setter",
+            flag_values = {
+                ":flag": "a",
+                ":flag2": "a",
+            },
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "a",
+                "b",
+            ],
+            default_value = "a",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "a",
+                "b",
+            ],
+            default_value = "a",
+        )
+        """);
 
     Rule nonflag = (Rule) getTarget("//a:not_a_flagsetter");
     Rule empty = (Rule) getTarget("//a:empty");

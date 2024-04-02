@@ -124,9 +124,21 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testOnlySomeTargetsQualify() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "sh_library(name = 'good_bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:one'])",
-        "sh_library(name = 'bad_bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:two'])");
+    write(
+        "foo/BUILD",
+        """
+        sh_library(
+            name = "good_bar",
+            srcs = ["bar.sh"],
+            compatible_with = ["//buildenv:one"],
+        )
+
+        sh_library(
+            name = "bad_bar",
+            srcs = ["bar.sh"],
+            compatible_with = ["//buildenv:two"],
+        )
+        """);
     write("foo/bar.sh");
     addOptions("--target_environment=//buildenv:one");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:all")))
@@ -176,18 +188,44 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testRefinedEnvironmentCheckValidTarget() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "config_setting(name = 'config_one', values = {'define': 'mode=one'})",
-        "config_setting(name = 'config_two', values = {'define': 'mode=two'})",
-        "sh_library(name = 'lib_one', srcs = [], compatible_with = ['//buildenv:one'])",
-        "sh_library(name = 'lib_two', srcs = [], compatible_with = ['//buildenv:two'])",
-        "sh_library(name = 'toplevel',",
-        "    srcs = ['toplevel.sh'],",
-        "    deps = select({",
-        "        ':config_one': [':lib_one'],",
-        "        ':config_two': [':lib_two'],",
-        "    }),",
-        "    compatible_with = ['//buildenv:one', '//buildenv:two'])");
+    write(
+        "foo/BUILD",
+        """
+        config_setting(
+            name = "config_one",
+            values = {"define": "mode=one"},
+        )
+
+        config_setting(
+            name = "config_two",
+            values = {"define": "mode=two"},
+        )
+
+        sh_library(
+            name = "lib_one",
+            srcs = [],
+            compatible_with = ["//buildenv:one"],
+        )
+
+        sh_library(
+            name = "lib_two",
+            srcs = [],
+            compatible_with = ["//buildenv:two"],
+        )
+
+        sh_library(
+            name = "toplevel",
+            srcs = ["toplevel.sh"],
+            compatible_with = [
+                "//buildenv:one",
+                "//buildenv:two",
+            ],
+            deps = select({
+                ":config_one": [":lib_one"],
+                ":config_two": [":lib_two"],
+            }),
+        )
+        """);
     // "--define mode=one" refines :toplevel to (matching) ["//buildenv:one"]:
     addOptions("--target_environment=//buildenv:one", "--define", "mode=one");
     write("foo/toplevel.sh");
@@ -198,18 +236,44 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testRefinedEnvironmentCheckBadTarget() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "config_setting(name = 'config_one', values = {'define': 'mode=one'})",
-        "config_setting(name = 'config_two', values = {'define': 'mode=two'})",
-        "sh_library(name = 'lib_one', srcs = [], compatible_with = ['//buildenv:one'])",
-        "sh_library(name = 'lib_two', srcs = [], compatible_with = ['//buildenv:two'])",
-        "sh_library(name = 'toplevel',",
-        "    srcs = ['toplevel.sh'],",
-        "    deps = select({",
-        "        ':config_one': [':lib_one'],",
-        "        ':config_two': [':lib_two'],",
-        "    }),",
-        "    compatible_with = ['//buildenv:one', '//buildenv:two'])");
+    write(
+        "foo/BUILD",
+        """
+        config_setting(
+            name = "config_one",
+            values = {"define": "mode=one"},
+        )
+
+        config_setting(
+            name = "config_two",
+            values = {"define": "mode=two"},
+        )
+
+        sh_library(
+            name = "lib_one",
+            srcs = [],
+            compatible_with = ["//buildenv:one"],
+        )
+
+        sh_library(
+            name = "lib_two",
+            srcs = [],
+            compatible_with = ["//buildenv:two"],
+        )
+
+        sh_library(
+            name = "toplevel",
+            srcs = ["toplevel.sh"],
+            compatible_with = [
+                "//buildenv:one",
+                "//buildenv:two",
+            ],
+            deps = select({
+                ":config_one": [":lib_one"],
+                ":config_two": [":lib_two"],
+            }),
+        )
+        """);
     // "--define mode=two" refines :toplevel to (non-matching) ["//buildenv:two"]:
     addOptions("--target_environment=//buildenv:one", "--define", "mode=two");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:toplevel")))
@@ -228,20 +292,29 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     writeEnvironmentRules();
     write(
         "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  file = ctx.actions.declare_file('libbar.a')",
-        "  ctx.actions.write(file, 'hello')",
-        "  return [DefaultInfo(files = depset([file]))]",
-        "crule = rule(",
-        "  _impl,",
-        "  outputs = {",
-        "    'archive': 'lib%{name}.a'",
-        "  },",
-        ");");
+        """
+        def _impl(ctx):
+            file = ctx.actions.declare_file("libbar.a")
+            ctx.actions.write(file, "hello")
+            return [DefaultInfo(files = depset([file]))]
+
+        crule = rule(
+            _impl,
+            outputs = {
+                "archive": "lib%{name}.a",
+            },
+        )
+        """);
     write(
         "foo/BUILD",
-        "load(':rule.bzl', 'crule')",
-        "crule(name = 'bar', compatible_with = ['//buildenv:one'])");
+        """
+        load(":rule.bzl", "crule")
+
+        crule(
+            name = "bar",
+            compatible_with = ["//buildenv:one"],
+        )
+        """);
     addOptions("--target_environment=//buildenv:one");
     buildTarget("//foo:libbar.a");
     assertThat(getResult().getSuccess()).isTrue();
@@ -252,15 +325,20 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     writeEnvironmentRules();
     write(
         "foo/BUILD",
-        "genrule(",
-        "    name = 'goodgen',",
-        "    srcs = [],",
-        "    cmd = 'touch $@',",
-        "    outs = ['goodgen.out'],",
-        "    compatible_with = ['//buildenv:one'])",
-        "alias(",
-        "    name = 'goodalias',",
-        "    actual = 'goodgen.out')");
+        """
+        genrule(
+            name = "goodgen",
+            srcs = [],
+            outs = ["goodgen.out"],
+            cmd = "touch $@",
+            compatible_with = ["//buildenv:one"],
+        )
+
+        alias(
+            name = "goodalias",
+            actual = "goodgen.out",
+        )
+        """);
     addOptions("--target_environment=//buildenv:one");
     buildTarget("//foo:goodalias");
     assertThat(getResult().getSuccess()).isTrue();
@@ -271,14 +349,19 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     writeEnvironmentRules();
     write(
         "foo/BUILD",
-        "genrule(",
-        "    name = 'badgen',",
-        "    srcs = [],",
-        "    cmd = '',",
-        "    outs = ['badgen.out'])",
-        "alias(",
-        "    name = 'badalias',",
-        "    actual = 'badgen.out')");
+        """
+        genrule(
+            name = "badgen",
+            srcs = [],
+            outs = ["badgen.out"],
+            cmd = "",
+        )
+
+        alias(
+            name = "badalias",
+            actual = "badgen.out",
+        )
+        """);
     addOptions("--target_environment=//buildenv:one");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:badalias")))
         .hasMessageThat()
@@ -294,20 +377,36 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   public void doesNotCheckDefaultEnvironments() throws Exception {
     write(
         "buildenv/a/BUILD",
-        "environment_group(",
-        "    name = 'a',",
-        "    defaults = [':a1'],",
-        "    environments = [':a1', ':a2'])",
-        "environment(name = 'a1')",
-        "environment(name = 'a2')");
+        """
+        environment_group(
+            name = "a",
+            defaults = [":a1"],
+            environments = [
+                ":a1",
+                ":a2",
+            ],
+        )
+
+        environment(name = "a1")
+
+        environment(name = "a2")
+        """);
     write(
         "buildenv/b/BUILD",
-        "environment_group(",
-        "    name = 'b',",
-        "    defaults = [':b1'],",
-        "    environments = [':b1', ':b2'])",
-        "environment(name = 'b1')",
-        "environment(name = 'b2')");
+        """
+        environment_group(
+            name = "b",
+            defaults = [":b1"],
+            environments = [
+                ":b1",
+                ":b2",
+            ],
+        )
+
+        environment(name = "b1")
+
+        environment(name = "b2")
+        """);
 
     write(
         "foo/bar.sh",
@@ -325,12 +424,20 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   public void autoTargetEnvironment_success() throws Exception {
     write(
         "buildenv/auto_cpu/BUILD",
-        "environment_group(",
-        "    name = 'cpus',",
-        "    defaults = [':k8'],",
-        "    environments = [':k8', ':ppc'])",
-        "environment(name = 'k8')",
-        "environment(name = 'ppc')");
+        """
+        environment_group(
+            name = "cpus",
+            defaults = [":k8"],
+            environments = [
+                ":k8",
+                ":ppc",
+            ],
+        )
+
+        environment(name = "k8")
+
+        environment(name = "ppc")
+        """);
 
     write(
         "foo/bar.sh",
@@ -349,12 +456,20 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   public void autoTargetEnvironment_cpuNotSet() throws Exception {
     write(
         "buildenv/auto_cpu/BUILD",
-        "environment_group(",
-        "    name = 'cpus',",
-        "    defaults = [':k8'],",
-        "    environments = [':k8', ':ppc'])",
-        "environment(name = 'k8')",
-        "environment(name = 'ppc')");
+        """
+        environment_group(
+            name = "cpus",
+            defaults = [":k8"],
+            environments = [
+                ":k8",
+                ":ppc",
+            ],
+        )
+
+        environment(name = "k8")
+
+        environment(name = "ppc")
+        """);
 
     write(
         "foo/bar.sh",
@@ -373,12 +488,20 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   public void autoTargetEnvironment_disabled() throws Exception {
     write(
         "buildenv/auto_cpu/BUILD",
-        "environment_group(",
-        "    name = 'cpus',",
-        "    defaults = [':k8'],",
-        "    environments = [':k8', ':ppc'])",
-        "environment(name = 'k8')",
-        "environment(name = 'ppc')");
+        """
+        environment_group(
+            name = "cpus",
+            defaults = [":k8"],
+            environments = [
+                ":k8",
+                ":ppc",
+            ],
+        )
+
+        environment(name = "k8")
+
+        environment(name = "ppc")
+        """);
 
     write(
         "foo/bar.sh",
@@ -397,12 +520,20 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   public void autoTargetEnvironment_error() throws Exception {
     write(
         "buildenv/auto_cpu/BUILD",
-        "environment_group(",
-        "    name = 'cpus',",
-        "    defaults = [':k8'],",
-        "    environments = [':k8', ':ppc'])",
-        "environment(name = 'k8')",
-        "environment(name = 'ppc')");
+        """
+        environment_group(
+            name = "cpus",
+            defaults = [":k8"],
+            environments = [
+                ":k8",
+                ":ppc",
+            ],
+        )
+
+        environment(name = "k8")
+
+        environment(name = "ppc")
+        """);
 
     write(
         "foo/BUILD",
@@ -417,20 +548,36 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   public void autoTargetEnvironment_does_not_check_default_environments() throws Exception {
     write(
         "buildenv/auto_cpu/BUILD",
-        "environment_group(",
-        "    name = 'cpus',",
-        "    defaults = [':k8'],",
-        "    environments = [':k8', ':ppc'])",
-        "environment(name = 'k8')",
-        "environment(name = 'ppc')");
+        """
+        environment_group(
+            name = "cpus",
+            defaults = [":k8"],
+            environments = [
+                ":k8",
+                ":ppc",
+            ],
+        )
+
+        environment(name = "k8")
+
+        environment(name = "ppc")
+        """);
     write(
         "buildenv/b/BUILD",
-        "environment_group(",
-        "    name = 'b',",
-        "    defaults = [':b1'],",
-        "    environments = [':b1', ':b2'])",
-        "environment(name = 'b1')",
-        "environment(name = 'b2')");
+        """
+        environment_group(
+            name = "b",
+            defaults = [":b1"],
+            environments = [
+                ":b1",
+                ":b2",
+            ],
+        )
+
+        environment(name = "b1")
+
+        environment(name = "b2")
+        """);
 
     write(
         "foo/bar.sh",
@@ -451,20 +598,36 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   public void autoTargetEnvironment_good_explicit_checking_bad() throws Exception {
     write(
         "buildenv/auto_cpu/BUILD",
-        "environment_group(",
-        "    name = 'cpus',",
-        "    defaults = [':k8'],",
-        "    environments = [':k8', ':ppc'])",
-        "environment(name = 'k8')",
-        "environment(name = 'ppc')");
+        """
+        environment_group(
+            name = "cpus",
+            defaults = [":k8"],
+            environments = [
+                ":k8",
+                ":ppc",
+            ],
+        )
+
+        environment(name = "k8")
+
+        environment(name = "ppc")
+        """);
     write(
         "buildenv/b/BUILD",
-        "environment_group(",
-        "    name = 'b',",
-        "    defaults = [':b1'],",
-        "    environments = [':b1', ':b2'])",
-        "environment(name = 'b1')",
-        "environment(name = 'b2')");
+        """
+        environment_group(
+            name = "b",
+            defaults = [":b1"],
+            environments = [
+                ":b1",
+                ":b2",
+            ],
+        )
+
+        environment(name = "b1")
+
+        environment(name = "b2")
+        """);
 
     write(
         "foo/bar.sh",
@@ -489,20 +652,36 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   public void autoTargetEnvironment_bad_explicit_checking_good() throws Exception {
     write(
         "buildenv/auto_cpu/BUILD",
-        "environment_group(",
-        "    name = 'cpus',",
-        "    defaults = [':k8'],",
-        "    environments = [':k8', ':ppc'])",
-        "environment(name = 'k8')",
-        "environment(name = 'ppc')");
+        """
+        environment_group(
+            name = "cpus",
+            defaults = [":k8"],
+            environments = [
+                ":k8",
+                ":ppc",
+            ],
+        )
+
+        environment(name = "k8")
+
+        environment(name = "ppc")
+        """);
     write(
         "buildenv/b/BUILD",
-        "environment_group(",
-        "    name = 'b',",
-        "    defaults = [':b1'],",
-        "    environments = [':b1', ':b2'])",
-        "environment(name = 'b1')",
-        "environment(name = 'b2')");
+        """
+        environment_group(
+            name = "b",
+            defaults = [":b1"],
+            environments = [
+                ":b1",
+                ":b2",
+            ],
+        )
+
+        environment(name = "b1")
+
+        environment(name = "b2")
+        """);
 
     write(
         "foo/bar.sh",

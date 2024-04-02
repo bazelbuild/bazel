@@ -335,11 +335,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+          OptionEffectTag.NO_OP,
         },
-        help = "Whether to create HWASAN splits.")
+        help = "No-op flag. Will be removed in a future release.")
     public boolean fatApkHwasan;
 
     // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
@@ -1061,7 +1059,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     @Option(
         name = "optimizing_dexer",
         defaultValue = "null",
-        converter = LabelConverter.class,
+        converter = EmptyToNullLabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Specifies a binary to use to do dexing without sharding.")
@@ -1100,7 +1098,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   private final Label sdk;
-  private final String cpu;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
@@ -1144,14 +1141,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
   private final boolean disableInstrumentationManifestMerging;
-  private final boolean incompatibleUseToolchainResolution;
-  private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
     this.sdk = options.sdk;
-    this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
@@ -1204,8 +1198,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
-    this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
-    this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
 
     if (incrementalDexingShardsAfterProguard < 0) {
@@ -1221,11 +1213,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       throw new InvalidConfigurationException(
           "Java 8 library support requires --desugar_java8 to be enabled.");
     }
-  }
-
-  @Override
-  public String getCpu() {
-    return cpu;
   }
 
   @StarlarkConfigurationField(
@@ -1433,16 +1420,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentMultiplexDexDesugar() {
     return persistentMultiplexDexDesugar;
-  }
-
-  @Override
-  public boolean incompatibleUseToolchainResolution() {
-    return incompatibleUseToolchainResolution;
-  }
-
-  @Override
-  public boolean isHwasan() {
-    return hwasan;
   }
 
   @Override

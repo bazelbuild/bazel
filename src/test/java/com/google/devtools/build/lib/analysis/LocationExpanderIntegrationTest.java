@@ -37,10 +37,20 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "files/BUILD",
-        "filegroup(name='files',",
-        "  srcs = ['fileA', 'fileB'])",
-        "sh_library(name='lib',",
-        "  deps = [':files'])");
+        """
+        filegroup(
+            name = "files",
+            srcs = [
+                "fileA",
+                "fileB",
+            ],
+        )
+
+        sh_library(
+            name = "lib",
+            deps = [":files"],
+        )
+        """);
   }
 
   private LocationExpander makeExpander(String label) throws Exception {
@@ -63,9 +73,17 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   public void testLocationAlias() throws Exception {
     scratch.file(
         "alias/BUILD",
-        "alias(name='files_alias', actual='//files:files')",
-        "sh_library(name='lib',",
-        "  deps = [':files_alias'])");
+        """
+        alias(
+            name = "files_alias",
+            actual = "//files:files",
+        )
+
+        sh_library(
+            name = "lib",
+            deps = [":files_alias"],
+        )
+        """);
 
     LocationExpander expander = makeExpander("//alias:lib");
 
@@ -81,10 +99,22 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   public void testLocationAliasAlias() throws Exception {
     scratch.file(
         "alias/BUILD",
-        "alias(name='files_alias', actual='//files:files')",
-        "alias(name='files_alias_alias', actual=':files_alias')",
-        "sh_library(name='lib',",
-        "  deps = [':files_alias_alias'])");
+        """
+        alias(
+            name = "files_alias",
+            actual = "//files:files",
+        )
+
+        alias(
+            name = "files_alias_alias",
+            actual = ":files_alias",
+        )
+
+        sh_library(
+            name = "lib",
+            deps = [":files_alias_alias"],
+        )
+        """);
 
     LocationExpander expander = makeExpander("//alias:lib");
 
@@ -102,10 +132,20 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
     scratch.file("spaces/file with space B");
     scratch.file(
         "spaces/BUILD",
-        "filegroup(name='files',",
-        "  srcs = ['file with space A', 'file with space B'])",
-        "sh_library(name='lib',",
-        "  deps = [':files'])");
+        """
+        filegroup(
+            name = "files",
+            srcs = [
+                "file with space A",
+                "file with space B",
+            ],
+        )
+
+        sh_library(
+            name = "lib",
+            deps = [":files"],
+        )
+        """);
 
     LocationExpander expander = makeExpander("//spaces:lib");
     String input = "foo $(locations :files) bar";
@@ -118,8 +158,18 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   public void otherPathExpansion() throws Exception {
     scratch.file(
         "expansion/BUILD",
-        "genrule(name='foo', outs=['foo.txt'], cmd='never executed')",
-        "sh_library(name='lib', srcs=[':foo'])");
+        """
+        genrule(
+            name = "foo",
+            outs = ["foo.txt"],
+            cmd = "never executed",
+        )
+
+        sh_library(
+            name = "lib",
+            srcs = [":foo"],
+        )
+        """);
 
     FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"), "workspace(name='workspace')");
     // Invalidate WORKSPACE to pick up the name.
@@ -251,8 +301,21 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   public void otherPathMultiExpansion() throws Exception {
     scratch.file(
         "expansion/BUILD",
-        "genrule(name='foo', outs=['foo.txt', 'bar.txt'], cmd='never executed')",
-        "sh_library(name='lib', srcs=[':foo'])");
+        """
+        genrule(
+            name = "foo",
+            outs = [
+                "foo.txt",
+                "bar.txt",
+            ],
+            cmd = "never executed",
+        )
+
+        sh_library(
+            name = "lib",
+            srcs = [":foo"],
+        )
+        """);
 
     LocationExpander expander = makeExpander("//expansion:lib");
     assertThat(expander.expand("foo $(execpaths :foo) bar"))

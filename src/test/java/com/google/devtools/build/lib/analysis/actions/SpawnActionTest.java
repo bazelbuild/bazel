@@ -446,24 +446,41 @@ public final class SpawnActionTest extends BuildViewTestCase {
   public void testGetExtraActionInfoOnAspects() throws Exception {
     scratch.file(
         "a/BUILD",
-        "load('//a:def.bzl', 'testrule')",
-        "testrule(name='a', deps=[':b'])",
-        "testrule(name='b')");
+        """
+        load("//a:def.bzl", "testrule")
+
+        testrule(
+            name = "a",
+            deps = [":b"],
+        )
+
+        testrule(name = "b")
+        """);
     scratch.file(
         "a/def.bzl",
-        "MyInfo = provider()",
-        "def _aspect_impl(target, ctx):",
-        "  f = ctx.actions.declare_file('foo.txt')",
-        "  ctx.actions.run_shell(outputs = [f], command = 'echo foo > \"$1\"')",
-        "  return MyInfo(output=f)",
-        "def _rule_impl(ctx):",
-        "  return DefaultInfo(",
-        "      files=depset([artifact[MyInfo].output for artifact in ctx.attr.deps]))",
-        "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'], ",
-        "    attrs = {'parameter': attr.string(values = ['param_value'])})",
-        "testrule = rule(_rule_impl, attrs = { ",
-        "    'deps' : attr.label_list(aspects = [aspect1]), ",
-        "    'parameter': attr.string(default='param_value') })");
+        """
+        MyInfo = provider()
+
+        def _aspect_impl(target, ctx):
+            f = ctx.actions.declare_file("foo.txt")
+            ctx.actions.run_shell(outputs = [f], command = 'echo foo > "$1"')
+            return MyInfo(output = f)
+
+        def _rule_impl(ctx):
+            return DefaultInfo(
+                files = depset([artifact[MyInfo].output for artifact in ctx.attr.deps]),
+            )
+
+        aspect1 = aspect(
+            _aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {"parameter": attr.string(values = ["param_value"])},
+        )
+        testrule = rule(_rule_impl, attrs = {
+            "deps": attr.label_list(aspects = [aspect1]),
+            "parameter": attr.string(default = "param_value"),
+        })
+        """);
 
     update(
         ImmutableList.of("//a:a"),

@@ -227,40 +227,72 @@ EOF
   expect_log "Nodes in reverse transitive closure from leafs: .\+"
   expect_log "Nodes in direct deps of reverse transitive closure: .\+"
   expect_log "Rdep edges: .\+ -> .\+"
-  expect_log "Heap: .\+MB -> .\+MB (.\+% reduction)"
-  expect_log "Node count: .\+ -> .\+ (.\+% reduction)"
+  expect_log "Heap: .\+MB -> .\+MB (-.\+%)"
+  expect_log "Node count: .\+ -> .\+ (-.\+%)"
 }
 
-function test_focus_command_dump_keys_prints_more_info_about_graph() {
+function test_focus_command_dump_keys_verbose() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
   echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<EOF
+  cat > ${pkg}/BUILD <<'EOF'
 genrule(
   name = "g",
   srcs = ["in.txt"],
   outs = ["out.txt"],
-  cmd = "cp \$< \$@",
+  cmd = "cp $< $@",
 )
 EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g \
-    --experimental_skyfocus_dump_keys \
+    --experimental_skyfocus_dump_keys=verbose \
     --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
 
-  # additional info
+  # Dumps headers
   expect_log "Rdeps kept:"
-  expect_log "BUILD_DRIVER:"
-
   expect_log "Deps kept:"
-  expect_log "BUILD_CONFIGURATION:"
+  expect_log "Verification set:"
 
-  expect_log "Summary of kept keys:"
-  expect_log "BUILD_DRIVER"
+  # Dumps SkyKey strings
+  expect_log "BUILD_DRIVER:BuildDriverKey"
+  expect_log "BUILD_CONFIGURATION:BuildConfigurationKey"
+  expect_log "FILE_STATE:\[.\+\]"
+
+  # Doesn't dump counts
+  expect_not_log "FILE_STATE: .\+ -> .\+ (-.\+%)"
+}
+
+function test_focus_command_dump_keys_count() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
+  mkdir -p ${pkg}
+  echo "input" > ${pkg}/in.txt
+  cat > ${pkg}/BUILD <<'EOF'
+genrule(
+  name = "g",
+  srcs = ["in.txt"],
+  outs = ["out.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
+  bazel build //${pkg}:g \
+    --experimental_skyfocus_dump_keys=count \
+    --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
+
+  # Dumps counts
+  expect_log "Roots kept: .\+"
+  expect_log "Leafs kept: .\+"
+  expect_log "CONFIGURED_TARGET: .\+ -> .\+ (-.\+%)"
+  expect_log "FILE_STATE: .\+ -> .\+ (-.\+%)"
+
+  # Doesn't dump SkyKey strings
+  expect_not_log "FILE_STATE:[.\+]"
 }
 
 function test_builds_new_target_after_using_focus() {

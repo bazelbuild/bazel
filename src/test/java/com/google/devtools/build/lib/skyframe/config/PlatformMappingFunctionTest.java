@@ -51,7 +51,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
 
   private static final Label DEFAULT_TARGET_PLATFORM =
-      Label.parseCanonicalUnchecked("@local_config_platform//:host");
+      Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform");
 
   private BuildOptions defaultBuildOptions;
 
@@ -246,16 +246,25 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     rewriteWorkspace("workspace(name = 'my_workspace')");
     scratch.file(
         "test/build_setting.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.string(flag=True)",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'string_flag')",
-        "string_flag(name = 'my_string_flag', build_setting_default = 'default value')");
+        """
+        load("//test:build_setting.bzl", "string_flag")
+
+        string_flag(
+            name = "my_string_flag",
+            build_setting_default = "default value",
+        )
+        """);
     scratch.file(
         "my_mapping_file",
         "platforms:", // Force line break
@@ -298,19 +307,34 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     // Define a Starlark flag:
     scratch.file(
         "test/flags/build_setting.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.string(flag=True)",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
     scratch.file(
         "test/flags/BUILD",
-        "load('//test/flags:build_setting.bzl', 'string_flag')",
-        "string_flag(name = 'my_string_flag', build_setting_default = 'default value')");
+        """
+        load("//test/flags:build_setting.bzl", "string_flag")
+
+        string_flag(
+            name = "my_string_flag",
+            build_setting_default = "default value",
+        )
+        """);
 
     // Define a custom platform and mapping from that platform to the flag:
-    scratch.file("test/platforms/BUILD", "platform(", "    name = 'my_platform',", ")");
+    scratch.file(
+        "test/platforms/BUILD",
+        """
+        platform(
+            name = "my_platform",
+        )
+        """);
     scratch.file(
         "my_mapping_file",
         "platforms:", // Force line break
@@ -320,35 +344,47 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     // Define a rule that platform-transitions its deps:
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//test/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//test/...",
+            ],
+        )
+        """);
     scratch.file(
         "test/starlark/rules.bzl",
-        "def transition_func(settings, attr):",
-        "  return {'//command_line_option:platforms': '//test/platforms:my_platform'}",
-        "my_transition = transition(",
-        "  implementation = transition_func,",
-        "  inputs = [],",
-        "  outputs = ['//command_line_option:platforms']",
-        ")",
-        "transition_rule = rule(",
-        "  implementation = lambda ctx: [],",
-        "  attrs = {",
-        "    'dep':  attr.label(cfg = my_transition),",
-        "  }",
-        ")");
+        """
+        def transition_func(settings, attr):
+            return {"//command_line_option:platforms": "//test/platforms:my_platform"}
+
+        my_transition = transition(
+            implementation = transition_func,
+            inputs = [],
+            outputs = ["//command_line_option:platforms"],
+        )
+        transition_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {
+                "dep": attr.label(cfg = my_transition),
+            },
+        )
+        """);
     scratch.file("test/starlark/BUILD");
 
     // Define a target to build and its dep:
     scratch.file(
         "test/BUILD",
-        "load('//test/starlark:rules.bzl', 'transition_rule')",
-        "transition_rule(name = 'main', dep = ':dep')",
-        "transition_rule(name = 'dep')");
+        """
+        load("//test/starlark:rules.bzl", "transition_rule")
+
+        transition_rule(
+            name = "main",
+            dep = ":dep",
+        )
+
+        transition_rule(name = "dep")
+        """);
 
     // Set the Starlark flag explicitly. Otherwise it won't show up at all in the top-level config's
     // getOptions().getStarlarkOptions() map.

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
-import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -62,15 +61,14 @@ import javax.annotation.Nullable;
     inherits = {TestCommand.class},
     options = {
       FetchOptions.class,
-      CqueryOptions.class,
       PackageOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class
     },
     usesConfigurationOptions = true,
-    help = "resource:fetch.txt",
-    shortDescription = "Fetches external repositories that are prerequisites to the targets.",
     allowResidue = true,
+    shortDescription = "Fetches external repositories that are prerequisites to the targets.",
+    help = "resource:fetch.txt",
     completion = "label")
 public final class FetchCommand implements BlazeCommand {
 
@@ -80,7 +78,7 @@ public final class FetchCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {
     // We only need to inject these options with fetch target (when there is a residue)
     if (!optionsParser.getResidue().isEmpty()) {
-      TargetFetcher.injectOptionsToFetchTarget(optionsParser);
+      TargetFetcher.injectNoBuildOption(optionsParser);
     }
   }
 
@@ -217,18 +215,13 @@ public final class FetchCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult fetchTarget(
-      CommandEnvironment env, OptionsParsingResult options, List<String> targets)
-      throws InterruptedException {
+      CommandEnvironment env, OptionsParsingResult options, List<String> targets) {
     try {
       TargetFetcher.fetchTargets(env, options, targets);
     } catch (TargetFetcherException e) {
       return createFailedBlazeCommandResult(
           env.getReporter(), Code.QUERY_EVALUATION_ERROR, e.getMessage());
-    } catch (RepositoryMappingResolutionException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), e.getMessage(), e.getDetailedExitCode());
     }
-
     env.getReporter()
         .handle(Event.info("All external dependencies for these targets fetched successfully."));
     return BlazeCommandResult.success();

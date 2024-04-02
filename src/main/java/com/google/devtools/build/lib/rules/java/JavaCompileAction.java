@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -655,7 +656,16 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   /** Returns the out-of-band execution data for this action. */
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return mergeMaps(super.getExecutionInfo(), executionInfo);
+    var result = mergeMaps(super.getExecutionInfo(), executionInfo);
+    if (outputDepsProto == null
+        || !configuration.getFragment(JavaConfiguration.class).inmemoryJdepsFiles()) {
+      return result;
+    }
+    return mergeMaps(
+        result,
+        ImmutableMap.of(
+            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+            outputDepsProto.getExecPathString()));
   }
 
   @Override

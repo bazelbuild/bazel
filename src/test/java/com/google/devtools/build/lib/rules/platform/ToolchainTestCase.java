@@ -105,24 +105,54 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
   public void createConstraints() throws Exception {
     scratch.file(
         "constraints/BUILD",
-        "constraint_setting(name = 'os')",
-        "constraint_value(name = 'linux',",
-        "    constraint_setting = ':os')",
-        "constraint_value(name = 'mac',",
-        "    constraint_setting = ':os')",
-        "constraint_setting(name = 'setting_with_default',",
-        "    default_constraint_value = ':default_value')",
-        "constraint_value(name = 'default_value',",
-        "    constraint_setting = ':setting_with_default')",
-        "constraint_value(name = 'non_default_value',",
-        "    constraint_setting = ':setting_with_default')");
+        """
+        constraint_setting(name = "os")
+
+        constraint_value(
+            name = "linux",
+            constraint_setting = ":os",
+        )
+
+        constraint_value(
+            name = "mac",
+            constraint_setting = ":os",
+        )
+
+        constraint_setting(
+            name = "setting_with_default",
+            default_constraint_value = ":default_value",
+        )
+
+        constraint_value(
+            name = "default_value",
+            constraint_setting = ":setting_with_default",
+        )
+
+        constraint_value(
+            name = "non_default_value",
+            constraint_setting = ":setting_with_default",
+        )
+        """);
 
     scratch.file(
         "platforms/BUILD",
-        "platform(name = 'linux',",
-        "    constraint_values = ['//constraints:linux', '//constraints:non_default_value'])",
-        "platform(name = 'mac',",
-        "    constraint_values = ['//constraints:mac', '//constraints:non_default_value'])");
+        """
+        platform(
+            name = "linux",
+            constraint_values = [
+                "//constraints:linux",
+                "//constraints:non_default_value",
+            ],
+        )
+
+        platform(
+            name = "mac",
+            constraint_values = [
+                "//constraints:mac",
+                "//constraints:non_default_value",
+            ],
+        )
+        """);
 
     setting = ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraints:os"));
     linuxConstraint =
@@ -212,20 +242,30 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
 
     scratch.file(
         "toolchain/toolchain_def.bzl",
-        "def _impl(ctx):",
-        "  toolchain = platform_common.ToolchainInfo(",
-        "      data = ctx.attr.data)",
-        "  return [toolchain]",
-        "test_toolchain = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'data': attr.string()})");
+        """
+        def _impl(ctx):
+            toolchain = platform_common.ToolchainInfo(
+                data = ctx.attr.data,
+            )
+            return [toolchain]
+
+        test_toolchain = rule(
+            implementation = _impl,
+            attrs = {
+                "data": attr.string(),
+            },
+        )
+        """);
 
     scratch.file(
         "toolchain/BUILD",
-        "toolchain_type(name = 'test_toolchain')",
-        "toolchain_type(name = 'optional_toolchain')",
-        "toolchain_type(name = 'workspace_suffix_toolchain')");
+        """
+        toolchain_type(name = "test_toolchain")
+
+        toolchain_type(name = "optional_toolchain")
+
+        toolchain_type(name = "workspace_suffix_toolchain")
+        """);
 
     testToolchainTypeLabel = Label.parseCanonicalUnchecked("//toolchain:test_toolchain");
     testToolchainType = ToolchainTypeRequirement.create(testToolchainTypeLabel);

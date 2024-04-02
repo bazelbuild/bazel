@@ -90,10 +90,22 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     writeTreeRuleBzl(scratch.file("foo/def.bzl"));
     scratch.file(
         "foo/BUILD",
-        "load(':def.bzl', 'tree')",
-        "package(features = ['cc_include_scanning', 'header_modules', 'use_header_modules'])",
-        "tree(name = 'headers')",
-        "cc_library(name = 'foo', hdrs = [':headers'])");
+        """
+        load(":def.bzl", "tree")
+
+        package(features = [
+            "cc_include_scanning",
+            "header_modules",
+            "use_header_modules",
+        ])
+
+        tree(name = "headers")
+
+        cc_library(
+            name = "foo",
+            hdrs = [":headers"],
+        )
+        """);
     IncludeScanner includeScanner = mock(IncludeScanner.class);
     CppIncludeScanningContextImpl includeScanningContext =
         createIncludeScanningContext(includeScanner);
@@ -119,10 +131,25 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     writeTreeRuleBzl(scratch.file("foo/def.bzl"));
     scratch.file(
         "foo/BUILD",
-        "load(':def.bzl', 'tree')",
-        "package(features = ['cc_include_scanning', 'header_modules', 'use_header_modules'])",
-        "tree(name = 'headers')",
-        "cc_library(name = 'foo', hdrs = [':headers', 'header.h'])");
+        """
+        load(":def.bzl", "tree")
+
+        package(features = [
+            "cc_include_scanning",
+            "header_modules",
+            "use_header_modules",
+        ])
+
+        tree(name = "headers")
+
+        cc_library(
+            name = "foo",
+            hdrs = [
+                "header.h",
+                ":headers",
+            ],
+        )
+        """);
     scratch.file("foo/header.h");
     IncludeScanner includeScanner = mock(IncludeScanner.class);
     CppIncludeScanningContextImpl includeScanningContext =
@@ -149,10 +176,22 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     writeTreeRuleBzl(scratch.file("foo/def.bzl"));
     scratch.file(
         "foo/BUILD",
-        "load(':def.bzl', 'tree')",
-        "package(features = ['cc_include_scanning', 'header_modules', 'use_header_modules'])",
-        "tree(name = 'headers')",
-        "cc_library(name = 'foo', hdrs = [':headers'])");
+        """
+        load(":def.bzl", "tree")
+
+        package(features = [
+            "cc_include_scanning",
+            "header_modules",
+            "use_header_modules",
+        ])
+
+        tree(name = "headers")
+
+        cc_library(
+            name = "foo",
+            hdrs = [":headers"],
+        )
+        """);
     CppIncludeScanningContextImpl includeScanningContext = createIncludeScanningContext(null);
     CppCompileAction action = getCppCompileAction("//foo");
     var actionExecutionContext = createActionExecutionContext(emptyEnvironment());

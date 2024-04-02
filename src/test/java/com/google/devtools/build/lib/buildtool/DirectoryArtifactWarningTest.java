@@ -30,10 +30,14 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
   private void setupGenruleWithOutputArtifactDirectory() throws Exception {
     write(
         "x/BUILD",
-        "genrule(name = 'x',",
-        "        outs = ['dir'],",
-        "        cmd = 'mkdir $(location dir)',",
-        "        srcs = [])");
+        """
+        genrule(
+            name = "x",
+            srcs = [],
+            outs = ["dir"],
+            cmd = "mkdir $(location dir)",
+        )
+        """);
   }
 
   @Test
@@ -49,19 +53,30 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
   private void setupStarlarkRuleWithOutputArtifactDirectory() throws Exception {
     write(
         "x/defs.bzl",
-        "def _impl(ctx):",
-        "  ctx.actions.run_shell(",
-        "    outputs = [ctx.outputs.out],",
-        "    command = 'mkdir %s' % ctx.outputs.out.path,",
-        "  )",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'out': attr.output(),",
-        "  },",
-        ")");
-    write("x/BUILD", "load('defs.bzl', 'my_rule')", "my_rule(name = 'x', out = 'dir')");
+        """
+        def _impl(ctx):
+            ctx.actions.run_shell(
+                outputs = [ctx.outputs.out],
+                command = "mkdir %s" % ctx.outputs.out.path,
+            )
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "out": attr.output(),
+            },
+        )
+        """);
+    write(
+        "x/BUILD",
+        """
+        load("defs.bzl", "my_rule")
+
+        my_rule(
+            name = "x",
+            out = "dir",
+        )
+        """);
   }
 
   @Test
@@ -78,10 +93,14 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
   public void testInputArtifactDirectoryWarning_forGenrule() throws Exception {
     write(
         "x/BUILD",
-        "genrule(name = 'x',",
-        "        outs = ['out'],",
-        "        cmd = 'touch $(location out)',",
-        "        srcs = ['dir'])");
+        """
+        genrule(
+            name = "x",
+            srcs = ["dir"],
+            outs = ["out"],
+            cmd = "touch $(location out)",
+        )
+        """);
     write("x/dir/empty");
 
     buildTarget("//x");
@@ -95,22 +114,33 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
   public void testInputArtifactDirectoryWarning_forStarlarkRule() throws Exception {
     write(
         "x/defs.bzl",
-        "def _impl(ctx):",
-        "  ctx.actions.run_shell(",
-        "    inputs = [ctx.file.src],",
-        "    outputs = [ctx.outputs.out],",
-        "    command = 'touch %s' % ctx.outputs.out.path,",
-        "  )",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'src': attr.label(allow_single_file = True),",
-        "    'out': attr.output(),",
-        "  },",
-        ")");
+        """
+        def _impl(ctx):
+            ctx.actions.run_shell(
+                inputs = [ctx.file.src],
+                outputs = [ctx.outputs.out],
+                command = "touch %s" % ctx.outputs.out.path,
+            )
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "src": attr.label(allow_single_file = True),
+                "out": attr.output(),
+            },
+        )
+        """);
     write(
-        "x/BUILD", "load('defs.bzl', 'my_rule')", "my_rule(name = 'x', src = 'dir', out = 'out')");
+        "x/BUILD",
+        """
+        load("defs.bzl", "my_rule")
+
+        my_rule(
+            name = "x",
+            src = "dir",
+            out = "out",
+        )
+        """);
     write("x/dir/empty");
 
     buildTarget("//x");

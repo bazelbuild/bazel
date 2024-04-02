@@ -20,9 +20,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A provider containing information about a version of Xcode and its properties. */
@@ -103,36 +105,60 @@ public interface XcodePropertiesApi extends StructApi {
               name = "version",
               doc = "",
               positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
               named = true,
               defaultValue = "None"),
           @Param(
               name = "default_ios_sdk_version",
               doc = "",
               positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
               named = true,
               defaultValue = "None"),
           @Param(
               name = "default_visionos_sdk_version",
               doc = "",
               positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
               named = true,
               defaultValue = "None"),
           @Param(
               name = "default_watchos_sdk_version",
               doc = "",
               positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
               named = true,
               defaultValue = "None"),
           @Param(
               name = "default_tvos_sdk_version",
               doc = "",
               positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
               named = true,
               defaultValue = "None"),
           @Param(
               name = "default_macos_sdk_version",
               doc = "",
               positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
               named = true,
               defaultValue = "None"),
         },
@@ -140,12 +166,12 @@ public interface XcodePropertiesApi extends StructApi {
         documented = false)
     @StarlarkConstructor
     XcodePropertiesApi createInfo(
-        String version,
-        String defaultIosSdkVersion,
-        String defaultVisionosSdkVersion,
-        String defaultWatchosSdkVersion,
-        String defaultTvosSdkVersion,
-        String defaultMacosSdkVersion,
+        Object version,
+        Object defaultIosSdkVersion,
+        Object defaultVisionosSdkVersion,
+        Object defaultWatchosSdkVersion,
+        Object defaultTvosSdkVersion,
+        Object defaultMacosSdkVersion,
         StarlarkThread thread)
         throws EvalException;
   }

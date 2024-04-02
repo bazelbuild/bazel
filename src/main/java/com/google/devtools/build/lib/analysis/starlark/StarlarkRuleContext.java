@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
@@ -1143,7 +1144,7 @@ public final class StarlarkRuleContext
     }
     if (!Starlark.isNullOrNone(makeVariablesUnchecked)) {
       Map<String, String> makeVariables =
-          Type.STRING_DICT.convert(makeVariablesUnchecked, "make_variables");
+          Types.STRING_DICT.convert(makeVariablesUnchecked, "make_variables");
       command = expandMakeVariables(attribute, command, makeVariables);
     }
     // TODO(lberki): This flattens a NestedSet.

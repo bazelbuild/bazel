@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
@@ -51,29 +52,46 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
   public void createTargets() throws Exception {
     scratch.file(
         "tests/BUILD",
-        "py_test(name = 'small_test_1',",
-        "        srcs = ['small_test_1.py'],",
-        "        data = [':xUnit'],",
-        "        size = 'small',",
-        "        tags = ['tag1'])",
-        "",
-        "sh_test(name = 'small_test_2',",
-        "        srcs = ['small_test_2.sh'],",
-        "        data = ['//testing/shbase:googletest.sh'],",
-        "        size = 'small',",
-        "        tags = ['tag2'])",
-        "",
-        "sh_test(name = 'large_test_1',",
-        "        srcs = ['large_test_1.sh'],",
-        "        data = ['//testing/shbase:googletest.sh', ':xUnit'],",
-        "        size = 'large',",
-        "        tags = ['tag1'])",
-        "",
-        "py_binary(name = 'notest',",
-        "        srcs = ['notest.py'])",
-        "cc_library(name = 'xUnit')",
-        "",
-        "test_suite( name = 'smallTests', tags=['small'])");
+        """
+        sh_test(
+            name = "small_test_1",
+            size = "small",
+            srcs = ["small_test_1.sh"],
+            data = [":xUnit"],
+            tags = ["tag1"],
+        )
+
+        sh_test(
+            name = "small_test_2",
+            size = "small",
+            srcs = ["small_test_2.sh"],
+            data = ["//testing/shbase:googletest.sh"],
+            tags = ["tag2"],
+        )
+
+        sh_test(
+            name = "large_test_1",
+            size = "large",
+            srcs = ["large_test_1.sh"],
+            data = [
+                ":xUnit",
+                "//testing/shbase:googletest.sh",
+            ],
+            tags = ["tag1"],
+        )
+
+        sh_binary(
+            name = "notest",
+            srcs = ["notest.sh"],
+        )
+
+        cc_library(name = "xUnit")
+
+        test_suite(
+            name = "smallTests",
+            tags = ["small"],
+        )
+        """);
 
     test1 = getTarget("//tests:small_test_1");
     test2 = getTarget("//tests:small_test_2");
@@ -104,7 +122,8 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
     TestFilter filter = TestFilter.forOptions(options);
     Package pkg = mock(Package.class);
     RuleClass ruleClass = mock(RuleClass.class);
-    when(ruleClass.getDefaultImplicitOutputsFunction()).thenReturn(ImplicitOutputsFunction.NONE);
+    when(ruleClass.getDefaultImplicitOutputsFunction())
+        .thenReturn(SafeImplicitOutputsFunction.NONE);
     Rule mockRule =
         new Rule(
             pkg,
@@ -122,17 +141,27 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
   public void testFilterByTimeout() throws Exception {
     scratch.file(
         "timeouts/BUILD",
-        "sh_test(name = 'long_timeout',",
-        "          srcs = ['a.sh'],",
-        "          size = 'small',",
-        "          timeout = 'long')",
-        "sh_test(name = 'short_timeout',",
-        "          srcs = ['b.sh'],",
-        "          size = 'small')",
-        "sh_test(name = 'moderate_timeout',",
-        "          srcs = ['c.sh'],",
-        "          size = 'small',",
-        "          timeout = 'moderate')");
+        """
+        sh_test(
+            name = "long_timeout",
+            size = "small",
+            timeout = "long",
+            srcs = ["a.sh"],
+        )
+
+        sh_test(
+            name = "short_timeout",
+            size = "small",
+            srcs = ["b.sh"],
+        )
+
+        sh_test(
+            name = "moderate_timeout",
+            size = "small",
+            timeout = "moderate",
+            srcs = ["c.sh"],
+        )
+        """);
     Target longTest = getTarget("//timeouts:long_timeout");
     Target shortTest = getTarget("//timeouts:short_timeout");
     Target moderateTest = getTarget("//timeouts:moderate_timeout");

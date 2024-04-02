@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
@@ -33,12 +34,14 @@ import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.LabelRenderer;
 import com.google.devtools.build.skydoc.rendering.StarlarkFunctionInfoExtractor;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.MacroInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionTagClassInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
@@ -190,6 +193,8 @@ final class ModuleInfoExtractor {
       if (shouldVisitVerifiedForAncestor || shouldVisit(qualifiedName)) {
         if (value instanceof StarlarkRuleFunction) {
           visitRule(qualifiedName, (StarlarkRuleFunction) value);
+        } else if (value instanceof MacroFunction) {
+          visitMacroFunction(qualifiedName, (MacroFunction) value);
         } else if (value instanceof StarlarkProvider) {
           visitProvider(qualifiedName, (StarlarkProvider) value);
         } else if (value instanceof StarlarkFunction) {
@@ -217,6 +222,8 @@ final class ModuleInfoExtractor {
 
     protected void visitRule(String qualifiedName, StarlarkRuleFunction value)
         throws ExtractionException {}
+
+    protected void visitMacroFunction(String qualifiedName, MacroFunction value) {}
 
     protected void visitProvider(String qualifiedName, StarlarkProvider value)
         throws ExtractionException {}
@@ -377,6 +384,22 @@ final class ModuleInfoExtractor {
     }
 
     @Override
+    protected void visitMacroFunction(String qualifiedName, MacroFunction macroFunction) {
+      MacroInfo.Builder macroInfoBuilder = MacroInfo.newBuilder();
+      // Record the name under which this symbol is made accessible, which may differ from the
+      // symbol's exported name
+      macroInfoBuilder.setMacroName(qualifiedName);
+      // ... but record the origin rule key for cross references.
+      macroInfoBuilder.setOriginKey(
+          OriginKey.newBuilder()
+              .setName(macroFunction.getName())
+              .setFile(labelRenderer.render(macroFunction.getExtensionLabel())));
+      macroFunction.getDocumentation().ifPresent(macroInfoBuilder::setDocString);
+      // TODO(#19922): add and document macro attributes
+      moduleInfoBuilder.addMacroInfo(macroInfoBuilder);
+    }
+
+    @Override
     protected void visitProvider(String qualifiedName, StarlarkProvider provider)
         throws ExtractionException {
       ProviderInfo.Builder providerInfoBuilder = ProviderInfo.newBuilder();
@@ -499,9 +522,9 @@ final class ModuleInfoExtractor {
           ruleClass.getAttributes(),
           repositoryRuleInfoBuilder::addAttribute,
           "repository rule " + qualifiedName);
-      if (ruleClass.hasAttr("$environ", Type.STRING_LIST)) {
+      if (ruleClass.hasAttr("$environ", Types.STRING_LIST)) {
         repositoryRuleInfoBuilder.addAllEnviron(
-            Type.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue(null)));
+            Types.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue(null)));
       }
       moduleInfoBuilder.addRepositoryRuleInfo(repositoryRuleInfoBuilder);
     }
@@ -519,9 +542,9 @@ final class ModuleInfoExtractor {
         } else {
           return AttributeType.STRING;
         }
-      } else if (type.equals(Type.STRING_LIST)) {
+      } else if (type.equals(Types.STRING_LIST)) {
         return AttributeType.STRING_LIST;
-      } else if (type.equals(Type.INTEGER_LIST)) {
+      } else if (type.equals(Types.INTEGER_LIST)) {
         return AttributeType.INT_LIST;
       } else if (type.equals(BuildType.LABEL_LIST)) {
         return AttributeType.LABEL_LIST;
@@ -529,9 +552,9 @@ final class ModuleInfoExtractor {
         return AttributeType.BOOLEAN;
       } else if (type.equals(BuildType.LABEL_KEYED_STRING_DICT)) {
         return AttributeType.LABEL_STRING_DICT;
-      } else if (type.equals(Type.STRING_DICT)) {
+      } else if (type.equals(Types.STRING_DICT)) {
         return AttributeType.STRING_DICT;
-      } else if (type.equals(Type.STRING_LIST_DICT)) {
+      } else if (type.equals(Types.STRING_LIST_DICT)) {
         return AttributeType.STRING_LIST_DICT;
       } else if (type.equals(BuildType.OUTPUT)) {
         return AttributeType.OUTPUT;

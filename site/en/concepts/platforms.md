@@ -193,7 +193,8 @@ Project owners should define explicit
 they want to build for. These are then triggered with `--platforms`.
 
 When `--platforms` isn't set, Bazel defaults to a `platform` representing the
-local build machine. This is auto-generated at `@local_config_platform//:host`
+local build machine. This is auto-generated at `@platforms//host` (aliased as
+`@bazel_tools//tools:host_platform`)
 so there's no need to explicitly define it. It maps the local machine's `OS`
 and `CPU` with `constraint_value`s declared in
 [`@platforms`](https://github.com/bazelbuild/platforms){: .external}.
@@ -300,14 +301,14 @@ corresponding set of legacy flags or the reverse. For example:
 
 ```python
 platforms:
-  # Maps "--platforms=//platforms:ios" to "--cpu=ios_x86_64 --apple_platform_type=ios".
+  # Maps "--platforms=//platforms:ios" to "--ios_multi_cpus=x86_64 --apple_platform_type=ios".
   //platforms:ios
-    --cpu=ios_x86_64
+    --ios_multi_cpus=x86_64
     --apple_platform_type=ios
 
 flags:
-  # Maps "--cpu=ios_x86_64 --apple_platform_type=ios" to "--platforms=//platforms:ios".
-  --cpu=ios_x86_64
+  # Maps "--ios_multi_cpus=x86_64 --apple_platform_type=ios" to "--platforms=//platforms:ios".
+  --ios_multi_cpus=x86_64
   --apple_platform_type=ios
     //platforms:ios
 

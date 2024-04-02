@@ -101,6 +101,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         "   all_files = ':dummy_filegroup',",
         ")",
         "filegroup(name = 'dummy_filegroup')");
+    mockToolsConfig.append("mock_platform/BUILD", "platform(name = 'mock-piii-platform')");
 
     useConfiguration(
         "--incompatible_enable_cc_toolchain_resolution",

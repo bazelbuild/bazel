@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
+import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.ArtifactDependencies;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
@@ -103,6 +105,9 @@ public final class ActionRewindStrategy {
    * observed by a top-level completion function.
    *
    * <p>Also prepares {@link SkyframeActionExecutor} for the rewind plan.
+   *
+   * @throws ActionRewindException if rewinding is disabled, or if any lost outputs have been seen
+   *     by {@code failedKey} as lost before too many times
    */
   public Reset prepareRewindPlanForLostTopLevelOutputs(
       TopLevelActionLookupKeyWrapper failedKey,
@@ -111,10 +116,13 @@ public final class ActionRewindStrategy {
       ActionInputDepOwners depOwners,
       Environment env)
       throws ActionRewindException, InterruptedException {
-    checkState(
-        skyframeActionExecutor.rewindingEnabled(),
-        "Unexpected lost outputs: %s",
-        lostOutputsByDigest);
+    if (!skyframeActionExecutor.rewindingEnabled()) {
+      throw new ActionRewindException(
+          "Unexpected lost outputs (pass --rewind_lost_inputs to enable recovery): "
+              + prettyPrint(lostOutputsByDigest.values()),
+          Code.LOST_OUTPUT_REWINDING_DISABLED);
+    }
+
     ImmutableList<LostInputRecord> lostOutputRecords =
         checkIfTopLevelOutputLostTooManyTimes(failedKey, lostOutputsByDigest);
 
@@ -140,8 +148,8 @@ public final class ActionRewindStrategy {
    * <p>Also prepares {@link SkyframeActionExecutor} for the rewind plan and emits an {@link
    * ActionRewoundEvent} if necessary.
    *
-   * @throws ActionRewindException if any lost inputs have been seen by this action as lost before
-   *     too many times
+   * @throws ActionRewindException if rewinding is disabled, or if any lost inputs have been seen by
+   *     {@code failedKey} as lost before too many times
    */
   public Reset prepareRewindPlanForLostInputs(
       ActionLookupData failedKey,
@@ -152,11 +160,14 @@ public final class ActionRewindStrategy {
       Environment env,
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
-    checkState(
-        skyframeActionExecutor.rewindingEnabled(),
-        "Unexpected lost inputs: %s",
-        lostInputsException.getLostInputs());
     ImmutableMap<String, ActionInput> lostInputsByDigest = lostInputsException.getLostInputs();
+    if (!skyframeActionExecutor.rewindingEnabled()) {
+      throw new ActionRewindException(
+          "Unexpected lost inputs (pass --rewind_lost_inputs to enable recovery): "
+              + prettyPrint(lostInputsByDigest.values()),
+          Code.LOST_INPUT_REWINDING_DISABLED);
+    }
+
     ImmutableList<LostInputRecord> lostInputRecords =
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
 
@@ -309,15 +320,11 @@ public final class ActionRewindStrategy {
       int losses = currentBuildLostOutputRecords.add(lostInputRecord, /* occurrences= */ 1) + 1;
       if (losses > MAX_REPEATED_LOST_INPUTS) {
         ActionInput output = lostOutputsByDigest.get(digest);
-        String prettyPrintedOutput =
-            output instanceof Artifact
-                ? ((Artifact) output).prettyPrint()
-                : output.getExecPathString();
         ActionRewindException e =
             new ActionRewindException(
                 String.format(
                     "Lost output %s (digest %s), and rewinding was ineffective after %d attempts.",
-                    prettyPrintedOutput, digest, MAX_REPEATED_LOST_INPUTS),
+                    prettyPrint(output), digest, MAX_REPEATED_LOST_INPUTS),
                 ActionRewinding.Code.LOST_OUTPUT_TOO_MANY_TIMES);
         bugReporter.sendBugReport(e);
         throw e;
@@ -328,6 +335,14 @@ public final class ActionRewindStrategy {
       }
     }
     return lostOutputRecords;
+  }
+
+  private static String prettyPrint(Collection<ActionInput> inputs) {
+    return inputs.stream().map(ActionRewindStrategy::prettyPrint).collect(joining(","));
+  }
+
+  private static String prettyPrint(ActionInput input) {
+    return input instanceof Artifact a ? a.prettyPrint() : input.getExecPathString();
   }
 
   /** Returns all lost input records that will cause the failed action to rewind. */

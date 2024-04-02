@@ -11,13 +11,18 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+DUMPER_SOURCES = [
+    "Dumper.java",
+    "FieldInfoCache.java",
+    "Fingerprinter.java",
+]
+
 java_library(
     name = "testutils",
     testonly = 1,
     srcs = glob(
         ["*.java"],
-        exclude = [
-            "Dumper.java",
+        exclude = DUMPER_SOURCES + [
             "FakeDirectories.java",
             "SerializationDepsUtils.java",
         ],
@@ -63,9 +68,10 @@ java_library(
 
 java_library(
     name = "dumper",
-    srcs = ["Dumper.java"],
+    srcs = DUMPER_SOURCES,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

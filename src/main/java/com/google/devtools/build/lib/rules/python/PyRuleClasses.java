@@ -13,20 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
-import com.google.common.base.Ascii;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.vfs.Path;
-import java.util.Set;
-import java.util.function.Function;
 
 /** Rule definitions for Python rules. */
 public class PyRuleClasses {
@@ -44,45 +32,4 @@ public class PyRuleClasses {
           return String.format("has to be one of 'PY2' or 'PY3' instead of '%s'", value);
         }
       };
-
-  /** The py3 symlinks. */
-  public static final class Py3Symlink implements SymlinkDefinition {
-    public static final Py3Symlink INSTANCE = new Py3Symlink();
-
-    @Override
-    public String getLinkName(String symlinkPrefix, String workspaceBaseName) {
-      return symlinkPrefix + Ascii.toLowerCase(PythonVersion.PY3.toString());
-    }
-
-    @Override
-    public ImmutableSet<Path> getLinkPaths(
-        BuildRequestOptions buildRequestOptions,
-        Set<BuildConfigurationValue> targetConfigs,
-        Function<BuildOptions, BuildConfigurationValue> configGetter,
-        RepositoryName repositoryName,
-        Path outputPath,
-        Path execRoot) {
-      if (!buildRequestOptions.experimentalCreatePySymlinks) {
-        return ImmutableSet.of();
-      }
-
-      return targetConfigs.stream()
-          .map(
-              config -> {
-                BuildOptions options = config.getOptions();
-                PythonOptions opts =
-                    options.hasNoConfig() ? null : options.get(PythonOptions.class);
-                if (opts == null || !opts.canTransitionPythonVersion(PythonVersion.PY3)) {
-                  return config;
-                } else {
-                  BuildOptions newOptions = options.clone();
-                  newOptions.get(PythonOptions.class).setPythonVersion(PythonVersion.PY3);
-                  return configGetter.apply(newOptions);
-                }
-              })
-          .map(config -> config.getOutputDirectory(repositoryName).getRoot().asPath())
-          .distinct()
-          .collect(toImmutableSet());
-    }
-  }
 }

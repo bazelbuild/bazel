@@ -18,7 +18,10 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -51,10 +54,12 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
   // The in-memory Skyframe graph
   private final InMemoryGraph graph;
 
+  private final ActionCache actionCache;
+
   // Event handler to report stats during focusing
   private final EventHandler eventHandler;
 
-  private SkyframeFocuser(InMemoryGraph graph, EventHandler eventHandler) {
+  private SkyframeFocuser(InMemoryGraph graph, ActionCache actionCache, EventHandler eventHandler) {
     super(
         /* parallelism= */ Runtime.getRuntime().availableProcessors(),
         /* keepAliveTime= */ 2,
@@ -63,6 +68,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
         /* poolName= */ "skyframe-focuser",
         ErrorClassifier.DEFAULT);
     this.graph = graph;
+    this.actionCache = actionCache;
     this.eventHandler = eventHandler;
   }
 
@@ -86,9 +92,13 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
    * @return the set of kept SkyKeys in the in-memory graph, categorized by deps and rdeps.
    */
   public static FocusResult focus(
-      InMemoryGraph graph, EventHandler eventHandler, Set<SkyKey> roots, Set<SkyKey> leafs)
+      InMemoryGraph graph,
+      ActionCache actionCache,
+      EventHandler eventHandler,
+      Set<SkyKey> roots,
+      Set<SkyKey> leafs)
       throws InterruptedException {
-    SkyframeFocuser focuser = new SkyframeFocuser(graph, eventHandler);
+    SkyframeFocuser focuser = new SkyframeFocuser(graph, actionCache, eventHandler);
     return focuser.run(roots, leafs);
   }
 
@@ -363,6 +373,15 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               // dirty keys to invalidate.
               return;
             }
+
+            if (inMemoryNodeEntry.getValue() instanceof ActionLookupValue alv) {
+              for (ActionAnalysisMetadata a : alv.getActions()) {
+                for (Artifact output : a.getOutputs()) {
+                  actionCache.remove(output.getExecPathString());
+                }
+              }
+            }
+
             graph.remove(key);
           });
 

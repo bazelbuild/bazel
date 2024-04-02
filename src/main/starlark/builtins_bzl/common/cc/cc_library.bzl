@@ -124,7 +124,8 @@ def _cc_library_impl(ctx):
 
     if has_compilation_outputs:
         dll_name_suffix = ""
-        win_def_file = None
+        additional_inputs = _filter_linker_scripts(ctx.files.deps) + ctx.files.additional_linker_inputs
+        link_variables = {}
         is_windows_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows")
         if is_windows_enabled:
             dll_name_suffix = cc_helper.dll_hash_suffix(ctx, feature_configuration, ctx.fragments.cpp)
@@ -136,6 +137,8 @@ def _cc_library_impl(ctx):
                 output_group_builder["def_file"] = depset([generated_def_file])
 
             win_def_file = cc_helper.get_windows_def_file_for_linking(ctx, ctx.file.win_def_file, generated_def_file, feature_configuration)
+            link_variables["def_file_path"] = win_def_file.path
+            additional_inputs.append(win_def_file)
 
         (
             linking_context,
@@ -146,13 +149,13 @@ def _cc_library_impl(ctx):
             compilation_outputs = compilation_outputs,
             cc_toolchain = cc_toolchain,
             feature_configuration = feature_configuration,
-            additional_inputs = _filter_linker_scripts(ctx.files.deps) + ctx.files.additional_linker_inputs,
+            additional_inputs = additional_inputs,
             linking_contexts = linking_contexts,
             user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain),
             alwayslink = ctx.attr.alwayslink,
-            disallow_dynamic_library = not create_dynamic_library or is_windows_enabled and win_def_file == None,
+            disallow_dynamic_library = not create_dynamic_library,
             linked_dll_name_suffix = dll_name_suffix,
-            win_def_file = win_def_file,
+            variables_extension = link_variables,
         )
     elif semantics.should_create_empty_archive():
         precompiled_files_count = 0

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructure;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -320,6 +321,151 @@ public final class DumperTest {
     private final ImmutableMap<String, Integer> map = ImmutableMap.of("x", 0, "y", 1);
     private final ImmutableList<Class<?>> iterable = ImmutableList.of(Runnable.class, Thread.class);
     private final Position obj = new Position(12, 13);
+  }
+
+  @Test
+  public void equivalenceReduction() {
+    var subject = ImmutableList.of(new Position(4, 5), new Position(4, 5));
+
+    assertThat(dumpStructure(subject))
+        .isEqualTo(
+            """
+com.google.common.collect.RegularImmutableList(0) [
+  com.google.devtools.build.lib.skyframe.serialization.testutils.DumperTest.Position(1) [
+    x=4
+    y=5
+  ]
+  com.google.devtools.build.lib.skyframe.serialization.testutils.DumperTest.Position(2) [
+    x=4
+    y=5
+  ]
+]""");
+
+    // With equivalence reduction, the duplicate position is turned into a backreference.
+    assertThat(dumpStructureWithEquivalenceReduction(subject))
+        .isEqualTo(
+            """
+com.google.common.collect.RegularImmutableList(0) [
+  com.google.devtools.build.lib.skyframe.serialization.testutils.DumperTest.Position(1) [
+    x=4
+    y=5
+  ]
+  com.google.devtools.build.lib.skyframe.serialization.testutils.DumperTest.Position(1)
+]""");
+  }
+
+  @Test
+  public void equivalentCycles() {
+    // `cycle1` and `cycle2` are equivalent, but different references.
+    var cycle1 = new ArrayList<Object>();
+    var one = new ArrayList<Object>();
+    cycle1.add(one);
+    one.add(cycle1);
+
+    var cycle2 = new ArrayList<Object>();
+    var two = new ArrayList<Object>();
+    cycle2.add(two);
+    two.add(cycle2);
+
+    var subject = ImmutableList.of(cycle1, cycle2);
+
+    assertThat(dumpStructure(subject))
+        .isEqualTo(
+            """
+            com.google.common.collect.RegularImmutableList(0) [
+              java.util.ArrayList(1) [
+                java.util.ArrayList(2) [
+                  java.util.ArrayList(1)
+                ]
+              ]
+              java.util.ArrayList(3) [
+                java.util.ArrayList(4) [
+                  java.util.ArrayList(3)
+                ]
+              ]
+            ]""");
+    // Equivalence reduction deduplicates the 2nd cycle.
+    assertThat(dumpStructureWithEquivalenceReduction(subject))
+        .isEqualTo(
+            """
+            com.google.common.collect.RegularImmutableList(0) [
+              java.util.ArrayList(1) [
+                java.util.ArrayList(2) [
+                  java.util.ArrayList(1)
+                ]
+              ]
+              java.util.ArrayList(1)
+            ]""");
+  }
+
+  @Test
+  public void rotationsNotDeduplicated() {
+    // This test case demonstrates the limitations of the fingerprinting approach. It might be
+    // better to be able to deduplicate this, but the output is reasonable.
+
+    // `cycle1` and `cycle2` are isomorphic, but rotated.
+    var cycle1 = new ArrayList<>();
+    var one = new ArrayList<>();
+    cycle1.add(1);
+    cycle1.add(one);
+    one.add(2);
+    one.add(cycle1);
+
+    var cycle2 = new ArrayList<>();
+    var two = new ArrayList<>();
+    cycle2.add(2);
+    cycle2.add(two);
+    two.add(1);
+    two.add(cycle2);
+
+    var subject = ImmutableList.of(cycle1, cycle2);
+    assertThat(dumpStructureWithEquivalenceReduction(subject))
+        .isEqualTo(
+            """
+            com.google.common.collect.RegularImmutableList(0) [
+              java.util.ArrayList(1) [
+                1
+                java.util.ArrayList(2) [
+                  2
+                  java.util.ArrayList(1)
+                ]
+              ]
+              java.util.ArrayList(3) [
+                2
+                java.util.ArrayList(4) [
+                  1
+                  java.util.ArrayList(3)
+                ]
+              ]
+            ]""");
+  }
+
+  @Test
+  public void referenceRotationsDeduplicated() {
+    // This test case contrasts the previous test case. The rotation can't be deduplicated by
+    // fingerprint, but it can still be deduplicated by reference.
+
+    var cycle = new ArrayList<Object>();
+    var one = new ArrayList<Object>();
+    cycle.add('A');
+    cycle.add(one);
+    one.add('B');
+    one.add(cycle);
+
+    var subject = ImmutableList.of(cycle, one);
+    assertThat(dumpStructureWithEquivalenceReduction(subject))
+        .isEqualTo(
+            """
+            com.google.common.collect.RegularImmutableList(0) [
+              java.util.ArrayList(1) [
+                A
+                java.util.ArrayList(2) [
+                  B
+                  java.util.ArrayList(1)
+                ]
+              ]
+              java.util.ArrayList(2)
+            ]""");
   }
 
   /** An arbitrary class used as test data. */

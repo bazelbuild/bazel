@@ -86,49 +86,55 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
   public void artifactsNotRetained() throws Exception {
     write(
         "validation_actions/defs.bzl",
-        "def _rule_with_implicit_outs_and_validation_impl(ctx):",
-        "",
-        "  ctx.actions.write(ctx.outputs.main, \"main output\\n\")",
-        "",
-        "  ctx.actions.write(ctx.outputs.implicit, \"implicit output\\n\")",
-        "",
-        "  validation_output = ctx.actions.declare_file(ctx.attr.name + \".validation\")",
-        "  # The actual tool will be created in individual tests, depending on whether",
-        "  # validation should pass or fail.",
-        "  ctx.actions.run(",
-        "      outputs = [validation_output],",
-        "      executable = ctx.executable._validation_tool,",
-        "      arguments = [validation_output.path])",
-        "",
-        "  return [",
-        "    DefaultInfo(files = depset([ctx.outputs.main])),",
-        "    OutputGroupInfo(_validation = depset([validation_output])),",
-        "  ]",
-        "",
-        "",
-        "rule_with_implicit_outs_and_validation = rule(",
-        "  implementation = _rule_with_implicit_outs_and_validation_impl,",
-        "  outputs = {",
-        "    \"main\": \"%{name}.main\",",
-        "    \"implicit\": \"%{name}.implicit\",",
-        "  },",
-        "  attrs = {",
-        "    \"_validation_tool\": attr.label(",
-        "        allow_single_file = True,",
-        "        default = Label(\"//validation_actions:validation_tool\"),",
-        "        executable = True,",
-        "        cfg = \"exec\"),",
-        "  }",
-        ")");
+        """
+        def _rule_with_implicit_outs_and_validation_impl(ctx):
+            ctx.actions.write(ctx.outputs.main, "main output\\n")
+
+            ctx.actions.write(ctx.outputs.implicit, "implicit output\\n")
+
+            validation_output = ctx.actions.declare_file(ctx.attr.name + ".validation")
+
+            # The actual tool will be created in individual tests, depending on whether
+            # validation should pass or fail.
+            ctx.actions.run(
+                outputs = [validation_output],
+                executable = ctx.executable._validation_tool,
+                arguments = [validation_output.path],
+            )
+
+            return [
+                DefaultInfo(files = depset([ctx.outputs.main])),
+                OutputGroupInfo(_validation = depset([validation_output])),
+            ]
+
+        rule_with_implicit_outs_and_validation = rule(
+            implementation = _rule_with_implicit_outs_and_validation_impl,
+            outputs = {
+                "main": "%{name}.main",
+                "implicit": "%{name}.implicit",
+            },
+            attrs = {
+                "_validation_tool": attr.label(
+                    allow_single_file = True,
+                    default = Label("//validation_actions:validation_tool"),
+                    executable = True,
+                    cfg = "exec",
+                ),
+            },
+        )
+        """);
     write("validation_actions/validation_tool", "#!/bin/bash", "echo \"validation output\" > $1")
         .setExecutable(true);
     write(
         "validation_actions/BUILD",
-        "load(",
-        "    \":defs.bzl\",",
-        "    \"rule_with_implicit_outs_and_validation\")",
-        "",
-        "rule_with_implicit_outs_and_validation(name = \"foo0\")");
+        """
+        load(
+            ":defs.bzl",
+            "rule_with_implicit_outs_and_validation",
+        )
+
+        rule_with_implicit_outs_and_validation(name = "foo0")
+        """);
 
     AtomicReference<TargetCompleteEvent> targetCompleteEventRef = new AtomicReference<>();
     runtimeWrapper.registerSubscriber(
@@ -189,16 +195,24 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
   public void outputDirectory() throws Exception {
     write(
         "foo/defs.bzl",
-        "def _impl(ctx):",
-        "  dir = ctx.actions.declare_directory(ctx.label.name)",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir],",
-        "    command = 'echo -n Hello > %s/file.txt' % dir.path,",
-        ")",
-        "  return DefaultInfo(files = depset([dir]))",
-        "",
-        "directory = rule(implementation = _impl)");
-    write("foo/BUILD", "load(':defs.bzl', 'directory')", "directory(name = 'dir')");
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory(ctx.label.name)
+            ctx.actions.run_shell(
+                outputs = [dir],
+                command = "echo -n Hello > %s/file.txt" % dir.path,
+            )
+            return DefaultInfo(files = depset([dir]))
+
+        directory = rule(implementation = _impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "directory")
+
+        directory(name = "dir")
+        """);
 
     File bep = buildTargetAndCaptureBEP("//foo:dir");
 
@@ -222,13 +236,21 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
   public void outputSymlink() throws Exception {
     write(
         "foo/defs.bzl",
-        "def _impl(ctx):",
-        "  sym = ctx.actions.declare_symlink(ctx.label.name)",
-        "  ctx.actions.symlink(output = sym, target_path = '/some/path')",
-        "  return DefaultInfo(files = depset([sym]))",
-        "",
-        "symlink = rule(implementation = _impl)");
-    write("foo/BUILD", "load(':defs.bzl', 'symlink')", "symlink(name = 'sym')");
+        """
+        def _impl(ctx):
+            sym = ctx.actions.declare_symlink(ctx.label.name)
+            ctx.actions.symlink(output = sym, target_path = "/some/path")
+            return DefaultInfo(files = depset([sym]))
+
+        symlink = rule(implementation = _impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "symlink")
+
+        symlink(name = "sym")
+        """);
 
     File bep = buildTargetAndCaptureBEP("//foo:sym");
 

@@ -105,21 +105,4 @@ public class RepositoryNameTest {
                 .getDisplayForm(repositoryMapping))
         .isEqualTo("@@[unknown repo 'local' requested from @@owner]");
   }
-
-  @Test
-  public void testGetDisplayFormWithNullMapping() throws Exception {
-    assertThat(RepositoryName.create("").getDisplayForm(null)).isEmpty();
-    assertThat(RepositoryName.create("canonical").getDisplayForm(null)).isEqualTo("@@canonical");
-
-    assertThat(
-            RepositoryName.create("")
-                .toNonVisible(RepositoryName.create("owner"))
-                .getDisplayForm(null))
-        .isEqualTo("@@[unknown repo '' requested from @@owner]");
-    assertThat(
-            RepositoryName.create("canonical")
-                .toNonVisible(RepositoryName.create("owner"))
-                .getDisplayForm(null))
-        .isEqualTo("@@[unknown repo 'canonical' requested from @@owner]");
-  }
 }

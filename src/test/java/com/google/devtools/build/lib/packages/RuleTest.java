@@ -37,10 +37,17 @@ public class RuleTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "namecollide/BUILD",
-        "genrule(name = 'hello_world',",
-        "srcs = ['ignore_me.txt'],",
-        "outs = ['message.txt', 'hello_world'],",
-        "cmd  = 'echo \"Hello, world.\" >$(location message.txt)')");
+        """
+        genrule(
+            name = "hello_world",
+            srcs = ["ignore_me.txt"],
+            outs = [
+                "message.txt",
+                "hello_world",
+            ],
+            cmd = 'echo "Hello, world." >$(location message.txt)',
+        )
+        """);
     Rule genRule = (Rule) getTarget("//namecollide:hello_world");
     assertThat(genRule.containsErrors()).isFalse(); // TODO: assertTrue
     assertContainsEvent(
@@ -52,12 +59,19 @@ public class RuleTest extends PackageLoadingTestCase {
   public void testIsLocalTestRuleForLocalEquals1() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_test(name = 'y',",
-        "          srcs = ['a'],",
-        "          local = 0)",
-        "cc_test(name = 'z',",
-        "          srcs = ['a'],",
-        "          local = 1)");
+        """
+        cc_test(
+            name = "y",
+            srcs = ["a"],
+            local = 0,
+        )
+
+        cc_test(
+            name = "z",
+            srcs = ["a"],
+            local = 1,
+        )
+        """);
     Rule y = (Rule) getTarget("//x:y");
     assertThat(TargetUtils.isLocalTestRule(y)).isFalse();
     Rule z = (Rule) getTarget("//x:z");
@@ -66,7 +80,16 @@ public class RuleTest extends PackageLoadingTestCase {
 
   @Test
   public void testDeprecation() throws Exception {
-    scratch.file("x/BUILD", "cc_test(name = 'y')", "cc_test(name = 'z', deprecation = 'Foo')");
+    scratch.file(
+        "x/BUILD",
+        """
+        cc_test(name = "y")
+
+        cc_test(
+            name = "z",
+            deprecation = "Foo",
+        )
+        """);
     Rule y = (Rule) getTarget("//x:y");
     assertThat(TargetUtils.getDeprecation(y)).isNull();
     Rule z = (Rule) getTarget("//x:z");
@@ -77,9 +100,22 @@ public class RuleTest extends PackageLoadingTestCase {
   public void testVisibilityValid() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_binary(name = 'pr', visibility = ['//visibility:private'])",
-        "cc_binary(name = 'pu', visibility = ['//visibility:public'])",
-        "cc_binary(name = 'cu', visibility = ['//a:b'])");
+        """
+        cc_binary(
+            name = "pr",
+            visibility = ["//visibility:private"],
+        )
+
+        cc_binary(
+            name = "pu",
+            visibility = ["//visibility:public"],
+        )
+
+        cc_binary(
+            name = "cu",
+            visibility = ["//a:b"],
+        )
+        """);
     Package pkg = getTarget("//x:BUILD").getPackage();
     assertThat(pkg.getRule("pu").getVisibility()).isEqualTo(RuleVisibility.PUBLIC);
     assertThat(pkg.getRule("pr").getVisibility()).isEqualTo(RuleVisibility.PRIVATE);
@@ -89,15 +125,30 @@ public class RuleTest extends PackageLoadingTestCase {
   public void testReduceForSerialization() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_library(name='dep', deprecation = 'message should serialize')",
-        "cc_test(name = 'y', srcs = ['a'], deps=[':dep'])",
-        "cc_binary(name = 'cu', visibility = ['//a:b'])",
-        "genrule(",
-        "    name = 'hello_world',",
-        "    srcs = ['ignore_me.txt'],",
-        "    outs = ['message.txt'],",
-        "    cmd  = 'echo \"Hello, world.\" >message.txt',",
-        ")");
+        """
+        cc_library(
+            name = "dep",
+            deprecation = "message should serialize",
+        )
+
+        cc_test(
+            name = "y",
+            srcs = ["a"],
+            deps = [":dep"],
+        )
+
+        cc_binary(
+            name = "cu",
+            visibility = ["//a:b"],
+        )
+
+        genrule(
+            name = "hello_world",
+            srcs = ["ignore_me.txt"],
+            outs = ["message.txt"],
+            cmd = 'echo "Hello, world." >message.txt',
+        )
+        """);
     Package pkg = getTarget("//x:BUILD").getPackage();
 
     var testDep = pkg.getRule("dep");

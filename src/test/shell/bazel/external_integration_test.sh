@@ -1113,6 +1113,7 @@ EOF
 
 function test_use_bind_as_repository() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'foobar', path = 'foo')
 bind(name = 'foo', actual = '@foobar//:test')
 EOF
@@ -1163,6 +1164,7 @@ function test_flip_flopping() {
   cd -
 
   cat > local_ws <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "repo",
     path = "$REPO_PATH",
@@ -2840,6 +2842,7 @@ function test_external_java_target_depends_on_external_resources() {
   mkdir -p $test_repo2
 
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'repo1', path='$test_repo1')
 local_repository(name = 'repo2', path='$test_repo2')
 EOF

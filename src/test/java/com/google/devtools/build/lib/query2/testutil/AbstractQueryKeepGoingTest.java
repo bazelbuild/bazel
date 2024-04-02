@@ -98,8 +98,17 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
   public void testErrorWhenResultContainsLabelsCrossingSubpackage() throws Exception {
     writeFile(
         "pear/BUILD",
-        "sh_library(name='plum/peach', srcs=['peach.sh'])",
-        "sh_library(name='apple', srcs=['apple.sh'])");
+        """
+        sh_library(
+            name = "plum/peach",
+            srcs = ["peach.sh"],
+        )
+
+        sh_library(
+            name = "apple",
+            srcs = ["apple.sh"],
+        )
+        """);
     writeFile("pear/plum/BUILD");
 
     assertPackageLoadingCode(evalFail("//pear:apple"), Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
@@ -110,8 +119,17 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
   public void testErrorWhenWildcardResultContainsLabelsCrossingSubpackage() throws Exception {
     writeFile(
         "pear/BUILD",
-        "sh_library(name='plum/peach', srcs=['peach.sh'])",
-        "sh_library(name='apple', srcs=['apple.sh'])");
+        """
+        sh_library(
+            name = "plum/peach",
+            srcs = ["peach.sh"],
+        )
+
+        sh_library(
+            name = "apple",
+            srcs = ["apple.sh"],
+        )
+        """);
     writeFile("pear/plum/BUILD");
 
     assertPackageLoadingCode(evalFail("//pear:all"), Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
@@ -122,8 +140,19 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
   protected void writeBuildFiles3() throws Exception {
     writeFile(
         "a/BUILD",
-        "genrule(name='a', srcs=['//b', '//c'], outs=['out'], cmd=':')",
-        "exports_files(['a2'])");
+        """
+        genrule(
+            name = "a",
+            srcs = [
+                "//b",
+                "//c",
+            ],
+            outs = ["out"],
+            cmd = ":",
+        )
+
+        exports_files(["a2"])
+        """);
     writeFile("b/BUILD", "genrule(name='b', srcs=['//d'], outs=['out'], cmd=':')");
     writeFile("c/BUILD", "genrule(name='c', srcs=['//d'], outs=['out'], cmd=':')");
     writeFile("d/BUILD", "exports_files(['d'])");
@@ -133,8 +162,12 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
       String errorMsg, boolean checkFailureDetail, String keepGoingErrorMsg) throws Exception {
     writeFile(
         "missingdep/BUILD",
-        "cc_library(name = 'missingdep',",
-        "           deps = [ '//i/do/not/exist'])");
+        """
+        cc_library(
+            name = "missingdep",
+            deps = ["//i/do/not/exist"],
+        )
+        """);
 
     helper.setKeepGoing(false);
     EvalThrowsResult throwsResult1 = evalThrows("deps(//missingdep)", false);
@@ -204,10 +237,14 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
   @Test
   public void testQueryAllForBrokenPackage() throws Exception {
     writeFile(
-        "x/BUILD", //
-        "filegroup(name = 'a')",
-        "x = 1 // 0",
-        "filegroup(name = 'c')" // not executed
+        "x/BUILD",
+        """
+        filegroup(name = "a")
+
+        x = 1 // 0
+
+        filegroup(name = "c")
+        """ // not executed
         );
     assertThat(evalFail("//x:all").getResultSet()).hasSize(1);
     assertContainsEvent("division by zero");
@@ -217,10 +254,14 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
   @Test
   public void testQueryDotDotDotForBrokenPackage() throws Exception {
     writeFile(
-        "x/BUILD", //
-        "filegroup(name = 'a')",
-        "x = 1 // 0",
-        "filegroup(name = 'c')" // not executed
+        "x/BUILD",
+        """
+        filegroup(name = "a")
+
+        x = 1 // 0
+
+        filegroup(name = "c")
+        """ // not executed
         );
     assertThat(evalFail("//x/...").getResultSet()).hasSize(1);
     assertContainsEvent("division by zero");
@@ -275,8 +316,14 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     // on the load, but because the package failed to load, it does not exist.
     writeFile(
         "foo/foo/BUILD",
-        "load('//bar:lib.bzl', 'myfunc')",
-        "sh_library(name='banana', srcs=['banana.sh'])");
+        """
+        load("//bar:lib.bzl", "myfunc")
+
+        sh_library(
+            name = "banana",
+            srcs = ["banana.sh"],
+        )
+        """);
 
     // This Starlark file is fine, but it has no containing package, so it can't be loaded.
     writeFile("bar/lib.bzl", "custom_rule(name = 'myfunc')");
@@ -305,12 +352,24 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     // not exist.
     writeFile(
         "foo/foo/BUILD",
-        "load('//bar:lib.bzl', 'myfunc')",
-        "sh_library(name='banana', srcs=['banana.sh'])");
+        """
+        load("//bar:lib.bzl", "myfunc")
+
+        sh_library(
+            name = "banana",
+            srcs = ["banana.sh"],
+        )
+        """);
     writeFile(
         "foo/foo2/BUILD",
-        "load('//bar:lib.bzl', 'myfunc')",
-        "sh_library(name='banana', srcs=['banana.sh'])");
+        """
+        load("//bar:lib.bzl", "myfunc")
+
+        sh_library(
+            name = "banana",
+            srcs = ["banana.sh"],
+        )
+        """);
 
     // This Starlark file is fine, but it has no containing package, so it can't be loaded.
     writeFile("bar/lib.bzl", "custom_rule(name = 'myfunc')");
@@ -374,8 +433,14 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     // on the load, but because the package failed to load, it does not exist.
     writeFile(
         "foo/foo/BUILD",
-        "load('//bar:lib.bzl', 'myfunc')",
-        "sh_library(name='banana', srcs=['banana.sh'])");
+        """
+        load("//bar:lib.bzl", "myfunc")
+
+        sh_library(
+            name = "banana",
+            srcs = ["banana.sh"],
+        )
+        """);
 
     // The load statement in "//foo/foo" refers to an existing package, but the Starlark file is
     // missing.
@@ -424,8 +489,14 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     // on the load, but because the package failed to load, it does not exist.
     writeFile(
         "foo/foo/BUILD",
-        "load('//bar:lib.bzl', 'myfunc')",
-        "sh_library(name='banana', srcs=['banana.sh'])");
+        """
+        load("//bar:lib.bzl", "myfunc")
+
+        sh_library(
+            name = "banana",
+            srcs = ["banana.sh"],
+        )
+        """);
 
     // The load statement in "//foo/foo" refers to an existing package, but the Starlark file the
     // load statement refers to points into a symlink cycle.
@@ -464,8 +535,14 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     // Starlark file.
     writeFile(
         "baz/BUILD",
-        "load('//bar:lib.bzl', 'myfunc')",
-        "sh_library(name='banana', srcs=['banana.sh'])");
+        """
+        load("//bar:lib.bzl", "myfunc")
+
+        sh_library(
+            name = "banana",
+            srcs = ["banana.sh"],
+        )
+        """);
     writeFile("bar/lib.bzl", "custom_rule(name = 'myfunc')");
 
     // Nevertheless, a query affecting just the healthy package emits no errors.
@@ -478,8 +555,17 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
   public void boundedRdepsWithError() throws Exception {
     writeFile(
         "foo/BUILD",
-        "sh_library(name = 'foo', deps = [':dep'])",
-        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+        """
+        sh_library(
+            name = "foo",
+            deps = [":dep"],
+        )
+
+        sh_library(
+            name = "dep",
+            deps = ["//bar:missing"],
+        )
+        """);
     ResultAndTargets<Target> targetResultAndTargets = evalFail("rdeps(//foo:foo, //foo:dep, 1)");
     assertThat(
             targetResultAndTargets.getResultSet().stream()
@@ -515,10 +601,24 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
   public void bogusVisibility() throws Exception {
     writeFile(
         "foo/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "sh_library(name = 'a', visibility = ['//bar:__pkg__', '//bad:visibility'])",
-        "sh_library(name = 'b')",
-        "sh_library(name = 'c', visibility = ['//bad:visibility'])");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        sh_library(
+            name = "a",
+            visibility = [
+                "//bad:visibility",
+                "//bar:__pkg__",
+            ],
+        )
+
+        sh_library(name = "b")
+
+        sh_library(
+            name = "c",
+            visibility = ["//bad:visibility"],
+        )
+        """);
     writeFile("bar/BUILD");
     ResultAndTargets<Target> resultAndTargets =
         helper.evaluateQuery("visible(//bar:BUILD, //foo:all)");

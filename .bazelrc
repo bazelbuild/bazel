@@ -12,16 +12,16 @@ build:remote_shared --java_runtime_version=rbe_jdk
 build:remote_shared --tool_java_runtime_version=rbe_jdk
 
 # Configuration to build and test Bazel on RBE on Ubuntu 18.04 with Java 11
-build:ubuntu2004_java11 --extra_toolchains=@rbe_ubuntu2004_java11//java:all
-build:ubuntu2004_java11 --crosstool_top=@rbe_ubuntu2004_java11//cc:toolchain
-build:ubuntu2004_java11 --extra_toolchains=@rbe_ubuntu2004_java11//config:cc-toolchain
-build:ubuntu2004_java11 --extra_execution_platforms=//:rbe_ubuntu2004_java11_platform,//:rbe_ubuntu2004_java11_highcpu_platform
-build:ubuntu2004_java11 --host_platform=//:rbe_ubuntu2004_java11_platform
-build:ubuntu2004_java11 --platforms=//:rbe_ubuntu2004_java11_platform
-build:ubuntu2004_java11 --config=remote_shared
+build:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//java:all
+build:ubuntu2004 --crosstool_top=@rbe_ubuntu2004//cc:toolchain
+build:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//config:cc-toolchain
+build:ubuntu2004 --extra_execution_platforms=//:rbe_ubuntu2004_platform,//:rbe_ubuntu2004_highcpu_platform
+build:ubuntu2004 --host_platform=//:rbe_ubuntu2004_platform
+build:ubuntu2004 --platforms=//:rbe_ubuntu2004_platform
+build:ubuntu2004 --config=remote_shared
 
 # Alias
-build:remote --config=ubuntu2004_java11
+build:remote --config=ubuntu2004
 
 build:macos --macos_minimum_os=10.11
 
@@ -32,9 +32,6 @@ build:windows --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolch
 
 build:windows_arm64 --platforms=//:windows_arm64
 build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
-# When cross-compiling, the local Java runtime, which is used by default, will not be compatible
-# with the target.
-build:windows_arm64 --java_runtime_version=remotejdk_11
 
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
@@ -50,9 +47,11 @@ build:macos --host_cxxopt=-std=c++17
 build:windows --cxxopt=/std:c++17
 build:windows --host_cxxopt=/std:c++17
 
-# Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
-build --java_language_version=11
-build --tool_java_language_version=11
+# Enable Java 21 language features
+build --java_runtime_version=21
+build --java_language_version=21
+build --tool_java_language_version=21
+build --tool_java_runtime_version=21
 
 # Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
 common --incompatible_disallow_empty_glob

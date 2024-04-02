@@ -24,10 +24,12 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi.XcodeConfigProviderApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -38,6 +40,9 @@ public class XcodeConfigInfo extends NativeInfo
     implements XcodeConfigInfoApi<ApplePlatform, PlatformType> {
   /** Starlark name for this provider. */
   public static final String STARLARK_NAME = "XcodeVersionConfig";
+
+  /** XcodeConfig attribute name for Apple rules that take an xcode_config parameter */
+  public static final String XCODE_CONFIG_ATTR_NAME = ":xcode_config";
 
   /** Provider identifier for {@link XcodeConfigInfo}. */
   public static final BuiltinProvider<XcodeConfigInfo> PROVIDER = new XcodeConfigProvider();
@@ -67,10 +72,10 @@ public class XcodeConfigInfo extends NativeInfo
       DottedVersion tvosMinimumOsVersion,
       DottedVersion macosSdkVersion,
       DottedVersion macosMinimumOsVersion,
-      DottedVersion xcodeVersion,
+      @Nullable DottedVersion xcodeVersion,
       Availability availability,
-      String xcodeVersionFlagValue,
-      boolean includeXcodeReqs) {
+      Object xcodeVersionFlag,
+      boolean includeXcodeExecutionInfo) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion);
     this.iosMinimumOsVersion = Preconditions.checkNotNull(iosMinimumOsVersion);
     this.visionosSdkVersion = Preconditions.checkNotNull(visionosSdkVersion);
@@ -96,12 +101,14 @@ public class XcodeConfigInfo extends NativeInfo
       default:
         break;
     }
-    if (includeXcodeReqs) {
+    if (includeXcodeExecutionInfo) {
       if (xcodeVersion != null && !xcodeVersion.toString().isEmpty()) {
         builder.put(ExecutionRequirements.REQUIRES_XCODE + ":" + xcodeVersion, "");
       }
-      if (xcodeVersionFlagValue != null && xcodeVersionFlagValue.indexOf("-") > 0) {
-        String label = xcodeVersionFlagValue.substring(xcodeVersionFlagValue.indexOf("-") + 1);
+      String xcodeVersionFlagString =
+          Starlark.isNullOrNone(xcodeVersionFlag) ? "" : xcodeVersionFlag.toString();
+      if (xcodeVersionFlagString.indexOf("-") > 0) {
+        String label = xcodeVersionFlagString.substring(xcodeVersionFlagString.indexOf("-") + 1);
         builder.put(ExecutionRequirements.REQUIRES_XCODE_LABEL + ":" + label, "");
       }
     }
@@ -141,7 +148,7 @@ public class XcodeConfigInfo extends NativeInfo
     }
 
     @Override
-    public XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
+    public XcodeConfigInfoApi<?, ?> create(
         String iosSdkVersion,
         String iosMinimumOsVersion,
         String visionosSdkVersion,
@@ -152,7 +159,10 @@ public class XcodeConfigInfo extends NativeInfo
         String tvosMinimumOsVersion,
         String macosSdkVersion,
         String macosMinimumOsVersion,
-        String xcodeVersion)
+        Object xcodeVersion,
+        @Nullable String availability,
+        Object xcodeVersionFlag,
+        boolean includeXcodeExecutionInfo)
         throws EvalException {
       try {
         return new XcodeConfigInfo(
@@ -166,10 +176,12 @@ public class XcodeConfigInfo extends NativeInfo
             DottedVersion.fromString(tvosMinimumOsVersion),
             DottedVersion.fromString(macosSdkVersion),
             DottedVersion.fromString(macosMinimumOsVersion),
-            DottedVersion.fromString(xcodeVersion),
-            Availability.UNKNOWN,
-            /* xcodeVersionFlagValue= */ "",
-            /* includeXcodeReqs= */ false);
+            Starlark.isNullOrNone(xcodeVersion)
+                ? null
+                : DottedVersion.fromString((String) xcodeVersion),
+            Availability.valueOf(availability),
+            xcodeVersionFlag,
+            includeXcodeExecutionInfo);
       } catch (DottedVersion.InvalidDottedVersionException e) {
         throw new EvalException(e);
       }

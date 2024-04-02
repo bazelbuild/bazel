@@ -40,15 +40,22 @@ public class BindTest extends BuildViewTestCase {
   @Before
   public final void createFiles() throws Exception {
     setupStarlarkRules(scratch);
-    scratch.file("test/BUILD",
-        "load('//rules:java_rules_skylark.bzl', 'java_library')",
-        "java_library(name = 'giraffe',",
-        "    srcs = ['Giraffe.java'],",
-        ")",
-        "java_library(name = 'safari',",
-        "    srcs = ['Safari.java'],",
-        "    deps = ['//external:long-horse'],",
-        ")");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//rules:java_rules_skylark.bzl", "java_library")
+
+        java_library(
+            name = "giraffe",
+            srcs = ["Giraffe.java"],
+        )
+
+        java_library(
+            name = "safari",
+            srcs = ["Safari.java"],
+            deps = ["//external:long-horse"],
+        )
+        """);
 
     // We need to overwrite the Jdk BUILD file because the Starlark rules also depend on having a
     // jar target here, which the built-in rules don't need, and which therefore isn't part of the

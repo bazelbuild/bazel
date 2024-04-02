@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -166,7 +167,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithSharedLibrary() throws Exception {
-    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -193,7 +196,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithVersionedSharedLibrary() throws Exception {
-    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -220,7 +225,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithVersionedSharedLibraryWithDotInTheName() throws Exception {
-    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_enable_cc_toolchain_resolution");
 
     ConfiguredTarget target =
         scratchConfiguredTarget(
@@ -275,7 +282,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithInterfaceSharedLibrary() throws Exception {
-    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "b",
@@ -303,7 +312,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithBothStaticAndSharedLibraries() throws Exception {
-    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -415,7 +426,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -457,7 +468,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -467,42 +478,60 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
     scratch.file(
         "bin/custom_transition.bzl",
-        "def _custom_transition_impl(settings, attr):",
-        "    _ignore = settings, attr",
-        "",
-        "    return {'//command_line_option:copt': ['-DFLAG']}",
-        "",
-        "custom_transition = transition(",
-        "    implementation = _custom_transition_impl,",
-        "    inputs = [],",
-        "    outputs = ['//command_line_option:copt'],",
-        ")",
-        "",
-        "def _apply_custom_transition_impl(ctx):",
-        "    cc_infos = []",
-        "    for dep in ctx.attr.deps:",
-        "        cc_infos.append(dep[CcInfo])",
-        "    merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)",
-        "    return merged_cc_info",
-        "",
-        "apply_custom_transition = rule(",
-        "    implementation = _apply_custom_transition_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(cfg = custom_transition),",
-        "    },",
-        ")");
+        """
+        def _custom_transition_impl(settings, attr):
+            _ignore = settings, attr
+
+            return {"//command_line_option:copt": ["-DFLAG"]}
+
+        custom_transition = transition(
+            implementation = _custom_transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:copt"],
+        )
+
+        def _apply_custom_transition_impl(ctx):
+            cc_infos = []
+            for dep in ctx.attr.deps:
+                cc_infos.append(dep[CcInfo])
+            merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
+            return merged_cc_info
+
+        apply_custom_transition = rule(
+            implementation = _apply_custom_transition_impl,
+            attrs = {
+                "deps": attr.label_list(cfg = custom_transition),
+            },
+        )
+        """);
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = ['//...'],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = ["//..."],
+        )
+        """);
     scratch.file(
         "bin/BUILD",
-        "load(':custom_transition.bzl', 'apply_custom_transition')",
-        "cc_library(name='lib', deps=['//a:foo'])",
-        "apply_custom_transition(name='transitioned_lib', deps=[':lib'])",
-        "cc_binary(name='bin', deps=[':transitioned_lib'])");
+        """
+        load(":custom_transition.bzl", "apply_custom_transition")
+
+        cc_library(
+            name = "lib",
+            deps = ["//a:foo"],
+        )
+
+        apply_custom_transition(
+            name = "transitioned_lib",
+            deps = [":lib"],
+        )
+
+        cc_binary(
+            name = "bin",
+            deps = [":transitioned_lib"],
+        )
+        """);
 
     Artifact dynamicLibrary =
         target

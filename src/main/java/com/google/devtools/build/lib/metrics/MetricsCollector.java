@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
@@ -106,6 +107,9 @@ class MetricsCollector {
   // build once.
   private final AtomicBoolean buildAccountedFor;
 
+  // Identify when the actual actions execution starts (excluding workspace status actions).
+  private final AtomicBoolean executionStarted;
+
   @CanIgnoreReturnValue
   private MetricsCollector(
       CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
@@ -117,6 +121,7 @@ class MetricsCollector {
     env.getEventBus().register(this);
     WorkerProcessMetricsCollector.instance().setClock(env.getClock());
     this.buildAccountedFor = new AtomicBoolean();
+    this.executionStarted = new AtomicBoolean();
   }
 
   static void installInEnv(
@@ -191,6 +196,18 @@ class MetricsCollector {
       @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
     if (buildAccountedFor.compareAndSet(/* expectedValue= */ false, /* newValue= */ true)) {
       numBuilds.getAndIncrement();
+    }
+  }
+
+  @Subscribe
+  public void onSomeExecutionStarted(SomeExecutionStartedEvent event) {
+    if (event.countedInExecutionTime()) {
+      if (executionStarted.compareAndSet(false, true)) {
+        Duration elapsedWallTime = Profiler.elapsedTimeMaybe();
+        if (elapsedWallTime != null) {
+          timingMetrics.setActionsExecutionStartInMs(elapsedWallTime.toMillis());
+        }
+      }
     }
   }
 

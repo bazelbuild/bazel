@@ -203,6 +203,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
+                        ruleClassProvider.getBazelStarlarkEnvironment(),
                         registryFactory,
                         workspaceRoot,
                         // Required to load @_builtins.
@@ -2517,38 +2518,5 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .contains(
             "//:repo.bzl does not export a repository_rule called data_repo, yet its use is"
                 + " requested at /ws/MODULE.bazel");
-  }
-
-  @Test
-  public void labelToDisplayForm() throws Exception {
-    scratch.file(
-        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "bazel_dep(name='data_repo', version='1.0')",
-        "ext = use_extension('//:defs.bzl', 'ext')",
-        "use_repo(ext, 'foo', 'bar', 'baz')");
-    scratch.file(
-        workspaceRoot.getRelative("defs.bzl").getPathString(),
-        "load('@data_repo//:defs.bzl','data_repo')",
-        "def _ext_impl(ctx):",
-        "  data_repo(name='foo',data=Label('//:foo').to_display_form())",
-        "  data_repo(name='bar',data=Label('@data_repo//:bar').to_display_form())",
-        "  data_repo(name='baz',data=Label('@@canonical_name//:baz').to_display_form())",
-        "ext = module_extension(implementation=_ext_impl)");
-    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
-    scratch.file(
-        workspaceRoot.getRelative("data.bzl").getPathString(),
-        "load('@foo//:data.bzl', foo_data='data')",
-        "load('@bar//:data.bzl', bar_data='data')",
-        "load('@baz//:data.bzl', baz_data='data')",
-        "data = 'foo:'+foo_data+' bar:'+bar_data+' baz:'+baz_data");
-
-    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
-    EvaluationResult<BzlLoadValue> result =
-        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    if (result.hasError()) {
-      throw result.getError().getException();
-    }
-    assertThat(result.get(skyKey).getModule().getGlobal("data"))
-        .isEqualTo("foo://:foo bar:@@data_repo~//:bar baz:@@canonical_name//:baz");
   }
 }

@@ -260,6 +260,20 @@ public final class ActionOutputMetadataStoreTest {
   }
 
   @Test
+  public void withDanglingSymlinkInTreeArtifactFailsWithException() throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(treeArtifact, "child");
+    treeArtifact.getPath().createDirectoryAndParents();
+    child.getPath().createSymbolicLink(PathFragment.create("/does_not_exist"));
+
+    ActionOutputMetadataStore store = createStore(/* outputs= */ ImmutableSet.of(treeArtifact));
+
+    IOException e = assertThrows(IOException.class, () -> store.getOutputMetadata(treeArtifact));
+    assertThat(e).hasMessageThat().contains("dangling symbolic link");
+  }
+
+  @Test
   public void resettingOutputs() throws Exception {
     PathFragment path = PathFragment.create("foo/bar");
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);

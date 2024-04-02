@@ -39,75 +39,105 @@ public class AspectAutoExecGroupsTest extends BuildViewTestCase {
    * <p>toolchain_type_1 -> foo_toolchain -> exec_compatible_with platform_1 toolchain_type_2 ->
    * bar_toolchain -> exec_compatible_with platform_2
    */
-  @Before
   public void createToolchainsAndPlatforms() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "rule/test_toolchain.bzl",
-        "def _impl(ctx):",
-        "    return [platform_common.ToolchainInfo(",
-        "      tool = ctx.executable._tool,",
-        "      files_to_run = ctx.attr._tool[DefaultInfo].files_to_run,",
-        "    )]",
-        "test_toolchain = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       '_tool': attr.label(default='//toolchain:b_tool', executable=True, cfg='exec'),",
-        "    },",
-        ")");
-    scratch.file(
-        "rule/BUILD",
-        "exports_files(['test_toolchain/bzl'])",
-        "toolchain_type(name = 'toolchain_type_1')",
-        "toolchain_type(name = 'toolchain_type_2')");
-    scratch.file(
-        "toolchain/BUILD",
-        "load('//rule:test_toolchain.bzl', 'test_toolchain')",
-        "genrule(name = 'a_tool', outs = ['atool'], cmd = '', executable = True)",
-        "genrule(name = 'b_tool', outs = ['btool'], cmd = '', executable = True)",
-        "test_toolchain(",
-        "    name = 'foo',",
-        ")",
-        "toolchain(",
-        "    name = 'foo_toolchain',",
-        "    toolchain_type = '//rule:toolchain_type_1',",
-        "    target_compatible_with = ['//platforms:constraint_1'],",
-        "    exec_compatible_with = ['//platforms:constraint_1'],",
-        "    toolchain = ':foo',",
-        ")",
-        "test_toolchain(",
-        "    name = 'bar',",
-        ")",
-        "toolchain(",
-        "    name = 'bar_toolchain',",
-        "    toolchain_type = '//rule:toolchain_type_2',",
-        "    target_compatible_with = ['//platforms:constraint_1'],",
-        "    exec_compatible_with = ['//platforms:constraint_2'],",
-        "    toolchain = ':bar',",
-        ")");
+        """
+def _impl(ctx):
+    return [platform_common.ToolchainInfo(
+        tool = ctx.executable._tool,
+        files_to_run = ctx.attr._tool[DefaultInfo].files_to_run,
+    )]
 
-    scratch.file(
+test_toolchain = rule(
+    implementation = _impl,
+    attrs = {
+        "_tool": attr.label(default = "//toolchain:b_tool", executable = True, cfg = "exec"),
+    },
+)
+""");
+    scratch.overwriteFile(
+        "rule/BUILD",
+        """
+        exports_files(["test_toolchain/bzl"])
+
+        toolchain_type(name = "toolchain_type_1")
+
+        toolchain_type(name = "toolchain_type_2")
+        """);
+    scratch.overwriteFile(
+        "toolchain/BUILD",
+        """
+        load("//rule:test_toolchain.bzl", "test_toolchain")
+
+        genrule(
+            name = "a_tool",
+            outs = ["atool"],
+            cmd = "",
+            executable = True,
+        )
+
+        genrule(
+            name = "b_tool",
+            outs = ["btool"],
+            cmd = "",
+            executable = True,
+        )
+
+        test_toolchain(
+            name = "foo",
+        )
+
+        toolchain(
+            name = "foo_toolchain",
+            exec_compatible_with = ["//platforms:constraint_1"],
+            target_compatible_with = ["//platforms:constraint_1"],
+            toolchain = ":foo",
+            toolchain_type = "//rule:toolchain_type_1",
+        )
+
+        test_toolchain(
+            name = "bar",
+        )
+
+        toolchain(
+            name = "bar_toolchain",
+            exec_compatible_with = ["//platforms:constraint_2"],
+            target_compatible_with = ["//platforms:constraint_1"],
+            toolchain = ":bar",
+            toolchain_type = "//rule:toolchain_type_2",
+        )
+        """);
+
+    scratch.overwriteFile(
         "platforms/BUILD",
-        "constraint_setting(name = 'setting')",
-        "constraint_value(",
-        "    name = 'constraint_1',",
-        "    constraint_setting = ':setting',",
-        ")",
-        "constraint_value(",
-        "    name = 'constraint_2',",
-        "    constraint_setting = ':setting',",
-        ")",
-        "platform(",
-        "    name = 'platform_1',",
-        "    constraint_values = [':constraint_1'],",
-        ")",
-        "platform(",
-        "    name = 'platform_2',",
-        "    constraint_values = [':constraint_2'],",
-        "    exec_properties = {",
-        "        'watermelon.ripeness': 'unripe',",
-        "        'watermelon.color': 'red',",
-        "    },",
-        ")");
+        """
+        constraint_setting(name = "setting")
+
+        constraint_value(
+            name = "constraint_1",
+            constraint_setting = ":setting",
+        )
+
+        constraint_value(
+            name = "constraint_2",
+            constraint_setting = ":setting",
+        )
+
+        platform(
+            name = "platform_1",
+            constraint_values = [":constraint_1"],
+        )
+
+        platform(
+            name = "platform_2",
+            constraint_values = [":constraint_2"],
+            exec_properties = {
+                "watermelon.ripeness": "unripe",
+                "watermelon.color": "red",
+            },
+        )
+        """);
   }
 
   @Before
@@ -117,6 +147,8 @@ public class AspectAutoExecGroupsTest extends BuildViewTestCase {
 
   @Override
   public void useConfiguration(String... args) throws Exception {
+    // These need to be defined before the configuration is parsed.
+    createToolchainsAndPlatforms();
     String[] flags = {
       "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
       "--platforms=//platforms:platform_1",
@@ -168,9 +200,16 @@ public class AspectAutoExecGroupsTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom_rule_dep')",
-        "custom_rule(name = 'custom_rule_name', deps= ['custom_rule_dep'])");
+        """
+        load("//test:defs.bzl", "custom_rule")
+
+        custom_rule(name = "custom_rule_dep")
+
+        custom_rule(
+            name = "custom_rule_name",
+            deps = ["custom_rule_dep"],
+        )
+        """);
   }
 
   /**
@@ -256,20 +295,31 @@ public class AspectAutoExecGroupsTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "test/defs.bzl",
-        "load('//test:aspect.bzl', 'custom_aspect')",
-        "def _impl(ctx):",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects = [custom_aspect]),",
-        "  },",
-        ")");
+        """
+        load("//test:aspect.bzl", "custom_aspect")
+
+        def _impl(ctx):
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(aspects = [custom_aspect]),
+            },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom_rule_dep')",
-        "custom_rule(name = 'custom_rule_name', deps= ['custom_rule_dep'])");
+        """
+        load("//test:defs.bzl", "custom_rule")
+
+        custom_rule(name = "custom_rule_dep")
+
+        custom_rule(
+            name = "custom_rule_name",
+            deps = ["custom_rule_dep"],
+        )
+        """);
   }
 
   private StarlarkExecGroupCollection getExecGroupsFromAspectProvider(

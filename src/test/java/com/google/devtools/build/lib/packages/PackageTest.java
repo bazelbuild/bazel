@@ -43,9 +43,9 @@ import org.junit.runners.JUnit4;
 public class PackageTest {
 
   private static final RuleClass FAUX_TEST_CLASS =
-      new RuleClass.Builder("faux_test", RuleClassType.TEST, /*starlark=*/ false)
+      new RuleClass.Builder("faux_test", RuleClassType.TEST, /* starlark= */ false)
           .addAttribute(
-              Attribute.attr("tags", Type.STRING_LIST).nonconfigurable("tags aren't").build())
+              Attribute.attr("tags", Types.STRING_LIST).nonconfigurable("tags aren't").build())
           .addAttribute(Attribute.attr("size", Type.STRING).nonconfigurable("size isn't").build())
           .addAttribute(Attribute.attr("timeout", Type.STRING).build())
           .addAttribute(Attribute.attr("flaky", Type.BOOLEAN).build())

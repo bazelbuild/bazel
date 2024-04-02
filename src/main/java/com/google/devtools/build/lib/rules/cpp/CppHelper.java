@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
@@ -99,8 +99,8 @@ public class CppHelper {
   /** Returns the linkopts for the rule context. */
   public static ImmutableList<String> getLinkopts(RuleContext ruleContext)
       throws InterruptedException {
-    if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
-      Iterable<String> linkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
+    if (ruleContext.attributes().has("linkopts", Types.STRING_LIST)) {
+      Iterable<String> linkopts = ruleContext.attributes().get("linkopts", Types.STRING_LIST);
       if (linkopts != null) {
         return ImmutableList.copyOf(expandLinkopts(ruleContext, "linkopts", linkopts));
       }

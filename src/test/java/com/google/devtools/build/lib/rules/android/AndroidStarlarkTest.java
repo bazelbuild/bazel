@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -51,26 +54,20 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
         ")");
     scratch.file(
         "/workspace/platform_mappings",
-        "platforms:",
-        "  //java/android/platforms:armeabi-v7a",
-        "    --cpu=armeabi-v7a",
-        "    --android_cpu=armeabi-v7a",
-        "    --crosstool_top=//android/crosstool:everything",
-        "  //java/android/platforms:x86",
-        "    --cpu=x86",
-        "    --android_cpu=x86",
-        "    --crosstool_top=//android/crosstool:everything",
         "flags:",
-        "  --crosstool_top=//android/crosstool:everything",
         "  --cpu=armeabi-v7a",
         "    //java/android/platforms:armeabi-v7a",
-        "  --crosstool_top=//android/crosstool:everything",
         "  --cpu=x86",
         "    //java/android/platforms:x86");
     invalidatePackages(false);
   }
 
-  // Duplicated from WithoutPlatforms.testAndroidSplitTransition_fat_apk_cpu.
+  private ImmutableList<String> getPlatformLabels(ConfiguredTarget target) {
+    return getConfiguration(target).getOptions().get(PlatformOptions.class).platforms.stream()
+        .map(Label::toString)
+        .collect(toImmutableList());
+  }
+
   @Test
   public void testAndroidSplitTransition_android_platforms() throws Exception {
     getAnalysisMock()
@@ -95,12 +92,15 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
     assertThat(splitDeps).containsKey("armeabi-v7a");
     assertThat(splitDeps.get("x86")).hasSize(2);
     assertThat(splitDeps.get("armeabi-v7a")).hasSize(2);
-    assertThat(getConfiguration(splitDeps.get("x86").get(0)).getCpu()).isEqualTo("x86");
-    assertThat(getConfiguration(splitDeps.get("x86").get(1)).getCpu()).isEqualTo("x86");
-    assertThat(getConfiguration(splitDeps.get("armeabi-v7a").get(0)).getCpu())
-        .isEqualTo("armeabi-v7a");
-    assertThat(getConfiguration(splitDeps.get("armeabi-v7a").get(1)).getCpu())
-        .isEqualTo("armeabi-v7a");
+    assertThat(getPlatformLabels(splitDeps.get("x86").get(0)))
+        .containsExactly("//java/android/platforms:x86");
+    assertThat(getPlatformLabels(splitDeps.get("x86").get(1)))
+        .containsExactly("//java/android/platforms:x86");
+
+    assertThat(getPlatformLabels(splitDeps.get("armeabi-v7a").get(0)))
+        .containsExactly("//java/android/platforms:armeabi-v7a");
+    assertThat(getPlatformLabels(splitDeps.get("armeabi-v7a").get(1)))
+        .containsExactly("//java/android/platforms:armeabi-v7a");
 
     // Check that ctx.split_attr.dep has this structure (that is, that the values are not lists):
     // {
@@ -112,8 +112,10 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
         (Map<String, ConfiguredTarget>) myInfo.getValue("split_attr_dep");
     assertThat(splitDep).containsKey("x86");
     assertThat(splitDep).containsKey("armeabi-v7a");
-    assertThat(getConfiguration(splitDep.get("x86")).getCpu()).isEqualTo("x86");
-    assertThat(getConfiguration(splitDep.get("armeabi-v7a")).getCpu()).isEqualTo("armeabi-v7a");
+    assertThat(getPlatformLabels(splitDep.get("x86")))
+        .containsExactly("//java/android/platforms:x86");
+    assertThat(getPlatformLabels(splitDep.get("armeabi-v7a")))
+        .containsExactly("//java/android/platforms:armeabi-v7a");
 
     // The regular ctx.attr.deps should be a single list with all the branches of the split merged
     // together (i.e. for aspects).
@@ -122,31 +124,36 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
     assertThat(attrDeps).hasSize(4);
     ListMultimap<String, Object> attrDepsMap = ArrayListMultimap.create();
     for (ConfiguredTarget ct : attrDeps) {
-      attrDepsMap.put(getConfiguration(ct).getCpu(), target);
+      for (String platformLabel : getPlatformLabels(ct)) {
+        attrDepsMap.put(platformLabel, target);
+      }
     }
-    assertThat(attrDepsMap).valuesForKey("x86").hasSize(2);
-    assertThat(attrDepsMap).valuesForKey("armeabi-v7a").hasSize(2);
+    assertThat(attrDepsMap).valuesForKey("//java/android/platforms:x86").hasSize(2);
+    assertThat(attrDepsMap).valuesForKey("//java/android/platforms:armeabi-v7a").hasSize(2);
 
     // Check that even though my_rule.dep is defined as a single label, ctx.attr.dep is still a
-    // list
-    // with multiple ConfiguredTarget objects because of the two different CPUs.
+    // list with multiple ConfiguredTarget objects because of the two different archs.
     @SuppressWarnings("unchecked")
     List<ConfiguredTarget> attrDep = (List<ConfiguredTarget>) myInfo.getValue("attr_dep");
     assertThat(attrDep).hasSize(2);
     ListMultimap<String, Object> attrDepMap = ArrayListMultimap.create();
     for (ConfiguredTarget ct : attrDep) {
-      attrDepMap.put(getConfiguration(ct).getCpu(), target);
+      for (String platformLabel : getPlatformLabels(ct)) {
+        attrDepMap.put(platformLabel, target);
+      }
     }
-    assertThat(attrDepMap).valuesForKey("x86").hasSize(1);
-    assertThat(attrDepMap).valuesForKey("armeabi-v7a").hasSize(1);
+    assertThat(attrDepMap).valuesForKey("//java/android/platforms:x86").hasSize(1);
+    assertThat(attrDepMap).valuesForKey("//java/android/platforms:armeabi-v7a").hasSize(1);
 
     // Check that the deps were correctly accessed from within Starlark.
     @SuppressWarnings("unchecked")
     List<ConfiguredTarget> defaultSplitDeps =
         (List<ConfiguredTarget>) myInfo.getValue("default_split_deps");
     assertThat(defaultSplitDeps).hasSize(2);
-    assertThat(getConfiguration(defaultSplitDeps.get(0)).getCpu()).isEqualTo("x86");
-    assertThat(getConfiguration(defaultSplitDeps.get(1)).getCpu()).isEqualTo("x86");
+    assertThat(getPlatformLabels(defaultSplitDeps.get(0)))
+        .containsExactly("//java/android/platforms:x86");
+    assertThat(getPlatformLabels(defaultSplitDeps.get(1)))
+        .containsExactly("//java/android/platforms:x86");
   }
 
   void writeAndroidSplitTransitionTestFiles(String defaultCpuName) throws Exception {
@@ -169,10 +176,28 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
 
     scratch.file(
         "test/starlark/BUILD",
-        "load('//test/starlark:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'test', deps = [':main1', ':main2'], dep = ':main1')",
-        "cc_binary(name = 'main1', srcs = ['main1.c'])",
-        "cc_binary(name = 'main2', srcs = ['main2.c'])");
+        """
+        load("//test/starlark:my_rule.bzl", "my_rule")
+
+        my_rule(
+            name = "test",
+            dep = ":main1",
+            deps = [
+                ":main1",
+                ":main2",
+            ],
+        )
+
+        cc_binary(
+            name = "main1",
+            srcs = ["main1.c"],
+        )
+
+        cc_binary(
+            name = "main2",
+            srcs = ["main2.c"],
+        )
+        """);
   }
 
   @Before
@@ -188,30 +213,5 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
     Provider.Key key =
         new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
-  }
-
-  @Test
-  public void testAndroidSdkConfigurationField() throws Exception {
-    scratch.file(
-        "foo_library.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  return MyInfo(foo = ctx.attr._android_sdk.label)",
-        "foo_library = rule(implementation = _impl,",
-        "    attrs = { '_android_sdk': attr.label(default = configuration_field(",
-        "        fragment = 'android', name = 'android_sdk_label'))},",
-        "    fragments = ['android'])");
-    scratch.file(
-        "BUILD",
-        "load('//:foo_library.bzl', 'foo_library')",
-        "filegroup(name = 'new_sdk')",
-        "foo_library(name = 'lib')");
-
-    // This test doesn't touch platforms, it directly reads the --android_sdk flag value.
-    useConfiguration("--android_sdk=//:new_sdk");
-
-    ConfiguredTarget ct = getConfiguredTarget("//:lib");
-    assertThat(getMyInfoFromTarget(ct).getValue("foo"))
-        .isEqualTo(Label.parseCanonicalUnchecked("//:new_sdk"));
   }
 }

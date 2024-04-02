@@ -23,11 +23,11 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -376,16 +376,17 @@ public final class ConfiguredTargetFactory {
         final boolean isDefaultExecutableCreated;
         @Nullable final RequiredConfigFragmentsProvider requiredConfigFragmentsProvider;
         try {
+          // must be called before any calls to ruleContext.getStarlarkRuleContext()
           ruleContext.initStarlarkRuleContext();
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
           rawProviders = StarlarkRuleConfiguredTargetUtil.evalRule(ruleContext, ruleClass);
-        } finally {
           // TODO(b/268525292): isDefaultExecutableCreated is set to True when
           // ctx.outputs.executable
           // is accessed in the implementation. This fragile mechanism should be revised and removed
           isDefaultExecutableCreated =
               ruleContext.getStarlarkRuleContext().isDefaultExecutableCreated();
           requiredConfigFragmentsProvider = ruleContext.getRequiredConfigFragments();
+        } finally {
           ruleContext.close();
         }
         if (rawProviders == null) {

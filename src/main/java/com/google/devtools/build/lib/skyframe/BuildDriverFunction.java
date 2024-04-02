@@ -167,16 +167,23 @@ public class BuildDriverFunction implements SkyFunction {
     // reevaluated every build.
     PrecomputedValue.BUILD_ID.get(env);
 
+    Set<TopLevelStatusEvents.Type> postedEventsTypes =
+        keyToPostedEvents.computeIfAbsent(buildDriverKey, (unused) -> new HashSet<>());
     // Why SkyValue and not ActionLookupValue? The evaluation of some ActionLookupKey can result in
     // classes that don't implement ActionLookupValue
     // (e.g. ConfiguredTargetKey -> NonRuleConfiguredTargetValue).
-    SkyValue topLevelSkyValue = env.getValue(actionLookupKey);
+    SkyValue topLevelSkyValue;
+    try {
+      topLevelSkyValue = env.getValueOrThrow(actionLookupKey, AbstractSaneAnalysisException.class);
+    } catch (AbstractSaneAnalysisException e) {
+      signalAnalysisConclusionIfKeepGoing(
+          env, buildDriverKey, postedEventsTypes, /* success= */ false);
+      throw BuildDriverFunctionException.ofConfiguredTargetOrAspectEval(e);
+    }
 
     if (env.valuesMissing()) {
       return null;
     }
-    Set<TopLevelStatusEvents.Type> postedEventsTypes =
-        keyToPostedEvents.computeIfAbsent(buildDriverKey, (unused) -> new HashSet<>());
 
     // At this point, the target is considered "analyzed". It's important that this event is sent
     // before the TopLevelEntityAnalysisConcludedEvent: when the last of the analysis work is
@@ -198,6 +205,9 @@ public class BuildDriverFunction implements SkyFunction {
         ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
             checkActionConflicts(actionLookupKey);
         if (!actionConflicts.isEmpty()) {
+          // The analysis technically succeeded, even though the target/aspect can't be executed.
+          signalAnalysisConclusionIfKeepGoing(
+              env, buildDriverKey, postedEventsTypes, /* success= */ true);
           throw new BuildDriverFunctionException(
               new TopLevelConflictException(
                   "Action conflict(s) detected while analyzing top-level target "
@@ -278,13 +288,17 @@ public class BuildDriverFunction implements SkyFunction {
             postEventIfNecessary(
                 postedEventsTypes,
                 env,
-                TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
+                TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey, /* succeeded= */ true));
             // We consider the evaluation of this BuildDriverKey successful at this point, even when
             // the target is skipped.
             removeStatesForKey(buildDriverKey);
             return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ true);
           }
         } catch (TargetCompatibilityCheckException e) {
+          // The analysis of the target technically succeeded, just that it was incompatible and
+          // can't be executed.
+          signalAnalysisConclusionIfKeepGoing(
+              env, buildDriverKey, postedEventsTypes, /* success= */ true);
           throw new BuildDriverFunctionException(e);
         }
       }
@@ -294,7 +308,9 @@ public class BuildDriverFunction implements SkyFunction {
       }
 
       postEventIfNecessary(
-          postedEventsTypes, env, TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
+          postedEventsTypes,
+          env,
+          TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey, /* succeeded= */ true));
       postEventIfNecessary(
           postedEventsTypes,
           env,
@@ -339,7 +355,9 @@ public class BuildDriverFunction implements SkyFunction {
       // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date
       // before signaling that the analysis of this top level aspect has concluded.
       postEventIfNecessary(
-          postedEventsTypes, env, TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
+          postedEventsTypes,
+          env,
+          TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey, /* succeeded= */ true));
 
       postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
       // Request the execution of the collected aspects.
@@ -362,6 +380,25 @@ public class BuildDriverFunction implements SkyFunction {
 
     removeStatesForKey(buildDriverKey);
     return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ false);
+  }
+
+  /**
+   * Sends out a signal that no more analysis work will be done on this top level target/aspect.
+   *
+   * <p>Only do so in --keep_going mode. This is consistent with the legacy behavior where the
+   * analysis phase isn't considered "finished" if there's an error in --nokeep_going mode.
+   */
+  private static void signalAnalysisConclusionIfKeepGoing(
+      Environment env,
+      BuildDriverKey buildDriverKey,
+      Set<TopLevelStatusEvents.Type> postedEventsTypes,
+      boolean success) {
+    if (buildDriverKey.keepGoing()) {
+      postEventIfNecessary(
+          postedEventsTypes,
+          env,
+          TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey, success));
+    }
   }
 
   /**
@@ -646,6 +683,10 @@ public class BuildDriverFunction implements SkyFunction {
 
   /** A SkyFunctionException wrapper for the actual TopLevelConflictException. */
   private static final class BuildDriverFunctionException extends SkyFunctionException {
+    private BuildDriverFunctionException(Exception cause, Transience transience) {
+      super(cause, transience);
+    }
+
     // The exception is transient here since it could be caused by external factors (conflict with
     // another target).
     BuildDriverFunctionException(TopLevelConflictException cause) {
@@ -654,6 +695,11 @@ public class BuildDriverFunction implements SkyFunction {
 
     BuildDriverFunctionException(TargetCompatibilityCheckException cause) {
       super(cause, Transience.TRANSIENT);
+    }
+
+    static BuildDriverFunctionException ofConfiguredTargetOrAspectEval(
+        AbstractSaneAnalysisException cause) {
+      return new BuildDriverFunctionException(cause, Transience.PERSISTENT);
     }
   }
 

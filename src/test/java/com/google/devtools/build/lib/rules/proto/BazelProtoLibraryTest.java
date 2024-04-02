@@ -50,7 +50,13 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   public void setUp() throws Exception {
     useConfiguration("--proto_compiler=//proto:compiler");
     MockProtoSupport.setup(mockToolsConfig);
-    scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
+    scratch.file(
+        "proto/BUILD",
+        """
+        licenses(["notice"])
+
+        exports_files(["compiler"])
+        """);
 
     invalidatePackages();
   }
@@ -324,7 +330,13 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   public void strictPublicImports_disabled() throws Exception {
     useConfiguration("--strict_public_imports=OFF", "--proto_compiler=//proto:compiler");
     scratch.file(
-        "test/BUILD", "proto_library(", "  name = 'myProto',", "  srcs = ['myProto.proto'],", ")");
+        "test/BUILD",
+        """
+        proto_library(
+            name = "myProto",
+            srcs = ["myProto.proto"],
+        )
+        """);
 
     ConfiguredTarget configuredTargetFalse = getConfiguredTarget("//test:myProto");
     SpawnAction spawnActionFalse =
@@ -338,12 +350,36 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     useConfiguration("--strict_public_imports=ERROR", "--proto_compiler=//proto:compiler");
     scratch.file(
         "x/BUILD",
-        "proto_library(name = 'prototop', srcs = ['top.proto'], ",
-        "              deps = [':exported1', ':exported2', ':notexported'],",
-        "              exports = [':exported1', ':exported2'])",
-        "proto_library(name = 'exported1', srcs = ['exported1.proto'])",
-        "proto_library(name = 'exported2', srcs = ['exported2.proto'])",
-        "proto_library(name = 'notexported', srcs = ['notexported.proto'])");
+        """
+        proto_library(
+            name = "prototop",
+            srcs = ["top.proto"],
+            exports = [
+                ":exported1",
+                ":exported2",
+            ],
+            deps = [
+                ":exported1",
+                ":exported2",
+                ":notexported",
+            ],
+        )
+
+        proto_library(
+            name = "exported1",
+            srcs = ["exported1.proto"],
+        )
+
+        proto_library(
+            name = "exported2",
+            srcs = ["exported2.proto"],
+        )
+
+        proto_library(
+            name = "notexported",
+            srcs = ["notexported.proto"],
+        )
+        """);
 
     // Check that the allowed public imports are passed correctly to the proto compiler.
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:prototop");
@@ -1143,8 +1179,19 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     scratch.file(
         "x/BUILD",
-        "genrule(name='g', srcs=[], outs=['generated.proto'], cmd='')",
-        "proto_library(name='foo', srcs=['generated.proto'])");
+        """
+        genrule(
+            name = "g",
+            srcs = [],
+            outs = ["generated.proto"],
+            cmd = "",
+        )
+
+        proto_library(
+            name = "foo",
+            srcs = ["generated.proto"],
+        )
+        """);
 
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
@@ -1160,8 +1207,22 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     scratch.file(
         "x/BUILD",
-        "genrule(name='g', srcs=[], outs=['generated.proto'], cmd='')",
-        "proto_library(name='foo', srcs=['generated.proto', 'a.proto'])");
+        """
+        genrule(
+            name = "g",
+            srcs = [],
+            outs = ["generated.proto"],
+            cmd = "",
+        )
+
+        proto_library(
+            name = "foo",
+            srcs = [
+                "a.proto",
+                "generated.proto",
+            ],
+        )
+        """);
 
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
@@ -1173,15 +1234,32 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   public void protoLibrary_reexport_allowed() throws Exception {
     scratch.file(
         "x/BUILD",
-        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
-        "package_group(",
-        "    name='test',",
-        "    packages=['//allowed'],",
-        ")");
+        """
+        proto_library(
+            name = "foo",
+            srcs = ["foo.proto"],
+            allow_exports = ":test",
+        )
+
+        package_group(
+            name = "test",
+            packages = ["//allowed"],
+        )
+        """);
     scratch.file(
         "allowed/BUILD",
-        "proto_library(name='test1', deps = ['//x:foo'])",
-        "proto_library(name='test2', srcs = ['A.proto'], exports = ['//x:foo'])");
+        """
+        proto_library(
+            name = "test1",
+            deps = ["//x:foo"],
+        )
+
+        proto_library(
+            name = "test2",
+            srcs = ["A.proto"],
+            exports = ["//x:foo"],
+        )
+        """);
 
     getConfiguredTarget("//allowed:test1");
     getConfiguredTarget("//allowed:test2");
@@ -1193,11 +1271,18 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   public void protoLibrary_implcitReexport_fails() throws Exception {
     scratch.file(
         "x/BUILD",
-        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
-        "package_group(",
-        "    name='test',",
-        "    packages=['//allowed'],",
-        ")");
+        """
+        proto_library(
+            name = "foo",
+            srcs = ["foo.proto"],
+            allow_exports = ":test",
+        )
+
+        package_group(
+            name = "test",
+            packages = ["//allowed"],
+        )
+        """);
     scratch.file("notallowed/BUILD", "proto_library(name='test', deps = ['//x:foo'])");
 
     reporter.removeHandler(failFastHandler);
@@ -1210,11 +1295,18 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   public void protoLibrary_explicitExport_fails() throws Exception {
     scratch.file(
         "x/BUILD",
-        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
-        "package_group(",
-        "    name='test',",
-        "    packages=['//allowed'],",
-        ")");
+        """
+        proto_library(
+            name = "foo",
+            srcs = ["foo.proto"],
+            allow_exports = ":test",
+        )
+
+        package_group(
+            name = "test",
+            packages = ["//allowed"],
+        )
+        """);
     scratch.file(
         "notallowed/BUILD",
         "proto_library(name='test', srcs = ['A.proto'], exports = ['//x:foo'])");

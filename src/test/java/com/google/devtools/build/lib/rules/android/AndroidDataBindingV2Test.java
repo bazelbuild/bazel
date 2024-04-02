@@ -55,24 +55,28 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "java/android/library2/BUILD",
-        "android_library(",
-        "    name = 'lib2_with_databinding',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyLib2.java'],",
-        "    resource_files = [],",
-        ")");
+        """
+        android_library(
+            name = "lib2_with_databinding",
+            srcs = ["MyLib2.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            resource_files = [],
+        )
+        """);
 
     scratch.file(
         "java/android/library/BUILD",
-        "android_library(",
-        "    name = 'lib_with_databinding',",
-        "    deps = ['//java/android/library2:lib2_with_databinding'],",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyLib.java'],",
-        "    resource_files = [],",
-        ")");
+        """
+        android_library(
+            name = "lib_with_databinding",
+            srcs = ["MyLib.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            resource_files = [],
+            deps = ["//java/android/library2:lib2_with_databinding"],
+        )
+        """);
 
     scratch.file(
         "java/android/library/MyLib.java", "package android.library; public class MyLib {};");
@@ -82,12 +86,14 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "javatests/android/test/BUILD",
-        "android_local_test(",
-        "    name = 'databinding_enabled_test',",
-        "    deps = ['//java/android/library:lib_with_databinding'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyTest.java'],",
-        ")");
+        """
+        android_local_test(
+            name = "databinding_enabled_test",
+            srcs = ["MyTest.java"],
+            manifest = "AndroidManifest.xml",
+            deps = ["//java/android/library:lib_with_databinding"],
+        )
+        """);
 
     scratch.file(
         "javatests/android/test/MyTest.java", "package android.test; public class MyTest {};");
@@ -97,13 +103,15 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "javatests/android/test/BUILD",
-        "android_local_test(",
-        "    name = 'databinding_enabled_test',",
-        "    deps = ['//java/android/library:lib_with_databinding'],",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyTest.java'],",
-        ")");
+        """
+        android_local_test(
+            name = "databinding_enabled_test",
+            srcs = ["MyTest.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            deps = ["//java/android/library:lib_with_databinding"],
+        )
+        """);
 
     scratch.file(
         "javatests/android/test/MyTest.java", "package android.test; public class MyTest {};");
@@ -115,13 +123,15 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "java/android/binary/BUILD",
-        "android_binary(",
-        "    name = 'app',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyApp.java'],",
-        "    deps = ['//java/android/library:lib_with_databinding'],",
-        ")");
+        """
+        android_binary(
+            name = "app",
+            srcs = ["MyApp.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            deps = ["//java/android/library:lib_with_databinding"],
+        )
+        """);
 
     scratch.file(
         "java/android/binary/MyApp.java", "package android.binary; public class MyApp {};");
@@ -131,38 +141,44 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "java/android/lib_with_resource_files/BUILD",
-        "android_library(",
-        "    name = 'lib_with_resource_files',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['LibWithResourceFiles.java'],",
-        "    resource_files = glob(['res/**']),",
-        ")");
+        """
+        android_library(
+            name = "lib_with_resource_files",
+            srcs = ["LibWithResourceFiles.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            resource_files = glob(["res/**"]),
+        )
+        """);
     scratch.file(
         "java/android/lib_with_resource_files/LibWithResourceFiles.java",
         "package android.lib_with_resource_files; public class LibWithResourceFiles {};");
 
     scratch.file(
         "java/android/lib_no_resource_files/BUILD",
-        "android_library(",
-        "    name = 'lib_no_resource_files',",
-        "    enable_data_binding = 1,",
-        "    srcs = ['LibNoResourceFiles.java'],",
-        "    deps = ['//java/android/lib_with_resource_files'],",
-        ")");
+        """
+        android_library(
+            name = "lib_no_resource_files",
+            srcs = ["LibNoResourceFiles.java"],
+            enable_data_binding = 1,
+            deps = ["//java/android/lib_with_resource_files"],
+        )
+        """);
     scratch.file(
         "java/android/lib_no_resource_files/LibNoResourceFiles.java",
         "package android.lib_no_resource_files; public class LibNoResourceFiles {};");
 
     scratch.file(
         "java/android/binary/BUILD",
-        "android_binary(",
-        "    name = 'app',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyApp.java'],",
-        "    deps = ['//java/android/lib_no_resource_files'],",
-        ")");
+        """
+        android_binary(
+            name = "app",
+            srcs = ["MyApp.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            deps = ["//java/android/lib_no_resource_files"],
+        )
+        """);
     scratch.file(
         "java/android/binary/MyApp.java", "package android.binary; public class MyApp {};");
   }
@@ -173,15 +189,17 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "java/android/binary/BUILD",
-        "android_binary(",
-        "    name = 'app',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    shrink_resources = 1,",
-        "    srcs = ['MyApp.java'],",
-        "    deps = ['//java/android/library:lib_with_databinding'],",
-        "    proguard_specs = ['proguard-spec.pro'],",
-        ")");
+        """
+        android_binary(
+            name = "app",
+            srcs = ["MyApp.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            proguard_specs = ["proguard-spec.pro"],
+            shrink_resources = 1,
+            deps = ["//java/android/library:lib_with_databinding"],
+        )
+        """);
 
     scratch.file(
         "java/android/binary/MyApp.java", "package android.binary; public class MyApp {};");
@@ -427,26 +445,30 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     // aapt doesn't know how to read the data binding expressions). But analysis should work.
     scratch.file(
         "java/android/library/BUILD",
-        "android_library(",
-        "    name = 'lib_with_databinding',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyLib.java'],",
-        "    resource_files = [],",
-        ")");
+        """
+        android_library(
+            name = "lib_with_databinding",
+            srcs = ["MyLib.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            resource_files = [],
+        )
+        """);
 
     scratch.file(
         "java/android/library/MyLib.java", "package android.library; public class MyLib {};");
 
     scratch.file(
         "java/android/binary/BUILD",
-        "android_binary(",
-        "    name = 'app',",
-        "    enable_data_binding = 0,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyApp.java'],",
-        "    deps = ['//java/android/library:lib_with_databinding'],",
-        ")");
+        """
+        android_binary(
+            name = "app",
+            srcs = ["MyApp.java"],
+            enable_data_binding = 0,
+            manifest = "AndroidManifest.xml",
+            deps = ["//java/android/library:lib_with_databinding"],
+        )
+        """);
 
     scratch.file(
         "java/android/binary/MyApp.java", "package android.binary; public class MyApp {};");
@@ -456,48 +478,29 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
   @Test
   public void dataBindingProviderIsProvided() throws Exception {
-
-    useConfiguration("--android_sdk=//sdk:sdk");
-
-    scratch.file(
-        "sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'aapt',",
-        "    aapt2 = 'aapt2',",
-        "    adb = 'adb',",
-        "    aidl = 'aidl',",
-        "    android_jar = 'android.jar',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    framework_aidl = 'framework_aidl',",
-        "    main_dex_classes = 'main_dex_classes',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'proguard',",
-        "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign',",
-        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
-        ")");
-
     scratch.file(
         "java/a/BUILD",
-        "android_library(",
-        "    name = 'a', ",
-        "    srcs = ['A.java'],",
-        "    enable_data_binding = 1,",
-        "    manifest = 'a/AndroidManifest.xml',",
-        "    resource_files = ['res/values/a.xml'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            enable_data_binding = 1,
+            manifest = "a/AndroidManifest.xml",
+            resource_files = ["res/values/a.xml"],
+        )
+        """);
 
     scratch.file(
         "java/b/BUILD",
-        "android_library(",
-        "    name = 'b', ",
-        "    srcs = ['B.java'],",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/a.xml'],",
-        ")");
+        """
+        android_library(
+            name = "b",
+            srcs = ["B.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/a.xml"],
+        )
+        """);
 
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     final DataBindingV2Provider dataBindingV2Provider = a.get(DataBindingV2Provider.PROVIDER);
@@ -525,44 +528,26 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
   @Test
   public void ensureDataBindingProviderIsPropagatedThroughNonDataBindingLibs() throws Exception {
-
-    useConfiguration("--android_sdk=//sdk:sdk");
-
-    scratch.file(
-        "sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'aapt',",
-        "    aapt2 = 'aapt2',",
-        "    adb = 'adb',",
-        "    aidl = 'aidl',",
-        "    android_jar = 'android.jar',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    framework_aidl = 'framework_aidl',",
-        "    main_dex_classes = 'main_dex_classes',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'proguard',",
-        "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign',",
-        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
-        ")");
     scratch.file(
         "java/a/BUILD",
-        "android_library(",
-        "    name = 'a', ",
-        "    srcs = ['A.java'],",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/a.xml'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/a.xml"],
+        )
+        """);
     scratch.file(
         "java/b/BUILD",
-        "android_library(",
-        "    name = 'b', ",
-        "    srcs = ['B.java'],",
-        "    deps = ['//java/a:a'],",
-        ")");
+        """
+        android_library(
+            name = "b",
+            srcs = ["B.java"],
+            deps = ["//java/a"],
+        )
+        """);
 
     ConfiguredTarget b = getConfiguredTarget("//java/b:b");
     assertWithMessage("DataBindingV2Info").that(b.get(DataBindingV2Provider.PROVIDER)).isNotNull();
@@ -570,55 +555,41 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
   @Test
   public void testDataBindingCollectedThroughExports() throws Exception {
-
-    useConfiguration("--android_sdk=//sdk:sdk");
-
-    scratch.file(
-        "sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'aapt',",
-        "    aapt2 = 'aapt2',",
-        "    adb = 'adb',",
-        "    aidl = 'aidl',",
-        "    android_jar = 'android.jar',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    framework_aidl = 'framework_aidl',",
-        "    main_dex_classes = 'main_dex_classes',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'proguard',",
-        "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign',",
-        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
-        ")");
-
     scratch.file(
         "java/a/BUILD",
-        "android_library(",
-        "    name = 'a', ",
-        "    srcs = ['A.java'],",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/a.xml'],",
-        ")");
+        """
+        android_library(
+            name = "a",
+            srcs = ["A.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/a.xml"],
+        )
+        """);
 
     scratch.file(
         "java/b/BUILD",
-        "android_library(",
-        "    name = 'b', ",
-        "    srcs = ['B.java'],",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = ['res/values/a.xml'],",
-        ")");
+        """
+        android_library(
+            name = "b",
+            srcs = ["B.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/a.xml"],
+        )
+        """);
 
     scratch.file(
         "java/c/BUILD",
-        "android_library(",
-        "    name = 'c', ",
-        "    exports = ['//java/a:a', '//java/b:b']",
-        ")");
+        """
+        android_library(
+            name = "c",
+            exports = [
+                "//java/a",
+                "//java/b",
+            ],
+        )
+        """);
 
     ConfiguredTarget c = getConfiguredTarget("//java/c:c");
     DataBindingV2Provider provider = c.get(DataBindingV2Provider.PROVIDER);
@@ -741,24 +712,28 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "java/com/middleA/BUILD",
-        "android_library(",
-        "    name = 'lib',",
-        "    srcs = ['UserMiddleA.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    deps = [",
-        "        '//java/com/bottom:lib',",
-        "    ],",
-        ")");
+        """
+        android_library(
+            name = "lib",
+            srcs = ["UserMiddleA.java"],
+            manifest = "AndroidManifest.xml",
+            deps = [
+                "//java/com/bottom:lib",
+            ],
+        )
+        """);
     scratch.file(
         "java/com/middleB/BUILD",
-        "android_library(",
-        "    name = 'lib',",
-        "    srcs = ['UserMiddleB.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    deps = [",
-        "        '//java/com/bottom:lib2',",
-        "    ],",
-        ")");
+        """
+        android_library(
+            name = "lib",
+            srcs = ["UserMiddleB.java"],
+            manifest = "AndroidManifest.xml",
+            deps = [
+                "//java/com/bottom:lib2",
+            ],
+        )
+        """);
 
     scratch.file(
         "java/com/bin/BUILD",
@@ -916,24 +891,28 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "java/com/middleA/BUILD",
-        "android_library(",
-        "    name = 'lib',",
-        "    srcs = ['UserMiddleA.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    deps = [",
-        "        '//java/com/bottom:lib',",
-        "    ],",
-        ")");
+        """
+        android_library(
+            name = "lib",
+            srcs = ["UserMiddleA.java"],
+            manifest = "AndroidManifest.xml",
+            deps = [
+                "//java/com/bottom:lib",
+            ],
+        )
+        """);
     scratch.file(
         "java/com/middleB/BUILD",
-        "android_library(",
-        "    name = 'lib',",
-        "    srcs = ['UserMiddleB.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    deps = [",
-        "        '//java/com/bottom:lib',",
-        "    ],",
-        ")");
+        """
+        android_library(
+            name = "lib",
+            srcs = ["UserMiddleB.java"],
+            manifest = "AndroidManifest.xml",
+            deps = [
+                "//java/com/bottom:lib",
+            ],
+        )
+        """);
 
     scratch.file(
         "java/com/bin/BUILD",
@@ -958,70 +937,80 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "java/android/library1/BUILD",
-        "android_library(",
-        "    name = 'lib1_with_databinding',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyLib1.java'],",
-        ")");
+        """
+        android_library(
+            name = "lib1_with_databinding",
+            srcs = ["MyLib1.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+        )
+        """);
 
     scratch.file(
         "java/android/library2/BUILD",
-        "android_library(",
-        "    name = 'lib2_with_databinding',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyLib2.java'],",
-        ")");
+        """
+        android_library(
+            name = "lib2_with_databinding",
+            srcs = ["MyLib2.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+        )
+        """);
 
     scratch.file(
         "java/android/library3/BUILD",
-        "android_library(",
-        "    name = 'lib3',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyLib3.java'],",
-        ")");
+        """
+        android_library(
+            name = "lib3",
+            srcs = ["MyLib3.java"],
+            manifest = "AndroidManifest.xml",
+        )
+        """);
 
     scratch.file(
         "java/android/lib_with_exports/BUILD",
-        "android_library(",
-        "    name = 'lib_with_exports_no_databinding',",
-        "    exports = [",
-        "        '//java/android/library1:lib1_with_databinding',",
-        "        '//java/android/library2:lib2_with_databinding',",
-        "        '//java/android/library3:lib3',",
-        "    ],",
-        "    manifest = 'AndroidManifest.xml',",
-        ")",
-        "",
-        "android_library(",
-        "    name = 'lib_with_exports_and_databinding',",
-        "    exports = [",
-        "        '//java/android/library1:lib1_with_databinding',",
-        "        '//java/android/library2:lib2_with_databinding',",
-        "        '//java/android/library3:lib3',",
-        "    ],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    enable_data_binding = 1,",
-        ")");
+        """
+        android_library(
+            name = "lib_with_exports_no_databinding",
+            manifest = "AndroidManifest.xml",
+            exports = [
+                "//java/android/library1:lib1_with_databinding",
+                "//java/android/library2:lib2_with_databinding",
+                "//java/android/library3:lib3",
+            ],
+        )
+
+        android_library(
+            name = "lib_with_exports_and_databinding",
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            exports = [
+                "//java/android/library1:lib1_with_databinding",
+                "//java/android/library2:lib2_with_databinding",
+                "//java/android/library3:lib3",
+            ],
+        )
+        """);
 
     scratch.file(
         "java/android/binary/BUILD",
-        "android_binary(",
-        "    name = 'app_dep_on_exports_no_databinding',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyApp.java'],",
-        "    deps = ['//java/android/lib_with_exports:lib_with_exports_no_databinding'],",
-        ")",
-        "",
-        "android_binary(",
-        "    name = 'app_dep_on_exports_and_databinding',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyApp.java'],",
-        "    deps = ['//java/android/lib_with_exports:lib_with_exports_and_databinding'],",
-        ")");
+        """
+        android_binary(
+            name = "app_dep_on_exports_no_databinding",
+            srcs = ["MyApp.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            deps = ["//java/android/lib_with_exports:lib_with_exports_no_databinding"],
+        )
+
+        android_binary(
+            name = "app_dep_on_exports_and_databinding",
+            srcs = ["MyApp.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            deps = ["//java/android/lib_with_exports:lib_with_exports_and_databinding"],
+        )
+        """);
   }
 
   @Test
@@ -1070,13 +1059,15 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     scratch.file(
         "java/android/binary/BUILD",
-        "android_binary(",
-        "    name = 'app_databinding_no_deps',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyApp.java'],",
-        "    deps = [],",
-        ")");
+        """
+        android_binary(
+            name = "app_databinding_no_deps",
+            srcs = ["MyApp.java"],
+            enable_data_binding = 1,
+            manifest = "AndroidManifest.xml",
+            deps = [],
+        )
+        """);
 
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app_databinding_no_deps");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));

@@ -41,8 +41,17 @@ public final class GeneratorConflictTest extends AnalysisTestCase {
   public void testIntermediateFileConflictsWithAnotherRule() throws Exception {
     scratch.file(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+        """
+        cc_library(
+            name = "x",
+            srcs = ["foo.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler); // expect errors
 
@@ -76,8 +85,18 @@ public final class GeneratorConflictTest extends AnalysisTestCase {
       throws Exception {
     scratch.file(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo.cc'])",
-        "genrule(name='y', outs=['_objs/x/foo.o'], cmd=':')");
+        """
+        cc_library(
+            name = "x",
+            srcs = ["foo.cc"],
+        )
+
+        genrule(
+            name = "y",
+            outs = ["_objs/x/foo.o"],
+            cmd = ":",
+        )
+        """);
 
     // No conflict, doesn't fail:
     update("//conflict:x");

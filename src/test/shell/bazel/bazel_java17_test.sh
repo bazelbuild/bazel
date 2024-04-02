@@ -60,6 +60,12 @@ JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
 
 override_java_tools "${RULES_JAVA_REPO_NAME}" "${JAVA_TOOLS_ZIP}" "${JAVA_TOOLS_PREBUILT_ZIP}"
 
+# Override test globals that are defaulted to 21 in testenv.sh.tmpl for all
+# other tests. For the purpose of this test, we want to run java_tools at
+# runtime 11 to test for failures in incompatible system classpaths.
+add_to_bazelrc "build --java_runtime_version=11"
+add_to_bazelrc "build --tool_java_runtime_version=11"
+
 # Java source files version shall match --java_language_version_flag version.
 function test_java17_text_block() {
   mkdir -p java/main

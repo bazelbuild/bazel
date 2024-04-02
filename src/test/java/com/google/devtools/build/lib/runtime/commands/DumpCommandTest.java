@@ -78,9 +78,27 @@ public final class DumpCommandTest extends BuildIntegrationTestCase {
   public void interruptedOnRuleTypes() throws Exception {
     write(
         "foo/BUILD",
-        "genrule(name = 'bar', outs = ['bar.out'], cmd = 'touch $@')",
-        "genrule(name = 'bad', outs = ['bad.out'], srcs = [':bar'], cmd = '$BAD_VARIABLE')",
-        "genrule(name = 'foo', outs = ['foo.out'], srcs = [':bad'], cmd = 'touch $@')");
+        """
+        genrule(
+            name = "bar",
+            outs = ["bar.out"],
+            cmd = "touch $@",
+        )
+
+        genrule(
+            name = "bad",
+            srcs = [":bar"],
+            outs = ["bad.out"],
+            cmd = "$BAD_VARIABLE",
+        )
+
+        genrule(
+            name = "foo",
+            srcs = [":bad"],
+            outs = ["foo.out"],
+            cmd = "touch $@",
+        )
+        """);
     addOptions("--nobuild");
     // The analysis failure enqueues nodes for invalidation/deletion, which get triggered during the
     // getPackage() Skyframe evaluations during the rule-type dump. The interrupt then kicks in.

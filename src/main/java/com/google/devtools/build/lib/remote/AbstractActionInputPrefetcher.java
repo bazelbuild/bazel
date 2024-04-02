@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
@@ -78,8 +79,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   protected final Path execRoot;
   protected final RemoteOutputChecker remoteOutputChecker;
-
-  private final Set<ActionInput> missingActionInputs = Sets.newConcurrentHashSet();
 
   private final ActionOutputDirectoryHelper outputDirectoryHelper;
 
@@ -538,7 +537,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                     .doOnError(
                         error -> {
                           if (error instanceof CacheNotFoundException) {
-                            missingActionInputs.add(actionInput);
+                            reporter.post(new LostInputsEvent());
                           }
                         }));
 
@@ -696,10 +695,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   public void flushOutputTree() throws InterruptedException {
     downloadCache.awaitInProgressTasks();
-  }
-
-  public ImmutableSet<ActionInput> getMissingActionInputs() {
-    return ImmutableSet.copyOf(missingActionInputs);
   }
 
   public RemoteOutputChecker getRemoteOutputChecker() {

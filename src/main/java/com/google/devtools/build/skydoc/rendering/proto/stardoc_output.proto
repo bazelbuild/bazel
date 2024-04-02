@@ -46,6 +46,8 @@ message ModuleInfo {
   repeated ModuleExtensionInfo module_extension_info = 7;
 
   repeated RepositoryRuleInfo repository_rule_info = 8;
+
+  repeated MacroInfo macro_info = 9;
 }
 
 // Representation of a Starlark rule attribute type. These generally
@@ -99,6 +101,26 @@ message RuleInfo {
   // Note: if test is true, executable is also true (test rules are implicitly
   // executable).
   bool executable = 7;
+}
+
+// Representation of a Starlark symbolic macro definition.
+// Note: symbolic macros (and thus, their documentation format) are an
+// experimental feature gated by the --experimental_enable_first_class_macros
+// flag.
+message MacroInfo {
+  // The name under which the macro is made accessible to a user of this module,
+  // including any structs it is nested in, for example "foo.foo_library".
+  string macro_name = 1;
+
+  // The documentation string of the macro.
+  string doc_string = 2;
+
+  // The attributes of the macro.
+  repeated AttributeInfo attribute = 3;
+
+  // The module where and the name under which the macro was originally
+  // declared.
+  OriginKey origin_key = 4;
 }
 
 // Representation of a Starlark rule, repository rule, or module extension tag

@@ -42,17 +42,23 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
   public void aspectGetsActionProviderForNativeRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "foo = provider()",
-        "def _impl(target, ctx):",
-        "   return [foo(actions = target.actions)]",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        foo = provider()
+
+        def _impl(target, ctx):
+            return [foo(actions = target.actions)]
+
+        MyAspect = aspect(implementation = _impl)
+        """);
     scratch.file(
         "test/BUILD",
-        "genrule(",
-        "   name = 'xxx',",
-        "   cmd = 'echo \"hello\" > $@',",
-        "   outs = ['mygen.out']",
-        ")");
+        """
+        genrule(
+            name = "xxx",
+            outs = ["mygen.out"],
+            cmd = 'echo "hello" > $@',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -80,38 +86,61 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
   public void aspectGetsActionProviderForStarlarkRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "foo = provider()",
-        "def _impl(target, ctx):",
-        "   mnemonics = [a.mnemonic for a in target.actions]",
-        "   envs = [a.env for a in target.actions]",
-        "   execution_info = [a.execution_info for a in target.actions]",
-        "   inputs = [a.inputs.to_list() for a in target.actions]",
-        "   outputs = [a.outputs.to_list() for a in target.actions]",
-        "   argv = [a.argv for a in target.actions]",
-        "   return [foo(",
-        "       actions = target.actions,",
-        "       mnemonics = mnemonics,",
-        "       envs = envs,",
-        "       execution_info = execution_info,",
-        "       inputs = inputs,",
-        "       outputs = outputs,",
-        "       argv = argv",
-        "    )]",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        foo = provider()
+
+        def _impl(target, ctx):
+            mnemonics = [a.mnemonic for a in target.actions]
+            envs = [a.env for a in target.actions]
+            execution_info = [a.execution_info for a in target.actions]
+            inputs = [a.inputs.to_list() for a in target.actions]
+            outputs = [a.outputs.to_list() for a in target.actions]
+            argv = [a.argv for a in target.actions]
+            return [foo(
+                actions = target.actions,
+                mnemonics = mnemonics,
+                envs = envs,
+                execution_info = execution_info,
+                inputs = inputs,
+                outputs = outputs,
+                argv = argv,
+            )]
+
+        MyAspect = aspect(implementation = _impl)
+        """);
     scratch.file(
         "test/rule.bzl",
-        "def impl(ctx):",
-        "  output_file0 = ctx.actions.declare_file('myfile0')",
-        "  output_file1 = ctx.actions.declare_file('myfile1')",
-        "  executable = ctx.actions.declare_file('executable')",
-        "  ctx.actions.run(outputs=[output_file0], executable=executable,",
-        "      toolchain = None, mnemonic='MyAction0', env={'foo':'bar', 'pet':'puppy'})",
-        "  ctx.actions.run_shell(outputs=[executable, output_file1],",
-        "      command='fakecmd', mnemonic='MyAction1', env={'pet':'bunny'})",
-        "  return None",
-        "my_rule = rule(impl)");
+        """
+        def impl(ctx):
+            output_file0 = ctx.actions.declare_file("myfile0")
+            output_file1 = ctx.actions.declare_file("myfile1")
+            executable = ctx.actions.declare_file("executable")
+            ctx.actions.run(
+                outputs = [output_file0],
+                executable = executable,
+                toolchain = None,
+                mnemonic = "MyAction0",
+                env = {"foo": "bar", "pet": "puppy"},
+            )
+            ctx.actions.run_shell(
+                outputs = [executable, output_file1],
+                command = "fakecmd",
+                mnemonic = "MyAction1",
+                env = {"pet": "bunny"},
+            )
+            return None
+
+        my_rule = rule(impl)
+        """);
     scratch.file(
-        "test/BUILD", "load('//test:rule.bzl', 'my_rule')", "my_rule(", "   name = 'xxx',", ")");
+        "test/BUILD",
+        """
+        load("//test:rule.bzl", "my_rule")
+
+        my_rule(
+            name = "xxx",
+        )
+        """);
 
     useConfiguration("--experimental_google_legacy_api");
     AnalysisResult analysisResult =

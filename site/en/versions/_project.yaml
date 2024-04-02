@@ -1,0 +1,18 @@
+# Your product/API name (excluding "Google" when possible). This appears in the
+# header for each page in your docset.
+name: Bazel
+
+# An imperative sentence that says what developers can do with this product.
+# This appears in the landing page header and search results.
+description: >
+  Use the Bazel Open Source Project to scalably build and test massive, multi-language, multi-platform codebases.
+
+home_url: /
+content_license: cc-apache
+color: bazel-theme
+
+# Your Buganizer *component* where Googlers can file bugs about the docs. Not an
+# individual bug ID.
+buganizer_id: 1194991  # Dev Infrastructure > Build > Blaze > Open Source (Bazel) > Bazel Docs
+keywords:
+- product:Bazel

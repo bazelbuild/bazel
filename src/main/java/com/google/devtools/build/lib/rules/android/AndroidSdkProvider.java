@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -116,45 +115,26 @@ public final class AndroidSdkProvider extends NativeInfo
   /**
    * Returns the Android SDK associated with the rule being analyzed or null if the Android SDK is
    * not specified.
-   *
-   * <p>First tries to read from toolchains if
-   * --incompatible_enable_android_toolchain_resolution=true, else, uses the legacy attribute..
    */
   @Nullable
   public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext)
       throws RuleErrorException {
     // Determine the toolchain type.
     Label toolchainType = getToolchainTypeFromAttribute(ruleContext);
-    return fromRuleContext(ruleContext, ":android_sdk", toolchainType);
+    return fromRuleContext(ruleContext, toolchainType);
   }
 
   /**
    * Returns the Android SDK associated with the rule being analyzed or null if the Android SDK is
    * not specified.
-   *
-   * <p>First tries to read from toolchains if
-   * --incompatible_enable_android_toolchain_resolution=true, else, uses the legacy attribute..
    */
   @Nullable
   public static AndroidSdkProvider fromRuleContext(
-      RuleContext ruleContext, String sdkAttribute, @Nullable Label toolchainType)
-      throws RuleErrorException {
-    BuildConfigurationValue configuration = ruleContext.getConfiguration();
-    if (configuration == null
-        || !configuration.hasFragment(AndroidConfiguration.class)
-        || !configuration
-            .getFragment(AndroidConfiguration.class)
-            .incompatibleUseToolchainResolution()) {
-      // Not using toolchain resolution, so use the legacy attribute-based lookup.
-      return ruleContext.getPrerequisite(sdkAttribute, AndroidSdkProvider.PROVIDER);
-    }
-
-    // Check if toolchain resolution is enabled.
+      RuleContext ruleContext, @Nullable Label toolchainType) throws RuleErrorException {
     if (ruleContext.getToolchainContext() == null) {
       ruleContext.ruleError(
           String.format(
-              "'%s' rule '%s' requested sdk toolchain resolution via"
-                  + " --incompatible_enable_android_toolchain_resolution but doesn't use"
+              "'%s' rule '%s' requested sdk toolchain resolution but doesn't use"
                   + " toolchain resolution.",
               ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel()));
       return null;
@@ -163,8 +143,7 @@ public final class AndroidSdkProvider extends NativeInfo
     if (toolchainType == null) {
       ruleContext.ruleError(
           String.format(
-              "'%s' rule '%s' requested sdk toolchain resolution via"
-                  + " --incompatible_enable_android_toolchain_resolution but doesn't have"
+              "'%s' rule '%s' requested sdk toolchain resolution but doesn't have"
                   + " toolchain type attribute '%s'.",
               ruleContext.getRuleClassNameForLogging(),
               ruleContext.getLabel(),
@@ -176,8 +155,7 @@ public final class AndroidSdkProvider extends NativeInfo
     if (info == null) {
       ruleContext.ruleError(
           String.format(
-              "'%s' rule '%s' requested sdk toolchain resolution via"
-                  + " --incompatible_enable_android_toolchain_resolution but doesn't have a"
+              "'%s' rule '%s' requested sdk toolchain resolution but doesn't have a"
                   + " toolchain for '%s'.",
               ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel(), toolchainType));
       return null;
@@ -210,8 +188,7 @@ public final class AndroidSdkProvider extends NativeInfo
       throw ruleContext.throwWithRuleError(
           String.format(
               "'%s' rule '%s' requested an android sdk via toolchain resolution but hasn't set an"
-                  + " appropriate --android_platforms value: Either set"
-                  + " --noincompatible_enable_android_toolchain_resolution or --android_platforms.",
+                  + " appropriate --android_platforms value.",
               ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel()));
     }
 
@@ -220,33 +197,28 @@ public final class AndroidSdkProvider extends NativeInfo
 
   @Nullable
   private static Label getToolchainTypeFromAttribute(RuleContext ruleContext) {
-    BuildConfigurationValue configuration = ruleContext.getConfiguration();
-    if (configuration == null
-        || !configuration.hasFragment(AndroidConfiguration.class)
-        || !configuration
-            .getFragment(AndroidConfiguration.class)
-            .incompatibleUseToolchainResolution()) {
-      // Not using toolchain resolution, so return null.
-      return null;
+    Type<Label> depType;
+    if (ruleContext.attributes().has(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, BuildType.LABEL)) {
+      depType = BuildType.LABEL;
+    } else if (ruleContext
+        .attributes()
+        .has(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, BuildType.NODEP_LABEL)) {
+      depType = BuildType.NODEP_LABEL;
+    } else {
+      String message =
+          String.format(
+              "%s does not have the attribute %s of type LABEL or NODEP_LABEL, cannot find the"
+                  + " Android SDK",
+              ruleContext.toString(), ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME);
+      throw new IllegalStateException(message);
     }
-
-    Type<Label> depType =
-        ruleContext.getRule().getRuleClassObject().isStarlark()
-            ? BuildType.LABEL
-            : BuildType.NODEP_LABEL;
     return ruleContext.attributes().get(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, depType);
   }
 
   /** Throws an error if the Android SDK cannot be found. */
   public static void verifyPresence(RuleContext ruleContext) throws RuleErrorException {
     if (fromRuleContext(ruleContext) == null) {
-      throw ruleContext.throwWithRuleError(
-          ruleContext
-                  .getConfiguration()
-                  .getFragment(AndroidConfiguration.class)
-                  .incompatibleUseToolchainResolution()
-              ? "No Android SDK found."
-              : "No Android SDK found. Use the --android_sdk command line option to specify one.");
+      throw ruleContext.throwWithRuleError("No Android SDK found.");
     }
   }
 

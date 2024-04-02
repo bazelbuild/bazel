@@ -1127,8 +1127,9 @@ generally the fastest option**. It is not supported though when
 ordered by the dependency order or rank.
 
 When this flag is `deps`, Bazel prints results in some topological order—that is,
-dependencies first. However, nodes that are unordered by the dependency order
-(because there is no path from either one to the other) may be printed in any order.
+dependents first and dependencies after. However, nodes that are unordered by the
+dependency order (because there is no path from either one to the other) may be
+printed in any order.
 
 When this flag is `full`, Bazel prints nodes in a fully deterministic (total) order.
 First, all nodes are sorted alphabetically. Then, each node in the list is used as the start of a

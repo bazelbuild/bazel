@@ -31,6 +31,7 @@ import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
+import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -287,7 +288,8 @@ public final class SkyframeBuildView {
       EventHandler eventHandler,
       BuildConfigurationValue configuration,
       int maxDifferencesToShow,
-      boolean allowAnalysisCacheDiscards)
+      boolean allowAnalysisCacheDiscards,
+      Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent)
       throws InvalidConfigurationException {
     if (skyframeAnalysisWasDiscarded) {
       eventHandler.handle(
@@ -299,6 +301,9 @@ public final class SkyframeBuildView {
       skyframeExecutor.handleAnalysisInvalidatingChange();
     } else {
       String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
+      if (diff == null && additionalConfigurationChangeEvent.isPresent()) {
+        diff = additionalConfigurationChangeEvent.get().getChangeDescription();
+      }
       this.configuration = configuration;
       if (diff != null) {
         if (!allowAnalysisCacheDiscards) {
@@ -617,7 +622,8 @@ public final class SkyframeBuildView {
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(
                             ctKey.getLabel()),
                         skipIncompatibleExplicitTargets,
-                        extraActionTopLevelOnly))
+                        extraActionTopLevelOnly,
+                        keepGoing))
             .collect(ImmutableSet.toImmutableSet());
 
     ImmutableSet<BuildDriverKey> buildDriverAspectKeys =
@@ -629,7 +635,8 @@ public final class SkyframeBuildView {
                         topLevelArtifactContext,
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(k.getLabel()),
                         skipIncompatibleExplicitTargets,
-                        extraActionTopLevelOnly))
+                        extraActionTopLevelOnly,
+                        keepGoing))
             .collect(ImmutableSet.toImmutableSet());
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
     MultiThreadPoolsQuiescingExecutor executor =

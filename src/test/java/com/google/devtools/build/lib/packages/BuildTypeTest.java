@@ -540,7 +540,7 @@ public final class BuildTypeTest {
     Object converted =
         BuildType.copyAndLiftStarlarkValue(
             "ruleClass",
-            Attribute.attr("attrName", Type.STRING_DICT).build(),
+            Attribute.attr("attrName", Types.STRING_DICT).build(),
             inputDict,
             labelConverter);
 

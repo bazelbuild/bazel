@@ -28,11 +28,14 @@ public class OutputFileConfiguredTargetTest extends BuildViewTestBase {
   public void generatingRuleIsCorrect() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(",
-        "    name='generating_rule', ",
-        "    cmd = 'echo hi > $@',",
-        "    srcs = [],",
-        "    outs = ['generated.source'])");
+        """
+        genrule(
+            name = "generating_rule",
+            srcs = [],
+            outs = ["generated.source"],
+            cmd = "echo hi > $@",
+        )
+        """);
     update("//foo:generating_rule");
     OutputFileConfiguredTarget generatedSource =
         (OutputFileConfiguredTarget)

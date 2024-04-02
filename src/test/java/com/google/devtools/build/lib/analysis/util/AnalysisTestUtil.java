@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -32,11 +33,11 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -223,6 +225,11 @@ public final class AnalysisTestUtil {
     @Override
     public ActionKeyContext getActionKeyContext() {
       return original.getActionKeyContext();
+    }
+
+    @Override
+    public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+      return original.getMainRepoMapping();
     }
   }
 
@@ -454,6 +461,11 @@ public final class AnalysisTestUtil {
     public ActionKeyContext getActionKeyContext() {
       return null;
     }
+
+    @Override
+    public RepositoryMapping getMainRepoMapping() {
+      return RepositoryMapping.ALWAYS_FALLBACK;
+    }
   }
 
   /** Matches the output path prefix contributed by a C++ configuration fragment. */
@@ -542,7 +554,7 @@ public final class AnalysisTestUtil {
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL))
+                    .executionPlatform(targetOptions.get(PlatformOptions.class).hostPlatform)
                     .analysisData(
                         skyframeExecutor.getStarlarkExecTransitionForTesting(
                             targetOptions, handler))

@@ -38,7 +38,7 @@ _PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("", "rust/private"),
     ("rules_rust", "rust/private"),
     ("", "third_party/gpus/cuda"),
-]
+] + _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
 _BUILTINS = [("_builtins", "")]
 
@@ -83,8 +83,6 @@ def _link(
         main_output = _UNBOUND,
         additional_outputs = [],
         use_test_only_flags = _UNBOUND,
-        pdb_file = _UNBOUND,
-        win_def_file = _UNBOUND,
         use_shareable_artifact_factory = _UNBOUND,
         build_config = _UNBOUND):
     # TODO(b/205690414): Keep linkedArtifactNameSuffixObject protected. Use cases that are
@@ -100,8 +98,6 @@ def _link(
        only_for_dynamic_libs != _UNBOUND or \
        main_output != _UNBOUND or \
        use_test_only_flags != _UNBOUND or \
-       pdb_file != _UNBOUND or \
-       win_def_file != _UNBOUND or \
        use_shareable_artifact_factory != _UNBOUND or \
        build_config != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -117,8 +113,6 @@ def _link(
         always_link = False
     if test_only_target == _UNBOUND:
         test_only_target = False
-    if variables_extension == _UNBOUND:
-        variables_extension = {}
     if native_deps == _UNBOUND:
         native_deps = False
     if whole_archive == _UNBOUND:
@@ -133,10 +127,6 @@ def _link(
         additional_outputs = []
     if use_test_only_flags == _UNBOUND:
         use_test_only_flags = False
-    if pdb_file == _UNBOUND:
-        pdb_file = None
-    if win_def_file == _UNBOUND:
-        win_def_file = None
     if use_shareable_artifact_factory == _UNBOUND:
         use_shareable_artifact_factory = False
     if build_config == _UNBOUND:
@@ -167,8 +157,6 @@ def _link(
         main_output = main_output,
         additional_outputs = additional_outputs,
         use_test_only_flags = use_test_only_flags,
-        pdb_file = pdb_file,
-        win_def_file = win_def_file,
         use_shareable_artifact_factory = use_shareable_artifact_factory,
         build_config = build_config,
     )
@@ -209,7 +197,7 @@ def _get_execution_requirements(*, feature_configuration, action_name):
     return cc_common_internal.get_execution_requirements(feature_configuration = feature_configuration, action_name = action_name)
 
 def _is_enabled(*, feature_configuration, feature_name):
-    return cc_common_internal.is_enabled(feature_configuration = feature_configuration, feature_name = feature_name)
+    return feature_configuration.is_enabled(feature_name)
 
 def _action_is_enabled(*, feature_configuration, action_name):
     return cc_common_internal.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name)
@@ -276,7 +264,6 @@ def _create_link_variables(
         user_link_flags = None,
         output_file = None,
         param_file = None,
-        def_file = None,
         is_using_linker = True,
         is_linking_dynamic_library = False,
         must_keep_debug = True,
@@ -290,7 +277,6 @@ def _create_link_variables(
         user_link_flags = user_link_flags,
         output_file = output_file,
         param_file = param_file,
-        def_file = def_file,
         is_using_linker = is_using_linker,
         is_linking_dynamic_library = is_linking_dynamic_library,
         must_keep_debug = must_keep_debug,
@@ -584,11 +570,9 @@ def _create_linking_context_from_compilation_outputs(
         variables_extension = {},
         stamp = _UNBOUND,
         linked_dll_name_suffix = _UNBOUND,
-        win_def_file = _UNBOUND,
         test_only_target = _UNBOUND):
     if stamp != _UNBOUND or \
        linked_dll_name_suffix != _UNBOUND or \
-       win_def_file != _UNBOUND or \
        test_only_target != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
@@ -596,8 +580,6 @@ def _create_linking_context_from_compilation_outputs(
         stamp = 0
     if linked_dll_name_suffix == _UNBOUND:
         linked_dll_name_suffix = ""
-    if win_def_file == _UNBOUND:
-        win_def_file = None
     if test_only_target == _UNBOUND:
         test_only_target = False
 
@@ -617,7 +599,6 @@ def _create_linking_context_from_compilation_outputs(
         variables_extension = variables_extension,
         stamp = stamp,
         linked_dll_name_suffix = linked_dll_name_suffix,
-        win_def_file = win_def_file,
         test_only_target = test_only_target,
     )
 

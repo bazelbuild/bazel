@@ -34,19 +34,27 @@ public class StarlarkTestingModuleTest extends BuildViewTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
-        "def my_rule_impl(ctx):",
-        "  exec_info = testing.ExecutionInfo({'requires-darwin': '1'})",
-        "  return [exec_info]",
-        "my_rule = rule(implementation = my_rule_impl,",
-        "  attrs = {},",
-        ")");
+        """
+        def my_rule_impl(ctx):
+            exec_info = testing.ExecutionInfo({"requires-darwin": "1"})
+            return [exec_info]
+
+        my_rule = rule(
+            implementation = my_rule_impl,
+            attrs = {},
+        )
+        """);
     scratch.file(
         "examples/apple_starlark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
-        "my_rule(",
-        "    name = 'my_target',",
-        ")");
+        """
+        load("//examples/rule:apple_rules.bzl", "my_rule")
+
+        package(default_visibility = ["//visibility:public"])
+
+        my_rule(
+            name = "my_target",
+        )
+        """);
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     ExecutionInfo provider = starlarkTarget.get(ExecutionInfo.PROVIDER);
@@ -59,19 +67,27 @@ public class StarlarkTestingModuleTest extends BuildViewTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
-        "def my_rule_impl(ctx):",
-        "  test_env = testing.TestEnvironment({'XCODE_VERSION_OVERRIDE': '7.3.1'})",
-        "  return [test_env]",
-        "my_rule = rule(implementation = my_rule_impl,",
-        "  attrs = {},",
-        ")");
+        """
+        def my_rule_impl(ctx):
+            test_env = testing.TestEnvironment({"XCODE_VERSION_OVERRIDE": "7.3.1"})
+            return [test_env]
+
+        my_rule = rule(
+            implementation = my_rule_impl,
+            attrs = {},
+        )
+        """);
     scratch.file(
         "examples/apple_starlark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
-        "my_rule(",
-        "    name = 'my_target',",
-        ")");
+        """
+        load("//examples/rule:apple_rules.bzl", "my_rule")
+
+        package(default_visibility = ["//visibility:public"])
+
+        my_rule(
+            name = "my_target",
+        )
+        """);
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     RunEnvironmentInfo provider = starlarkTarget.get(RunEnvironmentInfo.PROVIDER);
@@ -84,25 +100,33 @@ public class StarlarkTestingModuleTest extends BuildViewTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
-        "def my_rule_impl(ctx):",
-        "  test_env = testing.TestEnvironment(",
-        "    {'XCODE_VERSION_OVERRIDE': '7.3.1'},",
-        "    [",
-        "      'DEVELOPER_DIR',",
-        "      'XCODE_VERSION_OVERRIDE',",
-        "    ]",
-        ")",
-        "  return [test_env]",
-        "my_rule = rule(implementation = my_rule_impl,",
-        "  attrs = {},",
-        ")");
+        """
+        def my_rule_impl(ctx):
+            test_env = testing.TestEnvironment(
+                {"XCODE_VERSION_OVERRIDE": "7.3.1"},
+                [
+                    "DEVELOPER_DIR",
+                    "XCODE_VERSION_OVERRIDE",
+                ],
+            )
+            return [test_env]
+
+        my_rule = rule(
+            implementation = my_rule_impl,
+            attrs = {},
+        )
+        """);
     scratch.file(
         "examples/apple_starlark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
-        "my_rule(",
-        "    name = 'my_target',",
-        ")");
+        """
+        load("//examples/rule:apple_rules.bzl", "my_rule")
+
+        package(default_visibility = ["//visibility:public"])
+
+        my_rule(
+            name = "my_target",
+        )
+        """);
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     RunEnvironmentInfo provider =
@@ -118,21 +142,29 @@ public class StarlarkTestingModuleTest extends BuildViewTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
-        "def my_rule_test_impl(ctx):",
-        "  exec_info = testing.ExecutionInfo({'local': ''})",
-        "  ctx.actions.write(ctx.outputs.executable, '', True)",
-        "  return [exec_info]",
-        "my_rule_test = rule(implementation = my_rule_test_impl,",
-        "    test = True,",
-        "    attrs = {},",
-        ")");
+        """
+        def my_rule_test_impl(ctx):
+            exec_info = testing.ExecutionInfo({"local": ""})
+            ctx.actions.write(ctx.outputs.executable, "", True)
+            return [exec_info]
+
+        my_rule_test = rule(
+            implementation = my_rule_test_impl,
+            test = True,
+            attrs = {},
+        )
+        """);
     scratch.file(
         "examples/apple_starlark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'my_rule_test')",
-        "my_rule_test(",
-        "    name = 'my_target',",
-        ")");
+        """
+        load("//examples/rule:apple_rules.bzl", "my_rule_test")
+
+        package(default_visibility = ["//visibility:public"])
+
+        my_rule_test(
+            name = "my_target",
+        )
+        """);
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     TestRunnerAction testAction =

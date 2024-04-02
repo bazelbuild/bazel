@@ -53,38 +53,42 @@ public class RuleSetUtils {
     }
   };
 
-  /**
-   * Predicate for checking if a rule has any mandatory attributes.
-   */
-  public static final Predicate<RuleClass> MANDATORY_ATTRIBUTES = new Predicate<RuleClass>() {
-    @Override
-    public boolean apply(final RuleClass input) {
-      List<Attribute> li = new ArrayList<>(input.getAttributes());
-      return Iterables.any(li, MANDATORY);
-    }
-  };
+  /** Predicate for checking if a rule has any mandatory attributes, aside from name. */
+  public static final Predicate<RuleClass> MANDATORY_ATTRIBUTES =
+      new Predicate<RuleClass>() {
+        @Override
+        public boolean apply(final RuleClass input) {
+          List<Attribute> li = new ArrayList<>(input.getAttributes());
+          return Iterables.any(li, RuleSetUtils::mandatoryExcludingName);
+        }
+      };
 
   /**
-   * Predicate for checking that the rule can have a deps attribute, and does not have any
-   * other mandatory attributes besides deps.
+   * Predicate for checking that the rule can have a deps attribute, and does not have any other
+   * mandatory attributes besides deps and name.
    */
-  public static final Predicate<RuleClass> DEPS_ONLY_ALLOWED = new Predicate<RuleClass>() {
-    @Override
-    public boolean apply(final RuleClass input) {
-      List<Attribute> li = new ArrayList<>(input.getAttributes());
-      // TODO(bazel-team): after the API migration we shouldn't check srcs separately
-      boolean emptySrcsAllowed = input.hasAttr("srcs", BuildType.LABEL_LIST)
-          ? !input.getAttributeByName("srcs").isNonEmpty() : true;
-      if (!(emptySrcsAllowed && Iterables.any(li, DEPS))) {
-        return false;
-      }
+  public static final Predicate<RuleClass> DEPS_ONLY_ALLOWED =
+      new Predicate<RuleClass>() {
+        @Override
+        public boolean apply(final RuleClass input) {
+          List<Attribute> li = new ArrayList<>(input.getAttributes());
+          // TODO(bazel-team): after the API migration we shouldn't check srcs separately
+          boolean emptySrcsAllowed =
+              input.hasAttr("srcs", BuildType.LABEL_LIST)
+                  ? !input.getAttributeByName("srcs").isNonEmpty()
+                  : true;
+          if (!(emptySrcsAllowed && Iterables.any(li, DEPS))) {
+            return false;
+          }
 
-      Iterator<Attribute> it = li.iterator();
-      boolean mandatoryAttributesBesidesDeps =
-          Iterables.any(Lists.newArrayList(Iterators.filter(it, MANDATORY)), Predicates.not(DEPS));
-      return !mandatoryAttributesBesidesDeps;
-    }
-  };
+          Iterator<Attribute> it = li.iterator();
+          boolean mandatoryAttributesBesidesDeps =
+              Iterables.any(
+                  Lists.newArrayList(Iterators.filter(it, RuleSetUtils::mandatoryExcludingName)),
+                  Predicates.not(DEPS));
+          return !mandatoryAttributesBesidesDeps;
+        }
+      };
 
   /**
    * Predicate for checking if a RuleClass has certain attributes
@@ -108,15 +112,10 @@ public class RuleSetUtils {
     return new HasAttributes(attributes);
   }
 
-  /**
-   * Predicate for checking if an attribute is mandatory.
-   */
-  private static final Predicate<Attribute> MANDATORY = new Predicate<Attribute>() {
-    @Override
-    public boolean apply(final Attribute input) {
-      return input.isMandatory();
-    }
-  };
+  /** Predicate for checking if an attribute (other than name) is mandatory. */
+  private static boolean mandatoryExcludingName(Attribute input) {
+    return input.isMandatory() && !input.getName().equals("name");
+  }
 
   /**
    * Predicate for checking if an attribute is the "deps" attribute.

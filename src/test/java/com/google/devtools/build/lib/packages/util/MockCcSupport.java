@@ -23,12 +23,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.LinkBuildVariables;
-import com.google.devtools.build.lib.rules.cpp.LinkCommandLine;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -170,20 +166,6 @@ public abstract class MockCcSupport {
           return labelNameFilter().apply("//" + label.getPackageName());
         }
       };
-
-  /** Returns the additional linker options for this link. */
-  public static ImmutableList<String> getLinkopts(LinkCommandLine linkCommandLine)
-      throws ExpansionException {
-    if (linkCommandLine
-        .getBuildVariables()
-        .isAvailable(LinkBuildVariables.USER_LINK_FLAGS.getVariableName())) {
-      return CcToolchainVariables.toStringList(
-          linkCommandLine.getBuildVariables(),
-          LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
-    } else {
-      return ImmutableList.of();
-    }
-  }
 
   public abstract Predicate<String> labelNameFilter();
 
@@ -427,51 +409,77 @@ public abstract class MockCcSupport {
   public static void writeCcRuntimeToolchains(Scratch scratch) throws IOException {
     scratch.file(
         "runtimes/toolchain.bzl",
-        "BuildSettingInfo = provider(fields = ['value'])",
-        "def _bool_flag_impl(ctx):",
-        "    return BuildSettingInfo(value = ctx.build_setting_value)",
-        "bool_flag = rule(",
-        "    implementation = _bool_flag_impl,",
-        "    build_setting = config.bool())",
-        "def _include_runtimes_transition_impl(_settings, _attr):",
-        "    return {'//runtimes:include_runtimes': False}",
-        "_include_runtimes_transition = transition(",
-        "    implementation = _include_runtimes_transition_impl,",
-        "    inputs = [],",
-        "    outputs = ['//runtimes:include_runtimes'])",
-        "CcRuntimesInfo = provider(fields = ['runtimes', 'copts'])",
-        "def _cc_runtimes_toolchain_impl(ctx):",
-        "    return [platform_common.ToolchainInfo(",
-        "        cc_runtimes_info = CcRuntimesInfo(",
-        "            runtimes = ctx.attr.runtimes,",
-        "            copts = ctx.attr.copts))]",
-        "cc_runtimes_toolchain = rule(",
-        "    implementation = _cc_runtimes_toolchain_impl,",
-        "    attrs = {",
-        "        'runtimes': attr.label_list(cfg = _include_runtimes_transition),",
-        "        'copts': attr.string_list()",
-        "    })");
+        """
+        BuildSettingInfo = provider(fields = ["value"])
+
+        def _bool_flag_impl(ctx):
+            return BuildSettingInfo(value = ctx.build_setting_value)
+
+        bool_flag = rule(
+            implementation = _bool_flag_impl,
+            build_setting = config.bool(),
+        )
+
+        def _include_runtimes_transition_impl(_settings, _attr):
+            return {"//runtimes:include_runtimes": False}
+
+        _include_runtimes_transition = transition(
+            implementation = _include_runtimes_transition_impl,
+            inputs = [],
+            outputs = ["//runtimes:include_runtimes"],
+        )
+        CcRuntimesInfo = provider(fields = ["runtimes", "copts"])
+
+        def _cc_runtimes_toolchain_impl(ctx):
+            return [platform_common.ToolchainInfo(
+                cc_runtimes_info = CcRuntimesInfo(
+                    runtimes = ctx.attr.runtimes,
+                    copts = ctx.attr.copts,
+                ),
+            )]
+
+        cc_runtimes_toolchain = rule(
+            implementation = _cc_runtimes_toolchain_impl,
+            attrs = {
+                "runtimes": attr.label_list(cfg = _include_runtimes_transition),
+                "copts": attr.string_list(),
+            },
+        )
+        """);
 
     scratch.file(
         "runtimes/BUILD",
-        "load('//runtimes:toolchain.bzl', 'cc_runtimes_toolchain', 'bool_flag')",
-        "bool_flag(",
-        "    name = 'include_runtimes',",
-        "    build_setting_default = True)",
-        "config_setting(",
-        "    name = 'include_runtimes_config',",
-        "    flag_values = {':include_runtimes': 'True'})",
-        "cc_library(name = 'runtime',",
-        "    srcs = ['runtime.cc'],",
-        "    hdrs = ['runtime.h'])",
-        "cc_runtimes_toolchain(",
-        "    name = 'runtimes_toolchain',",
-        "    runtimes = [':runtime'],",
-        "    copts = ['-Iruntimes'])",
-        "toolchain(",
-        "    name = 'toolchain',",
-        "    target_settings = [':include_runtimes_config'],",
-        "    toolchain = ':runtimes_toolchain',",
-        "    toolchain_type = '//tools/cpp:cc_runtimes_toolchain_type')");
+        """
+        load("//runtimes:toolchain.bzl", "bool_flag", "cc_runtimes_toolchain")
+
+        bool_flag(
+            name = "include_runtimes",
+            build_setting_default = True,
+        )
+
+        config_setting(
+            name = "include_runtimes_config",
+            flag_values = {":include_runtimes": "True"},
+        )
+
+        cc_library(
+            name = "runtime",
+            srcs = ["runtime.cc"],
+            hdrs = ["runtime.h"],
+        )
+
+        cc_runtimes_toolchain(
+            name = "runtimes_toolchain",
+            copts = ["-Iruntimes"],
+            runtimes = [":runtime"],
+        )
+
+        toolchain(
+            name = "toolchain",
+            target_settings = [":include_runtimes_config"],
+            toolchain = ":runtimes_toolchain",
+            toolchain_type = "//tools/cpp:cc_runtimes_toolchain_type",
+        )
+        """);
   }
 }

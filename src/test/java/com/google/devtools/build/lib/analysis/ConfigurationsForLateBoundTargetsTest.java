@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
+import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL_ALIAS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -91,11 +93,17 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
 
   @Test
   public void lateBoundAttributeInTargetConfiguration() throws Exception {
-    scratch.file("foo/BUILD",
-        "rule_with_latebound_attr(",
-        "    name = 'foo')",
-        "rule_with_test_fragment(",
-        "    name = 'latebound_dep')");
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_latebound_attr(
+            name = "foo",
+        )
+
+        rule_with_test_fragment(
+            name = "latebound_dep",
+        )
+        """);
     update("//foo:foo");
     assertThat(getConfiguredTarget("//foo:foo", getTargetConfiguration())).isNotNull();
     ConfiguredTarget dep =
@@ -108,17 +116,25 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
 
   @Test
   public void lateBoundAttributeInExecConfiguration() throws Exception {
-    scratch.file("foo/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['gen.out'],",
-        "    cmd = 'echo hi > $@',",
-        "    tools = [':foo'])",
-        "rule_with_latebound_attr(",
-        "    name = 'foo')",
-        "rule_with_test_fragment(",
-        "    name = 'latebound_dep')");
+    scratch.file(
+        "foo/BUILD",
+        """
+        genrule(
+            name = "gen",
+            srcs = [],
+            outs = ["gen.out"],
+            cmd = "echo hi > $@",
+            tools = [":foo"],
+        )
+
+        rule_with_latebound_attr(
+            name = "foo",
+        )
+
+        rule_with_test_fragment(
+            name = "latebound_dep",
+        )
+        """);
     update("//foo:gen");
     assertThat(getConfiguredTarget("//foo:foo", getExecConfiguration())).isNotNull();
     // TODO(b/203203933) Fix LateboundDefault-s to return exec configuration
@@ -126,8 +142,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         ImmutableList.copyOf(
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
-    assertThat(deps).hasSize(1);
-    assertThat(deps.stream().filter(d -> getConfiguration(d).isExecConfiguration()).findFirst())
-        .isPresent();
+    assertThat(deps).hasSize(PLATFORM_LABEL_ALIAS.equals(PLATFORM_LABEL) ? 1 : 2);
+    assertThat(deps.stream().allMatch(d -> getConfiguration(d).isExecConfiguration())).isTrue();
   }
 }

@@ -19,10 +19,8 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.XcodeConfigEvent;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
@@ -34,12 +32,8 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeConfigRuleInfo;
-import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeConfigRuleInfo.Availability;
-import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeVersionInfo;
 import java.util.List;
 import java.util.Map;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -47,22 +41,6 @@ import org.junit.runners.JUnit4;
 /** Unit tests for the {@code xcode_config} rule. */
 @RunWith(JUnit4.class)
 public class XcodeConfigTest extends BuildViewTestCase {
-  private static class EventRecorder {
-    public XcodeConfigEvent xcodeConfigEvent;
-
-    @Subscribe
-    public synchronized void setXcodeConfigInfo(XcodeConfigEvent xcodeConfigEvent) {
-      // We only care about the top level xcode_config, so drop earlier events.
-      this.xcodeConfigEvent = xcodeConfigEvent;
-    }
-  }
-
-  private final EventRecorder eventRecorder = new EventRecorder();
-
-  @Before
-  public void setUp() {
-    eventBus.register(eventRecorder);
-  }
 
   @Test
   public void testEmptyConfig_noVersionFlag() throws Exception {
@@ -93,33 +71,44 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testMutualAndExplicitXcodesThrows() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    versions = [':version512', ':version84'],",
-        "    default = ':version512',",
-        "    remote_versions = ':remote',",
-        "    local_versions = ':local',",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        ")",
-        "xcode_version(",
-        "    name = 'version84',",
-        "    version = '8.4',",
-        ")",
-        "available_xcodes(",
-        "    name = 'remote',",
-        "    versions = [':version512',],",
-        "    default = ':version512',",
-        ")",
-        "available_xcodes(",
-        "    name = 'local',",
-        "    versions = [':version84',],",
-        "    default = ':version84',",
-        ")");
+        """
+        xcode_config(
+            name = "foo",
+            default = ":version512",
+            local_versions = ":local",
+            remote_versions = ":remote",
+            versions = [
+                ":version512",
+                ":version84",
+            ],
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version84",
+            version = "8.4",
+        )
+
+        available_xcodes(
+            name = "remote",
+            default = ":version512",
+            versions = [":version512"],
+        )
+
+        available_xcodes(
+            name = "local",
+            default = ":version84",
+            versions = [":version84"],
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent("'versions' may not be set if '[local,remote]_versions' is set");
@@ -129,32 +118,40 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testMutualAndDefaultThrows() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    default = ':version512',",
-        "    remote_versions = ':remote',",
-        "    local_versions = ':local',",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        ")",
-        "xcode_version(",
-        "    name = 'version84',",
-        "    version = '8.4',",
-        ")",
-        "available_xcodes(",
-        "    name = 'remote',",
-        "    versions = [':version512',],",
-        "    default = ':version512',",
-        ")",
-        "available_xcodes(",
-        "    name = 'local',",
-        "    versions = [':version84',],",
-        "    default = ':version84',",
-        ")");
+        """
+        xcode_config(
+            name = "foo",
+            default = ":version512",
+            local_versions = ":local",
+            remote_versions = ":remote",
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version84",
+            version = "8.4",
+        )
+
+        available_xcodes(
+            name = "remote",
+            default = ":version512",
+            versions = [":version512"],
+        )
+
+        available_xcodes(
+            name = "local",
+            default = ":version84",
+            versions = [":version84"],
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent("'default' may not be set if '[local,remote]_versions' is set.");
@@ -164,21 +161,27 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testNoLocalXcodesThrows() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    remote_versions = ':remote',",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        ")",
-        "available_xcodes(",
-        "    name = 'remote',",
-        "    versions = [':version512',],",
-        "    default = ':version512',",
-        ")");
+        """
+        xcode_config(
+            name = "foo",
+            remote_versions = ":remote",
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            version = "5.1.2",
+        )
+
+        available_xcodes(
+            name = "remote",
+            default = ":version512",
+            versions = [":version512"],
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent("if 'remote_versions' are set, you must also set 'local_versions'");
@@ -368,9 +371,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
-
-    assertContainsEvent("You passed --experimental_prefer_mutual_xcode=false");
-    assertContainsEvent("consider using --experimental_prefer_mutual_xcode=true");
   }
 
   @Test
@@ -450,9 +450,18 @@ public class XcodeConfigTest extends BuildViewTestCase {
             + " macosMinimumOsVersion='1.8',"
             + " visionosSdkVersion='1.9',"
             + " visionosMinimumOsVersion='1.10',"
-            + " xcodeVersion='1.11'))]",
+            + " xcodeVersion='1.11',"
+            + " availability = 'UNKNOWN',"
+            + " xcodeVersionFlag='0.0',"
+            + " includeXcodeExecutionInfo = False))]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
-    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
+    scratch.file(
+        "foo/BUILD",
+        """
+        load(":extension.bzl", "my_rule")
+
+        my_rule(name = "test")
+        """);
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:test");
     StructImpl info =
@@ -474,8 +483,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
                 DottedVersion.fromStringUnchecked("1.10"),
                 DottedVersion.fromStringUnchecked("1.11"),
                 XcodeConfigInfo.Availability.UNKNOWN,
-                /* xcodeVersionFlagValue= */ "",
-                /* includeXcodeReqs= */ false));
+                /* xcodeVersionFlag= */ "",
+                /* includeXcodeExecutionInfo= */ false));
   }
 
   @Test
@@ -496,9 +505,18 @@ public class XcodeConfigTest extends BuildViewTestCase {
             + " macosMinimumOsVersion='1.8',"
             + " visionosSdkVersion='1.9',"
             + " visionosMinimumOsVersion='1.10',"
-            + " xcodeVersion='1.11'))]",
+            + " xcodeVersion='1.11',"
+            + " availability = 'UNKNOWN',"
+            + " xcodeVersionFlag='0.0',"
+            + " includeXcodeExecutionInfo = False))]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
-    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
+    scratch.file(
+        "foo/BUILD",
+        """
+        load(":extension.bzl", "my_rule")
+
+        my_rule(name = "test")
+        """);
     assertNoEvents();
     assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:test"));
     assertContainsEvent("Dotted version components must all start with the form");
@@ -523,11 +541,20 @@ public class XcodeConfigTest extends BuildViewTestCase {
             + " macosMinimumOsVersion='1.8',"
             + " visionosSdkVersion='1.9',"
             + " visionosMinimumOsVersion='1.10',"
-            + " xcodeVersion='1.11')",
+            + " xcodeVersion='1.11',"
+            + " availability = 'UNKNOWN',"
+            + " xcodeVersionFlag='0.0',"
+            + " includeXcodeExecutionInfo = False)",
         "  return [result(xcode_version=xcode_version.xcode_version(),"
             + "min_os=xcode_version.minimum_os_for_platform_type(ctx.fragments.apple.single_arch_platform.platform_type)),]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() },  fragments = ['apple'])");
-    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
+    scratch.file(
+        "foo/BUILD",
+        """
+        load(":extension.bzl", "my_rule")
+
+        my_rule(name = "test")
+        """);
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:test");
     StructImpl info =
@@ -543,63 +570,87 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file("starlark/BUILD");
     scratch.file(
         "starlark/version_retriever.bzl",
-        "def _version_retriever_impl(ctx):",
-        "  xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]",
-        "  version = xcode_properties.xcode_version",
-        "  return [config_common.FeatureFlagInfo(value=version)]",
-        "",
-        "version_retriever = rule(",
-        "  implementation = _version_retriever_impl,",
-        "  attrs = {'dep': attr.label()},",
-        ")");
+        """
+        def _version_retriever_impl(ctx):
+            xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]
+            version = xcode_properties.xcode_version
+            return [config_common.FeatureFlagInfo(value = version)]
+
+        version_retriever = rule(
+            implementation = _version_retriever_impl,
+            attrs = {"dep": attr.label()},
+        )
+        """);
 
     scratch.file(
         "xcode/BUILD",
-        "load('//starlark:version_retriever.bzl', 'version_retriever')",
-        "version_retriever(",
-        "    name = 'flag_propagator',",
-        "    dep = ':alias',",
-        ")",
-        "",
-        "xcode_config(",
-        "    name = 'config',",
-        "    default = ':version512',",
-        "    versions = [':version512', ':version64', ':version12'],",
-        ")",
-        "",
-        "xcode_config_alias(",
-        "    name = 'alias'",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version64',",
-        "    version = '6.4',",
-        "    aliases = ['6.0', 'six', '6'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version12',",
-        "    version = '12',",
-        ")",
-        "config_setting(name = 'xcode_5_1_2',",
-        "    flag_values = {':flag_propagator': '5.1.2'})",
-        "config_setting(name = 'xcode_6_4',",
-        "    flag_values = {':flag_propagator': '6.4'})",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['out'],",
-        "    cmd = select({",
-        "       ':xcode_5_1_2': '5.1.2',",
-        "       ':xcode_6_4': '6.4',",
-        "       '//conditions:default': 'none'",
-        "    }))");
+        """
+        load("//starlark:version_retriever.bzl", "version_retriever")
+
+        version_retriever(
+            name = "flag_propagator",
+            dep = ":alias",
+        )
+
+        xcode_config(
+            name = "config",
+            default = ":version512",
+            versions = [
+                ":version512",
+                ":version64",
+                ":version12",
+            ],
+        )
+
+        xcode_config_alias(
+            name = "alias",
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version64",
+            aliases = [
+                "6.0",
+                "six",
+                "6",
+            ],
+            version = "6.4",
+        )
+
+        xcode_version(
+            name = "version12",
+            version = "12",
+        )
+
+        config_setting(
+            name = "xcode_5_1_2",
+            flag_values = {":flag_propagator": "5.1.2"},
+        )
+
+        config_setting(
+            name = "xcode_6_4",
+            flag_values = {":flag_propagator": "6.4"},
+        )
+
+        genrule(
+            name = "gen",
+            srcs = [],
+            outs = ["out"],
+            cmd = select({
+                ":xcode_5_1_2": "5.1.2",
+                ":xcode_6_4": "6.4",
+                "//conditions:default": "none",
+            }),
+        )
+        """);
 
     useConfiguration("--xcode_version_config=//xcode:config");
     assertThat(getMapper("//xcode:gen").get("cmd", Type.STRING)).isEqualTo("5.1.2");
@@ -619,56 +670,81 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file("starlark/BUILD");
     scratch.file(
         "starlark/version_retriever.bzl",
-        "def _version_retriever_impl(ctx):",
-        "  xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]",
-        "  version = xcode_properties.xcode_version",
-        "  return [config_common.FeatureFlagInfo(value=version)]",
-        "",
-        "version_retriever = rule(",
-        "  implementation = _version_retriever_impl,",
-        "  attrs = {'dep': attr.label()},",
-        ")");
+        """
+        def _version_retriever_impl(ctx):
+            xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]
+            version = xcode_properties.xcode_version
+            return [config_common.FeatureFlagInfo(value = version)]
+
+        version_retriever = rule(
+            implementation = _version_retriever_impl,
+            attrs = {"dep": attr.label()},
+        )
+        """);
 
     scratch.file(
         "xcode/BUILD",
-        "load('//starlark:version_retriever.bzl', 'version_retriever')",
-        "version_retriever(",
-        "    name = 'flag_propagator',",
-        "    dep = ':alias',",
-        ")",
-        "xcode_config_alias(",
-        "    name = 'alias'",
-        ")",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    default = ':version512',",
-        "    versions = [':version512', ':version64'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version64',",
-        "    version = '6.4',",
-        "    aliases = ['6.0', 'foo', '6'],",
-        ")",
-        "config_setting(name = 'xcode_5_1_2',",
-        "    flag_values = {':flag_propagator': '5.1.2'})",
-        "config_setting(name = 'xcode_6_4',",
-        "    flag_values = {':flag_propagator': '6.4'})",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['out'],",
-        "    cmd = select({",
-        "       ':xcode_5_1_2': '5.1.2',",
-        "       ':xcode_6_4': '6.4',",
-        "       '//conditions:default': 'none'",
-        "    }))");
+        """
+        load("//starlark:version_retriever.bzl", "version_retriever")
+
+        version_retriever(
+            name = "flag_propagator",
+            dep = ":alias",
+        )
+
+        xcode_config_alias(
+            name = "alias",
+        )
+
+        xcode_config(
+            name = "foo",
+            default = ":version512",
+            versions = [
+                ":version512",
+                ":version64",
+            ],
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version64",
+            aliases = [
+                "6.0",
+                "foo",
+                "6",
+            ],
+            version = "6.4",
+        )
+
+        config_setting(
+            name = "xcode_5_1_2",
+            flag_values = {":flag_propagator": "5.1.2"},
+        )
+
+        config_setting(
+            name = "xcode_6_4",
+            flag_values = {":flag_propagator": "6.4"},
+        )
+
+        genrule(
+            name = "gen",
+            srcs = [],
+            outs = ["out"],
+            cmd = select({
+                ":xcode_5_1_2": "5.1.2",
+                ":xcode_6_4": "6.4",
+                "//conditions:default": "none",
+            }),
+        )
+        """);
 
     useConfiguration("--xcode_version_config=//xcode:foo");
     assertThat(getMapper("//xcode:gen").get("cmd", Type.STRING)).isEqualTo("5.1.2");
@@ -734,23 +810,28 @@ public class XcodeConfigTest extends BuildViewTestCase {
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
         "--xcode_version=6 specified, but '6' is not an available Xcode version. "
-            + "available versions: [5.1.2, 8.4]. If you believe you have '6' installed");
+            + "If you believe you have '6' installed");
   }
 
   @Test
   public void testRequiresDefault() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    versions = [':version512'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        ")");
+        """
+        xcode_config(
+            name = "foo",
+            versions = [":version512"],
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            version = "5.1.2",
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent("default version must be specified");
@@ -766,7 +847,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
-        "'5' is registered to multiple labels (//xcode:version512, //xcode:version5)");
+        "'5' is registered to multiple labels (@@//xcode:version512, @@//xcode:version5)");
   }
 
   @Test
@@ -780,7 +861,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
-        "'5' is registered to multiple labels (//xcode:version512, //xcode:version5)");
+        "'5' is registered to multiple labels (@@//xcode:version512, @@//xcode:version5)");
   }
 
   @Test
@@ -809,7 +890,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
-        "'5.1.2' is registered to multiple labels (//xcode:version512, //xcode:version5)");
+        "'5.1.2' is registered to multiple labels (@@//xcode:version512, @@//xcode:version5)");
   }
 
   @Test
@@ -822,32 +903,44 @@ public class XcodeConfigTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
-        "'5.1.2' is registered to multiple labels (//xcode:version512, //xcode:version5)");
+        "'5.1.2' is registered to multiple labels (@@//xcode:version512, @@//xcode:version5)");
   }
 
   @Test
   public void testDefaultIosSdkVersion() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    default = ':version512',",
-        "    versions = [':version512', ':version64'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        "    default_ios_sdk_version = '7.1'",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version64',",
-        "    version = '6.4',",
-        "    aliases = ['6.0', 'foo', '6'],",
-        "    default_ios_sdk_version = '43.0'",
-        ")");
+        """
+        xcode_config(
+            name = "foo",
+            default = ":version512",
+            versions = [
+                ":version512",
+                ":version64",
+            ],
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            default_ios_sdk_version = "7.1",
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version64",
+            aliases = [
+                "6.0",
+                "foo",
+                "6",
+            ],
+            default_ios_sdk_version = "43.0",
+            version = "6.4",
+        )
+        """);
     useConfiguration("--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
@@ -862,28 +955,40 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testDefaultSdkVersions() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    default = ':version512',",
-        "    versions = [':version512', ':version64'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        "    default_ios_sdk_version = '101',",
-        "    default_watchos_sdk_version = '102',",
-        "    default_tvos_sdk_version = '103',",
-        "    default_macos_sdk_version = '104',",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version64',",
-        "    version = '6.4',",
-        "    aliases = ['6.0', 'foo', '6'],",
-        "    default_ios_sdk_version = '43.0'",
-        ")");
+        """
+        xcode_config(
+            name = "foo",
+            default = ":version512",
+            versions = [
+                ":version512",
+                ":version64",
+            ],
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            default_ios_sdk_version = "101",
+            default_macos_sdk_version = "104",
+            default_tvos_sdk_version = "103",
+            default_watchos_sdk_version = "102",
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version64",
+            aliases = [
+                "6.0",
+                "foo",
+                "6",
+            ],
+            default_ios_sdk_version = "43.0",
+            version = "6.4",
+        )
+        """);
     useConfiguration("--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
@@ -910,28 +1015,40 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testDefaultSdkVersions_selectedXcode() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    default = ':version512',",
-        "    versions = [':version512', ':version64'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        "    default_ios_sdk_version = '7.1'",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version64',",
-        "    version = '6.4',",
-        "    aliases = ['6.0', 'foo', '6'],",
-        "    default_ios_sdk_version = '43',",
-        "    default_watchos_sdk_version = '44',",
-        "    default_tvos_sdk_version = '45',",
-        "    default_macos_sdk_version = '46',",
-        ")");
+        """
+        xcode_config(
+            name = "foo",
+            default = ":version512",
+            versions = [
+                ":version512",
+                ":version64",
+            ],
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            default_ios_sdk_version = "7.1",
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version64",
+            aliases = [
+                "6.0",
+                "foo",
+                "6",
+            ],
+            default_ios_sdk_version = "43",
+            default_macos_sdk_version = "46",
+            default_tvos_sdk_version = "45",
+            default_watchos_sdk_version = "44",
+            version = "6.4",
+        )
+        """);
     useConfiguration("--xcode_version=6", "--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("6.4");
@@ -958,28 +1075,40 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testOverrideDefaultSdkVersions() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    default = ':version512',",
-        "    versions = [':version512', ':version64'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        "    default_ios_sdk_version = '7.1'",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version64',",
-        "    version = '6.4',",
-        "    aliases = ['6.0', 'foo', '6'],",
-        "    default_ios_sdk_version = '101',",
-        "    default_watchos_sdk_version = '102',",
-        "    default_tvos_sdk_version = '103',",
-        "    default_macos_sdk_version = '104',",
-        ")");
+        """
+        xcode_config(
+            name = "foo",
+            default = ":version512",
+            versions = [
+                ":version512",
+                ":version64",
+            ],
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            default_ios_sdk_version = "7.1",
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version64",
+            aliases = [
+                "6.0",
+                "foo",
+                "6",
+            ],
+            default_ios_sdk_version = "101",
+            default_macos_sdk_version = "104",
+            default_tvos_sdk_version = "103",
+            default_watchos_sdk_version = "102",
+            version = "6.4",
+        )
+        """);
     useConfiguration(
         "--xcode_version=6",
         "--xcode_version_config=//xcode:foo",
@@ -1008,38 +1137,53 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testXcodeVersionFromStarlarkByAlias() throws Exception {
     scratch.file(
         "x/BUILD",
-        "load('//x:r.bzl', 'r')",
-        "xcode_config_alias(name='a')",
-        "xcode_config(name='c', default=':v', versions=[':v'])",
-        "xcode_version(",
-        "    name = 'v',",
-        "    version = '0.0',",
-        "    default_ios_sdk_version = '1.0',",
-        "    default_tvos_sdk_version = '2.0',",
-        "    default_macos_sdk_version = '3.0',",
-        "    default_watchos_sdk_version = '4.0',",
-        ")",
-        "r(name='r')");
+        """
+        load("//x:r.bzl", "r")
+
+        xcode_config_alias(name = "a")
+
+        xcode_config(
+            name = "c",
+            default = ":v",
+            versions = [":v"],
+        )
+
+        xcode_version(
+            name = "v",
+            default_ios_sdk_version = "1.0",
+            default_macos_sdk_version = "3.0",
+            default_tvos_sdk_version = "2.0",
+            default_watchos_sdk_version = "4.0",
+            version = "0.0",
+        )
+
+        r(name = "r")
+        """);
     scratch.file(
         "x/r.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]",
-        "  ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)",
-        "  tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)",
-        "  return MyInfo(",
-        "    xcode = conf.xcode_version(),",
-        "    ios_sdk = conf.sdk_version_for_platform(ios),",
-        "    tvos_sdk = conf.sdk_version_for_platform(tvos),",
-        "    macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),",
-        "    watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),",
-        "    availability = conf.availability(),",
-        "    execution_info = conf.execution_info(),",
-        "  )",
-        "r = rule(implementation = _impl,",
-        "    attrs = { '_xcode': attr.label(default = Label('//x:a'))},",
-        "    fragments = ['apple'],",
-        ")");
+        """
+MyInfo = provider()
+
+def _impl(ctx):
+    conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
+    ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
+    tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
+    return MyInfo(
+        xcode = conf.xcode_version(),
+        ios_sdk = conf.sdk_version_for_platform(ios),
+        tvos_sdk = conf.sdk_version_for_platform(tvos),
+        macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),
+        watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),
+        availability = conf.availability(),
+        execution_info = conf.execution_info(),
+    )
+
+r = rule(
+    implementation = _impl,
+    attrs = {"_xcode": attr.label(default = Label("//x:a"))},
+    fragments = ["apple"],
+)
+""");
 
     useConfiguration(
         "--xcode_version_config=//x:c", "--tvos_sdk_version=2.5", "--watchos_minimum_os=4.5");
@@ -1063,53 +1207,73 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testMutualXcodeFromStarlarkByAlias() throws Exception {
     scratch.file(
         "x/BUILD",
-        "load('//x:r.bzl', 'r')",
-        "xcode_config_alias(name='a')",
-        "xcode_config(name='c',",
-        "    remote_versions = ':remote',",
-        "    local_versions = ':local',",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        ")",
-        "xcode_version(",
-        "    name = 'version84',",
-        "    version = '8.4',",
-        ")",
-        "available_xcodes(",
-        "    name = 'remote',",
-        "    versions = [':version512', ':version84'],",
-        "    default = ':version512',",
-        ")",
-        "available_xcodes(",
-        "    name = 'local',",
-        "    versions = [':version84',],",
-        "    default = ':version84',",
-        ")",
-        "r(name='r')");
+        """
+        load("//x:r.bzl", "r")
+
+        xcode_config_alias(name = "a")
+
+        xcode_config(
+            name = "c",
+            local_versions = ":local",
+            remote_versions = ":remote",
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version84",
+            version = "8.4",
+        )
+
+        available_xcodes(
+            name = "remote",
+            default = ":version512",
+            versions = [
+                ":version512",
+                ":version84",
+            ],
+        )
+
+        available_xcodes(
+            name = "local",
+            default = ":version84",
+            versions = [":version84"],
+        )
+
+        r(name = "r")
+        """);
     scratch.file(
         "x/r.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]",
-        "  ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)",
-        "  tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)",
-        "  return MyInfo(",
-        "    xcode = conf.xcode_version(),",
-        "    ios_sdk = conf.sdk_version_for_platform(ios),",
-        "    tvos_sdk = conf.sdk_version_for_platform(tvos),",
-        "    macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),",
-        "    watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),",
-        "    availability = conf.availability(),",
-        "    execution_info = conf.execution_info(),",
-        "  )",
-        "r = rule(implementation = _impl,",
-        "    attrs = { '_xcode': attr.label(default = Label('//x:a'))},",
-        "    fragments = ['apple'],",
-        ")");
+        """
+MyInfo = provider()
+
+def _impl(ctx):
+    conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
+    ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
+    tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
+    return MyInfo(
+        xcode = conf.xcode_version(),
+        ios_sdk = conf.sdk_version_for_platform(ios),
+        tvos_sdk = conf.sdk_version_for_platform(tvos),
+        macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),
+        watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),
+        availability = conf.availability(),
+        execution_info = conf.execution_info(),
+    )
+
+r = rule(
+    implementation = _impl,
+    attrs = {"_xcode": attr.label(default = Label("//x:a"))},
+    fragments = ["apple"],
+)
+""");
 
     useConfiguration("--xcode_version_config=//x:c");
     ConfiguredTarget r = getConfiguredTarget("//x:r");
@@ -1125,52 +1289,69 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testLocalXcodeFromStarlarkByAlias() throws Exception {
     scratch.file(
         "x/BUILD",
-        "load('//x:r.bzl', 'r')",
-        "xcode_config_alias(name='a')",
-        "xcode_config(name='c',",
-        "    remote_versions = ':remote',",
-        "    local_versions = ':local',",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1'],",
-        ")",
-        "xcode_version(",
-        "    name = 'version84',",
-        "    version = '8.4',",
-        ")",
-        "available_xcodes(",
-        "    name = 'remote',",
-        "    versions = [':version512'],",
-        "    default = ':version512',",
-        ")",
-        "available_xcodes(",
-        "    name = 'local',",
-        "    versions = [':version84',],",
-        "    default = ':version84',",
-        ")",
-        "r(name='r')");
+        """
+        load("//x:r.bzl", "r")
+
+        xcode_config_alias(name = "a")
+
+        xcode_config(
+            name = "c",
+            local_versions = ":local",
+            remote_versions = ":remote",
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+            ],
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version84",
+            version = "8.4",
+        )
+
+        available_xcodes(
+            name = "remote",
+            default = ":version512",
+            versions = [":version512"],
+        )
+
+        available_xcodes(
+            name = "local",
+            default = ":version84",
+            versions = [":version84"],
+        )
+
+        r(name = "r")
+        """);
     scratch.file(
         "x/r.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]",
-        "  ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)",
-        "  tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)",
-        "  return MyInfo(",
-        "    xcode = conf.xcode_version(),",
-        "    ios_sdk = conf.sdk_version_for_platform(ios),",
-        "    tvos_sdk = conf.sdk_version_for_platform(tvos),",
-        "    macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),",
-        "    watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),",
-        "    availability = conf.availability(),",
-        "  )",
-        "r = rule(implementation = _impl,",
-        "    attrs = { '_xcode': attr.label(default = Label('//x:a'))},",
-        "    fragments = ['apple'],",
-        ")");
+        """
+MyInfo = provider()
+
+def _impl(ctx):
+    conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
+    ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
+    tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
+    return MyInfo(
+        xcode = conf.xcode_version(),
+        ios_sdk = conf.sdk_version_for_platform(ios),
+        tvos_sdk = conf.sdk_version_for_platform(tvos),
+        macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),
+        watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),
+        availability = conf.availability(),
+    )
+
+r = rule(
+    implementation = _impl,
+    attrs = {"_xcode": attr.label(default = Label("//x:a"))},
+    fragments = ["apple"],
+)
+""");
 
     useConfiguration("--xcode_version_config=//x:c");
     ConfiguredTarget r = getConfiguredTarget("//x:r");
@@ -1185,43 +1366,55 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testDefaultWithoutVersion() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    default = ':version512',",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1', '5.1.2'],",
-        ")");
+        """
+        xcode_config(
+            name = "foo",
+            default = ":version512",
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+                "5.1.2",
+            ],
+            version = "5.1.2",
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
-        "default label '//xcode:version512' must be contained in versions attribute");
+        "default label '@@//xcode:version512' must be contained in versions attribute");
   }
 
   @Test
   public void testVersionDoesNotContainDefault() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_config(",
-        "    name = 'foo',",
-        "    default = ':version512',",
-        "    versions = [':version6'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version512',",
-        "    version = '5.1.2',",
-        "    aliases = ['5', '5.1', '5.1.2'],",
-        ")",
-        "",
-        "xcode_version(",
-        "    name = 'version6',",
-        "    version = '6.0',",
-        ")");
+        """
+        xcode_config(
+            name = "foo",
+            default = ":version512",
+            versions = [":version6"],
+        )
+
+        xcode_version(
+            name = "version512",
+            aliases = [
+                "5",
+                "5.1",
+                "5.1.2",
+            ],
+            version = "5.1.2",
+        )
+
+        xcode_version(
+            name = "version6",
+            version = "6.0",
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent("must be contained in versions attribute");
@@ -1233,25 +1426,54 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testConfigurationFieldForRule() throws Exception {
     scratch.file(
         "x/provider_grabber.bzl",
-        "def _impl(ctx):",
-        "  conf = ctx.attr._xcode_dep[apple_common.XcodeVersionConfig]",
-        "  return [conf]",
-        "provider_grabber = rule(implementation = _impl,",
-        "    attrs = { '_xcode_dep': attr.label(",
-        "        default = configuration_field(",
-        "            fragment = 'apple', name = 'xcode_config_label')),",
-        "    },",
-        "    fragments = ['apple'],",
-        ")");
+        """
+        def _impl(ctx):
+            conf = ctx.attr._xcode_dep[apple_common.XcodeVersionConfig]
+            return [conf]
+
+        provider_grabber = rule(
+            implementation = _impl,
+            attrs = {
+                "_xcode_dep": attr.label(
+                    default = configuration_field(
+                        fragment = "apple",
+                        name = "xcode_config_label",
+                    ),
+                ),
+            },
+            fragments = ["apple"],
+        )
+        """);
 
     scratch.file(
         "x/BUILD",
-        "load('//x:provider_grabber.bzl', 'provider_grabber')",
-        "xcode_config(name='config1', default=':version1', versions=[':version1'])",
-        "xcode_config(name='config2', default=':version2', versions=[':version2'])",
-        "xcode_version(name = 'version1', version = '1.0')",
-        "xcode_version(name = 'version2', version = '2.0')",
-        "provider_grabber(name='provider_grabber')");
+        """
+        load("//x:provider_grabber.bzl", "provider_grabber")
+
+        xcode_config(
+            name = "config1",
+            default = ":version1",
+            versions = [":version1"],
+        )
+
+        xcode_config(
+            name = "config2",
+            default = ":version2",
+            versions = [":version2"],
+        )
+
+        xcode_version(
+            name = "version1",
+            version = "1.0",
+        )
+
+        xcode_version(
+            name = "version2",
+            version = "2.0",
+        )
+
+        provider_grabber(name = "provider_grabber")
+        """);
 
     useConfiguration("--xcode_version_config=//x:config1");
     assertXcodeVersion("1.0", "//x:provider_grabber");
@@ -1266,41 +1488,70 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void testConfigurationFieldForAspect() throws Exception {
     scratch.file(
         "x/provider_grabber.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  conf = ctx.attr._xcode_dep[apple_common.XcodeVersionConfig]",
-        "  return [conf]",
-        "",
-        "MyAspect = aspect(implementation = _aspect_impl,",
-        "    attrs = { '_xcode_dep': attr.label(",
-        "        default = configuration_field(",
-        "            fragment = 'apple', name = 'xcode_config_label')),",
-        "    },",
-        "    fragments = ['apple'],",
-        ")",
-        "",
-        "def _rule_impl(ctx):",
-        "  conf = ctx.attr.dep[0][apple_common.XcodeVersionConfig]",
-        "  return [conf]",
-        "",
-        "provider_grabber = rule(implementation = _rule_impl,",
-        "    attrs = { 'dep' : ",
-        "             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]) },",
-        ")");
+        """
+def _aspect_impl(target, ctx):
+    conf = ctx.attr._xcode_dep[apple_common.XcodeVersionConfig]
+    return [conf]
+
+MyAspect = aspect(
+    implementation = _aspect_impl,
+    attrs = {
+        "_xcode_dep": attr.label(
+            default = configuration_field(
+                fragment = "apple",
+                name = "xcode_config_label",
+            ),
+        ),
+    },
+    fragments = ["apple"],
+)
+
+def _rule_impl(ctx):
+    conf = ctx.attr.dep[0][apple_common.XcodeVersionConfig]
+    return [conf]
+
+provider_grabber = rule(
+    implementation = _rule_impl,
+    attrs = {"dep": attr.label_list(mandatory = True, allow_files = True, aspects = [MyAspect])},
+)
+""");
 
     scratch.file(
         "x/BUILD",
-        "load('//x:provider_grabber.bzl', 'provider_grabber')",
-        "xcode_config(name='config1', default=':version1', versions=[':version1'])",
-        "xcode_config(name='config2', default=':version2', versions=[':version2'])",
-        "xcode_version(name = 'version1', version = '1.0')",
-        "xcode_version(name = 'version2', version = '2.0')",
-        "java_library(",
-        "     name = 'fake_lib',",
-        ")",
-        "provider_grabber(",
-        "     name = 'provider_grabber',",
-        "     dep = [':fake_lib'],",
-        ")");
+        """
+        load("//x:provider_grabber.bzl", "provider_grabber")
+
+        xcode_config(
+            name = "config1",
+            default = ":version1",
+            versions = [":version1"],
+        )
+
+        xcode_config(
+            name = "config2",
+            default = ":version2",
+            versions = [":version2"],
+        )
+
+        xcode_version(
+            name = "version1",
+            version = "1.0",
+        )
+
+        xcode_version(
+            name = "version2",
+            version = "2.0",
+        )
+
+        java_library(
+            name = "fake_lib",
+        )
+
+        provider_grabber(
+            name = "provider_grabber",
+            dep = [":fake_lib"],
+        )
+        """);
 
     useConfiguration("--xcode_version_config=//x:config1");
     assertXcodeVersion("1.0", "//x:provider_grabber");
@@ -1316,21 +1567,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         .addExplicitVersion("version64", "6.4", false, "6.0", "foo", "6")
         .write(scratch, "xcode/BUILD");
     getConfiguredTarget("//xcode:foo");
-    XcodeConfigRuleInfo expected =
-        XcodeConfigRuleInfo.newBuilder()
-            .setSelectedVersion("5.1.2")
-            .setDefaultVersion("5.1.2")
-            .setSelectedVersionAvailability(Availability.UNKNOWN)
-            .addExplicitVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("5.1.2")
-                    .addAllAliases(ImmutableList.of("5", "5.1")))
-            .addExplicitVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("6.4")
-                    .addAllAliases(ImmutableList.of("6.0", "foo", "6")))
-            .build();
-    assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+    assertXcodeVersion("5.1.2");
   }
 
   @Test
@@ -1341,22 +1578,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         .write(scratch, "xcode/BUILD");
     useConfiguration("--xcode_version=6.4");
     getConfiguredTarget("//xcode:foo");
-    XcodeConfigRuleInfo expected =
-        XcodeConfigRuleInfo.newBuilder()
-            .setSelectedVersion("6.4")
-            .setDefaultVersion("5.1.2")
-            .setSelectedVersionAvailability(Availability.UNKNOWN)
-            .addExplicitVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("5.1.2")
-                    .addAllAliases(ImmutableList.of("5", "5.1")))
-            .addExplicitVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("6.4")
-                    .addAllAliases(ImmutableList.of("6.0", "foo", "6")))
-            .setXcodeVersionFlag("6.4")
-            .build();
-    assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+    assertXcodeVersion("6.4");
   }
 
   @Test
@@ -1369,20 +1591,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version_config=//xcode:foo");
     getConfiguredTarget("//xcode:foo");
-    XcodeConfigRuleInfo expected =
-        XcodeConfigRuleInfo.newBuilder()
-            .setSelectedVersion("8.4")
-            .setDefaultVersion("8.4")
-            .setSelectedVersionAvailability(Availability.BOTH)
-            .addRemoteVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("5.1.2")
-                    .addAllAliases(ImmutableList.of("5", "5.1")))
-            .addRemoteVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .addLocalVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .addMutualVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .build();
-    assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+    assertXcodeVersion("8.4");
   }
 
   @Test
@@ -1419,21 +1628,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         .write(scratch, "xcode/BUILD");
     useConfiguration("--xcode_version=5.1.2");
     getConfiguredTarget("//xcode:foo");
-    XcodeConfigRuleInfo expected =
-        XcodeConfigRuleInfo.newBuilder()
-            .setSelectedVersion("5.1.2")
-            .setDefaultVersion("8.4")
-            .setSelectedVersionAvailability(Availability.REMOTE)
-            .addRemoteVersions(
-                XcodeVersionInfo.newBuilder()
-                    .setVersion("5.1.2")
-                    .addAllAliases(ImmutableList.of("5", "5.1")))
-            .addRemoteVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .addLocalVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .addMutualVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
-            .setXcodeVersionFlag("5.1.2")
-            .build();
-    assertThat(this.eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+    assertXcodeVersion("5.1.2");
   }
 
   @Test

@@ -20,7 +20,10 @@ INTERFACE_SOURCES = [
     "IncludeScannable.java",
 ]
 
-CODEC_SOURCES = ["HeaderInfoCodec.java"]
+CODEC_SOURCES = [
+    "CcCompilationContextCodec.java",
+    "HeaderInfoCodec.java",
+]
 
 java_library(
     name = "header_info_codec",
@@ -28,8 +31,8 @@ java_library(
     deps = [
         ":cpp",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
     ],

@@ -31,13 +31,6 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.CONFIGURATION_FRAGMENT)
 public interface AndroidConfigurationApi extends StarlarkValue {
 
-  @StarlarkMethod(
-      name = "android_cpu",
-      structField = true,
-      doc = "The Android target CPU.",
-      documented = false)
-  String getCpu();
-
   @StarlarkMethod(name = "use_incremental_dexing", structField = true, doc = "", documented = false)
   boolean useIncrementalDexing();
 
@@ -249,16 +242,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       doc = "",
       documented = false)
   String getOutputDirectoryName();
-
-  @StarlarkMethod(
-      name = "incompatible_use_toolchain_resolution",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean incompatibleUseToolchainResolution();
-
-  @StarlarkMethod(name = "hwasan", structField = true, doc = "", documented = false)
-  boolean isHwasan();
 
   @StarlarkMethod(
       name = "filter_library_jar_with_program_jar",

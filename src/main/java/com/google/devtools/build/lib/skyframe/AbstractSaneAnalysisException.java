@@ -1,4 +1,4 @@
-// Copyright 2023 The Bazel Authors. All rights reserved.
+// Copyright 2024 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,13 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.rules.objc;
+package com.google.devtools.build.lib.skyframe;
 
-/** An {@code xcode_config} rule with the default "Xcode unavailable" error message. */
-public class BazelXcodeConfig extends XcodeConfig {
-  private static final String UNAVAILABLE_XCODE_COMMAND = "bazel sync --configure";
+/** The abstract class that the sane analysis exceptions should extend. */
+public abstract class AbstractSaneAnalysisException extends Exception
+    implements SaneAnalysisException {
+  protected AbstractSaneAnalysisException(String message) {
+    super(message);
+  }
 
-  public BazelXcodeConfig() {
-    super(UNAVAILABLE_XCODE_COMMAND);
+  protected AbstractSaneAnalysisException(String message, Throwable cause) {
+    super(message, cause);
   }
 }

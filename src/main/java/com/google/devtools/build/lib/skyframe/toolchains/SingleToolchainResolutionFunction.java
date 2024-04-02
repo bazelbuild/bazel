@@ -216,7 +216,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       debugMessage(
           resolutionTrace,
           IndentLevel.TOOLCHAIN_LEVEL,
-          "Toolchain %s is compatible with target plaform, searching for execution platforms:",
+          "Toolchain %s is compatible with target platform, searching for execution platforms:",
           toolchain.toolchainLabel());
 
       boolean done = true;

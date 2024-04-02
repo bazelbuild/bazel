@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -45,7 +46,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -303,7 +304,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   private void processGraphForDumpCommand(
-      Predicate<String> filter, PrintStream out, BiConsumer<String, InMemoryNodeEntry> consumer)
+      Predicate<String> filter, PrintStream out, Consumer<InMemoryNodeEntry> consumer)
       throws InterruptedException {
     for (InMemoryNodeEntry entry : getInMemoryGraph().getAllNodeEntries()) {
       // This can be very long running on large graphs so check for user abort requests.
@@ -312,12 +313,11 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
         throw new InterruptedException();
       }
 
-      String canonicalizedKey = entry.getKey().getCanonicalName();
-      if (!filter.test(canonicalizedKey) || !entry.isDone()) {
+      if (!filter.test(entry.getKey().getCanonicalName()) || !entry.isDone()) {
         continue;
       }
 
-      consumer.accept(canonicalizedKey, entry);
+      consumer.accept(entry);
     }
   }
 
@@ -327,8 +327,8 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     processGraphForDumpCommand(
         filter,
         out,
-        (canonicalizedKey, entry) -> {
-          out.println(canonicalizedKey);
+        entry -> {
+          out.println(entry.getKey().getCanonicalName());
           entry.getValue().debugPrint(out);
           out.println();
         });
@@ -340,7 +340,8 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     processGraphForDumpCommand(
         filter,
         out,
-        (canonicalizedKey, entry) -> {
+        entry -> {
+          String canonicalizedKey = entry.getKey().getCanonicalName();
           out.println(canonicalizedKey);
           if (entry.keepsEdges()) {
             GroupedDeps deps = GroupedDeps.decompress(entry.getCompressedDirectDepsForDoneEntry());
@@ -360,19 +361,42 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
+  public final void dumpFunctionGraph(PrintStream out, Predicate<String> filter)
+      throws InterruptedException {
+    HashMultimap<SkyFunctionName, SkyFunctionName> seen = HashMultimap.create();
+    out.println("digraph {");
+    processGraphForDumpCommand(
+        filter,
+        out,
+        entry -> {
+          if (entry.keepsEdges()) {
+            SkyFunctionName source = entry.getKey().functionName();
+            for (SkyKey dep : entry.getDirectDeps()) {
+              SkyFunctionName dest = dep.functionName();
+              if (!seen.put(source, dest)) {
+                continue;
+              }
+              out.format("  \"%s\" -> \"%s\"\n", source, dest);
+            }
+          }
+        });
+    out.println("}");
+  }
+
+  @Override
   public final void dumpRdeps(PrintStream out, Predicate<String> filter)
       throws InterruptedException {
     processGraphForDumpCommand(
         filter,
         out,
-        (canonicalizedKey, entry) -> {
-          out.println(canonicalizedKey);
+        entry -> {
+          out.println(entry.getKey().getCanonicalName());
           if (entry.keepsEdges()) {
             Collection<SkyKey> rdeps = entry.getReverseDepsForDoneEntry();
             for (SkyKey rdep : rdeps) {
               out.print("    ");
               out.println(rdep.getCanonicalName());
-              out.println(); // newline for readability
+              out.println();
             }
           } else {
             out.println("  (rdeps not stored)");

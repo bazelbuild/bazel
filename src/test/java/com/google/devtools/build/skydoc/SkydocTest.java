@@ -75,9 +75,11 @@ public final class SkydocTest {
   @Test
   public void testStarlarkEvaluationError() throws Exception {
     scratchRunfile(
-        "io_bazel/test/a.bzl", //
-        "def f(): 1//0",
-        "f()");
+        "io_bazel/test/a.bzl",
+        """
+        def f(): 1//0
+        f()
+        """);
     StarlarkEvaluationException ex =
         assertThrows(
             StarlarkEvaluationException.class,
@@ -100,19 +102,21 @@ public final class SkydocTest {
   public void testRuleInfoAttrs() throws Exception {
     scratchRunfile(
         "io_bazel/test/test.bzl",
-        "def rule_impl(ctx):",
-        "  return []",
-        "",
-        "my_rule = rule(",
-        "    doc = 'This is my rule. It does stuff.',",
-        "    implementation = rule_impl,",
-        "    attrs = {",
-        "        'a': attr.label(mandatory=True, allow_single_file=True),",
-        "        'b': attr.string_dict(mandatory=True),",
-        "        'c': attr.output(mandatory=True),",
-        "        'd': attr.bool(default=False, mandatory=False),",
-        "    },",
-        ")");
+        """
+        def rule_impl(ctx):
+          return []
+
+        my_rule = rule(
+            doc = 'This is my rule. It does stuff.',
+            implementation = rule_impl,
+            attrs = {
+                'a': attr.label(mandatory=True, allow_single_file=True),
+                'b': attr.string_dict(mandatory=True),
+                'c': attr.output(mandatory=True),
+                'd': attr.bool(default=False, mandatory=False),
+            },
+        )
+        """);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
 
@@ -169,28 +173,30 @@ public final class SkydocTest {
   public void testMultipleRuleNames() throws Exception {
     scratchRunfile(
         "io_bazel/test/test.bzl",
-        "def rule_impl(ctx):",
-        "  return []",
-        "",
-        "rule_one = rule(",
-        "    doc = 'Rule one',",
-        "    implementation = rule_impl,",
-        ")",
-        "",
-        "rule(",
-        "    doc = 'This rule is not named',",
-        "    implementation = rule_impl,",
-        ")",
-        "",
-        "rule(",
-        "    doc = 'This rule also is not named',",
-        "    implementation = rule_impl,",
-        ")",
-        "",
-        "rule_two = rule(",
-        "    doc = 'Rule two',",
-        "    implementation = rule_impl,",
-        ")");
+        """
+        def rule_impl(ctx):
+          return []
+
+        rule_one = rule(
+            doc = 'Rule one',
+            implementation = rule_impl,
+        )
+
+        rule(
+            doc = 'This rule is not named',
+            implementation = rule_impl,
+        )
+
+        rule(
+            doc = 'This rule also is not named',
+            implementation = rule_impl,
+        )
+
+        rule_two = rule(
+            doc = 'Rule two',
+            implementation = rule_impl,
+        )
+        """);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
 
@@ -210,15 +216,17 @@ public final class SkydocTest {
   public void testRuleWithMultipleExports() throws Exception {
     scratchRunfile(
         "io_bazel/test/test.bzl",
-        "def rule_impl(ctx):",
-        "  return []",
-        "",
-        "rule_one = rule(",
-        "    doc = 'Rule one',",
-        "    implementation = rule_impl,",
-        ")",
-        "",
-        "rule_two = rule_one");
+        """
+        def rule_impl(ctx):
+          return []
+
+        rule_one = rule(
+            doc = 'Rule one',
+            implementation = rule_impl,
+        )
+
+        rule_two = rule_one
+        """);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
 
@@ -236,34 +244,43 @@ public final class SkydocTest {
 
   @Test
   public void testRulesAcrossMultipleFiles() throws Exception {
-    scratchRunfile("io_bazel/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
+    scratchRunfile(
+        "io_bazel/lib/rule_impl.bzl",
+        """
+        def rule_impl(ctx):
+          return []
+        """);
 
     scratchRunfile("io_bazel/deps/foo/other_root.bzl", "doc_string = 'Dep rule'");
 
     scratchRunfile(
         "io_bazel/deps/foo/dep_rule.bzl",
-        "load('//lib:rule_impl.bzl', 'rule_impl')",
-        "load(':other_root.bzl', 'doc_string')",
-        "",
-        "_hidden_rule = rule(",
-        "    doc = doc_string,",
-        "    implementation = rule_impl,",
-        ")",
-        "",
-        "dep_rule = rule(",
-        "    doc = doc_string,",
-        "    implementation = rule_impl,",
-        ")");
+        """
+        load('//lib:rule_impl.bzl', 'rule_impl')
+        load(':other_root.bzl', 'doc_string')
+
+        _hidden_rule = rule(
+            doc = doc_string,
+            implementation = rule_impl,
+        )
+
+        dep_rule = rule(
+            doc = doc_string,
+            implementation = rule_impl,
+        )
+        """);
 
     scratchRunfile(
         "io_bazel/test/main.bzl",
-        "load('//lib:rule_impl.bzl', 'rule_impl')",
-        "load('//deps/foo:dep_rule.bzl', 'dep_rule')",
-        "",
-        "main_rule = rule(",
-        "    doc = 'Main rule',",
-        "    implementation = rule_impl,",
-        ")");
+        """
+        load('//lib:rule_impl.bzl', 'rule_impl')
+        load('//deps/foo:dep_rule.bzl', 'dep_rule')
+
+        main_rule = rule(
+            doc = 'Main rule',
+            implementation = rule_impl,
+        )
+        """);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
@@ -284,34 +301,43 @@ public final class SkydocTest {
 
   @Test
   public void testRulesAcrossRepository() throws Exception {
-    scratchRunfile("dep_repo/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
+    scratchRunfile(
+        "dep_repo/lib/rule_impl.bzl",
+        """
+        def rule_impl(ctx):
+          return []
+        """);
 
     scratchRunfile("io_bazel/deps/foo/docstring.bzl", "doc_string = 'Dep rule'");
 
     scratchRunfile(
         "io_bazel/deps/foo/dep_rule.bzl",
-        "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
-        "load(':docstring.bzl', 'doc_string')",
-        "",
-        "_hidden_rule = rule(",
-        "    doc = doc_string,",
-        "    implementation = rule_impl,",
-        ")",
-        "",
-        "dep_rule = rule(",
-        "    doc = doc_string,",
-        "    implementation = rule_impl,",
-        ")");
+        """
+        load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')
+        load(':docstring.bzl', 'doc_string')
+
+        _hidden_rule = rule(
+            doc = doc_string,
+            implementation = rule_impl,
+        )
+
+        dep_rule = rule(
+            doc = doc_string,
+            implementation = rule_impl,
+        )
+        """);
 
     scratchRunfile(
         "io_bazel/test/main.bzl",
-        "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
-        "load('//deps/foo:dep_rule.bzl', 'dep_rule')",
-        "",
-        "main_rule = rule(",
-        "    doc = 'Main rule',",
-        "    implementation = rule_impl,",
-        ")");
+        """
+        load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')
+        load('//deps/foo:dep_rule.bzl', 'dep_rule')
+
+        main_rule = rule(
+            doc = 'Main rule',
+            implementation = rule_impl,
+        )
+        """);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
@@ -332,34 +358,43 @@ public final class SkydocTest {
 
   @Test
   public void testRulesAcrossRepositorySiblingRepositoryLayout() throws Exception {
-    scratchRunfile("dep_repo/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
+    scratchRunfile(
+        "dep_repo/lib/rule_impl.bzl",
+        """
+        def rule_impl(ctx):
+          return []
+        """);
 
     scratchRunfile("io_bazel/deps/foo/docstring.bzl", "doc_string = 'Dep rule'");
 
     scratchRunfile(
         "io_bazel/deps/foo/dep_rule.bzl",
-        "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
-        "load(':docstring.bzl', 'doc_string')",
-        "",
-        "_hidden_rule = rule(",
-        "    doc = doc_string,",
-        "    implementation = rule_impl,",
-        ")",
-        "",
-        "dep_rule = rule(",
-        "    doc = doc_string,",
-        "    implementation = rule_impl,",
-        ")");
+        """
+        load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')
+        load(':docstring.bzl', 'doc_string')
+
+        _hidden_rule = rule(
+            doc = doc_string,
+            implementation = rule_impl,
+        )
+
+        dep_rule = rule(
+            doc = doc_string,
+            implementation = rule_impl,
+        )
+        """);
 
     scratchRunfile(
         "io_bazel/test/main.bzl",
-        "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
-        "load('//deps/foo:dep_rule.bzl', 'dep_rule')",
-        "",
-        "main_rule = rule(",
-        "    doc = 'Main rule',",
-        "    implementation = rule_impl,",
-        ")");
+        """
+        load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')
+        load('//deps/foo:dep_rule.bzl', 'dep_rule')
+
+        main_rule = rule(
+            doc = 'Main rule',
+            implementation = rule_impl,
+        )
+        """);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
@@ -382,16 +417,23 @@ public final class SkydocTest {
 
   @Test
   public void testLoadOwnRepository() throws Exception {
-    scratchRunfile("io_bazel/deps/foo/dep_rule.bzl", "def rule_impl(ctx):", "  return []");
+    scratchRunfile(
+        "io_bazel/deps/foo/dep_rule.bzl",
+        """
+        def rule_impl(ctx):
+          return []
+        """);
 
     scratchRunfile(
         "io_bazel/test/main.bzl",
-        "load('@io_bazel//deps/foo:dep_rule.bzl', 'rule_impl')",
-        "",
-        "main_rule = rule(",
-        "    doc = 'Main rule',",
-        "    implementation = rule_impl,",
-        ")");
+        """
+        load('@io_bazel//deps/foo:dep_rule.bzl', 'rule_impl')
+
+        main_rule = rule(
+            doc = 'Main rule',
+            implementation = rule_impl,
+        )
+        """);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
@@ -414,20 +456,24 @@ public final class SkydocTest {
   public void testSkydocCrashesOnCycle() throws Exception {
     scratchRunfile(
         "io_bazel/dep/dep.bzl",
-        "load('//test:main.bzl', 'some_var')",
-        "def rule_impl(ctx):",
-        "  return []");
+        """
+        load('//test:main.bzl', 'some_var')
+        def rule_impl(ctx):
+          return []
+        """);
 
     scratchRunfile(
         "io_bazel/test/main.bzl",
-        "load('//dep:dep.bzl', 'rule_impl')",
-        "",
-        "some_var = 1",
-        "",
-        "main_rule = rule(",
-        "    doc = 'Main rule',",
-        "    implementation = rule_impl,",
-        ")");
+        """
+        load('//dep:dep.bzl', 'rule_impl')
+
+        some_var = 1
+
+        main_rule = rule(
+            doc = 'Main rule',
+            implementation = rule_impl,
+        )
+        """);
 
     StarlarkEvaluationException expected =
         assertThrows(
@@ -550,14 +596,16 @@ public final class SkydocTest {
   public void testProviderInfo() throws Exception {
     scratchRunfile(
         "io_bazel/test/test.bzl",
-        "MyExampleInfo = provider(",
-        "  doc = 'Stores information about example.',",
-        "  fields = {",
-        "    'name' : 'A string representing a random name.',",
-        "    'city' : 'A string representing a city.',",
-        "  },",
-        ")",
-        "pass");
+        """
+        MyExampleInfo = provider(
+          doc = 'Stores information about example.',
+          fields = {
+            'name' : 'A string representing a random name.',
+            'city' : 'A string representing a city.',
+          },
+        )
+        pass
+        """);
 
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
 
@@ -769,13 +817,15 @@ public final class SkydocTest {
   @Test
   public void testDefaultSymbolFilter() throws Exception {
     scratchRunfile(
-        "io_bazel/test/test.bzl", //
-        "def foo():",
-        "  pass",
-        "def bar():",
-        "  pass",
-        "def _baz():",
-        "  pass");
+        "io_bazel/test/test.bzl",
+        """
+        def foo():
+          pass
+        def bar():
+          pass
+        def _baz():
+          pass
+        """);
     ImmutableMap.Builder<String, StarlarkFunction> functionInfoBuilder = ImmutableMap.builder();
     Module module =
         skydocMain.eval(
@@ -805,13 +855,15 @@ public final class SkydocTest {
   @Test
   public void testCustomSymbolFilter() throws Exception {
     scratchRunfile(
-        "io_bazel/test/test.bzl", //
-        "def foo():",
-        "  pass",
-        "def bar():",
-        "  pass",
-        "def _baz():",
-        "  pass");
+        "io_bazel/test/test.bzl",
+        """
+        def foo():
+          pass
+        def bar():
+          pass
+        def _baz():
+          pass
+        """);
     ImmutableMap.Builder<String, StarlarkFunction> functionInfoBuilder = ImmutableMap.builder();
     Module module =
         skydocMain.eval(

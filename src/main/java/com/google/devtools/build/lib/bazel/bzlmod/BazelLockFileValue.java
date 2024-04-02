@@ -37,7 +37,7 @@ import java.util.Map;
 @GenerateTypeAdapter
 public abstract class BazelLockFileValue implements SkyValue, Postable {
 
-  public static final int LOCK_FILE_VERSION = 6;
+  public static final int LOCK_FILE_VERSION = 7;
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_LOCK_FILE;
 
@@ -132,7 +132,14 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
     newDepGraph.putAll(getModuleDepGraph());
     newDepGraph.put(
         ModuleKey.ROOT,
-        toModule(value.getModule(), /* override= */ null, /* remoteRepoSpec= */ null));
+        toModule(
+            value
+                .getModule()
+                .withDepSpecsTransformed(
+                    InterimModule.applyOverrides(
+                        value.getOverrides(), value.getModule().getName())),
+            /* override= */ null,
+            /* remoteRepoSpec= */ null));
     return toBuilder()
         .setModuleFileHash(value.getModuleFileHash())
         .setModuleDepGraph(newDepGraph.buildKeepingLast())

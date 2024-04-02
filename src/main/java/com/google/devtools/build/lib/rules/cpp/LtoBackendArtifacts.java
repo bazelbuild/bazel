@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LtoBackendArtifactsApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -234,26 +233,14 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     buildVariablesBuilder.addStringSequenceVariable(
         CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
-    if (ccToolchain.getCppConfiguration().useStandaloneLtoIndexingCommandLines()) {
-      if (!featureConfiguration.actionIsConfigured(CppActionNames.LTO_BACKEND)) {
-        throw Starlark.errorf(
-            "Thinlto build is requested, but the C++ toolchain doesn't define an action_config"
-                + " for 'lto-backend' action.");
-      }
-      PathFragment compiler =
-          PathFragment.create(
-              featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
-      builder.setExecutable(compiler);
-    } else {
-      PathFragment compiler =
-          PathFragment.create(
-              CcToolchainProvider.getToolPathString(
-                  ccToolchain.getToolPaths(),
-                  Tool.GCC,
-                  ccToolchain.getCcToolchainLabel(),
-                  ccToolchain.getToolchainIdentifier()));
-      builder.setExecutable(compiler);
+    if (!featureConfiguration.actionIsConfigured(CppActionNames.LTO_BACKEND)) {
+      throw Starlark.errorf(
+          "Thinlto build is requested, but the C++ toolchain doesn't define an action_config"
+              + " for 'lto-backend' action.");
     }
+    PathFragment compiler =
+        PathFragment.create(featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
+    builder.setExecutable(compiler);
   }
 
   private static void addPathsToBuildVariablesBuilder(

@@ -22,16 +22,19 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
-/** The cache implementation to store download artifacts from external repositories.
- *  TODO(jingwen): Implement file locking for concurrent cache accesses.
+/**
+ * The cache implementation to store download artifacts from external repositories.
+ *
+ * <p>Operations performed by this class are atomic on the file system level under the assumption
+ * that the cache directory is not subject to concurrent file deletion.
  */
 public class RepositoryCache {
 
@@ -134,11 +137,6 @@ public class RepositoryCache {
         .exists();
   }
 
-  public synchronized Path get(String cacheKey, Path targetPath, KeyType keyType)
-      throws IOException, InterruptedException {
-    return get(cacheKey, targetPath, keyType, null);
-  }
-
   /**
    * Copy or hardlink cached value to a specified directory, if it exists.
    *
@@ -156,12 +154,8 @@ public class RepositoryCache {
    * @throws IOException
    */
   @Nullable
-  public synchronized Path get(
-      String cacheKey, Path targetPath, KeyType keyType, String canonicalId)
+  public Path get(String cacheKey, Path targetPath, KeyType keyType, String canonicalId)
       throws IOException, InterruptedException {
-    if (Thread.interrupted()) {
-      throw new InterruptedException();
-    }
     Preconditions.checkState(isEnabled());
 
     assertKeyIsValid(cacheKey, keyType);
@@ -202,11 +196,6 @@ public class RepositoryCache {
     return targetPath;
   }
 
-  public synchronized void put(String cacheKey, Path sourcePath, KeyType keyType)
-      throws IOException, InterruptedException {
-    put(cacheKey, sourcePath, keyType, null);
-  }
-
   /**
    * Copies a value from a specified path into the cache.
    *
@@ -217,13 +206,8 @@ public class RepositoryCache {
    *     restricted cache lookups later.
    * @throws IOException
    */
-  public synchronized void put(
-      String cacheKey, Path sourcePath, KeyType keyType, String canonicalId)
-      throws IOException, InterruptedException {
-    // Check for interrupts while waiting for the monitor of this synchronized method
-    if (Thread.interrupted()) {
-      throw new InterruptedException();
-    }
+  public void put(String cacheKey, Path sourcePath, KeyType keyType, String canonicalId)
+      throws IOException {
     Preconditions.checkState(isEnabled());
 
     assertKeyIsValid(cacheKey, keyType);
@@ -234,20 +218,24 @@ public class RepositoryCache {
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     cacheEntry.createDirectoryAndParents();
     FileSystemUtils.copyFile(sourcePath, tmpName);
-    FileSystemUtils.moveFile(tmpName, cacheValue);
+    try {
+      tmpName.renameTo(cacheValue);
+    } catch (FileAccessException e) {
+      // On Windows, atomically replacing a file that is currently opened (e.g. due to a concurrent
+      // get on the cache) results in renameTo throwing this exception, which wraps an
+      // AccessDeniedException. This case is benign since if the target path already exists, we know
+      // that another thread won the race to place the file in the cache. As the exception is rather
+      // generic and could result from other failure types, we rethrow the exception if the cache
+      // entry hasn't been created.
+      if (!cacheValue.exists()) {
+        throw e;
+      }
+    }
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
-      byte[] canonicalIdBytes = canonicalId.getBytes(UTF_8);
-      String idHash = keyType.newHasher().putBytes(canonicalIdBytes).hash().toString();
-      OutputStream idStream = cacheEntry.getRelative(ID_PREFIX + idHash).getOutputStream();
-      idStream.write(canonicalIdBytes);
-      idStream.close();
+      String idHash = keyType.newHasher().putBytes(canonicalId.getBytes(UTF_8)).hash().toString();
+      FileSystemUtils.touchFile(cacheEntry.getRelative(ID_PREFIX + idHash));
     }
-  }
-
-  public synchronized String put(Path sourcePath, KeyType keyType)
-      throws IOException, InterruptedException {
-    return put(sourcePath, keyType, null);
   }
 
   /**
@@ -260,7 +248,7 @@ public class RepositoryCache {
    * @throws IOException
    * @return The key for the cached entry.
    */
-  public synchronized String put(Path sourcePath, KeyType keyType, String canonicalId)
+  public String put(Path sourcePath, KeyType keyType, String canonicalId)
       throws IOException, InterruptedException {
     String cacheKey = getChecksum(keyType, sourcePath);
     put(cacheKey, sourcePath, keyType, canonicalId);

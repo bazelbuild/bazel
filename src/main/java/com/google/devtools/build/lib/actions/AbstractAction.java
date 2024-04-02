@@ -368,9 +368,13 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   private String replaceProgressMessagePlaceholders(
       String progressMessage, @Nullable RepositoryMapping mainRepositoryMapping) {
     if (progressMessage.contains("%{label}") && owner.getLabel() != null) {
-      progressMessage =
-          progressMessage.replace(
-              "%{label}", owner.getLabel().getDisplayForm(mainRepositoryMapping));
+      String labelString;
+      if (mainRepositoryMapping != null) {
+        labelString = owner.getLabel().getDisplayForm(mainRepositoryMapping);
+      } else {
+        labelString = owner.getLabel().toString();
+      }
+      progressMessage = progressMessage.replace("%{label}", labelString);
     }
     if (progressMessage.contains("%{output}") && getPrimaryOutput() != null) {
       progressMessage =

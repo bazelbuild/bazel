@@ -26,7 +26,6 @@ import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTI
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -184,6 +183,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesKnowledge;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ImmutableBatchDirtyResult;
+import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
@@ -2087,7 +2087,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
 
-    return new AutoValue_SkyframeExecutor_ConfigureTargetsResult(
+    return new ConfigureTargetsResult(
         result,
         configuredTargets.build(),
         aspects.buildOrThrow(),
@@ -2107,18 +2107,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Result of a call to {@link #configureTargets}. */
-  @AutoValue
-  protected abstract static class ConfigureTargetsResult {
-    public abstract EvaluationResult<ActionLookupValue> evaluationResult();
-
-    public abstract ImmutableSet<ConfiguredTarget> configuredTargets();
-
-    public abstract ImmutableMap<AspectKey, ConfiguredAspect> aspects();
-
-    public abstract ImmutableList<TargetAndConfiguration> targetsWithConfiguration();
-
-    public abstract PackageRoots packageRoots();
-  }
+  protected record ConfigureTargetsResult(
+      EvaluationResult<ActionLookupValue> evaluationResult,
+      ImmutableSet<ConfiguredTarget> configuredTargets,
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects,
+      ImmutableList<TargetAndConfiguration> targetsWithConfiguration,
+      PackageRoots packageRoots) {}
 
   /** Returns a map of collected package names to root paths. */
   private ImmutableMap<PackageIdentifier, Root> collectPackageRoots() {
@@ -3393,7 +3387,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
       invalidateValuesMarkedForInvalidation(eventHandler);
 
-      FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, syscallCache, fsvcThreads);
+      FilesystemValueChecker fsvc =
+          new FilesystemValueChecker(
+              tsgm,
+              syscallCache,
+              outputService == null
+                  ? XattrProviderOverrider.NO_OVERRIDE
+                  : outputService::getXattrProvider,
+              fsvcThreads);
 
       Set<Root> diffPackageRootsUnderWhichToCheck =
           getDiffPackageRootsUnderWhichToCheck(pathEntriesWithoutDiffInformation);
@@ -3457,7 +3458,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       logger.atInfo().log(
           "About to scan %d external files",
           externalFilesKnowledge.nonOutputExternalFilesSeen.size());
-      FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, syscallCache, fsvcThreads);
+      FilesystemValueChecker fsvc =
+          new FilesystemValueChecker(
+              tsgm,
+              syscallCache,
+              outputService == null
+                  ? XattrProviderOverrider.NO_OVERRIDE
+                  : outputService::getXattrProvider,
+              fsvcThreads);
       ImmutableBatchDirtyResult batchDirtyResult;
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyExternalKeys")) {
         Map<SkyKey, SkyValue> externalDirtyNodes = new ConcurrentHashMap<>();
@@ -3904,7 +3912,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
-          new FilesystemValueChecker(tsgm, syscallCache, /* numThreads= */ 200)
+          new FilesystemValueChecker(
+                  tsgm,
+                  syscallCache,
+                  outputService == null
+                      ? XattrProviderOverrider.NO_OVERRIDE
+                      : outputService::getXattrProvider,
+                  /* numThreads= */ 200)
               .getDirtyKeys(
                   memoizingEvaluator.getValues(),
                   DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker());

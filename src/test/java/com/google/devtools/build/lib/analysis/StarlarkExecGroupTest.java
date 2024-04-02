@@ -44,63 +44,82 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   private void createToolchainsAndPlatforms() throws Exception {
     scratch.file(
         "rule/test_toolchain.bzl",
-        "def _impl(ctx):",
-        "    return [platform_common.ToolchainInfo()]",
-        "test_toolchain = rule(",
-        "    implementation = _impl,",
-        ")");
+        """
+        def _impl(ctx):
+            return [platform_common.ToolchainInfo()]
+
+        test_toolchain = rule(
+            implementation = _impl,
+        )
+        """);
     scratch.file(
         "rule/BUILD",
-        "exports_files(['test_toolchain/bzl'])",
-        "toolchain_type(name = 'toolchain_type_1')",
-        "toolchain_type(name = 'toolchain_type_2')");
+        """
+        exports_files(["test_toolchain/bzl"])
+
+        toolchain_type(name = "toolchain_type_1")
+
+        toolchain_type(name = "toolchain_type_2")
+        """);
     scratch.file(
         "toolchain/BUILD",
-        "load('//rule:test_toolchain.bzl', 'test_toolchain')",
-        "test_toolchain(",
-        "    name = 'foo',",
-        ")",
-        "toolchain(",
-        "    name = 'foo_toolchain',",
-        "    toolchain_type = '//rule:toolchain_type_1',",
-        "    target_compatible_with = ['//platform:constraint_1'],",
-        "    exec_compatible_with = ['//platform:constraint_1'],",
-        "    toolchain = ':foo',",
-        ")",
-        "test_toolchain(",
-        "    name = 'bar',",
-        ")",
-        "toolchain(",
-        "    name = 'bar_toolchain',",
-        "    toolchain_type = '//rule:toolchain_type_2',",
-        "    target_compatible_with = ['//platform:constraint_1'],",
-        "    exec_compatible_with = ['//platform:constraint_2'],",
-        "    toolchain = ':bar',",
-        ")");
+        """
+        load("//rule:test_toolchain.bzl", "test_toolchain")
+
+        test_toolchain(
+            name = "foo",
+        )
+
+        toolchain(
+            name = "foo_toolchain",
+            exec_compatible_with = ["//platform:constraint_1"],
+            target_compatible_with = ["//platform:constraint_1"],
+            toolchain = ":foo",
+            toolchain_type = "//rule:toolchain_type_1",
+        )
+
+        test_toolchain(
+            name = "bar",
+        )
+
+        toolchain(
+            name = "bar_toolchain",
+            exec_compatible_with = ["//platform:constraint_2"],
+            target_compatible_with = ["//platform:constraint_1"],
+            toolchain = ":bar",
+            toolchain_type = "//rule:toolchain_type_2",
+        )
+        """);
 
     scratch.overwriteFile(
         "platform/BUILD",
-        "constraint_setting(name = 'setting')",
-        "constraint_value(",
-        "    name = 'constraint_1',",
-        "    constraint_setting = ':setting',",
-        ")",
-        "constraint_value(",
-        "    name = 'constraint_2',",
-        "    constraint_setting = ':setting',",
-        ")",
-        "platform(",
-        "    name = 'platform_1',",
-        "    constraint_values = [':constraint_1'],",
-        ")",
-        "platform(",
-        "    name = 'platform_2',",
-        "    constraint_values = [':constraint_2'],",
-        "    exec_properties = {",
-        "        'watermelon.ripeness': 'unripe',",
-        "        'watermelon.color': 'red',",
-        "    },",
-        ")");
+        """
+        constraint_setting(name = "setting")
+
+        constraint_value(
+            name = "constraint_1",
+            constraint_setting = ":setting",
+        )
+
+        constraint_value(
+            name = "constraint_2",
+            constraint_setting = ":setting",
+        )
+
+        platform(
+            name = "platform_1",
+            constraint_values = [":constraint_1"],
+        )
+
+        platform(
+            name = "platform_2",
+            constraint_values = [":constraint_2"],
+            exec_properties = {
+                "watermelon.ripeness": "unripe",
+                "watermelon.color": "red",
+            },
+        )
+        """);
 
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
@@ -115,24 +134,37 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/defs.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  return [MyInfo(dep = ctx.attr.dep)]",
-        "with_transition = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep': attr.label(cfg = 'exec'),",
-        "  },",
-        "  toolchains = ['//rule:toolchain_type_2'],",
-        ")",
-        "def _impl2(ctx):",
-        "  return []",
-        "simple_rule = rule(implementation = _impl2)");
+        """
+        MyInfo = provider()
+
+        def _impl(ctx):
+            return [MyInfo(dep = ctx.attr.dep)]
+
+        with_transition = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(cfg = "exec"),
+            },
+            toolchains = ["//rule:toolchain_type_2"],
+        )
+
+        def _impl2(ctx):
+            return []
+
+        simple_rule = rule(implementation = _impl2)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'with_transition', 'simple_rule')",
-        "with_transition(name = 'parent', dep = ':child')",
-        "simple_rule(name = 'child')");
+        """
+        load("//test:defs.bzl", "simple_rule", "with_transition")
+
+        with_transition(
+            name = "parent",
+            dep = ":child",
+        )
+
+        simple_rule(name = "child")
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:parent");
     Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
@@ -154,40 +186,59 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/defs.bzl",
-        "MyInfo = provider()",
-        "def _impl_parent(ctx):",
-        "  output = ctx.actions.declare_file('parent.out')",
-        "  ctx.actions.run(",
-        "    executable = '',",
-        "    progress_message = 'Test with AEG.',",
-        "    outputs = [output],",
-        "  )",
-        "  return [MyInfo(dep = ctx.attr.dep), DefaultInfo(files = depset([output]))]",
-        "parent_rule = rule(",
-        "  implementation = _impl_parent,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "    '_use_auto_exec_groups': attr.bool(default = True),",
-        "  },",
-        "  toolchains = ['//rule:toolchain_type_2'],",
-        ")",
-        "def _impl(ctx):",
-        "  return [MyInfo(dep = ctx.attr.dep)]",
-        "pass_thru = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep': attr.label(cfg = 'exec'),",
-        "  },",
-        ")",
-        "def _impl2(ctx):",
-        "  return []",
-        "simple_rule = rule(implementation = _impl2)");
+        """
+        MyInfo = provider()
+
+        def _impl_parent(ctx):
+            output = ctx.actions.declare_file("parent.out")
+            ctx.actions.run(
+                executable = "",
+                progress_message = "Test with AEG.",
+                outputs = [output],
+            )
+            return [MyInfo(dep = ctx.attr.dep), DefaultInfo(files = depset([output]))]
+
+        parent_rule = rule(
+            implementation = _impl_parent,
+            attrs = {
+                "dep": attr.label(),
+                "_use_auto_exec_groups": attr.bool(default = True),
+            },
+            toolchains = ["//rule:toolchain_type_2"],
+        )
+
+        def _impl(ctx):
+            return [MyInfo(dep = ctx.attr.dep)]
+
+        pass_thru = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(cfg = "exec"),
+            },
+        )
+
+        def _impl2(ctx):
+            return []
+
+        simple_rule = rule(implementation = _impl2)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'parent_rule', 'pass_thru', 'simple_rule')",
-        "parent_rule(name = 'parent', dep = ':passthru')",
-        "pass_thru(name = 'passthru', dep = ':child')",
-        "simple_rule(name = 'child')");
+        """
+        load("//test:defs.bzl", "parent_rule", "pass_thru", "simple_rule")
+
+        parent_rule(
+            name = "parent",
+            dep = ":passthru",
+        )
+
+        pass_thru(
+            name = "passthru",
+            dep = ":child",
+        )
+
+        simple_rule(name = "child")
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:parent");
     Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
@@ -195,7 +246,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     BuildConfigurationValue passthruDepConfig =
         getConfiguration((ConfiguredTarget) ((StructImpl) dep.get(key)).getValue("dep"));
 
-    // Action will be executed on '//platform:platform_1' plaform.
+    // Action will be executed on '//platform:platform_1' platform.
     assertThat(
             getGeneratingAction(target, "test/parent.out")
                 .getOwner()
@@ -210,29 +261,44 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/defs.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  return [MyInfo(dep = ctx.attr.dep, exec_group_dep = ctx.attr.exec_group_dep)]",
-        "with_transition = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'exec_group_dep': attr.label(cfg = config.exec('watermelon')),",
-        "    'dep': attr.label(cfg = 'exec'),",
-        "  },",
-        "  exec_groups = {",
-        "    'watermelon': exec_group(toolchains = ['//rule:toolchain_type_2']),",
-        "  },",
-        "  toolchains = ['//rule:toolchain_type_1'],",
-        ")",
-        "def _impl2(ctx):",
-        "  return []",
-        "simple_rule = rule(implementation = _impl2)");
+        """
+        MyInfo = provider()
+
+        def _impl(ctx):
+            return [MyInfo(dep = ctx.attr.dep, exec_group_dep = ctx.attr.exec_group_dep)]
+
+        with_transition = rule(
+            implementation = _impl,
+            attrs = {
+                "exec_group_dep": attr.label(cfg = config.exec("watermelon")),
+                "dep": attr.label(cfg = "exec"),
+            },
+            exec_groups = {
+                "watermelon": exec_group(toolchains = ["//rule:toolchain_type_2"]),
+            },
+            toolchains = ["//rule:toolchain_type_1"],
+        )
+
+        def _impl2(ctx):
+            return []
+
+        simple_rule = rule(implementation = _impl2)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'with_transition', 'simple_rule')",
-        "with_transition(name = 'parent', dep = ':child', exec_group_dep = ':other-child')",
-        "simple_rule(name = 'child')",
-        "simple_rule(name = 'other-child')");
+        """
+        load("//test:defs.bzl", "simple_rule", "with_transition")
+
+        with_transition(
+            name = "parent",
+            dep = ":child",
+            exec_group_dep = ":other-child",
+        )
+
+        simple_rule(name = "child")
+
+        simple_rule(name = "other-child")
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:parent");
     Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
@@ -252,23 +318,36 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   public void testInvalidExecGroupTransition() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  return []",
-        "with_transition = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'exec_group_dep': attr.label(cfg = config.exec('blueberry')),",
-        "  },",
-        ")",
-        "def _impl2(ctx):",
-        "  return []",
-        "simple_rule = rule(implementation = _impl2)");
+        """
+        MyInfo = provider()
+
+        def _impl(ctx):
+            return []
+
+        with_transition = rule(
+            implementation = _impl,
+            attrs = {
+                "exec_group_dep": attr.label(cfg = config.exec("blueberry")),
+            },
+        )
+
+        def _impl2(ctx):
+            return []
+
+        simple_rule = rule(implementation = _impl2)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'with_transition', 'simple_rule')",
-        "with_transition(name = 'parent', exec_group_dep = ':child')",
-        "simple_rule(name = 'child')");
+        """
+        load("//test:defs.bzl", "simple_rule", "with_transition")
+
+        with_transition(
+            name = "parent",
+            exec_group_dep = ":child",
+        )
+
+        simple_rule(name = "child")
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:parent");
@@ -283,12 +362,15 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'with_actions')",
-        "with_actions(",
-        "  name = 'papaya',",
-        "  output = 'out.txt',",
-        "  watermelon_output = 'watermelon_out.txt'",
-        ")");
+        """
+        load("//test:defs.bzl", "with_actions")
+
+        with_actions(
+            name = "papaya",
+            output = "out.txt",
+            watermelon_output = "watermelon_out.txt",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:papaya");
 
@@ -309,32 +391,39 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/defs.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  watermelon_out_file = ctx.outputs.watermelon_output",
-        "  ctx.actions.run_shell(",
-        "    inputs = [],",
-        "    outputs = [watermelon_out_file],",
-        "    arguments = [watermelon_out_file.path],",
-        "    command = 'echo hello > \"$1\"',",
-        "    exec_group = 'honeydew',",
-        "  )",
-        "with_actions = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'watermelon_output': attr.output(),",
-        "  },",
-        "  exec_groups = {",
-        "    'watermelon': exec_group(toolchains = ['//rule:toolchain_type_2']),",
-        "  },",
-        ")");
+        """
+        MyInfo = provider()
+
+        def _impl(ctx):
+            watermelon_out_file = ctx.outputs.watermelon_output
+            ctx.actions.run_shell(
+                inputs = [],
+                outputs = [watermelon_out_file],
+                arguments = [watermelon_out_file.path],
+                command = 'echo hello > "$1"',
+                exec_group = "honeydew",
+            )
+
+        with_actions = rule(
+            implementation = _impl,
+            attrs = {
+                "watermelon_output": attr.output(),
+            },
+            exec_groups = {
+                "watermelon": exec_group(toolchains = ["//rule:toolchain_type_2"]),
+            },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'with_actions')",
-        "with_actions(",
-        "  name = 'papaya',",
-        "  watermelon_output = 'watermelon_out.txt'",
-        ")");
+        """
+        load("//test:defs.bzl", "with_actions")
+
+        with_actions(
+            name = "papaya",
+            watermelon_output = "watermelon_out.txt",
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:papaya");
@@ -358,9 +447,12 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "  },",
         ")");
     scratch.file(
-        "test/BUILD", //
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(name = 'papaya')");
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "my_rule")
+
+        my_rule(name = "papaya")
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:papaya");
@@ -396,9 +488,16 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load(':defs.bzl', 'my_rule')",
-        "filegroup(name = 'banana')",
-        "my_rule(name = 'papaya', srcs = [':banana'])");
+        """
+        load(":defs.bzl", "my_rule")
+
+        filegroup(name = "banana")
+
+        my_rule(
+            name = "papaya",
+            srcs = [":banana"],
+        )
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:papaya");
     assertThat(configuredTarget).isNotNull();
@@ -411,9 +510,16 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load(':defs.bzl', 'my_rule')",
-        "filegroup(name = 'banana')",
-        "my_rule(name = 'papaya', srcs = [':banana'])");
+        """
+        load(":defs.bzl", "my_rule")
+
+        filegroup(name = "banana")
+
+        my_rule(
+            name = "papaya",
+            srcs = [":banana"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:papaya");
@@ -423,34 +529,38 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   private void writeRuleWithActionsAndWatermelonExecGroup() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  watermelon_out_file = ctx.outputs.watermelon_output",
-        "  ctx.actions.run_shell(",
-        "    inputs = [],",
-        "    outputs = [watermelon_out_file],",
-        "    arguments = [watermelon_out_file.path],",
-        "    command = 'echo hello > \"$1\"',",
-        "    exec_group = 'watermelon',",
-        "  )",
-        "  out_file = ctx.outputs.output",
-        "  ctx.actions.run_shell(",
-        "    inputs = [],",
-        "    outputs = [out_file],",
-        "    arguments = [out_file.path],",
-        "    command = 'echo hello > \"$1\"',",
-        "  )",
-        "with_actions = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'watermelon_output': attr.output(),",
-        "    'output': attr.output(),",
-        "  },",
-        "  exec_groups = {",
-        "    'watermelon': exec_group(toolchains = ['//rule:toolchain_type_2']),",
-        "  },",
-        "  toolchains = ['//rule:toolchain_type_1'],",
-        ")");
+        """
+        MyInfo = provider()
+
+        def _impl(ctx):
+            watermelon_out_file = ctx.outputs.watermelon_output
+            ctx.actions.run_shell(
+                inputs = [],
+                outputs = [watermelon_out_file],
+                arguments = [watermelon_out_file.path],
+                command = 'echo hello > "$1"',
+                exec_group = "watermelon",
+            )
+            out_file = ctx.outputs.output
+            ctx.actions.run_shell(
+                inputs = [],
+                outputs = [out_file],
+                arguments = [out_file.path],
+                command = 'echo hello > "$1"',
+            )
+
+        with_actions = rule(
+            implementation = _impl,
+            attrs = {
+                "watermelon_output": attr.output(),
+                "output": attr.output(),
+            },
+            exec_groups = {
+                "watermelon": exec_group(toolchains = ["//rule:toolchain_type_2"]),
+            },
+            toolchains = ["//rule:toolchain_type_1"],
+        )
+        """);
   }
 
   @Test
@@ -460,18 +570,21 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'with_actions')",
-        "with_actions(",
-        "  name = 'papaya',",
-        "  output = 'out.txt',",
-        "  watermelon_output = 'watermelon_out.txt',",
-        "  exec_properties = {",
-        "    'color': 'orange',",
-        "    'ripeness': 'ripe',",
-        "    'watermelon.color': 'pink',",
-        "    'watermelon.season': 'summer',",
-        "  },",
-        ")");
+        """
+        load("//test:defs.bzl", "with_actions")
+
+        with_actions(
+            name = "papaya",
+            exec_properties = {
+                "color": "orange",
+                "ripeness": "ripe",
+                "watermelon.color": "pink",
+                "watermelon.season": "summer",
+            },
+            output = "out.txt",
+            watermelon_output = "watermelon_out.txt",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:papaya");
 
@@ -489,17 +602,20 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'with_actions')",
-        "with_actions(",
-        "  name = 'papaya',",
-        "  output = 'out.txt',",
-        "  watermelon_output = 'watermelon_out.txt',",
-        "  exec_properties = {",
-        "    'color': 'orange',",
-        "    'watermelon.color': 'pink',",
-        "    'blueberry.season': 'summer',", // non-existent exec group
-        "  },",
-        ")");
+        """
+        load("//test:defs.bzl", "with_actions")
+
+        with_actions(
+            name = "papaya",
+            exec_properties = {
+                "color": "orange",
+                "watermelon.color": "pink",
+                "blueberry.season": "summer",  # non-existent exec group
+            },
+            output = "out.txt",
+            watermelon_output = "watermelon_out.txt",
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:papaya");
@@ -513,12 +629,15 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'with_actions')",
-        "with_actions(",
-        "  name = 'papaya',",
-        "  output = 'out.txt',",
-        "  watermelon_output = 'watermelon_out.txt',",
-        ")");
+        """
+        load("//test:defs.bzl", "with_actions")
+
+        with_actions(
+            name = "papaya",
+            output = "out.txt",
+            watermelon_output = "watermelon_out.txt",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:papaya");
 
@@ -536,12 +655,15 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'with_actions')",
-        "with_actions(",
-        "  name = 'papaya',",
-        "  output = 'out.txt',",
-        "  watermelon_output = 'watermelon_out.txt',",
-        ")");
+        """
+        load("//test:defs.bzl", "with_actions")
+
+        with_actions(
+            name = "papaya",
+            output = "out.txt",
+            watermelon_output = "watermelon_out.txt",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:papaya");
 
@@ -559,16 +681,19 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'with_actions')",
-        "with_actions(",
-        "  name = 'papaya',",
-        "  output = 'out.txt',",
-        "  watermelon_output = 'watermelon_out.txt',",
-        "  exec_properties = {",
-        "    'watermelon.ripeness': 'ripe',",
-        "    'ripeness': 'unknown',",
-        "  },",
-        ")");
+        """
+        load("//test:defs.bzl", "with_actions")
+
+        with_actions(
+            name = "papaya",
+            exec_properties = {
+                "watermelon.ripeness": "ripe",
+                "ripeness": "unknown",
+            },
+            output = "out.txt",
+            watermelon_output = "watermelon_out.txt",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:papaya");
 

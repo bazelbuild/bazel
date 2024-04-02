@@ -27,6 +27,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:build_configuration_key_producer",
+        "//src/main/java/com/google/devtools/build/lib/analysis/producers:platform_flags_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:platform_info_producer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",

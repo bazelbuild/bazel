@@ -105,11 +105,15 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
   private void implicitSplitFunctions(String fdoFlavor) throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
 
@@ -146,11 +150,15 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
   public void noFSAFDODisablesSplitFunction() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
 
@@ -169,11 +177,15 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
   private void noImplicitSplitFunctions(String fdoFlavor) throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
 
@@ -208,11 +220,15 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
   private void implicitSplitFunctionsDisabledOption(String fdoFlavor) throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
 
@@ -249,12 +265,16 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
   private void implicitSplitFunctionsDisabledBuild(String fdoFlavor) throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          features = ['-split_functions'],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            features = ["-split_functions"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
 
@@ -287,11 +307,15 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
   private void propellerOptimizeDisablesImplicitSplitFunctions(String fdoFlavor) throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
 
@@ -330,11 +354,18 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
   private void implicitSplitFunctionsDisabledPackage(String fdoFlavor) throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto', '-split_functions'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = [
+            "thin_lto",
+            "-split_functions",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
 

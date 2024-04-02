@@ -444,9 +444,19 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Test
   public void testIsCcTestLinkActionBuildVariable() throws Exception {
-    scratch.file("x/BUILD",
-        "cc_test(name = 'foo_test', srcs = ['a.cc'])",
-        "cc_binary(name = 'foo', srcs = ['a.cc'])");
+    scratch.file(
+        "x/BUILD",
+        """
+        cc_test(
+            name = "foo_test",
+            srcs = ["a.cc"],
+        )
+
+        cc_binary(
+            name = "foo",
+            srcs = ["a.cc"],
+        )
+        """);
     scratch.file("x/a.cc");
 
     ConfiguredTarget testTarget = getConfiguredTarget("//x:foo_test");
@@ -474,8 +484,17 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     scratch.file(
         "x/BUILD",
-        "cc_test(name = 'foo_test', srcs = ['a.cc'])",
-        "cc_binary(name = 'foo', srcs = ['a.cc'])");
+        """
+        cc_test(
+            name = "foo_test",
+            srcs = ["a.cc"],
+        )
+
+        cc_binary(
+            name = "foo",
+            srcs = ["a.cc"],
+        )
+        """);
     scratch.file("x/a.cc");
 
     ConfiguredTarget testTarget = getConfiguredTarget("//x:foo_test");

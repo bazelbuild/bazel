@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import javax.annotation.Nullable;
 
 /** An exception indicating that there was a problem creating an aspect. */
-public final class AspectCreationException extends Exception implements SaneAnalysisException {
+public final class AspectCreationException extends AbstractSaneAnalysisException {
   private final NestedSet<Cause> causes;
   // TODO(b/138456686): if warranted by a need for finer-grained details, replace the constructors
   //  that specify the general Code.ASPECT_CREATION_FAILED

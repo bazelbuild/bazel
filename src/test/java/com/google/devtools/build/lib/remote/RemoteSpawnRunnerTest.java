@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -301,7 +302,7 @@ public class RemoteSpawnRunnerTest {
     runner.exec(spawn, policy);
 
     verify(localRunner).exec(spawn, policy);
-    verify(cache).ensureInputsPresent(any(), any(), any(), anyBoolean());
+    verify(cache).ensureInputsPresent(any(), any(), any(), anyBoolean(), any());
     verifyNoMoreInteractions(cache);
   }
 
@@ -1147,7 +1148,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             tempPathGenerator,
             /* captureCorruptedOutputsDir= */ null,
-            remoteOutputChecker);
+            remoteOutputChecker,
+            mock(OutputService.class));
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
             execRoot,
@@ -1682,7 +1684,8 @@ public class RemoteSpawnRunnerTest {
                 executor,
                 tempPathGenerator,
                 /* captureCorruptedOutputsDir= */ null,
-                remoteOutputChecker));
+                remoteOutputChecker,
+                mock(OutputService.class)));
 
     return new RemoteSpawnRunner(
         execRoot,

@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -89,6 +90,19 @@ public class ToolchainResolutionFunction implements SkyFunction {
                           .map(ToolchainTypeRequirement::toolchainType)
                           .collect(toImmutableSet()));
 
+      // Create keys for all platforms that will be used, and validate them early.
+      // Do this early, to catch platform errors early.
+      PlatformKeys platformKeys =
+          loadPlatformKeys(
+              env,
+              debug,
+              configuration.getKey(),
+              platformConfiguration,
+              key.execConstraintLabels());
+      if (env.valuesMissing()) {
+        return null;
+      }
+
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.
       ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypeInfos =
@@ -101,19 +115,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
       builder.setRequestedLabelToToolchainType(resolvedToolchainTypeInfos);
       ImmutableSet<ToolchainType> resolvedToolchainTypes =
           loadToolchainTypes(resolvedToolchainTypeInfos, key.toolchainTypes());
-
-      // Create keys for all platforms that will be used, and validate them early.
-      PlatformKeys platformKeys =
-          loadPlatformKeys(
-              env,
-              debug,
-              key.configurationKey(),
-              configuration,
-              platformConfiguration,
-              key.execConstraintLabels());
-      if (env.valuesMissing()) {
-        return null;
-      }
 
       // Determine the actual toolchain implementations to use.
       determineToolchainImplementations(
@@ -262,7 +263,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
       SkyFunction.Environment environment,
       boolean debug,
       BuildConfigurationKey configurationKey,
-      BuildConfigurationValue configuration,
       PlatformConfiguration platformConfiguration,
       ImmutableSet<Label> execConstraintLabels)
       throws InterruptedException,
@@ -277,12 +277,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
     ConfiguredTargetKey hostPlatformKey =
         ConfiguredTargetKey.builder()
             .setLabel(hostPlatformLabel)
-            .setConfiguration(configuration)
+            .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
             .build();
     ConfiguredTargetKey targetPlatformKey =
         ConfiguredTargetKey.builder()
             .setLabel(targetPlatformLabel)
-            .setConfiguration(configuration)
+            .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
             .build();
 
     // Load the host and target platforms early, to check for errors.
@@ -298,7 +298,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
             environment,
             debug,
             configurationKey,
-            configuration,
             hostPlatformKey,
             execConstraintLabels);
 
@@ -309,7 +308,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
       SkyFunction.Environment environment,
       boolean debug,
       BuildConfigurationKey configurationKey,
-      BuildConfigurationValue configuration,
       ConfiguredTargetKey defaultPlatformKey,
       ImmutableSet<Label> execConstraintLabels)
       throws InterruptedException,
@@ -340,7 +338,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
                 label ->
                     ConfiguredTargetKey.builder()
                         .setLabel(label)
-                        .setConfiguration(configuration)
+                        .setConfigurationKey(
+                            BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
                         .build())
             .collect(toImmutableList());
 

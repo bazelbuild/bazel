@@ -91,7 +91,14 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Cq
   @Override
   @Test
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
-    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+    writeFile(
+        "test/BUILD",
+        """
+        java_library(
+            name = "my_java",
+            srcs = ["foo.java"],
+        )
+        """);
 
     Set<CqueryNode> result = eval("//test:my_java+//test:foo.java");
 
@@ -106,11 +113,5 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Cq
       assertThat(getConfiguration(first)).isNotNull();
       assertThat(getConfiguration(resultIterator.next())).isNull();
     }
-  }
-
-  @Override
-  public void testMultipleTopLevelConfigurations_multipleConfigsPrefersTopLevel() {
-    // When the same target exists in multiple configurations, cquery doesn't guarantee which
-    // instance is evaluated first. So disable this test.
   }
 }

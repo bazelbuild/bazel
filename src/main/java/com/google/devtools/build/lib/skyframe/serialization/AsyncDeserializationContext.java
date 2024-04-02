@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Context provided to {@link ObjectCodec} implementations with methods compatible with asynchrony.
@@ -35,8 +36,6 @@ import java.io.IOException;
  *       to guarantee that the provided value is complete due to the cycle.
  * </ul>
  */
-// TODO(b/297857068): Once all codecs are migrated, this should replace the existing
-// DeserializationContext as the interface to codecs.
 public interface AsyncDeserializationContext extends SerializationDependencyProvider {
   /** Defines a way to set a field in a given object. */
   interface FieldSetter<T> {
@@ -88,5 +87,36 @@ public interface AsyncDeserializationContext extends SerializationDependencyProv
    * even if the deserialized value is null.
    */
   void deserialize(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException;
+
+  /**
+   * Reads a value from key value storage into {@code obj}.
+   *
+   * <p>Reads the next fingerprint from {@code codedIn}, fetches the corresponding remote value and
+   * deserializes it using {@code codec} into {@code obj} using {@code setter}.
+   *
+   * <p>This method may schedule some activities in the background.
+   *
+   * <ul>
+   *   <li>Fetching the data bytes associated with the fingerprint from the stream.
+   *   <li>Waiting for another concurrent read of the same data by a different caller.
+   * </ul>
+   *
+   * <p>These background activities are tracked by {@link
+   * SharedValueDeserializationContext#readStatusFutures}.
+   *
+   * <p>{@link DeserializationContext#deserialize(CodedInputStream)} blocks until the background
+   * activities are complete.
+   *
+   * <p>TODO: b/297857068 - expose an API enabling callers to release the thread if it is blocked.
+   *
+   * @param distinguisher see documentation at {@link SerializationContext#putSharedValue}
+   */
+  <T> void getSharedValue(
+      CodedInputStream codedIn,
+      @Nullable Object distinguisher,
+      DeferredObjectCodec<?> codec,
+      T obj,
+      FieldSetter<? super T> setter)
       throws IOException, SerializationException;
 }

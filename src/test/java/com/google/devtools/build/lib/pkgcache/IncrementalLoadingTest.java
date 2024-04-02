@@ -363,13 +363,20 @@ public class IncrementalLoadingTest {
 
   @Test
   public void testChangedExternalFile() throws Exception {
-    tester.addFile("a/BUILD",
-        "load('//a:b.bzl', 'b')",
-        "b()");
+    tester.addFile(
+        "a/BUILD",
+        """
+        load("//a:b.bzl", "b")
 
-    tester.addFile("/b.bzl",
-        "def b():",
-        "  pass");
+        b()
+        """);
+
+    tester.addFile(
+        "/b.bzl",
+        """
+        def b():
+            pass
+        """);
     tester.addSymlink("a/b.bzl", "/b.bzl");
     tester.sync();
     tester.getTarget("//a:BUILD");

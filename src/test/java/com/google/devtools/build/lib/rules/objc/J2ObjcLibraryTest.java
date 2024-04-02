@@ -64,15 +64,20 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file("java/com/google/dummy/test/test.java");
     scratch.file(
         "java/com/google/dummy/test/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "java_library(",
-        "    name = 'test',",
-        "    srcs = ['test.java'])",
-        "",
-        "j2objc_library(",
-        "    name = 'transpile',",
-        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        "    deps = ['test'])");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        java_library(
+            name = "test",
+            srcs = ["test.java"],
+        )
+
+        j2objc_library(
+            name = "transpile",
+            tags = ["__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"],
+            deps = ["test"],
+        )
+        """);
     MockJ2ObjcSupport.setup(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
 

@@ -4,6 +4,7 @@ labels: ["type: documentation (cleanup)", "untriaged", "team-Documentation"]
 assignees:
   - sgowroji
   - iancha1992
+  - satyanandak
 body:
   - type: input
     id: link

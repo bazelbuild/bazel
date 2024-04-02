@@ -534,15 +534,6 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
     public boolean incompatibleDepsetForJavaOutputSourceJars;
-
-    // TODO(b/314282963) remove this after the flag flip is removed.
-    @Option(
-        name = "experimental_clear_nested_sets_after_action_execution",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "No-op")
-    public boolean clearNestedSetAfterActionExecution;
   }
 
   @Override

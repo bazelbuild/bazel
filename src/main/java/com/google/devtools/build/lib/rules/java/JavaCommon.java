@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -116,8 +117,8 @@ public class JavaCommon {
   }
 
   public static ImmutableList<String> getConstraints(RuleContext ruleContext) {
-    return ruleContext.getRule().isAttrDefined("constraints", Type.STRING_LIST)
-        ? ImmutableList.copyOf(ruleContext.attributes().get("constraints", Type.STRING_LIST))
+    return ruleContext.getRule().isAttrDefined("constraints", Types.STRING_LIST)
+        ? ImmutableList.copyOf(ruleContext.attributes().get("constraints", Types.STRING_LIST))
         : ImmutableList.of();
   }
 

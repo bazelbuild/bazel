@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
+import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
@@ -54,7 +56,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
@@ -135,23 +136,27 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("java/com/google/test/in.txt");
     scratch.file(
         "java/com/google/test/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "genrule(",
-        "    name = 'dummy_gen',",
-        "    srcs = ['in.txt'],",
-        "    outs = ['test.java'],",
-        "    cmd = 'dummy'",
-        ")",
-        "",
-        "java_library(",
-        "    name = 'test',",
-        "    srcs = [':test.java']",
-        ")",
-        "j2objc_library(",
-        "    name = 'transpile',",
-        "    deps = ['test'],",
-        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        genrule(
+            name = "dummy_gen",
+            srcs = ["in.txt"],
+            outs = ["test.java"],
+            cmd = "dummy",
+        )
+
+        java_library(
+            name = "test",
+            srcs = [":test.java"],
+        )
+
+        j2objc_library(
+            name = "transpile",
+            tags = ["__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"],
+            deps = ["test"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/test:transpile");
 
@@ -223,10 +228,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjcHeaderMapExportedInJavaLibrary() throws Exception {
     scratch.file(
         "java/com/google/transpile/BUILD",
-        "java_library(",
-        "    name = 'dummy',",
-        "    srcs = ['dummy.java']",
-        ")");
+        """
+        java_library(
+            name = "dummy",
+            srcs = ["dummy.java"],
+        )
+        """);
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
@@ -241,16 +248,20 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testDepsJ2ObjcHeaderMapExportedInJavaLibraryWithNoSourceFile() throws Exception {
     scratch.file(
         "java/com/google/transpile/BUILD",
-        "java_library(",
-        "    name = 'dummy',",
-        "    exports = ['//java/com/google/dep:dep'],",
-        ")");
+        """
+        java_library(
+            name = "dummy",
+            exports = ["//java/com/google/dep"],
+        )
+        """);
     scratch.file(
         "java/com/google/dep/BUILD",
-        "java_library(",
-        "    name = 'dep',",
-        "    srcs = ['dummy.java'],",
-        ")");
+        """
+        java_library(
+            name = "dep",
+            srcs = ["dummy.java"],
+        )
+        """);
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
@@ -355,11 +366,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     scratch.file(
         "x/BUILD",
-        "",
-        "java_library(",
-        "    name = 'test',",
-        "    srcs = ['test.java'],",
-        "    deps = ['@bla//foo:test_java_proto'])");
+        """
+        java_library(
+            name = "test",
+            srcs = ["test.java"],
+            deps = ["@bla//foo:test_java_proto"],
+        )
+        """);
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
 
@@ -392,11 +405,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjcInfoExportedInJavaImport() throws Exception {
     scratch.file(
         "java/com/google/transpile/BUILD",
-        "java_import(",
-        "    name = 'dummy',",
-        "    jars = ['dummy.jar'],",
-        "    srcjar = 'dummy.srcjar',",
-        ")");
+        """
+        java_import(
+            name = "dummy",
+            jars = ["dummy.jar"],
+            srcjar = "dummy.srcjar",
+        )
+        """);
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
@@ -483,15 +498,19 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testTagInJreDeps() throws Exception {
     scratch.file(
         "app/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "objc_library(",
-        "    name = 'no_tag_dep',",
-        ")",
-        "j2objc_library(",
-        "    name = 'test',",
-        "    jre_deps = ['no_tag_dep'],",
-        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        objc_library(
+            name = "no_tag_dep",
+        )
+
+        j2objc_library(
+            name = "test",
+            jre_deps = ["no_tag_dep"],
+            tags = ["__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"],
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//app:test");
@@ -509,10 +528,15 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("java/com/google/transpile/dummyjar.srcjar");
     scratch.file(
         "java/com/google/transpile/BUILD",
-        "java_library(",
-        "    name = 'dummy',",
-        "    srcs = ['dummy.java', 'dummyjar.srcjar'],",
-        ")");
+        """
+        java_library(
+            name = "dummy",
+            srcs = [
+                "dummy.java",
+                "dummyjar.srcjar",
+            ],
+        )
+        """);
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
@@ -562,16 +586,21 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjcHeaderMappingAction() throws Exception {
     scratch.file(
         "java/com/google/transpile/BUILD",
-        "java_library(",
-        "    name = 'lib1',",
-        "    srcs = ['libOne.java', 'jar.srcjar'],",
-        "    deps = [':lib2']",
-        ")",
-        "",
-        "java_library(",
-        "    name = 'lib2',",
-        "    srcs = ['libTwo.java'],",
-        ")");
+        """
+        java_library(
+            name = "lib1",
+            srcs = [
+                "jar.srcjar",
+                "libOne.java",
+            ],
+            deps = [":lib2"],
+        )
+
+        java_library(
+            name = "lib2",
+            srcs = ["libTwo.java"],
+        )
+        """);
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget(
         "//java/com/google/transpile:lib1");
@@ -644,17 +673,21 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("java/com/google/app/test/test.java");
     scratch.file(
         "java/com/google/app/test/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "java_library(",
-        "    name = 'test',",
-        "    srcs = ['test.java'],",
-        ")",
-        "j2objc_library(",
-        "    name = 'transpile',",
-        "    entry_classes = ['com.google.app.test.test'],",
-        "    deps = ['test'],",
-        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        java_library(
+            name = "test",
+            srcs = ["test.java"],
+        )
+
+        j2objc_library(
+            name = "transpile",
+            entry_classes = ["com.google.app.test.test"],
+            tags = ["__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"],
+            deps = ["test"],
+        )
+        """);
   }
 
   protected void addSimpleJ2ObjcLibraryWithJavaPlugin() throws Exception {
@@ -662,22 +695,27 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("java/com/google/app/test/plugin.java");
     scratch.file(
         "java/com/google/app/test/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "java_library(",
-        "    name = 'test',",
-        "    srcs = ['test.java'],",
-        "    plugins = [':plugin'],",
-        ")",
-        "java_plugin(",
-        "    name = 'plugin',",
-        "    processor_class = 'com.google.process.stuff',",
-        "    srcs = ['plugin.java'],",
-        ")",
-        "j2objc_library(",
-        "    name = 'transpile',",
-        "    deps = [':test'],",
-        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        java_library(
+            name = "test",
+            srcs = ["test.java"],
+            plugins = [":plugin"],
+        )
+
+        java_plugin(
+            name = "plugin",
+            srcs = ["plugin.java"],
+            processor_class = "com.google.process.stuff",
+        )
+
+        j2objc_library(
+            name = "transpile",
+            tags = ["__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"],
+            deps = [":test"],
+        )
+        """);
   }
 
   protected Artifact j2objcArchive(String j2objcLibraryTarget, String javaTargetName)
@@ -694,12 +732,15 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("app/lib.m");
     scratch.file(
         "app/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['lib.m'],",
-        "    deps = ['//java/com/google/dummy/test:transpile'],",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        objc_library(
+            name = "lib",
+            srcs = ["lib.m"],
+            deps = ["//java/com/google/dummy/test:transpile"],
+        )
+        """);
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
@@ -724,27 +765,32 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("app/lib.m");
     scratch.file(
         "app/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "",
-        "java_library(",
-        "    name = 'dummyOne',",
-        "    srcs = ['dummyOne.java'],",
-        ")",
-        "java_library(",
-        "    name = 'dummyTwo',",
-        "    srcs = ['dummyTwo.java'],",
-        "    runtime_deps = [':dummyOne'],",
-        ")",
-        "j2objc_library(",
-        "    name = 'transpile',",
-        "    deps = [':dummyTwo'],",
-        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['lib.m'],",
-        "    deps = ['//app:transpile'],",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        java_library(
+            name = "dummyOne",
+            srcs = ["dummyOne.java"],
+        )
+
+        java_library(
+            name = "dummyTwo",
+            srcs = ["dummyTwo.java"],
+            runtime_deps = [":dummyOne"],
+        )
+
+        j2objc_library(
+            name = "transpile",
+            tags = ["__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"],
+            deps = [":dummyTwo"],
+        )
+
+        objc_library(
+            name = "lib",
+            srcs = ["lib.m"],
+            deps = ["//app:transpile"],
+        )
+        """);
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
@@ -783,7 +829,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   @Test
   public void testJ2ObjcAppearsInLinkArgs() throws Exception {
     scratch.file(
-        "java/c/y/BUILD", "java_library(", "    name = 'ylib',", "    srcs = ['lib.java'],", ")");
+        "java/c/y/BUILD",
+        """
+        java_library(
+            name = "ylib",
+            srcs = ["lib.java"],
+        )
+        """);
     addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
@@ -833,17 +885,23 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     useConfiguration("--ios_minimum_os=1.0");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
-    CppLinkAction archiveAction = (CppLinkAction) getGeneratingAction(archive);
+    SpawnAction archiveAction = (SpawnAction) getGeneratingAction(archive);
     Artifact objectFilesFromGenJar =
         getFirstArtifactEndingWith(archiveAction.getInputs(), "source_files");
     Artifact normalObjectFile = getFirstArtifactEndingWith(archiveAction.getInputs(), "test.o");
 
     // Test that the archive commandline contains the individual object files inside
     // the object file tree artifact.
-    assertThat(
-            archiveAction
-                .getLinkCommandLineForTesting()
-                .arguments(DUMMY_ARTIFACT_EXPANDER, PathMapper.NOOP))
+    ExpandedCommandLines expandedCommandLines =
+        archiveAction
+            .getCommandLines()
+            .expand(
+                DUMMY_ARTIFACT_EXPANDER,
+                archiveAction.getPrimaryOutput().getExecPath(),
+                PathMapper.NOOP,
+                CommandLineLimits.UNLIMITED);
+
+    assertThat(expandedCommandLines.arguments())
         .containsAtLeast(
             objectFilesFromGenJar.getExecPathString() + "/children1",
             objectFilesFromGenJar.getExecPathString() + "/children2",
@@ -855,11 +913,14 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("java/com/google/transpile/dummy.java");
     scratch.file(
         "java/com/google/transpile/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "java_library(",
-        "    name = 'dummy',",
-        "    srcs = ['dummy.java'],",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        java_library(
+            name = "dummy",
+            srcs = ["dummy.java"],
+        )
+        """);
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
 
@@ -1011,19 +1072,23 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("java/com/google/dummy/dummy.java");
     scratch.file(
         "java/com/google/dummy/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "java_library(",
-        "    name = 'dummy',",
-        "    srcs = ['dummy.java'],",
-        ")",
-        "",
-        "j2objc_library(",
-        "    name = 'transpile',",
-        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        "    deps = [",
-        "        ':dummy',",
-        "        '//java/com/google/dummy/test:transpile',",
-        "    ])");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        java_library(
+            name = "dummy",
+            srcs = ["dummy.java"],
+        )
+
+        j2objc_library(
+            name = "transpile",
+            tags = ["__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"],
+            deps = [
+                ":dummy",
+                "//java/com/google/dummy/test:transpile",
+            ],
+        )
+        """);
     addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/dummy:transpile");
 
@@ -1045,44 +1110,54 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("examples/outer.java");
     scratch.file(
         "examples/fake_rule.bzl",
-        "def _fake_rule_impl(ctx):",
-        "  myProvider = ctx.attr.deps[0][JavaInfo]",
-        "  return myProvider",
-        "",
-        "fake_rule = rule(",
-        "  implementation = _fake_rule_impl,",
-        "  attrs = {'deps': attr.label_list()},",
-        "  provides = [JavaInfo],",
-        ")");
+        """
+        def _fake_rule_impl(ctx):
+            myProvider = ctx.attr.deps[0][JavaInfo]
+            return myProvider
+
+        fake_rule = rule(
+            implementation = _fake_rule_impl,
+            attrs = {"deps": attr.label_list()},
+            provides = [JavaInfo],
+        )
+        """);
     scratch.file(
         "examples/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "load('//examples:fake_rule.bzl', 'fake_rule')",
-        "java_library(",
-        "    name = 'inner',",
-        "    srcs = ['inner.java'],",
-        ")",
-        "fake_rule(",
-        "    name = 'propagator',",
-        "    deps = [':inner'],",
-        ")",
-        "java_library(",
-        "    name = 'outer',",
-        "    srcs = ['outer.java'],",
-        "    deps = [':propagator'],",
-        ")",
-        "j2objc_library(",
-        "    name = 'transpile',",
-        "    deps = [",
-        "        ':outer',",
-        "    ],",
-        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['lib.m'],",
-        "    deps = [':transpile'],",
-        ")");
+        """
+        load("//examples:fake_rule.bzl", "fake_rule")
+
+        package(default_visibility = ["//visibility:public"])
+
+        java_library(
+            name = "inner",
+            srcs = ["inner.java"],
+        )
+
+        fake_rule(
+            name = "propagator",
+            deps = [":inner"],
+        )
+
+        java_library(
+            name = "outer",
+            srcs = ["outer.java"],
+            deps = [":propagator"],
+        )
+
+        j2objc_library(
+            name = "transpile",
+            tags = ["__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"],
+            deps = [
+                ":outer",
+            ],
+        )
+
+        objc_library(
+            name = "lib",
+            srcs = ["lib.m"],
+            deps = [":transpile"],
+        )
+        """);
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//examples:lib");
 
@@ -1097,12 +1172,15 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("app/lib.m");
     scratch.file(
         "app/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['lib.m'],",
-        "    deps = ['//java/com/google/dummy/test:transpile'],",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        objc_library(
+            name = "lib",
+            srcs = ["lib.m"],
+            deps = ["//java/com/google/dummy/test:transpile"],
+        )
+        """);
 
     checkObjcCompileActions(
         getBinArtifact("liblib.a", getConfiguredTarget("//app:lib")),
@@ -1355,10 +1433,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     useConfiguration("--incompatible_j2objc_library_migration");
     scratch.file(
         "test/BUILD",
-        "j2objc_library(",
-        "    name = 'test',",
-        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        ")");
+        """
+        j2objc_library(
+            name = "test",
+            tags = ["__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"],
+        )
+        """);
 
     getConfiguredTarget("//test");
 

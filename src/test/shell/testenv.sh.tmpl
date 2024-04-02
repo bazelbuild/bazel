@@ -92,7 +92,8 @@ distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 
 # Platforms
-default_host_platform="@@local_config_platform//:host"
+default_host_platform="@@platforms//host:host"
+default_host_platform_alias="@@bazel_tools//tools:host_platform"
 
 # Sandbox tools
 process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"
@@ -287,6 +288,11 @@ common --enable_bzlmod
 
 # Verify compatibility before the flip (https://github.com/bazelbuild/bazel/issues/12821)
 common --nolegacy_external_runfiles
+
+# Support JDK 21, data dependencies that get compiled and used tools need to be
+# run with 21 runtime.
+build --java_runtime_version=21
+build --tool_java_runtime_version=21
 
 ${EXTRA_BAZELRC:-}
 EOF

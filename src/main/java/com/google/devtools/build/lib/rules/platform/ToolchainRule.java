@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@link Toolchain}. */
@@ -43,7 +43,7 @@ public class ToolchainRule implements RuleDefinition {
     return builder
         .advertiseProvider(DeclaredToolchainInfo.class)
         .override(
-            attr("tags", Type.STRING_LIST)
+            attr("tags", Types.STRING_LIST)
                 // No need to show up in ":all", etc. target patterns.
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))

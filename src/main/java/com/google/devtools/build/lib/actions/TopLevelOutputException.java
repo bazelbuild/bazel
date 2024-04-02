@@ -16,13 +16,19 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /**
- * Thrown when an output provided by a top-level target is lost and action rewinding was
- * ineffective.
+ * Thrown when an output provided by a top-level target could not be staged.
+ *
+ * <p>May occur when:
+ *
+ * <ul>
+ *   <li>An output is lost and action rewinding was ineffective.
+ *   <li>There was an error placing the output at its final location.
+ * </ul>
  *
  * <p>It is the responsibility of the caller to report this error.
  */
-public final class LostOutputsException extends BuildFailedException {
-  public LostOutputsException(String message, DetailedExitCode detailedExitCode) {
+public final class TopLevelOutputException extends BuildFailedException {
+  public TopLevelOutputException(String message, DetailedExitCode detailedExitCode) {
     super(message, /* catastrophic= */ false, /* errorAlreadyShown= */ true, detailedExitCode);
   }
 }

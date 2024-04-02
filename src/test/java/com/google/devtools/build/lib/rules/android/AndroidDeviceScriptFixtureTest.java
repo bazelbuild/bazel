@@ -37,31 +37,38 @@ public class AndroidDeviceScriptFixtureTest extends AndroidBuildViewTestCase {
     scratch.file("scripts/BUILD", "exports_files(['my_script.sh'])");
     scratch.file(
         "java/com/app/BUILD",
-        "android_binary(",
-        "  name = 'app',",
-        "  manifest = 'AndroidManifest.xml',",
-        ")");
+        """
+        android_binary(
+            name = "app",
+            manifest = "AndroidManifest.xml",
+        )
+        """);
     scratch.file(
         "java/com/app/support/BUILD",
-        "android_binary(",
-        "  name = 'support',",
-        "  manifest = 'AndroidManifest.xml',",
-        ")",
-        "genrule(",
-        "  name = 'genrule',",
-        "  outs = ['generated.apk'],",
-        "  cmd = 'touch $(OUTS)',",
-        ")");
+        """
+        android_binary(
+            name = "support",
+            manifest = "AndroidManifest.xml",
+        )
+
+        genrule(
+            name = "genrule",
+            outs = ["generated.apk"],
+            cmd = "touch $(OUTS)",
+        )
+        """);
   }
 
   @Test
   public void testScriptFixture() throws Exception {
     scratch.file(
         "javatests/com/app/BUILD",
-        "android_device_script_fixture(",
-        "  name = 'fixture',",
-        "  script = '//scripts:my_script.sh',",
-        ")");
+        """
+        android_device_script_fixture(
+            name = "fixture",
+            script = "//scripts:my_script.sh",
+        )
+        """);
     ConfiguredTarget fixture = getConfiguredTarget("//javatests/com/app:fixture");
     assertThat(fixture).isNotNull();
     AndroidDeviceScriptFixtureInfoProvider deviceScriptFixtureInfoProvider =
@@ -76,10 +83,12 @@ public class AndroidDeviceScriptFixtureTest extends AndroidBuildViewTestCase {
   public void testCommandFixture() throws Exception {
     scratch.file(
         "javatests/com/app/BUILD",
-        "android_device_script_fixture(",
-        "  name = 'fixture',",
-        "  cmd = 'some literal command',",
-        ")");
+        """
+        android_device_script_fixture(
+            name = "fixture",
+            cmd = "some literal command",
+        )
+        """);
     ConfiguredTarget fixture = getConfiguredTarget("//javatests/com/app:fixture");
     assertThat(fixture).isNotNull();
     AndroidDeviceScriptFixtureInfoProvider deviceScriptFixtureInfoProvider =
@@ -123,14 +132,16 @@ public class AndroidDeviceScriptFixtureTest extends AndroidBuildViewTestCase {
   public void testSupportApks() throws Exception {
     scratch.file(
         "javatests/com/app/BUILD",
-        "android_device_script_fixture(",
-        "  name = 'fixture',",
-        "  cmd = 'some literal command',",
-        "  support_apks = [",
-        "    '//java/com/app/support',",
-        "    '//java/com/app/support:generated.apk',",
-        "  ],",
-        ")");
+        """
+        android_device_script_fixture(
+            name = "fixture",
+            cmd = "some literal command",
+            support_apks = [
+                "//java/com/app/support",
+                "//java/com/app/support:generated.apk",
+            ],
+        )
+        """);
     ConfiguredTarget fixture = getConfiguredTarget("//javatests/com/app:fixture");
     assertThat(fixture).isNotNull();
     AndroidDeviceScriptFixtureInfoProvider deviceScriptFixtureInfoProvider =
@@ -160,11 +171,13 @@ public class AndroidDeviceScriptFixtureTest extends AndroidBuildViewTestCase {
   public void testDaemonIsProvided() throws Exception {
     scratch.file(
         "javatests/com/app/BUILD",
-        "android_device_script_fixture(",
-        "  name = 'fixture',",
-        "  cmd = 'some literal command',",
-        "  daemon = 1,",
-        ")");
+        """
+        android_device_script_fixture(
+            name = "fixture",
+            cmd = "some literal command",
+            daemon = 1,
+        )
+        """);
     ConfiguredTarget fixture = getConfiguredTarget("//javatests/com/app:fixture");
     assertThat(fixture).isNotNull();
     AndroidDeviceScriptFixtureInfoProvider deviceScriptFixtureInfoProvider =
@@ -177,11 +190,13 @@ public class AndroidDeviceScriptFixtureTest extends AndroidBuildViewTestCase {
   public void testStrictExitIsProvided() throws Exception {
     scratch.file(
         "javatests/com/app/BUILD",
-        "android_device_script_fixture(",
-        "  name = 'fixture',",
-        "  cmd = 'some literal command',",
-        "  strict_exit = 1,",
-        ")");
+        """
+        android_device_script_fixture(
+            name = "fixture",
+            cmd = "some literal command",
+            strict_exit = 1,
+        )
+        """);
     ConfiguredTarget fixture = getConfiguredTarget("//javatests/com/app:fixture");
     assertThat(fixture).isNotNull();
     AndroidDeviceScriptFixtureInfoProvider deviceScriptFixtureInfoProvider =

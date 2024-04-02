@@ -18,8 +18,13 @@ import static com.google.common.primitives.Booleans.trueFirst;
 import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Comparators;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multiset;
+import com.google.common.collect.Multiset.Entry;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -61,9 +66,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
@@ -77,6 +84,8 @@ import javax.annotation.concurrent.ThreadSafe;
 
 /** Tracks state for the UI. */
 class UiStateTracker {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final long SHOW_TIME_THRESHOLD_SECONDS = 3;
   private static final String ELLIPSIS = "...";
@@ -631,6 +640,19 @@ class UiStateTracker {
 
   void actionUploadFinished(ActionUploadFinishedEvent event) {
     activeActionUploads.decrementAndGet();
+  }
+
+  void handleCrash() {
+    Multiset<String> mnemonicHistogram = HashMultiset.create();
+    for (var actionState : activeActions.values()) {
+      mnemonicHistogram.add(actionState.action.getMnemonic());
+    }
+    List<Entry<String>> sorted =
+        mnemonicHistogram.entrySet().stream()
+            .collect(Comparators.greatest(20, Comparator.comparingLong(Multiset.Entry::getCount)));
+    logger.atInfo().log(
+        "Total number of actions in flight: %d. Most frequent mnemonics: %s",
+        mnemonicHistogram.size(), sorted);
   }
 
   /** From a string, take a suffix of at most the given length. */

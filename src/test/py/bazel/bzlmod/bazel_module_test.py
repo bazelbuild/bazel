@@ -436,6 +436,10 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
         'WORKSPACE.bzlmod',
         [
+            (
+                'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
             'local_repository(name="foo", path="foo", repo_mapping={',
             '  "@bar":"@baz",',
             '  "@my_aaa":"@aaa",',
@@ -497,6 +501,10 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
         'WORKSPACE',
         [
+            (
+                'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
             'local_repository(name="hello", path="hello")',
             'load("@hello//:world.bzl", "message")',
             'print(message)',
@@ -562,7 +570,14 @@ class BazelModuleTest(test_base.TestBase):
         ],
     )
     self.ScratchFile(
-        'WORKSPACE.bzlmod', ['local_repository(name="quux",path="quux")']
+        'WORKSPACE.bzlmod',
+        [
+            (
+                'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name="quux",path="quux")',
+        ],
     )
     self.ScratchFile(
         'BUILD',
@@ -848,141 +863,6 @@ class BazelModuleTest(test_base.TestBase):
     )
 
     self.RunBazel(['build', '@my_jar//jar'])
-
-  def testLabelToDisplayForm(self):
-    self.main_registry.setModuleBasePath('projects')
-    projects_dir = self.main_registry.projects
-
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'module(name="root",version="0.1")',
-            'bazel_dep(name="foo",version="1.0")',
-            'ext = use_extension("@foo//:ext.bzl", "ext")',
-            'use_repo(ext, "ext_repo")',
-        ],
-    )
-    self.ScratchFile(
-        'WORKSPACE.bzlmod',
-        [
-            'local_repository(name="quux",path="quux")',
-            'load("@foo//:ext.bzl", "ext_repo")',
-            'ext_repo(name="workspace_repo")',
-        ],
-    )
-    self.ScratchFile(
-        'BUILD',
-        [
-            'load("@foo//:defs.bzl", "my_macro", "my_rule")',
-            'my_macro(name="main_macro")',
-            'my_rule(name="main_rule")',
-        ],
-    )
-    self.main_registry.createLocalPathModule('foo', '1.0', 'foo')
-    scratchFile(
-        projects_dir.joinpath('foo', 'BUILD'),
-        [
-            'load(":defs.bzl", "my_macro", "my_rule")',
-            'my_macro(name="foo_macro")',
-            'my_rule(name="foo_rule")',
-        ],
-    )
-    scratchFile(
-        projects_dir.joinpath('foo', 'defs.bzl'),
-        [
-            'print("init => " + Label("@foo//:init").to_display_form())',
-            'def my_macro(name):',
-            '  label = native.package_relative_label(name)',
-            '  print(name + " => " + label.to_display_form())',
-            '',
-            'def _my_rule(ctx):',
-            '  print(ctx.attr.name + " => " + ctx.label.to_display_form())',
-            '  out = ctx.actions.declare_file(ctx.attr.name)',
-            '  ctx.actions.write(out, "")',
-            '  return [DefaultInfo(files = depset([out]))]',
-            'my_rule = rule(implementation = _my_rule)',
-        ],
-    )
-    scratchFile(
-        projects_dir.joinpath('foo', 'ext.bzl'),
-        [
-            'def _ext_repo(rctx):',
-            '  name = rctx.attr.name',
-            '  if "~" in name:',
-            '    name = name.rpartition("~")[-1]',
-            (
-                '  print(name + "_impl => " +'
-                ' Label("@foo//:repo_impl").to_display_form())'
-            ),
-            '  rctx.file("BUILD",',
-            (
-                '    ("load(\\"@foo//:defs.bzl\\", \\"my_macro\\",'
-                ' \\"my_rule\\")\\n" +'
-            ),
-            '    "my_macro(name=\\"{name}_macro\\")\\n" +',
-            '    "my_rule(name=\\"{name}_rule\\")").format(name = str(name)))',
-            'ext_repo = repository_rule(_ext_repo)',
-            'def _ext(mctx):',
-            (
-                '  print("ext_impl => " +'
-                ' Label("@foo//:ext_impl").to_display_form())'
-            ),
-            '  ext_repo(name="ext_repo")',
-            'ext = module_extension(_ext)',
-        ],
-    )
-
-    self.ScratchFile('quux/REPO.bazel')
-    self.ScratchFile(
-        'quux/BUILD',
-        [
-            'load("@foo//:defs.bzl", "my_macro", "my_rule")',
-            'my_macro(name="quux_macro")',
-            'my_rule(name="quux_rule")',
-        ],
-    )
-
-    _, _, stderr = self.RunBazel(
-        [
-            'build',
-            '--enable_workspace',
-            '//:all',
-            '@foo//:all',
-            '@ext_repo//:all',
-            '@quux//:all',
-            '@workspace_repo//:all',
-        ],
-    )
-    stderr = '\n'.join(stderr)
-
-    # Display form of labels in global constants uses apparent names.
-    self.assertIn('init => @foo//:init', stderr)
-
-    # Display form of labels in rule implementation functions uses
-    # apparent names.
-    self.assertIn('main_rule => //:main_rule', stderr)
-    self.assertIn('foo_rule => @foo//:foo_rule', stderr)
-    self.assertIn('ext_repo_rule => @ext_repo//:ext_repo_rule', stderr)
-    self.assertIn('quux_rule => @quux//:quux_rule', stderr)
-    self.assertIn(
-        'workspace_repo_rule => @workspace_repo//:workspace_repo_rule', stderr
-    )
-
-    # Display form of labels in macros uses apparent names.
-    self.assertIn('main_macro => //:main_macro', stderr)
-    self.assertIn('foo_macro => @foo//:foo_macro', stderr)
-    self.assertIn('ext_repo_macro => @ext_repo//:ext_repo_macro', stderr)
-    self.assertIn('quux_macro => @quux//:quux_macro', stderr)
-    self.assertIn(
-        'workspace_repo_macro => @workspace_repo//:workspace_repo_macro', stderr
-    )
-
-    # Display form of labels in extensions uses canonical names.
-    self.assertIn('ext_impl => @@foo~//:ext_impl', stderr)
-    self.assertIn('ext_repo_impl => @@foo~//:repo_impl', stderr)
-
-    # Display form of labels in WORKSPACE loaded files uses canonical names.
-    self.assertIn('workspace_repo_impl => @@foo~//:repo_impl', stderr)
 
 
 if __name__ == '__main__':

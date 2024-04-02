@@ -226,19 +226,25 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testExecStarlarkFlag_isAllowedByDefault() throws Exception {
     scratch.file(
         "my_starlark_flag/rule_defs.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "bool_flag = rule(",
-        "  implementation = _basic_impl,",
-        "  build_setting = config.bool(flag = True),",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        bool_flag = rule(
+            implementation = _basic_impl,
+            build_setting = config.bool(flag = True),
+        )
+        """);
     scratch.file(
         "my_starlark_flag/BUILD",
-        "load('//:my_starlark_flag:rule_defs.bzl', 'bool_flag')",
-        "bool_flag(",
-        "   name = 'starlark_flag',",
-        "   build_setting_default = 'False',",
-        ")");
+        """
+        load("//:my_starlark_flag:rule_defs.bzl", "bool_flag")
+
+        bool_flag(
+            name = "starlark_flag",
+            build_setting_default = "False",
+        )
+        """);
     BuildConfigurationValue cfg =
         createExec(ImmutableMap.of("//my_starlark_flag:starlark_flag", "true"));
     assertThat(
@@ -252,19 +258,25 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testExecStarlarkFlag_isIgnoredIfExcludedAndNotAllowed() throws Exception {
     scratch.file(
         "my_starlark_flag/rule_defs.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "bool_flag = rule(",
-        "  implementation = _basic_impl,",
-        "  build_setting = config.bool(flag = True),",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        bool_flag = rule(
+            implementation = _basic_impl,
+            build_setting = config.bool(flag = True),
+        )
+        """);
     scratch.file(
         "my_starlark_flag/BUILD",
-        "load('//my_starlark_flag:rule_defs.bzl', 'bool_flag')",
-        "bool_flag(",
-        "   name = 'starlark_flag',",
-        "   build_setting_default = 'False',",
-        ")");
+        """
+        load("//my_starlark_flag:rule_defs.bzl", "bool_flag")
+
+        bool_flag(
+            name = "starlark_flag",
+            build_setting_default = "False",
+        )
+        """);
     BuildConfigurationValue cfg =
         createExec(
             ImmutableMap.of("//my_starlark_flag:starlark_flag", "true"),
@@ -280,23 +292,30 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testExecStarlarkFlag_isPropagatedIfAllowedByFlag() throws Exception {
     scratch.file(
         "my_starlark_flag/rule_defs.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "bool_flag = rule(",
-        "  implementation = _basic_impl,",
-        "  build_setting = config.bool(flag = True),",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        bool_flag = rule(
+            implementation = _basic_impl,
+            build_setting = config.bool(flag = True),
+        )
+        """);
     scratch.file(
         "my_starlark_flag/BUILD",
-        "load('//my_starlark_flag:rule_defs.bzl', 'bool_flag')",
-        "bool_flag(",
-        "   name = 'starlark_flag',",
-        "   build_setting_default = 'False',",
-        ")",
-        "bool_flag(",
-        "   name = 'other_starlark_flag',",
-        "   build_setting_default = 'False',",
-        ")");
+        """
+        load("//my_starlark_flag:rule_defs.bzl", "bool_flag")
+
+        bool_flag(
+            name = "starlark_flag",
+            build_setting_default = "False",
+        )
+
+        bool_flag(
+            name = "other_starlark_flag",
+            build_setting_default = "False",
+        )
+        """);
     BuildConfigurationValue cfg =
         createExec(
             ImmutableMap.of(
@@ -397,6 +416,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testPlatformInOutputDir_legacy_withPlatform() throws Exception {
+    scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
             "--experimental_platform_in_output_dir",
@@ -421,6 +441,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testPlatformInOutputDir_withPlatform() throws Exception {
+    scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
             "--experimental_platform_in_output_dir",
@@ -433,6 +454,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testPlatformInOutputDir_withPlatformAndMatchingOverride() throws Exception {
+    scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
             "--experimental_platform_in_output_dir",
@@ -446,6 +468,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testPlatformInOutputDir_withPlatformAndNonMatchingOverride() throws Exception {
+    scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
             "--experimental_platform_in_output_dir",

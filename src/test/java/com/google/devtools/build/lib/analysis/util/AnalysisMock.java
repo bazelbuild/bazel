@@ -166,6 +166,7 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(
+                createRuleClassProvider().getBazelStarlarkEnvironment(),
                 FakeRegistry.DEFAULT_FACTORY,
                 directories.getWorkspace(),
                 getBuiltinModules(directories)))
@@ -287,6 +288,7 @@ public abstract class AnalysisMock extends LoadingMock {
           .put(
               SkyFunctions.MODULE_FILE,
               new ModuleFileFunction(
+                  createRuleClassProvider().getBazelStarlarkEnvironment(),
                   FakeRegistry.DEFAULT_FACTORY,
                   directories.getWorkspace(),
                   getBuiltinModules(directories)))

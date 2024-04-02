@@ -54,42 +54,45 @@ public class GenRuleIntegrationTest extends BuildIntegrationTestCase {
     for (int i = 0; i < 10; i++) {
       write("test/input" + i + ".txt", "The number " + i);
     }
-    write("test/BUILD",
-        // Directly executed with "/bin/bash -c <command>".
-        "genrule(name = 'gen_small',",
-        "          srcs = [],",
-        "          outs = ['small'],",
-        "          cmd = 'echo Smaller than 40 characters > $@')",
-        // Executed indirectly via a script file "gen_large.genrule_script.sh",
-        // because command length exceeds maxCommandLength.
-        "genrule(name = 'gen_large',",
-        "          srcs = [],",
-        "          outs = ['large'],",
-        "          cmd = 'echo Larger than 40 characters............................ > $@')",
-        // Also executed indirectly via a script file,
-        // because command length exceeds maxCommandLength,
-        // after expansion of $(SRCS).
-        "genrule(name = 'gen_many_inputs',",
-        "          srcs = glob(['input*.txt']),",
-        "          outs = ['all.txt'],",
-        "          cmd = 'cat $(SRCS) > $@')",
-        // A more realistic example of indirect execution via a script file.
-        // This one is carefully written to avoid overflowing fixed limits,
-        // even if $(SRCS) expands to a very long string.
-        "genrule(name = 'gen_many_inputs2',",
-        "          srcs = glob(['input*.txt']),",
-        "          outs = ['all2.txt'],",
-        "          cmd = '''",
-        "set -x",
-        "> $@",
-        "{",
-        "cat <<EOF",
-        "$(SRCS)",
-        "EOF",
-        "} | ",
-        "tr ' ' '\\n' |",
-        "while read file; do cat $$file >> $@; done",
-        "''')");
+    write(
+        "test/BUILD",
+        """
+        # Directly executed with "/bin/bash -c <command>".
+        genrule(name = 'gen_small',
+                  srcs = [],
+                  outs = ['small'],
+                  cmd = 'echo Smaller than 40 characters > $@')
+        # Executed indirectly via a script file "gen_large.genrule_script.sh",
+        # because command length exceeds maxCommandLength.
+        genrule(name = 'gen_large',
+                  srcs = [],
+                  outs = ['large'],
+                  cmd = 'echo Larger than 40 characters............................ > $@')
+        # Also executed indirectly via a script file,
+        # because command length exceeds maxCommandLength,
+        # after expansion of $(SRCS).
+        genrule(name = 'gen_many_inputs',
+                  srcs = glob(['input*.txt']),
+                  outs = ['all.txt'],
+                  cmd = 'cat $(SRCS) > $@')
+        # A more realistic example of indirect execution via a script file.
+        # This one is carefully written to avoid overflowing fixed limits,
+        # even if $(SRCS) expands to a very long string.
+        genrule(name = 'gen_many_inputs2',
+                  srcs = glob(['input*.txt']),
+                  outs = ['all2.txt'],
+                  cmd = '''
+        set -x
+        > $@
+        {
+        cat <<EOF
+        $(SRCS)
+        EOF
+        } |
+        tr ' ' '\\n' |
+        while read file; do cat $$file >> $@; done
+        ''')
+        """);
   }
 
   private String getContents(Path outputFile) throws IOException {

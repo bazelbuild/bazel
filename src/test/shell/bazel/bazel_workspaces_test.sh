@@ -38,6 +38,7 @@ genrule(
    outs=["out.txt"],
    cmd="echo Result > $(location out.txt)"
 )
+filegroup(name="noop")
 EOF
   cat >> repos.bzl <<EOF
 def _executeMe(repository_ctx):
@@ -59,6 +60,8 @@ EOF
 }
 
 function build_and_process_log() {
+  # build the no-op target first to get irrelevant workspace events out of the way
+  bazel build :noop 2>&1 >> $TEST_log || fail "could not build //:noop"
   bazel build //:test --experimental_workspace_rules_log_file=output 2>&1 >> $TEST_log || fail "could not build //:test"
   ${BAZEL_RUNFILES}/src/tools/workspacelog/parser --log_path=output > output.log.txt "$@" || fail "error parsing output"
 }

@@ -422,19 +422,12 @@ public class ResourceManager implements ResourceEstimator {
    * Release resources and process the queues of waiting threads. Return true when any new thread
    * processed.
    */
-  private boolean release(ResourceSet resources, @Nullable Worker worker)
+  private synchronized boolean release(ResourceSet resources, @Nullable Worker worker)
       throws IOException, InterruptedException {
-    // We need to release the worker first to not block highPriorityWorkerMnemonics management. See
-    // more on b/244297036.
     if (worker != null) {
       this.workerPool.returnObject(worker.getWorkerKey(), worker);
     }
-    releaseResourcesOnly(resources);
 
-    return processAllWaitingThreads();
-  }
-
-  private synchronized void releaseResourcesOnly(ResourceSet resources) {
     usedLocalTestCount -= resources.getLocalTestCount();
 
     // TODO(bazel-team): (2010) rounding error can accumulate and value below can end up being
@@ -454,7 +447,10 @@ public class ResourceManager implements ResourceEstimator {
     for (String key : toRemove) {
       usedResources.remove(key);
     }
+
+    return processAllWaitingThreads();
   }
+
 
   private synchronized boolean processAllWaitingThreads() throws IOException, InterruptedException {
     boolean anyProcessed = false;

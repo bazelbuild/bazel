@@ -465,6 +465,18 @@ class ModCommandTest(test_base.TestBase):
         stderr,
     )
 
+  def testShowRepoThrowsNonexistentRepo(self):
+    _, _, stderr = self.RunBazel(
+        ['mod', 'show_repo', '@@lol'],
+        allow_failure=True,
+        rstrip=True,
+    )
+    self.assertIn(
+        "ERROR: In repo argument @@lol: no such repo. Type 'bazel help mod' "
+        'for syntax and help.',
+        stderr,
+    )
+
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(
         [
@@ -739,6 +751,120 @@ class ModCommandTest(test_base.TestBase):
           [
               'ext = use_extension("//:extension.bzl", "ext")',
               'use_repo(ext, "dep")',
+              # This newline is from ScratchFile.
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+
+  def testModTidyNoop(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("//:extension.bzl", "ext")',
+            'use_repo(ext, "dep")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="dep")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=["dep"],',
+            '        root_module_direct_dev_deps=[],',
+            '    )',
+            '',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    # Verify that bazel mod tidy doesn't fail or change the file.
+    self.RunBazel(['mod', 'tidy'])
+
+    with open('MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'ext = use_extension("//:extension.bzl", "ext")',
+              'use_repo(ext, "dep")',
+              # This newline is from ScratchFile.
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+
+  def testModTidyWithNonRegistryOverride(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "foo", version = "1.2.3")',
+            'local_path_override(module_name = "foo", path = "foo")',
+            'ext = use_extension("//:extension.bzl", "ext")',
+            'use_repo(ext, "dep")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _ext_impl(ctx):',
+            '    pass',
+            '',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'foo/MODULE.bazel', ['module(name = "foo", version = "1.2.3")']
+    )
+
+    # Verify that bazel mod tidy doesn't fail without the lockfile.
+    self.RunBazel(['mod', 'tidy'])
+
+    with open('MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'bazel_dep(name = "foo", version = "1.2.3")',
+              'local_path_override(',
+              '    module_name = "foo",',
+              '    path = "foo",',
+              ')',
+              '',
+              'ext = use_extension("//:extension.bzl", "ext")',
+              'use_repo(ext, "dep")',
+              # This newline is from ScratchFile.
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+
+    # Verify that bazel mod tidy doesn't fail with the lockfile.
+    self.RunBazel(['mod', 'tidy'])
+
+  def testModTidyWithoutUsages(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(  name = "foo", version = "1.2.3")',
+        ],
+    )
+
+    self.RunBazel(['mod', 'tidy'])
+
+    with open('MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'module(',
+              '    name = "foo",',
+              '    version = "1.2.3",',
+              ')',
+              # This newline is from ScratchFile.
               '',
           ],
           module_file.read().split('\n'),

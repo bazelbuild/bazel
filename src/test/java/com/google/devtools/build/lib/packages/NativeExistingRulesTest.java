@@ -92,18 +92,24 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRule_handlesSelect() throws Exception {
     scratch.file("test/starlark/BUILD");
     scratch.file(
-        "test/starlark/rulestr.bzl", //
-        "def rule_dict(name):",
-        "  return native.existing_rule(name)");
+        "test/starlark/rulestr.bzl",
+        """
+        def rule_dict(name):
+            return native.existing_rule(name)
+        """);
 
     scratch.file(
         "test/getrule/BUILD",
-        "load('//test/starlark:rulestr.bzl', 'rule_dict')",
-        "cc_library(",
-        "    name ='x',",
-        "    srcs = select({'//conditions:default': []}),",
-        ")",
-        "rule_dict('x')");
+        """
+        load("//test/starlark:rulestr.bzl", "rule_dict")
+
+        cc_library(
+            name = "x",
+            srcs = select({"//conditions:default": []}),
+        )
+
+        rule_dict("x")
+        """);
 
     // Parse the BUILD file, to make sure select() makes it out of native.existing_rule().
     assertThat(getConfiguredTarget("//test/getrule:x")).isNotNull();
@@ -113,15 +119,21 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRule_returnsNone() throws Exception {
     scratch.file(
         "test/rulestr.bzl",
-        "def test_rule(name, x):",
-        "  print(native.existing_rule(x))",
-        "  if native.existing_rule(x) == None:",
-        "    native.cc_library(name = name)");
+        """
+        def test_rule(name, x):
+            print(native.existing_rule(x))
+            if native.existing_rule(x) == None:
+                native.cc_library(name = name)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:rulestr.bzl', 'test_rule')",
-        "test_rule('a', 'does not exist')",
-        "test_rule('b', 'BUILD')"); // exists, but as a target and not a rule
+        """
+        load("//test:rulestr.bzl", "test_rule")
+
+        test_rule("a", "does not exist")
+
+        test_rule("b", "BUILD")
+        """); // exists, but as a target and not a rule
 
     assertThat(getConfiguredTarget("//test:a")).isNotNull();
     assertThat(getConfiguredTarget("//test:b")).isNotNull();
@@ -131,18 +143,28 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRule_roundTripsSelect() throws Exception {
     scratch.file(
         "test/existing_rule.bzl",
-        "def macro():",
-        "  s = select({'//foo': ['//bar']})",
-        "  print('Passed: ' + repr(s))",
-        "  native.cc_library(name = 'x', srcs = s)",
-        "  print('Returned: ' + repr(native.existing_rule('x')['srcs']))",
-        // The value returned here should round-trip fine.
-        "  native.cc_library(name = 'y', srcs = native.existing_rule('x')['srcs'])");
+        """
+        def macro():
+            s = select({"//foo": ["//bar"]})
+            print("Passed: " + repr(s))
+            native.cc_library(name = "x", srcs = s)
+            print("Returned: " + repr(native.existing_rule("x")["srcs"]))
+
+            # The value returned here should round-trip fine.
+            native.cc_library(name = "y", srcs = native.existing_rule("x")["srcs"])
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:existing_rule.bzl', 'macro')",
-        "macro()",
-        "cc_library(name = 'a', srcs = [])");
+        """
+        load("//test:existing_rule.bzl", "macro")
+
+        macro()
+
+        cc_library(
+            name = "a",
+            srcs = [],
+        )
+        """);
     getConfiguredTarget("//test:a");
     assertContainsEvent("Passed: select({\"//foo\": [\"//bar\"]}");
     // The short labels are now in their canonical form, and the sequence is represented as
@@ -154,15 +176,28 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRule_shortensLabelsInSamePackage() throws Exception {
     scratch.file(
         "test/existing_rule.bzl",
-        "def save_deps():",
-        "  r = native.existing_rule('b')",
-        "  test.save(\"r['deps']\", r['deps'])");
+        """
+        def save_deps():
+            r = native.existing_rule("b")
+            test.save("r['deps']", r["deps"])
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:existing_rule.bzl', 'save_deps')",
-        "cc_library(name = 'a', srcs = [])",
-        "cc_binary(name = 'b', deps = ['//test:a'])",
-        "save_deps()");
+        """
+        load("//test:existing_rule.bzl", "save_deps")
+
+        cc_library(
+            name = "a",
+            srcs = [],
+        )
+
+        cc_binary(
+            name = "b",
+            deps = ["//test:a"],
+        )
+
+        save_deps()
+        """);
     getConfiguredTarget("//test:b");
     assertThat(Starlark.toIterable(getSaved("r['deps']")))
         .containsExactly(":a"); // as opposed to "//test:a"
@@ -174,32 +209,81 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file("test/starlark/BUILD");
     scratch.file(
         "test/starlark/rulestr.bzl",
-        "def rule_dict(name):",
-        "  return native.existing_rule(name)",
-        "def rules_dict():",
-        "  return native.existing_rules()",
-        "def nop(ctx):",
-        "  pass",
-        "nop_rule = rule(attrs = {'x': attr.label()}, implementation = nop)",
-        "def test_save(name, value):",
-        "  test.save(name, value)");
+        """
+        def rule_dict(name):
+            return native.existing_rule(name)
+
+        def rules_dict():
+            return native.existing_rules()
+
+        def nop(ctx):
+            pass
+
+        nop_rule = rule(attrs = {"x": attr.label()}, implementation = nop)
+
+        def test_save(name, value):
+            test.save(name, value)
+        """);
 
     scratch.file(
         "test/getrule/BUILD",
-        "load('//test/starlark:rulestr.bzl', 'rules_dict', 'rule_dict', 'nop_rule', 'test_save')",
-        "genrule(name = 'a', outs = ['a.txt'], ",
-        "        licenses = ['notice'],",
-        "        output_to_bindir = False,",
-        "        tools = [ '//test:bla' ], cmd = 'touch $@')",
-        "nop_rule(name = 'c', x = ':a')",
-        "rlist = rules_dict()",
-        "test_save('all_str', [rlist['a']['kind'], rlist['a']['name'],",
-        "                      rlist['c']['kind'], rlist['c']['name']])",
-        "adict = rule_dict('a')",
-        "cdict = rule_dict('c')",
-        "test_save('a_str', [adict['kind'], adict['name'], adict['outs'][0], adict['tools'][0]])",
-        "test_save('c_str', [cdict['kind'], cdict['name'], cdict['x']])",
-        "test_save('adict.keys()', adict.keys())");
+        """
+        load("//test/starlark:rulestr.bzl", "nop_rule", "rule_dict", "rules_dict", "test_save")
+
+        genrule(
+            name = "a",
+            outs = ["a.txt"],
+            cmd = "touch $@",
+            licenses = ["notice"],
+            output_to_bindir = False,
+            tools = ["//test:bla"],
+        )
+
+        nop_rule(
+            name = "c",
+            x = ":a",
+        )
+
+        rlist = rules_dict()
+
+        test_save(
+            "all_str",
+            [
+                rlist["a"]["kind"],
+                rlist["a"]["name"],
+                rlist["c"]["kind"],
+                rlist["c"]["name"],
+            ],
+        )
+
+        adict = rule_dict("a")
+
+        cdict = rule_dict("c")
+
+        test_save(
+            "a_str",
+            [
+                adict["kind"],
+                adict["name"],
+                adict["outs"][0],
+                adict["tools"][0],
+            ],
+        )
+
+        test_save(
+            "c_str",
+            [
+                cdict["kind"],
+                cdict["name"],
+                cdict["x"],
+            ],
+        )
+
+        test_save(
+            "adict.keys()",
+            adict.keys(),
+        )
+        """);
 
     getConfiguredTarget("//test/getrule:BUILD");
     assertThat(Starlark.toIterable(getSaved("all_str")))
@@ -241,28 +325,35 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   @Test
   public void existingRule_ignoresHiddenAttributes() throws Exception {
     scratch.file(
-        "test/inc.bzl", //
-        "def _check_hidden_attr_exists(ctx):",
-        "    if ctx.attr._hidden_attr != 'hidden_val':",
-        "        fail('ctx.attr._hidden_attr != \"hidden_val\"')",
-        "    pass",
-        "my_rule = rule(",
-        "    attrs = {",
-        "        '_hidden_attr': attr.string(default = 'hidden_val'),",
-        "        'normal_attr': attr.string(default = 'normal_val'),",
-        "    },",
-        "    implementation = _check_hidden_attr_exists",
-        ")",
-        "def f():",
-        "    my_rule(name = 'rulename')",
-        "    r = native.existing_rule('rulename')",
-        "    test.save('r.keys()', r.keys())",
-        "    test.save('r.values()', r.values())",
-        "    test.save('\"_hidden_attr\" in r', \"_hidden_attr\" in r)");
+        "test/inc.bzl",
+        """
+        def _check_hidden_attr_exists(ctx):
+            if ctx.attr._hidden_attr != "hidden_val":
+                fail('ctx.attr._hidden_attr != "hidden_val"')
+            pass
+
+        my_rule = rule(
+            attrs = {
+                "_hidden_attr": attr.string(default = "hidden_val"),
+                "normal_attr": attr.string(default = "normal_val"),
+            },
+            implementation = _check_hidden_attr_exists,
+        )
+
+        def f():
+            my_rule(name = "rulename")
+            r = native.existing_rule("rulename")
+            test.save("r.keys()", r.keys())
+            test.save("r.values()", r.values())
+            test.save('"_hidden_attr" in r', "_hidden_attr" in r)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('inc.bzl', 'f')", //
-        "f()");
+        """
+        load("inc.bzl", "f")
+
+        f()
+        """);
 
     assertThat(getConfiguredTarget("//test:rulename")).isNotNull();
     assertThat(Starlark.toIterable(getSaved("r.keys()")))
@@ -278,15 +369,20 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRule_returnsObjectWithCorrectMutability() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load('inc.bzl', 'f')", //
-        "f()");
+        """
+        load("inc.bzl", "f")
+
+        f()
+        """);
     scratch.file(
-        "test/inc.bzl", //
-        "def f():",
-        "  native.config_setting(name='x', define_values={'key': 'value'})",
-        "  r = native.existing_rule('x')",
-        "  r['no_such_attribute'] = 'foo'",
-        "  r['define_values']['key'] = 123"); // mutate the dict
+        "test/inc.bzl",
+        """
+        def f():
+            native.config_setting(name = "x", define_values = {"key": "value"})
+            r = native.existing_rule("x")
+            r["no_such_attribute"] = "foo"
+            r["define_values"]["key"] = 123
+        """); // mutate the dict
 
     assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error on mutation
   }
@@ -295,24 +391,29 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRule_returnsDictLikeObject() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load('inc.bzl', 'f')", //
-        "f()");
+        """
+        load("inc.bzl", "f")
+
+        f()
+        """);
     scratch.file(
-        "test/inc.bzl", //
-        "def f():",
-        "  native.config_setting(name='x', define_values={'key': 'value'})",
-        "  r = native.existing_rule('x')",
-        "  print('r == %s' % repr(r))",
-        "  test.save('[key for key in r]', [key for key in r])",
-        "  test.save('list(r)', list(r))",
-        "  test.save('r.keys()', r.keys())",
-        "  test.save('r.values()', r.values())",
-        "  test.save('r.items()', r.items())",
-        "  test.save(\"r['define_values']\", r['define_values'])",
-        "  test.save(\"r.get('define_values', 123)\", r.get('define_values', 123))",
-        "  test.save(\"r.get('invalid_attr', 123)\", r.get('invalid_attr', 123))",
-        "  test.save(\"'define_values' in r\", 'define_values' in r)",
-        "  test.save(\"'invalid_attr' in r\", 'invalid_attr' in r)");
+        "test/inc.bzl",
+        """
+        def f():
+            native.config_setting(name = "x", define_values = {"key": "value"})
+            r = native.existing_rule("x")
+            print("r == %s" % repr(r))
+            test.save("[key for key in r]", [key for key in r])
+            test.save("list(r)", list(r))
+            test.save("r.keys()", r.keys())
+            test.save("r.values()", r.values())
+            test.save("r.items()", r.items())
+            test.save("r['define_values']", r["define_values"])
+            test.save("r.get('define_values', 123)", r.get("define_values", 123))
+            test.save("r.get('invalid_attr', 123)", r.get("invalid_attr", 123))
+            test.save("'define_values' in r", "define_values" in r)
+            test.save("'invalid_attr' in r", "invalid_attr" in r)
+        """);
 
     Dict<?, ?> expectedDefineValues = Dict.builder().put("key", "value").buildImmutable();
     assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error
@@ -340,17 +441,23 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRule_asDictArgument() throws Exception {
     scratch.file(
         "test/test.bzl",
-        "def save_as_dict(r):",
-        "  test.save('type(dict(r))', type(dict(r)))",
-        "  test.save('dict(r)[\"name\"]', dict(r)[\"name\"])",
-        "  test.save('dict(r)[\"kind\"]', dict(r)[\"kind\"])");
+        """
+        def save_as_dict(r):
+            test.save("type(dict(r))", type(dict(r)))
+            test.save('dict(r)["name"]', dict(r)["name"])
+            test.save('dict(r)["kind"]', dict(r)["kind"])
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:test.bzl', 'save_as_dict')", //
-        "cc_library(",
-        "    name ='rulename',",
-        ")",
-        "save_as_dict(existing_rule('rulename'))");
+        """
+        load("//test:test.bzl", "save_as_dict")
+
+        cc_library(
+            name = "rulename",
+        )
+
+        save_as_dict(existing_rule("rulename"))
+        """);
     getConfiguredTarget("//test:rulename");
     assertThat(getSaved("type(dict(r))")).isEqualTo("dict");
     assertThat(getSaved("dict(r)[\"name\"]")).isEqualTo("rulename");
@@ -363,19 +470,25 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     // (as verified by other test cases).
     scratch.file(
         "test/test.bzl",
-        "def save_as_updated_dict(r):",
-        "  updated_dict = {'name': 'dictname', 'dictkey': 1}",
-        "  updated_dict.update(r)",
-        "  test.save('updated_dict[\"name\"]', updated_dict[\"name\"])",
-        "  test.save('updated_dict[\"kind\"]', updated_dict[\"kind\"])",
-        "  test.save('updated_dict[\"dictkey\"]', updated_dict[\"dictkey\"])");
+        """
+        def save_as_updated_dict(r):
+            updated_dict = {"name": "dictname", "dictkey": 1}
+            updated_dict.update(r)
+            test.save('updated_dict["name"]', updated_dict["name"])
+            test.save('updated_dict["kind"]', updated_dict["kind"])
+            test.save('updated_dict["dictkey"]', updated_dict["dictkey"])
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:test.bzl', 'save_as_updated_dict')", //
-        "cc_library(",
-        "    name ='rulename',",
-        ")",
-        "save_as_updated_dict(existing_rule('rulename'))");
+        """
+        load("//test:test.bzl", "save_as_updated_dict")
+
+        cc_library(
+            name = "rulename",
+        )
+
+        save_as_updated_dict(existing_rule("rulename"))
+        """);
     getConfiguredTarget("//test:rulename");
     assertThat(getSaved("updated_dict[\"name\"]")).isEqualTo("rulename");
     assertThat(getSaved("updated_dict[\"kind\"]")).isEqualTo("cc_library");
@@ -386,18 +499,30 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRule_unionableWithDict() throws Exception {
     scratch.file(
         "test/test.bzl",
-        "def save_as_union(dict_val, r):",
-        "  test.save('dict_val | r', dict_val | r)",
-        "  test.save('r | dict_val', r | dict_val)",
-        "  dict_val |= r",
-        "  test.save('dict_val |= r', dict_val)");
+        """
+        def save_as_union(dict_val, r):
+            test.save("dict_val | r", dict_val | r)
+            test.save("r | dict_val", r | dict_val)
+            dict_val |= r
+            test.save("dict_val |= r", dict_val)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:test.bzl', 'save_as_union')",
-        "cc_library(",
-        "    name ='rulename',",
-        ")",
-        "save_as_union({'name': 'dictname', 'dictkey': 1}, existing_rule('rulename'))");
+        """
+        load("//test:test.bzl", "save_as_union")
+
+        cc_library(
+            name = "rulename",
+        )
+
+        save_as_union(
+            {
+                "name": "dictname",
+                "dictkey": 1,
+            },
+            existing_rule("rulename"),
+        )
+        """);
     getConfiguredTarget("//test:rulename");
     Map<String, Object> unionDictWithExistingRule =
         Dict.cast(getSaved("dict_val | r"), String.class, Object.class, "dict_val | r");
@@ -417,18 +542,25 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRule_asKwargs() throws Exception {
     scratch.file(
         "test/test.bzl",
-        "def save_kwargs(**kwargs):",
-        "  test.save('kwargs[\"name\"]', kwargs[\"name\"])",
-        "  test.save('kwargs[\"kind\"]', kwargs[\"kind\"])",
-        "def save_kwargs_of_existing_rule(name):",
-        "  save_kwargs(**native.existing_rule(name))");
+        """
+        def save_kwargs(**kwargs):
+            test.save('kwargs["name"]', kwargs["name"])
+            test.save('kwargs["kind"]', kwargs["kind"])
+
+        def save_kwargs_of_existing_rule(name):
+            save_kwargs(**native.existing_rule(name))
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:test.bzl', 'save_kwargs_of_existing_rule')", //
-        "cc_library(",
-        "    name ='rulename',",
-        ")",
-        "save_kwargs_of_existing_rule('rulename')");
+        """
+        load("//test:test.bzl", "save_kwargs_of_existing_rule")
+
+        cc_library(
+            name = "rulename",
+        )
+
+        save_kwargs_of_existing_rule("rulename")
+        """);
     getConfiguredTarget("//test:rulename");
     assertThat(getSaved("kwargs[\"name\"]")).isEqualTo("rulename");
     assertThat(getSaved("kwargs[\"kind\"]")).isEqualTo("cc_library");
@@ -441,28 +573,41 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     // doesn't handle.
     scratch.file(
         "test/test.bzl",
-        "def _dummy_impl(ctx):",
-        "  pass",
-        "test_library = rule(",
-        "  implementation = _dummy_impl,",
-        "  attrs = {'srcs': attr.label_list(allow_files = True)},",
-        ")",
-        // TODO(b/249397668): simplifying this to `json_encode = json.encode` etc. causes a
-        // NoCodecException. Need to investigate.
-        "def json_encode(value):",
-        "  return json.encode(value)",
-        "def json_decode(text):",
-        "  return json.decode(text)",
-        "def save(name, object):",
-        "  test.save(name, object)");
+        """
+        def _dummy_impl(ctx):
+            pass
+
+        test_library = rule(
+            implementation = _dummy_impl,
+            attrs = {"srcs": attr.label_list(allow_files = True)},
+        )
+
+        # TODO(b/249397668): simplifying this to `json_encode = json.encode` etc. causes a
+        # NoCodecException. Need to investigate.
+        def json_encode(value):
+            return json.encode(value)
+
+        def json_decode(text):
+            return json.decode(text)
+
+        def save(name, object):
+            test.save(name, object)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:test.bzl', 'test_library', 'json_decode', 'json_encode', 'save')", //
-        "test_library(",
-        "    name ='foo',",
-        "    srcs = ['foo.cc'],",
-        ")",
-        "save('foo', json_decode(json_encode(existing_rule('foo'))))");
+        """
+        load("//test:test.bzl", "json_decode", "json_encode", "save", "test_library")
+
+        test_library(
+            name = "foo",
+            srcs = ["foo.cc"],
+        )
+
+        save(
+            "foo",
+            json_decode(json_encode(existing_rule("foo"))),
+        )
+        """);
     scratch.file("test/foo.cc");
     getConfiguredTarget("//test:foo");
     // We test a subset of attributes after an encode-decode round trip because the rule also has
@@ -480,14 +625,19 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRules_returnsObjectWithCorrectMutability() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load('inc.bzl', 'f')", //
-        "f()");
+        """
+        load("inc.bzl", "f")
+
+        f()
+        """);
     scratch.file(
-        "test/inc.bzl", //
-        "def f():",
-        "  native.config_setting(name='x', define_values={'key': 'value'})",
-        "  rs = native.existing_rules()",
-        "  rs['no_such_rule'] = {'name': 'no_such_rule', 'kind': 'config_setting'}"); // mutate
+        "test/inc.bzl",
+        """
+        def f():
+            native.config_setting(name = "x", define_values = {"key": "value"})
+            rs = native.existing_rules()
+            rs["no_such_rule"] = {"name": "no_such_rule", "kind": "config_setting"}
+        """); // mutate
 
     assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error on mutation
   }
@@ -496,8 +646,11 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRules_returnsDictLikeObject() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load('inc.bzl', 'f')", //
-        "f()");
+        """
+        load("inc.bzl", "f")
+
+        f()
+        """);
     scratch.file(
         "test/inc.bzl", //
         "def f():",
@@ -539,20 +692,25 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   public void existingRules_returnsSnapshotOfOnlyRulesInstantiatedUpToThatPoint() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load('inc.bzl', 'f')", //
-        "f()");
+        """
+        load("inc.bzl", "f")
+
+        f()
+        """);
     scratch.file(
-        "test/inc.bzl", //
-        "def f():",
-        "  native.config_setting(name='x', define_values={'key_x': 'value_x'})",
-        "  rs1 = native.existing_rules()",
-        "  native.config_setting(name='y', define_values={'key_y': 'value_y'})",
-        "  rs2 = native.existing_rules()",
-        "  native.config_setting(name='z', define_values={'key_z': 'value_z'})",
-        "  rs3 = native.existing_rules()",
-        "  test.save('rs1.keys()', rs1.keys())",
-        "  test.save('rs2.keys()', rs2.keys())",
-        "  test.save('rs3.keys()', rs3.keys())");
+        "test/inc.bzl",
+        """
+        def f():
+            native.config_setting(name = "x", define_values = {"key_x": "value_x"})
+            rs1 = native.existing_rules()
+            native.config_setting(name = "y", define_values = {"key_y": "value_y"})
+            rs2 = native.existing_rules()
+            native.config_setting(name = "z", define_values = {"key_z": "value_z"})
+            rs3 = native.existing_rules()
+            test.save("rs1.keys()", rs1.keys())
+            test.save("rs2.keys()", rs2.keys())
+            test.save("rs3.keys()", rs3.keys())
+        """);
 
     assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error
     assertThat(Starlark.toIterable(getSaved("rs1.keys()"))).containsExactly("x");
@@ -567,32 +725,46 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     // doesn't handle.
     scratch.file(
         "test/test.bzl",
-        "def _dummy_impl(ctx):",
-        "  pass",
-        "test_library = rule(",
-        "  implementation = _dummy_impl,",
-        "  attrs = {'srcs': attr.label_list(allow_files = True)},",
-        ")",
-        // TODO(b/249397668): simplifying this to `json_encode = json.encode` etc. causes a
-        // NoCodecException. Need to investigate.
-        "def json_encode(value):",
-        "  return json.encode(value)",
-        "def json_decode(text):",
-        "  return json.decode(text)",
-        "def save(name, object):",
-        "  test.save(name, object)");
+        """
+        def _dummy_impl(ctx):
+            pass
+
+        test_library = rule(
+            implementation = _dummy_impl,
+            attrs = {"srcs": attr.label_list(allow_files = True)},
+        )
+
+        # TODO(b/249397668): simplifying this to `json_encode = json.encode` etc. causes a
+        # NoCodecException. Need to investigate.
+        def json_encode(value):
+            return json.encode(value)
+
+        def json_decode(text):
+            return json.decode(text)
+
+        def save(name, object):
+            test.save(name, object)
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:test.bzl', 'test_library', 'json_decode', 'json_encode', 'save')", //
-        "test_library(",
-        "    name ='foo',",
-        "    srcs = ['foo.cc'],",
-        ")",
-        "test_library(",
-        "    name ='bar',",
-        "    srcs = ['bar.cc'],",
-        ")",
-        "save('rules', json_decode(json_encode(existing_rules())))");
+        """
+        load("//test:test.bzl", "json_decode", "json_encode", "save", "test_library")
+
+        test_library(
+            name = "foo",
+            srcs = ["foo.cc"],
+        )
+
+        test_library(
+            name = "bar",
+            srcs = ["bar.cc"],
+        )
+
+        save(
+            "rules",
+            json_decode(json_encode(existing_rules())),
+        )
+        """);
     scratch.file("test/foo.cc");
     getConfiguredTarget("//test:bar");
     // We test a subset of attributes after an encode-decode round trip because the rule also has
@@ -639,14 +811,19 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     public void existingRule_returnsObjectWithCorrectMutability() throws Exception {
       scratch.file(
           "test/BUILD",
-          "load('inc.bzl', 'f')", //
-          "f()");
+          """
+          load("inc.bzl", "f")
+
+          f()
+          """);
       scratch.file(
-          "test/inc.bzl", //
-          "def f():",
-          "  native.config_setting(name='x', define_values={'key': 'value'})",
-          "  r = native.existing_rule('x')",
-          "  r['no_such_attribute'] = 123"); // mutate the view
+          "test/inc.bzl",
+          """
+          def f():
+              native.config_setting(name = "x", define_values = {"key": "value"})
+              r = native.existing_rule("x")
+              r["no_such_attribute"] = 123
+          """); // mutate the view
 
       reporter.removeHandler(failFastHandler);
       assertThat(getConfiguredTarget("//test:BUILD")).isNull(); // mutation fails
@@ -658,14 +835,19 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     public void existingRules_returnsObjectWithCorrectMutability() throws Exception {
       scratch.file(
           "test/BUILD",
-          "load('inc.bzl', 'f')", //
-          "f()");
+          """
+          load("inc.bzl", "f")
+
+          f()
+          """);
       scratch.file(
-          "test/inc.bzl", //
-          "def f():",
-          "  native.config_setting(name='x', define_values={'key': 'value'})",
-          "  rs = native.existing_rules()",
-          "  rs['no_such_rule'] = {'name': 'no_such_rule', 'kind': 'config_setting'}"); // mutate
+          "test/inc.bzl",
+          """
+          def f():
+              native.config_setting(name = "x", define_values = {"key": "value"})
+              rs = native.existing_rules()
+              rs["no_such_rule"] = {"name": "no_such_rule", "kind": "config_setting"}
+          """); // mutate
 
       reporter.removeHandler(failFastHandler);
       assertThat(getConfiguredTarget("//test:BUILD")).isNull(); // mutation fails
@@ -676,14 +858,19 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     public void existingRules_returnsDeeplyImmutableView() throws Exception {
       scratch.file(
           "test/BUILD",
-          "load('inc.bzl', 'f')", //
-          "f()");
+          """
+          load("inc.bzl", "f")
+
+          f()
+          """);
       scratch.file(
-          "test/inc.bzl", //
-          "def f():",
-          "  native.config_setting(name='x', define_values={'key': 'value'})",
-          "  rs = native.existing_rules()",
-          "  rs['x']['define_values']['key'] = 123"); // mutate an attribute value within the view
+          "test/inc.bzl",
+          """
+          def f():
+              native.config_setting(name = "x", define_values = {"key": "value"})
+              rs = native.existing_rules()
+              rs["x"]["define_values"]["key"] = 123
+          """); // mutate an attribute value within the view
 
       reporter.removeHandler(failFastHandler);
       assertThat(getConfiguredTarget("//test:BUILD")).isNull();

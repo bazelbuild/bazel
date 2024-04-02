@@ -100,8 +100,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.glob");
     Package.Builder pkgBuilder = getContext(thread);
 
-    List<String> includes = Type.STRING_LIST.convert(include, "'glob' argument");
-    List<String> excludes = Type.STRING_LIST.convert(exclude, "'glob' argument");
+    List<String> includes = Types.STRING_LIST.convert(include, "'glob' argument");
+    List<String> excludes = Types.STRING_LIST.convert(exclude, "'glob' argument");
     Globber.Operation op =
         excludeDirs.signum() != 0 ? Globber.Operation.FILES : Globber.Operation.FILES_AND_DIRS;
 
@@ -535,7 +535,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     Package.Builder pkgBuilder = getContext(thread);
 
     List<String> packages =
-        Type.STRING_LIST.convert(packagesO, "'package_group.packages argument'");
+        Types.STRING_LIST.convert(packagesO, "'package_group.packages argument'");
     List<Label> includes =
         BuildType.LABEL_LIST.convert(
             includesO, "'package_group.includes argument'", pkgBuilder.getLabelConverter());
@@ -569,7 +569,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.exports_files");
     Package.Builder pkgBuilder = getContext(thread);
-    List<String> files = Type.STRING_LIST.convert(srcs, "'exports_files' operand");
+    List<String> files = Types.STRING_LIST.convert(srcs, "'exports_files' operand");
 
     RuleVisibility visibility =
         Starlark.isNullOrNone(visibilityO)
@@ -834,8 +834,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.subpackages");
     Package.Builder pkgBuilder = getContext(thread);
 
-    List<String> includes = Type.STRING_LIST.convert(include, "'subpackages' argument");
-    List<String> excludes = Type.STRING_LIST.convert(exclude, "'subpackages' argument");
+    List<String> includes = Types.STRING_LIST.convert(include, "'subpackages' argument");
+    List<String> excludes = Types.STRING_LIST.convert(exclude, "'subpackages' argument");
 
     List<String> matches =
         runGlobOperation(

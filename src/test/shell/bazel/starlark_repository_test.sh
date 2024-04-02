@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Test the local_repository binding
-#
 
 # --- begin runfiles.bash initialization ---
 # Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
@@ -100,41 +98,29 @@ EOF
 
   # Our macro
   cat >test.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 def macro(path):
   print('bleh')
-  native.local_repository(name='endangered', path=path)
-  native.bind(name='mongoose', actual='@endangered//carnivore:mongoose')
+  local_repository(name='endangered', path=path)
 EOF
   mkdir -p zoo
   cat > zoo/BUILD <<'EOF'
 genrule(
-    name = "ball-pit1",
+    name = "ball-pit",
     srcs = ["@endangered//carnivore:mongoose"],
-    outs = ["ball-pit1.txt"],
-    cmd = "cat $< >$@",
-)
-
-genrule(
-    name = "ball-pit2",
-    srcs = ["//external:mongoose"],
-    outs = ["ball-pit2.txt"],
+    outs = ["ball-pit.txt"],
     cmd = "cat $< >$@",
 )
 EOF
 
-  bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
+  bazel build //zoo:ball-pit >& $TEST_log || fail "Failed to build"
   expect_log "bleh"
   expect_log "Tra-la!"  # Invalidation
-  cat bazel-bin/zoo/ball-pit1.txt >$TEST_log
+  cat bazel-bin/zoo/ball-pit.txt >$TEST_log
   expect_log "Tra-la!"
 
-  bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
+  bazel build //zoo:ball-pit >& $TEST_log || fail "Failed to build"
   expect_not_log "Tra-la!"  # No invalidation
-
-  bazel build //zoo:ball-pit2 >& $TEST_log || fail "Failed to build"
-  expect_not_log "Tra-la!"  # No invalidation
-  cat bazel-bin/zoo/ball-pit2.txt >$TEST_log
-  expect_log "Tra-la!"
 
   # Test invalidation of the WORKSPACE file
   create_new_workspace
@@ -151,24 +137,19 @@ genrule(
 EOF
   cd ${WORKSPACE_DIR}
   cat >test.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 def macro(path):
   print('blah')
-  native.local_repository(name='endangered', path='$repo2')
-  native.bind(name='mongoose', actual='@endangered//carnivore:mongoose')
+  local_repository(name='endangered', path='$repo2')
 EOF
-  bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
+  bazel build //zoo:ball-pit >& $TEST_log || fail "Failed to build"
   expect_log "blah"
   expect_log "Tra-la-la!"  # Invalidation
-  cat bazel-bin/zoo/ball-pit1.txt >$TEST_log
+  cat bazel-bin/zoo/ball-pit.txt >$TEST_log
   expect_log "Tra-la-la!"
 
-  bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
+  bazel build //zoo:ball-pit >& $TEST_log || fail "Failed to build"
   expect_not_log "Tra-la-la!"  # No invalidation
-
-  bazel build //zoo:ball-pit2 >& $TEST_log || fail "Failed to build"
-  expect_not_log "Tra-la-la!"  # No invalidation
-  cat bazel-bin/zoo/ball-pit2.txt >$TEST_log
-  expect_log "Tra-la-la!"
 }
 
 function test_load_from_symlink_to_outside_of_workspace() {
@@ -211,9 +192,10 @@ EOF
   # Our macro
   cat >WORKSPACE
   cat >test.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 def macro(path):
   print('bleh')
-  native.local_repository(name='endangered', path=path)
+  local_repository(name='endangered', path=path)
 EOF
   cat >BUILD <<'EOF'
 exports_files(["test.bzl"])
@@ -221,6 +203,7 @@ EOF
 
   cd ${WORKSPACE_DIR}
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name='proxy', path='$repo3')
 load('@proxy//:test.bzl', 'macro')
 macro('$repo2')
@@ -254,6 +237,7 @@ EOF
 
   cd ${WORKSPACE_DIR}
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name='foo', path='$repo2')
 load("@foo//:ext.bzl", "macro")
 macro()
@@ -289,6 +273,7 @@ EOF
   cd ${WORKSPACE_DIR}
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@foo//:ext.bzl", "macro")
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 macro()
 local_repository(name='foo', path='$repo2')
 EOF
@@ -359,7 +344,6 @@ EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "foo"
-  expect_not_log "Workspace name in .*/WORKSPACE (.*) does not match the name given in the repository's definition (@foo)"
   cat bazel-bin/external/foo/bar.txt >$TEST_log
   expect_log "foo"
 }
@@ -1389,9 +1373,10 @@ EOF
 
   # Our macro
   cat >test.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 def macro(path):
   print(native.bazel_version)
-  native.local_repository(name='test', path=path)
+  local_repository(name='test', path=path)
 EOF
 
   local version="$(bazel info release)"
@@ -1415,6 +1400,7 @@ function test_existing_rule() {
   cat > BUILD
 
   cat >> WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'existing', path='$repo2')
 load('//:test.bzl', 'macro')
 
@@ -2378,6 +2364,7 @@ function test_disable_download_should_allow_local_repository() {
   mkdir main
   cd main
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name="ext",
   path="../x",
@@ -3194,6 +3181,84 @@ r()
 EOF
 
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/21823.
+function test_repository_cache_concurrency() {
+  sha=cd55a062e763b9349921f0f5db8c3933288dc8ba4f76dd9416aac68acee3cb94
+
+  cat > MODULE.bazel <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+[
+  http_file(
+    name = "repo" + str(i),
+    url = "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
+    sha256 = "$sha",
+  )
+  for i in range(100)
+]
+EOF
+  cat > BUILD <<'EOF'
+FILES = ["@repo{}//file".format(i) for i in range(100)]
+filegroup(
+  name = "files",
+  srcs = FILES,
+)
+genrule(
+  name = "unique_hashes",
+  srcs = [":files"],
+  outs = ["unique_hashes"],
+  cmd = """
+# Get the unique sha256 hashes of the files.
+sha256sum $(execpaths :files) |
+  cut -d' ' -f1 |
+  sort |
+  uniq > $@
+""".format(),
+)
+EOF
+
+  repo_cache_dir=$TEST_TMPDIR/repository_cache
+  trap 'rm -rf ${repo_cache_dir}' EXIT
+  bazel build --repository_cache="$repo_cache_dir" \
+    //:unique_hashes >& $TEST_log || fail "expected bazel to succeed"
+  assert_equals 1 "$(wc -l < bazel-bin/unique_hashes | tr -d ' ')"
+  assert_equals $sha "$(cat bazel-bin/unique_hashes)"
+
+  # Verify that the repository cache entry has been created.
+  cache_entry="$repo_cache_dir/content_addressable/sha256/$sha/file"
+  echo "$sha $cache_entry" | sha256sum --check || fail "sha256 mismatch"
+}
+
+function test_keep_going_weird_deadlock() {
+  # regression test for b/330892334
+  if "$is_windows"; then
+    # no symlinks on windows
+    return
+  fi
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r=use_repo_rule("//:r.bzl", "r")
+r(name="r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+r=repository_rule(lambda rctx: rctx.read(Label("//blarg")))
+EOF
+
+  # make //blarg a bad package by creating a symlink cycle (note that just the package not
+  # existing is not enough to make the PackageLookupFunction fail)
+  mkdir blarg
+  cd blarg
+  ln -s BUILD DUILB
+  ln -s DUILB BUILD
+  cd ..
+
+  # now build both //blarg and @r. The latter depends on the former, which is in error.
+  # with --keep_going, this could result in a deadlock.
+  bazel build --keep_going //blarg @r >& $TEST_log && fail "bazel somehow succeeded"
+  # the fact that the invocation didn't time out should suffice as success.
+  true
 }
 
 run_suite "local repository tests"

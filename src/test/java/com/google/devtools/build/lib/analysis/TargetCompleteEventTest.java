@@ -105,11 +105,14 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
   public void testReferencedTreeArtifact() throws Exception {
     scratch.file(
         "defs.bzl",
-        "def _impl(ctx):",
-        "  d = ctx.actions.declare_directory(ctx.label.name)",
-        "  ctx.actions.run_shell(outputs = [d], command = 'does not matter')",
-        "  return DefaultInfo(files = depset([d]))",
-        "dir = rule(_impl)");
+        """
+        def _impl(ctx):
+            d = ctx.actions.declare_directory(ctx.label.name)
+            ctx.actions.run_shell(outputs = [d], command = "does not matter")
+            return DefaultInfo(files = depset([d]))
+
+        dir = rule(_impl)
+        """);
     scratch.file(
         "BUILD",
         "load(':defs.bzl', 'dir')",
@@ -153,11 +156,14 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
   public void testReferencedUnresolvedSymlink() throws Exception {
     scratch.file(
         "defs.bzl",
-        "def _impl(ctx):",
-        "  s = ctx.actions.declare_symlink(ctx.label.name)",
-        "  ctx.actions.symlink(output = s, target_path = 'does not matter')",
-        "  return DefaultInfo(files = depset([s]))",
-        "sym = rule(_impl)");
+        """
+        def _impl(ctx):
+            s = ctx.actions.declare_symlink(ctx.label.name)
+            ctx.actions.symlink(output = s, target_path = "does not matter")
+            return DefaultInfo(files = depset([s]))
+
+        sym = rule(_impl)
+        """);
     scratch.file(
         "BUILD",
         "load(':defs.bzl', 'sym')",

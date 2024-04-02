@@ -21,7 +21,6 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -122,26 +121,5 @@ public final class ServerDirectories {
   @VisibleForTesting
   public static Path getEmbeddedBinariesRoot(Path installBase) {
     return installBase;
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(installBase, installMD5, outputBase, outputUserRoot, execRootBase);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (!(obj instanceof ServerDirectories)) {
-      return false;
-    }
-    ServerDirectories that = (ServerDirectories) obj;
-    return this.installBase.equals(that.installBase)
-        && Objects.equals(this.installMD5, that.installMD5)
-        && this.outputBase.equals(that.outputBase)
-        && this.outputUserRoot.equals(that.outputUserRoot)
-        && this.execRootBase.equals(that.execRootBase);
   }
 }

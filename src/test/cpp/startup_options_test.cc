@@ -19,6 +19,9 @@
 #include <memory>
 
 #include "src/main/cpp/blaze_util_platform.h"
+#ifdef __linux
+#include "src/main/cpp/util/file_platform.h"
+#endif  // __linux
 #include "src/main/cpp/workspace_layout.h"
 #include "src/test/cpp/test_util.h"
 #include "googletest/include/gtest/gtest.h"
@@ -92,18 +95,50 @@ TEST_F(StartupOptionsTest, JavaLoggingOptions) {
 #ifdef __linux
 TEST_F(StartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
   SetEnv("HOME", "/nonexistent/home");
+  SetEnv("XDG_CACHE_HOME", "/nonexistent/cache");
   SetEnv("TEST_TMPDIR", "/nonexistent/tmpdir");
   ReinitStartupOptions();
 
   ASSERT_EQ("/nonexistent/tmpdir", startup_options_->output_root);
 }
 
-TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
+TEST_F(StartupOptionsTest,
+       OutputRootPreferXdgCacheHomeIfSetAndTestTmpdirUnset) {
   SetEnv("HOME", "/nonexistent/home");
+  SetEnv("XDG_CACHE_HOME", "/nonexistent/cache");
   UnsetEnv("TEST_TMPDIR");
   ReinitStartupOptions();
 
+  ASSERT_EQ("/nonexistent/cache/bazel", startup_options_->output_root);
+}
+
+TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
+  SetEnv("HOME", "/nonexistent/home");
+  UnsetEnv("TEST_TMPDIR");
+  UnsetEnv("XDG_CACHE_HOME");
+  ReinitStartupOptions();
+
   ASSERT_EQ("/nonexistent/home/.cache/bazel", startup_options_->output_root);
+}
+
+TEST_F(StartupOptionsTest, OutputRootIsAbsoluteAndNotShellExpanded) {
+  SetEnv("TEST_TMPDIR", "~/\"$foo/test\"");
+  SetEnv("XDG_CACHE_HOME", "~/cache${bar}");
+  SetEnv("HOME", "~/home$(echo baz)");
+
+  ReinitStartupOptions();
+  ASSERT_EQ(blaze_util::GetCwd() + "/~/\"$foo/test\"",
+            startup_options_->output_root);
+
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+  ASSERT_EQ(blaze_util::GetCwd() + "/~/cache${bar}/bazel",
+            startup_options_->output_root);
+
+  UnsetEnv("XDG_CACHE_HOME");
+  ReinitStartupOptions();
+  ASSERT_EQ(blaze_util::GetCwd() + "/~/home$(echo baz)/.cache/bazel",
+            startup_options_->output_root);
 }
 #endif  // __linux
 

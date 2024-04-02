@@ -237,6 +237,10 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
                         .isAssignableFrom(boolean.class))
             .filter(
                 o -> !o.getValue().getDefinition().getField().isAnnotationPresent(Deprecated.class))
+            // TODO: b/328442047 - Remove this when the flag is removed.
+            .filter(
+                // Skipping this explicitly because it is a no-op but can't be removed yet.
+                o -> !o.getKey().equals("incompatible_enable_android_toolchain_resolution"))
             .collect(toImmutableMap(k -> k.getKey(), v -> v.getValue()));
 
     // Verify all "--incompatible_*" options also have the INCOMPATIBLE_CHANGE metadata tag.

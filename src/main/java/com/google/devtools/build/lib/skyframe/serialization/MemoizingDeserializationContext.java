@@ -14,11 +14,14 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
@@ -112,13 +115,19 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
   abstract Object deserializeAndMaybeHandleDeferredValues(
       ObjectCodec<?> codec, CodedInputStream codedIn) throws SerializationException, IOException;
 
-  /** Corresponds to MemoBeforeContent in the abstract grammar. */
+  /**
+   * Corresponds to MemoBeforeContent in the abstract grammar.
+   *
+   * <p>May return a deserialized value or a {@link ListenableFuture}. The {@link ListenableFuture}
+   * is only possible for {@link SharedValueDeserializationContext}.
+   */
   private final Object deserializeMemoBeforeContent(ObjectCodec<?> codec, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int tag = codedIn.readInt32();
     this.tagForMemoizedBefore = tag;
-    // `codec` is never a `DeferredObjectCodec` because those are `MEMOIZE_AFTER`.
-    Object value = codec.safeCast(deserializeAndMaybeHandleDeferredValues(codec, codedIn));
+    // `codec` is never a `DeferredObjectCodec` because those are `MEMOIZE_AFTER` so this is always
+    // the deserialized value instance and never a `DeferredValue`.
+    Object value = deserializeAndMaybeHandleDeferredValues(codec, codedIn);
     Object initial = memoizedBeforeStackForSanityChecking.removeLast();
     if (value != initial) {
       // This indicates a bug in the particular codec subclass.
@@ -127,13 +136,33 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
               "codec did not return the initial instance: %s but was %s with codec %s",
               value, initial, codec));
     }
+
+    Object combinedValue = combineValueWithReadFutures(value);
+    if (combinedValue != value) {
+      // If the combined value is different, it means that it is a ListenableFuture and there are
+      // are read futures for this value. The (partial) value for `tag` will already be memoized by
+      // `registerInitialValue` at this point.
+      //
+      // Any backreferences to the existing entry would be from cyclic children, which
+      // tautologically need to tolerate incomplete values anyway. However, any subsequent
+      // backreferences will observe the ListenableFuture and process it so that only complete
+      // values are consumed.
+      updateMemoEntry(tag, combinedValue);
+      return combinedValue;
+    }
     return value;
   }
 
-  /** Corresponds to MemoAfterContent in the abstract grammar. */
+  /**
+   * Corresponds to MemoAfterContent in the abstract grammar.
+   *
+   * <p>May return either a deserialized value or a {@link ListenableFuture}. The {@link
+   * ListenableFuture} is only possible for {@link SharedValueDeserializationContext}.
+   */
   private final Object deserializeMemoAfterContent(ObjectCodec<?> codec, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    Object value = deserializeAndMaybeHandleDeferredValues(codec, codedIn);
+    Object value =
+        combineValueWithReadFutures(deserializeAndMaybeHandleDeferredValues(codec, codedIn));
     int tag = codedIn.readInt32();
     // If deserializing the children caused the parent object itself to be deserialized due to
     // a cycle, then there's now a memo entry for the parent. Reuse that object, discarding
@@ -146,6 +175,16 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
     memoize(tag, value);
     return value;
   }
+
+  /**
+   * Incorporates read futures in the context together with {@code value}.
+   *
+   * <p>May return the deserialized value or a {@link ListenableFuture} that wraps the deserialized
+   * value. The {@link ListenableFuture} is only possible for {@link
+   * SharedValueDeserializationContext}.
+   */
+  @ForOverride
+  abstract Object combineValueWithReadFutures(Object value);
 
   /**
    * Adds a new id → object maplet to the memo table.
@@ -163,6 +202,11 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
     }
   }
 
+  private void updateMemoEntry(int id, Object newValue) {
+    Object prev = memoTable.put(id, newValue);
+    checkState(prev != null, "Tried to update id %s but there was no previous entry", id);
+  }
+
   private static final class MemoizingDeserializationContextImpl
       extends MemoizingDeserializationContext {
     private MemoizingDeserializationContextImpl(
@@ -178,7 +222,13 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
     @Override
     Object deserializeAndMaybeHandleDeferredValues(ObjectCodec<?> codec, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      return codec.deserialize(this, codedIn);
+      return codec.safeCast(codec.deserialize(this, codedIn));
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    Object combineValueWithReadFutures(Object value) {
+      return value;
     }
   }
 }

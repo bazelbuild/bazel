@@ -31,7 +31,10 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
+import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -49,7 +52,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkResourceSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -63,7 +65,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.EnvEntry;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -196,7 +197,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .getFeatureConfiguration(
                 ImmutableSet.of("a", Link.LinkTargetType.EXECUTABLE.getActionName()));
 
-    CppLinkAction linkAction =
+    SpawnAction linkAction =
         createLinkBuilder(
                 ruleContext,
                 Link.LinkTargetType.EXECUTABLE,
@@ -224,7 +225,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
                 "}")
             .getFeatureConfiguration(ImmutableSet.of(LinkTargetType.EXECUTABLE.getActionName()));
 
-    CppLinkAction linkAction =
+    SpawnAction linkAction =
         createLinkBuilder(
                 ruleContext,
                 LinkTargetType.EXECUTABLE,
@@ -240,14 +241,19 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   public void testLibOptsAndLibSrcsAreInCorrectOrder() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  srcs = ['some-dir/libbar.so', 'some-other-dir/qux.so'],",
-        "  linkopts = [",
-        "    '-ldl',",
-        "    '-lutil',",
-        "  ],",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                "some-dir/libbar.so",
+                "some-other-dir/qux.so",
+            ],
+            linkopts = [
+                "-ldl",
+                "-lutil",
+            ],
+        )
+        """);
     scratch.file("x/some-dir/libbar.so");
     scratch.file("x/some-other-dir/qux.so");
 
@@ -275,19 +281,21 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'libfoo.so',",
-        "  srcs = ['foo.cc'],",
-        "  linkshared = 1,",
-        "  linkstatic = 0,",
-        ")");
+        """
+        cc_binary(
+            name = "libfoo.so",
+            srcs = ["foo.cc"],
+            linkshared = 1,
+            linkstatic = 0,
+        )
+        """);
     useConfiguration("--legacy_whole_archive");
     assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
   }
 
   private List<String> getLibfooArguments() throws Exception {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:libfoo.so");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/libfoo.so");
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/libfoo.so");
     return linkAction.getArguments();
   }
 
@@ -295,27 +303,23 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   public void testExposesRuntimeLibrarySearchDirectoriesVariable() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                "some-dir/bar.so",
+                "some-other-dir/qux.so",
+            ],
+        )
+        """);
     scratch.file("x/some-dir/bar.so");
     scratch.file("x/some-other-dir/qux.so");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/foo");
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/foo");
 
-    Iterable<? extends VariableValue> runtimeLibrarySearchDirectories =
-        linkAction
-            .getLinkCommandLineForTesting()
-            .getBuildVariables()
-            .getSequenceVariable(
-                LinkBuildVariables.RUNTIME_LIBRARY_SEARCH_DIRECTORIES.getVariableName());
-    List<String> directories = new ArrayList<>();
-    for (VariableValue value : runtimeLibrarySearchDirectories) {
-      directories.add(value.getStringValue("runtime_library_search_directory"));
-    }
-    assertThat(Joiner.on(" ").join(directories)).matches(".*some-dir .*some-other-dir");
+    assertThat(Joiner.on(" ").join(linkAction.getArguments()))
+        .matches(".*some-dir .*some-other-dir.*");
   }
 
   @Test
@@ -336,14 +340,30 @@ public final class CppLinkActionTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     scratch.file(
         "x/BUILD",
-        "cc_test(name='a', srcs=['a.cc'], features=['dynamic_link_test_srcs'])",
-        "cc_binary(name='b', srcs=['a.cc'])",
-        "cc_test(name='c', srcs=['a.cc'], features=['dynamic_link_test_srcs'], linkstatic=1)");
+        """
+        cc_test(
+            name = "a",
+            srcs = ["a.cc"],
+            features = ["dynamic_link_test_srcs"],
+        )
+
+        cc_binary(
+            name = "b",
+            srcs = ["a.cc"],
+        )
+
+        cc_test(
+            name = "c",
+            srcs = ["a.cc"],
+            features = ["dynamic_link_test_srcs"],
+            linkstatic = 1,
+        )
+        """);
     scratch.file("x/a.cc", "int main() {}");
     useConfiguration("--force_pic");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/a");
     assertThat(artifactsToStrings(linkAction.getInputs()))
         .contains("bin _solib_k8/libx_Sliba.ifso");
     assertThat(linkAction.getArguments())
@@ -353,14 +373,14 @@ public final class CppLinkActionTest extends BuildViewTestCase {
         .contains("bin _solib_k8/libx_Sliba.so");
 
     configuredTarget = getConfiguredTarget("//x:b");
-    linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b");
+    linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/b");
     assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/a.pic.o");
     runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
         .containsExactly("bin x/b");
 
     configuredTarget = getConfiguredTarget("//x:c");
-    linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/c");
+    linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/c");
     assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/c/a.pic.o");
     runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
@@ -387,7 +407,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     useConfiguration("--force_pic", "--dynamic_mode=default");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/a");
     assertThat(artifactsToStrings(linkAction.getInputs()))
         .doesNotContain("bin _solib_k8/libx_Sliba.ifso");
     assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/a/a.pic.o");
@@ -413,7 +433,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .getFeatureConfiguration(
                 ImmutableSet.of(Link.LinkTargetType.EXECUTABLE.getActionName(), "a"));
 
-    CppLinkAction linkAction =
+    SpawnAction linkAction =
         createLinkBuilder(
                 ruleContext,
                 Link.LinkTargetType.EXECUTABLE,
@@ -967,7 +987,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .setLibraryIdentifier("foo")
             .addObjectFiles(ImmutableList.of(testTreeArtifact));
 
-    CppLinkAction linkAction = builder.build();
+    SpawnAction linkAction = builder.build();
 
     ImmutableList<String> treeArtifactsPaths =
         ImmutableList.of(testTreeArtifact.getExecPathString());
@@ -975,14 +995,19 @@ public final class CppLinkActionTest extends BuildViewTestCase {
         ImmutableList.of(library0.getExecPathString(), library1.getExecPathString());
 
     // Should only reference the tree artifact.
-    verifyArguments(
-        linkAction.getLinkCommandLineForTesting().arguments(),
-        treeArtifactsPaths,
-        treeFileArtifactsPaths);
+    verifyArguments(linkAction.getArguments(), treeArtifactsPaths, treeFileArtifactsPaths);
 
     // Should only reference tree file artifacts.
+    ExpandedCommandLines expandedCommandLines =
+        linkAction
+            .getCommandLines()
+            .expand(
+                expander,
+                linkAction.getPrimaryOutput().getExecPath(),
+                PathMapper.NOOP,
+                CommandLineLimits.UNLIMITED);
     verifyArguments(
-        linkAction.getLinkCommandLineForTesting().arguments(expander, null),
+        expandedCommandLines.getParamFiles().get(0).getArguments(),
         treeFileArtifactsPaths,
         treeArtifactsPaths);
   }
@@ -1030,8 +1055,16 @@ public final class CppLinkActionTest extends BuildViewTestCase {
               .addObjectFiles(ImmutableList.of(testTreeArtifact))
               .addObjectFile(objectFile);
 
-      CppLinkAction linkAction = builder.build();
-      assertThat(linkAction.getLinkCommandLineForTesting().getParamCommandLine(expander))
+      SpawnAction linkAction = builder.build();
+      ExpandedCommandLines expandedCommandLines =
+          linkAction
+              .getCommandLines()
+              .expand(
+                  expander,
+                  linkAction.getPrimaryOutput().getExecPath(),
+                  PathMapper.NOOP,
+                  CommandLineLimits.UNLIMITED);
+      assertThat(expandedCommandLines.getParamFiles().get(0).getArguments())
           .containsAtLeast(
               library0.getExecPathString(),
               library1.getExecPathString(),
@@ -1123,29 +1156,32 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   public void testLinkoptsAreOmittedForStaticLibrary() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
 
-    CppLinkAction linkAction =
+    SpawnAction linkAction =
         createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
             .addLinkopt("FakeLinkopt1")
             .setLibraryIdentifier("foo")
             .build();
 
-    assertThat(MockCcSupport.getLinkopts(linkAction.getLinkCommandLineForTesting())).isEmpty();
+    assertThat(linkAction.getArguments()).doesNotContain("FakeLinkopt1");
   }
 
   @Test
   public void testExposesLinkstampObjects() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'bin',",
-        "  deps = [':lib'],",
-        ")",
-        "cc_library(",
-        "  name = 'lib',",
-        "  linkstamp = 'linkstamp.cc',",
-        ")");
+        """
+        cc_binary(
+            name = "bin",
+            deps = [":lib"],
+        )
+
+        cc_library(
+            name = "lib",
+            linkstamp = "linkstamp.cc",
+        )
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/bin");
     assertThat(artifactsToStrings(linkAction.getInputs()))
         .contains("bin x/_objs/bin/x/linkstamp.o");
   }
@@ -1160,9 +1196,18 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     useConfiguration();
 
     scratch.file(
-        "foo/BUILD", "cc_binary(", "  name = 'foo',", "  srcs = ['space .cc', 'quote\".cc'],", ")");
+        "foo/BUILD",
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                'quote".cc',
+                "space .cc",
+            ],
+        )
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:foo");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "foo/foo");
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "foo/foo");
 
     assertThat(linkAction.getCommandLines().unpack().get(1).paramFileInfo.getFileType())
         .isEqualTo(ParameterFileType.GCC_QUOTED);

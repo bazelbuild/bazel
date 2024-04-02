@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionCacheTestHelper.AMNESIAC_CACHE;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -63,7 +65,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -109,6 +110,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
@@ -245,7 +247,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
     String pathString = rootDirectory + "/python/hello/BUILD";
-    scratch.file(pathString, "py_binary(name = 'hello', srcs = ['hello.py'])");
+    scratch.file(
+        pathString, getPyLoad("py_binary"), "py_binary(name = 'hello', srcs = ['hello.py'])");
 
     // A dummy file that is never changed.
     scratch.file(rootDirectory + "/misc/BUILD", "sh_binary(name = 'misc', srcs = ['hello.sh'])");
@@ -256,7 +259,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     assertThat(dirtyValues()).isEmpty();
 
     // Make a change.
-    scratch.overwriteFile(pathString, "py_binary(name = 'hello', srcs = ['something_else.py'])");
+    scratch.overwriteFile(
+        pathString,
+        getPyLoad("py_binary"),
+        "py_binary(name = 'hello', srcs = ['something_else.py'])");
     assertThat(dirtyValues())
         .containsExactly(
             FileStateValue.key(
@@ -303,12 +309,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     scratch.file(
         "python/hello/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(name = 'hello', srcs = ['hello.py'], data = glob(['*.txt']))");
     scratch.file("python/hello/foo.txt", "foo");
 
     // A dummy directory that is not changed.
     scratch.file(
         "misc/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(name = 'misc', srcs = ['other.py'], data = glob(['*.txt'], allow_empty ="
             + " True))");
 
@@ -557,7 +565,15 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   public void testDependencyOnPotentialSubpackages() throws Exception {
     ExtendedEventHandler eventHandler = NullEventHandler.INSTANCE;
     scratch.file(
-        "x/BUILD", "sh_library(name = 'x', deps = ['//x:y/z'])", "sh_library(name = 'y/z')");
+        "x/BUILD",
+        """
+        sh_library(
+            name = "x",
+            deps = ["//x:y/z"],
+        )
+
+        sh_library(name = "y/z")
+        """);
 
     Package pkgBefore =
         skyframeExecutor
@@ -646,6 +662,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         new FilesystemValueChecker(
                 new TimestampGranularityMonitor(BlazeClock.instance()),
                 SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
                 /* numThreads= */ 20)
             .getDirtyKeys(
                 skyframeExecutor.getEvaluator().getValues(),
@@ -674,6 +691,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     analysisMock.pySupport().setup(mockToolsConfig);
     scratch.file(
         "python/hello/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(name = 'hello', srcs = ['hello.py'], data = glob(['*.txt'], allow_empty ="
             + " True))");
     Thread.currentThread().interrupt();
@@ -699,8 +717,17 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   public void testNoActionConflictWithInvalidatedTarget() throws Exception {
     scratch.file(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+        """
+        cc_library(
+            name = "x",
+            srcs = ["foo.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+        """);
     ConfiguredTargetAndData conflict =
         skyframeExecutor.getConfiguredTargetAndDataForTesting(
             reporter, Label.parseCanonical("@//conflict:x"), getTargetConfiguration());

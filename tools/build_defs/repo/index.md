@@ -5,6 +5,7 @@ Book: /_book.yaml
 
 * [Rules related to git](git)
 * [Rules related to http](http)
+* [Rules related to local directories](local)
 
 # Generic functions for repository rule authors
 

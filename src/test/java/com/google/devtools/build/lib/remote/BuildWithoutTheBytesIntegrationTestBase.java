@@ -317,20 +317,22 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // executing the local action.
     write(
         "a/BUILD",
-        "genrule(",
-        "  name = 'remote',",
-        "  srcs = [],",
-        "  outs = ['remote.txt'],",
-        "  cmd = 'echo -n remote > $@',",
-        ")",
-        "",
-        "genrule(",
-        "  name = 'local',",
-        "  srcs = [':remote'],",
-        "  outs = ['local.txt'],",
-        "  cmd = 'cat $(location :remote) > $@ && echo -n local >> $@',",
-        "  tags = ['no-remote'],",
-        ")");
+        """
+        genrule(
+            name = "remote",
+            srcs = [],
+            outs = ["remote.txt"],
+            cmd = "echo -n remote > $@",
+        )
+
+        genrule(
+            name = "local",
+            srcs = [":remote"],
+            outs = ["local.txt"],
+            cmd = "cat $(location :remote) > $@ && echo -n local >> $@",
+            tags = ["no-remote"],
+        )
+        """);
 
     buildTarget("//a:remote");
     waitDownloads();
@@ -346,29 +348,40 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   public void localAction_inputSymlinkToSourceFile() throws Exception {
     write(
         "a/defs.bzl",
-        "def _impl(ctx):",
-        "  sym = ctx.actions.declare_file(ctx.label.name + '.sym')",
-        "  ctx.actions.symlink(output = sym, target_file = ctx.file.target)",
-        "",
-        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
-        "  ctx.actions.run_shell(",
-        "    inputs = [sym],",
-        "    outputs = [out],",
-        "    command = '[[ hello == $(cat $1) ]] && touch $2',",
-        "    arguments = [sym.path, out.path],",
-        "    execution_requirements = {'no-remote': ''},",
-        "  )",
-        "",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'target': attr.label(allow_single_file = True),",
-        "  },",
-        ")");
+        """
+        def _impl(ctx):
+            sym = ctx.actions.declare_file(ctx.label.name + ".sym")
+            ctx.actions.symlink(output = sym, target_file = ctx.file.target)
 
-    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'my', target = 'src.txt')");
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run_shell(
+                inputs = [sym],
+                outputs = [out],
+                command = "[[ hello == $(cat $1) ]] && touch $2",
+                arguments = [sym.path, out.path],
+                execution_requirements = {"no-remote": ""},
+            )
+
+            return DefaultInfo(files = depset([out]))
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "target": attr.label(allow_single_file = True),
+            },
+        )
+        """);
+
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        my_rule(
+            name = "my",
+            target = "src.txt",
+        )
+        """);
 
     write("a/src.txt", "hello");
 
@@ -380,32 +393,41 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     injectFile("hello".getBytes(UTF_8));
     write(
         "a/defs.bzl",
-        "def _impl(ctx):",
-        "  file = ctx.actions.declare_file(ctx.label.name + '.file')",
-        // Use ctx.actions.run_shell instead of ctx.actions.write, so that it runs remotely.
-        "  ctx.actions.run_shell(",
-        "    outputs = [file],",
-        "    command = 'echo -n hello > $1',",
-        "    arguments = [file.path],",
-        "  )",
-        "",
-        "  sym = ctx.actions.declare_file(ctx.label.name + '.sym')",
-        "  ctx.actions.symlink(output = sym, target_file = file)",
-        "",
-        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
-        "  ctx.actions.run_shell(",
-        "    inputs = [sym],",
-        "    outputs = [out],",
-        "    command = '[[ hello == $(cat $1) ]] && touch $2',",
-        "    arguments = [sym.path, out.path],",
-        "    execution_requirements = {'no-remote': ''},",
-        "  )",
-        "",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "my_rule = rule(_impl)");
+        """
+        def _impl(ctx):
+            file = ctx.actions.declare_file(ctx.label.name + ".file")
 
-    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'my')");
+            # Use ctx.actions.run_shell instead of ctx.actions.write, so that it runs remotely.
+            ctx.actions.run_shell(
+                outputs = [file],
+                command = "echo -n hello > $1",
+                arguments = [file.path],
+            )
+
+            sym = ctx.actions.declare_file(ctx.label.name + ".sym")
+            ctx.actions.symlink(output = sym, target_file = file)
+
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run_shell(
+                inputs = [sym],
+                outputs = [out],
+                command = "[[ hello == $(cat $1) ]] && touch $2",
+                arguments = [sym.path, out.path],
+                execution_requirements = {"no-remote": ""},
+            )
+
+            return DefaultInfo(files = depset([out]))
+
+        my_rule = rule(_impl)
+        """);
+
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        my_rule(name = "my")
+        """);
 
     buildTarget("//a:my");
   }
@@ -415,31 +437,39 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     injectFile("hello".getBytes(UTF_8));
     write(
         "a/defs.bzl",
-        "def _impl(ctx):",
-        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir],",
-        "    command = 'mkdir -p $1/some/path && echo -n hello > $1/some/path/inside.txt',",
-        "    arguments = [dir.path],",
-        "  )",
-        "",
-        "  sym = ctx.actions.declare_directory(ctx.label.name + '.sym')",
-        "  ctx.actions.symlink(output = sym, target_file = dir)",
-        "",
-        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
-        "  ctx.actions.run_shell(",
-        "    inputs = [sym],",
-        "    outputs = [out],",
-        "    command = '[[ hello == $(cat $1/some/path/inside.txt) ]] && touch $2',",
-        "    arguments = [sym.path, out.path],",
-        "    execution_requirements = {'no-remote': ''},",
-        "  )",
-        "",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "my_rule = rule(_impl)");
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory(ctx.label.name + ".dir")
+            ctx.actions.run_shell(
+                outputs = [dir],
+                command = "mkdir -p $1/some/path && echo -n hello > $1/some/path/inside.txt",
+                arguments = [dir.path],
+            )
 
-    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'my')");
+            sym = ctx.actions.declare_directory(ctx.label.name + ".sym")
+            ctx.actions.symlink(output = sym, target_file = dir)
+
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run_shell(
+                inputs = [sym],
+                outputs = [out],
+                command = "[[ hello == $(cat $1/some/path/inside.txt) ]] && touch $2",
+                arguments = [sym.path, out.path],
+                execution_requirements = {"no-remote": ""},
+            )
+
+            return DefaultInfo(files = depset([out]))
+
+        my_rule = rule(_impl)
+        """);
+
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        my_rule(name = "my")
+        """);
 
     buildTarget("//a:my");
   }
@@ -644,39 +674,41 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     setDownloadToplevel();
     write(
         "rules.bzl",
-        "def _gen_impl(ctx):",
-        "  output = ctx.actions.declare_file(ctx.attr.name)",
-        "  ctx.actions.run_shell(",
-        "    outputs = [output],",
-        "    arguments = [ctx.attr.content, output.path],",
-        "    command = 'echo $1 > $2',",
-        "  )",
-        "  extra1 = ctx.actions.declare_file(ctx.attr.name + '1')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [extra1],",
-        "    arguments = [ctx.attr.content, extra1.path],",
-        "    command = 'echo $1 > $2',",
-        "  )",
-        "  extra2 = ctx.actions.declare_file(ctx.attr.name + '2')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [extra2],",
-        "    arguments = [ctx.attr.content, extra2.path],",
-        "    command = 'echo $1 > $2',",
-        "  )",
-        "  return [",
-        "    DefaultInfo(files = depset([output])),",
-        "    OutputGroupInfo(",
-        "      extra1_files = depset([extra1]),",
-        "      extra2_files = depset([extra2]),",
-        "    ),",
-        "  ]",
-        "",
-        "gen = rule(",
-        "  implementation = _gen_impl,",
-        "  attrs = {",
-        "    'content': attr.string(mandatory = True),",
-        "  }",
-        ")");
+        """
+        def _gen_impl(ctx):
+            output = ctx.actions.declare_file(ctx.attr.name)
+            ctx.actions.run_shell(
+                outputs = [output],
+                arguments = [ctx.attr.content, output.path],
+                command = "echo $1 > $2",
+            )
+            extra1 = ctx.actions.declare_file(ctx.attr.name + "1")
+            ctx.actions.run_shell(
+                outputs = [extra1],
+                arguments = [ctx.attr.content, extra1.path],
+                command = "echo $1 > $2",
+            )
+            extra2 = ctx.actions.declare_file(ctx.attr.name + "2")
+            ctx.actions.run_shell(
+                outputs = [extra2],
+                arguments = [ctx.attr.content, extra2.path],
+                command = "echo $1 > $2",
+            )
+            return [
+                DefaultInfo(files = depset([output])),
+                OutputGroupInfo(
+                    extra1_files = depset([extra1]),
+                    extra2_files = depset([extra2]),
+                ),
+            ]
+
+        gen = rule(
+            implementation = _gen_impl,
+            attrs = {
+                "content": attr.string(mandatory = True),
+            },
+        )
+        """);
     write(
         "BUILD",
         "load(':rules.bzl', 'gen')",
@@ -699,32 +731,34 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     setDownloadToplevel();
     write(
         "rules.bzl",
-        "def _gen_impl(ctx):",
-        "  output = ctx.actions.declare_file(ctx.attr.name)",
-        "  ctx.actions.run_shell(",
-        "    outputs = [output],",
-        "    arguments = [ctx.attr.content, output.path],",
-        "    command = 'echo $1 > $2',",
-        "  )",
-        "  validation_file = ctx.actions.declare_file(ctx.attr.name + '.validation')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [validation_file],",
-        "    arguments = [ctx.attr.content, validation_file.path],",
-        "    command = 'echo $1 > $2',",
-        "  )",
-        "  return [",
-        "    DefaultInfo(files = depset([output])),",
-        "    OutputGroupInfo(",
-        "      _validation = depset([validation_file]),",
-        "    ),",
-        "  ]",
-        "",
-        "gen = rule(",
-        "  implementation = _gen_impl,",
-        "  attrs = {",
-        "    'content': attr.string(mandatory = True),",
-        "  }",
-        ")");
+        """
+        def _gen_impl(ctx):
+            output = ctx.actions.declare_file(ctx.attr.name)
+            ctx.actions.run_shell(
+                outputs = [output],
+                arguments = [ctx.attr.content, output.path],
+                command = "echo $1 > $2",
+            )
+            validation_file = ctx.actions.declare_file(ctx.attr.name + ".validation")
+            ctx.actions.run_shell(
+                outputs = [validation_file],
+                arguments = [ctx.attr.content, validation_file.path],
+                command = "echo $1 > $2",
+            )
+            return [
+                DefaultInfo(files = depset([output])),
+                OutputGroupInfo(
+                    _validation = depset([validation_file]),
+                ),
+            ]
+
+        gen = rule(
+            implementation = _gen_impl,
+            attrs = {
+                "content": attr.string(mandatory = True),
+            },
+        )
+        """);
     write(
         "BUILD",
         "load(':rules.bzl', 'gen')",
@@ -1047,12 +1081,14 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   public void multiplePackagePaths_buildsSuccessfully() throws Exception {
     write(
         "../a/src/BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = [],",
-        "  outs = ['out/foo.txt'],",
-        "  cmd = 'echo foo > $@',",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            srcs = [],
+            outs = ["out/foo.txt"],
+            cmd = "echo foo > $@",
+        )
+        """);
     write(
         "BUILD",
         "genrule(",
@@ -1360,18 +1396,24 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = ['foo.in'],",
-        "  outs = ['foo.out'],",
-        "  cmd = 'cat $(SRCS) > $@',",
-        ")",
-        "genrule(",
-        "  name = 'bar',",
-        "  srcs = ['foo.out', 'bar.in'],",
-        "  outs = ['bar.out'],",
-        "  cmd = 'cat $(SRCS) > $@',",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
     write("a/foo.in", "foo");
     write("a/bar.in", "bar");
 
@@ -1412,17 +1454,24 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     writeOutputDirRule();
     write(
         "a/BUILD",
-        "load('//:output_dir.bzl', 'output_dir')",
-        "output_dir(",
-        "  name = 'foo.out',",
-        "  content_map = {'file-inside': 'hello world'},",
-        ")",
-        "genrule(",
-        "  name = 'bar',",
-        "  srcs = ['foo.out', 'bar.in'],",
-        "  outs = ['bar.out'],",
-        "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
-        ")");
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo.out",
+            content_map = {"file-inside": "hello world"},
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+        )
+        """);
     write("a/bar.in", "bar");
 
     // Populate remote cache
@@ -1458,18 +1507,24 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = ['foo.in'],",
-        "  outs = ['foo.out'],",
-        "  cmd = 'cat $(SRCS) > $@',",
-        ")",
-        "genrule(",
-        "  name = 'bar',",
-        "  srcs = ['foo.out', 'bar.in'],",
-        "  outs = ['bar.out'],",
-        "  cmd = 'cat $(SRCS) > $@',",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
     write("a/foo.in", "foo");
     write("a/bar.in", "bar");
 
@@ -1506,17 +1561,24 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     writeOutputDirRule();
     write(
         "a/BUILD",
-        "load('//:output_dir.bzl', 'output_dir')",
-        "output_dir(",
-        "  name = 'foo.out',",
-        "  content_map = {'file-inside': 'hello world'},",
-        ")",
-        "genrule(",
-        "  name = 'bar',",
-        "  srcs = ['foo.out', 'bar.in'],",
-        "  outs = ['bar.out'],",
-        "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
-        ")");
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo.out",
+            content_map = {"file-inside": "hello world"},
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+        )
+        """);
     write("a/bar.in", "bar");
 
     // Populate remote cache
@@ -1626,53 +1688,57 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   protected void writeSymlinkRule() throws IOException {
     write(
         "symlink.bzl",
-        "def _symlink_impl(ctx):",
-        "  if ctx.file.target_artifact and not ctx.attr.target_path:",
-        "    if ctx.file.target_artifact.is_directory:",
-        "      link = ctx.actions.declare_directory(ctx.attr.name)",
-        "    else:",
-        "      link = ctx.actions.declare_file(ctx.attr.name)",
-        "    ctx.actions.symlink(output = link, target_file = ctx.file.target_artifact)",
-        "  elif ctx.attr.target_path and not ctx.file.target_artifact:",
-        "    link = ctx.actions.declare_symlink(ctx.attr.name)",
-        "    ctx.actions.symlink(output = link, target_path = ctx.attr.target_path)",
-        "  else:",
-        "    fail('exactly one of target_artifact or target_path must be set')",
-        "",
-        "  return DefaultInfo(files = depset([link]))",
-        "",
-        "symlink = rule(",
-        "  implementation = _symlink_impl,",
-        "  attrs = {",
-        "    'target_artifact': attr.label(allow_single_file = True),",
-        "    'target_path': attr.string(),",
-        "  },",
-        ")");
+        """
+        def _symlink_impl(ctx):
+            if ctx.file.target_artifact and not ctx.attr.target_path:
+                if ctx.file.target_artifact.is_directory:
+                    link = ctx.actions.declare_directory(ctx.attr.name)
+                else:
+                    link = ctx.actions.declare_file(ctx.attr.name)
+                ctx.actions.symlink(output = link, target_file = ctx.file.target_artifact)
+            elif ctx.attr.target_path and not ctx.file.target_artifact:
+                link = ctx.actions.declare_symlink(ctx.attr.name)
+                ctx.actions.symlink(output = link, target_path = ctx.attr.target_path)
+            else:
+                fail("exactly one of target_artifact or target_path must be set")
+
+            return DefaultInfo(files = depset([link]))
+
+        symlink = rule(
+            implementation = _symlink_impl,
+            attrs = {
+                "target_artifact": attr.label(allow_single_file = True),
+                "target_path": attr.string(),
+            },
+        )
+        """);
   }
 
   protected void writeOutputDirRule() throws IOException {
     write(
         "output_dir.bzl",
-        "def _output_dir_impl(ctx):",
-        "  out = ctx.actions.declare_directory(ctx.attr.name)",
-        "  args = []",
-        "  for name, content in ctx.attr.content_map.items():",
-        "    args.append(out.path + '/' + name)",
-        "    args.append(content)",
-        "  ctx.actions.run_shell(",
-        "    mnemonic = 'OutputDir',",
-        "    outputs = [out],",
-        "    arguments = args,",
-        "    command = 'while (($#)); do echo -n \"$2\" > $1; shift 2; done',",
-        "  )",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "output_dir = rule(",
-        "  implementation = _output_dir_impl,",
-        "  attrs = {",
-        "    'content_map': attr.string_dict(mandatory = True),",
-        "  },",
-        ")");
+        """
+        def _output_dir_impl(ctx):
+            out = ctx.actions.declare_directory(ctx.attr.name)
+            args = []
+            for name, content in ctx.attr.content_map.items():
+                args.append(out.path + "/" + name)
+                args.append(content)
+            ctx.actions.run_shell(
+                mnemonic = "OutputDir",
+                outputs = [out],
+                arguments = args,
+                command = 'while (($#)); do echo -n "$2" > $1; shift 2; done',
+            )
+            return DefaultInfo(files = depset([out]))
+
+        output_dir = rule(
+            implementation = _output_dir_impl,
+            attrs = {
+                "content_map": attr.string_dict(mandatory = True),
+            },
+        )
+        """);
   }
 
   protected void writeCopyAspectRule(boolean aggregate) throws IOException {

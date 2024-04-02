@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.annotations.VisibleForTesting;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Ascii;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -69,7 +69,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class BlazeDirectories {
-  @VisibleForTesting static final String DEFAULT_EXEC_ROOT = "default-exec-root";
+  private static final String DEFAULT_EXEC_ROOT = "default-exec-root";
 
   private final ServerDirectories serverDirectories;
   /** Workspace root and server CWD. */
@@ -79,7 +79,6 @@ public final class BlazeDirectories {
    * fall-back host_javabase. This is not the embedded JDK.
    */
   private final Path defaultSystemJavabase;
-  /** The root of all build actions. */
   private final Path blazeExecRoot;
 
   // These two are kept to avoid creating new objects every time they are accessed. This showed up
@@ -104,9 +103,11 @@ public final class BlazeDirectories {
       if (useDefaultExecRootName) {
         // TODO(bazel-team): if workspace is null execRoot should be null, but at the moment there
         // is a lot of code that depends on it being non-null.
-        this.blazeExecRoot = getExecRootBase().getChild(DEFAULT_EXEC_ROOT);
+        this.blazeExecRoot =
+            outputBase.getChild(ServerDirectories.EXECROOT).getChild(DEFAULT_EXEC_ROOT);
       } else {
-        this.blazeExecRoot = getExecRootBase().getChild(workspace.getBaseName());
+        this.blazeExecRoot =
+            outputBase.getChild(ServerDirectories.EXECROOT).getChild(workspace.getBaseName());
       }
       this.blazeOutputPath = blazeExecRoot.getRelative(getRelativeOutputPath());
     } else {
@@ -162,22 +163,18 @@ public final class BlazeDirectories {
     return serverDirectories.getOutputBase();
   }
 
+  /** Returns the effective execution root, which may be virtualized. */
   public Path getExecRootBase() {
     return serverDirectories.getExecRootBase();
   }
 
   /**
-   * Returns the execution root of Blaze.
+   * Returns the local execution root of Google-internal Blaze. Virtualization is not respected.
    *
-   * @deprecated Avoid using this method as it will only work if your workspace is named like
-   *     Google's internal workspace. This method will not work in Bazel. Use {@link
-   *     #getExecRoot(String)} instead.
-   *     <p><em>AVOID USING THIS METHOD</em>
+   * <p>This method throws {@link NullPointerException} in Bazel. Use {@link #getExecRoot} instead.
    */
-  @Nullable
-  @Deprecated
   public Path getBlazeExecRoot() {
-    return blazeExecRoot;
+    return checkNotNull(blazeExecRoot, "No Blaze exec root in Bazel");
   }
 
   /**
@@ -190,17 +187,13 @@ public final class BlazeDirectories {
   }
 
   /**
-   * Returns the output path of Blaze.
+   * Returns the local output path of Google-internal Blaze. Virtualization is not respected.
    *
-   * @deprecated Avoid using this method as it will only work if your workspace is named like
-   *     Google's internal workspace. This method will not work in Bazel. Use {@link
-   *     #getOutputPath(String)} instead.
-   *     <p><em>AVOID USING THIS METHOD</em>
+   * <p>This method throws {@link NullPointerException} in Bazel. Use {@link #getOutputPath}
+   * instead.
    */
-  @Nullable
-  @Deprecated
   public Path getBlazeOutputPath() {
-    return blazeOutputPath;
+    return checkNotNull(blazeOutputPath, "No Blaze output path in Bazel");
   }
 
   /** Returns the output path used by this Blaze instance. */
@@ -263,25 +256,5 @@ public final class BlazeDirectories {
 
   public String getProductName() {
     return productName;
-  }
-
-  @Override
-  public int hashCode() {
-    // blazeExecRoot is derivable from other fields, but better safe than sorry.
-    return Objects.hash(serverDirectories, workspace, productName);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (!(obj instanceof BlazeDirectories)) {
-      return false;
-    }
-    BlazeDirectories that = (BlazeDirectories) obj;
-    return this.serverDirectories.equals(that.serverDirectories)
-        && this.workspace.equals(that.workspace)
-        && this.productName.equals(that.productName);
   }
 }

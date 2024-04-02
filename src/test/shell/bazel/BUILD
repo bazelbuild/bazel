@@ -230,14 +230,18 @@ sh_test(
     srcs = ["bazel_java17_test.sh"],
     args = [
         # java_tools zip to test
-        "$(rlocationpath //src:java_tools_zip)",
-        "$(rlocationpath //src:java_tools_prebuilt_zip)",
+        "$(rlocationpath //src:java_tools_java8.zip)",
+        "$(rlocationpath //src:java_tools_prebuilt_java8.zip)",
     ],
     data = [
         ":gen_rules_java_repo_name",
         ":test-deps",
-        "//src:java_tools_prebuilt_zip",
-        "//src:java_tools_zip",
+        # Use java_tools compiled at Java language 8 instead (aligned with the
+        # default compilation level of java_tools). For the purpose
+        # of this test, we need java_tools to be running with runtime >11 to
+        # test the failure modes of incompatible system classpaths.
+        "//src:java_tools_prebuilt_java8.zip",
+        "//src:java_tools_java8.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["local"],
@@ -269,11 +273,14 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
+    tags = [
+        "requires-network",  # For Bzlmod
+    ],
 )
 
-JAVA_VERSIONS = ("11", "17")
+JAVA_VERSIONS = ("11", "17", "21")
 
-JAVA_VERSIONS_COVERAGE = ("11", "17")
+JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
 
 [
     sh_test(
@@ -283,8 +290,8 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
         srcs = ["bazel_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(rlocationpath //src:java_tools_zip)",
-            "$(rlocationpath //src:java_tools_prebuilt_zip)",
+            "$(rlocationpath %s)" % ("//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip"),
+            "$(rlocationpath %s)" % ("//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip"),
             # --java_language_version value
             java_version,
             # --java_runtime_version value
@@ -293,11 +300,14 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
         data = [
             ":gen_rules_java_repo_name",
             ":test-deps",
-            "//src:java_tools_prebuilt_zip",
-            "//src:java_tools_zip",
+            "//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip",
+            "//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip",
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
+        tags = [
+            "requires-network",  # For Bzlmod
+        ],
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -322,8 +332,11 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
             ":test-deps",
             "@bazel_tools//tools/bash/runfiles",
         ],
-        # This test is only run by the java_tools binaries pipeline.
-        tags = ["manual"],
+        tags = [
+            # This test is only run by the java_tools binaries pipeline.
+            "manual",
+            "requires-network",  # For Bzlmod
+        ],
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -547,8 +560,8 @@ sh_test(
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(rlocationpath //src:java_tools_zip)",
-            "$(rlocationpath //src:java_tools_prebuilt_zip)",
+            "$(rlocationpath %s)" % ("//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip"),
+            "$(rlocationpath %s)" % ("//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip"),
             # WORKSPACE file of the coverage output generator repo to test
             "$(rlocationpath //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace)",
             # --java_runtime_version value
@@ -557,10 +570,10 @@ sh_test(
         data = [
             ":gen_rules_java_repo_name",
             ":test-deps",
-            "//src:java_tools_prebuilt_zip",
-            "//src:java_tools_zip",
+            "//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip",
+            "//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
-            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
+            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo%s" % ("" if java_version == "21" else "_java8"),
         ],
         tags = ["no_windows"],
     )
@@ -648,7 +661,6 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
-        "requires-network",  # Allow this test to access the BCR
     ],
 )
 

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultT
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -126,6 +127,7 @@ public class RuleClass implements RuleClassData {
   static final Attribute NAME_ATTRIBUTE =
       attr("name", STRING_NO_INTERN)
           .nonconfigurable("All rules have a non-customizable \"name\" attribute")
+          .mandatory()
           .build();
 
   /**
@@ -743,12 +745,12 @@ public class RuleClass implements RuleClassData {
 
     /** List of required attributes for normal rules, name and type. */
     static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_NORMAL_RULES =
-        ImmutableList.of(attr("tags", Type.STRING_LIST).build());
+        ImmutableList.of(attr("tags", Types.STRING_LIST).build());
 
     /** List of required attributes for test rules, name and type. */
     static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_TESTS =
         ImmutableList.of(
-            attr("tags", Type.STRING_LIST).build(),
+            attr("tags", Types.STRING_LIST).build(),
             attr("size", Type.STRING).build(),
             attr("timeout", Type.STRING).build(),
             attr("flaky", Type.BOOLEAN).build(),
@@ -778,7 +780,7 @@ public class RuleClass implements RuleClassData {
     private final ImmutableList.Builder<AllowlistChecker> allowlistCheckers =
         ImmutableList.builder();
     private boolean ignoreLicenses = false;
-    private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
+    private ImplicitOutputsFunction implicitOutputsFunction = SafeImplicitOutputsFunction.NONE;
     @Nullable private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
@@ -955,7 +957,7 @@ public class RuleClass implements RuleClassData {
 
       if (starlark
           && (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
-          && implicitOutputsFunction == ImplicitOutputsFunction.NONE
+          && implicitOutputsFunction == SafeImplicitOutputsFunction.NONE
           && outputsToBindir
           && !starlarkTestable
           && !isAnalysisTest
@@ -1174,7 +1176,7 @@ public class RuleClass implements RuleClassData {
 
     /**
      * Sets the implicit outputs function of the rule class. The default implicit outputs function
-     * is {@link ImplicitOutputsFunction#NONE}.
+     * is {@link SafeImplicitOutputsFunction#NONE}.
      *
      * <p>This property is not inherited and this method should not be called by builder of {@link
      * RuleClassType#ABSTRACT} rule class.
@@ -2389,7 +2391,7 @@ public class RuleClass implements RuleClassData {
         boolean explicit = true; // so that it appears in query output
         rule.setAttributeValue(
             implicitTests,
-            pkgBuilder.getTestSuiteImplicitTestsRef(attributeMapper.get("tags", Type.STRING_LIST)),
+            pkgBuilder.getTestSuiteImplicitTestsRef(attributeMapper.get("tags", Types.STRING_LIST)),
             explicit);
       }
     }

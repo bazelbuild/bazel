@@ -110,6 +110,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -185,6 +186,7 @@ public class RemoteExecutionService {
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
 
   @Nullable private final RemoteOutputChecker remoteOutputChecker;
+  private final OutputService outputService;
 
   @Nullable private final Scrubber scrubber;
 
@@ -202,7 +204,8 @@ public class RemoteExecutionService {
       @Nullable RemoteExecutionClient remoteExecutor,
       TempPathGenerator tempPathGenerator,
       @Nullable Path captureCorruptedOutputsDir,
-      @Nullable RemoteOutputChecker remoteOutputChecker) {
+      @Nullable RemoteOutputChecker remoteOutputChecker,
+      OutputService outputService) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -227,6 +230,7 @@ public class RemoteExecutionService {
 
     this.scheduler = Schedulers.from(executor, /* interruptibleWorker= */ true);
     this.remoteOutputChecker = remoteOutputChecker;
+    this.outputService = outputService;
   }
 
   private Command buildCommand(
@@ -863,15 +867,7 @@ public class RemoteExecutionService {
    * Copies moves the downloaded outputs from their download location to their declared location.
    */
   private void moveOutputsToFinalLocation(
-      List<ListenableFuture<FileMetadata>> downloads, Map<Path, Path> realToTmpPath)
-      throws IOException, InterruptedException {
-    List<FileMetadata> finishedDownloads = new ArrayList<>(downloads.size());
-    for (ListenableFuture<FileMetadata> finishedDownload : downloads) {
-      FileMetadata outputFile = getFromFuture(finishedDownload);
-      if (outputFile != null) {
-        finishedDownloads.add(outputFile);
-      }
-    }
+      List<FileMetadata> finishedDownloads, Map<Path, Path> realToTmpPath) throws IOException {
     // Move the output files from their temporary name to the actual output file name. Executable
     // bit is ignored since the file permission will be changed to 0555 after execution.
     for (FileMetadata outputFile : finishedDownloads) {
@@ -920,7 +916,7 @@ public class RemoteExecutionService {
       }
     }
 
-    static class FileMetadata {
+    public static class FileMetadata {
       private final Path path;
       private final Digest digest;
       private final boolean isExecutable;
@@ -1119,12 +1115,15 @@ public class RemoteExecutionService {
     checkState(!shutdown.get(), "shutdown");
     checkNotNull(remoteCache, "remoteCache can't be null");
 
-    FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
-    checkState(
-        actionFileSystem instanceof RemoteActionFileSystem,
-        "expected the ActionFileSystem to be a RemoteActionFileSystem");
-
-    RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
+    RemoteActionFileSystem remoteActionFileSystem = null;
+    boolean hasBazelOutputService = outputService instanceof BazelOutputService;
+    if (!hasBazelOutputService) {
+      FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
+      checkState(
+          actionFileSystem instanceof RemoteActionFileSystem,
+          "expected the ActionFileSystem to be a RemoteActionFileSystem");
+      remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
+    }
 
     ProgressStatusListener progressStatusListener = action.getSpawnExecutionContext()::report;
     RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
@@ -1176,11 +1175,16 @@ public class RemoteExecutionService {
             downloadFile(
                 context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
       } else {
-        remoteActionFileSystem.injectRemoteFile(
-            file.path().asFragment(),
-            DigestUtil.toBinaryDigest(file.digest()),
-            file.digest().getSizeBytes(),
-            expireAtEpochMilli);
+        if (hasBazelOutputService) {
+          downloadsBuilder.add(immediateFuture(file));
+        } else {
+          checkNotNull(remoteActionFileSystem)
+              .injectRemoteFile(
+                  file.path().asFragment(),
+                  DigestUtil.toBinaryDigest(file.digest()),
+                  file.digest().getSizeBytes(),
+                  expireAtEpochMilli);
+        }
 
         if (isInMemoryOutputFile) {
           downloadsBuilder.add(
@@ -1208,11 +1212,16 @@ public class RemoteExecutionService {
               downloadFile(
                   context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
         } else {
-          remoteActionFileSystem.injectRemoteFile(
-              file.path().asFragment(),
-              DigestUtil.toBinaryDigest(file.digest()),
-              file.digest().getSizeBytes(),
-              expireAtEpochMilli);
+          if (hasBazelOutputService) {
+            downloadsBuilder.add(immediateFuture(file));
+          } else {
+            checkNotNull(remoteActionFileSystem)
+                .injectRemoteFile(
+                    file.path().asFragment(),
+                    DigestUtil.toBinaryDigest(file.digest()),
+                    file.digest().getSizeBytes(),
+                    expireAtEpochMilli);
+          }
         }
       }
     }
@@ -1249,7 +1258,20 @@ public class RemoteExecutionService {
     tmpOutErr.clearOut();
     tmpOutErr.clearErr();
 
-    moveOutputsToFinalLocation(downloads, realToTmpPath);
+    List<FileMetadata> finishedDownloads = new ArrayList<>(downloads.size());
+    for (ListenableFuture<FileMetadata> finishedDownload : downloads) {
+      FileMetadata outputFile = getFromFuture(finishedDownload);
+      if (outputFile != null) {
+        finishedDownloads.add(outputFile);
+      }
+    }
+
+    if (hasBazelOutputService) {
+      // TODO(chiwang): Stage directories directly
+      ((BazelOutputService) outputService).stageArtifacts(finishedDownloads);
+    } else {
+      moveOutputsToFinalLocation(finishedDownloads, realToTmpPath);
+    }
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
     for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
@@ -1306,6 +1328,10 @@ public class RemoteExecutionService {
   }
 
   private boolean shouldDownload(RemoteActionResult result, PathFragment execPath) {
+    if (outputService instanceof BazelOutputService) {
+      return false;
+    }
+
     // In case the action failed, download all outputs. It might be helpful for debugging and there
     // is no point in injecting output metadata of a failed action.
     if (result.getExitCode() != 0) {
@@ -1477,7 +1503,8 @@ public class RemoteExecutionService {
               .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
           merkleTree,
           additionalInputs,
-          force);
+          force,
+          reporter);
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }

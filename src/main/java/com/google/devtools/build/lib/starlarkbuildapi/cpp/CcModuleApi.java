@@ -591,18 +591,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "pdb_file",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound"),
-        @Param(
-            name = "win_def_file",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound"),
-        @Param(
             name = "use_shareable_artifact_factory",
             documented = false,
             positional = false,
@@ -645,8 +633,6 @@ public interface CcModuleApi<
       Object mainOutput,
       Object linkerOutputs,
       Object useTestOnlyFlags,
-      Object pdbFile,
-      Object winDefFile,
       Object useShareableArtifactFactory,
       Object buildConfig,
       StarlarkThread thread)
@@ -839,9 +825,11 @@ public interface CcModuleApi<
             positional = false),
       },
       useStarlarkThread = true)
-  boolean isEnabled(
+  default boolean isEnabled(
       FeatureConfigurationT featureConfiguration, String featureName, StarlarkThread thread)
-      throws EvalException;
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "action_is_enabled",
@@ -1166,12 +1154,6 @@ public interface CcModuleApi<
             named = true,
             positional = false,
             defaultValue = "None"),
-        @Param(
-            name = "def_file",
-            doc = "Optional .def file path.",
-            named = true,
-            positional = false,
-            defaultValue = "None"),
         // TODO(b/65151735): Remove once we migrate crosstools to features
         @Param(
             name = "is_using_linker",
@@ -1225,14 +1207,13 @@ public interface CcModuleApi<
       Object userLinkFlags,
       Object outputFile,
       Object paramFile,
-      Object defFile,
       boolean isUsingLinkerNotArchiver,
       boolean isCreatingSharedLibrary,
       boolean mustKeepDebug,
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
       StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      throws EvalException;
 
   @StarlarkMethod(name = "empty_variables", documented = false, useStarlarkThread = true)
   CcToolchainVariablesT getVariables(StarlarkThread thread) throws EvalException;
@@ -1860,12 +1841,21 @@ public interface CcModuleApi<
             name = "target_libc",
             positional = false,
             named = true,
-            doc = "The libc version string (e.g. \"glibc-2.2.2\")."),
+            doc =
+                "The libc version string (e.g. \"glibc-2.2.2\"). If the string is \"macosx\","
+                    + " platform is assumed to be MacOS. Otherwise, Linux"),
         @Param(
             name = "compiler",
             positional = false,
             named = true,
-            doc = "The compiler version string (e.g. \"gcc-4.1.1\")."),
+            doc =
+                "The compiler string (e.g. \"gcc\"). The current toolchain's compiler"
+                    + " is exposed to `@bazel_tools//tools/cpp:compiler (compiler_flag)` as a flag"
+                    + " value. Targets that require compiler-specific flags can use the"
+                    + " config_settings in"
+                    + " https://github.com/bazelbuild/rules_cc/blob/main/cc/compiler/BUILD in"
+                    + " select() statements or create custom config_setting if the existing"
+                    + " settings don't suffice."),
         @Param(
             name = "abi_version",
             positional = false,
@@ -2026,12 +2016,6 @@ public interface CcModuleApi<
             documented = false,
             defaultValue = "unbound"),
         @Param(
-            name = "win_def_file",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound"),
-        @Param(
             name = "test_only_target",
             positional = false,
             named = true,
@@ -2055,7 +2039,6 @@ public interface CcModuleApi<
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
-      Object winDefFile,
       Object testOnlyTarget,
       StarlarkThread thread)
       throws InterruptedException, EvalException;

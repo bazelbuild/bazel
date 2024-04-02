@@ -623,13 +623,17 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
   private FileStatus statInternal(PathFragment path, FollowMode followMode, StatSources statSources)
       throws IOException {
     // Canonicalize the path.
-    if (followMode == FollowMode.FOLLOW_ALL) {
-      path = resolveSymbolicLinks(path).asFragment();
-    } else if (followMode == FollowMode.FOLLOW_PARENT) {
-      PathFragment parent = path.getParentDirectory();
-      if (parent != null) {
-        path = resolveSymbolicLinks(parent).asFragment().getChild(path.getBaseName());
+    try {
+      if (followMode == FollowMode.FOLLOW_ALL) {
+        path = resolveSymbolicLinks(path).asFragment();
+      } else if (followMode == FollowMode.FOLLOW_PARENT) {
+        PathFragment parent = path.getParentDirectory();
+        if (parent != null) {
+          path = resolveSymbolicLinks(parent).asFragment().getChild(path.getBaseName());
+        }
       }
+    } catch (FileNotFoundException e) {
+      return null;
     }
 
     // Since the path has been canonicalized, the operations below never need to follow symlinks.

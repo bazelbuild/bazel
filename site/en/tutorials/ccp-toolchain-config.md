@@ -35,7 +35,7 @@ Set up your build environment as follows:
 1.  If you have not already done so,
    [download and install Bazel 7.0.2](https://bazel.build/install) or later.
 
-2. Add an empty `WORKSPACE` file at the root folder.
+2.  Add an empty `WORKSPACE` file at the root folder.
 
 3.  Add the following `cc_binary` target to the `main/BUILD` file:
 
@@ -63,6 +63,7 @@ Set up your build environment as follows:
     The build succeeds without any toolchain registered in the `WORKSPACE`.
 
     To further see what's under the hood, run:
+
     ```bash
     bazel build //main:hello-world --toolchain_resolution_debug='@bazel_tools//tools/cpp:toolchain_type'
 
@@ -86,7 +87,7 @@ resolution.
 It also assumes `clang version 9.0.1`, although the details should only change
 slightly between different versions of clang.
 
-1. Add `toolchain/BUILD` with
+1.  Add `toolchain/BUILD` with
 
     ```python
     filegroup(name = "empty")
@@ -122,7 +123,7 @@ slightly between different versions of clang.
 
     ```python
     register_toolchains(
-      "//toolchain:cc_toolchain_for_linux_x86_64"
+        "//toolchain:cc_toolchain_for_linux_x86_64"
     )
     ```
 
@@ -246,6 +247,7 @@ slightly between different versions of clang.
                 path = "/bin/false",
             ),
         ]
+
         return cc_common.create_cc_toolchain_config_info(
             ctx = ctx,
             toolchain_identifier = "local",
@@ -265,43 +267,44 @@ slightly between different versions of clang.
 
 6.  Run the build again. Bazel throws the following error:
 
-     ```bash
+    ```bash
     ERROR: main/BUILD:3:10: Compiling main/hello-world.cc failed: absolute path inclusion(s) found in rule '//main:hello-world':
     the source file 'main/hello-world.cc' includes the following non-builtin files with absolute paths (if these are builtin files, make sure these paths are in your toolchain):
       '/usr/include/c++/13/ctime'
       '/usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h'
       '/usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h'
       ...
-     ```
-     Bazel needs to know where to search for included headers. There are
-     multiple ways to solve this, such as using the `includes` attribute of
-     `cc_binary`, but here this is solved at the toolchain level with the
-     [`cxx_builtin_include_directories`](/rules/lib/toplevel/cc_common#create_cc_toolchain_config_info)
-     parameter of `cc_common.create_cc_toolchain_config_info`. Beware that if
-     you are using a different version of `clang`, the include path will be
-     different. These paths may also be different depending on the distribution.
+    ```
 
-     Modify the return value in `toolchain/cc_toolchain_config.bzl` to look
-     like this:
+    Bazel needs to know where to search for included headers. There are
+    multiple ways to solve this, such as using the `includes` attribute of
+    `cc_binary`, but here this is solved at the toolchain level with the
+    [`cxx_builtin_include_directories`](/rules/lib/toplevel/cc_common#create_cc_toolchain_config_info)
+    parameter of `cc_common.create_cc_toolchain_config_info`. Beware that if
+    you are using a different version of `clang`, the include path will be
+    different. These paths may also be different depending on the distribution.
 
-     ```python
-     return cc_common.create_cc_toolchain_config_info(
-          ctx = ctx,
-          cxx_builtin_include_directories = [ # NEW
+    Modify the return value in `toolchain/cc_toolchain_config.bzl` to look
+    like this:
+
+    ```python
+    return cc_common.create_cc_toolchain_config_info(
+        ctx = ctx,
+        cxx_builtin_include_directories = [ # NEW
             "/usr/lib/llvm-16/lib/clang/16/include",
             "/usr/include",
-          ],
-          toolchain_identifier = "local",
-          host_system_name = "local",
-          target_system_name = "local",
-          target_cpu = "k8",
-          target_libc = "unknown",
-          compiler = "clang",
-          abi_version = "unknown",
-          abi_libc_version = "unknown",
-          tool_paths = tool_paths,
-     )
-     ```
+        ],
+        toolchain_identifier = "local",
+        host_system_name = "local",
+        target_system_name = "local",
+        target_cpu = "k8",
+        target_libc = "unknown",
+        compiler = "clang",
+        abi_version = "unknown",
+        abi_libc_version = "unknown",
+        tool_paths = tool_paths,
+    )
+    ```
 
 7. Run the build command again, you will see an error like:
 
@@ -309,127 +312,129 @@ slightly between different versions of clang.
     /usr/bin/ld: bazel-out/k8-fastbuild/bin/main/_objs/hello-world/hello-world.o: in function `print_localtime()':
     hello-world.cc:(.text+0x68): undefined reference to `std::cout'
     ```
+
     The reason for this is because the linker is missing the C++ standard
     library and it can't find its symbols. There are many ways to solve this,
     such as using the `linkopts` attribute of `cc_binary`. Here it is solved by
     making sure that any target using the toolchain doesn't have to specify
     this flag.
 
-    Copy the following code to `cc_toolchain_config.bzl`:
-
-     ```python
-      # NEW
-      load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
-      # NEW
-      load(
-          "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
-          "feature",
-          "flag_group",
-          "flag_set",
-          "tool_path",
-      )
-
-      all_link_actions = [ # NEW
-          ACTION_NAMES.cpp_link_executable,
-          ACTION_NAMES.cpp_link_dynamic_library,
-          ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-      ]
-
-      def _impl(ctx):
-          tool_paths = [
-              tool_path(
-                  name = "gcc",
-                  path = "/usr/bin/clang",
-              ),
-              tool_path(
-                  name = "ld",
-                  path = "/usr/bin/ld",
-              ),
-              tool_path(
-                  name = "ar",
-                  path = "/bin/false",
-              ),
-              tool_path(
-                  name = "cpp",
-                  path = "/bin/false",
-              ),
-              tool_path(
-                  name = "gcov",
-                  path = "/bin/false",
-              ),
-              tool_path(
-                  name = "nm",
-                  path = "/bin/false",
-              ),
-              tool_path(
-                  name = "objdump",
-                  path = "/bin/false",
-              ),
-              tool_path(
-                  name = "strip",
-                  path = "/bin/false",
-              ),
-          ]
-
-          features = [ # NEW
-              feature(
-                  name = "default_linker_flags",
-                  enabled = True,
-                  flag_sets = [
-                      flag_set(
-                          actions = all_link_actions,
-                          flag_groups = ([
-                              flag_group(
-                                  flags = [
-                                      "-lstdc++",
-                                  ],
-                              ),
-                          ]),
-                      ),
-                  ],
-              ),
-          ]
-
-          return cc_common.create_cc_toolchain_config_info(
-              ctx = ctx,
-              features = features, # NEW
-              cxx_builtin_include_directories = [
-                  "/usr/lib/llvm-9/lib/clang/9.0.1/include",
-                  "/usr/include",
-              ],
-              toolchain_identifier = "local",
-              host_system_name = "local",
-              target_system_name = "local",
-              target_cpu = "k8",
-              target_libc = "unknown",
-              compiler = "clang",
-              abi_version = "unknown",
-              abi_libc_version = "unknown",
-              tool_paths = tool_paths,
-          )
-
-      cc_toolchain_config = rule(
-          implementation = _impl,
-          attrs = {},
-          provides = [CcToolchainConfigInfo],
-      )
-     ```
-8. Running `bazel build //main:hello-world`, it should finally build the binary successfully for host.
-
-9. In `toolchain/BUILD`, copy the `cc_toolchain_config`, `cc_toolchain`, and
-  `toolchain` targets and replace `linux_x86_64` with `android_x86_64`in target
-  names.
-
-  In `WORKSPACE`, register the toolchain for android
+    Copy the following code to `toolchain/cc_toolchain_config.bzl`:
 
     ```python
-    register_toolchains(
-      "//toolchain:cc_toolchain_for_linux_x86_64",
-      "//toolchain:cc_toolchain_for_android_x86_64"
+    # NEW
+    load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+    # NEW
+    load(
+        "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
+        "feature",    # NEW
+        "flag_group", # NEW
+        "flag_set",   # NEW
+        "tool_path",
+    )
+
+    all_link_actions = [ # NEW
+        ACTION_NAMES.cpp_link_executable,
+        ACTION_NAMES.cpp_link_dynamic_library,
+        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+    ]
+
+    def _impl(ctx):
+        tool_paths = [
+            tool_path(
+                name = "gcc",
+                path = "/usr/bin/clang",
+            ),
+            tool_path(
+                name = "ld",
+                path = "/usr/bin/ld",
+            ),
+            tool_path(
+                name = "ar",
+                path = "/bin/false",
+            ),
+            tool_path(
+                name = "cpp",
+                path = "/bin/false",
+            ),
+            tool_path(
+                name = "gcov",
+                path = "/bin/false",
+            ),
+            tool_path(
+                name = "nm",
+                path = "/bin/false",
+            ),
+            tool_path(
+                name = "objdump",
+                path = "/bin/false",
+            ),
+            tool_path(
+                name = "strip",
+                path = "/bin/false",
+            ),
+        ]
+
+        features = [ # NEW
+            feature(
+                name = "default_linker_flags",
+                enabled = True,
+                flag_sets = [
+                    flag_set(
+                        actions = all_link_actions,
+                        flag_groups = ([
+                            flag_group(
+                                flags = [
+                                    "-lstdc++",
+                                ],
+                            ),
+                        ]),
+                    ),
+                ],
+            ),
+        ]
+
+        return cc_common.create_cc_toolchain_config_info(
+            ctx = ctx,
+            features = features, # NEW
+            cxx_builtin_include_directories = [
+                "/usr/lib/llvm-9/lib/clang/9.0.1/include",
+                "/usr/include",
+            ],
+            toolchain_identifier = "local",
+            host_system_name = "local",
+            target_system_name = "local",
+            target_cpu = "k8",
+            target_libc = "unknown",
+            compiler = "clang",
+            abi_version = "unknown",
+            abi_libc_version = "unknown",
+            tool_paths = tool_paths,
+        )
+
+    cc_toolchain_config = rule(
+        implementation = _impl,
+        attrs = {},
+        provides = [CcToolchainConfigInfo],
     )
     ```
 
-10. Run `bazel build //main:hello-world --platforms=android_x86_64` to build the binary for Android.
+8.  Running `bazel build //main:hello-world`, it should finally build the binary successfully for host.
+
+9.  In `toolchain/BUILD`, copy the `cc_toolchain_config`, `cc_toolchain`, and
+    `toolchain` targets and replace `linux_x86_64` with `android_x86_64`in target
+    names.
+
+    In `WORKSPACE`, register the toolchain for android
+
+    ```python
+    register_toolchains(
+        "//toolchain:cc_toolchain_for_linux_x86_64",
+        "//toolchain:cc_toolchain_for_android_x86_64"
+    )
+    ```
+
+10. Run `bazel build //main:hello-world --android_platforms=//toolchain:android_x86_64` to build the binary for Android.
 
 In practice, Linux and Android should have different C++ toolchain configs. You
 can either modify the existing `cc_toolchain_config` for the differences or
@@ -443,8 +448,9 @@ toolchains are more powerful than this simple example.
 
 The key take-aways are:
 
-- You need to specify a `--platforms` flag in the command line for Bazel to
+- You need to specify a matching `platforms` flag in the command line for Bazel to
   resolve to the toolchain for the same constraint values on the platform.
+  The documentation holds more [information about language specific configuration flags](/concepts/platforms).
 - You have to let the toolchain know where the tools live. In this tutorial
   there is a simplified version where you access the tools from the system. If
   you are interested in a more self-contained approach, you can read about

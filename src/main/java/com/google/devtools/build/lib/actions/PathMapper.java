@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.actions.CommandLine.ArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -116,8 +117,9 @@ public abstract class PathMapper {
    * <p>This method allows implementations to hard-code support for specific command line entries
    * for specific Starlark actions.
    */
-  public Iterable<String> mapCustomStarlarkArgs(Iterable<String> args) {
-    return args;
+
+  default ArgChunk mapCustomStarlarkArgs(ArgChunk chunk) {
+    return chunk;
   }
 
   /**
