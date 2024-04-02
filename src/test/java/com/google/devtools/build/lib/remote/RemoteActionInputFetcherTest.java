@@ -72,7 +72,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
   protected AbstractActionInputPrefetcher createPrefetcher(Map<HashCode, byte[]> cas) {
     RemoteCache remoteCache = newCache(options, digestUtil, cas);
     return new RemoteActionInputFetcher(
-        new Reporter(new EventBus()),
+        new Reporter(eventBus),
         "none",
         "none",
         remoteCache,
