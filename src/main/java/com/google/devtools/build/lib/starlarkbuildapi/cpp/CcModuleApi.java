@@ -825,9 +825,11 @@ public interface CcModuleApi<
             positional = false),
       },
       useStarlarkThread = true)
-  boolean isEnabled(
+  default boolean isEnabled(
       FeatureConfigurationT featureConfiguration, String featureName, StarlarkThread thread)
-      throws EvalException;
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "action_is_enabled",

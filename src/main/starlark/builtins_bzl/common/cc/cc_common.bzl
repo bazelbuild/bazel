@@ -197,7 +197,7 @@ def _get_execution_requirements(*, feature_configuration, action_name):
     return cc_common_internal.get_execution_requirements(feature_configuration = feature_configuration, action_name = action_name)
 
 def _is_enabled(*, feature_configuration, feature_name):
-    return cc_common_internal.is_enabled(feature_configuration = feature_configuration, feature_name = feature_name)
+    return feature_configuration.is_enabled(feature_name)
 
 def _action_is_enabled(*, feature_configuration, action_name):
     return cc_common_internal.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name)

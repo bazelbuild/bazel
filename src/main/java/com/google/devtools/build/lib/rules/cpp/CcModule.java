@@ -256,16 +256,6 @@ public abstract class CcModule
   }
 
   @Override
-  public boolean isEnabled(
-      FeatureConfigurationForStarlark featureConfiguration,
-      String featureName,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return featureConfiguration.getFeatureConfiguration().isEnabled(featureName);
-  }
-
-  @Override
   public boolean actionIsEnabled(
       FeatureConfigurationForStarlark featureConfiguration,
       String actionName,
