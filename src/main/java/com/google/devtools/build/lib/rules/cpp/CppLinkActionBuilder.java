@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -206,6 +205,10 @@ public class CppLinkActionBuilder {
   boolean includeLinkStaticInLtoIndexing;
   PathFragment ltoOutputRootPrefix = null;
   PathFragment ltoObjRootPrefix = null;
+
+  // LTO variables computed in buildIndexingAction
+  @Nullable Artifact thinltoParamFile = null;
+  @Nullable Artifact thinltoMergedObjectFile = null;
 
   /**
    * Creates a builder that builds {@link CppLinkAction}s.
@@ -648,16 +651,61 @@ public class CppLinkActionBuilder {
     NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries =
         computeLtoIndexingUniqueLibraries(libraries.build(), includeLinkStaticInLtoIndexing);
 
+    PathFragment outputRootPath =
+        output.getOutputDirRelativePath(
+            linkActionConstruction.getConfig().isSiblingRepositoryLayout());
+
+    // Create artifact for the file that the LTO indexing step will emit
+    // object file names into for any that were included in the link as
+    // determined by the linker's symbol resolution. It will be used to
+    // provide the inputs for the subsequent final native object link.
+    // Note that the paths emitted into this file will have their prefixes
+    // replaced with the final output directory, so they will be the paths
+    // of the native object files not the input bitcode files.
+    PathFragment linkerParamFileRootPath = ParameterFile.derivePath(outputRootPath, "lto-final");
+    thinltoParamFile = linkActionConstruction.create(linkerParamFileRootPath);
+
+    // Create artifact for the merged object file, which is an object file that is created
+    // during the LTO indexing step and needs to be passed to the final link.
+    PathFragment thinltoMergedObjectFileRootPath =
+        outputRootPath.replaceName(outputRootPath.getBaseName() + ".lto.merged.o");
+    thinltoMergedObjectFile = linkActionConstruction.create(thinltoMergedObjectFileRootPath);
+
+    ImmutableSet.Builder<Artifact> actionOutputsBuilder = ImmutableSet.builder();
+    for (LtoBackendArtifacts ltoA : allLtoArtifacts) {
+      ltoA.addIndexingOutputs(actionOutputsBuilder);
+    }
+    actionOutputsBuilder.add(thinltoParamFile);
+    actionOutputsBuilder.add(thinltoMergedObjectFile);
+    addObjectFile(thinltoMergedObjectFile);
+
     return buildLinkAction(
         /* isLtoIndexing= */ true,
         objectFileInputs,
         uniqueLibraries,
         /* ltoMapping= */ ImmutableMap.of(),
-        /* linkstampMap= */ ImmutableMap.of());
+        /* linkstampMap= */ ImmutableMap.of(),
+        /* linkstampObjectFileInputs */ ImmutableSet.of(),
+        /* linkstampObjectArtifacts= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* actionOutputs= */ actionOutputsBuilder.build());
   }
 
   /** Builds the Action as configured and returns it. */
-  public CppLinkAction build() throws InterruptedException, EvalException {
+  public CppLinkAction build() throws EvalException {
+    Preconditions.checkNotNull(featureConfiguration);
+
+    // Executable links do not have library identifiers.
+    boolean hasIdentifier = (libraryIdentifier != null);
+    boolean isExecutable = linkType.isExecutable();
+    Preconditions.checkState(hasIdentifier != isExecutable);
+    if (interfaceOutput != null && !linkType.isDynamicLibrary()) {
+      throw Starlark.errorf("Interface output can only be used with DYNAMIC_LIBRARY targets");
+    }
+    if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
+      throw Starlark.errorf(
+          "Expected action_config for '%s' to be configured", linkType.getActionName());
+    }
+
     Map<Artifact, Artifact> ltoMapping = new HashMap<>();
 
     /* We're doing 4-phased lto build, and this is the final link action (4-th phase). */
@@ -670,50 +718,10 @@ public class CppLinkActionBuilder {
     ImmutableSet<Linkstamp> linkstamps = linkstampsBuilder.build();
     final ImmutableMap<Linkstamp, Artifact> linkstampMap =
         mapLinkstampsToOutputs(linkstamps, linkActionConstruction, output);
+    ImmutableSet<LinkerInput> linkstampObjectFileInputs =
+        ImmutableSet.copyOf(LinkerInputs.linkstampLinkerInputs(linkstampMap.values()));
 
-    return buildLinkAction(
-        /* isLtoIndexing= */ false,
-        ImmutableSet.copyOf(objectFiles),
-        libraries.build(),
-        ltoMapping,
-        linkstampMap);
-  }
-
-  private CppLinkAction buildLinkAction(
-      boolean isLtoIndexing,
-      ImmutableSet<LinkerInput> objectFileInputs,
-      NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries,
-      Map<Artifact, Artifact> ltoMapping,
-      ImmutableMap<Linkstamp, Artifact> linkstampMap)
-      throws EvalException {
-
-    // Executable links do not have library identifiers.
-    boolean hasIdentifier = (libraryIdentifier != null);
-    boolean isExecutable = linkType.isExecutable();
-    Preconditions.checkState(hasIdentifier != isExecutable);
-    Preconditions.checkNotNull(featureConfiguration);
-
-    if (interfaceOutput != null && !linkType.isDynamicLibrary()) {
-      throw Starlark.errorf("Interface output can only be used with DYNAMIC_LIBRARY targets");
-    }
-
-    if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
-      throw Starlark.errorf(
-          "Expected action_config for '%s' to be configured", linkType.getActionName());
-    }
-
-    boolean needWholeArchive =
-        wholeArchive
-            || needWholeArchive(
-                featureConfiguration, linkingMode, linkType, linkopts, cppConfiguration);
-
-    ImmutableSet<LinkerInput> linkstampObjectFileInputs;
-    if (isLtoIndexing) {
-      linkstampObjectFileInputs = ImmutableSet.of();
-    } else {
-      linkstampObjectFileInputs =
-          ImmutableSet.copyOf(LinkerInputs.linkstampLinkerInputs(linkstampMap.values()));
-    }
+    ImmutableSet<LinkerInput> objectFileInputs = ImmutableSet.copyOf(objectFiles);
 
     NestedSet<Artifact> objectArtifacts =
         getArtifactsPossiblyLtoMapped(objectFileInputs, ltoMapping);
@@ -726,79 +734,66 @@ public class CppLinkActionBuilder {
             .addAll(linkstampObjectArtifacts.toList())
             .build();
 
-    if (!isLtoIndexing) {
-      outputLibrary =
-          linkType.isExecutable()
-              ? null
-              : LinkerInputs.newInputLibrary(
-                  output,
-                  linkType.getLinkerOutput(),
-                  libraryIdentifier,
-                  linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
-                      ? combinedObjectArtifacts
-                      : ImmutableSet.of(),
-                  linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
-                      ? ltoCompilationContext
-                      : LtoCompilationContext.EMPTY,
-                  createSharedNonLtoArtifacts(),
-                  /* mustKeepDebug= */ false);
-      interfaceOutputLibrary =
-          (interfaceOutput == null)
-              ? null
-              : LinkerInputs.newInputLibrary(
-                  interfaceOutput,
-                  ArtifactCategory.DYNAMIC_LIBRARY,
-                  libraryIdentifier,
-                  combinedObjectArtifacts,
-                  ltoCompilationContext,
-                  /* sharedNonLtoBackends= */ null,
-                  /* mustKeepDebug= */ false);
+    outputLibrary =
+        linkType.isExecutable()
+            ? null
+            : LinkerInputs.newInputLibrary(
+                output,
+                linkType.getLinkerOutput(),
+                libraryIdentifier,
+                linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
+                    ? combinedObjectArtifacts
+                    : ImmutableSet.of(),
+                linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
+                    ? ltoCompilationContext
+                    : LtoCompilationContext.EMPTY,
+                createSharedNonLtoArtifacts(),
+                /* mustKeepDebug= */ false);
+    interfaceOutputLibrary =
+        (interfaceOutput == null)
+            ? null
+            : LinkerInputs.newInputLibrary(
+                interfaceOutput,
+                ArtifactCategory.DYNAMIC_LIBRARY,
+                libraryIdentifier,
+                combinedObjectArtifacts,
+                ltoCompilationContext,
+                /* sharedNonLtoBackends= */ null,
+                /* mustKeepDebug= */ false);
+
+    ImmutableSet.Builder<Artifact> actionOutputsBuilder =
+        new ImmutableSet.Builder<Artifact>().add(output).addAll(linkActionOutputs.build());
+    if (interfaceOutput != null) {
+      actionOutputsBuilder.add(interfaceOutput);
     }
 
-    @Nullable Artifact thinltoParamFile = null;
-    @Nullable Artifact thinltoMergedObjectFile = null;
-    PathFragment outputRootPath =
-        output.getOutputDirRelativePath(
-            linkActionConstruction.getConfig().isSiblingRepositoryLayout());
-    if (allowLtoIndexing && allLtoArtifacts != null) {
-      // Create artifact for the file that the LTO indexing step will emit
-      // object file names into for any that were included in the link as
-      // determined by the linker's symbol resolution. It will be used to
-      // provide the inputs for the subsequent final native object link.
-      // Note that the paths emitted into this file will have their prefixes
-      // replaced with the final output directory, so they will be the paths
-      // of the native object files not the input bitcode files.
-      PathFragment linkerParamFileRootPath = ParameterFile.derivePath(outputRootPath, "lto-final");
-      thinltoParamFile = linkActionConstruction.create(linkerParamFileRootPath);
+    return buildLinkAction(
+        /* isLtoIndexing= */ false,
+        objectFileInputs,
+        libraries.build(),
+        ltoMapping,
+        linkstampMap,
+        linkstampObjectFileInputs,
+        linkstampObjectArtifacts,
+        actionOutputsBuilder.build());
+  }
 
-      // Create artifact for the merged object file, which is an object file that is created
-      // during the LTO indexing step and needs to be passed to the final link.
-      PathFragment thinltoMergedObjectFileRootPath =
-          outputRootPath.replaceName(outputRootPath.getBaseName() + ".lto.merged.o");
-      thinltoMergedObjectFile = linkActionConstruction.create(thinltoMergedObjectFileRootPath);
-    }
+  private CppLinkAction buildLinkAction(
+      boolean isLtoIndexing,
+      ImmutableSet<LinkerInput> objectFileInputs,
+      NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries,
+      Map<Artifact, Artifact> ltoMapping,
+      ImmutableMap<Linkstamp, Artifact> linkstampMap,
+      ImmutableSet<LinkerInput> linkstampObjectFileInputs,
+      NestedSet<Artifact> linkstampObjectArtifacts,
+      ImmutableSet<Artifact> actionOutputs)
+      throws EvalException {
+    Preconditions.checkNotNull(featureConfiguration);
 
-    final ImmutableSet<Artifact> actionOutputs;
-    if (isLtoIndexing) {
-      ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
-      for (LtoBackendArtifacts ltoA : allLtoArtifacts) {
-        ltoA.addIndexingOutputs(builder);
-      }
-      if (thinltoParamFile != null) {
-        builder.add(thinltoParamFile);
-      }
-      if (thinltoMergedObjectFile != null) {
-        builder.add(thinltoMergedObjectFile);
-        addObjectFile(thinltoMergedObjectFile);
-      }
-      actionOutputs = builder.build();
-    } else {
-      actionOutputs =
-          constructOutputs(
-              output,
-              linkActionOutputs.build(),
-              interfaceOutputLibrary == null ? null : interfaceOutputLibrary.getArtifact());
-    }
+    boolean needWholeArchive =
+        wholeArchive
+            || needWholeArchive(
+                featureConfiguration, linkingMode, linkType, linkopts, cppConfiguration);
 
     // Linker inputs without any start/end lib expansions.
     Iterable<LinkerInput> nonExpandedLinkerInputs =
@@ -815,9 +810,7 @@ public class CppLinkActionBuilder {
                     /* disableWholeArchive= */ true)));
 
     Preconditions.checkArgument(linkActionConstruction.getContext() instanceof RuleContext);
-    Preconditions.checkState(!isLtoIndexing || allowLtoIndexing);
-    Preconditions.checkState(allowLtoIndexing || thinltoParamFile == null);
-    Preconditions.checkState(allowLtoIndexing || thinltoMergedObjectFile == null);
+
     PathFragment solibDir =
         linkActionConstruction
             .getBinDirectory()
@@ -1025,9 +1018,9 @@ public class CppLinkActionBuilder {
       }
 
       inputsBuilder.addAll(linkstampMap.values());
-    }
 
-    inputsBuilder.addTransitive(linkstampObjectArtifacts);
+      inputsBuilder.addTransitive(linkstampObjectArtifacts);
+    }
 
     return new CppLinkAction(
         getOwner(),
@@ -1117,15 +1110,6 @@ public class CppLinkActionBuilder {
     }
     // Hopefully future default.
     return false;
-  }
-
-  private static ImmutableSet<Artifact> constructOutputs(
-      Artifact primaryOutput, Iterable<Artifact> outputList, Artifact... outputs) {
-    return new ImmutableSet.Builder<Artifact>()
-        .add(primaryOutput)
-        .addAll(outputList)
-        .addAll(CollectionUtils.asSetWithoutNulls(outputs))
-        .build();
   }
 
   /**
