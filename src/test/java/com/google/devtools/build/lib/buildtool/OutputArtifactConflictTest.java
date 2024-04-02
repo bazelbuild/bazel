@@ -21,9 +21,9 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.TargetCompletedId;
@@ -588,20 +588,14 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     ViewCreationFailedException e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
-    assertThat(e)
-        .hasCauseThat()
-        .hasCauseThat()
-        .isInstanceOf(MutableActionGraph.ActionConflictException.class);
+    assertThat(e).hasCauseThat().hasCauseThat().isInstanceOf(ActionConflictException.class);
     assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
     eventListener.failedTargetNames.clear();
 
     e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
-    assertThat(e)
-        .hasCauseThat()
-        .hasCauseThat()
-        .isInstanceOf(MutableActionGraph.ActionConflictException.class);
+    assertThat(e).hasCauseThat().hasCauseThat().isInstanceOf(ActionConflictException.class);
     assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
   }
 
