@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.downloader.DownloaderTestUtils.sendLines;
 import static com.google.devtools.build.lib.bazel.repository.downloader.HttpParser.readHttpRequest;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
