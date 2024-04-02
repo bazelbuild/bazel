@@ -129,7 +129,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   }
 
   private void addDsymVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringVariable(DSYM_PATH_VARIABLE_NAME, getShellEscapedExecPathString(dsymSymbol));
+    builder.addStringVariable(DSYM_PATH_VARIABLE_NAME, dsymSymbol.getExecPathString());
   }
 
   private void addLinkmapVariables(CcToolchainVariables.Builder builder) {
