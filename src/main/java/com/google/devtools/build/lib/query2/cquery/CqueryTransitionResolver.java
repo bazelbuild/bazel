@@ -55,10 +55,9 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * TransitionResolver resolves the dependencies of a ConfiguredTarget, reporting which
+ * TransitionResolver resolves the dependencies of a {@link ConfiguredTarget}, reporting which
  * configurations its dependencies are actually needed in according to the transitions applied to
- * them. This class has been extracted from TransitionsOutputFormatterCallback.java so that it can
- * be used in both ProtoOutputFormatterCallback and TransitionsOutputFormatterCallback
+ * them. See {@link TransitionsOutputFormatterCallback}.
  */
 public class CqueryTransitionResolver {
 

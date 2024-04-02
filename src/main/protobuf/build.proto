@@ -338,9 +338,16 @@ message Rule {
   repeated string definition_stack = 14;
 }
 
+// Direct dependencies of a rule in <depLabel, depConfiguration> form.
 message ConfiguredRuleInput {
+  // Dep's target label.
   optional string label = 1;
+  // Dep's configuration if the dep isn't a source file, else unset.
   optional string configuration_checksum = 2;
+  // Reference to this dep's configuration if --proto:include_configurations is
+  // set: see
+  // https://github.com/bazelbuild/bazel/blob/7278be3f9b0c26842ecb8225f0215c1e4aede5a9/src/main/protobuf/analysis_v2.proto#L189.
+  // If this dep is a source file, this is unset.
   optional uint32 configuration_id = 3;
 }
 

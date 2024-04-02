@@ -196,7 +196,6 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
             accessor,
             aspectResolver,
             OutputType.BINARY,
-            ruleClassProvider,
             getLabelPrinter()),
         new ProtoOutputFormatterCallback(
             eventHandler,
@@ -206,7 +205,6 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
             accessor,
             aspectResolver,
             OutputType.DELIMITED_BINARY,
-            ruleClassProvider,
             labelPrinter),
         new ProtoOutputFormatterCallback(
             eventHandler,
@@ -216,7 +214,6 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
             accessor,
             aspectResolver,
             OutputType.TEXT,
-            ruleClassProvider,
             getLabelPrinter()),
         new ProtoOutputFormatterCallback(
             eventHandler,
@@ -226,7 +223,6 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
             accessor,
             aspectResolver,
             OutputType.JSON,
-            ruleClassProvider,
             getLabelPrinter()),
         new BuildOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor, getLabelPrinter()),
