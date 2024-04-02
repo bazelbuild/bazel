@@ -689,6 +689,13 @@ public class CppLinkActionBuilder {
             ltoOutputRootPrefix,
             ltoObjRootPrefix);
 
+    ImmutableList<String> userLinkFlags =
+        ImmutableList.<String>builder()
+            .addAll(linkopts)
+            .addAll(cppConfiguration.getLinkopts())
+            .addAll(cppConfiguration.getLtoIndexOptions())
+            .build();
+
     return buildLinkAction(
         /* isLtoIndexing= */ true,
         objectFileInputs,
@@ -698,7 +705,8 @@ public class CppLinkActionBuilder {
         /* linkstampObjectFileInputs */ ImmutableSet.of(),
         /* linkstampObjectArtifacts= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* actionOutputs= */ actionOutputsBuilder.build(),
-        buildVariables.build());
+        buildVariables.build(),
+        userLinkFlags);
   }
 
   /** Builds the Action as configured and returns it. */
@@ -792,6 +800,12 @@ public class CppLinkActionBuilder {
             interfaceOutput != null ? interfaceOutput.getExecPathString() : null,
             fdoContext);
 
+    ImmutableList<String> userLinkFlags =
+        ImmutableList.<String>builder()
+            .addAll(linkopts)
+            .addAll(cppConfiguration.getLinkopts())
+            .build();
+
     return buildLinkAction(
         /* isLtoIndexing= */ false,
         objectFileInputs,
@@ -801,7 +815,8 @@ public class CppLinkActionBuilder {
         linkstampObjectFileInputs,
         linkstampObjectArtifacts,
         actionOutputsBuilder.build(),
-        buildVariables.build());
+        buildVariables.build(),
+        userLinkFlags);
   }
 
   private CppLinkAction buildLinkAction(
@@ -813,7 +828,8 @@ public class CppLinkActionBuilder {
       ImmutableSet<LinkerInput> linkstampObjectFileInputs,
       NestedSet<Artifact> linkstampObjectArtifacts,
       ImmutableSet<Artifact> actionOutputs,
-      CcToolchainVariables additionalBuildVariables)
+      CcToolchainVariables additionalBuildVariables,
+      ImmutableList<String> userLinkFlags)
       throws EvalException {
     Preconditions.checkNotNull(featureConfiguration);
 
@@ -866,13 +882,6 @@ public class CppLinkActionBuilder {
         getArtifactsPossiblyLtoMapped(
             collectedLibrariesToLink.getExpandedLinkerInputs().toList(), ltoMapping);
 
-    ImmutableList.Builder<String> userLinkFlags =
-        ImmutableList.<String>builder().addAll(linkopts).addAll(cppConfiguration.getLinkopts());
-
-    if (isLtoIndexing) {
-      userLinkFlags.addAll(cppConfiguration.getLtoIndexOptions());
-    }
-
     // Add build variables necessary to template link args into the crosstool.
     CcToolchainVariables.Builder buildVariablesBuilder =
         LinkBuildVariables.setupCommonVariables(
@@ -883,7 +892,7 @@ public class CppLinkActionBuilder {
             toolchain,
             featureConfiguration,
             useTestOnlyFlags,
-            userLinkFlags.build(),
+            userLinkFlags,
             fdoContext,
             collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
             collectedLibrariesToLink.getLibrariesToLink(),
