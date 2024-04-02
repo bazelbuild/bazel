@@ -394,6 +394,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             PackageLookupValue.success(root2, BuildFileName.BUILD),
             PackageLookupValue.success(root2, BuildFileName.BUILD))
         .addEqualityGroup(
+            PackageLookupValue.success(root2, BuildFileName.BUILD, /* hasProjectFile= */ true))
+        .addEqualityGroup(
             PackageLookupValue.NO_BUILD_FILE_VALUE, PackageLookupValue.NO_BUILD_FILE_VALUE)
         .addEqualityGroup(
             PackageLookupValue.DELETED_PACKAGE_VALUE, PackageLookupValue.DELETED_PACKAGE_VALUE)

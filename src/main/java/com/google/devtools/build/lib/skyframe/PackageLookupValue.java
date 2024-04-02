@@ -249,12 +249,14 @@ public abstract class PackageLookupValue implements SkyValue {
         return false;
       }
       SuccessfulPackageLookupValue other = (SuccessfulPackageLookupValue) obj;
-      return root.equals(other.root) && buildFileName == other.buildFileName;
+      return root.equals(other.root)
+          && buildFileName == other.buildFileName
+          && hasProjectFile == other.hasProjectFile;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(root.hashCode(), buildFileName.hashCode());
+      return Objects.hashCode(root.hashCode(), buildFileName.hashCode(), hasProjectFile);
     }
   }
 
