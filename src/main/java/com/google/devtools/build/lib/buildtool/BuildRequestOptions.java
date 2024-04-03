@@ -75,6 +75,17 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useSemaphoreForJobs;
 
   @Option(
+      name = "experimental_async_execution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set to true, Bazel is allowed to run action in a virtual thread. The number of"
+              + " actions in flight is still capped with --jobs.")
+  public boolean useAsyncExecution;
+
+  @Option(
       name = "progress_report_interval",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.LOGGING,

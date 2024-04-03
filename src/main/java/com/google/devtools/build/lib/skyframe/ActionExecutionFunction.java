@@ -177,19 +177,25 @@ public final class ActionExecutionFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionExecutionFunctionException, InterruptedException {
-    ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
-    Action action = ActionUtils.getActionForLookupData(env, actionLookupData);
-    if (action == null) {
-      return null;
-    }
+    skyframeActionExecutor.maybeAcquireActionExecutionSemaphore();
     try {
-      return computeInternal(actionLookupData, action, env);
-    } catch (ActionExecutionFunctionException e) {
-      skyframeActionExecutor.recordExecutionError();
-      throw e;
-    } catch (UndoneInputsException e) {
-      return actionRewindStrategy.patchNestedSetGraphToPropagateError(
-          actionLookupData, action, e.undoneInputs, e.inputDepKeys);
+      ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
+      Action action = ActionUtils.getActionForLookupData(env, actionLookupData);
+      if (action == null) {
+        return null;
+      }
+
+      try {
+        return computeInternal(actionLookupData, action, env);
+      } catch (ActionExecutionFunctionException e) {
+        skyframeActionExecutor.recordExecutionError();
+        throw e;
+      } catch (UndoneInputsException e) {
+        return actionRewindStrategy.patchNestedSetGraphToPropagateError(
+            actionLookupData, action, e.undoneInputs, e.inputDepKeys);
+      }
+    } finally {
+      skyframeActionExecutor.maybeReleaseActionExecutionSemaphore();
     }
   }
 

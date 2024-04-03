@@ -219,6 +219,9 @@ public final class SkyframeActionExecutor {
   private DiscoveredModulesPruner discoveredModulesPruner;
 
   @Nullable private Semaphore cacheHitSemaphore;
+
+  private boolean useAsyncExecution;
+
   /**
    * If not null, we use this semaphore to limit the number of concurrent actions instead of
    * depending on the size of thread pool.
@@ -308,8 +311,12 @@ public final class SkyframeActionExecutor {
             ? new Semaphore(ResourceUsage.getAvailableProcessors())
             : null;
 
+    this.useAsyncExecution = buildRequestOptions.useAsyncExecution;
+    // Always use semaphore for jobs if async execution is enabled.
     this.actionExecutionSemaphore =
-        buildRequestOptions.useSemaphoreForJobs ? new Semaphore(buildRequestOptions.jobs) : null;
+        (this.useAsyncExecution || buildRequestOptions.useSemaphoreForJobs)
+            ? new Semaphore(buildRequestOptions.jobs)
+            : null;
   }
 
   public void setActionLogBufferPathGenerator(
@@ -545,23 +552,32 @@ public final class SkyframeActionExecutor {
     ActionExecutionValue result = null;
     ActionExecutionException finalException = null;
 
-    if (actionExecutionSemaphore != null) {
-      actionExecutionSemaphore.acquire();
-    }
     try {
       result = activeAction.getResultOrDependOnFuture(env, actionLookupData, action, callback);
     } catch (ActionExecutionException e) {
       finalException = e;
-    } finally {
-      if (actionExecutionSemaphore != null) {
-        actionExecutionSemaphore.release();
-      }
     }
 
     if (result != null || finalException != null) {
       closeContext(actionExecutionContext, action, finalException);
     }
     return result;
+  }
+
+  void maybeAcquireActionExecutionSemaphore() throws InterruptedException {
+    if (useAsyncExecution) {
+      checkState(Thread.currentThread().isVirtual());
+    }
+
+    if (actionExecutionSemaphore != null) {
+      actionExecutionSemaphore.acquire();
+    }
+  }
+
+  void maybeReleaseActionExecutionSemaphore() {
+    if (actionExecutionSemaphore != null) {
+      actionExecutionSemaphore.release();
+    }
   }
 
   private ExtendedEventHandler selectEventHandler(Action action) {
