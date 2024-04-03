@@ -733,55 +733,63 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratch.file(
         "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "load('//tools/build_defs/cc:action_names.bzl',",
-        "    'C_COMPILE_ACTION_NAME',",
-        "    'CPP_COMPILE_ACTION_NAME',",
-        "    'LINKSTAMP_COMPILE_ACTION_NAME',",
-        "    'CC_FLAGS_MAKE_VARIABLE_ACTION_NAME',",
-        "    'CPP_MODULE_CODEGEN_ACTION_NAME',",
-        "    'CPP_HEADER_PARSING_ACTION_NAME',",
-        "    'CPP_MODULE_COMPILE_ACTION_NAME',",
-        "    'ASSEMBLE_ACTION_NAME',",
-        "    'PREPROCESS_ASSEMBLE_ACTION_NAME',",
-        "    'LTO_INDEXING_ACTION_NAME',",
-        "    'LTO_BACKEND_ACTION_NAME',",
-        "    'CPP_LINK_EXECUTABLE_ACTION_NAME',",
-        "    'CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME',",
-        "    'CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME',",
-        "    'CPP_LINK_STATIC_LIBRARY_ACTION_NAME',",
-        "    'STRIP_ACTION_NAME')",
-        "def _impl(ctx):",
-        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(",
-        "    ctx = ctx,",
-        "    cc_toolchain = toolchain,",
-        "  )",
-        "  return [MyInfo(",
-        "      c_compile_action_name=C_COMPILE_ACTION_NAME,",
-        "      cpp_compile_action_name=CPP_COMPILE_ACTION_NAME,",
-        "      linkstamp_compile_action_name=LINKSTAMP_COMPILE_ACTION_NAME,",
-        "      cc_flags_make_variable_action_name_action_name=CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,",
-        "      cpp_module_codegen_action_name=CPP_MODULE_CODEGEN_ACTION_NAME,",
-        "      cpp_header_parsing_action_name=CPP_HEADER_PARSING_ACTION_NAME,",
-        "      cpp_module_compile_action_name=CPP_MODULE_COMPILE_ACTION_NAME,",
-        "      assemble_action_name=ASSEMBLE_ACTION_NAME,",
-        "      preprocess_assemble_action_name=PREPROCESS_ASSEMBLE_ACTION_NAME,",
-        "      lto_indexing_action_name=LTO_INDEXING_ACTION_NAME,",
-        "      lto_backend_action_name=LTO_BACKEND_ACTION_NAME,",
-        "      cpp_link_executable_action_name=CPP_LINK_EXECUTABLE_ACTION_NAME,",
-        "      cpp_link_dynamic_library_action_name=CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME,",
-        "     "
-            + " cpp_link_nodeps_dynamic_library_action_name=CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,",
-        "      cpp_link_static_library_action_name=CPP_LINK_STATIC_LIBRARY_ACTION_NAME,",
-        "      strip_action_name=STRIP_ACTION_NAME)]",
-        "crule = rule(",
-        "  _impl,",
-        "  attrs = { ",
-        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
-        "  },",
-        "  fragments = ['cpp'],",
-        ")");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+        load(
+            "//tools/build_defs/cc:action_names.bzl",
+            "ASSEMBLE_ACTION_NAME",
+            "CC_FLAGS_MAKE_VARIABLE_ACTION_NAME",
+            "CPP_COMPILE_ACTION_NAME",
+            "CPP_HEADER_PARSING_ACTION_NAME",
+            "CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME",
+            "CPP_LINK_EXECUTABLE_ACTION_NAME",
+            "CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME",
+            "CPP_LINK_STATIC_LIBRARY_ACTION_NAME",
+            "CPP_MODULE_CODEGEN_ACTION_NAME",
+            "CPP_MODULE_COMPILE_ACTION_NAME",
+            "C_COMPILE_ACTION_NAME",
+            "LINKSTAMP_COMPILE_ACTION_NAME",
+            "LTO_BACKEND_ACTION_NAME",
+            "LTO_INDEXING_ACTION_NAME",
+            "PREPROCESS_ASSEMBLE_ACTION_NAME",
+            "STRIP_ACTION_NAME",
+        )
+
+        def _impl(ctx):
+            toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+            feature_configuration = cc_common.configure_features(
+                ctx = ctx,
+                cc_toolchain = toolchain,
+            )
+            return [MyInfo(
+                c_compile_action_name = C_COMPILE_ACTION_NAME,
+                cpp_compile_action_name = CPP_COMPILE_ACTION_NAME,
+                linkstamp_compile_action_name = LINKSTAMP_COMPILE_ACTION_NAME,
+                cc_flags_make_variable_action_name_action_name =
+                    CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
+                cpp_module_codegen_action_name = CPP_MODULE_CODEGEN_ACTION_NAME,
+                cpp_header_parsing_action_name = CPP_HEADER_PARSING_ACTION_NAME,
+                cpp_module_compile_action_name = CPP_MODULE_COMPILE_ACTION_NAME,
+                assemble_action_name = ASSEMBLE_ACTION_NAME,
+                preprocess_assemble_action_name = PREPROCESS_ASSEMBLE_ACTION_NAME,
+                lto_indexing_action_name = LTO_INDEXING_ACTION_NAME,
+                lto_backend_action_name = LTO_BACKEND_ACTION_NAME,
+                cpp_link_executable_action_name = CPP_LINK_EXECUTABLE_ACTION_NAME,
+                cpp_link_dynamic_library_action_name = CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME,
+                cpp_link_nodeps_dynamic_library_action_name =
+                    CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,
+                cpp_link_static_library_action_name = CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
+                strip_action_name = STRIP_ACTION_NAME,
+            )]
+
+        crule = rule(
+            _impl,
+            attrs = {
+                "_cc_toolchain": attr.label(default = Label("//a:alias")),
+            },
+            fragments = ["cpp"],
+        )
+        """);
 
     assertThat(getTarget("//a:r")).isNotNull();
 
@@ -1261,57 +1269,71 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.overwriteFile("tools/build_defs/cc/BUILD", "");
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  compilation_context = cc_common.create_compilation_context(",
-        "    headers=depset([ctx.file._header]),",
-        "    direct_textual_headers=[ctx.file._textual_header],",
-        "    direct_public_headers=[ctx.file._public_header],",
-        "    direct_private_headers=[ctx.file._private_header],",
-        "    system_includes=depset([ctx.attr._system_include]),",
-        "    includes=depset([ctx.attr._include]),",
-        "    quote_includes=depset([ctx.attr._quote_include]),",
-        "    framework_includes=depset([ctx.attr._framework_include]),",
-        "    defines=depset([ctx.attr._define]))",
-        "  cc_infos = [CcInfo(compilation_context=compilation_context)]",
-        "  for dep in ctx.attr._deps:",
-        "      cc_infos.append(dep[CcInfo])",
-        "  merged_cc_info=cc_common.merge_cc_infos(cc_infos=cc_infos)",
-        "  return [",
-        "      merged_cc_info,",
-        "      MyInfo(",
-        "          merged_headers=merged_cc_info.compilation_context.headers,",
-        "          textual_headers=compilation_context.direct_textual_headers,",
-        "          public_headers=compilation_context.direct_public_headers,",
-        "          private_headers=compilation_context.direct_private_headers,",
-        "          merged_system_includes=merged_cc_info.compilation_context.system_includes,",
-        "          merged_includes=merged_cc_info.compilation_context.includes,",
-        "          merged_quote_includes=merged_cc_info.compilation_context.quote_includes,",
-        "         "
-            + " merged_framework_includes=merged_cc_info.compilation_context.framework_includes,",
-        "          merged_defines=merged_cc_info.compilation_context.defines",
-        "      )]",
-        "crule = rule(",
-        "  _impl,",
-        "  attrs = { ",
-        "    '_header': attr.label(allow_single_file=True,",
-        "        default=Label('//a:header.h')),",
-        "    '_textual_header': attr.label(allow_single_file=True,",
-        "        default=Label('//a:textual_header.h')),",
-        "    '_public_header': attr.label(allow_single_file=True,",
-        "        default=Label('//a:public_header.h')),",
-        "    '_private_header': attr.label(allow_single_file=True,",
-        "        default=Label('//a:private_header.h')),",
-        "    '_system_include': attr.string(default='foo/bar'),",
-        "    '_include': attr.string(default='baz/qux'),",
-        "    '_quote_include': attr.string(default='quux/abc'),",
-        "    '_framework_include': attr.string(default='fuux/fgh'),",
-        "    '_define': attr.string(default='MYDEFINE'),",
-        "    '_local_define': attr.string(default='MYLOCALDEFINE'),",
-        "    '_deps': attr.label_list(default=['//a:dep1', '//a:dep2'])",
-        "  },",
-        "  fragments = ['cpp'],",
-        ");");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _impl(ctx):
+            compilation_context = cc_common.create_compilation_context(
+                headers = depset([ctx.file._header]),
+                direct_textual_headers = [ctx.file._textual_header],
+                direct_public_headers = [ctx.file._public_header],
+                direct_private_headers = [ctx.file._private_header],
+                system_includes = depset([ctx.attr._system_include]),
+                includes = depset([ctx.attr._include]),
+                quote_includes = depset([ctx.attr._quote_include]),
+                framework_includes = depset([ctx.attr._framework_include]),
+                defines = depset([ctx.attr._define]),
+            )
+            cc_infos = [CcInfo(compilation_context = compilation_context)]
+            for dep in ctx.attr._deps:
+                cc_infos.append(dep[CcInfo])
+            merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
+            return [
+                merged_cc_info,
+                MyInfo(
+                    merged_headers = merged_cc_info.compilation_context.headers,
+                    textual_headers = compilation_context.direct_textual_headers,
+                    public_headers = compilation_context.direct_public_headers,
+                    private_headers = compilation_context.direct_private_headers,
+                    merged_system_includes = merged_cc_info.compilation_context.system_includes,
+                    merged_includes = merged_cc_info.compilation_context.includes,
+                    merged_quote_includes = merged_cc_info.compilation_context.quote_includes,
+                    merged_framework_includes =
+                        merged_cc_info.compilation_context.framework_includes,
+                    merged_defines = merged_cc_info.compilation_context.defines,
+                ),
+            ]
+
+        crule = rule(
+            _impl,
+            attrs = {
+                "_header": attr.label(
+                    allow_single_file = True,
+                    default = Label("//a:header.h"),
+                ),
+                "_textual_header": attr.label(
+                    allow_single_file = True,
+                    default = Label("//a:textual_header.h"),
+                ),
+                "_public_header": attr.label(
+                    allow_single_file = True,
+                    default = Label("//a:public_header.h"),
+                ),
+                "_private_header": attr.label(
+                    allow_single_file = True,
+                    default = Label("//a:private_header.h"),
+                ),
+                "_system_include": attr.string(default = "foo/bar"),
+                "_include": attr.string(default = "baz/qux"),
+                "_quote_include": attr.string(default = "quux/abc"),
+                "_framework_include": attr.string(default = "fuux/fgh"),
+                "_define": attr.string(default = "MYDEFINE"),
+                "_local_define": attr.string(default = "MYLOCALDEFINE"),
+                "_deps": attr.label_list(default = ["//a:dep1", "//a:dep2"]),
+            },
+            fragments = ["cpp"],
+        )
+        """);
 
     ConfiguredTarget lib = getConfiguredTarget("//a:lib");
     CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
@@ -6504,21 +6526,27 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     scratch.file(
         "foo/foo.bzl",
-        "FooInfo = provider(fields=['objects',"
-            + " 'pic_objects','lto_bitcode_files','pic_lto_bitcode_files'])",
-        "",
-        "def _foo_impl(ctx):",
-        "  lib = ctx.attr.dep[CcInfo].linking_context.linker_inputs.to_list()[0].libraries[0]",
-        "  return [FooInfo(objects=lib.objects, pic_objects=lib.pic_objects,"
-            + " lto_bitcode_files=lib.lto_bitcode_files,"
-            + " pic_lto_bitcode_files=lib.pic_lto_bitcode_files)]",
-        "",
-        "foo = rule(",
-        "  implementation = _foo_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  }",
-        ")");
+        """
+        FooInfo = provider(
+            fields = ["objects", "pic_objects", "lto_bitcode_files", "pic_lto_bitcode_files"],
+        )
+
+        def _foo_impl(ctx):
+            lib = ctx.attr.dep[CcInfo].linking_context.linker_inputs.to_list()[0].libraries[0]
+            return [FooInfo(
+                objects = lib.objects,
+                pic_objects = lib.pic_objects,
+                lto_bitcode_files = lib.lto_bitcode_files,
+                pic_lto_bitcode_files = lib.pic_lto_bitcode_files,
+            )]
+
+        foo = rule(
+            implementation = _foo_impl,
+            attrs = {
+                "dep": attr.label(),
+            },
+        )
+        """);
   }
 
   private void doTestPossibleExtensionsOfSrcsAndHdrs(String attrName, List<String> extensions)
@@ -6876,7 +6904,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         def _impl(ctx):
             linker_input = cc_common.create_linker_input(
                 owner = ctx.label,
-                user_link_flags = ["-l"])
+                user_link_flags = ["-l"],
+            )
             linking_context = cc_common.create_linking_context(
                 linker_inputs = depset([linker_input]),
             )
@@ -7494,20 +7523,31 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testExpandedCcCompilationContextApiBlocked() throws Exception {
     scratch.file(
         "b/BUILD",
-        "load('//my_rules:rule.bzl', 'method_rule', 'param_2_rule', 'additional_inputs_rule',"
-            + " 'transitive_modules_rule')",
-        "param_2_rule(",
-        "  name = 'p2',",
-        ")",
-        "method_rule(",
-        "  name = 'm',",
-        ")",
-        "additional_inputs_rule(",
-        "  name = 'ai',",
-        ")",
-        "transitive_modules_rule(",
-        "  name = 'tm',",
-        ")");
+        """
+        load(
+            "//my_rules:rule.bzl",
+            "additional_inputs_rule",
+            "method_rule",
+            "param_2_rule",
+            "transitive_modules_rule",
+        )
+
+        param_2_rule(
+            name = "p2",
+        )
+
+        method_rule(
+            name = "m",
+        )
+
+        additional_inputs_rule(
+            name = "ai",
+        )
+
+        transitive_modules_rule(
+            name = "tm",
+        )
+        """);
     scratch.file("my_rules/BUILD");
     scratch.file(
         "my_rules/rule.bzl",
@@ -8031,7 +8071,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             ")");
   }
 
-
   @Test
   public void testMissingToolchainAndFeatureConfigurationRaisesErrorInCreateLibraryToLink()
       throws Exception {
@@ -8288,19 +8327,28 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     scratch.file(
         "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain ="
-            + " cc_toolchain)",
-        "  cc_linking_outputs = cc_common.link(actions = ctx.actions, feature_configuration ="
-            + " feature_configuration, cc_toolchain = cc_toolchain, name = ctx.label.name)",
-        "  cc_linking_outputs.all_lto_artifacts()",
-        "  return []",
-        "cc_linking_outputs_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foo:alias'))},",
-        "  fragments = ['cpp'],",
-        ")");
+        """
+        def _impl(ctx):
+            cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+            feature_configuration = cc_common.configure_features(
+                ctx = ctx,
+                cc_toolchain = cc_toolchain,
+            )
+            cc_linking_outputs = cc_common.link(
+                actions = ctx.actions,
+                feature_configuration = feature_configuration,
+                cc_toolchain = cc_toolchain,
+                name = ctx.label.name,
+            )
+            cc_linking_outputs.all_lto_artifacts()
+            return []
+
+        cc_linking_outputs_rule = rule(
+            implementation = _impl,
+            attrs = {"_cc_toolchain": attr.label(default = Label("//foo:alias"))},
+            fragments = ["cpp"],
+        )
+        """);
     invalidatePackages();
 
     AssertionError e =
@@ -8322,18 +8370,25 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     scratch.file(
         "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain ="
-            + " cc_toolchain)",
-        "  cc_common.get_tool_requirement_for_action(feature_configuration = feature_configuration,"
-            + " action_name = 'test')",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foo:alias'))},",
-        "  fragments = ['cpp'],",
-        ")");
+        """
+        def _impl(ctx):
+            cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+            feature_configuration = cc_common.configure_features(
+                ctx = ctx,
+                cc_toolchain = cc_toolchain,
+            )
+            cc_common.get_tool_requirement_for_action(
+                feature_configuration = feature_configuration,
+                action_name = "test",
+            )
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            attrs = {"_cc_toolchain": attr.label(default = Label("//foo:alias"))},
+            fragments = ["cpp"],
+        )
+        """);
     invalidatePackages();
 
     AssertionError e =
@@ -8354,13 +8409,19 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     scratch.file(
         "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_common.create_compilation_outputs(objects = None, pic_objects = None,"
-            + " lto_compilation_context = None)",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        ")");
+        """
+        def _impl(ctx):
+            cc_common.create_compilation_outputs(
+                objects = None,
+                pic_objects = None,
+                lto_compilation_context = None,
+            )
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+        )
+        """);
     invalidatePackages();
 
     AssertionError e =
@@ -8383,18 +8444,26 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     scratch.file(
         "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain ="
-            + " cc_toolchain)",
-        "  cc_common.create_compile_variables(cc_toolchain = cc_toolchain, feature_configuration ="
-            + " feature_configuration, strip_opts = [])",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foo:alias'))},",
-        "  fragments = ['cpp'],",
-        ")");
+        """
+        def _impl(ctx):
+            cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+            feature_configuration = cc_common.configure_features(
+                ctx = ctx,
+                cc_toolchain = cc_toolchain,
+            )
+            cc_common.create_compile_variables(
+                cc_toolchain = cc_toolchain,
+                feature_configuration = feature_configuration,
+                strip_opts = [],
+            )
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            attrs = {"_cc_toolchain": attr.label(default = Label("//foo:alias"))},
+            fragments = ["cpp"],
+        )
+        """);
     invalidatePackages();
 
     AssertionError e =
@@ -8417,18 +8486,26 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     scratch.file(
         "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain ="
-            + " cc_toolchain)",
-        "  cc_common.create_compile_variables(cc_toolchain = cc_toolchain, feature_configuration ="
-            + " feature_configuration, input_file = '')",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foo:alias'))},",
-        "  fragments = ['cpp'],",
-        ")");
+        """
+        def _impl(ctx):
+            cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+            feature_configuration = cc_common.configure_features(
+                ctx = ctx,
+                cc_toolchain = cc_toolchain,
+            )
+            cc_common.create_compile_variables(
+                cc_toolchain = cc_toolchain,
+                feature_configuration = feature_configuration,
+                input_file = "",
+            )
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            attrs = {"_cc_toolchain": attr.label(default = Label("//foo:alias"))},
+            fragments = ["cpp"],
+        )
+        """);
     invalidatePackages();
 
     AssertionError e =
@@ -8451,20 +8528,29 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     scratch.file(
         "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain ="
-            + " cc_toolchain)",
-        "  cc_common.create_linking_context_from_compilation_outputs(actions = ctx.actions,"
-            + " cc_toolchain = cc_toolchain, feature_configuration ="
-            + " feature_configuration,compilation_outputs = cc_common.create_compilation_outputs(),"
-            + " name = 'test', stamp = 0)",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foo:alias'))},",
-        "  fragments = ['cpp'],",
-        ")");
+        """
+        def _impl(ctx):
+            cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+            feature_configuration = cc_common.configure_features(
+                ctx = ctx,
+                cc_toolchain = cc_toolchain,
+            )
+            cc_common.create_linking_context_from_compilation_outputs(
+                actions = ctx.actions,
+                cc_toolchain = cc_toolchain,
+                feature_configuration = feature_configuration,
+                compilation_outputs = cc_common.create_compilation_outputs(),
+                name = "test",
+                stamp = 0,
+            )
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            attrs = {"_cc_toolchain": attr.label(default = Label("//foo:alias"))},
+            fragments = ["cpp"],
+        )
+        """);
     invalidatePackages();
 
     AssertionError e =
@@ -8486,18 +8572,28 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     scratch.file(
         "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain ="
-            + " cc_toolchain)",
-        "  cc_common.link(actions = ctx.actions, cc_toolchain = cc_toolchain, feature_configuration"
-            + " = feature_configuration,use_test_only_flags = True, name = 'test')",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foo:alias'))},",
-        "  fragments = ['cpp'],",
-        ")");
+        """
+        def _impl(ctx):
+            cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+            feature_configuration = cc_common.configure_features(
+                ctx = ctx,
+                cc_toolchain = cc_toolchain,
+            )
+            cc_common.link(
+                actions = ctx.actions,
+                cc_toolchain = cc_toolchain,
+                feature_configuration = feature_configuration,
+                use_test_only_flags = True,
+                name = "test",
+            )
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            attrs = {"_cc_toolchain": attr.label(default = Label("//foo:alias"))},
+            fragments = ["cpp"],
+        )
+        """);
     invalidatePackages();
 
     AssertionError e =

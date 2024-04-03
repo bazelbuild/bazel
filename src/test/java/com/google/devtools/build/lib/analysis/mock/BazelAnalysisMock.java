@@ -158,27 +158,33 @@ public final class BazelAnalysisMock extends AnalysisMock {
     }
     config.create(
         "embedded_tools/tools/jdk/launcher_flag_alias.bzl",
-        "_providers = [CcInfo, cc_common.launcher_provider]",
-        "def _impl(ctx):",
-        "    if not ctx.attr._launcher:",
-        "      return None",
-        "    launcher = ctx.attr._launcher",
-        "    providers = [ctx.attr._launcher[p] for p in _providers]",
-        "    providers.append(DefaultInfo(files = launcher[DefaultInfo].files, runfiles ="
-            + " launcher[DefaultInfo].default_runfiles))",
-        "    return providers",
-        "launcher_flag_alias = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "        '_launcher': attr.label(",
-        "            default = configuration_field(",
-        "                fragment = 'java',",
-        "                name = 'launcher',",
-        "            ),",
-        "            providers = _providers,",
-        "        ),",
-        "    },",
-        ")");
+        """
+        _providers = [CcInfo, cc_common.launcher_provider]
+
+        def _impl(ctx):
+            if not ctx.attr._launcher:
+                return None
+            launcher = ctx.attr._launcher
+            providers = [ctx.attr._launcher[p] for p in _providers]
+            providers.append(DefaultInfo(
+                files = launcher[DefaultInfo].files,
+                runfiles = launcher[DefaultInfo].default_runfiles,
+            ))
+            return providers
+
+        launcher_flag_alias = rule(
+            implementation = _impl,
+            attrs = {
+                "_launcher": attr.label(
+                    default = configuration_field(
+                        fragment = "java",
+                        name = "launcher",
+                    ),
+                    providers = _providers,
+                ),
+            },
+        )
+        """);
     config.create(
         "embedded_tools/tools/jdk/BUILD",
         """
@@ -847,17 +853,20 @@ public final class BazelAnalysisMock extends AnalysisMock {
         """);
     config.create(
         "embedded_tools/tools/build_defs/build_info/BUILD",
-        "load('//tools/build_defs/build_info:bazel_cc_build_info.bzl'," + " 'bazel_cc_build_info')",
-        "load('//tools/build_defs/build_info:bazel_java_build_info.bzl',"
-            + " 'bazel_java_build_info')",
-        "bazel_cc_build_info(",
-        "    name = 'cc_build_info',",
-        "    visibility = ['//visibility:public'],",
-        ")",
-        "bazel_java_build_info(",
-        "    name = 'java_build_info',",
-        "    visibility = ['//visibility:public'],",
-        ")");
+        """
+        load("//tools/build_defs/build_info:bazel_cc_build_info.bzl", "bazel_cc_build_info")
+        load("//tools/build_defs/build_info:bazel_java_build_info.bzl", "bazel_java_build_info")
+
+        bazel_cc_build_info(
+            name = "cc_build_info",
+            visibility = ["//visibility:public"],
+        )
+
+        bazel_java_build_info(
+            name = "java_build_info",
+            visibility = ["//visibility:public"],
+        )
+        """);
     config.create(
         "embedded_tools/tools/build_defs/repo/utils.bzl",
         """

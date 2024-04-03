@@ -436,25 +436,29 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void xcodeVersionConfig_isFunction() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(xcode_version ="
-            + " apple_common.XcodeVersionConfig("
-            + " iosSdkVersion='1.1',"
-            + " iosMinimumOsVersion='1.2',"
-            + " watchosSdkVersion='1.3',"
-            + " watchosMinimumOsVersion='1.4',"
-            + " tvosSdkVersion='1.5',"
-            + " tvosMinimumOsVersion='1.6',"
-            + " macosSdkVersion='1.7',"
-            + " macosMinimumOsVersion='1.8',"
-            + " visionosSdkVersion='1.9',"
-            + " visionosMinimumOsVersion='1.10',"
-            + " xcodeVersion='1.11',"
-            + " availability = 'UNKNOWN',"
-            + " xcodeVersionFlag='0.0',"
-            + " includeXcodeExecutionInfo = False))]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(xcode_version = apple_common.XcodeVersionConfig(
+                iosSdkVersion = "1.1",
+                iosMinimumOsVersion = "1.2",
+                watchosSdkVersion = "1.3",
+                watchosMinimumOsVersion = "1.4",
+                tvosSdkVersion = "1.5",
+                tvosMinimumOsVersion = "1.6",
+                macosSdkVersion = "1.7",
+                macosMinimumOsVersion = "1.8",
+                visionosSdkVersion = "1.9",
+                visionosMinimumOsVersion = "1.10",
+                xcodeVersion = "1.11",
+                availability = "UNKNOWN",
+                xcodeVersionFlag = "0.0",
+                includeXcodeExecutionInfo = False,
+            ))]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
         """
@@ -491,25 +495,29 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void xcodeVersionConfig_throwsOnBadInput() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(xcode_version ="
-            + " apple_common.XcodeVersionConfig("
-            + " iosSdkVersion='not a valid dotted version',"
-            + " iosMinimumOsVersion='1.2',"
-            + " watchosSdkVersion='1.3',"
-            + " watchosMinimumOsVersion='1.4',"
-            + " tvosSdkVersion='1.5',"
-            + " tvosMinimumOsVersion='1.6',"
-            + " macosSdkVersion='1.7',"
-            + " macosMinimumOsVersion='1.8',"
-            + " visionosSdkVersion='1.9',"
-            + " visionosMinimumOsVersion='1.10',"
-            + " xcodeVersion='1.11',"
-            + " availability = 'UNKNOWN',"
-            + " xcodeVersionFlag='0.0',"
-            + " includeXcodeExecutionInfo = False))]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(xcode_version = apple_common.XcodeVersionConfig(
+                iosSdkVersion = "not a valid dotted version",
+                iosMinimumOsVersion = "1.2",
+                watchosSdkVersion = "1.3",
+                watchosMinimumOsVersion = "1.4",
+                tvosSdkVersion = "1.5",
+                tvosMinimumOsVersion = "1.6",
+                macosSdkVersion = "1.7",
+                macosMinimumOsVersion = "1.8",
+                visionosSdkVersion = "1.9",
+                visionosMinimumOsVersion = "1.10",
+                xcodeVersion = "1.11",
+                availability = "UNKNOWN",
+                xcodeVersionFlag = "0.0",
+                includeXcodeExecutionInfo = False,
+            ))]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
         """
@@ -527,27 +535,39 @@ public class XcodeConfigTest extends BuildViewTestCase {
   public void xcodeVersionConfig_exposesExpectedAttributes() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  xcode_version ="
-            + " apple_common.XcodeVersionConfig("
-            + " iosSdkVersion='1.1',"
-            + " iosMinimumOsVersion='1.2',"
-            + " watchosSdkVersion='1.3',"
-            + " watchosMinimumOsVersion='2.4',"
-            + " tvosSdkVersion='1.5',"
-            + " tvosMinimumOsVersion='1.6',"
-            + " macosSdkVersion='1.7',"
-            + " macosMinimumOsVersion='1.8',"
-            + " visionosSdkVersion='1.9',"
-            + " visionosMinimumOsVersion='1.10',"
-            + " xcodeVersion='1.11',"
-            + " availability = 'UNKNOWN',"
-            + " xcodeVersionFlag='0.0',"
-            + " includeXcodeExecutionInfo = False)",
-        "  return [result(xcode_version=xcode_version.xcode_version(),"
-            + "min_os=xcode_version.minimum_os_for_platform_type(ctx.fragments.apple.single_arch_platform.platform_type)),]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() },  fragments = ['apple'])");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            xcode_version = apple_common.XcodeVersionConfig(
+                iosSdkVersion = "1.1",
+                iosMinimumOsVersion = "1.2",
+                watchosSdkVersion = "1.3",
+                watchosMinimumOsVersion = "2.4",
+                tvosSdkVersion = "1.5",
+                tvosMinimumOsVersion = "1.6",
+                macosSdkVersion = "1.7",
+                macosMinimumOsVersion = "1.8",
+                visionosSdkVersion = "1.9",
+                visionosMinimumOsVersion = "1.10",
+                xcodeVersion = "1.11",
+                availability = "UNKNOWN",
+                xcodeVersionFlag = "0.0",
+                includeXcodeExecutionInfo = False,
+            )
+            return [result(
+                xcode_version = xcode_version.xcode_version(),
+                min_os = xcode_version.minimum_os_for_platform_type(
+                    ctx.fragments.apple.single_arch_platform.platform_type,
+                ),
+            )]
+
+        my_rule = rule(
+            _impl,
+            attrs = {"dep": attr.label()},
+            fragments = ["apple"],
+        )
+        """);
     scratch.file(
         "foo/BUILD",
         """
@@ -1173,9 +1193,11 @@ public class XcodeConfigTest extends BuildViewTestCase {
                 ios_sdk = conf.sdk_version_for_platform(ios),
                 tvos_sdk = conf.sdk_version_for_platform(tvos),
                 macos_min = conf.minimum_os_for_platform_type(
-                    apple_common.platform_type.macos),
+                    apple_common.platform_type.macos,
+                ),
                 watchos_min = conf.minimum_os_for_platform_type(
-                    apple_common.platform_type.watchos),
+                    apple_common.platform_type.watchos,
+                ),
                 availability = conf.availability(),
                 execution_info = conf.execution_info(),
             )
@@ -1265,9 +1287,11 @@ public class XcodeConfigTest extends BuildViewTestCase {
                 ios_sdk = conf.sdk_version_for_platform(ios),
                 tvos_sdk = conf.sdk_version_for_platform(tvos),
                 macos_min = conf.minimum_os_for_platform_type(
-                    apple_common.platform_type.macos),
+                    apple_common.platform_type.macos,
+                ),
                 watchos_min = conf.minimum_os_for_platform_type(
-                    apple_common.platform_type.watchos),
+                    apple_common.platform_type.watchos,
+                ),
                 availability = conf.availability(),
                 execution_info = conf.execution_info(),
             )
@@ -1346,9 +1370,11 @@ public class XcodeConfigTest extends BuildViewTestCase {
                 ios_sdk = conf.sdk_version_for_platform(ios),
                 tvos_sdk = conf.sdk_version_for_platform(tvos),
                 macos_min = conf.minimum_os_for_platform_type(
-                    apple_common.platform_type.macos),
+                    apple_common.platform_type.macos,
+                ),
                 watchos_min = conf.minimum_os_for_platform_type(
-                    apple_common.platform_type.watchos),
+                    apple_common.platform_type.watchos,
+                ),
                 availability = conf.availability(),
             )
 
@@ -1521,7 +1547,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
             attrs = {"dep": attr.label_list(
                 mandatory = True,
                 allow_files = True,
-                aspects = [MyAspect])},
+                aspects = [MyAspect],
+            )},
         )
         """);
 
