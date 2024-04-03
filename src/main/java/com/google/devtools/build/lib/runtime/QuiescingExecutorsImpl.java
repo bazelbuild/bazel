@@ -131,15 +131,6 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
   }
 
   @Override
-  public QuiescingExecutor getExecutionExecutor() {
-    checkState(executionParallelism > 0, "expected executionParallelism > 0 : %s", this);
-    return AbstractQueueVisitor.createWithExecutorService(
-        newNamedPool(SKYFRAME_EVALUATOR, executionParallelism),
-        ExceptionHandlingMode.FAIL_FAST,
-        ParallelEvaluatorErrorClassifier.instance());
-  }
-
-  @Override
   public QuiescingExecutor getMergedAnalysisAndExecutionExecutor() {
     checkState(analysisParallelism > 0, "expected analysisParallelism > 0 : %s", this);
     checkState(executionParallelism > 0, "expected executionParallelism > 0 : %s", this);

@@ -23,7 +23,5 @@ public interface QuiescingExecutors {
 
   QuiescingExecutor getAnalysisExecutor();
 
-  QuiescingExecutor getExecutionExecutor();
-
   QuiescingExecutor getMergedAnalysisAndExecutionExecutor();
 }
