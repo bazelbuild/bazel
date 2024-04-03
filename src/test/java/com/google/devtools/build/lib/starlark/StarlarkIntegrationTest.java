@@ -1200,34 +1200,31 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testInstrumentedFilesInfo_coverageSupportFiles_depset() throws Exception {
-    // Only builtins can pass coverage_support_files to coverage_common.instrumented_files_info.
-    // Override extra_action since builtins can only be injected over preexisting native symbols.
-    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins");
     scratch.file(
-        "tools/builtins/exports.bzl",
+        // Package test is in the allowlist for coverage_support_files
+        "test/starlark/extension.bzl",
         """
-        coverage_common = _builtins.toplevel.coverage_common
-
         def _impl(ctx):
           file1 = ctx.actions.declare_file(ctx.label.name + '.file1')
           ctx.actions.write(file1, '')
           file2 = ctx.actions.declare_file(ctx.label.name + '.file2')
           ctx.actions.write(file2, '')
           return coverage_common.instrumented_files_info(
-            ctx,
-            coverage_support_files = depset([file1, file2]),
+              ctx,
+              coverage_support_files = depset([file1, file2]),
           )
 
-        overridden_extra_action = rule(implementation = _impl)
-
-        exported_toplevels = {}
-        exported_rules = {'+extra_action': overridden_extra_action}
-        exported_to_java = {}
+        custom_rule = rule(implementation = _impl)
         """);
-    scratch.file("test/starlark/BUILD", "extra_action(name = 'foo')");
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule')
+
+        custom_rule(name = 'foo')
+        """);
 
     useConfiguration(
-        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_transition",
         "--collect_code_coverage");
 
     assertThat(
@@ -1240,38 +1237,32 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testInstrumentedFilesInfo_coverageSupportFiles_sequence() throws Exception {
-    // Only builtins can pass coverage_support_files to coverage_common.instrumented_files_info.
-    // Override extra_action since builtins can only be injected over preexisting native symbols.
-    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins");
     scratch.file(
-        "tools/builtins/exports.bzl",
+        // Package test is in the allowlist for coverage_support_files
+        "test/starlark/extension.bzl",
         """
-        coverage_common = _builtins.toplevel.coverage_common
-
         def _impl(ctx):
           file1 = ctx.actions.declare_file(ctx.label.name + '.file1')
           ctx.actions.write(file1, '')
           file2 = ctx.actions.declare_file(ctx.label.name + '.file2')
           ctx.actions.write(file2, '')
           return coverage_common.instrumented_files_info(
-            ctx,
-            coverage_support_files = [depset([file1]), file2],
+              ctx,
+              coverage_support_files = [depset([file1]), file2],
           )
 
-        overridden_extra_action = rule(
-          implementation = _impl,
-        )
-
-        exported_toplevels = {}
-        exported_rules = {'+extra_action': overridden_extra_action}
-        exported_to_java = {}
+        custom_rule = rule(implementation = _impl)
         """);
-    scratch.file("test/starlark/BUILD", "extra_action(name = 'foo')");
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule')
+
+        custom_rule(name = 'foo')
+        """);
     scratch.file("test/starlark/bin.sh", "");
 
-    useConfiguration(
-        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_transition",
-        "--host_platform=//minimal_buildenv/platforms:default_host", "--collect_code_coverage");
+    useConfiguration("--collect_code_coverage");
 
     assertThat(
             ActionsTestUtil.baseArtifactNames(
@@ -1284,6 +1275,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   @Test
   public void testInstrumentedFilesInfo_coverageSupportAndEnvVarsArePrivateAPI() throws Exception {
     scratch.file(
+        // Package foo is not in the allowlist for coverage_support_files
         "foo/starlark/extension.bzl",
         """
         def custom_rule_impl(ctx):
