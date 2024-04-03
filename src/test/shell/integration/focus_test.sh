@@ -684,8 +684,8 @@ EOF
   bazel build //${pkg}:g \
     --experimental_working_set=${pkg}/in.txt &>$TEST_log \
     && "expected build to fail"
-  expect_log "Error in genrule"
-  expect_log "Skyfocus did not run due to an unsuccessful build."
+  expect_log "Error in genrule: genrule rule has no 'name' attribute"
+  expect_not_log "Focusing on .\+ roots, .\+ leafs"
 }
 
 function test_reanalysis_with_label_flag_change() {

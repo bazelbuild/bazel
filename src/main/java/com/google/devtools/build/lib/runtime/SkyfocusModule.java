@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.skyframe.SkyfocusState.DISABLED;
@@ -24,25 +24,24 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
-import com.google.devtools.build.lib.buildtool.BuildToolFinalizingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.FailureDetails.Skyfocus.Code;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions.SkyfocusDumpOption;
+import com.google.devtools.build.lib.skyframe.SkyfocusState;
 import com.google.devtools.build.lib.skyframe.SkyfocusState.Request;
+import com.google.devtools.build.lib.skyframe.SkyframeFocuser;
 import com.google.devtools.build.lib.skyframe.SkyframeFocuser.FocusResult;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.HeapOffsetHelper;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -53,12 +52,12 @@ import com.google.devtools.build.skyframe.InMemoryGraphImpl;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.errorprone.annotations.Keep;
 import java.io.PrintStream;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
 import java.util.Set;
 import java.util.function.LongFunction;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
 
 /**
  * SkyfocusModule implements the concept of using working sets to reduce the memory footprint for
@@ -67,9 +66,8 @@ import javax.annotation.Nullable;
  * <p>This is achieved with the `--experimental_working_set` build flag that takes in a
  * comma-separated list of files, which defines the active working set.
  *
- * <p>Then, the active working set will be used to apply the optimizing algorithm when {@link
- * BuildPrecompleteEvent} is fired, which is just before the build request stops. The core algorithm
- * is implemented in {@link SkyframeFocuser}.
+ * <p>Then, the active working set will be used to apply the optimizing algorithm when just before
+ * the build request stops. The core algorithm is implemented in {@link SkyframeFocuser}.
  */
 public class SkyfocusModule extends BlazeModule {
 
@@ -83,24 +81,12 @@ public class SkyfocusModule extends BlazeModule {
           RepositoryDelegatorFunction.FORCE_FETCH.getKey(),
           RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE.getKey());
 
-  private void setSkyfocusState(SkyfocusState state) {
-    env.getSkyframeExecutor().setSkyfocusState(state);
-  }
-
-  private SkyfocusState getSkyfocusState() {
-    return env.getSkyframeExecutor().getSkyfocusState();
-  }
-
-  @Nullable private CommandEnvironment env;
-
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    this.env = env;
-
     // This should come before everything, as 'clean' would cause Blaze to drop its analysis
     // state, therefore focusing needs to be re-done no matter what.
     if (env.getCommandName().equals("clean")) {
-      setSkyfocusState(DISABLED);
+      env.getSkyframeExecutor().setSkyfocusState(DISABLED);
       return;
     }
 
@@ -113,16 +99,14 @@ public class SkyfocusModule extends BlazeModule {
     Preconditions.checkNotNull(skyfocusOptions);
 
     if (!env.getSkyframeExecutor().getEvaluator().skyfocusSupported()) {
-      setSkyfocusState(DISABLED);
+      env.getSkyframeExecutor().setSkyfocusState(DISABLED);
       return;
     }
 
     if (!skyfocusOptions.skyfocusEnabled) {
-      setSkyfocusState(DISABLED);
+      env.getSkyframeExecutor().setSkyfocusState(DISABLED);
       return;
     }
-
-    env.getEventBus().register(this); // Allows this object to listen to build events.
 
     SkyfocusState activeState = env.getSkyframeExecutor().getSkyfocusState();
     ImmutableSet<String> activeWorkingSet = activeState.workingSet();
@@ -160,25 +144,27 @@ public class SkyfocusModule extends BlazeModule {
                 Event.info(
                     "Updated working set successfully. Skyfocus will run at the end of the"
                         + " build."));
-        setSkyfocusState(
-            new SkyfocusState(
-                true,
-                newWorkingSet, // update to the new working set
-                activeState.verificationSet(),
-                skyfocusOptions,
-                activeState.buildConfiguration(),
-                Request.RUN_FOCUS));
+        env.getSkyframeExecutor()
+            .setSkyfocusState(
+                new SkyfocusState(
+                    true,
+                    newWorkingSet, // update to the new working set
+                    activeState.verificationSet(),
+                    skyfocusOptions,
+                    activeState.buildConfiguration(),
+                    Request.RUN_FOCUS));
         env.getSkyframeExecutor().getEvaluator().rememberTopLevelEvaluations(true);
         break;
       case DO_NOTHING:
-        setSkyfocusState(
-            new SkyfocusState(
-                true,
-                activeState.workingSet(), // don't update the working set
-                activeState.verificationSet(),
-                skyfocusOptions,
-                activeState.buildConfiguration(),
-                Request.DO_NOTHING));
+        env.getSkyframeExecutor()
+            .setSkyfocusState(
+                new SkyfocusState(
+                    true,
+                    activeState.workingSet(), // don't update the working set
+                    activeState.verificationSet(),
+                    skyfocusOptions,
+                    activeState.buildConfiguration(),
+                    Request.DO_NOTHING));
         break;
     }
   }
@@ -213,33 +199,19 @@ public class SkyfocusModule extends BlazeModule {
     }
   }
 
-  /**
-   * Subscriber trigger for Skyfocus using {@link BuildToolFinalizingEvent}.
-   *
-   * <p>This fires just before the build completes, which is the perfect time for applying Skyfocus.
-   * Skyfocus events should be profiled as part of the build command, so it should happen before the
-   * build completes or BuildTool request finishes.
-   */
-  @Keep
-  @Subscribe
-  public void onBuildToolFinalizingEvent(BuildToolFinalizingEvent event)
+  public static void runSkyfocus(SkyfocusState state, CommandEnvironment env)
       throws InterruptedException, AbruptExitException {
-    SkyfocusState state = getSkyfocusState();
-    if (!state.enabled() || state.request() == Request.DO_NOTHING) {
-      // Skyfocus doesn't need to run, nothing to do here.
-      return;
-    }
-
-    if (!event.getDetailedExitCode().isSuccess()) {
-      env.getReporter().handle(Event.warn("Skyfocus did not run due to an unsuccessful build."));
-      return;
-    }
+    Preconditions.checkState(
+        state.options().skyfocusEnabled && state.request() == Request.RUN_FOCUS);
 
     int beforeNodeCount = env.getSkyframeExecutor().getEvaluator().getValues().size();
     long beforeHeap = 0;
     long beforeActionCacheEntries = env.getBlazeWorkspace().getPersistentActionCache().size();
     if (state.options().dumpPostGcStats) {
-      beforeHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
+      // we have to gc once here to get an accurate reading on the exact work Skyfocus is
+      // doing.
+      System.gc();
+      beforeHeap = getHeapSize();
     }
 
     ImmutableMultiset<SkyFunctionName> skyFunctionCountBefore = ImmutableMultiset.of();
@@ -250,20 +222,21 @@ public class SkyfocusModule extends BlazeModule {
     }
 
     // Run Skyfocus!
-    FocusResult focusResult = focus();
+    FocusResult focusResult = focus(env);
 
     // Shouldn't result in an empty graph.
     Preconditions.checkState(!focusResult.getDeps().isEmpty());
     Preconditions.checkState(!focusResult.getRdeps().isEmpty());
 
-    setSkyfocusState(
-        new SkyfocusState(
-            true,
-            state.workingSet(),
-            focusResult.getVerificationSet(), // update
-            state.options(),
-            state.buildConfiguration(),
-            state.request()));
+    env.getSkyframeExecutor()
+        .setSkyfocusState(
+            new SkyfocusState(
+                true,
+                state.workingSet(),
+                focusResult.getVerificationSet(), // update
+                state.options(),
+                state.buildConfiguration(),
+                state.request()));
 
     dumpKeys(dumpKeysOption, env.getReporter(), focusResult, graph, skyFunctionCountBefore);
 
@@ -282,33 +255,31 @@ public class SkyfocusModule extends BlazeModule {
         Long::toString);
 
     if (state.options().dumpPostGcStats) {
+      System.gc();
       // Users may skip heap size reporting, which triggers slow manual GCs, in place of faster
       // focusing.
       reportReductions(
-          env.getReporter(),
-          "Heap",
-          beforeHeap,
-          UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc(),
-          StringUtilities::prettyPrintBytes);
+          env.getReporter(), "Heap", beforeHeap, getHeapSize(), StringUtilities::prettyPrintBytes);
     }
 
     env.getSkyframeExecutor().getEvaluator().cleanupLatestTopLevelEvaluations();
   }
 
-  @Override
-  public void afterCommand() throws AbruptExitException {
-    // Avoid retaining the CommandEnvironment.
-    env = null;
+  private static long getHeapSize() {
+    // Identical implementation to `blaze info used-heap-size-after-gc`, except that depending
+    // on that function would cause a cyclic dep.
+    // TODO: b/311665999 - Remove the subtraction of FillerArray once we figure out an alternative.
+    MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
+    return memBean.getHeapMemoryUsage().getUsed() - HeapOffsetHelper.getSizeOfFillerArrayOnHeap();
   }
 
   /** The main entry point of the Skyfocus optimizations agains the Skyframe graph. */
-  private FocusResult focus() throws InterruptedException, AbruptExitException {
+  private static FocusResult focus(CommandEnvironment env)
+      throws InterruptedException, AbruptExitException {
     // TODO: b/312819241 - add support for SerializationCheckingGraph for use in tests.
     InMemoryMemoizingEvaluator evaluator =
         (InMemoryMemoizingEvaluator) env.getSkyframeExecutor().getEvaluator();
     InMemoryGraphImpl graph = (InMemoryGraphImpl) evaluator.getInMemoryGraph();
-
-    Reporter reporter = env.getReporter();
 
     // Compute the roots and leafs.
     Set<SkyKey> roots = evaluator.getLatestTopLevelEvaluations();
@@ -320,7 +291,7 @@ public class SkyfocusModule extends BlazeModule {
     // This may be an issue with packages from a different package_path root.
     Root packageRoot = env.getPackageLocator().getPathEntries().get(0);
     ImmutableSet<RootedPath> workingSetRootedPaths =
-        getSkyfocusState().workingSet().stream()
+        env.getSkyframeExecutor().getSkyfocusState().workingSet().stream()
             .map(f -> RootedPath.toRootedPath(packageRoot, PathFragment.create(f)))
             .collect(toImmutableSet());
 
@@ -344,15 +315,16 @@ public class SkyfocusModule extends BlazeModule {
     }
     int missingCount = workingSetRootedPaths.size() - leafs.size();
     if (missingCount > 0) {
-      reporter.handle(
-          Event.warn(
-              missingCount
-                  + " files were not found in the transitive closure, and so they are not included"
-                  + " in the working set. They are: "
-                  + workingSetRootedPaths.stream()
-                      .filter(Predicate.not(leafs::contains))
-                      .map(r -> r.getRootRelativePath().toString())
-                      .collect(joining(", "))));
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  missingCount
+                      + " files were not found in the transitive closure, and so they are not"
+                      + " included in the working set. They are: "
+                      + workingSetRootedPaths.stream()
+                          .filter(Predicate.not(leafs::contains))
+                          .map(r -> r.getRootRelativePath().toString())
+                          .collect(joining(", "))));
     }
 
     // TODO: b/312819241 - this leaf is necessary for build correctness of volatile actions, like
@@ -366,18 +338,23 @@ public class SkyfocusModule extends BlazeModule {
           }
         });
 
-    reporter.handle(
-        Event.info(
-            String.format(
-                "Focusing on %d roots, %d leafs.. (use --dump_keys to show them)",
-                roots.size(), leafs.size())));
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "Focusing on %d roots, %d leafs.. (use --dump_keys to show them)",
+                    roots.size(), leafs.size())));
 
     FocusResult focusResult;
 
     try (SilentCloseable c = Profiler.instance().profile("SkyframeFocuser")) {
       focusResult =
           SkyframeFocuser.focus(
-              graph, env.getBlazeWorkspace().getPersistentActionCache(), reporter, roots, leafs);
+              graph,
+              env.getBlazeWorkspace().getPersistentActionCache(),
+              env.getReporter(),
+              roots,
+              leafs);
     }
 
     return focusResult;

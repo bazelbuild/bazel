@@ -195,7 +195,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_module",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_module",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skymeld_module",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
