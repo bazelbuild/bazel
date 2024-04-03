@@ -71,7 +71,6 @@ final class CounterSeriesTraceData implements TraceData {
     this.counterSeriesMap = counterSeriesMap;
     this.profileStart = profileStart;
     this.bucketDuration = bucketDuration;
-
   }
 
   // Pick acceptable counter colors manually, unfortunately we have to pick from these
@@ -79,6 +78,7 @@ final class CounterSeriesTraceData implements TraceData {
   // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
   private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_COLOR =
       ImmutableMap.ofEntries(
+          entry(ProfilerTask.LOCAL_ACTION_COUNTS, "detailed_memory_dump"),
           entry(ProfilerTask.LOCAL_CPU_USAGE, "good"),
           entry(ProfilerTask.SYSTEM_CPU_USAGE, "rail_load"),
           entry(ProfilerTask.LOCAL_MEMORY_USAGE, "olive"),
@@ -99,6 +99,7 @@ final class CounterSeriesTraceData implements TraceData {
       ImmutableMap.ofEntries(
           entry(ProfilerTask.ACTION_COUNTS, "action"),
           entry(ProfilerTask.ACTION_CACHE_COUNTS, "local action cache"),
+          entry(ProfilerTask.LOCAL_ACTION_COUNTS, "local action"),
           entry(ProfilerTask.LOCAL_CPU_USAGE, "cpu"),
           entry(ProfilerTask.SYSTEM_CPU_USAGE, "system cpu"),
           entry(ProfilerTask.LOCAL_MEMORY_USAGE, "memory"),

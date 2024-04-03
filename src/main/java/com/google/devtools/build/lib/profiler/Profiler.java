@@ -330,6 +330,7 @@ public final class Profiler {
 
   private TimeSeries actionCountTimeSeries;
   private TimeSeries actionCacheCountTimeSeries;
+  private TimeSeries localActionCountTimeSeries;
   private Duration actionCountStartTime;
   private boolean collectTaskHistograms;
   private boolean includePrimaryOutput;
@@ -454,6 +455,8 @@ public final class Profiler {
     this.actionCountTimeSeries = new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     this.actionCacheCountTimeSeries =
         new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
+    this.localActionCountTimeSeries =
+        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     this.collectTaskHistograms = collectTaskHistograms;
     this.includePrimaryOutput = includePrimaryOutput;
     this.includeTargetLabel = includeTargetLabel;
@@ -522,6 +525,23 @@ public final class Profiler {
     if (!counterSeriesMap.isEmpty()) {
       instance.logCounters(counterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     }
+
+    Map<ProfilerTask, double[]> localCounterSeriesMap = new LinkedHashMap<>();
+    if (localActionCountTimeSeries != null) {
+      double[] localActionCountValues = localActionCountTimeSeries.toDoubleArray(len);
+      localActionCountTimeSeries = null;
+      localCounterSeriesMap.put(ProfilerTask.LOCAL_ACTION_COUNTS, localActionCountValues);
+    }
+    if (hasNonZeroValues(localCounterSeriesMap)) {
+      instance.logCounters(
+          localCounterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
+    }
+  }
+
+  private boolean hasNonZeroValues(Map<ProfilerTask, double[]> countersSeriesMap) {
+    return countersSeriesMap.values().stream()
+        .flatMapToDouble(Arrays::stream)
+        .anyMatch(v -> v != 0);
   }
 
   /**
@@ -861,6 +881,13 @@ public final class Profiler {
     if (actionCacheCountTimeSeries != null && data.type == ProfilerTask.ACTION_CHECK) {
       synchronized (this) {
         actionCacheCountTimeSeries.addRange(
+            Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
+      }
+    }
+
+    if (localActionCountTimeSeries != null && data.type == ProfilerTask.LOCAL_ACTION_COUNTS) {
+      synchronized (this) {
+        localActionCountTimeSeries.addRange(
             Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
       }
     }

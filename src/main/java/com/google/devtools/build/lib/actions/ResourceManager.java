@@ -19,8 +19,10 @@ import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.worker.Worker;
@@ -80,6 +82,7 @@ public class ResourceManager implements ResourceEstimator {
     private final ActionExecutionMetadata actionMetadata;
     private final ResourceSet resourceSet;
     private Worker worker;
+    private final long resourceAcquiredTime;
 
     private ResourceHandle(
         ResourceManager rm,
@@ -87,6 +90,7 @@ public class ResourceManager implements ResourceEstimator {
         ResourceSet resources,
         Worker worker) {
       this.rm = rm;
+      this.resourceAcquiredTime = BlazeClock.instance().nanoTime();
       this.actionMetadata = actionMetadata;
       this.resourceSet = resources;
       this.worker = worker;
@@ -101,6 +105,9 @@ public class ResourceManager implements ResourceEstimator {
     @Override
     public void close() throws IOException, InterruptedException {
       rm.releaseResources(actionMetadata, resourceSet, worker);
+      Profiler.instance()
+          .completeTask(
+              resourceAcquiredTime, ProfilerTask.LOCAL_ACTION_COUNTS, "Resources acquired");
     }
 
     public void invalidateAndClose(@Nullable Exception e) throws IOException, InterruptedException {
