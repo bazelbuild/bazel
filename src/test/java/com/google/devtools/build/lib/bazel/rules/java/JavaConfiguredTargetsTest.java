@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.java.JavaTestUtil;
 import java.util.Arrays;
 import java.util.List;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -60,13 +59,6 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
 
   @Override
   protected void useConfiguration(String... args) throws Exception {
-    super.useConfiguration(
-        ObjectArrays.concat(
-            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
-  }
-
-  @Before
-  public void setup() throws Exception {
     JavaTestUtil.setupPlatform(
         getAnalysisMock(),
         mockToolsConfig,
@@ -75,6 +67,9 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
         targetPlatform,
         targetOs,
         targetCpu);
+    super.useConfiguration(
+        ObjectArrays.concat(
+            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
   }
 
   @Test
