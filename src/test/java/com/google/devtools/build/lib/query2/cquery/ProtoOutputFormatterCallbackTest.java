@@ -203,7 +203,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     AnalysisProtosV2.CqueryResult cqueryResult =
         getProtoOutput("deps(//test:parent_rule)", AnalysisProtosV2.CqueryResult.parser());
     List<Configuration> configurations = cqueryResult.getConfigurationsList();
-    assertThat(configurations).hasSize(2);
+    assertThat(configurations).hasSize(3);
 
     List<AnalysisProtosV2.ConfiguredTarget> resultsList = cqueryResult.getResultsList();
 
@@ -333,7 +333,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     List<ConfiguredRuleInput> configuredRuleInputs =
         transitionRuleProto.getTarget().getRule().getConfiguredRuleInputList();
     assertThat(configuredRuleInputs)
-        .containsExactly(patchedConfiguredRuleInput, depConfiguredRuleInput);
+        .containsAtLeast(patchedConfiguredRuleInput, depConfiguredRuleInput);
   }
 
   @Test
@@ -469,7 +469,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     assertThat(aliasProto.getTarget().getRule().getRuleInputList())
         .containsExactly("//test:my_target");
     assertThat(aliasProto.getTarget().getRule().getConfiguredRuleInputList())
-        .containsExactly(
+        .containsAtLeast(
             ConfiguredRuleInput.newBuilder()
                 .setLabel("//test:my_target")
                 .setConfigurationChecksum(

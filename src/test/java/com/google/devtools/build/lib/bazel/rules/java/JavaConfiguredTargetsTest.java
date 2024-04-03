@@ -23,6 +23,7 @@ import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.java.JavaTestUtil;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
@@ -60,13 +61,6 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
 
   @Override
   protected void useConfiguration(String... args) throws Exception {
-    super.useConfiguration(
-        ObjectArrays.concat(
-            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
-  }
-
-  @Before
-  public void setup() throws Exception {
     JavaTestUtil.setupPlatform(
         getAnalysisMock(),
         mockToolsConfig,
@@ -75,6 +69,9 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
         targetPlatform,
         targetOs,
         targetCpu);
+    super.useConfiguration(
+        ObjectArrays.concat(
+            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
   }
 
   @Test
@@ -130,6 +127,7 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   @Test
   public void javaTestInvalidTestClassAtRootPackage() throws Exception {
     scratch.file("BUILD", "java_test(name = 'some_test', srcs = ['SomeTest.java'])");
+    invalidatePackages();
 
     AssertionError error =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//:some_test"));
