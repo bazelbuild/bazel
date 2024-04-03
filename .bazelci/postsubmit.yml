@@ -47,6 +47,11 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      # https://github.com/bazelbuild/bazel/issues/21593
+      # --
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
+      # --
     include_json_profile:
       - build
       - test
@@ -95,6 +100,11 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # https://github.com/bazelbuild/bazel/issues/21593
+      # --
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
+      # --
     include_json_profile:
       - build
       - test
@@ -153,6 +163,11 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # https://github.com/bazelbuild/bazel/issues/21593
+      # --
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
+      # --
     include_json_profile:
       - build
       - test
@@ -206,6 +221,11 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      # https://github.com/bazelbuild/bazel/issues/21593
+      # --
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_local_test_integration_test_with_head_android_tools"
+      # --
     include_json_profile:
       - build
       - test
