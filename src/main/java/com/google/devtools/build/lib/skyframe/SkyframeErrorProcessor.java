@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
@@ -100,7 +99,7 @@ public final class SkyframeErrorProcessor {
 
     abstract boolean hasAnalysisError();
 
-    abstract ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts();
+    abstract ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts();
 
     @Nullable
     abstract DetailedExitCode executionDetailedExitCode();
@@ -112,7 +111,7 @@ public final class SkyframeErrorProcessor {
     static class AggregatingBuilder {
       private boolean hasLoadingError = false;
       private boolean hasAnalysisError = false;
-      private final Map<ActionAnalysisMetadata, ConflictException> actionConflicts =
+      private final Map<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
           Maps.newHashMap();
       @Nullable private DetailedExitCode executionDetailedExitCode = null;
 
@@ -143,7 +142,7 @@ public final class SkyframeErrorProcessor {
   @AutoValue
   abstract static class IndividualErrorProcessingResult {
 
-    abstract ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts();
+    abstract ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts();
 
     @Nullable
     abstract DetailedExitCode executionDetailedExitCode();
@@ -166,7 +165,7 @@ public final class SkyframeErrorProcessor {
     }
 
     static IndividualErrorProcessingResult create(
-        ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts,
+        ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts,
         @Nullable DetailedExitCode executionDetailedExitCode,
         NestedSet<Cause> analysisRootCauses,
         ImmutableSet<Label> loadingRootCauses) {
@@ -439,7 +438,8 @@ public final class SkyframeErrorProcessor {
       ErrorInfo errorInfo) {
     Exception exception = errorInfo.getException();
     Set<Label> loadingRootCauses = Sets.newHashSet();
-    ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts = ImmutableMap.of();
+    ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
+        ImmutableMap.of();
     DetailedExitCode executionDetailedExitCode = null;
 
     // Legacy: analysis-related failure events for Aspects are sent somewhere else, so we don't have

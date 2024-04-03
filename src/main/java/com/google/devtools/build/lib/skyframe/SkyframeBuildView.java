@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -89,7 +88,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType;
@@ -378,7 +376,8 @@ public final class SkyframeBuildView {
     PackageRoots packageRoots = result.packageRoots();
     EvaluationResult<ActionLookupValue> evaluationResult = result.evaluationResult();
 
-    ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts = ImmutableMap.of();
+    ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
+        ImmutableMap.of();
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeExecutor.findArtifactConflicts")) {
       var newKeys =
@@ -437,14 +436,11 @@ public final class SkyframeBuildView {
     // Sometimes there are action conflicts, but the actions aren't actually required to run by the
     // build. In such cases, the conflict should still be reported to the user.
     // See OutputArtifactConflictTest#unusedActionsStillConflict.
-    Set<String> reportedArtifactPrefixConflictExceptions = Sets.newHashSet();
-    for (Entry<ActionAnalysisMetadata, ConflictException> bad : actionConflicts.entrySet()) {
-      ConflictException ex = bad.getValue();
-      DetailedExitCode detailedExitCode;
-      try {
-        throw ex.rethrowTyped();
-      } catch (ActionConflictException ace) {
-        detailedExitCode = ace.getDetailedExitCode();
+    Set<String> reportedActionConflictExceptions = Sets.newHashSet();
+    for (Entry<ActionAnalysisMetadata, ActionConflictException> bad : actionConflicts.entrySet()) {
+      ActionConflictException ace = bad.getValue();
+      var detailedExitCode = ace.getDetailedExitCode();
+      if (reportedActionConflictExceptions.add(ace.getMessage())) {
         ace.reportTo(eventHandler);
         if (keepGoing) {
           eventHandler.handle(
@@ -453,15 +449,10 @@ public final class SkyframeBuildView {
                       + bad.getKey().getOwner().getLabel()
                       + "': it will not be built"));
         }
-      } catch (ArtifactPrefixConflictException apce) {
-        detailedExitCode = apce.getDetailedExitCode();
-        if (reportedArtifactPrefixConflictExceptions.add(apce.getMessage())) {
-          eventHandler.handle(Event.error(apce.getMessage()));
-        }
       }
       if (!keepGoing) {
         noKeepGoingExceptionDueToConflict =
-            new ViewCreationFailedException(detailedExitCode.getFailureDetail(), ex);
+            new ViewCreationFailedException(detailedExitCode.getFailureDetail(), ace);
       }
     }
 
@@ -484,7 +475,8 @@ public final class SkyframeBuildView {
       // conflicts, then finally throw if evaluation is --nokeep_going.
       for (ActionLookupKey ctKey : Iterables.concat(ctKeys, aspectKeys)) {
         if (!topLevelActionConflictReport.isErrorFree(ctKey)) {
-          Optional<ConflictException> e = topLevelActionConflictReport.getConflictException(ctKey);
+          Optional<ActionConflictException> e =
+              topLevelActionConflictReport.getConflictException(ctKey);
           if (e.isEmpty()) {
             continue;
           }
@@ -496,8 +488,7 @@ public final class SkyframeBuildView {
                     .getConfiguredTarget()
                     .getLookupKey();
           }
-          AnalysisFailedCause failedCause =
-              makeArtifactConflictAnalysisFailedCause(e.get(), ctKey.getConfigurationKey());
+          AnalysisFailedCause failedCause = makeArtifactConflictAnalysisFailedCause(e.get());
           eventBus.post(
               AnalysisFailureEvent.actionConflict(
                   ctKey, NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
@@ -949,33 +940,27 @@ public final class SkyframeBuildView {
       TopLevelActionConflictReport topLevelActionConflictReport,
       WalkableGraph graph,
       Iterable<ActionLookupKey> effectiveTopLevelKeysForConflictReporting,
-      ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts,
+      ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts,
       ExtendedEventHandler eventHandler,
       EventBus eventBus,
       boolean keepGoing)
       throws ViewCreationFailedException, InterruptedException {
     // ArtifactPrefixConflictExceptions come in pairs, and only one should be reported.
-    Set<String> reportedArtifactPrefixConflictExceptions = Sets.newHashSet();
+    Set<String> reportedActionConflictExceptions = Sets.newHashSet();
 
     // Sometimes a conflicting action can't be traced to a top level target via
     // TopLevelActionConflictReport. We therefore need to print the errors from the conflicts
     // themselves. See SkyframeIntegrationTest#topLevelAspectsAndExtraActionsWithConflict.
-    for (ConflictException e : actionConflicts.values()) {
-      try {
-        e.rethrowTyped();
-      } catch (ActionConflictException ace) {
-        ace.reportTo(eventHandler);
+    for (ActionConflictException e : actionConflicts.values()) {
+      if (reportedActionConflictExceptions.add(e.getMessage())) {
+        e.reportTo(eventHandler);
         if (keepGoing) {
           eventHandler.handle(
               Event.warn(
                   String.format(
                       "errors encountered while analyzing target '"
-                          + ace.getArtifact().getOwnerLabel()
+                          + e.getArtifact().getOwnerLabel()
                           + "': it will not be built")));
-        }
-      } catch (ArtifactPrefixConflictException apce) {
-        if (reportedArtifactPrefixConflictExceptions.add(apce.getMessage())) {
-          eventHandler.handle(Event.error(apce.getMessage()));
         }
       }
     }
@@ -985,13 +970,13 @@ public final class SkyframeBuildView {
       if (topLevelActionConflictReport.isErrorFree(actionLookupKey)) {
         continue;
       }
-      Optional<ConflictException> e =
+      Optional<ActionConflictException> e =
           topLevelActionConflictReport.getConflictException(actionLookupKey);
       if (e.isEmpty()) {
         continue;
       }
 
-      ConflictException conflictException = e.get();
+      ActionConflictException conflictException = e.get();
       // Promotes any ConfiguredTargetKey to the one embedded in the ConfiguredTarget to reflect any
       // transitions or trimming.
       if (actionLookupKey instanceof ConfiguredTargetKey) {
@@ -1002,9 +987,7 @@ public final class SkyframeBuildView {
                 .getConfiguredTarget()
                 .getLookupKey();
       }
-      AnalysisFailedCause failedCause =
-          makeArtifactConflictAnalysisFailedCause(
-              conflictException, actionLookupKey.getConfigurationKey());
+      AnalysisFailedCause failedCause = makeArtifactConflictAnalysisFailedCause(conflictException);
       // TODO(b/210710338) Replace with a more appropriate event.
       eventBus.post(
           AnalysisFailureEvent.actionConflict(
@@ -1153,20 +1136,6 @@ public final class SkyframeBuildView {
       aspects.putAll(topLevelAspectsValue.getTopLevelAspectsMap());
     }
     return aspects.buildOrThrow();
-  }
-
-  private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(
-      ConflictException e, @Nullable BuildConfigurationKey configurationKey) {
-    try {
-      throw e.rethrowTyped();
-    } catch (ActionConflictException ace) {
-      return makeArtifactConflictAnalysisFailedCause(ace);
-    } catch (ArtifactPrefixConflictException apce) {
-      return new AnalysisFailedCause(
-          apce.getFirstOwner(),
-          configurationIdMessage(configurationKey),
-          apce.getDetailedExitCode());
-    }
   }
 
   private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(

@@ -588,14 +588,14 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     ViewCreationFailedException e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
-    assertThat(e).hasCauseThat().hasCauseThat().isInstanceOf(ActionConflictException.class);
+    assertThat(e).hasCauseThat().isInstanceOf(ActionConflictException.class);
     assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
     eventListener.failedTargetNames.clear();
 
     e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
-    assertThat(e).hasCauseThat().hasCauseThat().isInstanceOf(ActionConflictException.class);
+    assertThat(e).hasCauseThat().isInstanceOf(ActionConflictException.class);
     assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
   }
 

@@ -48,6 +48,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -161,7 +162,6 @@ import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
@@ -2087,8 +2087,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   TopLevelActionConflictReport filterActionConflictsForConfiguredTargetsAndAspects(
       ExtendedEventHandler eventHandler,
       Iterable<ActionLookupKey> keys,
-      ImmutableMap<ActionAnalysisMetadata, ArtifactConflictFinder.ConflictException>
-          actionConflicts,
+      ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts,
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     checkActive();
@@ -2112,7 +2111,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /**
    * Encapsulation of the result of #filterActionConflictsForConfiguredTargetsAndAspects() allowing
    * callers to determine which top-level keys did not have analysis errors and retrieve the
-   * ConflictException for those that keys that specifically have conflicts.
+   * ActionConflictException for those that keys that specifically have conflicts.
    */
   static final class TopLevelActionConflictReport {
 
@@ -2133,15 +2132,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     /**
-     * Get the ConflictException produced for the given ActionLookupKey. Will throw if the given key
-     * {@link #isErrorFree is error-free}.
+     * Get the ActionConflictException produced for the given ActionLookupKey. Will throw if the
+     * given key {@link #isErrorFree is error-free}.
      */
-    Optional<ConflictException> getConflictException(ActionLookupKey k) {
+    Optional<ActionConflictException> getConflictException(ActionLookupKey k) {
       ErrorInfo errorInfo =
           result.getError(
               TopLevelActionLookupConflictFindingFunction.Key.create(k, topLevelArtifactContext));
       Exception e = errorInfo.getException();
-      return Optional.ofNullable(e instanceof ConflictException ? (ConflictException) e : null);
+      return Optional.ofNullable(
+          e instanceof ActionConflictException ? (ActionConflictException) e : null);
     }
   }
 
