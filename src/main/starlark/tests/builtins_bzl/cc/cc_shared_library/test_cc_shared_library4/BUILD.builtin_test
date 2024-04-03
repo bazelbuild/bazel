@@ -1,0 +1,28 @@
+package(default_visibility = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library:__subpackages__"])
+
+licenses(["notice"])
+
+cc_library(
+    name = "bar",
+    srcs = ["bar.cc"],
+    hdrs = ["bar.h"],
+)
+
+cc_library(name = "extra_link1")
+
+cc_library(name = "extra_link2")
+
+cc_shared_library(
+    name = "bar_so",
+    features = ["windows_export_all_symbols"],
+    deps = select({"//conditions:default": [":bar"]}),
+)
+
+cc_test(
+    name = "cc_test",
+    srcs = ["main.cc"],
+    dynamic_deps = select({"//conditions:default": ["bar_so"]}),
+    link_extra_lib = ":extra_link1",
+    malloc = ":extra_link2",
+    deps = select({"//conditions:default": ["bar"]}),
+)
