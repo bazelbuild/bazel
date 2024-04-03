@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.hash.Hashing.md5;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BatchStat;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -62,6 +64,8 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -401,10 +405,216 @@ public class BazelOutputService implements OutputService {
     }
   }
 
+  private record BazelOutputServiceFile(Digest digest) implements FileStatusWithDigest {
+    @Override
+    public boolean isFile() {
+      return true;
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+      return false;
+    }
+
+    @Override
+    public boolean isSpecialFile() {
+      return false;
+    }
+
+    @Override
+    public long getSize() {
+      return digest.getSizeBytes();
+    }
+
+    @Override
+    public long getLastModifiedTime() {
+      throw new UnsupportedOperationException("Cannot get last modified time");
+    }
+
+    @Override
+    public long getLastChangeTime() {
+      throw new UnsupportedOperationException("Cannot get last change time");
+    }
+
+    @Override
+    public long getNodeId() {
+      throw new UnsupportedOperationException("Cannot get node id");
+    }
+
+    @Nullable
+    @Override
+    public byte[] getDigest() {
+      return DigestUtil.toBinaryDigest(digest);
+    }
+  }
+
+  private record BazelOutputServiceSymlink(String target) implements FileStatusWithDigest {
+    @Override
+    public boolean isFile() {
+      return false;
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+      return true;
+    }
+
+    @Override
+    public boolean isSpecialFile() {
+      return false;
+    }
+
+    @Override
+    public long getSize() {
+      throw new UnsupportedOperationException("Cannot get size");
+    }
+
+    @Override
+    public long getLastModifiedTime() {
+      throw new UnsupportedOperationException("Cannot get last modified time");
+    }
+
+    @Override
+    public long getLastChangeTime() {
+      throw new UnsupportedOperationException("Cannot get last change time");
+    }
+
+    @Override
+    public long getNodeId() {
+      throw new UnsupportedOperationException("Cannot get node id");
+    }
+
+    @Nullable
+    @Override
+    public byte[] getDigest() {
+      throw new UnsupportedOperationException("Cannot get digest");
+    }
+  }
+
+  private record BazelOutputServiceDirectory() implements FileStatusWithDigest {
+    @Override
+    public boolean isFile() {
+      return false;
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return true;
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+      return false;
+    }
+
+    @Override
+    public boolean isSpecialFile() {
+      return false;
+    }
+
+    @Override
+    public long getSize() {
+      throw new UnsupportedOperationException("Cannot get size");
+    }
+
+    @Override
+    public long getLastModifiedTime() {
+      return 0;
+    }
+
+    @Override
+    public long getLastChangeTime() {
+      throw new UnsupportedOperationException("Cannot get last change time");
+    }
+
+    @Override
+    public long getNodeId() {
+      throw new UnsupportedOperationException("Cannot get node id");
+    }
+
+    @Nullable
+    @Override
+    public byte[] getDigest() {
+      throw new UnsupportedOperationException("Cannot get digest");
+    }
+  }
+
   @Override
   public BatchStat getBatchStatter() {
-    // TODO(chiwang): implement this
-    return null;
+    return paths -> {
+      var outputPath = outputPathSupplier.get().asFragment();
+      var execRoot = execRootSupplier.get();
+
+      var request = BatchStatRequest.newBuilder();
+      request.setBuildId(checkNotNull(buildId));
+
+      var unsupportedPathIndexSet = new HashSet<Integer>();
+      int index = 0;
+      for (var execPath : paths) {
+        String pathString = null;
+        var path = execRoot.getRelative(execPath).asFragment();
+        if (path.startsWith(outputPath)) {
+          pathString = path.relativeTo(outputPath).toString();
+        } else if (path.startsWith(checkNotNull(outputPathTarget))) {
+          pathString = path.relativeTo(outputPathTarget).toString();
+        }
+
+        if (pathString == null) {
+          unsupportedPathIndexSet.add(index);
+        } else {
+          request.addPaths(pathString);
+        }
+        ++index;
+      }
+
+      var response = BazelOutputService.this.batchStat(request.build());
+      if (response.getResponsesCount() != request.getPathsCount()) {
+        throw new IOException(
+            String.format(
+                "BatchStat failed: expect %s responses, got %s",
+                request.getPathsCount(), response.getResponsesCount()));
+      }
+
+      var result = new ArrayList<FileStatusWithDigest>(index);
+      for (int i = 0; i < index; ++i) {
+        if (unsupportedPathIndexSet.contains(i)) {
+          result.add(null);
+          continue;
+        }
+
+        var statResponse = response.getResponses(i);
+        if (!statResponse.hasStat()) {
+          result.add(null);
+          continue;
+        }
+
+        var stat = statResponse.getStat();
+        if (stat.hasFile() && stat.getFile().hasLocator()) {
+          var locator = stat.getFile().getLocator();
+          result.add(
+              new BazelOutputServiceFile(locator.unpack(FileArtifactLocator.class).getDigest()));
+        } else if (stat.hasSymlink()) {
+          // TODO(chiwang): The target is currently unused by the call site, instead it resolves the
+          //  symlink manually. Optimize it.
+          result.add(new BazelOutputServiceSymlink(stat.getSymlink().getTarget()));
+        } else if (stat.hasDirectory()) {
+          result.add(new BazelOutputServiceDirectory());
+        } else {
+          result.add(null);
+        }
+      }
+      return result;
+    };
   }
 
   @Override
