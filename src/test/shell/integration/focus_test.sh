@@ -748,9 +748,11 @@ EOF
 
   assert_contains "value=default_val" ${out}
 
-  # Change the configuration dep.
-  bazel build //${pkg}:my_rule --//${pkg}:my_label_build_setting=//${pkg}:command_line &> "$TEST_log" \
-    || fail "expected build to succeed"
+  # Change the configuration dep, and rely on bazel's configuration invalidation
+  # mechanism to rebuild the graph.
+  bazel build //${pkg}:my_rule --//${pkg}:my_label_build_setting=//${pkg}:command_line \
+    --experimental_skyfocus_handling_strategy=warn \
+    &> "$TEST_log" || fail "expected build to succeed"
 
   # Analysis cache should be dropped due to the changed configuration.
   expect_log "WARNING: Build option --//${pkg}:my_label_build_setting has changed, discarding analysis cache"
@@ -849,6 +851,55 @@ EOF
   echo "another change" >> ${pkg}/subdir/in.txt
   bazel build //${pkg}:g || fail "expected build to succeed"
   assert_contains "another change" ${out}
+}
+
+function test_skyfocus_sad_path_handling_strategy_strict() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
+  mkdir -p ${pkg}
+  echo "input" > ${pkg}/in.txt
+  cat > ${pkg}/BUILD <<'EOF'
+genrule(
+  name = "g",
+  srcs = ["in.txt"],
+  outs = ["out.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt || fail "unexpected failure"
+  bazel build //${pkg}:g --experimental_skyfocus_handling_strategy=strict \
+    -c opt &>"$TEST_log" && fail "unexpected success"
+  local -r exit_code="$?"
+  # See failure_details.proto -> Skyfocus.Code.CONFIGURATION_CHANGE (exit_code: 2)
+  [[ "$exit_code" == 2 ]] || fail "Unexpected exit code: $exit_code"
+  expect_not_log "blaze crashed"
+  expect_log "Skyfocus: detected changes to the build configuration."
+  expect_log "not allowed in a focused build."
+}
+
+function test_skyfocus_sad_path_handling_strategy_warn() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
+  mkdir -p ${pkg}
+  echo "input" > ${pkg}/in.txt
+  cat > ${pkg}/BUILD <<'EOF'
+genrule(
+  name = "g",
+  srcs = ["in.txt"],
+  outs = ["out.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt || fail "unexpected failure"
+  bazel build //${pkg}:g --experimental_skyfocus_handling_strategy=warn \
+    -c opt &>"$TEST_log" || fail "unexpected failure"
+  expect_log "Skyfocus: detected changes to the build configuration."
+  expect_log "will be discarding the analysis cache"
+  bazel build //${pkg}:g --experimental_skyfocus_handling_strategy=warn \
+    -c opt &>"$TEST_log" || fail "unexpected failure"
+  expect_not_log "Skyfocus: detected changes to the build configuration."
 }
 
 run_suite "Tests for Skyfocus"

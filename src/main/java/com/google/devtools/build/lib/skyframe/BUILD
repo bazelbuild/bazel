@@ -171,6 +171,7 @@ java_library(
         ":rule_configured_target_value",
         ":sky_functions",
         ":sky_value_dirtiness_checker",
+        ":skyfocus_state",
         ":skyframe_action_executor",
         ":skyframe_aware_action",
         ":skyframe_error_processor",
@@ -2491,6 +2492,30 @@ java_library(
 )
 
 java_library(
+    name = "skyfocus_options",
+    srcs = ["SkyfocusOptions.java"],
+    deps = ["//src/main/java/com/google/devtools/common/options"],
+)
+
+java_library(
+    name = "skyfocus_state",
+    srcs = [
+        "SkyfocusState.java",
+    ],
+    deps = [
+        ":skyfocus_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "skyfocus_module",
     srcs = [
         "SkyfocusModule.java",
@@ -2499,10 +2524,11 @@ java_library(
     deps = [
         ":directory_listing_state_value",
         ":precomputed_value",
+        ":skyfocus_options",
+        ":skyfocus_state",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",

@@ -154,8 +154,6 @@ public interface MemoizingEvaluator {
    */
   void injectGraphTransformerForTesting(GraphTransformerForTesting transformer);
 
-  boolean getSkyfocusEnabled();
-
   /** Transforms a graph, possibly injecting other functionality. */
   interface GraphTransformerForTesting {
     InMemoryGraph transform(InMemoryGraph graph);
@@ -276,8 +274,11 @@ public interface MemoizingEvaluator {
 
   boolean skyfocusSupported();
 
-  /** Enables Skyfocus, a graph optimizer for Skyframe with working sets. */
-  void setSkyfocusEnabled(boolean enabled);
+  /**
+   * Enables Skyfocus, a graph optimizer for Skyframe with working sets, by remembering the root
+   * nodes.
+   */
+  void rememberTopLevelEvaluations(boolean remember);
 
   /** Cleans up the set of evaluated root SkyKeys. Used for Skyfocus. */
   void cleanupLatestTopLevelEvaluations();

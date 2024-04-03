@@ -37,7 +37,7 @@ public class SkyfocusWorkingSetItem extends InfoItem {
   public byte[] get(Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env)
       throws AbruptExitException, InterruptedException {
 
-    ImmutableSet<String> workingSet = env.getSkyframeExecutor().getWorkingSet();
+    ImmutableSet<String> workingSet = env.getSkyframeExecutor().getSkyfocusState().workingSet();
     if (workingSet.isEmpty()) {
       return print("No working set found.");
     }

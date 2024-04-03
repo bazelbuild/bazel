@@ -90,7 +90,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
 
   private Set<SkyKey> latestTopLevelEvaluations = new HashSet<>();
 
-  private boolean skyfocusEnabled;
+  private boolean rememberTopLevelEvaluations;
 
   protected AbstractInMemoryMemoizingEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
@@ -120,7 +120,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     setAndCheckEvaluateState(true, roots);
 
     // Only remember roots for Skyfocus if we're tracking incremental states by keeping edges.
-    if (keepEdges && skyfocusEnabled) {
+    if (keepEdges && rememberTopLevelEvaluations) {
       // Remember the top level evaluation of the build invocation for post-build consumption.
       Iterables.addAll(latestTopLevelEvaluations, roots);
     }
@@ -216,13 +216,8 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public boolean getSkyfocusEnabled() {
-    return skyfocusEnabled;
-  }
-
-  @Override
-  public void setSkyfocusEnabled(boolean enabled) {
-    this.skyfocusEnabled = enabled;
+  public void rememberTopLevelEvaluations(boolean remember) {
+    this.rememberTopLevelEvaluations = remember;
   }
 
   @Override

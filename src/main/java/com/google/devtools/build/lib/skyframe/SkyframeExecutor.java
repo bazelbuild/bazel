@@ -465,9 +465,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
 
-  private ImmutableSet<String> activeWorkingSet = ImmutableSet.of();
-
-  protected ImmutableSet<SkyKey> skyfocusVerificationSet = ImmutableSet.of();
+  private SkyfocusState skyfocusState = SkyfocusState.DISABLED;
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -1353,16 +1351,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return ignoredPaths;
   }
 
-  public ImmutableSet<String> getWorkingSet() {
-    return activeWorkingSet;
+  public final SkyfocusState getSkyfocusState() {
+    return skyfocusState;
   }
 
-  public void setWorkingSet(ImmutableSet<String> workingSet) {
-    activeWorkingSet = workingSet;
-  }
-
-  public void setSkyfocusVerificationSet(ImmutableSet<SkyKey> skyfocusVerificationSet) {
-    this.skyfocusVerificationSet = skyfocusVerificationSet;
+  public final void setSkyfocusState(SkyfocusState skyfocusState) {
+    this.skyfocusState = skyfocusState;
   }
 
   protected Differencer.Diff getDiff(
@@ -3571,18 +3565,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * <p>Only runs when Skyfocus is enabled (--experimental_enable_skyfocus).
    */
   private void handleSkyfocusVerificationSet(Differencer.Diff diff) throws AbruptExitException {
-    if (!getEvaluator().getSkyfocusEnabled()) {
+    if (!skyfocusState.enabled()) {
       return;
     }
 
-    if (diff.isEmpty() || skyfocusVerificationSet.isEmpty()) {
+    ImmutableSet<SkyKey> verificationSet = skyfocusState.verificationSet();
+    if (diff.isEmpty() || verificationSet.isEmpty()) {
       return;
     }
 
     Set<String> intersection = new TreeSet<>();
     Consumer<SkyKey> maybeAddToIntersection =
         (SkyKey k) -> {
-          if (skyfocusVerificationSet.contains(k)) {
+          if (verificationSet.contains(k)) {
             @Nullable RootedPath rp;
             // TODO: b/300214667 - switch to pattern matching when JDK 21 support lands.
             if (k instanceof RootedPath) {

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.runtime;
+package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -84,6 +84,42 @@ public final class SkyfocusOptions extends OptionsBase {
   private static class SkyfocusDumpEnumConverter extends EnumConverter<SkyfocusDumpOption> {
     public SkyfocusDumpEnumConverter() {
       super(SkyfocusDumpOption.class, "Skyframe Dump option");
+    }
+  }
+
+  @Option(
+      name = "experimental_skyfocus_handling_strategy",
+      defaultValue = "strict",
+      effectTags = OptionEffectTag.EAGERNESS_TO_EXIT,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      converter = SkyfocusHandlingStrategyConverter.class,
+      help = "Strategies for Skyfocus to handle changes outside of the working set.")
+  public SkyfocusHandlingStrategy handlingStrategy;
+
+  /**
+   * Strategies for handing the "sad path" in Skyfocus, where it needs to handle changes outside of
+   * the working set. This usually requires some reanalysis to rebuild the dropped Skyframe nodes.
+   */
+  public enum SkyfocusHandlingStrategy {
+    /**
+     * Strict mode. Makes the "sad path" explicit to the user, and how to avoid it. Errors out when
+     * Skyfocus detects a change outside of an active working set. Avoids automatic/graceful
+     * handling for the user.
+     */
+    STRICT,
+
+    /**
+     * Warn mode. Attempt to handle the "sad path" gracefully. Emits warning messages when the user
+     * makes a change outside of the working set.
+     */
+    WARN,
+  }
+
+  /** Enum converter for SkyfocusHandlingStrategy */
+  private static class SkyfocusHandlingStrategyConverter
+      extends EnumConverter<SkyfocusHandlingStrategy> {
+    public SkyfocusHandlingStrategyConverter() {
+      super(SkyfocusHandlingStrategy.class, "Skyfocus handling strategy option");
     }
   }
 }

@@ -938,7 +938,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 4,
+    shard_count = 5,
     tags = ["no_windows"],
 )
 
