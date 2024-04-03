@@ -68,7 +68,6 @@ public class XcodeVersionRule implements RuleDefinition {
                 .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_visionos_sdk_version) -->
         The visionos sdk version that is used by default when this version of xcode is being used.
-        The <code>visionos_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(DEFAULT_VISIONOS_SDK_VERSION_ATTR_NAME, STRING)
