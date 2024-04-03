@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 
 /**
  * Encapsulates a collection of action conflicts of the transitive closure of a top-level
@@ -23,15 +23,17 @@ import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictExc
  */
 final class TopLevelConflictException extends Exception {
 
-  private final ImmutableMap<ActionAnalysisMetadata, ConflictException> transitiveActionConflicts;
+  private final ImmutableMap<ActionAnalysisMetadata, ActionConflictException>
+      transitiveActionConflicts;
 
   TopLevelConflictException(
-      String message, ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts) {
+      String message,
+      ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts) {
     super(message);
     this.transitiveActionConflicts = actionConflicts;
   }
 
-  ImmutableMap<ActionAnalysisMetadata, ConflictException> getTransitiveActionConflicts() {
+  ImmutableMap<ActionAnalysisMetadata, ActionConflictException> getTransitiveActionConflicts() {
     return transitiveActionConflicts;
   }
 }

@@ -41,6 +41,7 @@ import javax.annotation.Nullable;
 public final class ActionConflictException extends AbstractSaneAnalysisException {
 
   private final Artifact artifact;
+  private final boolean isPrefixConflict;
 
   private static final int MAX_DIFF_ARTIFACTS_TO_REPORT = 5;
 
@@ -51,12 +52,34 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
       ActionAnalysisMetadata attemptedAction) {
     return new ActionConflictException(
         artifact,
-        createDetailedMessage(artifact, actionKeyContext, attemptedAction, previousAction));
+        createDetailedMessage(artifact, actionKeyContext, attemptedAction, previousAction),
+        /* isPrefixConflict= */ false);
   }
 
-  private ActionConflictException(Artifact artifact, String message) {
+  /**
+   * Exception to indicate that one {@link Action} has an output artifact whose path is a prefix of
+   * an output of another action. Since the first path cannot be both a directory and a file, this
+   * would lead to an error if both actions were executed in the same build.
+   */
+  public static ActionConflictException createPrefix(
+      Artifact firstArtifact,
+      Artifact secondArtifact,
+      ActionAnalysisMetadata firstAction,
+      ActionAnalysisMetadata secondAction) {
+    return new ActionConflictException(
+        firstArtifact,
+        createPrefixDetailedMessage(
+            firstArtifact,
+            secondArtifact,
+            firstAction.getOwner().getLabel(),
+            secondAction.getOwner().getLabel()),
+        /* isPrefixConflict= */ true);
+  }
+
+  private ActionConflictException(Artifact artifact, String message, boolean isPrefixConflict) {
     super(message);
     this.artifact = artifact;
+    this.isPrefixConflict = isPrefixConflict;
   }
 
   public Artifact getArtifact() {
@@ -74,6 +97,15 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
         + debugSuffix(actionKeyContext, a, b);
   }
 
+  private static String createPrefixDetailedMessage(
+      Artifact firstArtifact, Artifact secondArtifact, Label firstOwner, Label secondOwner) {
+    return String.format(
+        "One of the output paths '%s' (belonging to %s) and '%s' (belonging to %s) is a"
+            + " prefix of the other. These actions cannot be simultaneously present; please"
+            + " rename one of the output files or build just one of them",
+        firstArtifact.getExecPath(), firstOwner, secondArtifact.getExecPath(), secondOwner);
+  }
+
   public void reportTo(EventHandler eventListener) {
     eventListener.handle(Event.error(this.getMessage()));
   }
@@ -83,7 +115,10 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
     return DetailedExitCode.of(
         FailureDetail.newBuilder()
             .setMessage(getMessage())
-            .setAnalysis(Analysis.newBuilder().setCode(Code.ACTION_CONFLICT))
+            .setAnalysis(
+                Analysis.newBuilder()
+                    .setCode(
+                        isPrefixConflict ? Code.ARTIFACT_PREFIX_CONFLICT : Code.ACTION_CONFLICT))
             .build());
   }
 
