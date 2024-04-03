@@ -58,10 +58,10 @@ WORKSPACE_REPOS = {
         "urls": ["https://github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz"],
     },
     "rules_testing": {
-        "archive": "rules_testing-v0.0.4.tar.gz",
-        "sha256": "4e21f9aa7996944ce91431f27bca374bff56e680acfe497276074d56bc5d9af2",
-        "strip_prefix": "rules_testing-0.0.4",
-        "urls": ["https://github.com/bazelbuild/rules_testing/releases/download/v0.0.4/rules_testing-v0.0.4.tar.gz"],
+        "archive": "rules_testing-v0.6.0.tar.gz",
+        "sha256": "02c62574631876a4e3b02a1820cb51167bb9cdcdea2381b2fa9d9b8b11c407c4",
+        "strip_prefix": "rules_testing-0.6.0",
+        "urls": ["https://github.com/bazelbuild/rules_testing/releases/download/v0.6.0/rules_testing-v0.6.0.tar.gz"],
     },
     "remote_coverage_tools": {
         "archive": "coverage_output_generator-v2.6.zip",
