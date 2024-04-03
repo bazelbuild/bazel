@@ -350,19 +350,14 @@ filegroup(
     ],
 )
 
-# TODO(https://github.com/bazelbuild/bazel/issues/18214): After fixing Guava leak
-# in test-runner, the guava target can be reverted back to java_library
-java_import(
+java_library(
     name = "guava",
     applicable_licenses = [":guava_license"],
-    jars = [
-        "@maven//:com_google_guava_guava_file",
-        "@maven//:com_google_guava_failureaccess_file",
-    ],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
         ":jsr305",
+        "@maven//:com_google_guava_guava",
     ],
 )
 
