@@ -304,9 +304,9 @@ public final class Actions {
    * @param actionGraph the {@link ActionGraph} to query for artifact conflicts
    * @param artifacts all generated artifacts in the build
    * @return An immutable map between actions that generated the conflicting artifacts and their
-   *     associated {@link ArtifactPrefixConflictException}
+   *     associated {@link ActionConflictException}
    */
-  public static ImmutableMap<ActionAnalysisMetadata, ArtifactPrefixConflictException>
+  public static ImmutableMap<ActionAnalysisMetadata, ActionConflictException>
       findArtifactPrefixConflicts(ActionGraph actionGraph, Collection<Artifact> artifacts) {
     // No actions in graph -- currently happens only in tests. Special-cased because .next() call
     // below is unconditional.
@@ -318,7 +318,7 @@ public final class Actions {
     Arrays.parallelSort(artifactArray, EXEC_PATH_PREFIX_COMPARATOR);
 
     // Keep deterministic ordering of bad actions.
-    Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> badActions = new LinkedHashMap<>();
+    Map<ActionAnalysisMetadata, ActionConflictException> badActions = new LinkedHashMap<>();
     Iterator<Artifact> iter = Iterators.forArray(artifactArray);
 
     // Report an error for every derived artifact which is a strict prefix of another.
@@ -344,9 +344,8 @@ public final class Actions {
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactI), artifactI);
           ActionAnalysisMetadata actionJ =
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactJ), artifactJ);
-          ArtifactPrefixConflictException exception =
-              new ArtifactPrefixConflictException(
-                  pathI, pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
+          ActionConflictException exception =
+              ActionConflictException.createPrefix(artifactI, artifactJ, actionI, actionJ);
           badActions.put(actionI, exception);
           badActions.put(actionJ, exception);
         } else { // pathJ didn't have prefix pathI, so no conflict possible for pathI.

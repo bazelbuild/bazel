@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ActionConflictsAndStats;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -233,7 +231,7 @@ public final class IncrementalArtifactConflictFinder {
    */
   ActionConflictsAndStats findArtifactConflicts(ActionLookupKey actionLookupKey, boolean inRerun)
       throws InterruptedException {
-    ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
+    ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
 
     List<ListenableFuture<Void>> actionCheckingFutures =
@@ -304,7 +302,7 @@ public final class IncrementalArtifactConflictFinder {
 
   ActionConflictsAndStats findArtifactConflictsNoIncrementality(
       ImmutableCollection<SkyValue> actionLookupValues) throws InterruptedException {
-    ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
+    ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
 
     try (SilentCloseable c =
@@ -321,7 +319,7 @@ public final class IncrementalArtifactConflictFinder {
   private void constructActionGraphAndArtifactList(
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
       ImmutableCollection<SkyValue> actionLookupValues,
-      ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
+      ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap)
       throws InterruptedException {
     List<ListenableFuture<Void>> futures = new ArrayList<>(actionLookupValues.size());
     synchronized (freeForAllPool) {
@@ -372,7 +370,7 @@ public final class IncrementalArtifactConflictFinder {
       ActionLookupValue alv,
       MutableActionGraph actionGraph,
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
-      ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
+      ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap) {
     for (ActionAnalysisMetadata action : alv.getActions()) {
       try {
         actionGraph.registerAction(action);
@@ -380,7 +378,7 @@ public final class IncrementalArtifactConflictFinder {
         // It may be possible that we detect a conflict for the same action more than once, if
         // that action belongs to multiple aspect values. In this case we will harmlessly
         // overwrite the badActionMap entry.
-        badActionMap.put(action, new ConflictException(e));
+        badActionMap.put(action, e);
         // We skip the rest of the loop, and do not add the path->artifact mapping for this
         // artifact below -- we don't need to check it since this action is already in
         // error.
@@ -415,7 +413,7 @@ public final class IncrementalArtifactConflictFinder {
       MutableActionGraph actionGraph,
       ConcurrentMap<String, Object> root,
       Artifact newArtifact,
-      ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
+      ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap) {
     Object existingTrieNode = root;
     PathFragment newArtifactPathFragment = newArtifact.getExecPath();
     Iterator<String> newPathIter = newArtifactPathFragment.segments().iterator();
@@ -449,13 +447,9 @@ public final class IncrementalArtifactConflictFinder {
                 conflictingExistingArtifact);
         ActionAnalysisMetadata currentAction =
             Preconditions.checkNotNull(actionGraph.getGeneratingAction(newArtifact), newArtifact);
-        ConflictException exception =
-            new ConflictException(
-                new ArtifactPrefixConflictException(
-                    conflictingExistingArtifact.getExecPath(),
-                    newArtifactPathFragment,
-                    priorAction.getOwner().getLabel(),
-                    currentAction.getOwner().getLabel()));
+        ActionConflictException exception =
+            ActionConflictException.createPrefix(
+                conflictingExistingArtifact, newArtifact, priorAction, currentAction);
         badActionMap.put(priorAction, exception);
         badActionMap.put(currentAction, exception);
         // If 2 paths collide, we need to update the Trie to contain only the shorter one.
@@ -493,14 +487,14 @@ public final class IncrementalArtifactConflictFinder {
   private final class CheckForConflictsUnderKey implements Runnable {
     private final ActionLookupKey key;
     private final List<ListenableFuture<Void>> actionCheckingFutures;
-    private final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap;
+    private final ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap;
 
     private final Set<ActionLookupKey> dedupSet;
 
     private CheckForConflictsUnderKey(
         ActionLookupKey key,
         List<ListenableFuture<Void>> actionCheckingFutures,
-        ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap,
+        ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap,
         Set<ActionLookupKey> dedupSet) {
       this.key = key;
       this.actionCheckingFutures = actionCheckingFutures;

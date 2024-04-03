@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
@@ -52,7 +53,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType;
@@ -202,7 +202,7 @@ public class BuildDriverFunction implements SkyFunction {
         && checkedForConflicts.add(buildDriverKey)) {
       try (SilentCloseable c =
           Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
-        ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
+        ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
             checkActionConflicts(actionLookupKey);
         if (!actionConflicts.isEmpty()) {
           // The analysis technically succeeded, even though the target/aspect can't be executed.
@@ -639,7 +639,7 @@ public class BuildDriverFunction implements SkyFunction {
   }
 
   @VisibleForTesting
-  ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
+  ImmutableMap<ActionAnalysisMetadata, ActionConflictException> checkActionConflicts(
       ActionLookupKey actionLookupKey) throws InterruptedException {
     IncrementalArtifactConflictFinder localRef = incrementalArtifactConflictFinder.get();
     // a null value means that the conflict checker is shut down.

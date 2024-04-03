@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
@@ -200,13 +199,15 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    ArtifactPrefixConflictException e =
-        assertThrows(ArtifactPrefixConflictException.class, () -> evaluate(spawnActionTemplate));
+    ActionConflictException e =
+        assertThrows(ActionConflictException.class, () -> evaluate(spawnActionTemplate));
     assertThat(bugReporter.getExceptions()).hasSize(1);
     assertThat(bugReporter.getFirstCause()).isSameInstanceAs(e);
-    assertThat(bugReporter.getExceptions().get(0))
+    assertThat(e).hasMessageThat().contains("is a prefix of the other");
+    var exception = bugReporter.getExceptions().get(0);
+    assertThat(exception)
         .hasMessageThat()
-        .contains("Unexpected artifact prefix conflict for ActionTemplateExpansionKey{");
+        .contains("Unexpected action conflict for ActionTemplateExpansionKey{");
     bugReporter.clear();
   }
 
