@@ -64,12 +64,14 @@ public record SkyfocusState(
       return originalRequest;
     }
 
-    switch (options.handlingStrategy) {
+    return switch (options.handlingStrategy) {
       case WARN -> {
         eventHandler.handle(
             Event.warn(
                 "Skyfocus: detected changes to the build configuration, will be discarding the"
                     + " analysis cache."));
+
+        yield Request.RUN_FOCUS;
       }
       case STRICT ->
           throw new AbruptExitException(
@@ -82,8 +84,6 @@ public record SkyfocusState(
                               + " full reanalysis instead of failing the build.")
                       .setSkyfocus(Skyfocus.newBuilder().setCode(Code.CONFIGURATION_CHANGE).build())
                       .build()));
-    }
-
-    return Request.RUN_FOCUS;
+    };
   }
 }
