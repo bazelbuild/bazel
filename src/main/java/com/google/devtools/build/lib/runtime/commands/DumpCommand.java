@@ -88,16 +88,34 @@ import javax.annotation.Nullable;
 public class DumpCommand implements BlazeCommand {
 
   /** How to dump Skyframe memory. */
-  public enum MemoryMode {
+  public enum MemoryCollectionMode {
     NONE, // Memory dumping disabled
     SHALLOW, // Dump the objects owned by a single SkyValue
     DEEP, // Dump objects reachable from a single SkyValue
   }
 
-  /** Converter for {@link MemoryMode}. */
-  public static final class MemoryModeConverter extends EnumConverter<MemoryMode> {
-    public MemoryModeConverter() {
-      super(MemoryMode.class, "memory mode");
+  /** Converter for {@link MemoryCollectionMode}. */
+  public static final class MemoryCollectionModeConverter
+      extends EnumConverter<MemoryCollectionMode> {
+    public MemoryCollectionModeConverter() {
+      super(MemoryCollectionMode.class, "memory collection mode");
+    }
+  }
+
+  /** How to display Skyframe memory use. */
+  public enum MemoryDisplayMode {
+    /** Just a summary line */
+    SUMMARY,
+    /** Object count by class */
+    COUNT,
+    /** Bytes by class */
+    BYTES,
+  }
+
+  /** Converter for {@link MemoryCollectionMode}. */
+  public static final class MemoryDisplayModeConverter extends EnumConverter<MemoryDisplayMode> {
+    public MemoryDisplayModeConverter() {
+      super(MemoryDisplayMode.class, "memory display mode");
     }
   }
 
@@ -178,11 +196,20 @@ public class DumpCommand implements BlazeCommand {
     @Option(
         name = "memory",
         defaultValue = "none",
-        converter = MemoryModeConverter.class,
+        converter = MemoryCollectionModeConverter.class,
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "Dump the memory use of a given Skyframe node.")
-    public MemoryMode memoryMode;
+        help = "Dump the memory use of the given Skyframe node.")
+    public MemoryCollectionMode memoryCollectionMode;
+
+    @Option(
+        name = "memory_display",
+        defaultValue = "summary",
+        converter = MemoryDisplayModeConverter.class,
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "The way to display the memory collected by --memory.")
+    public MemoryDisplayMode memoryDisplayMode;
 
     @Option(
         name = "memory_starlark_module",
@@ -240,7 +267,7 @@ public class DumpCommand implements BlazeCommand {
             || dumpOptions.dumpRules
             || dumpOptions.starlarkMemory != null
             || dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF
-            || dumpOptions.memoryMode != MemoryMode.NONE;
+            || dumpOptions.memoryCollectionMode != MemoryCollectionMode.NONE;
     if (!anyOutput) {
       Collection<Class<? extends OptionsBase>> optionList = new ArrayList<>();
       optionList.add(DumpOptions.class);
@@ -296,7 +323,7 @@ public class DumpCommand implements BlazeCommand {
         }
       }
 
-      if (dumpOptions.memoryMode != MemoryMode.NONE) {
+      if (dumpOptions.memoryCollectionMode != MemoryCollectionMode.NONE) {
         failure = dumpSkyframeMemory(env, dumpOptions, out);
       }
 
@@ -490,6 +517,27 @@ public class DumpCommand implements BlazeCommand {
     return result.get(0);
   }
 
+  private static void dumpRamByClass(Map<String, Long> memory, PrintStream out) {
+    ImmutableList<Map.Entry<String, Long>> sorted =
+        memory.entrySet().stream()
+            .sorted(Comparator.comparing(Map.Entry<String, Long>::getValue).reversed())
+            .collect(ImmutableList.toImmutableList());
+
+    for (Map.Entry<String, Long> entry : sorted) {
+      out.printf("%s: %s\n", entry.getKey(), entry.getValue());
+    }
+  }
+
+  private static ConcurrentIdentitySet getBuiltinsSet(
+      CommandEnvironment env, FieldCache fieldCache) {
+    ConcurrentIdentitySet result = new ConcurrentIdentitySet(0);
+    ObjectGraphTraverser traverser =
+        new ObjectGraphTraverser(
+            fieldCache, result, false, ObjectGraphTraverser.NOOP_OBJECT_RECEIVER, null);
+    traverser.traverse(env.getRuntime().getRuleClassProvider());
+    return result;
+  }
+
   private static Optional<BlazeCommandResult> dumpSkyframeMemory(
       CommandEnvironment env, DumpOptions dumpOptions, PrintStream out)
       throws InterruptedException {
@@ -508,7 +556,7 @@ public class DumpCommand implements BlazeCommand {
               "The requested node is not present", Code.SKYFRAME_MEMORY_DUMP_FAILED));
     }
 
-    if (dumpOptions.memoryMode != MemoryMode.DEEP) {
+    if (dumpOptions.memoryCollectionMode != MemoryCollectionMode.DEEP) {
       env.getReporter()
           .error(
               null,
@@ -519,15 +567,22 @@ public class DumpCommand implements BlazeCommand {
               "Skyframe memory dumping not implemented", Code.SKYFRAME_MEMORY_DUMP_FAILED));
     }
 
-    FieldCache fieldCache = new FieldCache(ImmutableList.of());
+    FieldCache fieldCache = new FieldCache(ImmutableList.of(new BuildObjectTraverser()));
     MemoryAccountant memoryAccountant = new MemoryAccountant();
+    ConcurrentIdentitySet seen = getBuiltinsSet(env, fieldCache);
     ObjectGraphTraverser traverser =
-        new ObjectGraphTraverser(
-            fieldCache, new ConcurrentIdentitySet(128), false, memoryAccountant, null);
+        new ObjectGraphTraverser(fieldCache, seen, false, memoryAccountant, null);
     traverser.traverse(nodeEntry.getValue());
 
     Stats stats = memoryAccountant.getStats();
-    out.printf("%d objects, %d bytes retained\n", stats.getObjectCount(), stats.getMemoryUse());
+    switch (dumpOptions.memoryDisplayMode) {
+      case SUMMARY ->
+          out.printf(
+              "%d objects, %d bytes retained\n", stats.getObjectCount(), stats.getMemoryUse());
+      case COUNT -> dumpRamByClass(stats.getObjectCountByClass(), out);
+      case BYTES -> dumpRamByClass(stats.getMemoryByClass(), out);
+    }
+
     return Optional.empty();
   }
 

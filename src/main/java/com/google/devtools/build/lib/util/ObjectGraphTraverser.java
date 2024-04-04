@@ -199,16 +199,17 @@ public class ObjectGraphTraverser {
     void edgeFound(Object from, Object to, String toContext, EdgeType edgeType);
   }
 
-  /** An object to be traversed in the queue. */
-  private static class WorkItem {
-    private final Object object;
-    private final String context;
+  public static final ObjectReceiver NOOP_OBJECT_RECEIVER =
+      new ObjectReceiver() {
+        @Override
+        public void objectFound(Object o, String context) {}
 
-    private WorkItem(Object object, String context) {
-      this.object = object;
-      this.context = context;
-    }
-  }
+        @Override
+        public void edgeFound(Object from, Object to, String toContext, EdgeType edgeType) {}
+      };
+
+  /** An object to be traversed in the queue. */
+  private record WorkItem(Object object, String context) {}
 
   private final FieldCache fieldCache;
 
@@ -217,7 +218,7 @@ public class ObjectGraphTraverser {
   private final ObjectReceiver receiver;
   private final Object instanceId;
 
-  private Object currentObject;
+  private WorkItem currentWorkItem;
   private final Queue<WorkItem> queue = new ArrayDeque<>();
 
   private final ConcurrentIdentitySet localObjects;
@@ -271,7 +272,7 @@ public class ObjectGraphTraverser {
     while (!queue.isEmpty()) {
       WorkItem workItem = queue.remove();
       try {
-        process(workItem.object, workItem.context);
+        process(workItem);
       } catch (RuntimeException e) {
         logger.atSevere().withCause(e).log("While walking object graph for key %s:", instanceId);
       }
@@ -303,18 +304,18 @@ public class ObjectGraphTraverser {
 
     if (!localObjects.add(to)) {
       // A reference to an object visited during this traversal.
-      receiver.edgeFound(currentObject, to, toContext, EdgeType.CURRENT_TRAVERSAL);
+      receiver.edgeFound(currentWorkItem.object, to, toContext, EdgeType.CURRENT_TRAVERSAL);
       return;
     }
 
     if (!seenObjects.add(to)) {
       // A reference to an object already seen, but not during this traversal.
-      receiver.edgeFound(currentObject, to, toContext, EdgeType.ALREADY_SEEN);
+      receiver.edgeFound(currentWorkItem.object, to, toContext, EdgeType.ALREADY_SEEN);
       return;
     }
 
     // A new object.
-    receiver.edgeFound(currentObject, to, toContext, EdgeType.CURRENT_TRAVERSAL);
+    receiver.edgeFound(currentWorkItem.object, to, toContext, EdgeType.CURRENT_TRAVERSAL);
 
     queue.offer(new WorkItem(to, toContext));
   }
@@ -332,8 +333,10 @@ public class ObjectGraphTraverser {
     return defaultContext;
   }
 
-  private void process(Object o, String context) {
-    currentObject = o;
+  private void process(WorkItem workItem) {
+    Object o = workItem.object;
+    String context = workItem.context;
+    currentWorkItem = workItem;
 
     if (o instanceof String) {
       traversal.objectFound(o, contextOrNull(context, "STRING"));
@@ -400,17 +403,17 @@ public class ObjectGraphTraverser {
   }
 
   private ImmutableList<Field> getFields(Class<?> clazz) {
-    ImmutableSet<String> ignoreSet = ImmutableSet.of();
-    for (DomainSpecificTraverser traverser : fieldCache.domainSpecificTraversers) {
-      ImmutableSet<String> candidate = traverser.ignoredFields(clazz);
-      if (candidate != null) {
-        ignoreSet = candidate;
-        break;
-      }
-    }
-
     ArrayList<Field> fields = new ArrayList<>();
     for (Class<?> next = clazz; next != null; next = next.getSuperclass()) {
+      ImmutableSet<String> ignoreSet = ImmutableSet.of();
+      for (DomainSpecificTraverser traverser : fieldCache.domainSpecificTraversers) {
+        ImmutableSet<String> candidate = traverser.ignoredFields(next);
+        if (candidate != null) {
+          ignoreSet = candidate;
+          break;
+        }
+      }
+
       for (Field field : next.getDeclaredFields()) {
         if ((field.getModifiers() & Modifier.STATIC) != 0) {
           continue; // Skips static or transient fields.
