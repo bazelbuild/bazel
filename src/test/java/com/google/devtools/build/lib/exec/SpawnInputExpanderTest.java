@@ -212,7 +212,12 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputSink,
         NO_ARTIFACT_EXPANDER,
-        execPath -> PathFragment.create(execPath.getPathString().replace("k8-opt/", "")),
+        new PathMapper() {
+          @Override
+          public PathFragment map(PathFragment execPath) {
+            return PathFragment.create(execPath.getPathString().replace("k8-opt/", ""));
+          }
+        },
         PathFragment.EMPTY_FRAGMENT);
 
     verify(inputSink)
@@ -332,20 +337,23 @@ public final class SpawnInputExpanderTest {
             PathFragment.create("bazel-out/k8-opt/bin/foo.runfiles"), runfiles);
 
     PathMapper pathMapper =
-        execPath -> {
-          // Replace the config segment "k8-opt" in "bazel-bin/k8-opt/bin" with a hash of the full
-          // path to verify that the new paths are constructed by appending the child paths to the
-          // mapped parent path, not by mapping the child paths directly.
-          PathFragment runfilesPath = execPath.subFragment(3);
-          String runfilesPathHash =
-              DigestHashFunction.SHA256
-                  .getHashFunction()
-                  .hashString(runfilesPath.getPathString(), UTF_8)
-                  .toString();
-          return execPath
-              .subFragment(0, 1)
-              .getRelative(runfilesPathHash.substring(0, 8))
-              .getRelative(execPath.subFragment(2));
+        new PathMapper() {
+          @Override
+          public PathFragment map(PathFragment execPath) {
+            // Replace the config segment "k8-opt" in "bazel-bin/k8-opt/bin" with a hash of the full
+            // path to verify that the new paths are constructed by appending the child paths to the
+            // mapped parent path, not by mapping the child paths directly.
+            PathFragment runfilesPath = execPath.subFragment(3);
+            String runfilesPathHash =
+                DigestHashFunction.SHA256
+                    .getHashFunction()
+                    .hashString(runfilesPath.getPathString(), UTF_8)
+                    .toString();
+            return execPath
+                .subFragment(0, 1)
+                .getRelative(runfilesPathHash.substring(0, 8))
+                .getRelative(execPath.subFragment(2));
+          }
         };
 
     expander.addSingleRunfilesTreeToInputs(
