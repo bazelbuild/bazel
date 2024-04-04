@@ -942,6 +942,16 @@ sh_test(
 )
 
 sh_test(
+    name = "dump_test",
+    srcs = ["dump_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 1,
+)
+
+sh_test(
     name = "platform_mapping_test",
     srcs = ["platform_mapping_test.sh"],
     data = [

@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.util.ObjectGraphTraverser;
 import com.google.devtools.build.lib.util.ObjectGraphTraverser.FieldCache;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
+import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -538,6 +539,33 @@ public class DumpCommand implements BlazeCommand {
     return result;
   }
 
+  private static Stats dumpRamShallow(
+      InMemoryGraph graph, NodeEntry nodeEntry, FieldCache fieldCache, ConcurrentIdentitySet seen)
+      throws InterruptedException {
+    // Mark all objects accessible from direct dependencies. This will mutate seen, but that's OK.
+    for (SkyKey directDepKey : nodeEntry.getDirectDeps()) {
+      NodeEntry directDepEntry = graph.get(null, Reason.OTHER, directDepKey);
+      ObjectGraphTraverser depTraverser =
+          new ObjectGraphTraverser(
+              fieldCache, seen, false, ObjectGraphTraverser.NOOP_OBJECT_RECEIVER, null);
+      depTraverser.traverse(directDepEntry.getValue());
+    }
+
+    // Now traverse the objects reachable from the given SkyValue. Objects reachable from direct
+    // dependencies are in "seen" and thus will not be counted.
+    return dumpRamReachable(nodeEntry, fieldCache, seen);
+  }
+
+  private static Stats dumpRamReachable(
+      NodeEntry nodeEntry, FieldCache fieldCache, ConcurrentIdentitySet seen)
+      throws InterruptedException {
+    MemoryAccountant memoryAccountant = new MemoryAccountant();
+    ObjectGraphTraverser traverser =
+        new ObjectGraphTraverser(fieldCache, seen, false, memoryAccountant, null);
+    traverser.traverse(nodeEntry.getValue());
+    return memoryAccountant.getStats();
+  }
+
   private static Optional<BlazeCommandResult> dumpSkyframeMemory(
       CommandEnvironment env, DumpOptions dumpOptions, PrintStream out)
       throws InterruptedException {
@@ -547,8 +575,8 @@ public class DumpCommand implements BlazeCommand {
           createFailureResult("Cannot dump Skyframe memory", Code.SKYFRAME_MEMORY_DUMP_FAILED));
     }
 
-    NodeEntry nodeEntry =
-        env.getSkyframeExecutor().getEvaluator().getInMemoryGraph().get(null, Reason.OTHER, skyKey);
+    InMemoryGraph graph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    NodeEntry nodeEntry = graph.get(null, Reason.OTHER, skyKey);
     if (nodeEntry == null) {
       env.getReporter().error(null, "The requested node is not present.");
       return Optional.of(
@@ -556,25 +584,15 @@ public class DumpCommand implements BlazeCommand {
               "The requested node is not present", Code.SKYFRAME_MEMORY_DUMP_FAILED));
     }
 
-    if (dumpOptions.memoryCollectionMode != MemoryCollectionMode.DEEP) {
-      env.getReporter()
-          .error(
-              null,
-              String.format(
-                  "Requested dumping memory for '%s', but it's not implemented.\n", skyKey));
-      return Optional.of(
-          createFailureResult(
-              "Skyframe memory dumping not implemented", Code.SKYFRAME_MEMORY_DUMP_FAILED));
-    }
-
     FieldCache fieldCache = new FieldCache(ImmutableList.of(new BuildObjectTraverser()));
-    MemoryAccountant memoryAccountant = new MemoryAccountant();
     ConcurrentIdentitySet seen = getBuiltinsSet(env, fieldCache);
-    ObjectGraphTraverser traverser =
-        new ObjectGraphTraverser(fieldCache, seen, false, memoryAccountant, null);
-    traverser.traverse(nodeEntry.getValue());
+    Stats stats =
+        switch (dumpOptions.memoryCollectionMode) {
+          case DEEP -> dumpRamReachable(nodeEntry, fieldCache, seen);
+          case SHALLOW -> dumpRamShallow(graph, nodeEntry, fieldCache, seen);
+          case NONE -> throw new IllegalStateException();
+        };
 
-    Stats stats = memoryAccountant.getStats();
     switch (dumpOptions.memoryDisplayMode) {
       case SUMMARY ->
           out.printf(
