@@ -32,10 +32,15 @@ public class XcodeVersionRule implements RuleDefinition {
   static final String VERSION_ATTR_NAME = "version";
   static final String ALIASES_ATTR_NAME = "aliases";
   static final String DEFAULT_IOS_SDK_VERSION_ATTR_NAME = "default_ios_sdk_version";
+  static final String IOS_SDK_MINIMUM_OS_ATTR_NAME = "ios_sdk_minimum_os";
   static final String DEFAULT_VISIONOS_SDK_VERSION_ATTR_NAME = "default_visionos_sdk_version";
+  static final String VISIONOS_SDK_MINIMUM_OS_ATTR_NAME = "visionos_sdk_minimum_os";
   static final String DEFAULT_WATCHOS_SDK_VERSION_ATTR_NAME = "default_watchos_sdk_version";
+  static final String WATCHOS_SDK_MINIMUM_OS_ATTR_NAME = "watchos_sdk_minimum_os";
   static final String DEFAULT_TVOS_SDK_VERSION_ATTR_NAME = "default_tvos_sdk_version";
+  static final String TVOS_SDK_MINIMUM_OS_ATTR_NAME = "tvos_sdk_minimum_os";
   static final String DEFAULT_MACOS_SDK_VERSION_ATTR_NAME = "default_macos_sdk_version";
+  static final String MACOS_SDK_MINIMUM_OS_ATTR_NAME = "macos_sdk_minimum_os";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -66,11 +71,23 @@ public class XcodeVersionRule implements RuleDefinition {
         .add(
             attr(DEFAULT_IOS_SDK_VERSION_ATTR_NAME, STRING)
                 .nonconfigurable("this rule determines configuration"))
+        /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(ios_sdk_minimum_os) -->
+        The minimum OS version supported by the iOS SDK for this version of Xcode.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(IOS_SDK_MINIMUM_OS_ATTR_NAME, STRING)
+                .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_visionos_sdk_version) -->
         The visionOS SDK version that is used by default when this version of Xcode is being used.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(DEFAULT_VISIONOS_SDK_VERSION_ATTR_NAME, STRING)
+                .nonconfigurable("this rule determines configuration"))
+        /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(visionos_sdk_minimum_os) -->
+        The minimum OS version supported by the visionOS SDK for this version of Xcode.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(VISIONOS_SDK_MINIMUM_OS_ATTR_NAME, STRING)
                 .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_watchos_sdk_version) -->
         The watchOS SDK version that is used by default when this version of Xcode is being used.
@@ -79,6 +96,12 @@ public class XcodeVersionRule implements RuleDefinition {
         .add(
             attr(DEFAULT_WATCHOS_SDK_VERSION_ATTR_NAME, STRING)
                 .nonconfigurable("this rule determines configuration"))
+        /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(watchos_sdk_minimum_os) -->
+        The minimum OS version supported by the watchOS SDK for this version of Xcode.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(WATCHOS_SDK_MINIMUM_OS_ATTR_NAME, STRING)
+                .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_tvos_sdk_version) -->
         The tvOS SDK version that is used by default when this version of Xcode is being used.
         The <code>tvos_sdk_version</code> build flag will override the value specified here.
@@ -86,12 +109,24 @@ public class XcodeVersionRule implements RuleDefinition {
         .add(
             attr(DEFAULT_TVOS_SDK_VERSION_ATTR_NAME, STRING)
                 .nonconfigurable("this rule determines configuration"))
+        /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(tvos_sdk_minimum_os) -->
+        The minimum OS version supported by the tvOS SDK for this version of Xcode.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(TVOS_SDK_MINIMUM_OS_ATTR_NAME, STRING)
+                .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_macos_sdk_version) -->
         The macOS SDK version that is used by default when this version of Xcode is being used.
         The <code>macos_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(DEFAULT_MACOS_SDK_VERSION_ATTR_NAME, STRING)
+                .nonconfigurable("this rule determines configuration"))
+        /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(ios_sdk_minimum_os) -->
+        The minimum OS version supported by the macOS SDK for this version of Xcode.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(MACOS_SDK_MINIMUM_OS_ATTR_NAME, STRING)
                 .nonconfigurable("this rule determines configuration"))
         .build();
   }

@@ -54,6 +54,12 @@ public interface XcodePropertiesApi extends StructApi {
   String getDefaultIosSdkVersionString();
 
   @StarlarkMethod(
+      name = "ios_sdk_minimum_os",
+      doc = "The minimum OS version supported by the iOS SDK for this version of Xcode.",
+      structField = true)
+  String getIosSdkMinimumOsString();
+
+  @StarlarkMethod(
       name = "default_visionos_sdk_version",
       doc =
           "The default visionOS SDK version for this version of Xcode, or <code>None</code> if "
@@ -62,6 +68,12 @@ public interface XcodePropertiesApi extends StructApi {
       allowReturnNones = true)
   @Nullable
   String getDefaultVisionosSdkVersionString();
+
+  @StarlarkMethod(
+      name = "visionos_sdk_minimum_os",
+      doc = "The minimum OS version supported by the visionOS SDK for this version of Xcode.",
+      structField = true)
+  String getVisionosSdkMinimumOsString();
 
   @StarlarkMethod(
       name = "default_watchos_sdk_version",
@@ -74,6 +86,12 @@ public interface XcodePropertiesApi extends StructApi {
   String getDefaultWatchosSdkVersionString();
 
   @StarlarkMethod(
+      name = "watchos_sdk_minimum_os",
+      doc = "The minimum OS version supported by the watchOS SDK for this version of Xcode.",
+      structField = true)
+  String getWatchosSdkMinimumOsString();
+
+  @StarlarkMethod(
       name = "default_tvos_sdk_version",
       doc =
           "The default tvOS SDK version for this version of Xcode, or <code>None</code> if "
@@ -84,6 +102,12 @@ public interface XcodePropertiesApi extends StructApi {
   String getDefaultTvosSdkVersionString();
 
   @StarlarkMethod(
+      name = "tvos_sdk_minimum_os",
+      doc = "The minimum OS version supported by the tvOS SDK for this version of Xcode.",
+      structField = true)
+  String getTvosSdkMinimumOsString();
+
+  @StarlarkMethod(
       name = "default_macos_sdk_version",
       doc =
           "The default macOS SDK version for this version of Xcode, or <code>None</code> if "
@@ -92,6 +116,12 @@ public interface XcodePropertiesApi extends StructApi {
       allowReturnNones = true)
   @Nullable
   String getDefaultMacosSdkVersionString();
+
+  @StarlarkMethod(
+      name = "macos_sdk_minimum_os",
+      doc = "The minimum OS version supported by the macOS SDK for this version of Xcode.",
+      structField = true)
+  String getMacosSdkMinimumOsString();
 
   /** The provider implementing this can construct XcodeProperties objects. */
   @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
@@ -122,7 +152,27 @@ public interface XcodePropertiesApi extends StructApi {
               named = true,
               defaultValue = "None"),
           @Param(
+              name = "ios_sdk_minimum_os",
+              doc = "",
+              positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
+              named = true,
+              defaultValue = "None"),
+          @Param(
               name = "default_visionos_sdk_version",
+              doc = "",
+              positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
+              named = true,
+              defaultValue = "None"),
+          @Param(
+              name = "visionos_sdk_minimum_os",
               doc = "",
               positional = false,
               allowedTypes = {
@@ -142,7 +192,27 @@ public interface XcodePropertiesApi extends StructApi {
               named = true,
               defaultValue = "None"),
           @Param(
+              name = "watchos_sdk_minimum_os",
+              doc = "",
+              positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
+              named = true,
+              defaultValue = "None"),
+          @Param(
               name = "default_tvos_sdk_version",
+              doc = "",
+              positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
+              named = true,
+              defaultValue = "None"),
+          @Param(
+              name = "tvos_sdk_minimum_os",
               doc = "",
               positional = false,
               allowedTypes = {
@@ -161,6 +231,16 @@ public interface XcodePropertiesApi extends StructApi {
               },
               named = true,
               defaultValue = "None"),
+          @Param(
+              name = "macos_sdk_minimum_os",
+              doc = "",
+              positional = false,
+              allowedTypes = {
+                @ParamType(type = NoneType.class),
+                @ParamType(type = String.class),
+              },
+              named = true,
+              defaultValue = "None"),
         },
         selfCall = true,
         documented = false)
@@ -168,10 +248,15 @@ public interface XcodePropertiesApi extends StructApi {
     XcodePropertiesApi createInfo(
         Object version,
         Object defaultIosSdkVersion,
+        Object iosSdkMinimumOs,
         Object defaultVisionosSdkVersion,
+        Object visionosSdkMinimumOs,
         Object defaultWatchosSdkVersion,
+        Object watchosSdkMinimumOs,
         Object defaultTvosSdkVersion,
+        Object tvosSdkMinimumOs,
         Object defaultMacosSdkVersion,
+        Object macosSdkMinimumOs,
         StarlarkThread thread)
         throws EvalException;
   }

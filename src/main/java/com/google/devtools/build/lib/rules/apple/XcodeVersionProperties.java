@@ -45,10 +45,15 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
 
   private final Optional<DottedVersion> xcodeVersion;
   private final DottedVersion defaultIosSdkVersion;
+  private final DottedVersion iosSdkMinimumOs;
   private final DottedVersion defaultVisionosSdkVersion;
+  private final DottedVersion visionosSdkMinimumOs;
   private final DottedVersion defaultWatchosSdkVersion;
+  private final DottedVersion watchosSdkMinimumOs;
   private final DottedVersion defaultTvosSdkVersion;
+  private final DottedVersion tvosSdkMinimumOs;
   private final DottedVersion defaultMacosSdkVersion;
+  private final DottedVersion macosSdkMinimumOs;
 
   /**
    * Creates and returns a tuple representing no known Xcode property information (defaults are used
@@ -71,7 +76,7 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
    * specified.
    */
   public XcodeVersionProperties(Object xcodeVersion) {
-    this(xcodeVersion, null, null, null, null, null);
+    this(xcodeVersion, null, null, null, null, null, null, null, null, null, null);
   }
 
   /**
@@ -81,10 +86,15 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   XcodeVersionProperties(
       @Nullable Object xcodeVersion,
       @Nullable String defaultIosSdkVersion,
+      @Nullable String iosSdkMinimumOs,
       @Nullable String defaultVisionosSdkVersion,
+      @Nullable String visionosSdkMinimumOs,
       @Nullable String defaultWatchosSdkVersion,
+      @Nullable String watchosSdkMinimumOs,
       @Nullable String defaultTvosSdkVersion,
-      @Nullable String defaultMacosSdkVersion) {
+      @Nullable String tvosSdkMinimumOs,
+      @Nullable String defaultMacosSdkVersion,
+      @Nullable String macosSdkMinimumOs) {
     this.xcodeVersion =
         Starlark.isNullOrNone(xcodeVersion)
             ? Optional.absent()
@@ -93,22 +103,42 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
         Strings.isNullOrEmpty(defaultIosSdkVersion)
             ? DottedVersion.fromStringUnchecked(DEFAULT_IOS_SDK_VERSION)
             : DottedVersion.fromStringUnchecked(defaultIosSdkVersion);
+    this.iosSdkMinimumOs =
+        Strings.isNullOrEmpty(iosSdkMinimumOs)
+            ? this.defaultIosSdkVersion
+            : DottedVersion.fromStringUnchecked(iosSdkMinimumOs);
     this.defaultVisionosSdkVersion =
         Strings.isNullOrEmpty(defaultVisionosSdkVersion)
             ? DottedVersion.fromStringUnchecked(DEFAULT_VISIONOS_SDK_VERSION)
             : DottedVersion.fromStringUnchecked(defaultVisionosSdkVersion);
+    this.visionosSdkMinimumOs =
+        Strings.isNullOrEmpty(visionosSdkMinimumOs)
+            ? this.defaultVisionosSdkVersion
+            : DottedVersion.fromStringUnchecked(visionosSdkMinimumOs);
     this.defaultWatchosSdkVersion =
         Strings.isNullOrEmpty(defaultWatchosSdkVersion)
             ? DottedVersion.fromStringUnchecked(DEFAULT_WATCHOS_SDK_VERSION)
             : DottedVersion.fromStringUnchecked(defaultWatchosSdkVersion);
+    this.watchosSdkMinimumOs =
+        Strings.isNullOrEmpty(watchosSdkMinimumOs)
+            ? this.defaultWatchosSdkVersion
+            : DottedVersion.fromStringUnchecked(watchosSdkMinimumOs);
     this.defaultTvosSdkVersion =
         Strings.isNullOrEmpty(defaultTvosSdkVersion)
             ? DottedVersion.fromStringUnchecked(DEFAULT_TVOS_SDK_VERSION)
             : DottedVersion.fromStringUnchecked(defaultTvosSdkVersion);
+    this.tvosSdkMinimumOs =
+        Strings.isNullOrEmpty(tvosSdkMinimumOs)
+            ? this.defaultTvosSdkVersion
+            : DottedVersion.fromStringUnchecked(tvosSdkMinimumOs);
     this.defaultMacosSdkVersion =
         Strings.isNullOrEmpty(defaultMacosSdkVersion)
             ? DottedVersion.fromStringUnchecked(DEFAULT_MACOS_SDK_VERSION)
             : DottedVersion.fromStringUnchecked(defaultMacosSdkVersion);
+    this.macosSdkMinimumOs =
+        Strings.isNullOrEmpty(macosSdkMinimumOs)
+            ? this.defaultMacosSdkVersion
+            : DottedVersion.fromStringUnchecked(macosSdkMinimumOs);
   }
 
   @Override
@@ -133,11 +163,23 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     return defaultIosSdkVersion != null ? defaultIosSdkVersion.toString() : null;
   }
 
+  /** Returns the minimum OS version supported by the iOS SDK for this version of Xcode. */
+  @Override
+  public String getIosSdkMinimumOsString() {
+    return iosSdkMinimumOs.toString();
+  }
+
   /** Returns the default visionOS SDK version to use if this Xcode version is in use. */
   @Nullable
   @Override
   public String getDefaultVisionosSdkVersionString() {
     return defaultVisionosSdkVersion != null ? defaultVisionosSdkVersion.toString() : null;
+  }
+
+  /** Returns the minimum OS version supported by the visionOS SDK for this version of Xcode. */
+  @Override
+  public String getVisionosSdkMinimumOsString() {
+    return visionosSdkMinimumOs.toString();
   }
 
   /** Returns the default watchOS SDK version to use if this Xcode version is in use. */
@@ -147,6 +189,12 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     return defaultWatchosSdkVersion != null ? defaultWatchosSdkVersion.toString() : null;
   }
 
+  /** Returns the minimum OS version supported by the watchOS SDK for this version of Xcode. */
+  @Override
+  public String getWatchosSdkMinimumOsString() {
+    return watchosSdkMinimumOs.toString();
+  }
+
   /** Returns the default tvOS SDK version to use if this Xcode version is in use. */
   @Nullable
   @Override
@@ -154,11 +202,23 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     return defaultTvosSdkVersion != null ? defaultTvosSdkVersion.toString() : null;
   }
 
+  /** Returns the minimum OS version supported by the tvOS SDK for this version of Xcode. */
+  @Override
+  public String getTvosSdkMinimumOsString() {
+    return tvosSdkMinimumOs.toString();
+  }
+
   /** Returns the default macOS SDK version to use if this Xcode version is in use. */
   @Nullable
   @Override
   public String getDefaultMacosSdkVersionString() {
     return defaultMacosSdkVersion != null ? defaultMacosSdkVersion.toString() : null;
+  }
+
+  /** Returns the minimum OS version supported by the macOS SDK for this version of Xcode. */
+  @Override
+  public String getMacosSdkMinimumOsString() {
+    return macosSdkMinimumOs.toString();
   }
 
   /** Returns the Xcode version, or {@link Optional#absent} if the Xcode version is unknown. */
@@ -171,9 +231,17 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     return defaultIosSdkVersion;
   }
 
+  public DottedVersion getIosSdkMinimumOs() {
+    return iosSdkMinimumOs;
+  }
+
   @Nullable
   public DottedVersion getDefaultVisionosSdkVersion() {
     return defaultVisionosSdkVersion;
+  }
+
+  public DottedVersion getVisionosSdkMinimumOs() {
+    return visionosSdkMinimumOs;
   }
 
   @Nullable
@@ -181,14 +249,26 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     return defaultWatchosSdkVersion;
   }
 
+  public DottedVersion getWatchosSdkMinimumOs() {
+    return watchosSdkMinimumOs;
+  }
+
   @Nullable
   public DottedVersion getDefaultTvosSdkVersion() {
     return defaultTvosSdkVersion;
   }
 
+  public DottedVersion getTvosSdkMinimumOs() {
+    return tvosSdkMinimumOs;
+  }
+
   @Nullable
   public DottedVersion getDefaultMacosSdkVersion() {
     return defaultMacosSdkVersion;
+  }
+
+  public DottedVersion getMacosSdkMinimumOs() {
+    return macosSdkMinimumOs;
   }
 
   @Override
@@ -202,10 +282,15 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     XcodeVersionProperties otherData = (XcodeVersionProperties) other;
     return xcodeVersion.equals(otherData.getXcodeVersion())
         && defaultIosSdkVersion.equals(otherData.getDefaultIosSdkVersion())
+        && iosSdkMinimumOs.equals(otherData.getIosSdkMinimumOs())
         && defaultVisionosSdkVersion.equals(otherData.getDefaultVisionosSdkVersion())
+        && visionosSdkMinimumOs.equals(otherData.getVisionosSdkMinimumOs())
         && defaultWatchosSdkVersion.equals(otherData.getDefaultWatchosSdkVersion())
+        && watchosSdkMinimumOs.equals(otherData.getWatchosSdkMinimumOs())
         && defaultTvosSdkVersion.equals(otherData.getDefaultTvosSdkVersion())
-        && defaultMacosSdkVersion.equals(otherData.getDefaultMacosSdkVersion());
+        && tvosSdkMinimumOs.equals(otherData.getTvosSdkMinimumOs())
+        && defaultMacosSdkVersion.equals(otherData.getDefaultMacosSdkVersion())
+        && macosSdkMinimumOs.equals(otherData.getMacosSdkMinimumOs());
   }
 
   @Override
@@ -213,10 +298,15 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     return Objects.hash(
         xcodeVersion,
         defaultIosSdkVersion,
+        iosSdkMinimumOs,
         defaultVisionosSdkVersion,
+        visionosSdkMinimumOs,
         defaultWatchosSdkVersion,
+        watchosSdkMinimumOs,
         defaultTvosSdkVersion,
-        defaultMacosSdkVersion);
+        tvosSdkMinimumOs,
+        defaultMacosSdkVersion,
+        macosSdkMinimumOs);
   }
 
   /** Provider class for {@link XcodeVersionProperties} objects. */
@@ -230,10 +320,15 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     public XcodePropertiesApi createInfo(
         Object starlarkVersion,
         Object starlarkDefaultIosSdkVersion,
+        Object starlarkIosSdkMinimumOs,
         Object starlarkDefaultVisionosSdkVersion,
+        Object starlarkVisionosSdkMinimumOs,
         Object starlarkDefaultWatchosSdkVersion,
+        Object starlarkWatchosSdkMinimumOs,
         Object starlarkDefaultTvosSdkVersion,
+        Object starlarkTvosSdkMinimumOs,
         Object starlarkDefaultMacosSdkVersion,
+        Object starlarkMacosSdkMinimumOs,
         StarlarkThread thread)
         throws EvalException {
       return new XcodeVersionProperties(
@@ -243,18 +338,33 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
           Starlark.isNullOrNone(starlarkDefaultIosSdkVersion)
               ? null
               : (String) starlarkDefaultIosSdkVersion,
+          Starlark.isNullOrNone(starlarkIosSdkMinimumOs)
+              ? null
+              : (String) starlarkIosSdkMinimumOs,
           Starlark.isNullOrNone(starlarkDefaultVisionosSdkVersion)
               ? null
               : (String) starlarkDefaultVisionosSdkVersion,
+          Starlark.isNullOrNone(starlarkVisionosSdkMinimumOs)
+              ? null
+              : (String) starlarkVisionosSdkMinimumOs,
           Starlark.isNullOrNone(starlarkDefaultWatchosSdkVersion)
               ? null
               : (String) starlarkDefaultWatchosSdkVersion,
+          Starlark.isNullOrNone(starlarkWatchosSdkMinimumOs)
+              ? null
+              : (String) starlarkWatchosSdkMinimumOs,
           Starlark.isNullOrNone(starlarkDefaultTvosSdkVersion)
               ? null
               : (String) starlarkDefaultTvosSdkVersion,
+          Starlark.isNullOrNone(starlarkTvosSdkMinimumOs)
+              ? null
+              : (String) starlarkTvosSdkMinimumOs,
           Starlark.isNullOrNone(starlarkDefaultMacosSdkVersion)
               ? null
-              : (String) starlarkDefaultMacosSdkVersion);
+              : (String) starlarkDefaultMacosSdkVersion,
+          Starlark.isNullOrNone(starlarkMacosSdkMinimumOs)
+              ? null
+              : (String) starlarkMacosSdkMinimumOs);
     }
   }
 }

@@ -20,10 +20,15 @@ def _xcode_version_impl(ctx):
     xcode_version_properties = apple_common.XcodeProperties(
         version = ctx.attr.version,
         default_ios_sdk_version = ctx.attr.default_ios_sdk_version,
+        ios_sdk_minimum_os = ctx.attr.ios_sdk_minimum_os,
         default_visionos_sdk_version = ctx.attr.default_visionos_sdk_version,
+        visionos_sdk_minimum_os = ctx.attr.visionos_sdk_minimum_os,
         default_watchos_sdk_version = ctx.attr.default_watchos_sdk_version,
+        watchos_sdk_minimum_os = ctx.attr.watchos_sdk_minimum_os,
         default_tvos_sdk_version = ctx.attr.default_tvos_sdk_version,
+        tvos_sdk_minimum_os = ctx.attr.tvos_sdk_minimum_os,
         default_macos_sdk_version = ctx.attr.default_macos_sdk_version,
+        macos_sdk_minimum_os = ctx.attr.macos_sdk_minimum_os,
     )
     return [
         xcode_version_properties,
@@ -40,10 +45,15 @@ xcode_version = rule(
         "version": attr.string(doc = "The official version number of a version of Xcode.", mandatory = True),
         "aliases": attr.string_list(doc = "Accepted aliases for this version of Xcode. If the value of the xcode_version build flag matches any of the given alias strings, this Xcode version will be used.", allow_empty = True, mandatory = False),
         "default_ios_sdk_version": attr.string(default = "8.4", doc = "The iOS SDK version that is used by default when this version of Xcode is being used. The `--ios_sdk_version` build flag will override the value specified here.", mandatory = False),
+        "ios_sdk_minimum_os": attr.string(doc = "The minimum OS version supported by the iOS SDK for this version of Xcode.", mandatory = False),
         "default_visionos_sdk_version": attr.string(default = "1.0", doc = "The visionOS SDK version that is used by default when this version of Xcode is being used.", mandatory = False),
+        "visionos_sdk_minimum_os": attr.string(doc = "The minimum OS version supported by the visionOS SDK for this version of Xcode.", mandatory = False),
         "default_watchos_sdk_version": attr.string(default = "2.0", doc = "The watchOS SDK version that is used by default when this version of Xcode is being used. The `--watchos_sdk_version` build flag will override the value specified here.", mandatory = False),
+        "watchos_sdk_minimum_os": attr.string(doc = "The minimum OS version supported by the watchOS SDK for this version of Xcode.", mandatory = False),
         "default_tvos_sdk_version": attr.string(default = "10.11", doc = "The tvOS SDK version that is used by default when this version of Xcode is being used. The `--tvos_sdk_version` build flag will override the value specified here.", mandatory = False),
+        "tvos_sdk_minimum_os": attr.string(doc = "The minimum OS version supported by the tvOS SDK for this version of Xcode.", mandatory = False),
         "default_macos_sdk_version": attr.string(default = "9.0", doc = "The macOS SDK version that is used by default when this version of Xcode is being used. The `--macos_sdk_version` build flag will override the value specified here.", mandatory = False),
+        "macos_sdk_minimum_os": attr.string(doc = "The minimum OS version supported by the macOS SDK for this version of Xcode.", mandatory = False),
     },
     implementation = _xcode_version_impl,
 )
