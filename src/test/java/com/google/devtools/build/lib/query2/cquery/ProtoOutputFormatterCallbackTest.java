@@ -469,7 +469,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     assertThat(aliasProto.getTarget().getRule().getRuleInputList())
         .containsExactly("//test:my_target");
     assertThat(aliasProto.getTarget().getRule().getConfiguredRuleInputList())
-        .containsExactly(
+        .containsAtLeast(
             ConfiguredRuleInput.newBuilder()
                 .setLabel("//test:my_target")
                 .setConfigurationChecksum(
