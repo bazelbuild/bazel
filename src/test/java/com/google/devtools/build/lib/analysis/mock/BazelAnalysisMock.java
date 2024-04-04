@@ -81,6 +81,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "bind(name = 'has_androidsdk', actual = '@bazel_tools//tools/android:always_false')",
         "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
         "local_repository(name = 'platforms', path = '" + bazelPlatformsWorkspace + "')",
+        "local_repository(name = 'internal_platforms_do_not_use', path = '"
+            + bazelPlatformsWorkspace
+            + "')",
         "local_repository(name = 'local_config_xcode', path = '" + xcodeWorkspace + "')",
         "local_repository(name = 'com_google_protobuf', path = '" + protobufWorkspace + "')",
         "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')",
@@ -108,6 +111,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "com_google_protobuf",
         "local_config_xcode",
         "platforms",
+        "internal_platforms_do_not_use",
         "rules_java",
         "rules_java_builtin",
         "build_bazel_apple_support");
