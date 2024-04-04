@@ -56,6 +56,7 @@ if "$is_windows"; then
 fi
 
 add_to_bazelrc "build --experimental_enable_skyfocus"
+add_to_bazelrc "build --genrule_strategy=local"
 
 function set_up() {
   # Ensure we always start with a fresh server so that the following
@@ -85,7 +86,7 @@ EOF
 
   bazel build //${pkg}:g \
     --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1 \
-    || "unexpected failure"
+    || fail "unexpected failure"
   expect_log "Focusing on"
 }
 
@@ -383,6 +384,11 @@ EOF
 }
 
 function test_focus_emits_profile_data() {
+  if "$is_windows"; then
+    # TODO(b/332825970): fix this
+    return
+  fi
+
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -683,7 +689,7 @@ EOF
 
   bazel build //${pkg}:g \
     --experimental_working_set=${pkg}/in.txt &>$TEST_log \
-    && "expected build to fail"
+    && fail "expected build to fail"
   expect_log "Error in genrule: genrule rule has no 'name' attribute"
   expect_not_log "Focusing on .\+ roots, .\+ leafs"
 }
@@ -717,6 +723,7 @@ def _impl(ctx):
         inputs = [ctx.file.src],
         outputs = [out],
         command = " ".join(["cat", ctx.file.src.path, ">", out.path, "&&", "echo", _setting, ">>", out.path]),
+        execution_requirements = {"no-remote": "true"},
     )
 
     return [DefaultInfo(files = depset([out]))]
@@ -765,6 +772,11 @@ EOF
 }
 
 function test_changes_with_symlinks_are_detected() {
+  if "$is_windows"; then
+    # TODO(b/332825970): fix this
+    return
+  fi
+
   local -r pkg=${FUNCNAME[0]}
   mkdir -p ${pkg}/subdir
 
@@ -793,7 +805,7 @@ EOF
   # using the linked file in the working set should work, even though the
   # symlinks are used as the genrule inputs.
   bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/subdir/in.txt \
-    || "expected build to succeed"
+    || fail "expected build to succeed"
 
   echo "a change" >> ${pkg}/in.txt
   bazel build //${pkg}:g || fail "expected build to succeed"
@@ -819,6 +831,11 @@ EOF
 }
 
 function test_symlinks_as_working_set() {
+  if "$is_windows"; then
+    # TODO(b/332825970): fix this
+    return
+  fi
+
   local -r pkg=${FUNCNAME[0]}
   mkdir -p ${pkg}/subdir
 
@@ -842,7 +859,7 @@ EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g --experimental_working_set=${pkg}/single.symlink,${pkg}/dir.symlink \
-    || "expected build to succeed"
+    || fail "expected build to succeed"
 
   echo "a change" >> ${pkg}/in.txt
   bazel build //${pkg}:g || fail "expected build to succeed"

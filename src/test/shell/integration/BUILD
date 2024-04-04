@@ -939,7 +939,6 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 5,
-    tags = ["no_windows"],
 )
 
 sh_test(
