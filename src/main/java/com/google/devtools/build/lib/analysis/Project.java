@@ -24,14 +24,21 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.config.FlagSetValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -179,5 +186,35 @@ public final class Project {
       ans.putAll(target, parentFirstOrder.get(target.getPackageIdentifier()));
     }
     return ans.build();
+  }
+
+  /**
+   * applies {@link CoreOptions.sclConfig} to the top-level {@link BuildOptions}
+   *
+   * <p>given an existing PROJECT.scl file and an {@link CoreOptions.sclConfig}, the method creates
+   * a {@link SkyKey} containing the {@link PathFragment} of the scl file and the config name which
+   * is evaluated by the {@link FlagSetFunction}
+   *
+   * @return {@link FlagSetValue} which has the effective top-level {@link BuildOptions} after
+   *     project file resolution.
+   */
+  public static FlagSetValue modifyBuildOptionsWithFlagSets(
+      PathFragment projectFile,
+      BuildOptions targetOptions,
+      ExtendedEventHandler eventHandler,
+      SkyframeExecutor skyframeExecutor)
+      throws InvalidConfigurationException {
+
+    FlagSetValue.Key flagSetKey =
+        FlagSetValue.Key.create(
+            projectFile, targetOptions.get(CoreOptions.class).sclConfig, targetOptions);
+
+    EvaluationResult<SkyValue> result =
+        skyframeExecutor.evaluateSkyKeys(
+            eventHandler, ImmutableList.of(flagSetKey), /* keepGoing= */ false);
+    if (result.hasError()) {
+      throw new InvalidConfigurationException("Cannot parse options", Code.INVALID_BUILD_OPTIONS);
+    }
+    return (FlagSetValue) result.get(flagSetKey);
   }
 }

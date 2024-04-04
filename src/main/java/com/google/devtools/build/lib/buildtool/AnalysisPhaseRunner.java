@@ -83,11 +83,16 @@ public final class AnalysisPhaseRunner {
   public static AnalysisResult execute(
       CommandEnvironment env,
       BuildRequest request,
-      BuildOptions buildOptions,
+      BuildOptions buildOptionsBeforeFlagSets,
       TargetValidator validator)
-      throws BuildFailedException, InterruptedException, ViewCreationFailedException,
-          TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, RepositoryMappingResolutionException {
+      throws BuildFailedException,
+          InterruptedException,
+          ViewCreationFailedException,
+          TargetParsingException,
+          LoadingFailedException,
+          AbruptExitException,
+          InvalidConfigurationException,
+          RepositoryMappingResolutionException {
 
     // Target pattern evaluation.
     TargetPatternPhaseValue loadingResult;
@@ -97,10 +102,25 @@ public final class AnalysisPhaseRunner {
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
 
-    // TODO: b/324127375 - Use with incoming --scl_config flag.
-    PathFragment unusedProjectFile =
-        BuildTool.getProjectFile(
-            loadingResult.getTargetLabels(), env.getSkyframeExecutor(), env.getReporter());
+    BuildOptions postFlagsetsBuildOptions;
+    String sclConfig = buildOptionsBeforeFlagSets.get(CoreOptions.class).sclConfig;
+    if (sclConfig != null && !sclConfig.isEmpty()) {
+      PathFragment projectFile =
+          BuildTool.getProjectFile(
+              loadingResult.getTargetLabels(), env.getSkyframeExecutor(), env.getReporter());
+      if (projectFile != null) {
+        postFlagsetsBuildOptions =
+            BuildTool.applySclConfigs(
+                buildOptionsBeforeFlagSets,
+                projectFile,
+                env.getSkyframeExecutor(),
+                env.getReporter());
+      } else {
+        postFlagsetsBuildOptions = buildOptionsBeforeFlagSets;
+      }
+    } else {
+      postFlagsetsBuildOptions = buildOptionsBeforeFlagSets;
+    }
 
     // Compute the heuristic instrumentation filter if needed.
     if (request.needsInstrumentationFilter()) {
@@ -115,7 +135,7 @@ public final class AnalysisPhaseRunner {
           // We're modifying the buildOptions in place, which is not ideal, but we also don't want
           // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
           // problem (and the performance loss may not be a big deal).
-          buildOptions.get(CoreOptions.class).instrumentationFilter =
+          postFlagsetsBuildOptions.get(CoreOptions.class).instrumentationFilter =
               new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
         } catch (OptionsParsingException e) {
           throw new InvalidConfigurationException(Code.HEURISTIC_INSTRUMENTATION_FILTER_INVALID, e);
@@ -131,11 +151,11 @@ public final class AnalysisPhaseRunner {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
-        analysisResult = runAnalysisPhase(env, request, loadingResult, buildOptions);
+        analysisResult = runAnalysisPhase(env, request, loadingResult, postFlagsetsBuildOptions);
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
-        module.afterAnalysis(env, request, buildOptions, analysisResult);
+        module.afterAnalysis(env, request, postFlagsetsBuildOptions, analysisResult);
       }
 
       if (request.shouldRunTests()) {

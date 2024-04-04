@@ -167,6 +167,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName MODULE_EXTENSION_REPO_MAPPING_ENTRIES =
       SkyFunctionName.createHermetic("MODULE_EXTENSION_REPO_MAPPING_ENTRIES");
 
+  public static final SkyFunctionName FLAG_SET = SkyFunctionName.createHermetic("FLAG_SET");
+
   public static Predicate<SkyKey> isSkyFunction(SkyFunctionName functionName) {
     return key -> key.functionName().equals(functionName);
   }

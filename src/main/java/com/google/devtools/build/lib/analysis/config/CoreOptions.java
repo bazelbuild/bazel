@@ -67,6 +67,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       OptionsParser.getOptionDefinitionByName(CoreOptions.class, "cpu");
 
   @Option(
+      name = "scl_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Name of the scl config defined in PROJECT.scl. Note that this feature is still under"
+              + " development b/324119879.")
+  public String sclConfig;
+
+  @Option(
       name = "incompatible_merge_genfiles_directory",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
