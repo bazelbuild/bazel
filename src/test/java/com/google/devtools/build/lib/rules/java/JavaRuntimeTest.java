@@ -200,6 +200,24 @@ public class JavaRuntimeTest extends BuildViewTestCase {
         .isEqualTo(getGenfilesArtifactWithNoOwner("a/generated_java_home").getExecPathString());
   }
 
+  @Test
+  public void javaRuntimeVersion_isAccessibleByNativeCode() throws Exception {
+    scratch.file(
+        "a/BUILD", //
+        "genrule(name='gen',",
+        "    cmd = '', ",
+        "    outs = ['generated_java_home/bin/java'],",
+        ")",
+        "java_runtime(",
+        "    name = 'jvm', ",
+        "    java = 'generated_java_home/bin/java', ",
+        "    java_home = 'generated_java_home',",
+        "    version = 234,",
+        ")");
+    ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
+    assertThat(getJavaRuntimeInfo(jvm).version()).isEqualTo(234);
+  }
+
   // bypass default toolchain flags added by BuildViewTestCase#useConfiguration
   // TODO(cushon): delete this helper method once useConfiguration stops passing toolchain flags
   private void useConfigurationInternal(String... args) throws Exception {
