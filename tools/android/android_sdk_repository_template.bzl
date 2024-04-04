@@ -111,6 +111,19 @@ def create_android_sdk_rules(
         exclude_directories = 0,
     )
 
+    platform_api_level_files = []
+
+    # Api level 26 is the first version to have api-versions.xml and source.properties file.
+    # These files are used by NewApi lint check.
+    if default_api_level >= 26:
+        platform_api_level_files += [
+            "platforms/android-%d/%s" % (default_api_level, filename)
+            for filename in [
+                "data/api-versions.xml",
+                "source.properties",
+            ]
+        ]
+
     # This filegroup is used to pass the minimal contents of the SDK to the
     # Android integration tests. Note that in order to work on Windows, we cannot
     # include directories and must keep the size small.
@@ -126,13 +139,7 @@ def create_android_sdk_rules(
             "platforms/android-%d/%s" % (api_level, filename)
             for api_level in api_levels
             for filename in ["android.jar", "framework.aidl"]
-        ] + [
-            "platforms/android-%d/%s" % (default_api_level, filename)
-            for filename in [
-                "data/api-versions.xml",
-                "source.properties",
-            ]
-        ] + select({
+        ] + platform_api_level_files + select({
             ":windows": windows_only_files,
             "//conditions:default": linux_only_files,
         }),
