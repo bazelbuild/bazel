@@ -186,7 +186,7 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            doc = "A provider containing information about the xcode configuration."),
+            doc = "A provider containing information about the Xcode configuration."),
       })
   ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfoApiT xcodeConfig);
 
@@ -202,7 +202,7 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            doc = "A provider containing information about the xcode configuration."),
+            doc = "A provider containing information about the Xcode configuration."),
         @Param(
             name = "platform",
             positional = true,

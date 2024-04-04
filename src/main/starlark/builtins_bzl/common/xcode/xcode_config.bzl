@@ -101,7 +101,7 @@ xcode_config = rule(
     attrs = {
         "default": attr.label(
             doc = """\
-The default official version of xcode to use.
+The default official version of Xcode to use.
 The version specified by the provided `xcode_version` target is to be used if
 no `xcode_version` build flag is specified. This is required if any
 `versions` are set. This may not be set if `remote_versions` or
@@ -143,7 +143,7 @@ version. This may not be set if `versions` is set.
     doc = """\
 A single target of this rule can be referenced by the `--xcode_version_config`
 build flag to translate the `--xcode_version` flag into an accepted official
-xcode version. This allows selection of an official xcode version from a number
+Xcode version. This allows selection of an official Xcode version from a number
 of registered aliases.
 """,
     fragments = ["apple", "cpp"],

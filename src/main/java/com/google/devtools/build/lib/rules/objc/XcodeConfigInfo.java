@@ -188,9 +188,9 @@ public class XcodeConfigInfo extends NativeInfo
     }
   }
   /**
-   * Returns the value of the xcode version, if available. This is determined based on a combination
+   * Returns the value of the Xcode version, if available. This is determined based on a combination
    * of the {@code --xcode_version} build flag and the {@code xcode_config} target defined in the
-   * {@code --xcode_version_config} flag. Returns null if no xcode is available.
+   * {@code --xcode_version_config} flag. Returns null if no Xcode is available.
    */
   @Override
   public DottedVersion getXcodeVersion() {

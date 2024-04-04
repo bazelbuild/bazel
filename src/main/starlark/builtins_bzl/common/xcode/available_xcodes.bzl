@@ -31,21 +31,21 @@ def _available_xcodes_impl(ctx):
 available_xcodes = rule(
     attrs = {
         "default": attr.label(
-            doc = "The default xcode version for this platform.",
+            doc = "The default Xcode version for this platform.",
             mandatory = True,
             providers = [[_builtins.internal.XcodeVersionRuleData]],
             flags = ["NONCONFIGURABLE"],
         ),
         "versions": attr.label_list(
-            doc = "The xcode versions that are available on this platform.",
+            doc = "The Xcode versions that are available on this platform.",
             providers = [[_builtins.internal.XcodeVersionRuleData]],
             flags = ["NONCONFIGURABLE"],
         ),
     },
     doc = """\
 Two targets of this rule can be depended on by an `xcode_config` rule instance
-to indicate the remotely and locally available xcode versions. This allows
-selection of an official xcode version from the collectively available xcodes.
+to indicate the remotely and locally available Xcode versions. This allows
+selection of an official Xcode version from the collectively available Xcodes.
         """,
     implementation = _available_xcodes_impl,
 )

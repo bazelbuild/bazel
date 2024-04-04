@@ -37,7 +37,7 @@ public interface XcodePropertiesApi extends StructApi {
 
   @StarlarkMethod(
       name = "xcode_version",
-      doc = "The xcode version, or <code>None</code> if the xcode version is unknown.",
+      doc = "The Xcode version, or <code>None</code> if the Xcode version is unknown.",
       structField = true,
       allowReturnNones = true)
   @Nullable
@@ -46,7 +46,7 @@ public interface XcodePropertiesApi extends StructApi {
   @StarlarkMethod(
       name = "default_ios_sdk_version",
       doc =
-          "The default iOS sdk version for this version of xcode, or <code>None</code> if "
+          "The default iOS SDK version for this version of Xcode, or <code>None</code> if "
               + "unknown.",
       structField = true,
       allowReturnNones = true)
@@ -56,7 +56,7 @@ public interface XcodePropertiesApi extends StructApi {
   @StarlarkMethod(
       name = "default_visionos_sdk_version",
       doc =
-          "The default visionOS sdk version for this version of xcode, or <code>None</code> if "
+          "The default visionOS SDK version for this version of Xcode, or <code>None</code> if "
               + "unknown.",
       structField = true,
       allowReturnNones = true)
@@ -66,7 +66,7 @@ public interface XcodePropertiesApi extends StructApi {
   @StarlarkMethod(
       name = "default_watchos_sdk_version",
       doc =
-          "The default watchOS sdk version for this version of xcode, or <code>None</code> if "
+          "The default watchOS SDK version for this version of Xcode, or <code>None</code> if "
               + "unknown.",
       structField = true,
       allowReturnNones = true)
@@ -76,7 +76,7 @@ public interface XcodePropertiesApi extends StructApi {
   @StarlarkMethod(
       name = "default_tvos_sdk_version",
       doc =
-          "The default tvOS sdk version for this version of xcode, or <code>None</code> if "
+          "The default tvOS SDK version for this version of Xcode, or <code>None</code> if "
               + "unknown.",
       structField = true,
       allowReturnNones = true)
@@ -86,7 +86,7 @@ public interface XcodePropertiesApi extends StructApi {
   @StarlarkMethod(
       name = "default_macos_sdk_version",
       doc =
-          "The default macOS sdk version for this version of xcode, or <code>None</code> if "
+          "The default macOS SDK version for this version of Xcode, or <code>None</code> if "
               + "unknown.",
       structField = true,
       allowReturnNones = true)
