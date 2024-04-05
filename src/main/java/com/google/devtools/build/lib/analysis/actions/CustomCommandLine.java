@@ -767,6 +767,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>Prefer this over its dynamic cousin, as using static strings saves memory.
      */
+    @CanIgnoreReturnValue
     public Builder add(@CompileTimeConstant String value) {
       return addObjectInternal(value);
     }
@@ -776,6 +777,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If the value is null, neither the arg nor the value is added.
      */
+    @CanIgnoreReturnValue
     public Builder add(@CompileTimeConstant String arg, @Nullable String value) {
       return addObjectInternal(arg, value);
     }
@@ -812,6 +814,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>There are many other ways you can try to avoid calling this. In general, try to use
      * constants or objects that are already on the heap elsewhere.
      */
+    @CanIgnoreReturnValue
     public Builder addDynamicString(@Nullable String value) {
       return addObjectInternal(value);
     }
@@ -822,6 +825,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>Prefer this over manually calling {@link Label#getCanonicalForm}, as it avoids a copy of
      * the label value.
      */
+    @CanIgnoreReturnValue
     public Builder addLabel(@Nullable Label value) {
       return addObjectInternal(value);
     }
@@ -834,6 +838,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If the value is null, neither the arg nor the value is added.
      */
+    @CanIgnoreReturnValue
     public Builder addLabel(@CompileTimeConstant String arg, @Nullable Label value) {
       return addObjectInternal(arg, value);
     }
@@ -844,6 +849,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>Prefer this over manually calling {@link PathFragment#getPathString}, as it avoids storing
      * a copy of the path string.
      */
+    @CanIgnoreReturnValue
     public Builder addPath(@Nullable PathFragment value) {
       return addObjectInternal(value);
     }
@@ -856,6 +862,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If the value is null, neither the arg nor the value is added.
      */
+    @CanIgnoreReturnValue
     public Builder addPath(@CompileTimeConstant String arg, @Nullable PathFragment value) {
       return addObjectInternal(arg, value);
     }
@@ -866,6 +873,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>Prefer this over manually calling {@link Artifact#getExecPath}, as it avoids storing a
      * copy of the artifact path string.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPath(@Nullable Artifact value) {
       return addObjectInternal(value);
     }
@@ -878,16 +886,19 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If the value is null, neither the arg nor the value is added.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPath(@CompileTimeConstant String arg, @Nullable Artifact value) {
       return addObjectInternal(arg, value);
     }
 
     /** Adds a lazily expanded string. */
+    @CanIgnoreReturnValue
     public Builder addLazyString(@Nullable OnDemandString value) {
       return addObjectInternal(value);
     }
 
     /** Adds a lazily expanded string. */
+    @CanIgnoreReturnValue
     public Builder addLazyString(@CompileTimeConstant String arg, @Nullable OnDemandString value) {
       return addObjectInternal(arg, value);
     }
@@ -902,6 +913,7 @@ public class CustomCommandLine extends AbstractCommandLine {
     }
 
     /** Concatenates the passed prefix string and the string. */
+    @CanIgnoreReturnValue
     public Builder addPrefixed(@CompileTimeConstant String prefix, @Nullable String arg) {
       return addPrefixedInternal(prefix, arg, /* mainRepoMapping= */ null);
     }
@@ -910,6 +922,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * Concatenates the passed prefix string and the label using {@link Label#getDisplayForm}, which
      * is identical to {@link Label#getCanonicalForm()} for main repo labels.
      */
+    @CanIgnoreReturnValue
     public Builder addPrefixedLabel(
         @CompileTimeConstant String prefix,
         @Nullable Label arg,
@@ -918,11 +931,13 @@ public class CustomCommandLine extends AbstractCommandLine {
     }
 
     /** Concatenates the passed prefix string and the path. */
+    @CanIgnoreReturnValue
     public Builder addPrefixedPath(@CompileTimeConstant String prefix, @Nullable PathFragment arg) {
       return addPrefixedInternal(prefix, arg, /* mainRepoMapping= */ null);
     }
 
     /** Concatenates the passed prefix string and the artifact's exec path. */
+    @CanIgnoreReturnValue
     public Builder addPrefixedExecPath(@CompileTimeConstant String prefix, @Nullable Artifact arg) {
       return addPrefixedInternal(prefix, arg, /* mainRepoMapping= */ null);
     }
@@ -933,6 +948,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>If you are converting long lists or nested sets of a different type to string lists,
      * please try to use a different method that supports what you are trying to do directly.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(@Nullable Collection<String> values) {
       return addCollectionInternal(values);
     }
@@ -943,6 +959,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>If you are converting long lists or nested sets of a different type to string lists,
      * please try to use a different method that supports what you are trying to do directly.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(@Nullable NestedSet<String> values) {
       return addNestedSetInternal(values);
     }
@@ -955,6 +972,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(@CompileTimeConstant String arg, @Nullable Collection<String> values) {
       return addCollectionInternal(arg, values);
     }
@@ -964,11 +982,13 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(@CompileTimeConstant String arg, @Nullable NestedSet<String> values) {
       return addNestedSetInternal(arg, values);
     }
 
     /** Adds the passed vector arg. See {@link VectorArg}. */
+    @CanIgnoreReturnValue
     public Builder addAll(VectorArg<String> vectorArg) {
       return addVectorArgInternal(vectorArg);
     }
@@ -978,16 +998,19 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(@CompileTimeConstant String arg, VectorArg<String> vectorArg) {
       return addVectorArgInternal(arg, vectorArg);
     }
 
     /** Adds the passed paths to the command line. */
+    @CanIgnoreReturnValue
     public Builder addPaths(@Nullable Collection<PathFragment> values) {
       return addCollectionInternal(values);
     }
 
     /** Adds the passed paths to the command line. */
+    @CanIgnoreReturnValue
     public Builder addPaths(@Nullable NestedSet<PathFragment> values) {
       return addNestedSetInternal(values);
     }
@@ -997,6 +1020,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addPaths(
         @CompileTimeConstant String arg, @Nullable Collection<PathFragment> values) {
       return addCollectionInternal(arg, values);
@@ -1007,12 +1031,14 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addPaths(
         @CompileTimeConstant String arg, @Nullable NestedSet<PathFragment> values) {
       return addNestedSetInternal(arg, values);
     }
 
     /** Adds the passed vector arg. See {@link VectorArg}. */
+    @CanIgnoreReturnValue
     public Builder addPaths(VectorArg<PathFragment> vectorArg) {
       return addVectorArgInternal(vectorArg);
     }
@@ -1022,6 +1048,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addPaths(@CompileTimeConstant String arg, VectorArg<PathFragment> vectorArg) {
       return addVectorArgInternal(arg, vectorArg);
     }
@@ -1032,11 +1059,13 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>Do not use this method if the list is derived from a flattened nested set. Instead, figure
      * out how to avoid flattening the set and use {@link #addExecPaths(NestedSet)}.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(@Nullable Collection<Artifact> values) {
       return addCollectionInternal(values);
     }
 
     /** Adds the artifacts' exec paths to the command line. */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(@Nullable NestedSet<Artifact> values) {
       return addNestedSetInternal(values);
     }
@@ -1049,6 +1078,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(
         @CompileTimeConstant String arg, @Nullable Collection<Artifact> values) {
       return addCollectionInternal(arg, values);
@@ -1059,12 +1089,14 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(
         @CompileTimeConstant String arg, @Nullable NestedSet<Artifact> values) {
       return addNestedSetInternal(arg, values);
     }
 
     /** Adds the passed vector arg. See {@link VectorArg}. */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(VectorArg<Artifact> vectorArg) {
       return addVectorArgInternal(vectorArg);
     }
@@ -1074,6 +1106,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(@CompileTimeConstant String arg, VectorArg<Artifact> vectorArg) {
       return addVectorArgInternal(arg, vectorArg);
     }
