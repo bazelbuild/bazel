@@ -3853,6 +3853,25 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDisallowCtxResolveTools() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = 'dummy_cmd', outs = ['a.txt'])");
+
+    setBuildLanguageOptions("--incompatible_disallow_ctx_resolve_tools");
+
+    setRuleContext(createRuleContext("//pkg:foo"));
+
+    EvalException evalException =
+        assertThrows(EvalException.class, () -> ev.eval("ruleContext.resolve_tools()"));
+    assertThat(evalException)
+        .hasMessageThat()
+        .isEqualTo(
+            "Pass an executable or tools argument to ctx.actions.run or ctx.actions.run_shell"
+                + " instead of calling ctx.resolve_tools.\n"
+                + "Use --noincompatible_disallow_ctx_resolve_tools to temporarily disable this"
+                + " check.");
+  }
+
+  @Test
   public void testNoToolchainContext() throws Exception {
     // Build setting rules do not have a toolchain context, as they are part of the configuration.
     scratch.file(

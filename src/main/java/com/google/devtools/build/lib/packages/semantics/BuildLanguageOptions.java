@@ -723,6 +723,18 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " Label.relative) can be used.")
   public boolean enableDeprecatedLabelApis;
 
+  @Option(
+      name = "incompatible_disallow_ctx_resolve_tools",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, calling the deprecated ctx.resolve_tools API always fails. Uses of this"
+              + " API should be replaced by an executable or tools argument to ctx.actions.run or"
+              + " ctx.actions.run_shell.")
+  public boolean incompatibleDisallowCtxResolveTools;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -827,6 +839,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH, incompatibleStopExportingBuildFilePath)
+            .setBool(INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS, incompatibleDisallowCtxResolveTools)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -924,6 +937,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =
       "-incompatible_stop_exporting_build_file_path";
+  public static final String INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS =
+      "-incompatible_disallow_ctx_resolve_tools";
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
