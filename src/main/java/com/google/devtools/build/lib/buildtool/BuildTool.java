@@ -63,14 +63,11 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.SkyfocusModule;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyfocusState;
-import com.google.devtools.build.lib.skyframe.SkyfocusState.Request;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -563,11 +560,9 @@ public class BuildTool {
         }
       }
 
-      SkyfocusState skyfocusState = env.getSkyframeExecutor().getSkyfocusState();
-      if (detailedExitCode.isSuccess()
-          && skyfocusState.enabled()
-          && skyfocusState.request() == Request.RUN_FOCUS) {
-        SkyfocusModule.runSkyfocus(skyfocusState, env);
+      if (detailedExitCode.isSuccess()) {
+        env.getSkyframeExecutor()
+            .runSkyfocus(env.getReporter(), env.getBlazeWorkspace().getPersistentActionCache());
       }
     } catch (BuildFailedException e) {
       if (!e.isErrorAlreadyShown()) {
