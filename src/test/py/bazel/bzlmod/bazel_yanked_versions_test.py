@@ -29,6 +29,7 @@ class BazelYankedVersionsTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'aaa', '1.1'
     ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
@@ -49,6 +50,10 @@ class BazelYankedVersionsTest(test_base.TestBase):
         'yanked2', yanked_versions={'1.0': 'sketchy'}
     )
     self.writeBazelrcFile()
+
+  def tearDown(self):
+      self.main_registry.stop()
+      test_base.TestBase.tearDown(self)
 
   def writeBazelrcFile(self, allow_yanked_versions=True):
     self.ScratchFile(

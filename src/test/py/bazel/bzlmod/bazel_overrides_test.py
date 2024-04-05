@@ -29,6 +29,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'aaa', '1.1'
     ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
@@ -53,6 +54,10 @@ class BazelOverridesTest(test_base.TestBase):
             'build --lockfile_mode=update',
         ],
     )
+
+  def tearDown(self):
+      self.main_registry.stop()
+      test_base.TestBase.tearDown(self)
 
   def writeMainProjectFiles(self):
     self.ScratchFile(
@@ -122,22 +127,26 @@ class BazelOverridesTest(test_base.TestBase):
         os.path.join(self.registries_work_dir, 'another'),
         ' from another registry',
     )
-    another_registry.createCcModule('aaa', '1.0')
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'bazel_dep(name = "aaa", version = "1.0")',
-            'bazel_dep(name = "bbb", version = "1.0")',
-            'single_version_override(',
-            '  module_name = "aaa",',
-            '  registry = "%s",' % another_registry.getURL(),
-            ')',
-        ],
-    )
-    _, stdout, _ = self.RunBazel(['run', '//:main'])
-    self.assertIn('main function => aaa@1.0 from another registry', stdout)
-    self.assertIn('main function => bbb@1.0', stdout)
-    self.assertIn('bbb@1.0 => aaa@1.0 from another registry', stdout)
+    another_registry.start()
+    try:
+      another_registry.createCcModule('aaa', '1.0')
+      self.ScratchFile(
+          'MODULE.bazel',
+          [
+              'bazel_dep(name = "aaa", version = "1.0")',
+              'bazel_dep(name = "bbb", version = "1.0")',
+              'single_version_override(',
+              '  module_name = "aaa",',
+              '  registry = "%s",' % another_registry.getURL(),
+              ')',
+          ],
+      )
+      _, stdout, _ = self.RunBazel(['run', '//:main'])
+      self.assertIn('main function => aaa@1.0 from another registry', stdout)
+      self.assertIn('main function => bbb@1.0', stdout)
+      self.assertIn('bbb@1.0 => aaa@1.0 from another registry', stdout)
+    finally:
+      another_registry.stop()
 
   def testArchiveOverride(self):
     self.writeMainProjectFiles()
