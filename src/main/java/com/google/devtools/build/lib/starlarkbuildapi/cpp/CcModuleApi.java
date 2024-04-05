@@ -1831,19 +1831,22 @@ public interface CcModuleApi<
             name = "target_system_name",
             positional = false,
             named = true,
-            doc = "The GNU System Name."),
+            doc =
+                "Deprecated. The GNU System Name. The string is exposed to"
+                    + " CcToolchainInfo.target_gnu_system_name."),
         @Param(
             name = "target_cpu",
             positional = false,
             named = true,
-            doc = "The target architecture string."),
+            doc = "Deprecated: Use cpu based constraints instead."),
         @Param(
             name = "target_libc",
             positional = false,
             named = true,
             doc =
-                "The libc version string (e.g. \"glibc-2.2.2\"). If the string is \"macosx\","
-                    + " platform is assumed to be MacOS. Otherwise, Linux"),
+                "Deprecated: Use OS based constraints instead. The libc version string (e.g."
+                    + " \"glibc-2.2.2\"). If the string is \"macosx\", platform is assumed to be"
+                    + " MacOS. Otherwise, Linux. The string is exposed to CcToolchainInfo.libc."),
         @Param(
             name = "compiler",
             positional = false,
@@ -1862,14 +1865,18 @@ public interface CcModuleApi<
             defaultValue = "None",
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The abi in use, which is a gcc version. E.g.: \"gcc-3.4\""),
+            doc =
+                "The abi in use, which is a gcc version. E.g.: \"gcc-3.4\". The string is set to"
+                    + " C++ toolchain variable ABI."),
         @Param(
             name = "abi_libc_version",
             positional = false,
             defaultValue = "None",
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The glibc version used by the abi we're using."),
+            doc =
+                "The glibc version used by the abi we're using. The string is set to C++ toolchain"
+                    + " variable ABI_LIBC_VERSION."),
         @Param(
             name = "tool_paths",
             positional = false,
