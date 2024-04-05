@@ -37,6 +37,7 @@ class ExternalRepoCompletionTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.main_registry.setModuleBasePath('projects')
     self.projects_dir = self.main_registry.projects
     self.maxDiff = None  # there are some long diffs in this test
@@ -156,6 +157,10 @@ class ExternalRepoCompletionTest(test_base.TestBase):
         ['cc_library(name="lib_ext2", visibility = ["//visibility:public"])'],
     )
     scratchFile(self.projects_dir.joinpath('ext2', 'ext.bzl'), ext_src)
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def complete(self, bazel_args):
     """Get the bash completions for the given "bazel" command line."""

@@ -30,6 +30,7 @@ class BazelRepoMappingTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'aaa', '1.1'
     ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
@@ -55,6 +56,10 @@ class BazelRepoMappingTest(test_base.TestBase):
             'build --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain'  # fmt: skip pylint: disable=line-too-long
         ],
     )
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def testRunfilesRepoMappingManifest(self):
     self.main_registry.setModuleBasePath('projects')
