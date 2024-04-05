@@ -29,6 +29,7 @@ class BazelFetchTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.ScratchFile(
         '.bazelrc',
         [
@@ -47,6 +48,10 @@ class BazelFetchTest(test_base.TestBase):
     )
     self.ScratchFile('MODULE.bazel')
     self.generatBuiltinModules()
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def generatBuiltinModules(self):
     self.ScratchFile('platforms_mock/BUILD')
