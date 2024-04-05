@@ -46,6 +46,8 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
+    ensureNativeRepoRuleEnabled(
+        rule, env, "load(\"@bazel_tools//tools/build_defs/repo:local.bzl\", \"local_repository\")");
     // DO NOT MODIFY THIS! It's being deprecated in favor of Starlark counterparts.
     // See https://github.com/bazelbuild/bazel/issues/18285
     String userDefinedPath = RepositoryFunction.getPathAttr(rule);

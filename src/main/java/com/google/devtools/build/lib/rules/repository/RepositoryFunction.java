@@ -187,6 +187,27 @@ public abstract class RepositoryFunction {
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException;
 
+  protected static void ensureNativeRepoRuleEnabled(Rule rule, Environment env, String replacement)
+      throws RepositoryFunctionException, InterruptedException {
+    if (!isWorkspaceRepo(rule)) {
+      // If this native repo rule is used in a Bzlmod context, always allow it. This is because
+      // we're still using the native `local_repository` for `local_path_override`, and it's
+      // nontrivial to migrate that one to the Starlark version.
+      return;
+    }
+    if (!RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.get(env)) {
+      return;
+    }
+    throw new RepositoryFunctionException(
+        Starlark.errorf(
+            "Native repo rule %s is disabled since the flag "
+                + "--incompatible_disable_native_repo_rules is set. Native repo rules are "
+                + "deprecated; please migrate to their Starlark counterparts. For %s, please use "
+                + "%s.",
+            rule.getRuleClass(), rule.getRuleClass(), replacement),
+        Transience.PERSISTENT);
+  }
+
   /**
    * Verify the data provided by the marker file to check if a refetch is needed. Returns true if
    * the data is up to date and no refetch is needed and false if the data is obsolete and a refetch

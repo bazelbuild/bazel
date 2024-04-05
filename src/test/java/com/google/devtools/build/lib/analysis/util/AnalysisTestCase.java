@@ -241,6 +241,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
                     PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
                     PrecomputedValue.injected(
+                        RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
+                    PrecomputedValue.injected(
                         ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
@@ -292,6 +294,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             PrecomputedValue.injected(
                 ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
             PrecomputedValue.injected(
                 BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                 CheckDirectDepsMode.WARNING),

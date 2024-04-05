@@ -47,59 +47,6 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 public class RepositoryFunctionTest extends BuildViewTestCase {
 
-  /**
-   * Exposes RepositoryFunction's protected methods to this class.
-   */
-  @VisibleForTesting
-  static class TestingRepositoryFunction extends RepositoryFunction {
-    @Nullable
-    @Override
-    public RepositoryDirectoryValue.Builder fetch(
-        Rule rule,
-        Path outputDirectory,
-        BlazeDirectories directories,
-        SkyFunction.Environment env,
-        Map<RepoRecordedInput, String> recordedInputValues,
-        SkyKey key)
-        throws InterruptedException {
-      return null;
-    }
-
-    @Override
-    protected boolean isLocal(Rule rule) {
-      return false;
-    }
-
-    @Override
-    public Class<? extends RuleDefinition> getRuleDefinition() {
-      return null;
-    }
-  }
-
-  @Test
-  public void testGetTargetPathRelative() throws Exception {
-    Rule rule = scratchRule("external", "z", "local_repository(",
-            "    name = 'z',",
-            "    path = 'a/b/c',",
-            ")");
-    assertThat(
-            TestingRepositoryFunction.getTargetPath(
-                TestingRepositoryFunction.getPathAttr(rule), rootDirectory))
-        .isEqualTo(rootDirectory.getRelative("a/b/c").asFragment());
-  }
-
-  @Test
-  public void testGetTargetPathAbsolute() throws Exception {
-    Rule rule = scratchRule("external", "w", "local_repository(",
-        "    name = 'w',",
-        "    path = '/a/b/c',",
-        ")");
-    assertThat(
-            TestingRepositoryFunction.getTargetPath(
-                TestingRepositoryFunction.getPathAttr(rule), rootDirectory))
-        .isEqualTo(PathFragment.create("/a/b/c"));
-  }
-
   private static void assertMarkerFileEscaping(String testCase) {
     String escaped = RepositoryDelegatorFunction.escape(testCase);
     assertThat(RepositoryDelegatorFunction.unescape(escaped)).isEqualTo(testCase);

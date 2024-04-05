@@ -265,7 +265,6 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context().write(WORKSPACE, "local_repository(name = '@a', path = 'abc')");
     context().write("BUILD");
     ProcessResult result = context().bazel().shouldFail().build("//...");
-    assertThat(result.errString())
-        .contains("Error in local_repository: invalid repository name '@a'");
+    assertThat(result.errString()).contains("invalid repository name '@a'");
   }
 }

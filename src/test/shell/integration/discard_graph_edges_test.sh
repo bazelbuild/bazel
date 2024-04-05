@@ -271,7 +271,7 @@ function test_packages_cleared() {
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
   # A few packages aren't cleared.
-  [[ "$package_count" -le 25 ]] \
+  [[ "$package_count" -le 26 ]] \
       || fail "package count $package_count too high"
   glob_count="$(extract_histogram_count "$histo_file" "GlobValueWithImmutableSet$")"
   [[ "$glob_count" -le 1 ]] \
