@@ -104,6 +104,8 @@ public final class SkyframeErrorProcessor {
     @Nullable
     abstract DetailedExitCode executionDetailedExitCode();
 
+    abstract ImmutableList<ActionLookupKey> aspectKeysForConflictReporting();
+
     static AggregatingBuilder newBuilder() {
       return new AggregatingBuilder();
     }
@@ -114,6 +116,8 @@ public final class SkyframeErrorProcessor {
       private final Map<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
           Maps.newHashMap();
       @Nullable private DetailedExitCode executionDetailedExitCode = null;
+      private final ImmutableList.Builder<ActionLookupKey> aspectKeysForConflictReporting =
+          ImmutableList.builder();
 
       void aggregateSingleResult(IndividualErrorProcessingResult individualErrorProcessingResult) {
         hasLoadingError = hasLoadingError || individualErrorProcessingResult.isLoadingError();
@@ -123,6 +127,10 @@ public final class SkyframeErrorProcessor {
             DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
                 executionDetailedExitCode,
                 individualErrorProcessingResult.executionDetailedExitCode());
+        if (individualErrorProcessingResult.aspectKeyForConflictReporting() != null) {
+          aspectKeysForConflictReporting.add(
+              individualErrorProcessingResult.aspectKeyForConflictReporting());
+        }
       }
 
       ErrorProcessingResult build() {
@@ -130,7 +138,8 @@ public final class SkyframeErrorProcessor {
             hasLoadingError,
             hasAnalysisError,
             ImmutableMap.copyOf(actionConflicts),
-            executionDetailedExitCode);
+            executionDetailedExitCode,
+            aspectKeysForConflictReporting.build());
       }
     }
   }
@@ -151,6 +160,9 @@ public final class SkyframeErrorProcessor {
 
     abstract ImmutableSet<Label> loadingRootCauses();
 
+    @Nullable
+    abstract ActionLookupKey aspectKeyForConflictReporting();
+
     boolean isActionConflictError() {
       return !actionConflicts().isEmpty();
     }
@@ -168,9 +180,14 @@ public final class SkyframeErrorProcessor {
         ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts,
         @Nullable DetailedExitCode executionDetailedExitCode,
         NestedSet<Cause> analysisRootCauses,
-        ImmutableSet<Label> loadingRootCauses) {
+        ImmutableSet<Label> loadingRootCauses,
+        @Nullable ActionLookupKey aspectKeyForConflictReporting) {
       return new AutoValue_SkyframeErrorProcessor_IndividualErrorProcessingResult(
-          actionConflicts, executionDetailedExitCode, analysisRootCauses, loadingRootCauses);
+          actionConflicts,
+          executionDetailedExitCode,
+          analysisRootCauses,
+          loadingRootCauses,
+          aspectKeyForConflictReporting);
     }
   }
 
@@ -287,7 +304,7 @@ public final class SkyframeErrorProcessor {
 
       Label label = getLabel(errorKey);
       IndividualErrorProcessingResult individualErrorProcessingResult =
-          processIndividualError(result, eventHandler, bugReporter, errorKey, errorInfo);
+          processIndividualError(result, bugReporter, errorKey, errorInfo);
 
       // For action conflicts, more downstream operations are required to have all the
       // information. We intentionally don't send out any failure event, throw any exception (even
@@ -430,7 +447,6 @@ public final class SkyframeErrorProcessor {
    */
   private static IndividualErrorProcessingResult processIndividualError(
       EvaluationResult<? extends SkyValue> result,
-      ExtendedEventHandler eventHandler,
       BugReporter bugReporter,
       SkyKey errorKey,
       ErrorInfo errorInfo) {
@@ -439,6 +455,7 @@ public final class SkyframeErrorProcessor {
     ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
         ImmutableMap.of();
     DetailedExitCode executionDetailedExitCode = null;
+    ActionLookupKey aspectKeyForConflictReporting = null;
 
     // Legacy: analysis-related failure events for Aspects are sent somewhere else, so we don't have
     // to do any work related to constructing the analysis failure events here, only for the other
@@ -448,6 +465,10 @@ public final class SkyframeErrorProcessor {
       if (exception instanceof TopLevelConflictException) {
         TopLevelConflictException tlce = (TopLevelConflictException) exception;
         actionConflicts = tlce.getTransitiveActionConflicts();
+      } else if (exception instanceof ActionConflictException) {
+        ActionConflictException ace = (ActionConflictException) exception;
+        actionConflicts = ImmutableMap.of(ace.getAttemptedAction(), ace);
+        aspectKeyForConflictReporting = ace.getAspectKey();
       } else if (isExecutionException(exception)) {
         executionDetailedExitCode =
             getExecutionDetailedExitCodeFromCause(result, exception, bugReporter);
@@ -458,17 +479,19 @@ public final class SkyframeErrorProcessor {
       return IndividualErrorProcessingResult.create(
           actionConflicts,
           executionDetailedExitCode,
-          /*analysisRootCauses=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /*loadingRootCauses=*/ ImmutableSet.of());
+          /* analysisRootCauses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* loadingRootCauses= */ ImmutableSet.of(),
+          aspectKeyForConflictReporting);
     }
 
     // Only possible with actions generating build-info.txt and build-changelist.txt.
     if (errorKey.argument() instanceof ActionLookupData) {
       return IndividualErrorProcessingResult.create(
-          /*actionConflicts=*/ ImmutableMap.of(),
+          /* actionConflicts= */ ImmutableMap.of(),
           getExecutionDetailedExitCodeFromCause(result, exception, bugReporter),
-          /*analysisRootCauses=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /*loadingRootCauses=*/ ImmutableSet.of());
+          /* analysisRootCauses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* loadingRootCauses= */ ImmutableSet.of(),
+          /* aspectKeyForConflictReporting= */ null);
     }
 
     Preconditions.checkState(
@@ -482,6 +505,10 @@ public final class SkyframeErrorProcessor {
     if (exception instanceof TopLevelConflictException) {
       TopLevelConflictException tlce = (TopLevelConflictException) exception;
       actionConflicts = tlce.getTransitiveActionConflicts();
+      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    } else if (exception instanceof ActionConflictException) {
+      ActionConflictException ace = (ActionConflictException) exception;
+      actionConflicts = ImmutableMap.of(ace.getAttemptedAction(), ace);
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else if (exception instanceof ConfiguredValueCreationException) {
       ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) exception;
@@ -514,9 +541,6 @@ public final class SkyframeErrorProcessor {
                 // TODO(ulfjack): We need to report the dependency cycle here. How?
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
-    } else if (exception instanceof ActionConflictException) {
-      ((ActionConflictException) exception).reportTo(eventHandler);
-      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else if (exception instanceof NoSuchThingException) {
       // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
       // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
@@ -545,7 +569,8 @@ public final class SkyframeErrorProcessor {
         actionConflicts,
         executionDetailedExitCode,
         analysisRootCauses,
-        ImmutableSet.copyOf(loadingRootCauses));
+        ImmutableSet.copyOf(loadingRootCauses),
+        /* aspectKeyForConflictReporting= */ null);
   }
 
   private static DetailedExitCode getExecutionDetailedExitCodeFromCause(

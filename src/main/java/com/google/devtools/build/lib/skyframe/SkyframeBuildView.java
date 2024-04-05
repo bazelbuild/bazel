@@ -386,7 +386,7 @@ public final class SkyframeBuildView {
     PackageRoots packageRoots = result.packageRoots();
     EvaluationResult<ActionLookupValue> evaluationResult = result.evaluationResult();
 
-    ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
+    ImmutableMap<ActionAnalysisMetadata, ActionConflictException> interTargetConflicts =
         ImmutableMap.of();
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeExecutor.findArtifactConflicts")) {
@@ -413,17 +413,17 @@ public final class SkyframeBuildView {
                 .setOutputArtifactCount(conflictsAndStats.getOutputArtifactCount())
                 .build();
         eventBus.post(new AnalysisGraphStatsEvent(buildGraphMetrics));
-        actionConflicts = conflictsAndStats.getConflicts();
+        interTargetConflicts = conflictsAndStats.getConflicts();
         someActionLookupValueEvaluated = false;
       }
     }
-    foundActionConflictInLatestCheck = !actionConflicts.isEmpty();
 
-    if (!evaluationResult.hasError() && !foundActionConflictInLatestCheck) {
+    // Intra-target conflict would mean an error in evaluationResult.
+    if (!evaluationResult.hasError() && interTargetConflicts.isEmpty()) {
       return new SkyframeAnalysisResult(
           /* hasLoadingError= */ false,
           /* hasAnalysisError= */ false,
-          foundActionConflictInLatestCheck,
+          /* hasActionConflicts= */ false,
           cts,
           evaluationResult.getWalkableGraph(),
           aspects,
@@ -441,6 +441,12 @@ public final class SkyframeBuildView {
             eventBus,
             bugReporter);
 
+    var actionConflicts =
+        ImmutableMap.<ActionAnalysisMetadata, ActionConflictException>builder()
+            .putAll(interTargetConflicts)
+            .putAll(errorProcessingResult.actionConflicts()) // Intra-target conflicts.
+            .buildOrThrow();
+    foundActionConflictInLatestCheck = !actionConflicts.isEmpty();
     ViewCreationFailedException noKeepGoingExceptionDueToConflict = null;
     // Sometimes there are action conflicts, but the actions aren't actually required to run by the
     // build. In such cases, the conflict should still be reported to the user.
@@ -482,29 +488,42 @@ public final class SkyframeBuildView {
       }
       // Report an AnalysisFailureEvent to BEP for the top-level targets with discoverable action
       // conflicts, then finally throw if evaluation is --nokeep_going.
-      for (ActionLookupKey ctKey : Iterables.concat(ctKeys, aspectKeys)) {
-        if (!topLevelActionConflictReport.isErrorFree(ctKey)) {
+      for (ActionLookupKey actionLookupKey : Iterables.concat(ctKeys, aspectKeys)) {
+        if (!topLevelActionConflictReport.isErrorFree(actionLookupKey)) {
           Optional<ActionConflictException> e =
-              topLevelActionConflictReport.getConflictException(ctKey);
+              topLevelActionConflictReport.getConflictException(actionLookupKey);
           if (e.isEmpty()) {
             continue;
           }
-          // Promotes any ConfiguredTargetKey to the one embedded in the resulting ConfiguredTarget,
-          // which reflects any transitions or trimming.
-          if (ctKey instanceof ConfiguredTargetKey) {
-            ctKey =
-                ((ConfiguredTargetValue) evaluationResult.get(ctKey))
-                    .getConfiguredTarget()
-                    .getLookupKey();
+          ActionConflictException conflictException = e.get();
+          AnalysisFailedCause failedCause =
+              makeArtifactConflictAnalysisFailedCause(conflictException);
+          boolean targetConfigured = true;
+          // Attempt to promote any ConfiguredTargetKey to the one embedded in the ConfiguredTarget
+          // to reflect any transitions or trimming.
+          if (actionLookupKey instanceof ConfiguredTargetKey) {
+            var value = ((ConfiguredTargetValue) evaluationResult.get(actionLookupKey));
+            if (value != null) {
+              actionLookupKey = value.getConfiguredTarget().getLookupKey();
+            } else {
+              targetConfigured = false;
+            }
           }
-          AnalysisFailedCause failedCause = makeArtifactConflictAnalysisFailedCause(e.get());
-          eventBus.post(
-              AnalysisFailureEvent.actionConflict(
-                  ctKey, NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
+          if (!targetConfigured) {
+            eventBus.post(
+                AnalysisFailureEvent.whileAnalyzingTarget(
+                    (ConfiguredTargetKey) actionLookupKey,
+                    NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
+          } else {
+            eventBus.post(
+                AnalysisFailureEvent.actionConflict(
+                    actionLookupKey, NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
+          }
+
           if (!keepGoing) {
             noKeepGoingExceptionDueToConflict =
                 new ViewCreationFailedException(
-                    failedCause.getDetailedExitCode().getFailureDetail(), e.get());
+                    failedCause.getDetailedExitCode().getFailureDetail(), conflictException);
           }
         }
       }
@@ -908,12 +927,19 @@ public final class SkyframeBuildView {
       boolean keepGoing,
       ErrorProcessingResult errorProcessingResult)
       throws InterruptedException, ViewCreationFailedException {
+    // TODO(b/332898055) Unify with the noskymeld code path.
     try {
       // Here we already have the <TopLevelAspectKey, error> mapping, but what we need to fit into
       // the existing AnalysisFailureEvent is <AspectKey, error>. An extra Skyframe evaluation is
       // required.
+      // If the conflict is intra-Aspect, the TopLevelAspectValue would be null and the AspectKey
+      // isn't retrievable. It must be supplied via the ErrorProcessingResult.
       Iterable<ActionLookupKey> effectiveTopLevelKeysForConflictReporting =
-          Iterables.concat(ctKeys, getDerivedAspectKeysForConflictReporting(topLevelAspectsKeys));
+          ImmutableSet.<ActionLookupKey>builder()
+              .addAll(ctKeys)
+              .addAll(getDerivedAspectKeysForConflictReporting(topLevelAspectsKeys))
+              .addAll(errorProcessingResult.aspectKeysForConflictReporting())
+              .build();
       TopLevelActionConflictReport topLevelActionConflictReport;
       enableAnalysis(true);
       // In order to determine the set of configured targets transitively error free from action
@@ -988,21 +1014,31 @@ public final class SkyframeBuildView {
       }
 
       ActionConflictException conflictException = e.get();
-      // Promotes any ConfiguredTargetKey to the one embedded in the ConfiguredTarget to reflect any
-      // transitions or trimming.
-      if (actionLookupKey instanceof ConfiguredTargetKey) {
-        // This is a graph lookup instead of an EvalutionResult lookup because Skymeld's
-        // EvalutionResult does not contain ConfiguredTargetKey.
-        actionLookupKey =
-            ((ConfiguredTargetValue) graph.getValue(actionLookupKey))
-                .getConfiguredTarget()
-                .getLookupKey();
-      }
       AnalysisFailedCause failedCause = makeArtifactConflictAnalysisFailedCause(conflictException);
-      // TODO(b/210710338) Replace with a more appropriate event.
-      eventBus.post(
-          AnalysisFailureEvent.actionConflict(
-              actionLookupKey, NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
+      boolean targetConfigured = true;
+      // Attempt to promote any ConfiguredTargetKey to the one embedded in the ConfiguredTarget to
+      // reflect any transitions or trimming.
+      if (actionLookupKey instanceof ConfiguredTargetKey) {
+        // This is a graph lookup instead of an EvaluationResult lookup because Skymeld's
+        // EvaluationResult does not contain ConfiguredTargetKey.
+        var value = ((ConfiguredTargetValue) graph.getValue(actionLookupKey));
+        if (value != null) {
+          actionLookupKey = value.getConfiguredTarget().getLookupKey();
+        } else {
+          targetConfigured = false;
+        }
+      }
+      if (!targetConfigured) {
+        eventBus.post(
+            AnalysisFailureEvent.whileAnalyzingTarget(
+                (ConfiguredTargetKey) actionLookupKey,
+                NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
+      } else {
+        eventBus.post(
+            AnalysisFailureEvent.actionConflict(
+                actionLookupKey, NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
+      }
+
       if (!keepGoing) {
         throw new ViewCreationFailedException(
             failedCause.getDetailedExitCode().getFailureDetail(), conflictException);
