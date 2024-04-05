@@ -340,6 +340,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   prereqs.getTargetAndConfiguration().getTarget().getLocation(),
                   cvce.getMessage()));
       throw new ReportedException(cvce);
+    } catch (ActionConflictException e) {
+      // The reporting will be done when going through errors in the build.
+      throw new UnreportedException(e);
     } finally {
       maybeReleaseSemaphore();
     }
@@ -362,7 +365,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable NestedSet<Package> transitivePackages)
-      throws ConfiguredValueCreationException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException, ActionConflictException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();
 
@@ -395,10 +398,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;
-    } catch (ActionConflictException e) {
-      e.reportTo(env.getListener());
-      throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
-    } catch (InvalidExecGroupException e) {
+    } catch (InvalidExecGroupException | StarlarkExecTransitionLoadingException e) {
       throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
     } catch (AnalysisFailurePropagationException e) {
       throw new ConfiguredValueCreationException(
