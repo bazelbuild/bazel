@@ -7,11 +7,17 @@ maybe(
 )
 
 maybe(
+    local_repository,
+    "internal_platforms_do_not_use",
+    path = __embedded_dir__ + "/platforms",
+)
+
+maybe(
     local_config_platform,
     "local_config_platform",
 )
 
-load("@platforms//host:extension.bzl", "host_platform_repo")
+load("@internal_platforms_do_not_use//host:extension.bzl", "host_platform_repo")
 maybe(
     host_platform_repo,
     "host_platform",
