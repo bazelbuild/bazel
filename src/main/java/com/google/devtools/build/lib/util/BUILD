@@ -178,6 +178,7 @@ java_library(
     deps = [
         ":object_graph_traverser",
         ":shallow_object_size_computer",
+        "//third_party:guava",
     ],
 )
 

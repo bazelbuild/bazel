@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.ObjectGraphTraverser.EdgeType;
 import java.util.Collections;
 import java.util.HashMap;
@@ -21,6 +22,16 @@ import java.util.Map;
 
 /** An object receiver for {@link ObjectGraphTraverser} that collects statistics about RAM use. */
 public class MemoryAccountant implements ObjectGraphTraverser.ObjectReceiver {
+  /** Measures the shallow size of an object. */
+  public interface Measurer {
+
+    /**
+     * Return the shallow size of an objet.
+     *
+     * <p>If this instance doesn't know how to compute it, returns -1.
+     */
+    long maybeGetShallowSize(Object o);
+  }
 
   /** Statistics collected about RAM use. */
   public static class Stats {
@@ -60,20 +71,37 @@ public class MemoryAccountant implements ObjectGraphTraverser.ObjectReceiver {
     }
   }
 
+  private final ImmutableList<Measurer> measurers;
   private final Stats stats;
 
-  public MemoryAccountant() {
+  public MemoryAccountant(Iterable<Measurer> measurers) {
+    this.measurers = ImmutableList.copyOf(measurers);
     stats = new Stats();
   }
 
   @Override
   public void objectFound(Object o, String context) {
     if (context == null) {
-      context = o.getClass().getName();
+      if (o.getClass().isArray()) {
+        context = "[] " + o.getClass().getComponentType().getName();
+      } else {
+        context = o.getClass().getName();
+      }
     }
 
-    long size = ShallowObjectSizeComputer.getShallowSize(o);
+    long size = getShallowSize(o);
     stats.addObject(context, size);
+  }
+
+  private long getShallowSize(Object o) {
+    for (Measurer measurer : measurers) {
+      long candidate = measurer.maybeGetShallowSize(o);
+      if (candidate >= 0) {
+        return candidate;
+      }
+    }
+
+    return ShallowObjectSizeComputer.getShallowSize(o);
   }
 
   @Override

@@ -105,6 +105,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:object_graph_traverser",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:script_util",
+        "//src/main/java/com/google/devtools/build/lib/util:shallow_object_size_computer",
         "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
