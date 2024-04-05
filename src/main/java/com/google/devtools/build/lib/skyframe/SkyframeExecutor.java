@@ -4107,24 +4107,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                     + " build."));
         // update to the new working set
         skyfocusState =
-            new SkyfocusState(
-                true,
-                newWorkingSet, // update to the new working set
-                skyfocusState.verificationSet(),
-                skyfocusOptions,
-                skyfocusState.buildConfiguration(),
-                Request.RUN_FOCUS);
+            skyfocusState
+                .withEnabled(true)
+                .withOptions(skyfocusOptions)
+                .withWorkingSet(newWorkingSet)
+                .withRequest(Request.RUN_FOCUS);
         memoizingEvaluator.rememberTopLevelEvaluations(true);
         break;
       case DO_NOTHING:
         skyfocusState =
-            new SkyfocusState(
-                true,
-                skyfocusState.workingSet(), // don't update the working set
-                skyfocusState.verificationSet(),
-                skyfocusOptions,
-                skyfocusState.buildConfiguration(),
-                Request.DO_NOTHING);
+            skyfocusState
+                .withEnabled(true)
+                .withOptions(skyfocusOptions)
+                .withRequest(Request.DO_NOTHING);
         break;
     }
   }
@@ -4195,15 +4190,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     checkState(!focusResult.getDeps().isEmpty());
     checkState(!focusResult.getRdeps().isEmpty());
 
-    // update
-    skyfocusState =
-        new SkyfocusState(
-            true,
-            skyfocusState.workingSet(),
-            focusResult.getVerificationSet(), // update
-            skyfocusState.options(),
-            skyfocusState.buildConfiguration(),
-            skyfocusState.request());
+    skyfocusState = skyfocusState.withVerificationSet(focusResult.getVerificationSet());
 
     dumpSkyfocusKeys(dumpKeysOption, reporter, focusResult, graph, skyFunctionCountBefore);
 
