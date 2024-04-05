@@ -141,16 +141,7 @@ java_library(
 java_plugin(
     name = "auto_annotation_plugin",
     processor_class = "com.google.auto.value.processor.AutoAnnotationProcessor",
-    deps = [
-        ":apache_commons_collections",
-        ":apache_velocity",
-        ":auto_common",
-        ":auto_service_lib",
-        ":auto_value_value",
-        ":guava",
-        ":jsr305",
-        ":tomcat_annotations_api",
-    ],
+    visibility = ["//visibility:private"],
 )
 
 alias(
@@ -172,10 +163,9 @@ java_plugin(
     name = "auto_service_plugin",
     processor_class = "com.google.auto.service.processor.AutoServiceProcessor",
     deps = [
-        ":auto_common",
         ":auto_service_lib",
-        ":guava",
     ],
+    visibility = ["//visibility:private"],
 )
 
 java_library(
@@ -184,34 +174,19 @@ java_library(
         "@maven//:com_google_auto_service_auto_service",
         "@maven//:com_google_auto_service_auto_service_annotations",
     ],
+    visibility = ["//visibility:private"],
 )
 
 java_plugin(
     name = "auto_value_plugin",
     processor_class = "com.google.auto.value.processor.AutoValueProcessor",
-    deps = [
-        ":apache_commons_collections",
-        ":apache_velocity",
-        ":auto_common",
-        ":auto_service_lib",
-        ":auto_value_value",
-        ":guava",
-        ":tomcat_annotations_api",
-    ],
+    visibility = ["//visibility:private"],
 )
 
 java_plugin(
     name = "auto_oneof_plugin",
     processor_class = "com.google.auto.value.processor.AutoOneOfProcessor",
-    deps = [
-        ":apache_commons_collections",
-        ":apache_velocity",
-        ":auto_common",
-        ":auto_service_lib",
-        ":auto_value_value",
-        ":guava",
-        ":tomcat_annotations_api",
-    ],
+    visibility = ["//visibility:private"],
 )
 
 java_plugin(
@@ -221,12 +196,20 @@ java_plugin(
         "@maven//:com_ryanharter_auto_value_auto_value_gson_extension",
         "@maven//:com_ryanharter_auto_value_auto_value_gson_factory",
     ],
+    visibility = ["//visibility:private"],
+)
+
+java_plugin(
+    name = "auto_builder_plugin",
+    processor_class = "com.google.auto.value.processor.AutoBuilderProcessor",
+    visibility = ["//visibility:private"],
 )
 
 java_library(
     name = "auto_value",
     exported_plugins = [
         ":auto_annotation_plugin",
+        ":auto_builder_plugin",
         ":auto_oneof_plugin",
         ":auto_value_plugin",
         ":auto_value_gson_plugin",
