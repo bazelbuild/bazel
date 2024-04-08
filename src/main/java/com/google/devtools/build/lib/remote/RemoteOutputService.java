@@ -52,7 +52,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
-/** Output service implementation for the remote module */
+/** Output service implementation for the remote build without local output service daemon. */
 public class RemoteOutputService implements OutputService {
 
   private final CommandEnvironment env;

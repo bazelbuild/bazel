@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -39,6 +40,7 @@ import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * A {@link ChannelConnectionFactory} which creates {@link ChannelConnection} using {@link
@@ -57,7 +59,7 @@ public class GoogleChannelConnectionFactory
   private final int maxConcurrency;
   private final boolean verboseFailures;
   private final Reporter reporter;
-  private final RemoteServerCapabilities remoteServerCapabilities;
+  @Nullable private final RemoteServerCapabilities remoteServerCapabilities;
   private final RemoteOptions remoteOptions;
   private final DigestFunction.Value digestFunction;
   private final ServerCapabilitiesRequirement requirement;
@@ -72,9 +74,13 @@ public class GoogleChannelConnectionFactory
       int maxConcurrency,
       boolean verboseFailures,
       Reporter reporter,
-      RemoteServerCapabilities remoteServerCapabilities,
+      @Nullable RemoteServerCapabilities remoteServerCapabilities,
       Value digestFunction,
       ServerCapabilitiesRequirement requirement) {
+    if (requirement != ServerCapabilitiesRequirement.NONE) {
+      checkNotNull(remoteServerCapabilities);
+    }
+
     this.channelFactory = channelFactory;
     this.target = target;
     this.proxy = proxy;
@@ -117,7 +123,7 @@ public class GoogleChannelConnectionFactory
       var s = Profiler.instance().profile("getAndVerifyServerCapabilities");
       var future =
           Futures.transformAsync(
-              remoteServerCapabilities.get(channel),
+              checkNotNull(remoteServerCapabilities).get(channel),
               serverCapabilities -> {
                 var result =
                     RemoteServerCapabilities.checkClientServerCompatibility(
