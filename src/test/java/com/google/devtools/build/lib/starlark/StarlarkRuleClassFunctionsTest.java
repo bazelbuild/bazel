@@ -1508,13 +1508,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSimpleTextMessagesBooleanFields() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
-    checkTextMessage("struct(name=True).to_proto()", "name: true");
-    checkTextMessage("struct(name=False).to_proto()", "name: false");
-  }
-
-  @Test
   public void testStructRestrictedOverrides() throws Exception {
     setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     ev.checkEvalErrorContains(
@@ -1526,23 +1519,22 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSimpleTextMessages() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
-    checkTextMessage("struct(name='value').to_proto()", "name: \"value\"");
-    checkTextMessage("struct(name=[]).to_proto()"); // empty lines
-    checkTextMessage("struct(name=['a', 'b']).to_proto()", "name: \"a\"", "name: \"b\"");
-    checkTextMessage("struct(name=123).to_proto()", "name: 123");
+    checkTextMessage("proto.encode_text(struct(name='value'))", "name: \"value\"");
+    checkTextMessage("proto.encode_text(struct(name=[]))"); // empty lines
+    checkTextMessage("proto.encode_text(struct(name=['a', 'b']))", "name: \"a\"", "name: \"b\"");
+    checkTextMessage("proto.encode_text(struct(name=123))", "name: 123");
     checkTextMessage(
-        "struct(a=1.2e34, b=float('nan'), c=float('-inf'), d=float('+inf')).to_proto()",
+        "proto.encode_text(struct(a=1.2e34, b=float('nan'), c=float('-inf'), d=float('+inf')))",
         "a: 1.2e+34",
         "b: nan",
         "c: -inf",
         // Caution! textproto requires +inf be encoded as "inf" rather than "+inf"
         "d: inf");
-    checkTextMessage("struct(name=123).to_proto()", "name: 123");
-    checkTextMessage("struct(name=[1, 2, 3]).to_proto()", "name: 1", "name: 2", "name: 3");
-    checkTextMessage("struct(a=struct(b='b')).to_proto()", "a {", "  b: \"b\"", "}");
+    checkTextMessage("proto.encode_text(struct(name=123))", "name: 123");
+    checkTextMessage("proto.encode_text(struct(name=[1, 2, 3]))", "name: 1", "name: 2", "name: 3");
+    checkTextMessage("proto.encode_text(struct(a=struct(b='b')))", "a {", "  b: \"b\"", "}");
     checkTextMessage(
-        "struct(a=[struct(b='x'), struct(b='y')]).to_proto()",
+        "proto.encode_text(struct(a=[struct(b='x'), struct(b='y')]))",
         "a {",
         "  b: \"x\"",
         "}",
@@ -1550,13 +1542,22 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  b: \"y\"",
         "}");
     checkTextMessage(
-        "struct(a=struct(b=struct(c='c'))).to_proto()", "a {", "  b {", "    c: \"c\"", "  }", "}");
+        "proto.encode_text(struct(a=struct(b=struct(c='c'))))",
+        "a {",
+        "  b {",
+        "    c: \"c\"",
+        "  }",
+        "}");
     // dict to_proto tests
-    checkTextMessage("struct(name={}).to_proto()"); // empty lines
+    checkTextMessage("proto.encode_text(struct(name={}))"); // empty lines
     checkTextMessage(
-        "struct(name={'a': 'b'}).to_proto()", "name {", "  key: \"a\"", "  value: \"b\"", "}");
+        "proto.encode_text(struct(name={'a': 'b'}))",
+        "name {",
+        "  key: \"a\"",
+        "  value: \"b\"",
+        "}");
     checkTextMessage(
-        "struct(name={'c': 'd', 'a': 'b'}).to_proto()",
+        "proto.encode_text(struct(name={'c': 'd', 'a': 'b'}))",
         "name {",
         "  key: \"c\"",
         "  value: \"d\"",
@@ -1566,7 +1567,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  value: \"b\"",
         "}");
     checkTextMessage(
-        "struct(x=struct(y={'a': 1})).to_proto()",
+        "proto.encode_text(struct(x=struct(y={'a': 1})))",
         "x {",
         "  y {",
         "    key: \"a\"",
@@ -1574,7 +1575,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  }",
         "}");
     checkTextMessage(
-        "struct(name={'a': struct(b=1, c=2)}).to_proto()",
+        "proto.encode_text(struct(name={'a': struct(b=1, c=2)}))",
         "name {",
         "  key: \"a\"",
         "  value {",
@@ -1583,7 +1584,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  }",
         "}");
     checkTextMessage(
-        "struct(name={'a': struct(b={4: 'z', 3: 'y'}, c=2)}).to_proto()",
+        "proto.encode_text(struct(name={'a': struct(b={4: 'z', 3: 'y'}, c=2)}))",
         "name {",
         "  key: \"a\"",
         "  value {",
@@ -1612,50 +1613,48 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testProtoFieldsOrder() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
-    checkTextMessage("struct(d=4, b=2, c=3, a=1).to_proto()", "a: 1", "b: 2", "c: 3", "d: 4");
+    checkTextMessage(
+        "proto.encode_text(struct(d=4, b=2, c=3, a=1))", "a: 1", "b: 2", "c: 3", "d: 4");
   }
 
   @Test
   public void testTextMessageEscapes() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
-    checkTextMessage("struct(name='a\"b').to_proto()", "name: \"a\\\"b\"");
-    checkTextMessage("struct(name='a\\'b').to_proto()", "name: \"a'b\"");
-    checkTextMessage("struct(name='a\\nb').to_proto()", "name: \"a\\nb\"");
+    checkTextMessage("proto.encode_text(struct(name='a\"b'))", "name: \"a\\\"b\"");
+    checkTextMessage("proto.encode_text(struct(name='a\\'b'))", "name: \"a'b\"");
+    checkTextMessage("proto.encode_text(struct(name='a\\nb'))", "name: \"a\\nb\"");
 
     // struct(name="a\\\"b") -> name: "a\\\"b"
-    checkTextMessage("struct(name='a\\\\\\\"b').to_proto()", "name: \"a\\\\\\\"b\"");
+    checkTextMessage("proto.encode_text(struct(name='a\\\\\\\"b'))", "name: \"a\\\\\\\"b\"");
   }
 
   @Test
   public void testTextMessageInvalidStructure() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     // list in list
     ev.checkEvalErrorContains(
         "in struct field .a: at list index 0: got list, want string, int, float, bool, or struct",
-        "struct(a=[['b']]).to_proto()");
+        "proto.encode_text(struct(a=[['b']]))");
 
     // dict in list
     ev.checkEvalErrorContains(
         "in struct field .a: at list index 0: got dict, want string, int, float, bool, or struct",
-        "struct(a=[{'b': 1}]).to_proto()");
+        "proto.encode_text(struct(a=[{'b': 1}]))");
 
     // tuple as dict key
     ev.checkEvalErrorContains(
         "in struct field .a: invalid dict key: got tuple, want int or string",
-        "struct(a={(1, 2): 3}).to_proto()");
+        "proto.encode_text(struct(a={(1, 2): 3}))");
 
     // dict in dict
     ev.checkEvalErrorContains(
         "in struct field .name: in value for dict key \"a\": got dict, want string, int, float,"
             + " bool, or struct",
-        "struct(name={'a': {'b': [1, 2]}}).to_proto()");
+        "proto.encode_text(struct(name={'a': {'b': [1, 2]}}))");
 
     // callable in field
     ev.checkEvalErrorContains(
         "in struct field .a: got builtin_function_or_method, want string, int, float, bool, or"
             + " struct",
-        "struct(a=rule).to_proto()");
+        "proto.encode_text(struct(a=rule))");
   }
 
   private void checkJson(String from, String expected) throws Exception {
@@ -1679,65 +1678,58 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testJsonBooleanFields() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
-    checkJson("struct(name=True).to_json()", "{\"name\":true}");
-    checkJson("struct(name=False).to_json()", "{\"name\":false}");
+    checkJson("json.encode(struct(name=True))", "{\"name\":true}");
+    checkJson("json.encode(struct(name=False))", "{\"name\":false}");
   }
 
   @Test
   public void testJsonDictFields() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
-    checkJson("struct(config={}).to_json()", "{\"config\":{}}");
-    checkJson("struct(config={'key': 'value'}).to_json()", "{\"config\":{\"key\":\"value\"}}");
+    checkJson("json.encode(struct(config={}))", "{\"config\":{}}");
+    checkJson("json.encode(struct(config={'key': 'value'}))", "{\"config\":{\"key\":\"value\"}}");
     ev.checkEvalErrorContains(
-        "Keys must be a string but got a int for struct field 'config'",
-        "struct(config={1:2}).to_json()");
+        "in struct field .config: dict has int key, want string",
+        "json.encode(struct(config={1:2}))");
     ev.checkEvalErrorContains(
-        "Keys must be a string but got a int for dict value 'foo'",
-        "struct(config={'foo':{1:2}}).to_json()");
+        "in struct field .config: in dict key \"foo\": dict has int key, want string",
+        "json.encode(struct(config={'foo':{1:2}}))");
     ev.checkEvalErrorContains(
-        "Keys must be a string but got a bool for struct field 'config'",
-        "struct(config={True: False}).to_json()");
+        "in struct field .config: dict has bool key, want string",
+        "json.encode(struct(config={True: False}))");
   }
 
   @Test
   public void testJsonEncoding() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
-    checkJson("struct(name='value').to_json()", "{\"name\":\"value\"}");
-    checkJson("struct(name=['a', 'b']).to_json()", "{\"name\":[\"a\",\"b\"]}");
-    checkJson("struct(name=123).to_json()", "{\"name\":123}");
-    checkJson("struct(name=[1, 2, 3]).to_json()", "{\"name\":[1,2,3]}");
-    checkJson("struct(a=struct(b='b')).to_json()", "{\"a\":{\"b\":\"b\"}}");
+    checkJson("json.encode(struct(name='value'))", "{\"name\":\"value\"}");
+    checkJson("json.encode(struct(name=['a', 'b']))", "{\"name\":[\"a\",\"b\"]}");
+    checkJson("json.encode(struct(name=123))", "{\"name\":123}");
+    checkJson("json.encode(struct(name=[1, 2, 3]))", "{\"name\":[1,2,3]}");
+    checkJson("json.encode(struct(a=struct(b='b')))", "{\"a\":{\"b\":\"b\"}}");
     checkJson(
-        "struct(a=[struct(b='x'), struct(b='y')]).to_json()",
+        "json.encode(struct(a=[struct(b='x'), struct(b='y')]))",
         "{\"a\":[{\"b\":\"x\"},{\"b\":\"y\"}]}");
-    checkJson("struct(a=struct(b=struct(c='c'))).to_json()", "{\"a\":{\"b\":{\"c\":\"c\"}}}");
+    checkJson("json.encode(struct(a=struct(b=struct(c='c'))))", "{\"a\":{\"b\":{\"c\":\"c\"}}}");
   }
 
   @Test
   public void testJsonEscapes() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
-    checkJson("struct(name='a\"b').to_json()", "{\"name\":\"a\\\"b\"}");
-    checkJson("struct(name='a\\'b').to_json()", "{\"name\":\"a'b\"}");
-    checkJson("struct(name='a\\\\b').to_json()", "{\"name\":\"a\\\\b\"}");
-    checkJson("struct(name='a\\nb').to_json()", "{\"name\":\"a\\nb\"}");
-    checkJson("struct(name='a\\rb').to_json()", "{\"name\":\"a\\rb\"}");
-    checkJson("struct(name='a\\tb').to_json()", "{\"name\":\"a\\tb\"}");
+    checkJson("json.encode(struct(name='a\"b'))", "{\"name\":\"a\\\"b\"}");
+    checkJson("json.encode(struct(name='a\\'b'))", "{\"name\":\"a'b\"}");
+    checkJson("json.encode(struct(name='a\\\\b'))", "{\"name\":\"a\\\\b\"}");
+    checkJson("json.encode(struct(name='a\\nb'))", "{\"name\":\"a\\nb\"}");
+    checkJson("json.encode(struct(name='a\\rb'))", "{\"name\":\"a\\rb\"}");
+    checkJson("json.encode(struct(name='a\\tb'))", "{\"name\":\"a\\tb\"}");
   }
 
   @Test
   public void testJsonNestedListStructure() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
-    checkJson("struct(a=[['b']]).to_json()", "{\"a\":[[\"b\"]]}");
+    checkJson("json.encode(struct(a=[['b']]))", "{\"a\":[[\"b\"]]}");
   }
 
   @Test
   public void testJsonInvalidStructure() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     ev.checkEvalErrorContains(
-        "Invalid text format, expected a struct, a string, a bool, or an int but got a "
-            + "builtin_function_or_method for struct field 'a'",
-        "struct(a=rule).to_json()");
+        "in struct field .a: cannot encode builtin_function_or_method as JSON",
+        "json.encode(struct(a=rule))");
   }
 
   @Test
