@@ -1256,7 +1256,6 @@
     "@@platforms//host:extension.bzl%host_platform": {
       "general": {
         "bzlTransitiveDigest": "xelQcPZH8+tmuOHVjL9vDxMnnQNMlwj0SlvgoqBkm4U=",
-        "usagesDigest": "n09YBuQPPWD2ruteuyEi0J/rtBYGRWuaq/aBOPdseDE=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
