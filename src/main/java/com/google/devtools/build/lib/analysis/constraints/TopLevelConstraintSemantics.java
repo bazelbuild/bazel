@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.EnvironmentLabels;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -209,26 +208,6 @@ public class TopLevelConstraintSemantics {
       return EnvironmentCompatibility.severeIncompatible(severeMissingEnvironments);
     }
 
-    // Check auto-detected CPU environments.
-    try {
-      ImmutableSet<MissingEnvironment> nonSevereMissingEnvironment =
-          getMissingEnvironments(
-              configuredTarget,
-              autoConfigureTargetEnvironments(
-                  buildConfigurationValue,
-                  buildConfigurationValue.getAutoCpuEnvironmentGroup(),
-                  targetLookup),
-              targetLookup);
-      if (nonSevereMissingEnvironment == null) {
-        return null;
-      }
-      if (!nonSevereMissingEnvironment.isEmpty()) {
-        return EnvironmentCompatibility.nonSevereIncompatible();
-      }
-    } catch (NoSuchPackageException | NoSuchTargetException e) {
-      throw new TargetCompatibilityCheckException(
-          "invalid target environment", e.getDetailedExitCode().getFailureDetail(), e);
-    }
     return EnvironmentCompatibility.compatible();
   }
 
@@ -406,37 +385,6 @@ public class TopLevelConstraintSemantics {
               .build());
     }
     return badTargets.build();
-  }
-
-  /**
-   * Helper method for {@link #checkTargetEnvironmentRestrictions} that populates inferred expected
-   * environments.
-   */
-  @Nullable
-  private static ImmutableList<Label> autoConfigureTargetEnvironments(
-      BuildConfigurationValue config,
-      @Nullable Label environmentGroupLabel,
-      TargetLookup targetLookup)
-      throws InterruptedException, NoSuchTargetException, NoSuchPackageException {
-    if (environmentGroupLabel == null) {
-      return ImmutableList.of();
-    }
-
-    EnvironmentGroup environmentGroup =
-        (EnvironmentGroup) targetLookup.getTarget(environmentGroupLabel);
-    // Missing value.
-    if (environmentGroup == null) {
-      return null;
-    }
-
-    ImmutableList.Builder<Label> targetEnvironments = new ImmutableList.Builder<>();
-    for (Label environmentLabel : environmentGroup.getEnvironments()) {
-      if (environmentLabel.getName().equals(config.getCpu())) {
-        targetEnvironments.add(environmentLabel);
-      }
-    }
-
-    return targetEnvironments.build();
   }
 
   /**

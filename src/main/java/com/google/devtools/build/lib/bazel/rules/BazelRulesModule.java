@@ -429,6 +429,15 @@ public final class BazelRulesModule extends BlazeModule {
   public static final class AllCommandGraveyardOptions extends OptionsBase {
 
     @Option(
+        name = "auto_cpu_environment_group",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "No-op")
+    public String autoCpuEnvironmentGroup;
+
+    @Option(
         name = "separate_aspect_deps",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,

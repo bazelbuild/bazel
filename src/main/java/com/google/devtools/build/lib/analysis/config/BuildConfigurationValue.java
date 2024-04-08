@@ -921,14 +921,6 @@ public class BuildConfigurationValue
     return options.targetEnvironments;
   }
 
-  /**
-   * Returns the {@link Label} of the {@code environment_group} target that will be used to find the
-   * target environment during auto-population.
-   */
-  public Label getAutoCpuEnvironmentGroup() {
-    return options.autoCpuEnvironmentGroup;
-  }
-
   @Nullable
   public Class<? extends Fragment> getStarlarkFragmentByName(String name) {
     return starlarkVisibleFragments.get(name);
