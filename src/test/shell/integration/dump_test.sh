@@ -69,7 +69,7 @@ sh_library(name='a')
 EOF
 
   bazel query //a:all >& $TEST_log || fail "query failed"
-  bazel dump --memory=deep --memory_package=//a --memory_display=summary >& $TEST_log \
+  bazel dump --memory=deep:summary:package://a >& $TEST_log \
     || failed "dump failed"
   expect_log "objects,.*bytes retained"
 }
@@ -90,7 +90,7 @@ b = {}
 EOF
 
   bazel query //a:all >& $TEST_log || fail "query failed"
-  bazel dump --memory=shallow --memory_starlark_module=//a:a.bzl --memory_display=count >& $TEST_log \
+  bazel dump --memory=shallow:count:starlark_module://a:a.bzl >& $TEST_log \
     || failed "dump failed"
   expect_log "^net.starlark.java.eval.Module: 1"  # Only a.bzl, not b.bzl
 }

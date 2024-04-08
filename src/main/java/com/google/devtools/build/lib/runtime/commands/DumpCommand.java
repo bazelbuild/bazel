@@ -18,7 +18,6 @@ import static java.util.stream.Collectors.toList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -57,12 +56,14 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -72,6 +73,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -90,24 +92,16 @@ import javax.annotation.Nullable;
     shortDescription = "Dumps the internal state of the %{product} server process.",
     binaryStdOut = true)
 public class DumpCommand implements BlazeCommand {
-
   /** How to dump Skyframe memory. */
-  public enum MemoryCollectionMode {
-    NONE, // Memory dumping disabled
-    SHALLOW, // Dump the objects owned by a single SkyValue
-    DEEP, // Dump objects reachable from a single SkyValue
-  }
-
-  /** Converter for {@link MemoryCollectionMode}. */
-  public static final class MemoryCollectionModeConverter
-      extends EnumConverter<MemoryCollectionMode> {
-    public MemoryCollectionModeConverter() {
-      super(MemoryCollectionMode.class, "memory collection mode");
-    }
+  private enum MemoryCollectionMode {
+    /** Dump the objects owned by a single SkyValue */
+    SHALLOW,
+    /** Dump objects reachable from a single SkyValue */
+    DEEP,
   }
 
   /** How to display Skyframe memory use. */
-  public enum MemoryDisplayMode {
+  private enum MemoryDisplayMode {
     /** Just a summary line */
     SUMMARY,
     /** Object count by class */
@@ -116,10 +110,52 @@ public class DumpCommand implements BlazeCommand {
     BYTES,
   }
 
+  /** Whose memory use we should measure. */
+  private enum MemorySubjectType {
+    /** Starlark module */
+    STARLARK_MODULE,
+    /* Build package */
+    PACKAGE,
+    /* Configured target */
+    CONFIGURED_TARGET,
+  }
+
+  private record MemoryMode(
+      MemoryCollectionMode collectionMode,
+      MemoryDisplayMode displayMode,
+      MemorySubjectType type,
+      String subject) {}
+
   /** Converter for {@link MemoryCollectionMode}. */
-  public static final class MemoryDisplayModeConverter extends EnumConverter<MemoryDisplayMode> {
-    public MemoryDisplayModeConverter() {
-      super(MemoryDisplayMode.class, "memory display mode");
+  public static final class MemoryModeConverter extends Converter.Contextless<MemoryMode> {
+    @Override
+    public String getTypeDescription() {
+      return "memory mode";
+    }
+
+    @Override
+    public MemoryMode convert(String input) throws OptionsParsingException {
+      // The SkyKey designator is frequently a Label, which usually contains a colon so we must not
+      // split the argument into an unlimited number of elements
+      String[] items = input.split(":", 4);
+      if (items.length != 4) {
+        throw new OptionsParsingException("Invalid memory");
+      }
+
+      MemoryCollectionMode collectionMode;
+      MemoryDisplayMode displayMode;
+      MemorySubjectType subjectType;
+
+      try {
+        collectionMode = MemoryCollectionMode.valueOf(items[0].toUpperCase(Locale.ROOT));
+        displayMode = MemoryDisplayMode.valueOf(items[1].toUpperCase(Locale.ROOT));
+        subjectType = MemorySubjectType.valueOf(items[2].toUpperCase(Locale.ROOT));
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException(
+            "Invalid collection mode, display mode or subject type", e);
+      }
+
+      return new MemoryMode(collectionMode, displayMode, subjectType, items[3]);
     }
   }
 
@@ -199,55 +235,12 @@ public class DumpCommand implements BlazeCommand {
 
     @Option(
         name = "memory",
-        defaultValue = "none",
-        converter = MemoryCollectionModeConverter.class,
+        defaultValue = "null",
+        converter = MemoryModeConverter.class,
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Dump the memory use of the given Skyframe node.")
-    public MemoryCollectionMode memoryCollectionMode;
-
-    @Option(
-        name = "memory_display",
-        defaultValue = "summary",
-        converter = MemoryDisplayModeConverter.class,
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "The way to display the memory collected by --memory.")
-    public MemoryDisplayMode memoryDisplayMode;
-
-    @Option(
-        name = "memory_starlark_module",
-        defaultValue = "null",
-        converter = LabelConverter.class,
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "The Starlark module whose memory use should be dumped.")
-    public Label memoryStarlarkModule;
-
-    @Option(
-        name = "memory_package",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "The package whose memory use should be dumped.")
-    public String memoryPackage;
-
-    @Option(
-        name = "memory_configured_target",
-        defaultValue = "null",
-        converter = LabelConverter.class,
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "The label of the configured target whose memory use should be dumped.")
-    public Label memoryConfiguredTarget;
-
-    @Option(
-        name = "memory_configkey",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "The configuration key of the configured target whose memory use should be dumped.")
-    public String memoryConfigKey;
+    public MemoryMode memory;
   }
 
   /**
@@ -288,7 +281,7 @@ public class DumpCommand implements BlazeCommand {
             || dumpOptions.dumpRules
             || dumpOptions.starlarkMemory != null
             || dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF
-            || dumpOptions.memoryCollectionMode != MemoryCollectionMode.NONE;
+            || dumpOptions.memory != null;
     if (!anyOutput) {
       Collection<Class<? extends OptionsBase>> optionList = new ArrayList<>();
       optionList.add(DumpOptions.class);
@@ -344,7 +337,7 @@ public class DumpCommand implements BlazeCommand {
         }
       }
 
-      if (dumpOptions.memoryCollectionMode != MemoryCollectionMode.NONE) {
+      if (dumpOptions.memory != null) {
         failure = dumpSkyframeMemory(env, dumpOptions, out);
       }
 
@@ -533,47 +526,31 @@ public class DumpCommand implements BlazeCommand {
   }
 
   @Nullable
-  private static SkyKey getMemoryDumpSkyKey(CommandEnvironment env, DumpOptions dumpOptions) {
-    Reporter reporter = env.getReporter();
-
-    List<SkyKey> result = new ArrayList<>();
-
-    if (dumpOptions.memoryStarlarkModule != null) {
-      result.add(BzlLoadValue.keyForBuild(dumpOptions.memoryStarlarkModule));
-    }
-
-    if (dumpOptions.memoryPackage != null) {
-      PackageIdentifier identifier;
-      try {
-        identifier = PackageIdentifier.parse(dumpOptions.memoryPackage);
-      } catch (LabelSyntaxException e) {
-        reporter.error(null, "Cannot parse package identifier: " + e.getMessage());
-        return null;
-      }
-
-      result.add(identifier);
-    }
-
-    if (dumpOptions.memoryConfiguredTarget != null) {
-      BuildConfigurationKey configurationKey =
-          getConfigurationKey(env, dumpOptions.memoryConfigKey);
-      if (configurationKey == null) {
-        return null;
-      }
-
-      result.add(
-          ConfiguredTargetKey.builder()
+  private static SkyKey getMemoryDumpSkyKey(CommandEnvironment env, MemoryMode memoryMode) {
+    try {
+      switch (memoryMode.type()) {
+        case PACKAGE -> {
+          return PackageIdentifier.parse(memoryMode.subject);
+        }
+        case STARLARK_MODULE -> {
+          return BzlLoadValue.keyForBuild(Label.parseCanonical(memoryMode.subject));
+        }
+        case CONFIGURED_TARGET -> {
+          String[] labelAndConfig = memoryMode.subject.split("@", 2);
+          BuildConfigurationKey configurationKey =
+              getConfigurationKey(env, labelAndConfig.length == 2 ? labelAndConfig[1] : null);
+          return ConfiguredTargetKey.builder()
               .setConfigurationKey(configurationKey)
-              .setLabel(dumpOptions.memoryConfiguredTarget)
-              .build());
-    }
-
-    if (result.size() != 1) {
-      reporter.error(null, "You must specify exactly one Skyframe node to dump.");
+              .setLabel(Label.parseCanonical(labelAndConfig[0]))
+              .build();
+        }
+      }
+    } catch (LabelSyntaxException e) {
+      env.getReporter().error(null, "Cannot parse label: " + e.getMessage());
       return null;
     }
 
-    return result.get(0);
+    throw new IllegalStateException();
   }
 
   private static void dumpRamByClass(Map<String, Long> memory, PrintStream out) {
@@ -633,7 +610,7 @@ public class DumpCommand implements BlazeCommand {
   private static Optional<BlazeCommandResult> dumpSkyframeMemory(
       CommandEnvironment env, DumpOptions dumpOptions, PrintStream out)
       throws InterruptedException {
-    SkyKey skyKey = getMemoryDumpSkyKey(env, dumpOptions);
+    SkyKey skyKey = getMemoryDumpSkyKey(env, dumpOptions.memory);
     if (skyKey == null) {
       return Optional.of(
           createFailureResult("Cannot dump Skyframe memory", Code.SKYFRAME_MEMORY_DUMP_FAILED));
@@ -657,13 +634,12 @@ public class DumpCommand implements BlazeCommand {
 
     ConcurrentIdentitySet seen = getBuiltinsSet(env, fieldCache);
     Stats stats =
-        switch (dumpOptions.memoryCollectionMode) {
+        switch (dumpOptions.memory.collectionMode) {
           case DEEP -> dumpRamReachable(nodeEntry, fieldCache, memoryAccountant, seen);
           case SHALLOW -> dumpRamShallow(graph, nodeEntry, fieldCache, memoryAccountant, seen);
-          case NONE -> throw new IllegalStateException();
         };
 
-    switch (dumpOptions.memoryDisplayMode) {
+    switch (dumpOptions.memory.displayMode) {
       case SUMMARY ->
           out.printf(
               "%d objects, %d bytes retained\n", stats.getObjectCount(), stats.getMemoryUse());
