@@ -132,6 +132,12 @@ public final class PathMappers {
 
   private static OutputPathsMode getEffectiveOutputPathsMode(
       OutputPathsMode outputPathsMode, String mnemonic, Map<String, String> executionInfo) {
+    if (executionInfo.containsKey(ExecutionRequirements.LOCAL)
+        || (executionInfo.containsKey(ExecutionRequirements.NO_SANDBOX)
+            && executionInfo.containsKey(ExecutionRequirements.NO_REMOTE))) {
+      // Path mapping requires sandboxed or remote execution.
+      return OutputPathsMode.OFF;
+    }
     if (outputPathsMode == OutputPathsMode.STRIP
         && (SUPPORTED_MNEMONICS.contains(mnemonic)
             || executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING))) {
