@@ -53,41 +53,41 @@ public class XcodeVersionRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(version) -->
         Accepted aliases for this version of Xcode.
         If the value of the <code>xcode_version</code> build flag matches any of the given
-        alias strings, this xcode version will be used.
+        alias strings, this Xcode version will be used.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(ALIASES_ATTR_NAME, STRING_LIST)
                 .nonconfigurable("this rule determines configuration"))
 
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_ios_sdk_version) -->
-        The ios sdk version that is used by default when this version of xcode is being used.
+        The iOS SDK version that is used by default when this version of Xcode is being used.
         The <code>ios_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(DEFAULT_IOS_SDK_VERSION_ATTR_NAME, STRING)
                 .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_visionos_sdk_version) -->
-        The visionos sdk version that is used by default when this version of xcode is being used.
+        The visionOS SDK version that is used by default when this version of Xcode is being used.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(DEFAULT_VISIONOS_SDK_VERSION_ATTR_NAME, STRING)
                 .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_watchos_sdk_version) -->
-        The watchos sdk version that is used by default when this version of xcode is being used.
+        The watchOS SDK version that is used by default when this version of Xcode is being used.
         The <code>watchos_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(DEFAULT_WATCHOS_SDK_VERSION_ATTR_NAME, STRING)
                 .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_tvos_sdk_version) -->
-        The tvos sdk version that is used by default when this version of xcode is being used.
+        The tvOS SDK version that is used by default when this version of Xcode is being used.
         The <code>tvos_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(DEFAULT_TVOS_SDK_VERSION_ATTR_NAME, STRING)
                 .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_macos_sdk_version) -->
-        The macosx sdk version that is used by default when this version of xcode is being used.
+        The macOS SDK version that is used by default when this version of Xcode is being used.
         The <code>macos_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
@@ -108,7 +108,7 @@ public class XcodeVersionRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = xcode_version, TYPE = OTHER, FAMILY = Objective-C) -->
 
-<p>Represents a single official xcode version with acceptable aliases for that xcode version.
+<p>Represents a single official Xcode version with acceptable aliases for that Xcode version.
 See the <code>xcode_config</code> rule.</p>
 
 <!-- #END_BLAZE_RULE -->*/

@@ -1077,7 +1077,7 @@
   "moduleExtensions": {
     "@@apple_support~//crosstool:setup.bzl%apple_cc_configure_extension": {
       "general": {
-        "bzlTransitiveDigest": "pMLFCYaRPkgXPQ8vtuNkMfiHfPmRBy6QJfnid4sWfv0=",
+        "bzlTransitiveDigest": "q07sZYYHQRmej7IYlxIigQ/7iEy9zMnOrSIagEwIG6Q=",
         "usagesDigest": "G+Wh7ELKrSnuypJ3qascrgbwzrS7Psg28ta9k4FxTH0=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -1178,7 +1178,7 @@
     },
     "@@bazel_tools//tools/osx:xcode_configure.bzl%xcode_configure_extension": {
       "general": {
-        "bzlTransitiveDigest": "Qh2bWTU6QW6wkrd87qrU4YeY+SG37Nvw3A0PR4Y0L2Y=",
+        "bzlTransitiveDigest": "zLDpG5CJtAVf5IHbbOETi2fbeQLGZuW+yueVxW8o7sE=",
         "usagesDigest": "KB6YWX9sttGdrsit5PNIqvCglz3pKdbLHZ3+3LaOEmY=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},

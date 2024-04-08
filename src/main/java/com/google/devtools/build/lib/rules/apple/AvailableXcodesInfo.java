@@ -24,7 +24,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
-/** The available xcode versions computed from the {@code available_xcodes} rule. */
+/** The available Xcode versions computed from the {@code available_xcodes} rule. */
 @Immutable
 public class AvailableXcodesInfo extends NativeInfo {
   /** Starlark name for this provider. */
@@ -47,7 +47,7 @@ public class AvailableXcodesInfo extends NativeInfo {
     return PROVIDER;
   }
 
-  /** Returns the available xcode versions from {@code available_xcodes}. */
+  /** Returns the available Xcode versions from {@code available_xcodes}. */
   @StarlarkMethod(
       name = "available_versions",
       structField = true,
@@ -56,7 +56,7 @@ public class AvailableXcodesInfo extends NativeInfo {
     return availableXcodes;
   }
 
-  /** Returns the default xcode version from {@code available_xcodes}. */
+  /** Returns the default Xcode version from {@code available_xcodes}. */
   @StarlarkMethod(
       name = "default_version",
       structField = true,

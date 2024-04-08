@@ -32,11 +32,11 @@ import net.starlark.java.eval.StarlarkThread;
 /**
  * A tuple containing the information in a single target of the {@code xcode_version} rule. A single
  * target of this rule contains an official version label decided by Apple, a number of supported
- * aliases one might use to reference this version, and various properties of the xcode version
+ * aliases one might use to reference this version, and various properties of the Xcode version
  * (such as default SDK versions).
  *
- * <p>For example, one may want to reference official xcode version 7.0.1 using the "7" or "7.0"
- * aliases. This official version of xcode may have a default supported iOS SDK of 9.0.
+ * <p>For example, one may want to reference official Xcode version 7.0.1 using the "7" or "7.0"
+ * aliases. This official version of Xcode may have a default supported iOS SDK of 9.0.
  */
 @Immutable
 public class XcodeVersionRuleData extends NativeInfo {
@@ -65,19 +65,19 @@ public class XcodeVersionRuleData extends NativeInfo {
     return label;
   }
 
-  /** Returns the official xcode version the owning {@code xcode_version} target is referencing. */
+  /** Returns the official Xcode version the owning {@code xcode_version} target is referencing. */
   @StarlarkMethod(name = "version", structField = true, documented = false)
   public DottedVersion getVersion() {
     return xcodeVersionProperties.getXcodeVersion().get();
   }
 
-  /** Returns the properties of the {@code xcode_version} target's referenced xcode version. */
+  /** Returns the properties of the {@code xcode_version} target's referenced Xcode version. */
   @StarlarkMethod(name = "xcode_version_properties", structField = true, documented = false)
   public XcodeVersionProperties getXcodeVersionProperties() {
     return xcodeVersionProperties;
   }
 
-  /** Returns the accepted string aliases for this xcode version. */
+  /** Returns the accepted string aliases for this Xcode version. */
   @StarlarkMethod(name = "aliases", structField = true, documented = false)
   public List<String> getAliases() {
     return aliases;
