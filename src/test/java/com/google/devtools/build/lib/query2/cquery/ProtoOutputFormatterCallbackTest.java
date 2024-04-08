@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
@@ -574,6 +575,30 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     assertThat(alias.getTarget().getRule().getName()).isEqualTo("//test:my_alias");
     assertThat(alias.getTarget().getRule().getRuleInputCount()).isEqualTo(1);
     assertThat(alias.getTarget().getRule().getRuleInput(0)).isEqualTo("//test:my_rule");
+  }
+
+  @Test
+  public void testAliasConfiguredRuleInputs() throws Exception {
+    options.transitions = Transitions.LITE;
+    ConfiguredRuleClassProvider ruleClassProvider = setRuleClassProviders(getSimpleRule()).build();
+    helper.useRuleClassProvider(ruleClassProvider);
+
+    writeFile(
+        "test/BUILD",
+        "simple_rule(name = 'my_rule')",
+        "alias(name = 'my_alias', actual = ':my_rule')");
+
+    AnalysisProtosV2.ConfiguredTarget alias =
+        Iterables.getOnlyElement(
+            getProtoOutput(
+                    "//test:my_alias", AnalysisProtosV2.CqueryResult.parser())
+                .getResultsList());
+
+    ImmutableSet<String> foundLabels = alias.getTarget().getRule().getConfiguredRuleInputList()
+        .stream()
+        .map(ConfiguredRuleInput::getLabel)
+        .collect(toImmutableSet());
+    assertThat(foundLabels).isEqualTo(ImmutableSet.of("//test:my_rule"));
   }
 
   /* See b/209787345 for context. */

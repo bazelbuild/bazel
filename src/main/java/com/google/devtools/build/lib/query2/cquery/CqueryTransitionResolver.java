@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
@@ -127,6 +128,14 @@ public class CqueryTransitionResolver {
    */
   public ImmutableSet<ResolvedTransition> dependencies(CqueryNode configuredTarget)
       throws EvaluateException, InterruptedException {
+    if (configuredTarget instanceof AliasConfiguredTarget) {
+      AliasConfiguredTarget act = (AliasConfiguredTarget) configuredTarget;
+      return ImmutableSet.of(ResolvedTransition.create(
+              act.getActual().getLabel(),
+              ImmutableList.of(act.getActual().getConfigurationKey().getOptions()),
+              "actual",
+              NoTransition.INSTANCE.getName()));
+    }
     if (!(configuredTarget instanceof RuleConfiguredTarget)) {
       return ImmutableSet.of();
     }
