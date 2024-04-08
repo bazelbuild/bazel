@@ -745,6 +745,15 @@ java_test(
 )
 
 java_test(
+    name = "SkyfocusIntegrationTest",
+    srcs = ["SkyfocusIntegrationTest.java"],
+    deps = [
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
     name = "ProjectResolutionTest",
     srcs = ["ProjectResolutionTest.java"],
     tags = [

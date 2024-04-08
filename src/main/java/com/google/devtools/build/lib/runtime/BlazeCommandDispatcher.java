@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
-import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
@@ -561,18 +560,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         reporter.handle(Event.error(e.getMessage()));
         result = BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
         return result;
-      }
-
-      if (env.commandActuallyBuilds()) {
-        // Need to determine if Skyfocus will run for this command. If so, the evaluator
-        // will need to be configured to remember additional state (e.g. root keys) that it
-        // otherwise doesn't need to for a non-Skyfocus build. Alternately, it might reset
-        // the evaluator, which is why this runs before injecting precomputed values below.
-        env.getSkyframeExecutor()
-            .prepareForSkyfocus(
-                env.getOptions().getOptions(SkyfocusOptions.class),
-                env.getReporter(),
-                env.getRuntime().getProductName());
       }
 
       for (BlazeModule module : runtime.getBlazeModules()) {

@@ -282,6 +282,10 @@ public class BuildTool {
         // The workspace status actions will not run with certain flags, or if an error occurs early
         // in the build. Ensure that build info is posted on every build.
         env.ensureBuildInfoPosted();
+
+        // Skyfocus runs at the end of the build.
+        env.getSkyframeExecutor()
+            .runSkyfocus(env.getReporter(), env.getBlazeWorkspace().getPersistentActionCache());
       }
     }
   }
@@ -558,11 +562,6 @@ public class BuildTool {
           detailedExitCode =
               InterruptedFailureDetails.detailedExitCode("post build callback interrupted");
         }
-      }
-
-      if (detailedExitCode.isSuccess()) {
-        env.getSkyframeExecutor()
-            .runSkyfocus(env.getReporter(), env.getBlazeWorkspace().getPersistentActionCache());
       }
     } catch (BuildFailedException e) {
       if (!e.isErrorAlreadyShown()) {

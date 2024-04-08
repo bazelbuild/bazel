@@ -70,26 +70,6 @@ function set_up() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
 }
 
-function test_working_set_can_be_used_with_build_command() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule(
-  name = "g",
-  srcs = ["in.txt"],
-  outs = ["out.txt"],
-  cmd = "cp \$< \$@",
-)
-EOF
-
-  bazel build //${pkg}:g \
-    --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1 \
-    || fail "unexpected failure"
-  expect_log "Focusing on"
-}
-
 function test_correctly_rebuilds_with_working_set_containing_files() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
