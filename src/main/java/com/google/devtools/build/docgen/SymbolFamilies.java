@@ -39,6 +39,7 @@ public class SymbolFamilies {
   // Mappings between Starlark names and Starlark entities generated from the fakebuildapi.
   private final ImmutableMap<String, Object> globals;
   private final ImmutableMap<String, Object> bzlGlobals;
+  private final ImmutableMap<String, Object> moduleFileGlobals;
 
   public SymbolFamilies(
       StarlarkDocExpander expander,
@@ -53,7 +54,8 @@ public class SymbolFamilies {
           IllegalAccessException,
           BuildEncyclopediaDocException,
           ClassNotFoundException,
-          IOException {
+          IOException,
+          InstantiationException {
     ConfiguredRuleClassProvider configuredRuleClassProvider = createRuleClassProvider(provider);
     this.nativeRules =
         ImmutableList.copyOf(
@@ -66,6 +68,7 @@ public class SymbolFamilies {
                 denyList));
     this.globals = Starlark.UNIVERSE;
     this.bzlGlobals = collectBzlGlobals(configuredRuleClassProvider);
+    this.moduleFileGlobals = collectModuleFileGlobals();
     this.allDocPages = StarlarkDocumentationCollector.getAllDocPages(expander);
   }
 
@@ -90,6 +93,14 @@ public class SymbolFamilies {
    */
   public Map<String, Object> getBzlGlobals() {
     return bzlGlobals;
+  }
+
+  /*
+   * Returns a mapping between Starlark names and Starlark entities that are available only in MODULE.bazel
+   * files.
+   */
+  public Map<String, Object> getModuleFileGlobals() {
+    return moduleFileGlobals;
   }
 
   // Returns a mapping between type names and module/type documentation.
@@ -132,10 +143,25 @@ public class SymbolFamilies {
   }
 
   private ConfiguredRuleClassProvider createRuleClassProvider(String classProvider)
-      throws NoSuchMethodException, InvocationTargetException, IllegalAccessException,
+      throws NoSuchMethodException,
+          InvocationTargetException,
+          IllegalAccessException,
           ClassNotFoundException {
     Class<?> providerClass = Class.forName(classProvider);
     Method createMethod = providerClass.getMethod("create");
     return (ConfiguredRuleClassProvider) createMethod.invoke(null);
+  }
+
+  private ImmutableMap<String, Object> collectModuleFileGlobals()
+      throws ClassNotFoundException,
+          NoSuchMethodException,
+          InvocationTargetException,
+          InstantiationException,
+          IllegalAccessException {
+    Class<?> moduleFileGlobals =
+        Class.forName("com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals");
+    ImmutableMap.Builder<String, Object> moduleFileEnv = ImmutableMap.builder();
+    Starlark.addMethods(moduleFileEnv, moduleFileGlobals.getConstructor().newInstance());
+    return moduleFileEnv.buildOrThrow();
   }
 }

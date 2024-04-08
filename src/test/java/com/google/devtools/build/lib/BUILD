@@ -149,3 +149,15 @@ test_suite(
     name = "others",
     tags = ["-" + n for n in TEST_SUITES],
 )
+
+java_test(
+    name = "BuiltinProtoSmokeTest",
+    srcs = ["BuiltinProtoSmokeTest.java"],
+    data = ["//src/main/java/com/google/devtools/build/lib:gen_api_proto"],
+    env = {"BUILTIN_PROTO": "$(rlocationpath //src/main/java/com/google/devtools/build/lib:gen_api_proto)"},
+    deps = [
+        "//src/main/protobuf:builtin_java_proto",
+        "//third_party:truth",
+        "@bazel_tools//tools/java/runfiles",
+    ],
+)
