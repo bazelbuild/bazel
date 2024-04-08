@@ -243,8 +243,8 @@ def _resolve_xcode_from_local_and_remote(
                 xcode_version_flag,
             )
             if (mutually_available_versions):
-                error += " Consider using one of [%s].", (
-                    ", ".join([version.version for version in mutually_available_versions])
+                error += " Consider using one of [{}].".format(
+                    ", ".join([version for version in mutually_available_versions]),
                 )
             print(error)
             return local_version_from_flag.xcode_version_properties, "LOCAL"
