@@ -87,7 +87,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
     }
 
     // Empty developer dir indicates to use the system default.
-    // TODO(bazel-team): Bazel's view of the xcode version and developer dir should be explicitly
+    // TODO(bazel-team): Bazel's view of the Xcode version and developer dir should be explicitly
     // set for build hermeticity.
     String developerDir = "";
     if (containsXcodeVersion && !containsDeveloperDir) {
@@ -110,8 +110,8 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    * As this is a costly operation, always call {@link #getSdkRoot(String, String)} instead, which
    * does caching.
    *
-   * @param developerDir the value of {@code DEVELOPER_DIR} for the target version of xcode
-   * @param appleSdkPlatform the sdk platform; for example, {@code iPhoneOS}
+   * @param developerDir the value of {@code DEVELOPER_DIR} for the target version of Xcode
+   * @param appleSdkPlatform the SDK platform; for example, {@code iPhoneOS}
    * @return an absolute path to the root of the target Apple SDK
    * @throws IOException if there is an issue with obtaining the root from the spawned process,
    *     either because the SDK platform/version pair doesn't exist, or there was an unexpected
@@ -139,7 +139,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
             String.format(
                 "xcrun failed with code %s.\n"
                     + "This most likely indicates that the SDK platform [%s] is "
-                    + "unsupported for the target version of xcode.\n"
+                    + "unsupported for the target version of Xcode.\n"
                     + "%s\n"
                     + "stdout: %s"
                     + "stderr: %s",
@@ -167,8 +167,8 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    * <p>This may delegate to {@link #querySdkRoot(String, String)} to obtain the path from external
    * sources in the system. Values are cached in-memory throughout the lifetime of the Bazel server.
    *
-   * @param developerDir the value of {@code DEVELOPER_DIR} for the target version of xcode
-   * @param appleSdkPlatform the sdk platform; for example, {@code iPhoneOS}
+   * @param developerDir the value of {@code DEVELOPER_DIR} for the target version of Xcode
+   * @param appleSdkPlatform the SDK platform; for example, {@code iPhoneOS}
    * @return an absolute path to the root of the target Apple SDK
    * @throws IOException if there is an issue with obtaining the root from the spawned process,
    *     either because the SDK platform/version pair doesn't exist, or there was an unexpected
@@ -217,10 +217,10 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    * caching.
    *
    * @param binTools the {@link BinTools}, used to locate the cache file
-   * @param version the xcode version number to look up
+   * @param version the Xcode version number to look up
    * @return an absolute path to the root of the Xcode developer directory
    * @throws IOException if there is an issue with obtaining the path from the spawned process,
-   *     either because there is no installed xcode with the given version, or there was an
+   *     either because there is no installed Xcode with the given version, or there was an
    *     unexpected issue finding or running the tool
    */
   private static String queryDeveloperDir(BinTools binTools, DottedVersion version)
@@ -239,7 +239,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
         message =
             String.format(
                 "Running '%s %s' failed with code %s.\n"
-                    + "This most likely indicates that xcode version %s is not available on the "
+                    + "This most likely indicates that Xcode version %s is not available on the "
                     + "host machine.\n"
                     + "%s\n"
                     + "stdout: %s\n"
@@ -268,7 +268,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
   }
 
   /**
-   * Returns the absolute root path of the xcode developer directory on the host system for the
+   * Returns the absolute root path of the Xcode developer directory on the host system for the
    * given Xcode version.
    *
    * <p>This may delegate to {@link #queryDeveloperDir(Path, DottedVersion)} to obtain the path from
@@ -276,10 +276,10 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    * Bazel server.
    *
    * @param binTools the {@link BinTools} path, used to locate the cache file
-   * @param version the xcode version number to look up
+   * @param version the Xcode version number to look up
    * @return an absolute path to the root of the Xcode developer directory
    * @throws IOException if there is an issue with obtaining the path from the spawned process,
-   *     either because there is no installed xcode with the given version, or there was an
+   *     either because there is no installed Xcode with the given version, or there was an
    *     unexpected issue finding or running the tool
    */
   private static String getDeveloperDir(BinTools binTools, DottedVersion version)
