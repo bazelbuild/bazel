@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
@@ -200,20 +199,22 @@ public class ResourceManager implements ResourceEstimator {
       ImmutableMap.of(ResourceSet.CPU, 0.6);
   private static final int MAX_ACTIONS_PER_CPU = 3;
 
+  // Pair of requested resources and latch represented it for waiting.
+  record WaitingRequest(ResourceRequest getResourceRequest, ResourceLatch getResourceLatch) {}
+  ;
+
   // Lists of blocked threads. Associated CountDownLatch object will always
   // be initialized to 1 during creation in the acquire() method.
   // We use LinkedList because we will need to remove elements from the middle frequently in the
   // middle of iterating through the list.
   @SuppressWarnings("JdkObsolete")
-  private final Deque<Pair<ResourceRequest, LatchWithWorker>> localRequests = new LinkedList<>();
+  private final Deque<WaitingRequest> localRequests = new LinkedList<>();
 
   @SuppressWarnings("JdkObsolete")
-  private final Deque<Pair<ResourceRequest, LatchWithWorker>> dynamicWorkerRequests =
-      new LinkedList<>();
+  private final Deque<WaitingRequest> dynamicWorkerRequests = new LinkedList<>();
 
   @SuppressWarnings("JdkObsolete")
-  private final Deque<Pair<ResourceRequest, LatchWithWorker>> dynamicStandaloneRequests =
-      new LinkedList<>();
+  private final Deque<WaitingRequest> dynamicStandaloneRequests = new LinkedList<>();
 
   private WorkerPool workerPool;
 
@@ -290,7 +291,7 @@ public class ResourceManager implements ResourceEstimator {
   synchronized void windowUpdate() throws IOException, InterruptedException {
     windowRequestIds.clear();
     windowEstimationCpu = 0.0;
-    processAllWaitingThreads();
+    processAllWaitingRequests();
   }
 
   @VisibleForTesting
@@ -306,14 +307,14 @@ public class ResourceManager implements ResourceEstimator {
   public synchronized void resetResourceUsage() {
     usedResources = new HashMap<>();
     usedLocalTestCount = 0;
-    for (Pair<ResourceRequest, LatchWithWorker> request : localRequests) {
-      request.second.latch.countDown();
+    for (WaitingRequest request : localRequests) {
+      request.getResourceLatch().getLatch().countDown();
     }
-    for (Pair<ResourceRequest, LatchWithWorker> request : dynamicWorkerRequests) {
-      request.second.latch.countDown();
+    for (WaitingRequest request : dynamicWorkerRequests) {
+      request.getResourceLatch().getLatch().countDown();
     }
-    for (Pair<ResourceRequest, LatchWithWorker> request : dynamicStandaloneRequests) {
-      request.second.latch.countDown();
+    for (WaitingRequest request : dynamicStandaloneRequests) {
+      request.getResourceLatch().getLatch().countDown();
     }
     localRequests.clear();
     dynamicWorkerRequests.clear();
@@ -375,7 +376,7 @@ public class ResourceManager implements ResourceEstimator {
     Preconditions.checkState(
         !threadHasResources(), "acquireResources with existing resource lock during %s", owner);
 
-    LatchWithWorker latchWithWorker = null;
+    ResourceLatch resourceLatch = null;
 
     ResourceRequest request =
         new ResourceRequest(owner, resources, priority, requestIdGenerator.getAndIncrement());
@@ -383,21 +384,21 @@ public class ResourceManager implements ResourceEstimator {
     AutoProfiler p =
         profiled("Acquiring resources for: " + owner.describe(), ProfilerTask.ACTION_LOCK);
     try {
-      latchWithWorker = acquire(request);
-      if (latchWithWorker.latch != null) {
-        latchWithWorker.latch.await();
+      resourceLatch = acquire(request);
+      if (resourceLatch.getLatch() != null) {
+        resourceLatch.getLatch().await();
       }
     } catch (InterruptedException e) {
-      // Synchronize on this to avoid any racing with #processWaitingThreads
+      // Synchronize on this to avoid any racing with #processWaitingRequests
       synchronized (this) {
-        if (latchWithWorker != null) {
-          if (latchWithWorker.latch == null || latchWithWorker.latch.getCount() == 0) {
+        if (resourceLatch != null) {
+          if (resourceLatch.getLatch() == null || resourceLatch.getLatch().getCount() == 0) {
             // Resources already acquired by other side. Release them, but not inside this
             // synchronized block to avoid deadlock.
-            release(request, latchWithWorker.worker);
+            release(request, resourceLatch.getWorker());
           } else {
             // Inform other side that resources shouldn't be acquired.
-            latchWithWorker.latch.countDown();
+            resourceLatch.getLatch().countDown();
           }
         }
       }
@@ -409,8 +410,8 @@ public class ResourceManager implements ResourceEstimator {
     CountDownLatch latch;
     Worker worker;
     synchronized (this) {
-      latch = latchWithWorker.latch;
-      worker = latchWithWorker.worker;
+      latch = resourceLatch.getLatch();
+      worker = resourceLatch.getWorker();
     }
 
     // Profile acquisition only if it waited for resource to become available.
@@ -510,30 +511,30 @@ public class ResourceManager implements ResourceEstimator {
    * resources. The latch isn't null if we could not acquire the resources right now and need to
    * wait.
    */
-  private synchronized LatchWithWorker acquire(ResourceRequest request)
+  private synchronized ResourceLatch acquire(ResourceRequest request)
       throws IOException, InterruptedException {
     if (areResourcesAvailable(request.getResourceSet())) {
       Worker worker = incrementResources(request);
-      return new LatchWithWorker(/* latch= */ null, worker);
+      return new ResourceLatch(/* latch= */ null, worker);
     }
-    Pair<ResourceRequest, LatchWithWorker> requestWithLatch =
-        new Pair<>(request, new LatchWithWorker(new CountDownLatch(1), /* worker= */ null));
+    WaitingRequest waitingRequest =
+        new WaitingRequest(request, new ResourceLatch(new CountDownLatch(1), /* worker= */ null));
     switch (request.getPriority()) {
       case LOCAL:
-        localRequests.addLast(requestWithLatch);
+        localRequests.addLast(waitingRequest);
         break;
       case DYNAMIC_WORKER:
         // Dynamic requests should be LIFO, because we are more likely to win the race on newer
         // actions.
-        dynamicWorkerRequests.addFirst(requestWithLatch);
+        dynamicWorkerRequests.addFirst(waitingRequest);
         break;
       case DYNAMIC_STANDALONE:
         // Dynamic requests should be LIFO, because we are more likely to win the race on newer
         // actions.
-        dynamicStandaloneRequests.addFirst(requestWithLatch);
+        dynamicStandaloneRequests.addFirst(waitingRequest);
         break;
     }
-    return requestWithLatch.second;
+    return waitingRequest.getResourceLatch();
   }
 
   /**
@@ -571,38 +572,38 @@ public class ResourceManager implements ResourceEstimator {
     }
     runningActions--;
 
-    return processAllWaitingThreads();
+    return processAllWaitingRequests();
   }
 
   @CanIgnoreReturnValue
-  private synchronized boolean processAllWaitingThreads() throws IOException, InterruptedException {
+  private synchronized boolean processAllWaitingRequests()
+      throws IOException, InterruptedException {
     boolean anyProcessed = false;
     if (!localRequests.isEmpty()) {
-      processWaitingThreads(localRequests);
+      processWaitingRequests(localRequests);
       anyProcessed = true;
     }
     if (!dynamicWorkerRequests.isEmpty()) {
-      processWaitingThreads(dynamicWorkerRequests);
+      processWaitingRequests(dynamicWorkerRequests);
       anyProcessed = true;
     }
     if (!dynamicStandaloneRequests.isEmpty()) {
-      processWaitingThreads(dynamicStandaloneRequests);
+      processWaitingRequests(dynamicStandaloneRequests);
       anyProcessed = true;
     }
     return anyProcessed;
   }
 
-  private synchronized void processWaitingThreads(
-      Deque<Pair<ResourceRequest, LatchWithWorker>> requests)
+  private synchronized void processWaitingRequests(Deque<WaitingRequest> requests)
       throws IOException, InterruptedException {
-    Iterator<Pair<ResourceRequest, LatchWithWorker>> iterator = requests.iterator();
+    Iterator<WaitingRequest> iterator = requests.iterator();
     while (iterator.hasNext()) {
-      Pair<ResourceRequest, LatchWithWorker> request = iterator.next();
-      if (request.second.latch.getCount() != 0) {
-        if (areResourcesAvailable(request.first.getResourceSet())) {
-          Worker worker = incrementResources(request.first);
-          request.second.worker = worker;
-          request.second.latch.countDown();
+      WaitingRequest request = iterator.next();
+      if (request.getResourceLatch().getLatch().getCount() != 0) {
+        if (areResourcesAvailable(request.getResourceRequest().getResourceSet())) {
+          Worker worker = incrementResources(request.getResourceRequest());
+          request.getResourceLatch().setWorker(worker);
+          request.getResourceLatch().getLatch().countDown();
           iterator.remove();
         }
       } else {
@@ -716,12 +717,26 @@ public class ResourceManager implements ResourceEstimator {
     return localRequests.size() + dynamicStandaloneRequests.size() + dynamicWorkerRequests.size();
   }
 
-  private static class LatchWithWorker {
-    public final CountDownLatch latch;
-    public Worker worker;
+  // Latch which indicates the availability of resources. Also via this latch worker could be passed
+  // when it's ready.
+  private static class ResourceLatch {
+    private final CountDownLatch latch;
+    private Worker worker;
 
-    public LatchWithWorker(CountDownLatch latch, Worker worker) {
+    public ResourceLatch(CountDownLatch latch, Worker worker) {
       this.latch = latch;
+      this.worker = worker;
+    }
+
+    public CountDownLatch getLatch() {
+      return latch;
+    }
+
+    public Worker getWorker() {
+      return worker;
+    }
+
+    public void setWorker(Worker worker) {
       this.worker = worker;
     }
   }
