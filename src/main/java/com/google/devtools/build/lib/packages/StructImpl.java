@@ -17,17 +17,13 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.protobuf.TextFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.Structure;
 
 /**
@@ -145,87 +141,6 @@ public abstract class StructImpl implements Info, Structure, StructApi {
     } catch (EvalException e) {
       return null;
     }
-  }
-
-  @Override
-  public String toProto() throws EvalException {
-    return Proto.INSTANCE.encodeText(this);
-  }
-
-  /**
-   * Escapes the given string for use in proto/JSON string.
-   *
-   * <p>This escapes double quotes, backslashes, and newlines.
-   */
-  private static String escapeDoubleQuotesAndBackslashesAndNewlines(String string) {
-    return TextFormat.escapeDoubleQuotesAndBackslashes(string).replace("\n", "\\n");
-  }
-
-  @Override
-  public String toJson() throws EvalException {
-    StringBuilder sb = new StringBuilder();
-    printJson(this, sb, "struct field", null);
-    return sb.toString();
-  }
-
-  private static void printJson(Object value, StringBuilder sb, String container, String key)
-      throws EvalException {
-    if (value == Starlark.NONE) {
-      sb.append("null");
-    } else if (value instanceof Structure) {
-      sb.append("{");
-
-      String join = "";
-      for (String field : ((Structure) value).getFieldNames()) {
-        sb.append(join);
-        join = ",";
-        appendJSONStringLiteral(sb, field);
-        sb.append(':');
-        printJson(((Structure) value).getValue(field), sb, "struct field", field);
-      }
-      sb.append("}");
-    } else if (value instanceof Dict) {
-      sb.append("{");
-      String join = "";
-      for (Map.Entry<?, ?> entry : ((Dict<?, ?>) value).entrySet()) {
-        sb.append(join);
-        join = ",";
-        if (!(entry.getKey() instanceof String)) {
-          throw Starlark.errorf(
-              "Keys must be a string but got a %s for %s%s",
-              Starlark.type(entry.getKey()), container, key != null ? " '" + key + "'" : "");
-        }
-        appendJSONStringLiteral(sb, (String) entry.getKey());
-        sb.append(':');
-        printJson(entry.getValue(), sb, "dict value", String.valueOf(entry.getKey()));
-      }
-      sb.append("}");
-    } else if (value instanceof List) {
-      sb.append("[");
-      String join = "";
-      for (Object item : ((List<?>) value)) {
-        sb.append(join);
-        join = ",";
-        printJson(item, sb, "list element in struct field", key);
-      }
-      sb.append("]");
-    } else if (value instanceof String) {
-      appendJSONStringLiteral(sb, (String) value);
-    } else if (value instanceof StarlarkInt || value instanceof Boolean) {
-      sb.append(value);
-    } else {
-      throw Starlark.errorf(
-          "Invalid text format, expected a struct, a string, a bool, or an int but got a %s for"
-              + " %s%s",
-          Starlark.type(value), container, key != null ? " '" + key + "'" : "");
-    }
-  }
-
-  private static void appendJSONStringLiteral(StringBuilder out, String s) {
-    out.append('"');
-    out.append(
-        escapeDoubleQuotesAndBackslashesAndNewlines(s).replace("\r", "\\r").replace("\t", "\\t"));
-    out.append('"');
   }
 
   @Override

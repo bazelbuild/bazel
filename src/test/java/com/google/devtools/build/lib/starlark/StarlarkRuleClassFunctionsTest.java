@@ -1508,16 +1508,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStructRestrictedOverrides() throws Exception {
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
-    ev.checkEvalErrorContains(
-        "cannot override built-in struct function 'to_json'", "struct(to_json='foo')");
-
-    ev.checkEvalErrorContains(
-        "cannot override built-in struct function 'to_proto'", "struct(to_proto='foo')");
-  }
-
-  @Test
   public void testSimpleTextMessages() throws Exception {
     checkTextMessage("proto.encode_text(struct(name='value'))", "name: \"value\"");
     checkTextMessage("proto.encode_text(struct(name=[]))"); // empty lines
@@ -1664,16 +1654,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testStarlarkJsonModule() throws Exception {
-    // struct.to_json is deprecated.
-    // java.starlark.net's json module is its replacement.
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
     checkJson("json.encode(struct(name=True))", "{\"name\":true}");
     checkJson("json.encode([1, 2])", "[1,2]"); // works for non-structs too
-    checkJson("str(dir(struct()))", "[\"to_json\", \"to_proto\"]");
-
-    setBuildLanguageOptions("--incompatible_struct_has_no_methods=true");
-    ev.checkEvalErrorContains("no field or method 'to_json'", "struct(name=True).to_json()");
-    checkJson("str(dir(struct()))", "[]"); // no to_{json,proto}
   }
 
   @Test

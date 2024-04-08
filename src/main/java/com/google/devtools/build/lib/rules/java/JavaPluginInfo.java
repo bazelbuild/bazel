@@ -205,16 +205,6 @@ public abstract class JavaPluginInfo extends NativeInfo
           // Preserve data, which may be used by Error Prone plugins.
           data());
     }
-
-    @Override
-    public String toProto() throws EvalException {
-      throw Starlark.errorf("unsupported method");
-    }
-
-    @Override
-    public String toJson() throws EvalException {
-      throw Starlark.errorf("unsupported method");
-    }
   }
 
   public static JavaPluginInfo mergeWithoutJavaOutputs(JavaPluginInfo a, JavaPluginInfo b) {
