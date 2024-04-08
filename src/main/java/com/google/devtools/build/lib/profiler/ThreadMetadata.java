@@ -24,6 +24,12 @@ class ThreadMetadata implements TraceData {
   private final long threadId;
   private final long sortIndex;
 
+  public ThreadMetadata(String readableName, long threadId) {
+    this.readableName = readableName;
+    this.threadId = threadId;
+    this.sortIndex = getSortIndex(readableName);
+  }
+
   public ThreadMetadata(String readableName, long threadId, long sortIndex) {
     this.readableName = readableName;
     this.threadId = threadId;
