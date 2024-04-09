@@ -213,6 +213,13 @@ java_library(
     ],
 )
 
+java_library(
+    name = "builtin_symbols_proto",
+    resources = [
+        "//src/main/java/com/google/devtools/build/lib:gen_api_proto",
+    ],
+)
+
 java_binary(
     name = "BazelServer",
     javacopts = [
@@ -220,6 +227,7 @@ java_binary(
     ],
     main_class = "com.google.devtools.build.lib.bazel.Bazel",
     runtime_deps = [
+        ":builtin_symbols_proto",  # Adding this to :main would create a cycle
         ":main",
         "//src/main/java/com/google/devtools/build/lib/server",
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",  # See startup_options.cc

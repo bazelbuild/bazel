@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
@@ -52,6 +53,8 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -155,6 +158,8 @@ public final class HelpCommand implements BlazeCommand {
       case "flags-as-proto":
         emitFlagsAsProtoHelp(runtime, outErr);
         return BlazeCommandResult.success();
+      case "builtin-symbols-as-proto":
+        return emitBuiltinSymbolsAsProtoHelp(env.getReporter(), outErr);
       case "everything-as-html":
         new HtmlEmitter(runtime).emit(outErr);
         return BlazeCommandResult.success();
@@ -261,6 +266,29 @@ public final class HelpCommand implements BlazeCommand {
       collectionBuilder.addFlagInfos(info);
     }
     outErr.printOut(Base64.getEncoder().encodeToString(collectionBuilder.build().toByteArray()));
+  }
+
+  private BlazeCommandResult emitBuiltinSymbolsAsProtoHelp(Reporter reporter, OutErr outErr) {
+    try {
+      byte[] builtinsProtoBytes;
+      try (var in =
+          HelpCommand.class
+              .getClassLoader()
+              .getResourceAsStream("com/google/devtools/build/lib/builtin.pb")) {
+        if (in == null) {
+          throw new IOException("Could not find built-in symbols proto file");
+        }
+        try (var bufferedIn = new BufferedInputStream(in)) {
+          builtinsProtoBytes = bufferedIn.readAllBytes();
+        }
+      }
+      outErr.printOut(Base64.getEncoder().encodeToString(builtinsProtoBytes));
+    } catch (IOException e) {
+      String message = "Failed to get built-in symbols proto: " + e.getMessage();
+      reporter.handle(Event.error(null, message));
+      return createFailureResult(message, Code.COMMAND_NOT_FOUND);
+    }
+    return BlazeCommandResult.success();
   }
 
   private static BazelFlagsProto.FlagInfo.Builder createFlagInfo(OptionDefinition option) {

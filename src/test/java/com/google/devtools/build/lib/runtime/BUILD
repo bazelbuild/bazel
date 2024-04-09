@@ -16,6 +16,7 @@ java_library(
         exclude = [
             "commands/ConfigCommandTest.java",
             "commands/DumpCommandTest.java",
+            "commands/HelpCommandTest.java",
         ],
     ),
     deps = [
@@ -154,6 +155,23 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "HelpCommandTest",
+    srcs = ["commands/HelpCommandTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/bazel:builtin_symbols_proto",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/protobuf:builtin_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:guava",
         "//third_party:junit4",
