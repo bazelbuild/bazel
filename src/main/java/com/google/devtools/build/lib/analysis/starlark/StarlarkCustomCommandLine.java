@@ -893,7 +893,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
     int size;
-    if (arguments.getLast() instanceof RepositoryMapping mainRepoMapping) {
+    if (!arguments.isEmpty() && arguments.getLast() instanceof RepositoryMapping mainRepoMapping) {
       fingerprint.addStringMap(
           Maps.transformValues(mainRepoMapping.entries(), RepositoryName::getName));
       size = arguments.size() - 1;
