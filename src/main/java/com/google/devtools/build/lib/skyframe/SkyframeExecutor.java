@@ -1188,9 +1188,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               topLevelAspects, aspect -> aspect.getLabel().getPackageIdentifier()));
     }
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
+    lastAnalysisDiscarded = true;
+    InMemoryGraph graph = memoizingEvaluator.getInMemoryGraph();
+    boolean trackIncrementalState = tracksStateForIncrementality();
+
     try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
-      lastAnalysisDiscarded = true;
-      InMemoryGraph graph = memoizingEvaluator.getInMemoryGraph();
       graph.parallelForEach(
           e -> {
             if (!e.isDone()) {
@@ -1198,7 +1200,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             }
             boolean removeNode =
                 processDiscardAndDetermineRemoval(
-                    e, discardType, topLevelPackages, topLevelTargets, topLevelAspects);
+                    e,
+                    discardType,
+                    topLevelPackages,
+                    topLevelTargets,
+                    topLevelAspects,
+                    trackIncrementalState);
             if (removeNode) {
               graph.remove(e.getKey());
             }
@@ -1212,7 +1219,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       DiscardType discardType,
       ImmutableSet<PackageIdentifier> topLevelPackages,
       Collection<ConfiguredTarget> topLevelTargets,
-      ImmutableSet<AspectKey> topLevelAspects) {
+      ImmutableSet<AspectKey> topLevelAspects,
+      boolean trackIncrementalState) {
     SkyKey key = entry.getKey();
     SkyFunctionName functionName = key.functionName();
     if (discardType.discardsLoading()) {
@@ -1234,12 +1242,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             return false; // It was already cleared.
           }
           if (!(ctValue instanceof ActionLookupValue)
-              && discardType.discardsLoading()
+              && !trackIncrementalState
               && !topLevelTargets.contains(configuredTarget)) {
-            // If loading nodes are already being removed, removing these nodes doesn't hurt.
-            // Morally we should always be able to remove these, since they're not used for
-            // execution, but it leaves the graph inconsistent, and the --discard_analysis_cache
-            // with --track_incremental_state case isn't worth optimizing for.
+            // If not tracking incremental state, removing these nodes doesn't hurt. Morally we
+            // should always be able to remove these, since they're not used for execution, but it
+            // leaves the graph inconsistent, and the --discard_analysis_cache with
+            // --track_incremental_state case isn't worth optimizing for.
             return true;
           } else {
             ctValue.clear(!topLevelTargets.contains(configuredTarget));
