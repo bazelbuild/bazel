@@ -748,6 +748,8 @@ java_test(
     name = "SkyfocusIntegrationTest",
     srcs = ["SkyfocusIntegrationTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_state",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
         "//third_party:truth",

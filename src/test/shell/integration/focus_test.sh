@@ -161,41 +161,6 @@ EOF
   expect_not_log "FILE_STATE:[.\+]"
 }
 
-function test_builds_new_target_after_using_focus() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule(
-  name = "g",
-  srcs = ["in.txt"],
-  outs = ["g.txt"],
-  cmd = "cp \$< \$@",
-)
-genrule(
-  name = "g2",
-  srcs = ["in.txt"],
-  outs = ["g2.txt"],
-  cmd = "cp \$< \$@",
-)
-genrule(
-  name = "g3",
-  outs = ["g3.txt"],
-  cmd = "touch \$@",
-)
-EOF
-
-  bazel build //${pkg}:g
-  echo "a change" >> ${pkg}/in.txt
-
-  bazel build //${pkg}:g \
-    --experimental_working_set=${pkg}/in.txt
-  bazel build //${pkg}:g
-  bazel build //${pkg}:g2 || fail "cannot build //${pkg}:g2"
-  bazel build //${pkg}:g3 || fail "cannot build //${pkg}:g3"
-}
-
 function test_working_set_can_be_reduced_without_reanalysis() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
@@ -541,22 +506,6 @@ EOF
   bazel build //${pkg}:g &>"$TEST_log" && fail "expected build to fail"
   expect_log "detected changes outside of the working set"
   expect_log "${pkg}"
-}
-
-function test_does_not_run_if_build_fails() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule() # error
-EOF
-
-  bazel build //${pkg}:g \
-    --experimental_working_set=${pkg}/in.txt &>$TEST_log \
-    && fail "expected build to fail"
-  expect_log "Error in genrule: genrule rule has no 'name' attribute"
-  expect_not_log "Focusing on .\+ roots, .\+ leafs"
 }
 
 function test_reanalysis_with_label_flag_change() {

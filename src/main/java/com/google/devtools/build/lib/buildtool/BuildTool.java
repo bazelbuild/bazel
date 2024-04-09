@@ -174,6 +174,7 @@ public class BuildTool {
 
     ExecutionTool executionTool = null;
     boolean catastrophe = false;
+    boolean hasAnyExceptionOrError = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
         env.getEventBus().post(BuildStartingEvent.create(env, request));
@@ -268,6 +269,10 @@ public class BuildTool {
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
       catastrophe = true;
+      hasAnyExceptionOrError = true;
+      throw e;
+    } catch (Exception e) {
+      hasAnyExceptionOrError = true;
       throw e;
     } finally {
       if (executionTool != null) {
@@ -282,8 +287,10 @@ public class BuildTool {
         // The workspace status actions will not run with certain flags, or if an error occurs early
         // in the build. Ensure that build info is posted on every build.
         env.ensureBuildInfoPosted();
+      }
 
-        // Skyfocus runs at the end of the build.
+      if (!hasAnyExceptionOrError) {
+        // Skyfocus only works at the end of a successful build.
         env.getSkyframeExecutor()
             .runSkyfocus(env.getReporter(), env.getBlazeWorkspace().getPersistentActionCache());
       }

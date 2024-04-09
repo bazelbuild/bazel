@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.skyframe.SkyfocusState.Request;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -169,5 +172,58 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     buildTarget("//hello/...");
     // Rebuilds when child package's source file changes
     assertContents("x2\ny2", "//hello:target");
+  }
+
+  @Test
+  public void newNonFocusedTargets_canBeBuilt() throws Exception {
+    addOptions("--experimental_working_set=hello/x.txt");
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "g",
+            srcs = ["x.txt"],
+            outs = ["g.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        genrule(
+            name = "g2",
+            srcs = ["x.txt"],
+            outs = ["g2.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        genrule(
+            name = "g3",
+            outs = ["g3.txt"],
+            cmd = "touch $@",
+        )
+        """);
+    buildTarget("//hello:g");
+    write("hello/x.txt", "x2");
+    buildTarget("//hello:g");
+    buildTarget("//hello:g2");
+    buildTarget("//hello:g3");
+  }
+
+  @Test
+  public void skyfocus_doesNotRun_forUnsuccessfulBuilds() throws Exception {
+    addOptions("--experimental_working_set=hello/x.txt");
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+          # error
+        )
+        """);
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> buildTarget("//hello/..."));
+
+    assertThat(e).hasMessageThat().contains("Package 'hello' contains errors");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().enabled()).isTrue();
+    assertThat(getSkyframeExecutor().getSkyfocusState().request()).isNotEqualTo(Request.DO_NOTHING);
+    assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isEmpty();
   }
 }

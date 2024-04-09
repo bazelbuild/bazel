@@ -4190,7 +4190,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     checkState(!focusResult.getDeps().isEmpty());
     checkState(!focusResult.getRdeps().isEmpty());
 
-    skyfocusState = skyfocusState.withVerificationSet(focusResult.getVerificationSet());
+    skyfocusState =
+        skyfocusState
+            .withRequest(Request.DO_NOTHING)
+            .withVerificationSet(focusResult.getVerificationSet());
 
     dumpSkyfocusKeys(dumpKeysOption, reporter, focusResult, graph, skyFunctionCountBefore);
 
