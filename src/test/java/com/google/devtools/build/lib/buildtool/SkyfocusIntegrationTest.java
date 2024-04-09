@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,5 +49,125 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     assertContainsEvent("Updated working set successfully.");
     assertContainsEvent("Focusing on");
     assertContainsEvent("Node count:");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+  }
+
+  @Test
+  public void workingSet_withFiles_correctlyRebuilds() throws Exception {
+    addOptions("--experimental_working_set=hello/x.txt");
+    write("hello/x.txt", "x");
+    write("hello/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertContents("x\ny", "//hello:target");
+
+    write("hello/x.txt", "x2");
+    buildTarget("//hello/...");
+    assertContents("x2\ny", "//hello:target");
+  }
+
+  @Test
+  public void workingSet_withDirs_correctlyRebuilds() throws Exception {
+    /*
+     * Setting directories in the working set works, because the rdep edges look like:
+     *
+     * FILE_STATE:[dir] -> FILE:[dir] -> FILE:[dir/BUILD], FILE:[dir/file.txt]
+     *
+     * ...and the FILE SkyKeys directly depend on their respective FILE_STATE SkyKeys,
+     * which are the nodes that are invalidated by SkyframeExecutor#handleDiffs
+     * at the start of every build, and are also kept by Skyfocus.
+     *
+     * In other words, defining a working set of directories will automatically
+     * include all the files under those directories for focusing.
+     */
+
+    // Define working set to be a directory, not file
+    addOptions("--experimental_working_set=hello");
+    write("hello/x.txt", "x");
+    write("hello/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertContents("x\ny", "//hello:target");
+
+    write("hello/x.txt", "x2");
+    buildTarget("//hello/...");
+    // Correctly rebuilds referenced source file
+    assertContents("x2\ny", "//hello:target");
+
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "y_only",
+            srcs = ["y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    buildTarget("//hello/...");
+    // Correctly reanalyzes BUILD file
+    assertContents("y", "//hello:y_only");
+  }
+
+  @Test
+  public void workingSet_nestedDirs_correctlyRebuilds() throws Exception {
+    // Define working set to be the parent package
+    addOptions("--experimental_working_set=hello");
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "//hello/world:target"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("hello/world/y.txt", "y");
+    write(
+        "hello/world/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertContents("x\ny", "//hello:target");
+
+    write("hello/x.txt", "x2");
+    buildTarget("//hello/...");
+    // Rebuilds when parent package's source file changes
+    assertContents("x2\ny", "//hello:target");
+
+    write("hello/world/y.txt", "y2");
+    buildTarget("//hello/...");
+    // Rebuilds when child package's source file changes
+    assertContents("x2\ny2", "//hello:target");
   }
 }

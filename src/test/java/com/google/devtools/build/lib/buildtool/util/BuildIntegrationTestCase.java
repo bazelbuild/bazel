@@ -973,6 +973,16 @@ public abstract class BuildIntegrationTestCase {
     }
   }
 
+  protected void assertContents(String expectedContents, String target) throws Exception {
+    assertContents(expectedContents, Iterables.getOnlyElement(getArtifacts(target)).getPath());
+  }
+
+  protected void assertContents(String expectedContents, Path path) throws Exception {
+    String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
+    // .indent(0) doesn't change the indentation, but normalizes all OS-specific endings.
+    assertThat(actualContents.indent(0).trim()).isEqualTo(expectedContents);
+  }
+
   protected String readContentAsLatin1String(Artifact artifact) throws IOException {
     return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
   }

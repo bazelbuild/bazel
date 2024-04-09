@@ -750,6 +750,7 @@ java_test(
     deps = [
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
