@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -77,6 +78,13 @@ public final class RuleConfiguredTargetValue
 
   @Override
   public void clear(boolean clearEverything) {
+    if (configuredTarget != null
+        && configuredTarget.getConfigurationKey() != null
+        && configuredTarget.getConfigurationChecksum().equals(EMPTY_OPTIONS.checksum())) {
+      // Keep these to avoid the need to re-create them later, they are dependencies of the empty
+      // configuration key and will never change.
+      return;
+    }
     if (clearEverything) {
       configuredTarget = null;
     }

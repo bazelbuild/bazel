@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -646,16 +647,37 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     memoizingEvaluator.delete(this::shouldDeleteOnAnalysisInvalidatingChange);
   }
 
-  // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and deleting
-  // en masse is cheaper than deleting via graph traversal (b/192863968).
   @ForOverride
   protected boolean shouldDeleteOnAnalysisInvalidatingChange(SkyKey k) {
-    return k instanceof ArtifactNestedSetKey
-        || k instanceof ActionLookupKey
-        || (k instanceof BuildConfigurationKey
-            && getSkyframeBuildView().getBuildConfiguration() != null
-            && !k.equals(getSkyframeBuildView().getBuildConfiguration().getKey()))
-        || k instanceof ActionLookupData;
+    // TODO: b/330770905 - Rewrite this to use pattern matching when available.
+    // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and
+    // deleting en masse is cheaper than deleting via graph traversal (b/192863968).
+    if (k instanceof ArtifactNestedSetKey || k instanceof ActionLookupData) {
+      return true;
+    }
+    // Remove BuildConfigurationKeys except for the currently active key and the key for
+    // EMPTY_OPTIONS, which is a constant and will be re-used frequently.
+    if (k instanceof BuildConfigurationKey key) {
+      if (key.getOptionsChecksum().equals(EMPTY_OPTIONS.checksum())) {
+        return false;
+      }
+      if (getSkyframeBuildView().getBuildConfiguration() != null
+          && k.equals(getSkyframeBuildView().getBuildConfiguration().getKey())) {
+        return false;
+      }
+      return true;
+    }
+    // Remove ActionLookupKeys unless they are for the empty options config, in which case they will
+    // be re-used frequently and we can avoid re-creating them. They are dependencies of the empty
+    // configuration key and will never change.
+    if (k instanceof ActionLookupKey lookupKey) {
+      BuildConfigurationKey key = lookupKey.getConfigurationKey();
+      if (key != null && key.getOptionsChecksum().equals(EMPTY_OPTIONS.checksum())) {
+        return false;
+      }
+      return true;
+    }
+    return false;
   }
 
   /**

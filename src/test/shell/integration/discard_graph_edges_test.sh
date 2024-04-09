@@ -271,7 +271,7 @@ function test_packages_cleared() {
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
   # A few packages aren't cleared.
-  [[ "$package_count" -le 22 ]] \
+  [[ "$package_count" -le 25 ]] \
       || fail "package count $package_count too high"
   glob_count="$(extract_histogram_count "$histo_file" "GlobValueWithImmutableSet$")"
   [[ "$glob_count" -le 1 ]] \
@@ -281,8 +281,8 @@ function test_packages_cleared() {
       || fail "Module count $module_count too high"
   ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"
-  [[ "$ct_count" -le 1 ]] \
-      || fail "too many RuleConfiguredTarget: expected at most 1, got $ct_count"
+  [[ "$ct_count" -le 40 ]] \
+      || fail "too many RuleConfiguredTarget: expected at most 40, got $ct_count"
   non_incremental_entry_count="$(extract_histogram_count "$histo_file" \
        '\.NonIncrementalInMemoryNodeEntry$')"
   [[ "$non_incremental_entry_count" -ge 100 ]] \
