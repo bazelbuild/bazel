@@ -412,7 +412,71 @@ EOF
     cat histo.txt >> "$TEST_log"
     fail "GenRuleAction unexpectedly not found: $genrule_action_count"
   fi
+}
 
+function test_rules_with_no_actions_deleted_if_not_top_level() {
+  mkdir -p foo || fail "Couldn't mkdir"
+  cat > foo/defs.bzl <<'EOF' || fail "Couldn't write file"
+def _empty_rule_impl(ctx):
+  return DefaultInfo()
+
+empty_rule = rule(implementation = _empty_rule_impl)
+EOF
+  cat > foo/BUILD <<'EOF' || fail "Couldn't write file"
+load(":defs.bzl", "empty_rule")
+genrule(name = "top", srcs = [":empty"], outs = ["top.out"], cmd = "touch $@")
+empty_rule(name = "empty")
+EOF
+
+  readonly local server_pid="$(bazel info server_pid 2> /dev/null)"
+
+  # Build both :top and :empty. Neither is deleted because both are top-level.
+  bazel build $BUILD_FLAGS //foo:top //foo:empty \
+    >& "$TEST_log" || fail "Expected success"
+  "$jmaptool" -histo:live $server_pid > histo.txt
+  count="$(extract_histogram_count histo.txt 'RuleConfiguredTargetValue$')"
+  assert_equals 2 $count
+
+  # Build only :top. Even though :empty is a dep, it is deleted because it has
+  # no actions.
+  bazel build $BUILD_FLAGS //foo:top \
+    >& "$TEST_log" || fail "Expected success"
+  "$jmaptool" -histo:live $server_pid > histo.txt
+  count="$(extract_histogram_count histo.txt 'RuleConfiguredTargetValue$')"
+  assert_equals 1 $count
+}
+
+function test_aspects_with_no_actions_deleted_if_not_top_level() {
+  mkdir -p foo || fail "Couldn't mkdir"
+  cat > foo/defs.bzl <<'EOF' || fail "Couldn't write file"
+def _empty_aspect_impl(target, ctx):
+  return []
+
+empty_aspect = aspect(implementation = _empty_aspect_impl, attr_aspects = ["*"])
+EOF
+  cat > foo/BUILD <<'EOF' || fail "Couldn't write file"
+genrule(name = "top", srcs = [":dep"], outs = ["top.out"], cmd = "cp $< $@")
+genrule(name = "dep", outs = ["dep.out"], cmd = "touch $@")
+EOF
+
+  readonly local server_pid="$(bazel info server_pid 2> /dev/null)"
+  aspect_flag=--aspects=foo/defs.bzl%empty_aspect
+
+  # Build both :top and :dep with the aspect attached. Neither aspect value is
+  # deleted because both are top-level.
+  bazel build $BUILD_FLAGS $aspect_flag //foo:top //foo:dep \
+    >& "$TEST_log" || fail "Expected success"
+  "$jmaptool" -histo:live $server_pid > histo.txt
+  count="$(extract_histogram_count histo.txt 'AspectValue(WithTransitivePackages)?$')"
+  assert_equals 2 $count
+
+  # Build only :top. Even though the aspect propagates to :dep, it is deleted
+  # because it has no actions.
+  bazel build $BUILD_FLAGS $aspect_flag //foo:top \
+    >& "$TEST_log" || fail "Expected success"
+  "$jmaptool" -histo:live $server_pid > histo.txt
+  count="$(extract_histogram_count histo.txt 'AspectValue(WithTransitivePackages)?$')"
+  assert_equals 1 $count
 }
 
 function test_dump_after_discard_incrementality_data() {

@@ -465,7 +465,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 6,
+    shard_count = 8,
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )

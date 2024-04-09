@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
+import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -1235,33 +1236,41 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     if (discardType.discardsAnalysis()) {
       if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
         ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
-        // ctValue may be null if target was not successfully analyzed.
-        if (ctValue != null) {
-          ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
-          if (configuredTarget == null) {
-            return false; // It was already cleared.
-          }
-          if (!(ctValue instanceof ActionLookupValue)
-              && !trackIncrementalState
-              && !topLevelTargets.contains(configuredTarget)) {
-            // If not tracking incremental state, removing these nodes doesn't hurt. Morally we
-            // should always be able to remove these, since they're not used for execution, but it
-            // leaves the graph inconsistent, and the --discard_analysis_cache with
-            // --track_incremental_state case isn't worth optimizing for.
-            return true;
-          } else {
-            ctValue.clear(!topLevelTargets.contains(configuredTarget));
-          }
+        if (ctValue == null) {
+          return false; // Not successfully analyzed.
+        }
+        ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
+        if (configuredTarget == null) {
+          return false; // It was already cleared.
+        }
+        boolean topLevel = topLevelTargets.contains(configuredTarget);
+        if (!topLevel && !trackIncrementalState && !hasActions(ctValue)) {
+          // If not tracking incremental state, removing these nodes doesn't hurt. Morally we should
+          // always be able to remove these, since they're not used for execution, but it leaves the
+          // graph inconsistent, and the --discard_analysis_cache with --track_incremental_state
+          // case isn't worth optimizing for.
+          return true;
+        } else {
+          ctValue.clear(!topLevelTargets.contains(configuredTarget));
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectValue aspectValue = (AspectValue) entry.getValue();
-        // aspectValue may be null if target was not successfully analyzed.
-        if (aspectValue != null) {
-          aspectValue.clear(!topLevelAspects.contains(key));
+        if (aspectValue == null) {
+          return false; // Not successfully analyzed.
+        }
+        boolean topLevel = topLevelAspects.contains(key);
+        if (!topLevel && !trackIncrementalState && !hasActions(aspectValue)) {
+          return true;
+        } else {
+          aspectValue.clear(!topLevel);
         }
       }
     }
     return false;
+  }
+
+  private static boolean hasActions(ConfiguredObjectValue value) {
+    return value instanceof ActionLookupValue alv && alv.getNumActions() > 0;
   }
 
   /** Tracks how long it takes to clear the analysis cache. */
