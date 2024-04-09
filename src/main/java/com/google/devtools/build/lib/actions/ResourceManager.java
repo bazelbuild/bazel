@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Deque;
@@ -483,17 +482,10 @@ public class ResourceManager implements ResourceEstimator {
         "releaseResources without resource lock during %s",
         request.getOwner());
 
-    boolean resourcesReused = false;
-    AutoProfiler p = profiled(request.getOwner().describe(), ProfilerTask.ACTION_RELEASE);
     try {
-      resourcesReused = release(request, worker);
+      release(request, worker);
     } finally {
       threadLocked.set(false);
-
-      // Profile resource release only if it resolved at least one allocation request.
-      if (resourcesReused) {
-        p.complete();
-      }
     }
   }
 
@@ -541,8 +533,7 @@ public class ResourceManager implements ResourceEstimator {
    * Release resources and process the queues of waiting threads. Return true when any new thread
    * processed.
    */
-  @CanIgnoreReturnValue
-  private synchronized boolean release(ResourceRequest request, @Nullable Worker worker)
+  private synchronized void release(ResourceRequest request, @Nullable Worker worker)
       throws IOException, InterruptedException {
     if (worker != null) {
       this.workerPool.returnObject(worker.getWorkerKey(), worker);
@@ -572,30 +563,21 @@ public class ResourceManager implements ResourceEstimator {
     }
     runningActions--;
 
-    return processAllWaitingRequests();
+    processAllWaitingRequests();
   }
 
-  @CanIgnoreReturnValue
-  private synchronized boolean processAllWaitingRequests()
-      throws IOException, InterruptedException {
-    boolean anyProcessed = false;
-    if (!localRequests.isEmpty()) {
-      processWaitingRequests(localRequests);
-      anyProcessed = true;
-    }
-    if (!dynamicWorkerRequests.isEmpty()) {
-      processWaitingRequests(dynamicWorkerRequests);
-      anyProcessed = true;
-    }
-    if (!dynamicStandaloneRequests.isEmpty()) {
-      processWaitingRequests(dynamicStandaloneRequests);
-      anyProcessed = true;
-    }
-    return anyProcessed;
+  private synchronized void processAllWaitingRequests() throws IOException, InterruptedException {
+    processWaitingRequests(localRequests);
+    processWaitingRequests(dynamicWorkerRequests);
+    processWaitingRequests(dynamicStandaloneRequests);
   }
 
   private synchronized void processWaitingRequests(Deque<WaitingRequest> requests)
       throws IOException, InterruptedException {
+    if (requests.isEmpty()) {
+      return;
+    }
+
     Iterator<WaitingRequest> iterator = requests.iterator();
     while (iterator.hasNext()) {
       WaitingRequest request = iterator.next();
