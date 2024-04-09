@@ -21,8 +21,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.CleanRequest;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.CleanResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeBuildRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeBuildResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildRequest;
@@ -300,7 +303,25 @@ public class BazelOutputService implements OutputService {
   }
 
   @Override
-  public void clean() {
-    // TODO(chiwang): implement this
+  public void clean() throws ExecException, InterruptedException {
+    var request = CleanRequest.newBuilder().setOutputBaseId(outputBaseId).build();
+    try {
+      var unused = clean(request);
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.UNEXPECTED_EXCEPTION);
+    }
+  }
+
+  private CleanResponse clean(CleanRequest request) throws IOException, InterruptedException {
+    return retrier.execute(
+        () ->
+            channel.withChannelBlocking(
+                channel -> {
+                  try {
+                    return BazelOutputServiceGrpc.newBlockingStub(channel).clean(request);
+                  } catch (StatusRuntimeException e) {
+                    throw new IOException(e);
+                  }
+                }));
   }
 }
