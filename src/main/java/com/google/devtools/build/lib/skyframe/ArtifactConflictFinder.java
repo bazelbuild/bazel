@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/** An artifact conflict finder used in noskymeld mode. */
 class ArtifactConflictFinder {
   static final Precomputed<ImmutableMap<ActionAnalysisMetadata, ActionConflictException>>
       ACTION_CONFLICTS = new Precomputed<>("action_conflicts");

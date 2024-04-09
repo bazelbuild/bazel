@@ -23,6 +23,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
+import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
+import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.WITH_TRAVERSAL;
 import static com.google.devtools.build.lib.skyframe.SkyfocusState.DISABLED;
 import static java.util.stream.Collectors.joining;
 
@@ -179,10 +181,8 @@ import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
-import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.AdditionalPostAnalysisDepsRequestedAndAvailable;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TestTypeResolver;
-import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
@@ -307,7 +307,6 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -451,6 +450,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // Reset after each build.
   @Nullable private IncrementalArtifactConflictFinder incrementalArtifactConflictFinder;
 
+  // Reset after each build.
+  private ConflictCheckingMode conflictCheckingModeInThisBuild = NONE;
   private ConsumedArtifactsTracker consumedArtifactsTracker;
   // end: Skymeld-only
 
@@ -807,18 +808,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected BuildDriverFunction newBuildDriverFunction() {
     return new BuildDriverFunction(
-        new TransitiveActionLookupValuesHelper() {
-          @Override
-          public ActionLookupValuesCollectionResult collect() {
-            return collectAccumulatedAlvs();
-          }
-
-          @Override
-          public boolean trackingStateForIncrementality() {
-            return tracksStateForIncrementality();
-          }
-        },
-        this::getIncrementalArtifactConflictFinder,
+        () -> getCheckerForConflictCheckingMode(WITH_TRAVERSAL),
         this::getRuleContextConstraintSemantics,
         this::getExtraActionFilter,
         this::getTestTypeResolver,
@@ -2167,6 +2157,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     syscallCache.clear();
   }
 
+  public void setConflictCheckingModeInThisBuild(
+      ConflictCheckingMode conflictCheckingModeInThisBuild) {
+    this.conflictCheckingModeInThisBuild = conflictCheckingModeInThisBuild;
+  }
+
   /**
    * Evaluates the given collections of CT/Aspect BuildDriverKeys. This is part of
    * https://github.com/bazelbuild/bazel/issues/14057, internal: b/147350683.
@@ -2178,13 +2173,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableList<Artifact> workspaceStatusArtifacts,
       boolean keepGoing,
       int executionParallelism,
-      QuiescingExecutor executor,
-      Supplier<Boolean> shouldCheckForConflicts)
+      QuiescingExecutor executor)
       throws InterruptedException {
     checkActive();
     try {
-      buildDriverFunction.setShouldCheckForConflict(shouldCheckForConflicts);
-      if (shouldCheckForConflicts.get()) {
+      buildDriverFunction.setShouldCheckForConflictWithTraversal(
+          () -> conflictCheckingModeInThisBuild == WITH_TRAVERSAL);
+      if (conflictCheckingModeInThisBuild != NONE) {
         initializeSkymeldConflictFindingStates();
       }
       eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
@@ -2329,10 +2324,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       localRef.shutdown();
     }
     incrementalArtifactConflictFinder = null;
+    conflictCheckingModeInThisBuild = NONE;
   }
 
-  public IncrementalArtifactConflictFinder getIncrementalArtifactConflictFinder() {
-    return incrementalArtifactConflictFinder;
+  @Nullable
+  public IncrementalArtifactConflictFinder getCheckerForConflictCheckingMode(
+      ConflictCheckingMode expectedModeFromCaller) {
+    return conflictCheckingModeInThisBuild == expectedModeFromCaller
+        ? incrementalArtifactConflictFinder
+        : null;
   }
 
   /** Whether an artifact is consumed in this build. */
@@ -2950,15 +2950,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     /** This receiver is only needed for execution, so it is null otherwise. */
     @Nullable private EvaluationProgressReceiver executionProgressReceiver = null;
 
-    /**
-     * As the ActionLookupValues are marked done in the graph, put it in the map. This map will be
-     * "swapped out" for a new one each time it's requested via {@link
-     * #getBatchedActionLookupValuesForConflictChecking()}
-     */
-    @GuardedBy("this")
-    private Map<ActionLookupKey, SkyValue> batchedActionLookupValuesForConflictChecking =
-        Maps.newConcurrentMap();
-
     // In non-incremental builds, we want to remove the glob subgraph after the rdep PACKAGE is
     // done. However, edges are not stored. So, we use the `globDeps` map to temporarily store the
     // relationship between GLOB and their dependent GLOBs.
@@ -3034,16 +3025,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         } else if (directDeps != null
             && skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
           maybeDropGenQueryDep(newValue, directDeps);
-        }
-      }
-
-      if (mergedSkyframeAnalysisExecutionSupplier != null
-          && mergedSkyframeAnalysisExecutionSupplier.get()
-          && !tracksStateForIncrementality()
-          && isAnalysisPhaseActionLookupKey(skyKey)
-          && newValue != null) {
-        synchronized (this) {
-          batchedActionLookupValuesForConflictChecking.put((ActionLookupKey) skyKey, newValue);
         }
       }
 
@@ -3149,28 +3130,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         }
       }
     }
-
-    /**
-     * Returns the {@link ActionLookupKey} keyed map of done {@link ActionLookupValue}s since the
-     * last time this method was called.
-     *
-     * <p>Replaces {@link #batchedActionLookupValuesForConflictChecking} with a new empty map.
-     *
-     * <p>This is only used in skymeld mode AND when we don't keep the incremental state.
-     */
-    public ImmutableMap<ActionLookupKey, SkyValue>
-        getBatchedActionLookupValuesForConflictChecking() {
-      checkState(
-          checkNotNull(mergedSkyframeAnalysisExecutionSupplier).get()
-              && !tracksStateForIncrementality());
-      Map<ActionLookupKey, SkyValue> snapshot;
-      Map<ActionLookupKey, SkyValue> freshMap = Maps.newConcurrentMap();
-      synchronized (this) {
-        snapshot = batchedActionLookupValuesForConflictChecking;
-        batchedActionLookupValuesForConflictChecking = freshMap;
-      }
-      return ImmutableMap.copyOf(snapshot);
-    }
   }
 
   public final ExecutionFinishedEvent createExecutionFinishedEvent() {
@@ -3210,19 +3169,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               .collect(Iterables.concat(topLevelCtKeys, aspectKeys));
       foundActions.forEach(alvTraversal::accumulate);
       return alvTraversal;
-    }
-  }
-
-  /**
-   * No graph edges available when there's no incrementality. We get the ALVs collected since the
-   * last time this method was called.
-   */
-  protected ActionLookupValuesCollectionResult collectAccumulatedAlvs() {
-    try (SilentCloseable c =
-        Profiler.instance().profile("SkyframeExecutor.collectAccumulatedAlvs")) {
-      ImmutableMap<ActionLookupKey, SkyValue> batchOfActionLookupValues =
-          progressReceiver.getBatchedActionLookupValuesForConflictChecking();
-      return ActionLookupValuesCollectionResult.create(batchOfActionLookupValues.values());
     }
   }
 

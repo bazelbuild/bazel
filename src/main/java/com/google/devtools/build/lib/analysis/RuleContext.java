@@ -25,6 +25,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -86,6 +87,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.IncrementalArtifactConflictFinder;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -193,6 +195,8 @@ public class RuleContext extends TargetContext
    */
   @Nullable private StarlarkRuleContext starlarkRuleContext;
 
+  private final Supplier<IncrementalArtifactConflictFinder> conflictFinder;
+
   /** The constructor is intentionally package private to be only used by {@link AspectContext}. */
   RuleContext(
       Builder builder,
@@ -221,6 +225,7 @@ public class RuleContext extends TargetContext
         builder.transitivePackagesForRunfileRepoMappingManifest;
     this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
     this.prerequisitesCollection = prerequisitesCollection;
+    this.conflictFinder = builder.conflictFinder;
   }
 
   static RuleContext create(
@@ -1081,6 +1086,16 @@ public class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the conflict finder if {@link
+   * com.google.devtools.build.lib.skyframe.ConflictCheckingMode#UPON_CONFIGURED_OBJECT_CREATION}
+   * and null otherwise.
+   */
+  @Nullable
+  public IncrementalArtifactConflictFinder getConflictFinder() {
+    return conflictFinder.get();
+  }
+
+  /**
    * Prepares Starlark objects created during this target's analysis for use by others. Freezes
    * mutability, clears expensive references.
    */
@@ -1498,6 +1513,8 @@ public class RuleContext extends TargetContext
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
+
+    private Supplier<IncrementalArtifactConflictFinder> conflictFinder = () -> null;
     @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
     @Nullable private NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
 
@@ -1702,6 +1719,12 @@ public class RuleContext extends TargetContext
     public Builder setTransitivePackagesForRunfileRepoMappingManifest(
         @Nullable NestedSet<Package> packages) {
       this.transitivePackagesForRunfileRepoMappingManifest = packages;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setConflictFinder(Supplier<IncrementalArtifactConflictFinder> conflictFinder) {
+      this.conflictFinder = conflictFinder;
       return this;
     }
 
