@@ -35,13 +35,12 @@ import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
-import com.google.devtools.build.lib.query2.cquery.CqueryTransitionResolver.EvaluateException;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.ConfiguredRuleInput;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.ProtoOutputFormatter;
@@ -128,7 +127,6 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final ConfigurationCache configurationCache =
       new ConfigurationCache(this::getConfiguration);
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
-  private final RuleClassProvider ruleClassProvider;
 
   private final Map<Label, Target> partialResultMap;
   private final LabelPrinter labelPrinter;
@@ -142,13 +140,11 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       TargetAccessor<CqueryNode> accessor,
       AspectResolver resolver,
       OutputType outputType,
-      RuleClassProvider ruleClassProvider,
       LabelPrinter labelPrinter) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.outputType = outputType;
     this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
-    this.ruleClassProvider = ruleClassProvider;
     this.partialResultMap = Maps.newHashMap();
     this.labelPrinter = labelPrinter;
   }
@@ -242,21 +238,11 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       throws InterruptedException, IOException {
     partialResult.forEach(
         kct -> partialResultMap.put(kct.getOriginalLabel(), accessor.getTarget(kct)));
-
-    CqueryTransitionResolver transitionResolver =
-        new CqueryTransitionResolver(
-            eventHandler,
-            accessor,
-            this,
-            ruleClassProvider,
-            skyframeExecutor.getSkyframeBuildView().getStarlarkTransitionCache());
-
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver, skyframeExecutor.getDigestFunction().getHashFunction());
     for (CqueryNode keyedConfiguredTarget : partialResult) {
       AnalysisProtosV2.ConfiguredTarget.Builder builder =
           AnalysisProtosV2.ConfiguredTarget.newBuilder();
-
       // Re: testing. Since this formatter relies on the heavily tested ProtoOutputFormatter class
       // for all its work with targets, ProtoOutputFormatterCallbackTest doesn't test any of the
       // logic in this next line. If this were to change (i.e. we manipulate targets any further),
@@ -266,32 +252,27 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       Build.Target.Builder targetBuilder =
           formatter.toTargetProtoBuffer(target, labelPrinter).toBuilder();
       if (target instanceof Rule && !Transitions.NONE.equals(options.transitions)) {
-        try {
-          for (CqueryTransitionResolver.ResolvedTransition resolvedTransition :
-              transitionResolver.dependencies(keyedConfiguredTarget)) {
-            if (resolvedTransition.options().isEmpty()) {
-              targetBuilder
-                  .getRuleBuilder()
-                  .addConfiguredRuleInput(
-                      Build.ConfiguredRuleInput.newBuilder()
-                          .setLabel(labelPrinter.toString(resolvedTransition.label())));
-            } else {
-              for (BuildOptions options : resolvedTransition.options()) {
-                int configurationId = configurationCache.getId(options);
-
-                targetBuilder
-                    .getRuleBuilder()
-                    .addConfiguredRuleInput(
-                        Build.ConfiguredRuleInput.newBuilder()
-                            .setLabel(labelPrinter.toString(resolvedTransition.label()))
-                            .setConfigurationChecksum(options.checksum())
-                            .setConfigurationId(configurationId));
-              }
-            }
+        // To set configured_rule_input dependencies, use ConfiguredTargetAccessor.getPrerequisites.
+        // Note that both that and CqueryTransitionResolver can get a target's direct deps. We use
+        // the former because it implements cquery's "canonical" view of the dependency graph, which
+        // might not match the underlying Skyframe graph. For example, without
+        // QueryEnvironment.Setting#EXPLICIT_ASPECTS, if CT //foo depends on aspect A which has
+        // implicit dep //dep, cquery outputs //dep as a direct dep of //foo. Even though this isn't
+        // technically true according to the Skyframe graph. If we used CqueryTransitionResolver,
+        // which directly queries Skyframe, it wouldn't return //dep.
+        //
+        // cquery users should always view the graph according to cquery's canonical interpretation.
+        for (CqueryNode dep : accessor.getPrerequisites(keyedConfiguredTarget)) {
+          ConfiguredRuleInput.Builder configuredRuleInput =
+              Build.ConfiguredRuleInput.newBuilder()
+                  .setLabel(labelPrinter.toString(dep.getOriginalLabel()));
+          if (dep.getConfigurationChecksum() != null) {
+            configuredRuleInput
+                .setConfigurationChecksum(dep.getConfigurationChecksum())
+                .setConfigurationId(
+                    configurationCache.getId(dep.getConfigurationKey().getOptions()));
           }
-        } catch (EvaluateException e) {
-          // This is an abuse of InterruptedException.
-          throw new InterruptedException(e.getMessage());
+          targetBuilder.getRuleBuilder().addConfiguredRuleInput(configuredRuleInput);
         }
       }
 

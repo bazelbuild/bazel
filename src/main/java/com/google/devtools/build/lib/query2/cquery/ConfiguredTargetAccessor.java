@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetNotFoundException;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -42,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.state.EnvironmentForUtilities;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A {@link TargetAccessor} for {@link ConfiguredTarget} objects.
@@ -106,6 +108,25 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
   public boolean isTestSuite(CqueryNode target) {
     Target actualTarget = getTarget(target);
     return TargetUtils.isTestSuiteRule(actualTarget);
+  }
+
+  /**
+   * Returns all of {@code keyedConfiguredTarget}'s prerequisites.
+   *
+   * <p>Does not resolve aliases. So for aliases, this returns their {@code actual} attribute deps
+   * (plus any implicit deps).
+   *
+   * <p>Use sparingly: this doesn't distinguish where those prerequisites come from. For example if
+   * {@code keyedConfiguredTarget} depends on aspect A which depends on {@code //foo}, whether
+   * {@code //foo} is returned here depends on the values of {@link
+   * QueryEnvironment.Setting#INCLUDE_ASPECTS} or {@link QueryEnvironment.Setting#EXPLICIT_ASPECTS}
+   *
+   * <p>So this method returns the canonical direct dependencies as determined by cquery. But it
+   * doesn't expose the logic cquery uses to determine that, nor the command-line flags that toggle
+   * cquery's choices.
+   */
+  Set<CqueryNode> getPrerequisites(CqueryNode keyedConfiguredTarget) throws InterruptedException {
+    return queryEnvironment.getFwdDeps(ImmutableList.of(keyedConfiguredTarget));
   }
 
   @Override
