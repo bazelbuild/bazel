@@ -171,7 +171,7 @@ dependency graph of targets.
 
 <a name="private-attributes"></a>
 
-### Private attributes and implicit dependencies
+### Private attributes and implicit dependencies {:#private_attributes_and_implicit_dependencies}
 
 A dependency attribute with a default value creates an *implicit dependency*. It
 is implicit because it's a part of the target graph that the user doesn't
