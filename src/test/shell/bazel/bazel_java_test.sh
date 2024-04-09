@@ -1998,4 +1998,90 @@ EOF
   expect_log "buildozer 'add deps @c//:c' //pkg:a"
 }
 
+function test_strict_deps_error_external_repo_header_compile_action() {
+  cat << 'EOF' > MODULE.bazel
+bazel_dep(
+    name = "lib_c",
+    repo_name = "c",
+)
+local_path_override(
+    module_name = "lib_c",
+    path = "lib_c",
+)
+EOF
+
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+java_binary(name = "Main", srcs = ["Main.java"], deps = [":a"])
+java_library(name = "a", srcs = ["A.java"], deps = [":b"])
+java_library(name = "b", srcs = ["B.java"], deps = ["@c"])
+EOF
+  cat << 'EOF' > pkg/Main.java
+public class Main extends A {}
+EOF
+  cat << 'EOF' > pkg/A.java
+public class A extends B implements C {}
+EOF
+  cat << 'EOF' > pkg/B.java
+public class B implements C {}
+EOF
+
+  mkdir -p lib_c
+  cat << 'EOF' > lib_c/MODULE.bazel
+module(name = "lib_c")
+EOF
+  cat << 'EOF' > lib_c/BUILD
+java_library(name = "c", srcs = ["C.java"], visibility = ["//visibility:public"])
+EOF
+  cat << 'EOF' > lib_c/C.java
+public interface C {}
+EOF
+
+  bazel build //pkg:a >& $TEST_log && fail "build should fail"
+  expect_log "buildozer 'add deps @c//:c' //pkg:a"
+}
+
+function test_strict_deps_error_external_repo_compile_action() {
+  cat << 'EOF' > MODULE.bazel
+bazel_dep(
+    name = "lib_c",
+    repo_name = "c",
+)
+local_path_override(
+    module_name = "lib_c",
+    path = "lib_c",
+)
+EOF
+
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+java_library(name = "a", srcs = ["A.java"], deps = [":b"])
+java_library(name = "b", srcs = ["B.java"], deps = ["@c"])
+EOF
+  cat << 'EOF' > pkg/A.java
+public class A extends B {
+  boolean foo() {
+    return this instanceof C;
+  }
+}
+EOF
+  cat << 'EOF' > pkg/B.java
+public class B implements C {}
+EOF
+
+  mkdir -p lib_c
+  cat << 'EOF' > lib_c/MODULE.bazel
+module(name = "lib_c")
+EOF
+  cat << 'EOF' > lib_c/BUILD
+java_library(name = "c", srcs = ["C.java"], visibility = ["//visibility:public"])
+EOF
+  cat << 'EOF' > lib_c/C.java
+public interface C {}
+EOF
+
+  bazel build //pkg:a >& $TEST_log && fail "build should fail"
+  expect_log "buildozer 'add deps @c//:c' //pkg:a"
+}
+
 run_suite "Java integration tests"

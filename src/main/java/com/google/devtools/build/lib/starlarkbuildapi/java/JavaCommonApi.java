@@ -522,7 +522,11 @@ public interface JavaCommonApi<
       Object injectingRuleKind,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs)
-      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException;
+      throws EvalException,
+          TypeException,
+          RuleErrorException,
+          LabelSyntaxException,
+          InterruptedException;
 
   @StarlarkMethod(
       name = "create_compilation_action",
@@ -586,7 +590,11 @@ public interface JavaCommonApi<
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
       Sequence<?> additionalOutputs)
-      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException;
+      throws EvalException,
+          TypeException,
+          RuleErrorException,
+          LabelSyntaxException,
+          InterruptedException;
 
   @StarlarkMethod(
       name = "default_javac_opts",
