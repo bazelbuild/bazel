@@ -226,4 +226,64 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     assertThat(getSkyframeExecutor().getSkyfocusState().request()).isNotEqualTo(Request.DO_NOTHING);
     assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isEmpty();
   }
+
+  @Test
+  public void workingSet_reduced_withoutReanalysis() throws Exception {
+    addOptions("--experimental_working_set=hello/x.txt,hello/y.txt");
+    write("hello/x.txt", "x");
+    write("hello/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(2);
+
+    resetOptions();
+    setupOptions();
+    addOptions("--experimental_working_set=hello/x.txt");
+    write("hello/x.txt", "x2");
+
+    buildTarget("//hello/...");
+    assertDoesNotContainEvent("discarding analysis cache");
+    assertContents("x2\ny", "//hello:target");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+  }
+
+  @Test
+  public void workingSet_expanded_withReanalysis() throws Exception {
+    addOptions("--experimental_working_set=hello/x.txt");
+    write("hello/x.txt", "x");
+    write("hello/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+
+    resetOptions();
+    setupOptions();
+    addOptions("--experimental_working_set=hello/x.txt,hello/y.txt");
+    write("hello/x.txt", "x2");
+
+    buildTarget("//hello/...");
+    assertContainsEvent("discarding analysis cache");
+    assertContents("x2\ny", "//hello:target");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(2);
+  }
 }

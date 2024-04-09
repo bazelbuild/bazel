@@ -161,58 +161,6 @@ EOF
   expect_not_log "FILE_STATE:[.\+]"
 }
 
-function test_working_set_can_be_reduced_without_reanalysis() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input1" > ${pkg}/in.txt
-  echo "input2" > ${pkg}/in2.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule(
-  name = "g",
-  srcs = ["in.txt", "in2.txt"],
-  outs = ["g.txt"],
-  cmd = "cat \$(location in.txt) \$(location in2.txt) > \$@",
-)
-EOF
-
-  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/g.txt
-
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt
-  assert_contains "input1" $out
-  assert_contains "input2" $out
-  echo "a change" >> ${pkg}/in.txt
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt &> "$TEST_log"
-  assert_contains "a change" $out
-  expect_not_log "discarding analysis cache"
-}
-
-function test_working_set_expansion_causes_reanalysis() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input1" > ${pkg}/in.txt
-  echo "input2" > ${pkg}/in2.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule(
-  name = "g",
-  srcs = ["in.txt", "in2.txt"],
-  outs = ["g.txt"],
-  cmd = "cat \$(location in.txt) \$(location in2.txt) > \$@",
-)
-EOF
-
-  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/g.txt
-
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
-  assert_contains "input1" $out
-  assert_contains "input2" $out
-  echo "a change" >> ${pkg}/in2.txt
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt &> "$TEST_log"
-  assert_contains "a change" $out
-  expect_log "discarding analysis cache"
-}
-
 function test_focus_emits_profile_data() {
   if "$is_windows"; then
     # TODO(b/332825970): fix this
