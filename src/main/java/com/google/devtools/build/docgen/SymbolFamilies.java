@@ -21,6 +21,7 @@ import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkNativeModuleApi;
+import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -114,6 +115,7 @@ public class SymbolFamilies {
     // annotations, whereas the real "native" object is just a bare struct.
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env.put("native", new FakeStarlarkNativeModuleApi());
+    Starlark.addMethods(env, new FakeRepositoryModule(ImmutableList.of()));
     for (Map.Entry<String, Object> entry :
         provider.getBazelStarlarkEnvironment().getUninjectedBuildBzlEnv().entrySet()) {
       if (entry.getKey().equals("native")) {

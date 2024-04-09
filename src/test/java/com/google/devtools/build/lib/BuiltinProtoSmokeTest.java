@@ -30,7 +30,7 @@ public final class BuiltinProtoSmokeTest {
   }
 
   @Test
-  public void hasGlobalCallableFromEachApiContext() {
+  public void wellKnownCallablesAreDocumented() {
     assertThat(
             builtins.getGlobalList().stream()
                 .filter(BuiltinProtos.Value::hasCallable)
@@ -40,6 +40,7 @@ public final class BuiltinProtoSmokeTest {
             "range", BuiltinProtos.ApiContext.ALL,
             "glob", BuiltinProtos.ApiContext.BUILD,
             "DefaultInfo", BuiltinProtos.ApiContext.BZL,
+            "module_extension", BuiltinProtos.ApiContext.BZL,
             "bazel_dep", BuiltinProtos.ApiContext.MODULE);
   }
 }
