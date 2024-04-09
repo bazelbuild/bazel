@@ -422,3 +422,9 @@ java_library(
         "//third_party:guava",
     ],
 )
+
+java_library(
+    name = "blocker",
+    srcs = ["Blocker.java"],
+    add_exports = ["java.base/jdk.internal.misc"],
+)
