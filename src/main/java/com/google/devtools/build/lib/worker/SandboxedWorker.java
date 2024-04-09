@@ -114,7 +114,7 @@ final class SandboxedWorker extends SingleplexWorker {
       WorkerOptions workerOptions,
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
       TreeDeleter treeDeleter,
-      VirtualCGroupFactory cgroupFactory) {
+      @Nullable VirtualCGroupFactory cgroupFactory) {
     super(workerKey, workerId, workDir, logFile, workerOptions, cgroupFactory);
     this.workerExecRoot =
         new WorkerExecRoot(

@@ -124,7 +124,7 @@ public class WorkerModule extends BlazeModule {
       }
     }
     VirtualCGroupFactory cgroupFactory =
-      sandboxOptions == null || sandboxOptions.useOldCgroupImplementation ?
+      sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation ?
         null :
         new VirtualCGroupFactory(
           "worker_",
@@ -197,7 +197,7 @@ public class WorkerModule extends BlazeModule {
 
     // Override the flag value if we can't actually use cgroups so that we at least fallback to ps.
     boolean useCgroupsOnLinux = options.useCgroupsOnLinux &&
-        (sandboxOptions == null || sandboxOptions.useOldCgroupImplementation ?
+        (sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation ?
             CgroupsInfo.isSupported() :
             VirtualCGroup.getInstance().memory() != null);
     WorkerProcessMetricsCollector.instance().setUseCgroupsOnLinux(useCgroupsOnLinux);

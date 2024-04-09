@@ -163,8 +163,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Duration timeoutKillDelay,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
+    SandboxOptions sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.cgroupFactory =
-        cmdEnv.getOptions().getOptions(SandboxOptions.class).useOldCgroupImplementation ?
+        sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation ?
           null :
           new VirtualCGroupFactory(
               "sandbox_",

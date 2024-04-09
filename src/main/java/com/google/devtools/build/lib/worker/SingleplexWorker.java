@@ -77,7 +77,7 @@ class SingleplexWorker extends Worker {
   private final VirtualCGroupFactory cgroupFactory;
 
   SingleplexWorker(
-      WorkerKey workerKey, int workerId, final Path workDir, Path logFile, WorkerOptions options, VirtualCGroupFactory cgroupFactory) {
+      WorkerKey workerKey, int workerId, final Path workDir, Path logFile, WorkerOptions options, @Nullable VirtualCGroupFactory cgroupFactory) {
     super(workerKey, workerId, logFile, new WorkerProcessStatus());
     this.workDir = workDir;
     this.options = options;
