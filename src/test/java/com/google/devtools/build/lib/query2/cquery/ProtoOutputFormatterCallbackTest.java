@@ -475,9 +475,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
     assertThat(targetRule.getRuleInputList()).contains("//test:my_alias");
     assertThat(targetRule.getRuleInputList()).doesNotContain("//test:my_child");
-    assertThat(targetRule.getConfiguredRuleInputList().stream().map(s -> s.getLabel()))
+    assertThat(targetRule.getConfiguredRuleInputList().stream().map(s -> s.getLabel()).collect(toImmutableSet()))
         .contains("//test:my_alias");
-    assertThat(targetRule.getConfiguredRuleInputList().stream().map(s -> s.getLabel()))
+    assertThat(targetRule.getConfiguredRuleInputList().stream().map(s -> s.getLabel()).collect(toImmutableSet()))
         .doesNotContain("//test:my_child");
   }
 
