@@ -259,6 +259,12 @@ public final class RuleConfiguredTargetBuilder {
       ruleContext.ruleError(e.getMessage());
       return null;
     }
+
+    if (ruleContext.getConflictFinder() != null) {
+      for (ActionAnalysisMetadata action : actions) {
+        ruleContext.getConflictFinder().conflictCheckPerAction(action);
+      }
+    }
     return new RuleConfiguredTarget(ruleContext, providers, actions);
   }
 
