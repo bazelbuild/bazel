@@ -428,3 +428,11 @@ java_library(
     srcs = ["Blocker.java"],
     add_exports = ["java.base/jdk.internal.misc"],
 )
+
+java_library(
+    name = "value_or_exception",
+    srcs = ["ValueOrException.java"],
+    deps = [
+        "//third_party:guava",
+    ],
+)

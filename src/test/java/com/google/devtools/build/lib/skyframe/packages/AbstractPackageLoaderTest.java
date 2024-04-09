@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.skyframe.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code.COMPILE_ERROR;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainEvent;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static org.junit.Assert.assertThrows;
 
@@ -22,12 +24,20 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.skyframe.packages.PackageLoader.StarlarkModuleLoadingContext;
+import com.google.devtools.build.lib.skyframe.packages.PackageLoader.StarlarkModuleLoadingException;
+import com.google.devtools.build.lib.util.ValueOrException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -36,6 +46,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.concurrent.ForkJoinPool;
+import net.starlark.java.eval.Module;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -254,6 +265,163 @@ public abstract class AbstractPackageLoaderTest {
     assertThat(forkJoinPool.isShutdown()).isFalse();
     pkgLoader.close();
     assertThat(forkJoinPool.isShutdown()).isTrue();
+  }
+
+  @Test
+  public void loadingContext_loadModules_basicFunctionality() throws Exception {
+    file("x/BUILD");
+    file(
+        "x/foo.bzl",
+        """
+        '''Module foo'''
+
+        load('//y:bar.bzl', 'bar')
+
+        def foo(): bar()
+        """);
+    file("y/BUILD");
+    file(
+        "y/bar.bzl",
+        """
+        '''Module bar'''
+
+        def bar(): pass
+        """);
+    Label fooLabel = Label.parseCanonicalUnchecked("//x:foo.bzl");
+    Label barLabel = Label.parseCanonicalUnchecked("//y:bar.bzl");
+    ImmutableMap<Label, ValueOrException<Module, StarlarkModuleLoadingException>> result;
+    ImmutableList<Event> loadingContextEvents;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      StarlarkModuleLoadingContext loadingContext = pkgLoader.makeStarlarkModuleLoadingContext();
+      result = loadingContext.loadModules(ImmutableList.of(fooLabel, barLabel));
+      loadingContextEvents = loadingContext.getEvents();
+    }
+    assertThat(result.keySet()).containsExactly(fooLabel, barLabel);
+
+    assertThat(result.get(fooLabel).isPresent()).isTrue();
+    assertThat(result.get(fooLabel).get().getDocumentation()).isEqualTo("Module foo");
+    assertThat(result.get(fooLabel).get()).isSameInstanceAs(result.get(fooLabel).getUnchecked());
+
+    assertThat(result.get(barLabel).isPresent()).isTrue();
+    assertThat(result.get(barLabel).get().getDocumentation()).isEqualTo("Module bar");
+    assertThat(result.get(barLabel).get()).isSameInstanceAs(result.get(barLabel).getUnchecked());
+
+    assertNoEvents(loadingContextEvents);
+  }
+
+  @Test
+  public void loadingContext_loadModules_failsOnBrokenModule() throws Exception {
+    file("x/BUILD");
+    file("x/foo.bzl", "syntax error");
+    Label fooLabel = Label.parseCanonicalUnchecked("//x:foo.bzl");
+    ImmutableMap<Label, ValueOrException<Module, StarlarkModuleLoadingException>> result;
+    ImmutableList<Event> loadingContextEvents;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      StarlarkModuleLoadingContext loadingContext = pkgLoader.makeStarlarkModuleLoadingContext();
+      result = loadingContext.loadModules(ImmutableList.of(fooLabel));
+      loadingContextEvents = loadingContext.getEvents();
+    }
+
+    assertThat(result.keySet()).containsExactly(fooLabel);
+
+    ValueOrException<Module, StarlarkModuleLoadingException> valueOrException =
+        result.get(fooLabel);
+    assertThat(valueOrException.isPresent()).isFalse();
+    StarlarkModuleLoadingException exception =
+        assertThrows(StarlarkModuleLoadingException.class, valueOrException::get);
+    assertThat(exception).hasMessageThat().contains("compilation of module 'x/foo.bzl' failed");
+    assertThat(exception).hasCauseThat().isInstanceOf(BzlLoadFailedException.class);
+    assertThat(exception.getFailureDetail().get().getStarlarkLoading().getCode())
+        .isEqualTo(COMPILE_ERROR);
+    IllegalStateException uncheckedException =
+        assertThrows(IllegalStateException.class, valueOrException::getUnchecked);
+    assertThat(uncheckedException).hasCauseThat().isEqualTo(exception);
+
+    assertThat(handler.getEvents()).containsExactlyElementsIn(loadingContextEvents);
+    assertContainsEvent(loadingContextEvents, "syntax error");
+  }
+
+  @Test
+  public void loadingContext_loadModules_failsOnCycle() throws Exception {
+    file("x/BUILD");
+    file(
+        "x/foo.bzl",
+        """
+        load("//y:bar.bzl", "bar")
+
+        def foo(): return bar
+        """);
+
+    file("y/BUILD");
+    file(
+        "y/bar.bzl",
+        """
+        load("//x:foo.bzl", "foo")
+
+        def bar(): return foo
+        """);
+    Label fooLabel = Label.parseCanonicalUnchecked("//x:foo.bzl");
+    ImmutableMap<Label, ValueOrException<Module, StarlarkModuleLoadingException>> result;
+    ImmutableList<Event> loadingContextEvents;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      StarlarkModuleLoadingContext loadingContext = pkgLoader.makeStarlarkModuleLoadingContext();
+      result = loadingContext.loadModules(ImmutableList.of(fooLabel));
+      loadingContextEvents = loadingContext.getEvents();
+    }
+
+    assertThat(result.keySet()).containsExactly(fooLabel);
+
+    ValueOrException<Module, StarlarkModuleLoadingException> valueOrException =
+        result.get(fooLabel);
+    assertThat(valueOrException.isPresent()).isFalse();
+    StarlarkModuleLoadingException exception =
+        assertThrows(StarlarkModuleLoadingException.class, valueOrException::get);
+    assertThat(exception).hasMessageThat().contains("Cycle encountered while loading //x:foo.bzl");
+    assertThat(exception).hasCauseThat().isNull();
+    assertThat(exception.getFailureDetail())
+        .isEmpty(); // TODO(b/331221948): we ought to define a failure detail for load() cycles
+    IllegalStateException uncheckedException =
+        assertThrows(IllegalStateException.class, valueOrException::getUnchecked);
+    assertThat(uncheckedException).hasCauseThat().isEqualTo(exception);
+
+    assertThat(loadingContextEvents).isEmpty();
+  }
+
+  @Test
+  public void loadingContext_resetsLoadedEvents() throws Exception {
+    file("x/BUILD");
+    file("x/foo.bzl", "one syntax error");
+    file("y/BUILD");
+    file("y/bar.bzl", "another syntax error");
+    Label fooLabel = Label.parseCanonicalUnchecked("//x:foo.bzl");
+    Label barLabel = Label.parseCanonicalUnchecked("//y:bar.bzl");
+    ImmutableList<Event> loadingContextEventsAfterLoadingFoo;
+    ImmutableList<Event> loadingContextEventsAfterLoadingBar;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      StarlarkModuleLoadingContext loadingContext = pkgLoader.makeStarlarkModuleLoadingContext();
+      var unusedFooResult = loadingContext.loadModules(ImmutableList.of(fooLabel));
+      loadingContextEventsAfterLoadingFoo = loadingContext.getEvents();
+      var unusedBarResult = loadingContext.loadModules(ImmutableList.of(barLabel));
+      loadingContextEventsAfterLoadingBar = loadingContext.getEvents();
+    }
+    assertContainsEvent(loadingContextEventsAfterLoadingFoo, "name 'one' is not defined");
+    assertDoesNotContainEvent(loadingContextEventsAfterLoadingFoo, "name 'another' is not defined");
+
+    assertDoesNotContainEvent(loadingContextEventsAfterLoadingBar, "name 'one' is not defined");
+    assertContainsEvent(loadingContextEventsAfterLoadingBar, "name 'another' is not defined");
+  }
+
+  @Test
+  public void loadingContext_getRepositoryMapping_basicFunctionality() throws Exception {
+    RepositoryMapping repositoryMapping;
+    ImmutableList<Event> loadingContextEvents;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      StarlarkModuleLoadingContext loadingContext = pkgLoader.makeStarlarkModuleLoadingContext();
+      repositoryMapping = loadingContext.getRepositoryMapping();
+      loadingContextEvents = loadingContext.getEvents();
+    }
+    assertThat(repositoryMapping.get("")).isEqualTo(RepositoryName.MAIN);
+    assertNoEvents(loadingContextEvents);
   }
 
   protected Path path(String rootRelativePath) {

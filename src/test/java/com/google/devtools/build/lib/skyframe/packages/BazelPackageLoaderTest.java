@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -154,12 +155,15 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
     PackageIdentifier pkgId = PackageIdentifier.create(rRepoName, PathFragment.create("good"));
     Package goodPkg;
+    RepositoryMapping repoMapping;
     try (PackageLoader pkgLoader = newPackageLoader()) {
       goodPkg = pkgLoader.loadPackage(pkgId);
+      repoMapping = pkgLoader.makeStarlarkModuleLoadingContext().getRepositoryMapping();
     }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
+    assertThat(repoMapping.entries().get("r")).isEqualTo(rRepoName);
     assertNoEvents(handler.getEvents());
   }
 
@@ -175,12 +179,15 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     PackageIdentifier pkgId =
         PackageIdentifier.create(rRepoName, PathFragment.create(""));
     Package goodPkg;
+    RepositoryMapping repoMapping;
     try (PackageLoader pkgLoader = newPackageLoader()) {
       goodPkg = pkgLoader.loadPackage(pkgId);
+      repoMapping = pkgLoader.makeStarlarkModuleLoadingContext().getRepositoryMapping();
     }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
+    assertThat(repoMapping.entries().get("r")).isEqualTo(rRepoName);
     assertNoEvents(handler.getEvents());
   }
 
