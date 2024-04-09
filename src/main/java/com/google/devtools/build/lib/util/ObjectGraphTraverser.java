@@ -209,9 +209,10 @@ public class ObjectGraphTraverser {
       };
 
   /** An object to be traversed in the queue. */
-  private record WorkItem(Object object, String context) {}
+  private record WorkItem(Object object, String context, WorkItem parent) {}
 
   private final FieldCache fieldCache;
+  private final boolean reportTransientFields;
 
   private final boolean collectContext;
   private final Traversal traversal;
@@ -224,10 +225,22 @@ public class ObjectGraphTraverser {
   private final ConcurrentIdentitySet localObjects;
   private final ConcurrentIdentitySet seenObjects;
 
+  public ObjectGraphTraverser(
+      FieldCache fieldCache,
+      boolean reportTransientFields,
+      ConcurrentIdentitySet seenObjects,
+      boolean collectContext,
+      ObjectReceiver receiver,
+      Object instanceId) {
+    this(
+        fieldCache, reportTransientFields, seenObjects, collectContext, receiver, instanceId, null);
+  }
+
   /**
    * Creates a new traverser.
    *
    * @param fieldCache the cache for reflection results.
+   * @param reportTransientFields whether to recurse into transient fields
    * @param seenObjects the set of objects already seen. These are not traversed and references to
    *     them are reported as {@link EdgeType#ALREADY_SEEN} .
    * @param collectContext whether to collect context for each object. Costs some CPU.
@@ -236,11 +249,15 @@ public class ObjectGraphTraverser {
    */
   public ObjectGraphTraverser(
       FieldCache fieldCache,
+      boolean reportTransientFields,
       ConcurrentIdentitySet seenObjects,
       boolean collectContext,
       ObjectReceiver receiver,
-      Object instanceId) {
+      Object instanceId,
+      String needle) {
+    this.needle = needle;
     this.fieldCache = fieldCache;
+    this.reportTransientFields = reportTransientFields;
     this.seenObjects = seenObjects;
     this.collectContext = collectContext;
     this.receiver = receiver;
@@ -268,7 +285,7 @@ public class ObjectGraphTraverser {
    * given {@link ObjectGraphTraverser} instance.
    */
   public void traverse(Object o) {
-    queue.offer(new WorkItem(o, null));
+    queue.offer(new WorkItem(o, null, null));
     while (!queue.isEmpty()) {
       WorkItem workItem = queue.remove();
       try {
@@ -317,7 +334,7 @@ public class ObjectGraphTraverser {
     // A new object.
     receiver.edgeFound(currentWorkItem.object, to, toContext, EdgeType.CURRENT_TRAVERSAL);
 
-    queue.offer(new WorkItem(to, toContext));
+    queue.offer(new WorkItem(to, toContext, currentWorkItem));
   }
 
   @Nullable
@@ -333,10 +350,25 @@ public class ObjectGraphTraverser {
     return defaultContext;
   }
 
+  private final String needle;
+
+  private void dumpTrace(WorkItem workItem) {
+    System.err.println("Needle reached by path:");
+    while (workItem != null) {
+      System.err.println("  " + workItem.object.getClass().getName());
+      workItem = workItem.parent;
+    }
+    System.err.println();
+  }
+
   private void process(WorkItem workItem) {
     Object o = workItem.object;
     String context = workItem.context;
     currentWorkItem = workItem;
+
+    if (needle != null && o.getClass().getName().equals(needle)) {
+      dumpTrace(workItem);
+    }
 
     if (o instanceof String) {
       traversal.objectFound(o, contextOrNull(context, "STRING"));
@@ -415,8 +447,13 @@ public class ObjectGraphTraverser {
       }
 
       for (Field field : next.getDeclaredFields()) {
+        if (!reportTransientFields && (field.getModifiers() & Modifier.TRANSIENT) != 0) {
+          continue;
+        }
+
+        // Skip static fields
         if ((field.getModifiers() & Modifier.STATIC) != 0) {
-          continue; // Skips static or transient fields.
+          continue;
         }
         if (ignoreSet.contains(field.getName())) {
           continue;
@@ -424,6 +461,11 @@ public class ObjectGraphTraverser {
 
         if (field.getType().isPrimitive()) {
           // We only care about the object graph
+          continue;
+        }
+
+        if (field.getType().isEnum()) {
+          // Enum instances are not interesting, they are always known at compile time
           continue;
         }
 

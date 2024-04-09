@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkLateBoundDefault;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.ObjectGraphTraverser.DomainSpecificTraverser;
 import com.google.devtools.build.lib.util.ObjectGraphTraverser.Traversal;
 import com.google.devtools.build.lib.vfs.Path;
@@ -31,6 +33,11 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
 final class BuildObjectTraverser implements DomainSpecificTraverser {
+  private final boolean reportConfiguration;
+
+  public BuildObjectTraverser(boolean reportConfiguration) {
+    this.reportConfiguration = reportConfiguration;
+  }
 
   @Override
   public boolean maybeTraverse(Object o, Traversal traversal) {
@@ -55,6 +62,16 @@ final class BuildObjectTraverser implements DomainSpecificTraverser {
 
   @Override
   public boolean admit(Object o) {
+    if (!reportConfiguration) {
+      if (o instanceof BuildConfigurationValue) {
+        return false;
+      }
+
+      if (o instanceof BuildConfigurationKey) {
+        return false;
+      }
+    }
+
     if (o instanceof RuleClass) {
       return false;
     }

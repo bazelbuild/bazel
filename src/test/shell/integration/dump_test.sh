@@ -69,8 +69,8 @@ sh_library(name='a')
 EOF
 
   bazel query //a:all >& $TEST_log || fail "query failed"
-  bazel dump --memory=deep:summary:package://a >& $TEST_log \
-    || failed "dump failed"
+  bazel dump --memory=deep,summary:package://a >& $TEST_log \
+    || fail "dump failed"
   expect_log "objects,.*bytes retained"
 }
 
@@ -90,9 +90,21 @@ b = {}
 EOF
 
   bazel query //a:all >& $TEST_log || fail "query failed"
-  bazel dump --memory=shallow:count:starlark_module://a:a.bzl >& $TEST_log \
-    || failed "dump failed"
+  bazel dump --memory=shallow,count:starlark_module://a:a.bzl >& $TEST_log \
+    || fail "dump failed"
   expect_log "^net.starlark.java.eval.Module: 1"  # Only a.bzl, not b.bzl
+}
+
+function test_memory_needle() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+EOF
+
+  bazel query //a:all >& $TEST_log || fail "query failed"
+  bazel dump --memory=shallow,count,needle=com.google.devtools.build.lib.packages.Package:package://a >& $TEST_log || fail "dump failed"
+  expect_log "Needle reached by path:"
+  bazel dump --memory=shallow,count,needle=com.google.devtools.build.lib.packages.Rule:package://a >& $TEST_log || fail "dump failed"
+  expect_not_log "Needle reached by path:"
 }
 
 run_suite "Tests for 'bazel dump'"

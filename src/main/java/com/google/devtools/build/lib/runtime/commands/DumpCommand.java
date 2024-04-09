@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static java.util.stream.Collectors.toList;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -124,6 +125,9 @@ public class DumpCommand implements BlazeCommand {
       MemoryCollectionMode collectionMode,
       MemoryDisplayMode displayMode,
       MemorySubjectType type,
+      String needle,
+      boolean reportTransient,
+      boolean reportConfiguration,
       String subject) {}
 
   /** Converter for {@link MemoryCollectionMode}. */
@@ -137,25 +141,59 @@ public class DumpCommand implements BlazeCommand {
     public MemoryMode convert(String input) throws OptionsParsingException {
       // The SkyKey designator is frequently a Label, which usually contains a colon so we must not
       // split the argument into an unlimited number of elements
-      String[] items = input.split(":", 4);
-      if (items.length != 4) {
+      String[] items = input.split(":", 3);
+      if (items.length != 3) {
         throw new OptionsParsingException("Invalid memory");
       }
 
-      MemoryCollectionMode collectionMode;
-      MemoryDisplayMode displayMode;
+      MemoryCollectionMode collectionMode = null;
+      MemoryDisplayMode displayMode = null;
+      String needle = null;
+      boolean reportTransient = true;
+      boolean reportConfiguration = true;
+
+      for (String word : Splitter.on(",").split(items[0])) {
+        if (word.startsWith("needle=")) {
+          needle = word.split("=", 2)[1];
+          continue;
+        }
+
+        switch (word) {
+          case "shallow" -> collectionMode = MemoryCollectionMode.SHALLOW;
+          case "deep" -> collectionMode = MemoryCollectionMode.DEEP;
+          case "summary" -> displayMode = MemoryDisplayMode.SUMMARY;
+          case "count" -> displayMode = MemoryDisplayMode.COUNT;
+          case "bytes" -> displayMode = MemoryDisplayMode.BYTES;
+          case "notransient" -> reportTransient = false;
+          case "noconfig" -> reportConfiguration = false;
+          default -> throw new OptionsParsingException("Unrecognized word '" + word + "'");
+        }
+      }
+
+      if (collectionMode == null) {
+        throw new OptionsParsingException("No collection type specified");
+      }
+
+      if (displayMode == null) {
+        throw new OptionsParsingException("No display mode specified");
+      }
+
       MemorySubjectType subjectType;
 
       try {
-        collectionMode = MemoryCollectionMode.valueOf(items[0].toUpperCase(Locale.ROOT));
-        displayMode = MemoryDisplayMode.valueOf(items[1].toUpperCase(Locale.ROOT));
-        subjectType = MemorySubjectType.valueOf(items[2].toUpperCase(Locale.ROOT));
+        subjectType = MemorySubjectType.valueOf(items[1].toUpperCase(Locale.ROOT));
       } catch (IllegalArgumentException e) {
-        throw new OptionsParsingException(
-            "Invalid collection mode, display mode or subject type", e);
+        throw new OptionsParsingException("Invalid subject type", e);
       }
 
-      return new MemoryMode(collectionMode, displayMode, subjectType, items[3]);
+      return new MemoryMode(
+          collectionMode,
+          displayMode,
+          subjectType,
+          needle,
+          reportTransient,
+          reportConfiguration,
+          items[2]);
     }
   }
 
@@ -569,7 +607,7 @@ public class DumpCommand implements BlazeCommand {
     ConcurrentIdentitySet result = new ConcurrentIdentitySet(0);
     ObjectGraphTraverser traverser =
         new ObjectGraphTraverser(
-            fieldCache, result, false, ObjectGraphTraverser.NOOP_OBJECT_RECEIVER, null);
+            fieldCache, true, result, false, ObjectGraphTraverser.NOOP_OBJECT_RECEIVER, null);
     traverser.traverse(env.getRuntime().getRuleClassProvider());
     return result;
   }
@@ -577,6 +615,7 @@ public class DumpCommand implements BlazeCommand {
   private static Stats dumpRamShallow(
       InMemoryGraph graph,
       NodeEntry nodeEntry,
+      MemoryMode mode,
       FieldCache fieldCache,
       MemoryAccountant memoryAccountant,
       ConcurrentIdentitySet seen)
@@ -586,23 +625,30 @@ public class DumpCommand implements BlazeCommand {
       NodeEntry directDepEntry = graph.get(null, Reason.OTHER, directDepKey);
       ObjectGraphTraverser depTraverser =
           new ObjectGraphTraverser(
-              fieldCache, seen, false, ObjectGraphTraverser.NOOP_OBJECT_RECEIVER, null);
+              fieldCache,
+              mode.reportTransient,
+              seen,
+              false,
+              ObjectGraphTraverser.NOOP_OBJECT_RECEIVER,
+              null);
       depTraverser.traverse(directDepEntry.getValue());
     }
 
     // Now traverse the objects reachable from the given SkyValue. Objects reachable from direct
     // dependencies are in "seen" and thus will not be counted.
-    return dumpRamReachable(nodeEntry, fieldCache, memoryAccountant, seen);
+    return dumpRamReachable(nodeEntry, mode, fieldCache, memoryAccountant, seen);
   }
 
   private static Stats dumpRamReachable(
       NodeEntry nodeEntry,
+      MemoryMode mode,
       FieldCache fieldCache,
       MemoryAccountant memoryAccountant,
       ConcurrentIdentitySet seen)
       throws InterruptedException {
     ObjectGraphTraverser traverser =
-        new ObjectGraphTraverser(fieldCache, seen, true, memoryAccountant, null);
+        new ObjectGraphTraverser(
+            fieldCache, mode.reportTransient, seen, true, memoryAccountant, null, mode.needle);
     traverser.traverse(nodeEntry.getValue());
     return memoryAccountant.getStats();
   }
@@ -625,7 +671,8 @@ public class DumpCommand implements BlazeCommand {
               "The requested node is not present", Code.SKYFRAME_MEMORY_DUMP_FAILED));
     }
 
-    BuildObjectTraverser buildObjectTraverser = new BuildObjectTraverser();
+    BuildObjectTraverser buildObjectTraverser =
+        new BuildObjectTraverser(dumpOptions.memory.reportConfiguration);
     CollectionObjectTraverser collectionObjectTraverser = new CollectionObjectTraverser();
     FieldCache fieldCache =
         new FieldCache(ImmutableList.of(buildObjectTraverser, collectionObjectTraverser));
@@ -635,8 +682,11 @@ public class DumpCommand implements BlazeCommand {
     ConcurrentIdentitySet seen = getBuiltinsSet(env, fieldCache);
     Stats stats =
         switch (dumpOptions.memory.collectionMode) {
-          case DEEP -> dumpRamReachable(nodeEntry, fieldCache, memoryAccountant, seen);
-          case SHALLOW -> dumpRamShallow(graph, nodeEntry, fieldCache, memoryAccountant, seen);
+          case DEEP ->
+              dumpRamReachable(nodeEntry, dumpOptions.memory, fieldCache, memoryAccountant, seen);
+          case SHALLOW ->
+              dumpRamShallow(
+                  graph, nodeEntry, dumpOptions.memory, fieldCache, memoryAccountant, seen);
         };
 
     switch (dumpOptions.memory.displayMode) {
