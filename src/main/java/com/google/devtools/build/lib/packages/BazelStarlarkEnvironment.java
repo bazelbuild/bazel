@@ -94,6 +94,11 @@ public final class BazelStarlarkEnvironment {
   /** The top-level predeclared symbols for a bzl module in the {@code @_builtins} pseudo-repo. */
   private final ImmutableMap<String, Object> builtinsBzlEnv;
 
+  /** The top-level predeclared symbols for a MODULE.bazel file. */
+  private final ImmutableMap<String, Object> moduleBazelEnv;
+  /** The top-level predeclared symbols for a REPO.bazel file. */
+  private final ImmutableMap<String, Object> repoBazelEnv;
+
   /**
    * Constructs a new {@code BazelStarlarkEnvironment} that will have complete knowledge of the
    * proper Starlark symbols available in each context, with and without injection.
@@ -141,6 +146,8 @@ public final class BazelStarlarkEnvironment {
             uninjectedBuildBzlEnv);
     this.uninjectedBuildEnv =
         createUninjectedBuildEnv(starlarkGlobals, ruleFunctions, registeredBuildFileToplevels);
+    this.moduleBazelEnv = starlarkGlobals.getModuleToplevels();
+    this.repoBazelEnv = starlarkGlobals.getRepoToplevels();
   }
 
   /**
@@ -204,6 +211,20 @@ public final class BazelStarlarkEnvironment {
    */
   public ImmutableMap<String, Object> getBuiltinsBzlEnv() {
     return builtinsBzlEnv;
+  }
+
+  /**
+   * Returns the environment for MODULE.bazel files.
+   */
+  public ImmutableMap<String, Object> getModuleBazelEnv() {
+    return moduleBazelEnv;
+  }
+
+  /**
+   * Returns the environment for REPO.bazel files.
+   */
+  public ImmutableMap<String, Object> getRepoBazelEnv() {
+    return moduleBazelEnv;
   }
 
   private static ImmutableMap<String, Object> createBzlToplevelsWithoutNative(
