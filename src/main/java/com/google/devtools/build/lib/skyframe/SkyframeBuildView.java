@@ -17,6 +17,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
+import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
+import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.UPON_CONFIGURED_OBJECT_CREATION;
+import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.WITH_TRAVERSAL;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -118,7 +121,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -169,7 +171,12 @@ public final class SkyframeBuildView {
       ConfiguredRuleClassProvider ruleClassProvider,
       ActionKeyContext actionKeyContext) {
     this.actionKeyContext = actionKeyContext;
-    this.factory = new ConfiguredTargetFactory(ruleClassProvider);
+    this.factory =
+        new ConfiguredTargetFactory(
+            ruleClassProvider,
+            () ->
+                skyframeExecutor.getCheckerForConflictCheckingMode(
+                    UPON_CONFIGURED_OBJECT_CREATION));
     this.artifactFactory = artifactFactory;
     this.skyframeExecutor = skyframeExecutor;
     this.ruleClassProvider = ruleClassProvider;
@@ -641,6 +648,14 @@ public final class SkyframeBuildView {
     Set<SkyKey> topLevelKeys =
         Sets.newConcurrentHashSet(Sets.union(buildDriverCTKeys, buildDriverAspectKeys));
 
+    ConflictCheckingMode conflictCheckingMode =
+        shouldCheckForConflicts(checkForActionConflicts, newKeys)
+            ? skyframeExecutor.tracksStateForIncrementality()
+                ? WITH_TRAVERSAL
+                : UPON_CONFIGURED_OBJECT_CREATION
+            : NONE;
+    skyframeExecutor.setConflictCheckingModeInThisBuild(conflictCheckingMode);
+
     try (AnalysisOperationWatcher autoCloseableWatcher =
         AnalysisOperationWatcher.createAndRegisterWithEventBus(
             topLevelKeys,
@@ -655,8 +670,7 @@ public final class SkyframeBuildView {
                     ctKeys,
                     shouldDiscardAnalysisCache,
                     /* measuredAnalysisTime= */ analysisWorkTimer.stop().elapsed().toMillis(),
-                    /* shouldPublishBuildGraphMetrics= */ () ->
-                        shouldCheckForConflicts(checkForActionConflicts, newKeys)),
+                    /* conflictCheckingMode= */ conflictCheckingMode),
             /* executionGoAheadCallback= */ executor::launchQueuedUpExecutionPhaseTasks)) {
 
       try {
@@ -675,8 +689,7 @@ public final class SkyframeBuildView {
                   workspaceStatusArtifacts,
                   keepGoing,
                   executors.executionParallelism(),
-                  executor,
-                  () -> shouldCheckForConflicts(checkForActionConflicts, newKeys));
+                  executor);
         } finally {
           // Required for incremental correctness.
           // We unconditionally reset the states here instead of in #analysisFinishedCallback since
@@ -798,6 +811,7 @@ public final class SkyframeBuildView {
               /* includeExecutionPhase= */ true);
       detailedExitCodes.add(errorProcessingResult.executionDetailedExitCode());
 
+
       foundActionConflictInLatestCheck = !errorProcessingResult.actionConflicts().isEmpty();
       TopLevelActionConflictReport topLevelActionConflictReport =
           foundActionConflictInLatestCheck
@@ -811,7 +825,6 @@ public final class SkyframeBuildView {
                   keepGoing,
                   errorProcessingResult)
               : null;
-
       ImmutableMap<AspectKey, ConfiguredAspect> successfulAspects =
           getSuccessfulAspectMap(
               topLevelAspectsKeys.size(),
@@ -831,7 +844,9 @@ public final class SkyframeBuildView {
 
       return SkyframeAnalysisAndExecutionResult.withErrors(
           /* hasLoadingError= */ errorProcessingResult.hasLoadingError(),
-          /* hasAnalysisError= */ errorProcessingResult.hasAnalysisError(),
+          // legacy behavior: action conflicts are considered analysis errors.
+          /* hasAnalysisError= */ errorProcessingResult.hasAnalysisError()
+              || foundActionConflictInLatestCheck,
           /* hasActionConflicts= */ foundActionConflictInLatestCheck,
           successfulConfiguredTargets,
           mainEvaluationResult.getWalkableGraph(),
@@ -850,9 +865,9 @@ public final class SkyframeBuildView {
       List<ConfiguredTargetKey> configuredTargetKeys,
       boolean shouldDiscardAnalysisCache,
       long measuredAnalysisTime,
-      Supplier<Boolean> shouldPublishBuildGraphMetrics)
+      ConflictCheckingMode conflictCheckingMode)
       throws InterruptedException {
-    if (shouldPublishBuildGraphMetrics.get()) {
+    if (conflictCheckingMode != NONE) {
       // Now that we have the full picture, it's time to collect the metrics of the whole graph.
       BuildGraphMetrics.Builder buildGraphMetricsBuilder =
           skyframeExecutor
@@ -860,7 +875,7 @@ public final class SkyframeBuildView {
                   configuredTargetKeys, buildResultListener.getAnalyzedAspects().keySet())
               .getMetrics();
       IncrementalArtifactConflictFinder incrementalArtifactConflictFinder =
-          skyframeExecutor.getIncrementalArtifactConflictFinder();
+          skyframeExecutor.getCheckerForConflictCheckingMode(conflictCheckingMode);
       if (incrementalArtifactConflictFinder != null) {
         buildGraphMetricsBuilder.setOutputArtifactCount(
             incrementalArtifactConflictFinder.getOutputArtifactCount());

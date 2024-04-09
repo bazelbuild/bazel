@@ -58,6 +58,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -388,11 +389,25 @@ public final class IncrementalArtifactConflictFinder {
         Thread.currentThread().interrupt();
         return null;
       }
-      for (Artifact output : action.getOutputs()) {
-        checkOutputPrefix(actionGraph, pathFragmentTrieRoot, output, badActionMap);
+      try {
+        for (Artifact output : action.getOutputs()) {
+          checkOutputPrefix(actionGraph, pathFragmentTrieRoot, output, badActionMap);
+        }
+      } catch (ActionConflictException e) {
+        throw new IllegalStateException(
+            "ActionConflictException aren't expected to be thrown here.", e);
       }
     }
     return null;
+  }
+
+  public void conflictCheckPerAction(ActionAnalysisMetadata action)
+      throws ActionConflictException, InterruptedException {
+    threadSafeMutableActionGraph.registerAction(action);
+
+    for (Artifact output : action.getOutputs()) {
+      checkOutputPrefix(threadSafeMutableActionGraph, pathFragmentTrieRoot, output, null);
+    }
   }
 
   /**
@@ -408,12 +423,15 @@ public final class IncrementalArtifactConflictFinder {
    *
    * <p>We do this instead of creating a proper wrapper TrieNode data structure to save memory, as
    * the trie is expected to get quite large.
+   *
+   * @throws ActionConflictException only when badActionMap is null.
    */
   private static void checkOutputPrefix(
       MutableActionGraph actionGraph,
       ConcurrentMap<String, Object> root,
       Artifact newArtifact,
-      ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap) {
+      @Nullable ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap)
+      throws ActionConflictException {
     Object existingTrieNode = root;
     PathFragment newArtifactPathFragment = newArtifact.getExecPath();
     Iterator<String> newPathIter = newArtifactPathFragment.segments().iterator();
@@ -450,14 +468,19 @@ public final class IncrementalArtifactConflictFinder {
         ActionConflictException exception =
             ActionConflictException.createPrefix(
                 conflictingExistingArtifact, newArtifact, priorAction, currentAction);
-        badActionMap.put(priorAction, exception);
-        badActionMap.put(currentAction, exception);
         // If 2 paths collide, we need to update the Trie to contain only the shorter one.
         // This is required for correctness: the set of subsequent paths that could conflict with
         // the longer path is a subset of that of the shorter path.
         if (newPathIsPrefixOfExisting) {
           existingNonLeafNode.put(newSegment, newArtifact);
         }
+
+        if (badActionMap == null) {
+          throw exception;
+        }
+
+        badActionMap.put(priorAction, exception);
+        badActionMap.put(currentAction, exception);
 
         break;
       }
