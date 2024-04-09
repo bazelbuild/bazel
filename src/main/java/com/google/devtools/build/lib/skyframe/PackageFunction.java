@@ -941,6 +941,9 @@ public abstract class PackageFunction implements SkyFunction {
     ImmutableSet<PathFragment> repositoryIgnoredPatterns =
         repositoryIgnoredPackagePrefixes.getPatterns();
     Label preludeLabel = null;
+
+    // Load (optional) prelude, which determines environment.
+    ImmutableMap<String, Object> preludeBindings = null;
     // Can be null in tests.
     if (packageFactory != null) {
       // Load the prelude from the same repository as the package being loaded.
@@ -950,6 +953,16 @@ public abstract class PackageFunction implements SkyFunction {
             PackageIdentifier.create(
                 packageId.getRepository(), rawPreludeLabel.getPackageFragment());
         preludeLabel = Label.createUnvalidated(preludePackage, rawPreludeLabel.getName());
+        Module prelude;
+        try {
+          prelude = loadPrelude(env, packageId, preludeLabel, bzlLoadFunctionForInlining);
+        } catch (NoSuchPackageException e) {
+          throw new PackageFunctionException(e, Transience.PERSISTENT);
+        }
+        if (prelude == null) {
+          return null; // skyframe restart
+        }
+        preludeBindings = prelude.getGlobals();
       }
     }
 
@@ -978,11 +991,7 @@ public abstract class PackageFunction implements SkyFunction {
                 buildFileRootedPath,
                 buildFileValue,
                 starlarkBuiltinsValue,
-                preludeLabel,
-                env);
-        if (compiled == null) {
-          return null; // skyframe restart
-        }
+                preludeBindings);
         state.compiledBuildFile = compiled;
       }
 
@@ -1127,16 +1136,13 @@ public abstract class PackageFunction implements SkyFunction {
   // Reads, parses, resolves, and compiles a BUILD file.
   // A read error is reported as PackageFunctionException.
   // A syntax error is reported by returning a CompiledBuildFile with errors.
-  // A null result indicates a SkyFrame restart.
-  @Nullable
   private CompiledBuildFile compileBuildFile(
       PackageIdentifier packageId,
       RootedPath buildFilePath,
       FileValue buildFileValue,
       StarlarkBuiltinsValue starlarkBuiltinsValue,
-      @Nullable Label preludeLabel,
-      Environment env)
-      throws PackageFunctionException, InterruptedException {
+      @Nullable Map<String, Object> preludeBindings)
+      throws PackageFunctionException {
     // Though it could be in principle, `cpuBoundSemaphore` is not held here as this method does
     // not show up in profiles as being significantly impacted by thrashing. It could be worth doing
     // so, in which case it should be released when reading the file below.
@@ -1201,21 +1207,6 @@ public abstract class PackageFunction implements SkyFunction {
       PackageFactory.checkBuildSyntax(file, globs, globsWithDirs, subpackages, generatorMap);
     } catch (SyntaxError.Exception ex) {
       return new CompiledBuildFile(ex.errors());
-    }
-
-    // Load (optional) prelude, which determines environment.
-    ImmutableMap<String, Object> preludeBindings = null;
-    if (preludeLabel != null) {
-      Module prelude;
-      try {
-        prelude = loadPrelude(env, packageId, preludeLabel, bzlLoadFunctionForInlining);
-      } catch (NoSuchPackageException e) {
-        throw new PackageFunctionException(e, Transience.PERSISTENT);
-      }
-      if (prelude == null) {
-        return null; // skyframe restart
-      }
-      preludeBindings = prelude.getGlobals();
     }
 
     // Construct static environment for resolution/compilation.
