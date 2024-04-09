@@ -271,17 +271,16 @@ public class RunCommand implements BlazeCommand {
     } catch (RunCommandException e) {
       return e.result;
     }
-    // In --batch, prioritize original client env-var values over those added by the c++ launcher.
-    // Only necessary in --batch since the command runs as a subprocess of the java server.
     boolean batchMode =
         env.getRuntime()
             .getStartupOptionsProvider()
             .getOptions(BlazeServerStartupOptions.class)
             .batch;
-    ImmutableSortedMap.Builder<String, String> runEnv =
-        ImmutableSortedMap.<String, String>naturalOrder().putAll(runCommandLine.runEnvironment);
+    TreeMap<String, String> finalRunEnv = new TreeMap<>(runCommandLine.runEnvironment);
     if (batchMode) {
-      runEnv.putAll(env.getClientEnv());
+      // In --batch, prioritize original client env-var values over those added by the c++ launcher.
+      // Only necessary in --batch since the command runs as a subprocess of the java server.
+      finalRunEnv.putAll(env.getClientEnv());
     }
     ExecRequest.Builder execRequest;
     try {
@@ -302,7 +301,7 @@ public class RunCommand implements BlazeCommand {
               env,
               runCommandLine.workingDir,
               runCommandLine.args,
-              runEnv.buildOrThrow(),
+              ImmutableSortedMap.copyOf(finalRunEnv),
               ENV_VARIABLES_TO_CLEAR,
               builtTargets.configuration,
               builtTargets.stopTime,
