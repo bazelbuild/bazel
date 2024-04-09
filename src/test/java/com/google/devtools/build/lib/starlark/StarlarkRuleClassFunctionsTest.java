@@ -2858,8 +2858,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "r/def.bzl",
         """
+        Info = provider()
         def _r(ctx):
-            return struct(value = ctx.attr.text)
+            return Info(value = ctx.attr.text)
 
         r = rule(implementation = _r, attrs = {"text": attr.string()})
         """);
@@ -2911,9 +2912,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "r/def.bzl",
         """
         load(":create.bzl", "create")
-
+        Info = provider()
         def f(ctx):
-            return struct(value = "OLD")
+            return Info(value = "OLD")
 
         r = create(f)
         """);
@@ -2960,8 +2961,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "r/create.bzl",
         """
+        Info = provider()
         def f(ctx):
-            return struct(value = json.encode(ctx.attr))
+            return Info(value = json.encode(ctx.attr))
 
         def create(attrs):
             return rule(implementation = f, attrs = attrs)

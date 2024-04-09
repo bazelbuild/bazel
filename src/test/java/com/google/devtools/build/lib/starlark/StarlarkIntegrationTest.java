@@ -3542,7 +3542,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testDisableTargetProviderFields() throws Exception {
-    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=true");
+    setBuildLanguageOptions(
+        "--incompatible_disable_target_provider_fields=true",
+        "--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/rule.bzl",
         """
@@ -3582,7 +3584,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   // --incompatible_disable_target_provider_fields.
   @Test
   public void testDisableTargetProviderFields_actionsField() throws Exception {
-    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=true");
+    setBuildLanguageOptions(
+        "--incompatible_disable_target_provider_fields=true",
+        "--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/rule.bzl",
         """
@@ -3614,7 +3618,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testDisableTargetProviderFields_disabled() throws Exception {
-    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=false");
+    setBuildLanguageOptions(
+        "--incompatible_disable_target_provider_fields=false",
+        "--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/rule.bzl",
         """

@@ -781,9 +781,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "test/aspect.bzl",
         "def _aspect_impl(target, ctx):",
-        "   return struct()",
+        "   return []",
         "def _rule_impl(ctx):",
-        "   return struct()",
+        "   return []",
         "",
         "MyAspect = aspect(",
         "   implementation=_aspect_impl,",

@@ -134,6 +134,8 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -809,6 +811,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       result.addAll(provider.getFilesToBuild().toList());
     }
     return ImmutableList.copyOf(result);
+  }
+
+  /**
+   * Retrieves Starlark provider from a configured target.
+   *
+   * <p>Assuming that the provider is defined in the same bzl file as the rule.
+   */
+  protected StarlarkInfo getStarlarkProvider(ConfiguredTarget target, String providerSymbol)
+      throws Exception {
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(
+            getTarget(target.getLabel())
+                .getAssociatedRule()
+                .getRuleClassObject()
+                .getRuleDefinitionEnvironmentLabel(),
+            providerSymbol);
+    return (StarlarkInfo) target.get(key);
   }
 
   protected ActionGraph getActionGraph() {
