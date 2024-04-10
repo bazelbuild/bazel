@@ -396,9 +396,9 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
             String.format(
                 "--xcode_version=%1$s specified, but it is not available locally. Your build will"
                     + " fail if any actions require a local Xcode. If you believe you have '%1$s'"
-                    + " installed, try running \"blaze sync --configure\", and then re-run your"
-                    + " command.  localy available versions: [%2$s]. remotely available versions:"
-                    + " [%3$s]",
+                    + " installed, try running 'bazel fetch --configure' (Bzlmod) or 'bazel sync"
+                    + " --configure' (WORKSPACE), and then re-run your command.  localy available"
+                    + " versions: [%2$s]. remotely available versions: [%3$s]",
                 versionOverrideFlag,
                 printableXcodeVersions(localVersions.getAvailableVersions()),
                 printableXcodeVersions(remoteVersions.getAvailableVersions())));
@@ -407,9 +407,10 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         ruleContext.throwWithRuleError(
             String.format(
                 "--xcode_version=%1$s specified, but '%1$s' is not an available Xcode version."
-                    + " localy available versions: [%2$s]. remotely available versions:"
-                    + " [%3$s]. If you believe you have '%1$s' installed, try running \"blaze"
-                    + " sync --configure\", and then re-run your command.",
+                    + " localy available versions: [%2$s]. remotely available versions: [%3$s]. If"
+                    + " you believe you have '%1$s' installed, try running 'bazel fetch"
+                    + " --configure' (Bzlmod) or 'bazel sync --configure' (WORKSPACE), and then"
+                    + " re-run your command.",
                 versionOverrideFlag,
                 printableXcodeVersions(localVersions.getAvailableVersions()),
                 printableXcodeVersions(remoteVersions.getAvailableVersions())));
