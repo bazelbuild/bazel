@@ -224,7 +224,7 @@ public final class BazelStarlarkEnvironment {
    * Returns the environment for REPO.bazel files.
    */
   public ImmutableMap<String, Object> getRepoBazelEnv() {
-    return moduleBazelEnv;
+    return repoBazelEnv;
   }
 
   private static ImmutableMap<String, Object> createBzlToplevelsWithoutNative(
