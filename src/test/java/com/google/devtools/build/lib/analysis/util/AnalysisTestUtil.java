@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -232,6 +233,11 @@ public final class AnalysisTestUtil {
     @Override
     public ActionKeyContext getActionKeyContext() {
       return original.getActionKeyContext();
+    }
+
+    @Override
+    public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+      return original.getMainRepoMapping();
     }
   }
 
@@ -468,6 +474,11 @@ public final class AnalysisTestUtil {
     @Override
     public ActionKeyContext getActionKeyContext() {
       return null;
+    }
+
+    @Override
+    public RepositoryMapping getMainRepoMapping() {
+      return RepositoryMapping.ALWAYS_FALLBACK;
     }
   }
 

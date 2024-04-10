@@ -1367,7 +1367,7 @@ EOF
 
   bazel build @x_repo//a >& $TEST_log && fail "Building @x_repo//a should error out"
   expect_log "** Please add the following dependencies:"
-  expect_log "@@x_repo//x to @@x_repo//a"
+  expect_log " @x_repo//x to @x_repo//a"
 }
 
 # This test verifies that the `public` pattern includes external dependencies.

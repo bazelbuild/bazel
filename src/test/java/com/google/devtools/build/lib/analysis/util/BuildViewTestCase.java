@@ -114,6 +114,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -2325,6 +2326,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     @Override
     public ActionKeyContext getActionKeyContext() {
       return actionKeyContext;
+    }
+
+    @Override
+    public RepositoryMapping getMainRepoMapping() {
+      throw new UnsupportedOperationException();
     }
   }
 

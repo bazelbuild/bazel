@@ -211,7 +211,8 @@ public final class JavaCompilationHelper {
     return builder.build();
   }
 
-  public void createCompileAction(JavaCompileOutputs<Artifact> outputs) throws RuleErrorException {
+  public void createCompileAction(JavaCompileOutputs<Artifact> outputs)
+      throws RuleErrorException, InterruptedException {
     if (outputs.genClass() != null) {
       createGenJarAction(
           outputs.output(),
@@ -544,7 +545,7 @@ public final class JavaCompilationHelper {
    * @param headerDeps the .jdeps output of this java compilation
    */
   public void createHeaderCompilationAction(Artifact headerJar, Artifact headerDeps)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
 
     JavaTargetAttributes attributes = getAttributes();
 
@@ -689,7 +690,8 @@ public final class JavaCompilationHelper {
    * @return the header jar (if requested), or ijar (if requested), or else the class jar
    */
   public Artifact createCompileTimeJarAction(
-      Artifact runtimeJar, JavaCompilationArtifacts.Builder builder) throws RuleErrorException {
+      Artifact runtimeJar, JavaCompilationArtifacts.Builder builder)
+      throws RuleErrorException, InterruptedException {
     Artifact jar;
     boolean isFullJar = false;
     if (shouldUseHeaderCompilation()) {

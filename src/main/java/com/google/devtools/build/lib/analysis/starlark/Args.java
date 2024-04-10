@@ -24,10 +24,13 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.ScalarArg;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -71,7 +74,8 @@ public abstract class Args implements CommandLineArgsApi {
   @Override
   public void debugPrint(Printer printer, StarlarkSemantics semantics) {
     try {
-      printer.append(Joiner.on(" ").join(build().arguments()));
+      printer.append(
+          Joiner.on(" ").join(build(/* mainRepoMappingSupplier= */ () -> null).arguments()));
     } catch (CommandLineExpansionException e) {
       printer.append("Cannot expand command line: " + e.getMessage());
     } catch (InterruptedException e) {
@@ -103,7 +107,8 @@ public abstract class Args implements CommandLineArgsApi {
   public abstract ImmutableSet<Artifact> getDirectoryArtifacts();
 
   /** Returns the command line built by this {@link Args} object. */
-  public abstract CommandLine build();
+  public abstract CommandLine build(
+      InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) throws InterruptedException;
 
   /**
    * Returns a frozen {@link Args} representation corresponding to an already-registered action.
@@ -158,7 +163,7 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     @Override
-    public CommandLine build() {
+    public CommandLine build(InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) {
       return commandLine;
     }
 
@@ -260,6 +265,12 @@ public abstract class Args implements CommandLineArgsApi {
      */
     private boolean flagPerLine = false;
 
+    /**
+     * True if the command line needs to stringify any {@link Label}s without an explicit 'map_each'
+     * function.
+     */
+    private boolean mayStringifyExternalLabel = false;
+
     // May be set explicitly once -- if unset defaults to ParameterFileType.SHELL_QUOTED.
     private ParameterFileType parameterFileType = null;
     private String flagFormatString;
@@ -307,6 +318,9 @@ public abstract class Args implements CommandLineArgsApi {
         throw Starlark.errorf(
             "Args.add() doesn't accept vectorized arguments. Please use Args.add_all() or"
                 + " Args.add_joined() instead.");
+      }
+      if (value instanceof Label label && !label.getRepository().isMain()) {
+        mayStringifyExternalLabel = true;
       }
       addScalarArg(value, format != Starlark.NONE ? (String) format : null);
       return this;
@@ -437,8 +451,12 @@ public abstract class Args implements CommandLineArgsApi {
       validateFormatString("format_each", formatEach);
       validateFormatString("format_joined", formatJoined);
       StarlarkCustomCommandLine.VectorArg.Builder vectorArg;
-      if (value instanceof Depset) {
-        Depset starlarkNestedSet = (Depset) value;
+      if (value instanceof Depset starlarkNestedSet) {
+        if (mapEach == null && Label.class.equals(starlarkNestedSet.getElementClass())) {
+          // We don't want to eagerly check whether all labels reference targets in the main repo,
+          // so just assume they might not. Nested sets of labels should be rare.
+          mayStringifyExternalLabel = true;
+        }
         NestedSet<?> nestedSet = starlarkNestedSet.getSet();
         if (nestedSet.isEmpty() && omitIfEmpty) {
           return;
@@ -452,8 +470,16 @@ public abstract class Args implements CommandLineArgsApi {
         if (starlarkList.isEmpty() && omitIfEmpty) {
           return;
         }
-        if (expandDirectories) {
-          scanForDirectories(starlarkList);
+        for (Object object : starlarkList) {
+          if (expandDirectories && isDirectory(object)) {
+            directoryArtifacts.add((Artifact) object);
+          }
+          // Labels referencing targets in the main repo are stringified as //pkg:name and thus
+          // don't require a RepositoryMapping. If a map_each function is provided, default
+          // stringification via Label#toString() is not used.
+          if (mapEach == null && object instanceof Label label && !label.getRepository().isMain()) {
+            mayStringifyExternalLabel = true;
+          }
         }
         vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(starlarkList);
       }
@@ -575,8 +601,10 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     @Override
-    public CommandLine build() {
-      return commandLine.build(flagPerLine);
+    public CommandLine build(InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier)
+        throws InterruptedException {
+      return commandLine.build(
+          flagPerLine, mayStringifyExternalLabel ? mainRepoMappingSupplier.get() : null);
     }
 
     @Override
@@ -587,18 +615,15 @@ public abstract class Args implements CommandLineArgsApi {
     @Override
     public ImmutableSet<Artifact> getDirectoryArtifacts() {
       for (NestedSet<?> collection : potentialDirectoryArtifacts) {
-        scanForDirectories(collection.toList());
+        for (Object object : collection.toList()) {
+          if (isDirectory(object)) {
+            directoryArtifacts.add((Artifact) object);
+          }
+        }
       }
       potentialDirectoryArtifacts.clear();
       return ImmutableSet.copyOf(directoryArtifacts);
     }
 
-    private void scanForDirectories(Iterable<?> objects) {
-      for (Object object : objects) {
-        if (isDirectory(object)) {
-          directoryArtifacts.add((Artifact) object);
-        }
-      }
-    }
   }
 }

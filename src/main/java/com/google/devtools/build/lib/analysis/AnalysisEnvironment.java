@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -176,4 +177,9 @@ public interface AnalysisEnvironment extends ActionRegistry {
   ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles();
 
   ActionKeyContext getActionKeyContext();
+
+  /**
+   * Returns and registers a Skyframe dependency on the {@link RepositoryMapping} of the main repo.
+   */
+  RepositoryMapping getMainRepoMapping() throws InterruptedException;
 }

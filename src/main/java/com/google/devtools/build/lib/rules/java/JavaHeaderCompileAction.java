@@ -372,7 +372,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     }
 
     /** Builds and registers the action for a header compilation. */
-    public void build(JavaToolchainProvider javaToolchain) throws RuleErrorException {
+    public void build(JavaToolchainProvider javaToolchain)
+        throws RuleErrorException, InterruptedException {
       checkNotNull(outputDepsProto, "outputDepsProto must not be null");
       checkNotNull(sourceFiles, "sourceFiles must not be null");
       checkNotNull(sourceJars, "sourceJars must not be null");
@@ -482,7 +483,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         } else {
           // @-prefixed strings will be assumed to be params filenames and expanded,
           // so add an extra @ to escape it.
-          commandLine.addPrefixedLabel("@", targetLabel);
+          commandLine.addPrefixedLabel(
+              "@", targetLabel, ruleContext.getAnalysisEnvironment().getMainRepoMapping());
         }
       }
 
