@@ -14,4 +14,4 @@
 
 """Semantics for Blaze Xcode rules"""
 
-unavailable_xcode_message = "sudo xcode-select -s <FULL_PATH_TO_XCODE_YOU_WANT>"
+unavailable_xcode_message = "'sudo xcode-select -s <FULL_PATH_TO_XCODE_YOU_WANT>'"

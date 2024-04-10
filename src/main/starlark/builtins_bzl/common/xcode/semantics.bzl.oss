@@ -14,4 +14,4 @@
 
 """Semantics for Bazel Xcode rules"""
 
-unavailable_xcode_message = "bazel sync --configure"
+unavailable_xcode_message = "'bazel fetch --configure' (Bzlmod) or 'bazel sync --configure' (WORKSPACE)"

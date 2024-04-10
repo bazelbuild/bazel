@@ -252,7 +252,7 @@ def _resolve_xcode_from_local_and_remote(
         elif remote_version_from_flag:
             print(("--xcode_version={version} specified, but it is not available locally. " +
                    "Your build will fail if any actions require a local Xcode. " +
-                   "If you believe you have '{version}' installed, try running '{command}'," +
+                   "If you believe you have '{version}' installed, try running {command}," +
                    "and then re-run your command. Locally available versions: {local_versions}. ")
                 .format(
                 version = xcode_version_flag,
@@ -267,7 +267,7 @@ def _resolve_xcode_from_local_and_remote(
             fail(
                 ("--xcode_version={0} specified, but '{0}' is not an available Xcode version." +
                  " Locally available versions: [{2}]. Remotely available versions: [{3}]. If" +
-                 " you believe you have '{0}' installed, try running '{1}', and then" +
+                 " you believe you have '{0}' installed, try running {1}, and then" +
                  " re-run your command.").format(
                     xcode_version_flag,
                     unavailable_xcode_message,
