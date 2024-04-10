@@ -189,6 +189,7 @@ public final class BazelEvaluationTestCase {
     return BazelModuleContext.create(
         label,
         RepositoryMapping.ALWAYS_FALLBACK,
+        /* mainRepoMapping= */ null,
         "test/label.bzl",
         /* loads= */ ImmutableList.of(),
         /* bzlTransitiveDigest= */ new byte[0]);

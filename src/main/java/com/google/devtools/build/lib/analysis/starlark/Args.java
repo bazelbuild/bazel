@@ -71,7 +71,7 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   @Override
-  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public void debugPrint(Printer printer, StarlarkThread thread) {
     try {
       printer.append(
           Joiner.on(" ").join(build(/* mainRepoMappingSupplier= */ () -> null).arguments()));

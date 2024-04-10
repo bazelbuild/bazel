@@ -32,7 +32,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Encapsulates information for linking a library. */
@@ -225,7 +224,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   abstract boolean getDisableWholeArchive();
 
   @Override
-  public final void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public final void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append("<LibraryToLink(");
     printer.append(
         Joiner.on(", ")

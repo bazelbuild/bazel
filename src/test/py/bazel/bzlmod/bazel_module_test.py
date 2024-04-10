@@ -942,6 +942,65 @@ class BazelModuleTest(test_base.TestBase):
     )
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
+    
+
+  def testLabelDebugPrint(self):
+    """Tests that print emits labels in display form."""
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'bazel_dep(name="other_module", version="1.0")',
+        'local_path_override(module_name="other_module", path="other_module")',
+        'ext = use_extension("//:defs.bzl", "my_ext")',
+        'use_repo(ext, "repo")',
+      ]
+    )
+
+    self.ScratchFile(
+      'WORKSPACE.bzlmod',
+      [
+        'load("//:defs.bzl", "my_repo")',
+        'my_repo(name = "workspace_repo", type = "workspace")',
+      ]
+    )
+
+    self.ScratchFile('other_module/MODULE.bazel', ['module(name="other_module", version="1.0")'])
+
+    self.ScratchFile(
+      'defs.bzl',
+      [
+        'print("toplevel", Label("//:foo"), Label("@other_module//:bar"), Label("@@canonical_name//:baz"))',
+        'def _repo_impl(ctx):',
+        '  print("repo:" + ctx.attr.type, Label("//:foo"), Label("@other_module//:bar"), Label("@@canonical_name//:baz"))',
+        '  ctx.file("BUILD")',
+        '  ctx.file("data.bzl", "repo_data = \\"repo\\"")',
+        'my_repo = repository_rule(implementation=_repo_impl, attrs={"type":attr.string()})',
+        'def _ext_impl(ctx):',
+        '  print("ext", Label("//:foo"), Label("@other_module//:bar"), Label("@@canonical_name//:baz"))',
+        '  my_repo(name = "repo", type = "module")',
+        'my_ext = module_extension(implementation=_ext_impl)',
+        'def _rule_impl(ctx):',
+        '  print("rule", Label("//:foo"), Label("@other_module//:bar"), Label("@@canonical_name//:baz"))',
+        'my_rule = rule(implementation=_rule_impl)',
+      ]
+    )
+    self.ScratchFile(
+      "BUILD",
+      [
+        'load("@repo//:data.bzl", "repo_data")',
+        'load("@workspace_repo//:data.bzl", "repo_data")',
+        'load(":defs.bzl", "my_rule")',
+        'my_rule(name = "my_rule")',
+      ]
+    )
+
+    _, _, stderr = self.RunBazel(['build', '--enable_workspace', '//:my_rule'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('toplevel //:foo @other_module//:bar @@canonical_name//:baz', stderr)
+    self.assertIn('repo:module //:foo @other_module//:bar @@canonical_name//:baz', stderr)
+    self.assertIn('repo:workspace //:foo @other_module//:bar @@canonical_name//:baz', stderr)
+    self.assertIn('ext //:foo @other_module//:bar @@canonical_name//:baz', stderr)
+    self.assertIn('rule //:foo @other_module//:bar @@canonical_name//:baz', stderr)
 
 
 if __name__ == '__main__':

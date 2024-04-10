@@ -117,7 +117,7 @@ public abstract class ModuleFileValue implements SkyValue {
   /** {@link SkyKey} for {@link ModuleFileValue} computation. */
   @AutoCodec
   @AutoValue
-  abstract static class Key implements SkyKey {
+  public abstract static class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     abstract ModuleKey getModuleKey();
