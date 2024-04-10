@@ -1,6 +1,6 @@
+# [Bazel](https://bazel.build)
 <a href="https://bazel.build/">
-    <img width="400" src="https://cdn.icon-icons.com/icons2/2699/PNG/512/bazel_logo_icon_167814.png" alt="Bazel logo"> 
-</a>
+    <img width="400" src="https://en.m.wikipedia.org/wiki/File:Bazel_logo.svg" alt="Bazel logo"> 
 
 *{Fast, Correct} - Choose two*
 
