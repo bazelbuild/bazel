@@ -425,12 +425,7 @@ public class SandboxHelpersTest {
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             outputRoot, "bin/config/other_dir/subdir");
     PathMapper pathMapper =
-        new PathMapper() {
-          @Override
-          public PathFragment map(PathFragment execPath) {
-            return PathFragment.create(execPath.getPathString().replace("config/", ""));
-          }
-        };
+        execPath -> PathFragment.create(execPath.getPathString().replace("config/", ""));
     Spawn spawn =
         new SpawnBuilder().withOutputs(outputFile, outputDir).setPathMapper(pathMapper).build();
     var sandboxHelpers = new SandboxHelpers();
@@ -457,12 +452,7 @@ public class SandboxHelpersTest {
   public void moveOutputs_mappedPathMovedToUnmappedPath() throws Exception {
     PathFragment unmappedOutputPath = PathFragment.create("bin/config/output");
     PathMapper pathMapper =
-        new PathMapper() {
-          @Override
-          public PathFragment map(PathFragment execPath) {
-            return PathFragment.create(execPath.getPathString().replace("config/", ""));
-          }
-        };
+        execPath -> PathFragment.create(execPath.getPathString().replace("config/", ""));
     Spawn spawn =
         new SpawnBuilder()
             .withOutputs(unmappedOutputPath.getPathString())

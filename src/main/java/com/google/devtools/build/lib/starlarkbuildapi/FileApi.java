@@ -20,7 +20,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /** The interface for files in Starlark. */
@@ -46,11 +45,10 @@ public interface FileApi extends StarlarkValue {
   @StarlarkMethod(
       name = "dirname",
       structField = true,
-      useStarlarkSemantics = true,
       doc =
           "The name of the directory containing this file. It's taken from "
               + "<a href=\"#path\">path</a> and is always relative to the execution directory.")
-  String getDirnameForStarlark(StarlarkSemantics semantics);
+  String getDirname();
 
   @StarlarkMethod(
       name = "basename",
@@ -77,9 +75,8 @@ public interface FileApi extends StarlarkValue {
   @StarlarkMethod(
       name = "root",
       structField = true,
-      useStarlarkSemantics = true,
       doc = "The root beneath which this file resides.")
-  FileRootApi getRootForStarlark(StarlarkSemantics semantics);
+  FileRootApi getRoot();
 
   @StarlarkMethod(
       name = "is_source",
@@ -105,7 +102,6 @@ public interface FileApi extends StarlarkValue {
   @StarlarkMethod(
       name = "path",
       structField = true,
-      useStarlarkSemantics = true,
       doc =
           "The execution path of this file, relative to the workspace's execution directory. It"
               + " consists of two parts, an optional first part called the <i>root</i> (see also"
@@ -116,7 +112,7 @@ public interface FileApi extends StarlarkValue {
               + " architecture that was used while building said file. Use the"
               + " <code>short_path</code> for the path under which the file is mapped if it's in"
               + " the runfiles of a binary.")
-  String getExecPathStringForStarlark(StarlarkSemantics semantics);
+  String getExecPathString();
 
   @StarlarkMethod(
       name = "tree_relative_path",

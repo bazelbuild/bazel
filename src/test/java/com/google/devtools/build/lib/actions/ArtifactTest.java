@@ -55,7 +55,6 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -599,61 +598,6 @@ public final class ArtifactTest {
                 PathFragment.create("bazel-out/k8-fastbuild/bin/dir/subdir")))
         .isEqualTo(
             PathFragment.create("bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/dir/subdir"));
-  }
-
-  private static final PathMapper PATH_MAPPER =
-      new PathMapper() {
-        @Override
-        public PathFragment map(PathFragment execPath) {
-          if (execPath.startsWith(PathFragment.create("output"))) {
-            // output/k8-opt/bin/path/to/pkg/file --> output/<hash>/path/to/pkg/file
-            return execPath
-                .subFragment(0, 1)
-                .getRelative(Integer.toUnsignedString(execPath.subFragment(3).hashCode()))
-                .getRelative(execPath.subFragment(3));
-          } else {
-            return execPath;
-          }
-        }
-      };
-
-  @Test
-  public void mappedArtifact_sourceArtifact() throws IOException {
-    StarlarkSemantics semantics = PATH_MAPPER.storeIn(StarlarkSemantics.DEFAULT);
-
-    Root sourceRoot = Root.fromPath(scratch.getFileSystem().getPath("/some/path"));
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(sourceRoot);
-    Artifact artifact =
-        ActionsTestUtil.createArtifact(root, scratch.file("/some/path/path/to/pkg/file"));
-
-    assertThat(artifact.getExecPathStringForStarlark(semantics)).isEqualTo("path/to/pkg/file");
-    assertThat(artifact.getDirnameForStarlark(semantics)).isEqualTo("path/to/pkg");
-    assertThat(artifact.getRootForStarlark(semantics)).isSameInstanceAs(root);
-    // Verify both equals and compareTo implementations give the same result.
-    assertThat(artifact.getRootForStarlark(semantics)).isEqualTo(root);
-    assertThat(root).isEqualTo(artifact.getRootForStarlark(semantics));
-  }
-
-  @Test
-  public void mappedArtifact_derivedArtifact() throws IOException {
-    StarlarkSemantics semantics = PATH_MAPPER.storeIn(StarlarkSemantics.DEFAULT);
-
-    Path execRoot = scratch.getFileSystem().getPath("/some/path");
-    ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "output", "k8-opt", "bin");
-    Artifact artifact =
-        ActionsTestUtil.createArtifact(
-            root, scratch.file("/some/path/output/k8-opt/bin/path/to/pkg/file"));
-
-    assertThat(artifact.getExecPathStringForStarlark(semantics))
-        .isEqualTo("output/1084027401/path/to/pkg/file");
-    assertThat(artifact.getDirnameForStarlark(semantics))
-        .isEqualTo("output/1084027401/path/to/pkg");
-    assertThat(artifact.getRootForStarlark(semantics).getExecPathString())
-        .isEqualTo("output/1084027401");
-    // Verify both equals implementations give the same result.
-    assertThat(artifact.getRootForStarlark(semantics)).isNotEqualTo(root);
-    assertThat(root).isNotEqualTo(artifact.getRootForStarlark(semantics));
   }
 
   private static SpecialArtifact createTreeArtifact(ArtifactRoot root, String relativePath) {

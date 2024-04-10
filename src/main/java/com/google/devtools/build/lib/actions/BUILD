@@ -115,6 +115,7 @@ java_library(
         "NotifyOnActionCacheHit.java",
         "ParamFileInfo.java",
         "ParameterFile.java",
+        "PathMapper.java",
         "PathStrippable.java",
         "RemoteArtifactChecker.java",
         "ResourceEstimator.java",
@@ -298,25 +299,10 @@ java_library(
     ],
 )
 
-#java_library(
-#    name = "path_mapper",
-#    srcs = ["PathMapper.java"],
-#    deps = [
-#        ":actions",
-#        ":commandline_item",
-#        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-#        "//src/main/java/net/starlark/java/eval",
-#        "//third_party/java/error_prone:annotations",
-#        "//third_party/java/jsr305_annotations",
-#    ],
-#)
-
 java_library(
     name = "artifacts",
     srcs = [
-        "AbstractCommandLine.java",
         "ActionInput.java",
-        "ActionKeyContext.java",
         "Artifact.java",
         "ArtifactCodecs.java",
         "ArtifactFactory.java",
@@ -324,8 +310,6 @@ java_library(
         "ArtifactResolver.java",
         "ArtifactRoot.java",
         "Artifacts.java",
-        "CommandLine.java",
-        "PathMapper.java",
     ],
     deps = [
         ":action_lookup_data",
@@ -335,10 +319,8 @@ java_library(
         ":fileset_output_symlink",
         ":package_roots",
         ":path_strippable",
-        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -353,9 +335,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:execution_phase_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
