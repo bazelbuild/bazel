@@ -19,8 +19,8 @@ load("//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
 def _remote_android_tools_extensions_impl(_ctx):
     http_archive(
         name = "android_tools",
-        sha256 = "2b661a761a735b41c41b3a78089f4fc1982626c76ddb944604ae3ff8c545d3c2",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
-        url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.30.0.tar",
+        sha256 = "d7cdfc03f3ad6571b7719f4355379177a4bde68d17dca2bdbf6c274d72e4d6cf",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+        url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.31.0.tar",
     )
     http_jar(
         name = "android_gmaven_r8",
