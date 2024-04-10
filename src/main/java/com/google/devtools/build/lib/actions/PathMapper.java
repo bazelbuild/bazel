@@ -18,7 +18,9 @@ import com.google.devtools.build.lib.actions.CommandLine.ArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Support for mapping config parts of exec paths in an action's command line as well as when
@@ -33,6 +35,43 @@ import javax.annotation.Nullable;
  * part (e.g. "k8-fastbuild") from exec paths to allow for cross-configuration cache hits.
  */
 public interface PathMapper {
+  /**
+   * Retrieve the {@link PathMapper} instance stored in the given {@link StarlarkSemantics} via
+   * {@link #storeIn(StarlarkSemantics)}.
+   */
+  static PathMapper loadFrom(StarlarkSemantics semantics) {
+    return semantics.get(SEMANTICS_KEY);
+  }
+
+  /**
+   * Creates a new {@link StarlarkSemantics} instance which causes all Starlark threads using it to
+   * automatically apply this {@link PathMapper} to all struct fields of {@link
+   * com.google.devtools.build.lib.starlarkbuildapi.FileApi}.
+   *
+   * <p>This is meant to be used when evaluating user-defined callbacks to Starlark variants of
+   * custom command lines that are evaluated during the execution phase.
+   *
+   * <p>Since any unmapped path appearing in a command line will prevent cross-configuration cache
+   * hits, this mapping is applied automatically instead of requiring users to explicitly map all
+   * paths themselves. As an added benefit, this allows actions to opt into path mapping without
+   * actual changes to their command line code.
+   */
+  @CheckReturnValue
+  default StarlarkSemantics storeIn(StarlarkSemantics semantics) {
+    return new StarlarkSemantics(semantics.toBuilder().set(SEMANTICS_KEY, this).build()) {
+      // The path mapper doesn't affect which fields or methods are available on any given Starlark
+      // object; it just affects the behavior of certain methods on Artifact. We thus preserve the
+      // original semantics as a cache key. Otherwise, even if PathMapper#equals returned true for
+      // each two non-NOOP instances, cache lookups in CallUtils would result in frequent
+      // comparisons of equal but not reference equal semantics maps, which regresses CPU (~7% on
+      // a benchmark with ~10 semantics options).
+      @Override
+      public StarlarkSemantics getStarlarkClassDescriptorCacheKey() {
+        return semantics;
+      }
+    };
+  }
+
   /**
    * Returns the exec path with the path mapping applied.
    *
@@ -101,4 +140,7 @@ public interface PathMapper {
 
   /** A {@link PathMapper} that doesn't change paths. */
   PathMapper NOOP = execPath -> execPath;
+
+  StarlarkSemantics.Key<PathMapper> SEMANTICS_KEY =
+      new StarlarkSemantics.Key<>("path_mapper", PathMapper.NOOP);
 }

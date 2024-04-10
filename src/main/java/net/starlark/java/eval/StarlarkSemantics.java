@@ -41,7 +41,7 @@ import java.util.TreeMap;
  * <p>For options that affect the static behavior of the Starlark frontend (lexer, parser,
  * validator, compiler), see {@link FileOptions}.
  */
-public final class StarlarkSemantics {
+public class StarlarkSemantics {
 
   /**
    * Returns the empty semantics, in which every option has its default value.
@@ -66,8 +66,12 @@ public final class StarlarkSemantics {
     this.hashCode = map.hashCode();
   }
 
+  protected StarlarkSemantics(StarlarkSemantics otherSemantics) {
+    this(otherSemantics.map);
+  }
+
   /** Returns the value of a boolean option, which must have a [+-] prefix. */
-  public boolean getBool(String name) {
+  public final boolean getBool(String name) {
     char prefix = name.charAt(0);
     Preconditions.checkArgument(prefix == '+' || prefix == '-');
     boolean defaultValue = prefix == '+';
@@ -76,7 +80,7 @@ public final class StarlarkSemantics {
   }
 
   /** Returns the value of the option denoted by {@code key}. */
-  public <T> T get(Key<T> key) {
+  public final <T> T get(Key<T> key) {
     @SuppressWarnings("unchecked") // safe, if Key.names are unique
     T v = (T) map.get(key.name);
     return v != null ? v : key.defaultValue;
@@ -89,7 +93,7 @@ public final class StarlarkSemantics {
    * Returns the value of the option with the given name, or the default value if it is not set or
    * does not exist.
    */
-  public Object getGeneric(String name, Object defaultValue) {
+  public final Object getGeneric(String name, Object defaultValue) {
     Object v = map.get(name);
     // Try boolean prefixes if that didn't work.
     if (v == null) {
@@ -102,7 +106,7 @@ public final class StarlarkSemantics {
   }
 
   /** A Key identifies an option, providing its name, type, and default value. */
-  public static class Key<T> {
+  public static final class Key<T> {
     public final String name;
     public final T defaultValue;
 
@@ -126,7 +130,7 @@ public final class StarlarkSemantics {
   /**
    * Returns a new builder that initially holds the same key/value pairs as this StarlarkSemantics.
    */
-  public Builder toBuilder() {
+  public final Builder toBuilder() {
     return new Builder(new TreeMap<>(map));
   }
 
@@ -187,7 +191,7 @@ public final class StarlarkSemantics {
    *   <li>It is illegal to pass both parameters as non-empty.
    * </ul>
    */
-  boolean isFeatureEnabledBasedOnTogglingFlags(String enablingFlag, String disablingFlag) {
+  final boolean isFeatureEnabledBasedOnTogglingFlags(String enablingFlag, String disablingFlag) {
     Preconditions.checkArgument(
         enablingFlag.isEmpty() || disablingFlag.isEmpty(),
         "at least one of 'enablingFlag' or 'disablingFlag' must be empty");
@@ -200,13 +204,21 @@ public final class StarlarkSemantics {
     }
   }
 
+  /**
+   * @return a possibly different {@link StarlarkSemantics} instance that is equivalent to this one
+   *     for the purpose of caching the methods available on any given Starlark class.
+   */
+  public StarlarkSemantics getStarlarkClassDescriptorCacheKey() {
+    return this;
+  }
+
   @Override
-  public int hashCode() {
+  public final int hashCode() {
     return hashCode;
   }
 
   @Override
-  public boolean equals(Object that) {
+  public final boolean equals(Object that) {
     return this == that
         || (that instanceof StarlarkSemantics && this.map.equals(((StarlarkSemantics) that).map));
   }
@@ -215,7 +227,7 @@ public final class StarlarkSemantics {
    * Returns a representation of this StarlarkSemantics' non-default key/value pairs in key order.
    */
   @Override
-  public String toString() {
+  public final String toString() {
     // Print "StarlarkSemantics{k=v, ...}", without +/- prefixes.
     StringBuilder buf = new StringBuilder();
     buf.append("StarlarkSemantics{");
