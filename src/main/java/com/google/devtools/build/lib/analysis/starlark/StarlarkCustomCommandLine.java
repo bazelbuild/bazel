@@ -761,7 +761,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     int size;
     // Added in #build() if any labels in the command line require this to be formatted with an
     // apparent repository name.
-    if (arguments.getLast() instanceof RepositoryMapping) {
+    if (!arguments.isEmpty() && arguments.getLast() instanceof RepositoryMapping) {
       mainRepoMapping = (RepositoryMapping) arguments.getLast();
       size = arguments.size() - 1;
     } else {
@@ -831,7 +831,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
       RepositoryMapping mainRepoMapping;
       int size;
-      if (arguments.getLast() instanceof RepositoryMapping) {
+      if (!arguments.isEmpty() && arguments.getLast() instanceof RepositoryMapping) {
         mainRepoMapping = (RepositoryMapping) arguments.getLast();
         size = arguments.size() - 1;
       } else {
