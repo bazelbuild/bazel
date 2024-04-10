@@ -170,6 +170,12 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
           srcs = ['file3.dat', 'file4.dat'],
           outs = ['r1.txt', 'r2.txt'],
         )
+        genrule(name = 'mixed_cfgs',
+          cmd = 'some_cmd',
+          srcs = ['a.txt', ':baz'],
+          tools = ['r1.txt'],
+          outs = ['out.txt'],
+        )
         """);
   }
 
@@ -3480,6 +3486,220 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
   }
 
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAdd() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+                    file = ruleContext.actions.declare_file('file')
+                    args = ruleContext.actions.args()
+                    args.add(file)
+                    """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+                    file = ruleContext.actions.declare_file('file')
+                    args = ruleContext.actions.args()
+                    args.add(file.path)
+                    """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddFormatted()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+                    file = ruleContext.actions.declare_file('file')
+                    args = ruleContext.actions.args()
+                    args.add(file, format = '--%s')
+                    """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+                    file = ruleContext.actions.declare_file('file')
+                    args = ruleContext.actions.args()
+                    args.add(file.path, format = '--%s')
+                    """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddAllList()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+                    file = ruleContext.actions.declare_file('file')
+                    args = ruleContext.actions.args()
+                    args.add_all([file])
+                    """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+                    file = ruleContext.actions.declare_file('file')
+                    args = ruleContext.actions.args()
+                    args.add_all([file.path])
+                    """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddAllDepset()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+                    file = ruleContext.actions.declare_file('file')
+                    args = ruleContext.actions.args()
+                    args.add_all(depset([file]))
+                    """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+                    file = ruleContext.actions.declare_file('file')
+                    args = ruleContext.actions.args()
+                    args.add_all(depset([file.path]))
+                    """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddAllDepsetMapEach()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+                   def _map_each(x):
+                     if type(x.obj) == "File":
+                       return x.obj.path
+                     return str(x.obj)
+                   file = ruleContext.actions.declare_file('file')
+                   args = ruleContext.actions.args()
+                   args.add_all(depset([struct(obj = file.path)]), map_each=_map_each)
+                   """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+                   def _map_each(x):
+                     if type(x.obj) == "File":
+                       return x.obj.path
+                     return str(x.obj)
+                   file = ruleContext.actions.declare_file('file')
+                   args = ruleContext.actions.args()
+                   args.add_all(depset([struct(obj = file)]), map_each=_map_each)
+                   """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddAllListMapEach()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+                   def _map_each(x):
+                     if type(x.obj) == "File":
+                       return x.obj.path
+                     return str(x.obj)
+                   file = ruleContext.actions.declare_file('file')
+                   args = ruleContext.actions.args()
+                   args.add_all(depset([struct(obj = file.path)]), map_each=_map_each)
+                   """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+                   def _map_each(x):
+                     if type(x.obj) == "File":
+                       return x.obj.path
+                     return str(x.obj)
+                   file = ruleContext.actions.declare_file('file')
+                   args = ruleContext.actions.args()
+                   args.add_all(depset([struct(obj = file)]), map_each=_map_each)
+                   """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_complexMapEach() throws Exception {
+    setRuleContext(createRuleContext("//foo:mixed_cfgs"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+                   def _map_each(x):
+                     return x.root.path
+                   args = ruleContext.actions.args()
+                   args.add_all(
+                     depset(ruleContext.files.srcs + ruleContext.files.tools),
+                     map_each=_map_each,
+                     uniquify=True,
+                   )
+                   """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+                   args = ruleContext.actions.args()
+                   args.add_all(
+                     depset([f.root.path for f in ruleContext.files.srcs + ruleContext.files.tools]),
+                     uniquify=True,
+                   )
+                   """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+
+    List<String> arguments1 = getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER);
+    List<String> arguments2 = getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER);
+    assertThat(arguments1).isNotEqualTo(arguments2);
+    assertThat(arguments1.size()).isNotEqualTo(arguments2.size());
+
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
   private static ArtifactExpander createArtifactExpander(String dirRelativePath, String... files) {
     return (artifact, output) -> {
       Preconditions.checkArgument(
@@ -3518,6 +3738,19 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   private CommandLine getCommandLine(String... lines) throws Exception {
     ev.exec(lines);
     return ((Args) ev.eval("args")).build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+  }
+
+  private static final PathMapper NON_TRIVIAL_PATH_MAPPER =
+      new PathMapper() {
+        @Override
+        public PathFragment map(PathFragment path) {
+          return path.subFragment(0, 1).getChild("cfg").getRelative(path.subFragment(2));
+        }
+      };
+
+  private List<String> getArguments(CommandLine commandLine, PathMapper pathMapper)
+      throws CommandLineExpansionException, InterruptedException {
+    return ImmutableList.copyOf(commandLine.arguments(/* artifactExpander= */ null, pathMapper));
   }
 
   @Test
