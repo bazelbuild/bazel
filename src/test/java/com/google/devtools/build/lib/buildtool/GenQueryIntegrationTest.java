@@ -893,9 +893,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
   private String getQueryResult(String queryTarget) throws Exception {
     buildTarget(queryTarget);
     Artifact output = Iterables.getOnlyElement(getArtifacts(queryTarget));
-    assertThat(
-            getSkyframeExecutor().getEvaluator().getValues().keySet().stream()
-                .anyMatch(key -> key instanceof TransitiveTargetKey))
+    assertThat(getAllKeysInGraph().stream().anyMatch(key -> key instanceof TransitiveTargetKey))
         .isEqualTo(!ttvFree);
     return readContentAsLatin1String(output);
   }

@@ -134,6 +134,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.build.skyframe.NotifyingHelper;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -1231,5 +1232,9 @@ public abstract class BuildIntegrationTestCase {
 
   protected Formatter getFormatterForLogging() {
     return new SimpleFormatter();
+  }
+
+  protected Set<SkyKey> getAllKeysInGraph() {
+    return getSkyframeExecutor().getEvaluator().getValues().keySet();
   }
 }
