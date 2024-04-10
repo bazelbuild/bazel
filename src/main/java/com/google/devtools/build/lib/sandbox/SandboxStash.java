@@ -14,18 +14,30 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
+
 import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.StashContents;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -39,6 +51,9 @@ import javax.annotation.Nullable;
 public class SandboxStash {
 
   public static final String SANDBOX_STASH_BASE = "sandbox_stash";
+
+  // Used while we gather all the contents asynchronously.
+  public static final String TEMPORARY_SANDBOX_STASH_BASE = "tmp_sandbox_stash";
   private static final String TEST_RUNNER_MNEMONIC = "TestRunner";
   private static final String TEST_SRCDIR = "TEST_SRCDIR";
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -61,29 +76,38 @@ public class SandboxStash {
 
   private final Map<Path, String> stashPathToRunfilesDir = new ConcurrentHashMap<>();
 
+  private static final int POOL_SIZE = 96;
+  // TODO: shutdown
+  private final ExecutorService stashFileListingPool =
+      Executors.newFixedThreadPool(
+          POOL_SIZE, new ThreadFactoryBuilder().setNameFormat("stash-file-listing-thread-%d").build());
+
+  private final Map<Path, StashContents> pathToContents = new ConcurrentHashMap<>();
+  private final Map<Path, Long> pathToLastModified = new ConcurrentHashMap<>();
+
   public SandboxStash(String workspaceName, Path sandboxBase) {
     this.workspaceName = workspaceName;
     this.sandboxBase = sandboxBase;
   }
 
-  static boolean takeStashedSandbox(
+  static StashContents takeStashedSandbox(
       Path sandboxPath, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
     if (instance == null) {
-      return false;
+      return null;
     }
     return instance.takeStashedSandboxInternal(sandboxPath, mnemonic, environment, outputs);
   }
 
-  private boolean takeStashedSandboxInternal(
+  private StashContents takeStashedSandboxInternal(
       Path sandboxPath, String mnemonic, Map<String, String> environment, SandboxOutputs outputs) {
     try {
       Path sandboxes = getSandboxStashDir(mnemonic, sandboxPath.getFileSystem());
       if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
-        return false;
+        return null;
       }
       Collection<Path> stashes = sandboxes.getDirectoryEntries();
       if (stashes.isEmpty()) {
-        return false;
+        return null;
       }
       // We have to remove the sandbox execroot dir to move a stash there, but it is currently empty
       // and we reinstate it later if we don't get a sandbox. We can't just move the stash dir
@@ -124,18 +148,18 @@ public class SandboxStash {
             stashedRunfilesDir.renameTo(currentRunfiles);
             stashPathToRunfilesDir.remove(stashExecroot);
           }
-          return true;
+          return pathToContents.remove(stash);
         } catch (FileNotFoundException e) {
           // Try the next one, somebody else took this one.
         } catch (IOException e) {
           turnOffReuse("Error renaming sandbox stash %s to %s: %s\n", stash, sandboxPath, e);
-          return false;
+          return null;
         }
       }
-      return false;
+      return null;
     } catch (IOException e) {
       turnOffReuse("Failed to prepare for reusing stashed sandbox for %s: %s", sandboxPath, e);
-      return false;
+      return null;
     }
   }
 
@@ -162,30 +186,44 @@ public class SandboxStash {
     if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
       return;
     }
-    String stashName = Integer.toString(stash.incrementAndGet());
-    Path stashPath = sandboxes.getChild(stashName);
     if (!path.exists()) {
       return;
     }
+    String stashName = Integer.toString(stash.incrementAndGet());
+    Path temporaryStashes = sandboxBase.getChild(TEMPORARY_SANDBOX_STASH_BASE);
+    Path temporaryStash  = temporaryStashes.getChild(stashName);
     try {
-      stashPath.createDirectory();
-      Path stashPathExecroot = stashPath.getChild("execroot");
-      if (isTestAction(mnemonic)) {
-        if (environment.get("TEST_TMPDIR").startsWith("_tmp")) {
-          treeDeleter.deleteTree(
-              path.getRelative("execroot/" + environment.get("TEST_WORKSPACE") + "/_tmp"));
-        }
-      }
-      if (isTestAction(mnemonic)) {
-        // We do this before the rename operation to avoid a race condition.
-        stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
-      }
-      path.getChild("execroot").renameTo(stashPathExecroot);
+      temporaryStashes.createDirectory();
+      path.getChild("execroot").renameTo(temporaryStash);
     } catch (IOException e) {
-      // Since stash names are unique, this IOException indicates some other problem with stashing,
-      // so we turn it off.
-      turnOffReuse("Error stashing sandbox at %s: %s", stashPath, e);
+      turnOffReuse("Error stashing sandbox at %s: %s", temporaryStash, e);
     }
+    stashFileListingPool.submit(() -> {
+      Path stashPath = sandboxes.getChild(stashName);
+      try {
+        StashContents stashContents = pathToContents.remove(path);
+        Long lastModified = pathToLastModified.remove(path);
+        Preconditions.checkNotNull(lastModified);
+        listContentsRecursively(temporaryStash, lastModified, stashContents);
+        stashPath.createDirectory();
+        Path stashPathExecroot = stashPath.getChild("execroot");
+        if (isTestAction(mnemonic)) {
+          if (environment.get("TEST_TMPDIR").startsWith("_tmp")) {
+            treeDeleter.deleteTree(
+                temporaryStash.getRelative( environment.get("TEST_WORKSPACE") + "/_tmp"));
+          }
+        }
+        if (isTestAction(mnemonic)) {
+          // We do this before the rename operation to avoid a race condition.
+          stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
+        }
+        pathToContents.put(stashPath, stashContents);
+        temporaryStash.renameTo(stashPathExecroot);
+      } catch (Exception e) {
+        // TODO(bazel-team): Are we sure we don't want to surface this error?
+        turnOffReuse("Error stashing sandbox at %s: %s", stashPath, e);
+      }
+    });
   }
 
   /**
@@ -251,7 +289,7 @@ public class SandboxStash {
   private void turnOffReuse(String fmt, Object... args) {
     reuseSandboxDirectories = false;
     if (warnedAboutTurningOffReuse.compareAndSet(false, true)) {
-      logger.atWarning().logVarargs("Turning off sandbox reuse: " + fmt, args);
+      logger.atSevere().logVarargs("Turning off sandbox reuse: " + fmt, args);
     }
   }
 
@@ -276,30 +314,41 @@ public class SandboxStash {
     }
   }
 
+  public static void setPathContents(Path path, StashContents stashContents) {
+    instance.pathToContents.put(path, stashContents);
+  }
+
+  public static void setLastModified(Path path, Long lastModified) {
+    if (instance != null) {
+      instance.pathToLastModified.put(path, lastModified);
+    }
+  }
+
   /** Cleans up the entire current stash, if any. Cleaning may be asynchronous. */
   static void clean(TreeDeleter treeDeleter, Path sandboxBase) {
-    Path stashDir = getStashBase(sandboxBase);
-    if (!stashDir.isDirectory()) {
-      return;
-    }
-    Path stashTrashDir = stashDir.getChild("__trash");
-    try {
-      stashDir.renameTo(stashTrashDir);
-    } catch (IOException e) {
-      // If we couldn't move the stashdir away for deletion, we need to delete it synchronously
-      // in place, so we can't use the treeDeleter.
-      treeDeleter = null;
-      stashTrashDir = stashDir;
-    }
-    try {
-      if (treeDeleter != null) {
-        treeDeleter.deleteTree(stashTrashDir);
-      } else {
-        stashTrashDir.deleteTree();
-      }
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Failed to clean sandbox stash %s", stashDir);
-    }
+    // TODO: Uncomment, this is only to benchmark invalidated actions.
+    // Path stashDir = getStashBase(sandboxBase);
+    // if (!stashDir.isDirectory()) {
+    //   return;
+    // }
+    // Path stashTrashDir = stashDir.getChild("__trash");
+    // try {
+    //   stashDir.renameTo(stashTrashDir);
+    // } catch (IOException e) {
+    //   // If we couldn't move the stashdir away for deletion, we need to delete it synchronously
+    //   // in place, so we can't use the treeDeleter.
+    //   treeDeleter = null;
+    //   stashTrashDir = stashDir;
+    // }
+    // try {
+    //   if (treeDeleter != null) {
+    //     treeDeleter.deleteTree(stashTrashDir);
+    //   } else {
+    //     stashTrashDir.deleteTree();
+    //   }
+    // } catch (IOException e) {
+    //   logger.atWarning().withCause(e).log("Failed to clean sandbox stash %s", stashDir);
+    // }
   }
 
   /**
@@ -332,4 +381,60 @@ public class SandboxStash {
   private static String getCurrentRunfilesDir(Map<String, String> environment) {
     return environment.get("TEST_WORKSPACE") + "/" + environment.get(TEST_SRCDIR);
   }
+
+  static AtomicInteger changed = new AtomicInteger();
+  static AtomicInteger notChanged = new AtomicInteger();
+
+  private static void listContentsRecursively(
+      Path root,
+      Long timestamp,
+      StashContents stashContents)
+      throws IOException, InterruptedException {
+    if (root.statIfFound().getLastChangeTime() > timestamp) {
+      // TODO: Update the current stashContents object.
+      Map<String, StashContents> updatedDirEntries = new HashMap<>();
+      stashContents.others = new ArrayList<>();
+      stashContents.symlinkEntryToTarget = new HashMap<>();
+      for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
+        Path absPath = root.getChild(dirent.getName());
+        if (SYMLINK.equals(dirent.getType())) {
+          stashContents.symlinkEntryToTarget.put(dirent.getName(), absPath.readSymbolicLink());
+        } else if (DIRECTORY.equals(dirent.getType())) {
+          StashContents subdirContents;
+          if (stashContents.dirEntries.containsKey(dirent.getName())) {
+            subdirContents = stashContents.dirEntries.get(dirent.getName());
+          } else {
+            subdirContents = new StashContents();
+          }
+          updatedDirEntries.put(dirent.getName(), subdirContents);
+          listContentsRecursively(absPath, timestamp, subdirContents);
+        } else {
+          stashContents.others.add(dirent.getName());
+        }
+      }
+      List<String> entriesToRemove = new ArrayList<>();
+      for (var entry : stashContents.dirEntries.entrySet()) {
+        if (!updatedDirEntries.containsKey(entry.getKey())) {
+          entriesToRemove.add(entry.getKey());
+        }
+      }
+      for (String entry : entriesToRemove) {
+        stashContents.dirEntries.remove(entry);
+      }
+      for (var entry : updatedDirEntries.entrySet()) {
+        if (!stashContents.dirEntries.containsKey(entry.getKey())) {
+          stashContents.dirEntries.put(entry.getKey(), entry.getValue());
+        }
+      }
+    } else {
+      for (var entry : stashContents.dirEntries.entrySet()) {
+        Path absPath = root.getChild(entry.getKey());
+        listContentsRecursively(absPath, timestamp, entry.getValue());
+      }
+    }
+  }
 }
+

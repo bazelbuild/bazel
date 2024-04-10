@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -151,6 +152,17 @@ public final class SandboxHelpers {
       Path workDir,
       @Nullable TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
+    cleanExisting(root, inputs, inputsToCreate, dirsToCreate, workDir, treeDeleter, /* stashContents= */ null);
+  }
+  public static void cleanExisting(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir,
+      @Nullable TreeDeleter treeDeleter,
+      @Nullable StashContents stashContents)
+      throws IOException, InterruptedException {
     Path inaccessibleHelperDir = workDir.getRelative(INACCESSIBLE_HELPER_DIR);
     // Setting the permissions is necessary when we are using an asynchronous tree deleter in order
     // to move the directory first. This is not necessary for a synchronous tree deleter because the
@@ -174,7 +186,7 @@ public final class SandboxHelpers {
         parent = parent.getParentDirectory();
       }
     }
-    cleanRecursively(root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
+    cleanRecursively(root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter, stashContents);
   }
 
   /**
@@ -188,47 +200,123 @@ public final class SandboxHelpers {
       Set<PathFragment> dirsToCreate,
       Path workDir,
       Set<PathFragment> prefixDirs,
-      @Nullable TreeDeleter treeDeleter)
+      @Nullable TreeDeleter treeDeleter,
+      @Nullable StashContents stashContents)
       throws IOException, InterruptedException {
     Path execroot = workDir.getParentDirectory();
-    for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
-      if (Thread.interrupted()) {
-        throw new InterruptedException();
-      }
-      Path absPath = root.getChild(dirent.getName());
-      PathFragment pathRelativeToWorkDir;
-      if (absPath.startsWith(workDir)) {
-        // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
-        pathRelativeToWorkDir = absPath.relativeTo(workDir);
-      } else {
-        // path is not under workDir, which means it belongs to one of external repositories
-        // symlinked directly under execroot. Get the relative path based on there and prepend it
-        // with the designated prefix, '../', so that it's still a valid relative path to workDir.
-        pathRelativeToWorkDir =
-            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-                absPath.relativeTo(execroot));
-      }
-      Optional<PathFragment> destination =
-          getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
-      if (destination.isPresent()) {
-        if (SYMLINK.equals(dirent.getType())
-            && absPath.readSymbolicLink().equals(destination.get())) {
-          inputsToCreate.remove(pathRelativeToWorkDir);
-        } else if (absPath.isDirectory()) {
-          if (treeDeleter == null) {
-            // TODO(bazel-team): Use async tree deleter for workers too
-            absPath.deleteTree();
+    if (stashContents == null) {
+      throw new IllegalStateException("Shouldn't take this code path");
+      // for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      //   if (Thread.interrupted()) {
+      //     throw new InterruptedException();
+      //   }
+      //   Path absPath = root.getChild(dirent.getName());
+      //   PathFragment pathRelativeToWorkDir;
+      //   if (absPath.startsWith(workDir)) {
+      //     // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+      //     pathRelativeToWorkDir = absPath.relativeTo(workDir);
+      //   } else {
+      //     // path is not under workDir, which means it belongs to one of external repositories
+      //     // symlinked directly under execroot. Get the relative path based on there and prepend it
+      //     // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+      //     pathRelativeToWorkDir =
+      //         LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+      //             absPath.relativeTo(execroot));
+      //   }
+      //   Optional<PathFragment> destination =
+      //       getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
+      //   if (destination.isPresent()) {
+      //     if (SYMLINK.equals(dirent.getType())
+      //         && absPath.readSymbolicLink().equals(destination.get())) {
+      //       inputsToCreate.remove(pathRelativeToWorkDir);
+      //     } else if (absPath.isDirectory()) {
+      //       if (treeDeleter == null) {
+      //         // TODO(bazel-team): Use async tree deleter for workers too
+      //         absPath.deleteTree();
+      //       } else {
+      //         treeDeleter.deleteTree(absPath);
+      //       }
+      //     } else {
+      //       absPath.delete();
+      //     }
+      //   } else if (DIRECTORY.equals(dirent.getType())) {
+      //     if (dirsToCreate.contains(pathRelativeToWorkDir)
+      //         || prefixDirs.contains(pathRelativeToWorkDir)) {
+      //       cleanRecursively(
+      //           absPath, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter,
+      //           stashContents);
+      //       dirsToCreate.remove(pathRelativeToWorkDir);
+      //     } else {
+      //       if (treeDeleter == null) {
+      //         // TODO(bazel-team): Use async tree deleter for workers too
+      //         absPath.deleteTree();
+      //       } else {
+      //         treeDeleter.deleteTree(absPath);
+      //       }
+      //     }
+      //   } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
+      //     absPath.delete();
+      //   }
+      // }
+    } else {
+      for (var dirent : stashContents.symlinkEntryToTarget.entrySet()) {
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
+        Path absPath = root.getChild(dirent.getKey());
+        PathFragment pathRelativeToWorkDir;
+        if (absPath.startsWith(workDir)) {
+          // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+          pathRelativeToWorkDir = absPath.relativeTo(workDir);
+        } else {
+          // path is not under workDir, which means it belongs to one of external repositories
+          // symlinked directly under execroot. Get the relative path based on there and prepend it
+          // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+          pathRelativeToWorkDir =
+              LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+                  absPath.relativeTo(execroot));
+        }
+        Optional<PathFragment> destination =
+            getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
+        if (destination.isPresent()) {
+          if (dirent.getValue().equals(destination.get())) {
+            inputsToCreate.remove(pathRelativeToWorkDir);
+          } else if (absPath.isDirectory()) {
+            if (treeDeleter == null) {
+              // TODO(bazel-team): Use async tree deleter for workers too
+              absPath.deleteTree();
+            } else {
+              treeDeleter.deleteTree(absPath);
+            }
           } else {
-            treeDeleter.deleteTree(absPath);
+            absPath.delete();
           }
         } else {
           absPath.delete();
         }
-      } else if (DIRECTORY.equals(dirent.getType())) {
+      }
+      for (var dirent : stashContents.dirEntries.entrySet()) {
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
+        Path absPath = root.getChild(dirent.getKey());
+        PathFragment pathRelativeToWorkDir;
+        if (absPath.startsWith(workDir)) {
+          // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+          pathRelativeToWorkDir = absPath.relativeTo(workDir);
+        } else {
+          // path is not under workDir, which means it belongs to one of external repositories
+          // symlinked directly under execroot. Get the relative path based on there and prepend it
+          // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+          pathRelativeToWorkDir =
+              LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+                  absPath.relativeTo(execroot));
+        }
         if (dirsToCreate.contains(pathRelativeToWorkDir)
             || prefixDirs.contains(pathRelativeToWorkDir)) {
           cleanRecursively(
-              absPath, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
+              absPath, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter,
+              dirent.getValue());
           dirsToCreate.remove(pathRelativeToWorkDir);
         } else {
           if (treeDeleter == null) {
@@ -238,8 +326,24 @@ public final class SandboxHelpers {
             treeDeleter.deleteTree(absPath);
           }
         }
-      } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
-        absPath.delete();
+      }
+      for (String dirent : stashContents.others) {
+        Path absPath = root.getChild(dirent);
+        PathFragment pathRelativeToWorkDir;
+        if (absPath.startsWith(workDir)) {
+          // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+          pathRelativeToWorkDir = absPath.relativeTo(workDir);
+        } else {
+          // path is not under workDir, which means it belongs to one of external repositories
+          // symlinked directly under execroot. Get the relative path based on there and prepend it
+          // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+          pathRelativeToWorkDir =
+              LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+                  absPath.relativeTo(execroot));
+        }
+        if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
+          absPath.delete();
+        }
       }
     }
   }
@@ -722,5 +826,11 @@ public final class SandboxHelpers {
         .getOptions(TestConfiguration.TestOptions.class)
         .testArguments
         .contains("--wrapper_script_flag=--debug");
+  }
+
+  public static class StashContents {
+    Map<String, PathFragment> symlinkEntryToTarget = new HashMap<>();
+    Map<String, StashContents> dirEntries = new HashMap<>();
+    List<String> others = new ArrayList<>();
   }
 }
