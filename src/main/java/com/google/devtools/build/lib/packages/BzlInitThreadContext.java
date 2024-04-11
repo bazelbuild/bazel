@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 
 /**
  * Bazel application data for the Starlark thread that evaluates the top-level code in a .bzl (or

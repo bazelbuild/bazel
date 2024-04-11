@@ -19,6 +19,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 
 /**
  * A context object, usually stored in a {@link StarlarkThread}, upon which rules and symbolic

@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext.Phase;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -68,6 +67,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -548,7 +548,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         //  to calculate equality between instances of Starlark objects. A candidate
         //  for transition instance uniqueness is the Rule and configuration that
         //  are used as inputs to the configuration.
-        SymbolGenerator<Object> dummySymbolGenerator = new SymbolGenerator<>(new Object());
+        SymbolGenerator<Object> dummySymbolGenerator = SymbolGenerator.createTransient();
 
         Dict<String, Object> previousSettingsDict =
             createBuildSettingsDict(previousSettings, optionInfoMap, mu);

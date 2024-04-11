@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -68,6 +67,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 
 /** A repository function to delegate work done by Starlark remote repositories. */
 public final class StarlarkRepositoryFunction extends RepositoryFunction {
@@ -260,7 +260,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
-              new SymbolGenerator<>(key))
+              SymbolGenerator.create(key))
           .storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =

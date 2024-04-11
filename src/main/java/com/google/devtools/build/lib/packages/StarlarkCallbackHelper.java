@@ -24,6 +24,7 @@ import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
+import net.starlark.java.eval.SymbolGenerator;
 
 /**
  * A helper class for calling Starlark functions from Java, where the argument values are supplied
@@ -72,7 +73,7 @@ public final class StarlarkCallbackHelper {
               // should have a unique owner object to associate it with for distinguishing
               // reference-equality objects. But I don't think implicit outputs or computed defaults
               // care about identity.
-              new SymbolGenerator<>(new Object()))
+              SymbolGenerator.createTransient())
           .storeInThread(thread);
       return Starlark.call(
           thread, callback, buildArgumentList(struct, arguments), /*kwargs=*/ ImmutableMap.of());

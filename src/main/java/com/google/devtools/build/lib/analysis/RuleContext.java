@@ -80,7 +80,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -109,6 +108,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
 
@@ -216,7 +216,7 @@ public class RuleContext extends TargetContext
     this.attributes = attributes;
     this.features = computeFeatures();
     this.ruleClassNameForLogging = builder.getRuleClassNameForLogging();
-    this.actionOwnerSymbolGenerator = new SymbolGenerator<>(builder.actionOwnerSymbol);
+    this.actionOwnerSymbolGenerator = SymbolGenerator.create(builder.actionOwnerSymbol);
     this.reporter = builder.reporter;
     this.toolchainContexts = builder.toolchainContexts;
     this.execGroupCollection = execGroupCollection;
