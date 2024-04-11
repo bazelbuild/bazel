@@ -111,7 +111,7 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
 
   private NativeAndStarlarkFlags fetch(Label platformLabel)
       throws InvalidPlatformException, InterruptedException, OptionsParsingException {
-    PlatformFlagsSink sink = new PlatformFlagsSink();
+    PlatformFlagsSink sink = new PlatformFlagsSink(platformLabel);
     PlatformFlagsProducer producer =
         new PlatformFlagsProducer(platformLabel, sink, StateMachine.DONE);
     var unused = executeProducer(producer);
@@ -120,22 +120,30 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
 
   /** Receiver for platform info from {@link PlatformFlagsProducer}. */
   private static class PlatformFlagsSink implements PlatformFlagsProducer.ResultSink {
+    private final Label expectedPlatform;
     @Nullable private NativeAndStarlarkFlags parsedFlags = null;
     @Nullable private InvalidPlatformException invalidPlatformException = null;
     @Nullable private OptionsParsingException optionParsingException = null;
 
+    private PlatformFlagsSink(Label expectedPlatform) {
+      this.expectedPlatform = expectedPlatform;
+    }
+
     @Override
-    public void acceptPlatformFlags(NativeAndStarlarkFlags parsedFlags) {
+    public void acceptPlatformFlags(Label platform, NativeAndStarlarkFlags parsedFlags) {
+      assertThat(platform).isEqualTo(this.expectedPlatform);
       this.parsedFlags = parsedFlags;
     }
 
     @Override
-    public void acceptPlatformFlagsError(InvalidPlatformException error) {
+    public void acceptPlatformFlagsError(Label platform, InvalidPlatformException error) {
+      assertThat(platform).isEqualTo(this.expectedPlatform);
       this.invalidPlatformException = error;
     }
 
     @Override
-    public void acceptPlatformFlagsError(OptionsParsingException error) {
+    public void acceptPlatformFlagsError(Label platform, OptionsParsingException error) {
+      assertThat(platform).isEqualTo(this.expectedPlatform);
       this.optionParsingException = error;
     }
 
