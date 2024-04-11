@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
@@ -361,53 +360,19 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   @Override
   public Package loadPackage(PackageIdentifier pkgId)
       throws NoSuchPackageException, InterruptedException {
-    return loadPackages(ImmutableList.of(pkgId)).getLoadedPackages().get(pkgId).get();
+    return makeLoadingContext()
+        .loadPackages(ImmutableList.of(pkgId))
+        .getLoadedValues()
+        .get(pkgId)
+        .get();
   }
 
-  @Override
-  public Result loadPackages(Iterable<PackageIdentifier> pkgIds) throws InterruptedException {
-    Reporter reporter = new Reporter(commonReporter);
-    StoredEventHandler storedEventHandler = new StoredEventHandler();
-    reporter.addHandler(storedEventHandler);
-    EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
-            .setKeepGoing(true)
-            .setParallelism(skyframeThreads)
-            .setEventHandler(reporter)
-            .build();
-    return loadPackagesInternal(ImmutableSet.copyOf(pkgIds), evaluationContext, storedEventHandler);
-  }
-
-  private Result loadPackagesInternal(
-      ImmutableSet<SkyKey> pkgKeys,
-      EvaluationContext evaluationContext,
-      StoredEventHandler storedEventHandler)
-      throws InterruptedException {
-    MemoizingEvaluator evaluator = makeFreshEvaluator();
-    EvaluationResult<PackageValue> evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
-
-    ImmutableMap.Builder<PackageIdentifier, PackageOrException> result = ImmutableMap.builder();
-    for (SkyKey key : pkgKeys) {
-      ErrorInfo error = evalResult.getError(key);
-      PackageValue packageValue = evalResult.get(key);
-      checkState((error == null) != (packageValue == null));
-      PackageIdentifier pkgId = (PackageIdentifier) key.argument();
-      result.put(
-          pkgId,
-          error != null
-              ? new PackageOrException(null, exceptionFromErrorInfo(error, pkgId))
-              : new PackageOrException(packageValue.getPackage(), null));
-    }
-    return new Result(result.buildOrThrow(), storedEventHandler.getEvents());
-  }
-
-  private static class StarlarkModuleLoadingContext
-      implements PackageLoader.StarlarkModuleLoadingContext {
+  private static class LoadingContext implements PackageLoader.LoadingContext {
     private final MemoizingEvaluator evaluator;
     private final EvaluationContext evaluationContext;
     private final StoredEventHandler storedEventHandler;
 
-    StarlarkModuleLoadingContext(
+    LoadingContext(
         MemoizingEvaluator evaluator,
         EvaluationContext evaluationContext,
         StoredEventHandler storedEventHandler) {
@@ -417,8 +382,31 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     }
 
     @Override
-    public ImmutableMap<Label, ValueOrException<Module, StarlarkModuleLoadingException>>
-        loadModules(Iterable<Label> labels) throws InterruptedException {
+    public Result<PackageIdentifier, Package, NoSuchPackageException> loadPackages(
+        Iterable<PackageIdentifier> pkgIds) throws InterruptedException {
+      storedEventHandler.clear();
+      ImmutableSet<SkyKey> pkgKeys = ImmutableSet.copyOf(pkgIds);
+      EvaluationResult<PackageValue> evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
+
+      ImmutableMap.Builder<PackageIdentifier, ValueOrException<Package, NoSuchPackageException>>
+          resultBuilder = ImmutableMap.builder();
+      for (SkyKey key : pkgKeys) {
+        ErrorInfo error = evalResult.getError(key);
+        PackageValue packageValue = evalResult.get(key);
+        checkState((error == null) != (packageValue == null));
+        PackageIdentifier pkgId = (PackageIdentifier) key.argument();
+        resultBuilder.put(
+            pkgId,
+            error != null
+                ? ValueOrException.ofException(exceptionFromErrorInfo(error, pkgId))
+                : ValueOrException.ofValue(packageValue.getPackage()));
+      }
+      return new Result<>(resultBuilder.buildOrThrow(), storedEventHandler.getEvents());
+    }
+
+    @Override
+    public Result<Label, Module, StarlarkModuleLoadingException> loadModules(Iterable<Label> labels)
+        throws InterruptedException {
       storedEventHandler.clear();
       ImmutableList<BzlLoadValue.Key> keys =
           stream(labels).map(BzlLoadValue::keyForBuild).collect(toImmutableList());
@@ -440,7 +428,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                   starlarkModuleLoadingExceptionFromErrorInfo(error, label)));
         }
       }
-      return resultBuilder.buildOrThrow();
+      return new Result<>(resultBuilder.buildOrThrow(), storedEventHandler.getEvents());
     }
 
     @Override
@@ -452,11 +440,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       // We always set up a repository mapping function
       checkState(evalResult.getError(key) == null && mainRepositoryMappingValue != null);
       return mainRepositoryMappingValue.getRepositoryMapping();
-    }
-
-    @Override
-    public ImmutableList<Event> getEvents() {
-      return storedEventHandler.getEvents();
     }
 
     private static StarlarkModuleLoadingException starlarkModuleLoadingExceptionFromErrorInfo(
@@ -474,7 +457,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   }
 
   @Override
-  public StarlarkModuleLoadingContext makeStarlarkModuleLoadingContext() {
+  public LoadingContext makeLoadingContext() {
     Reporter reporter = new Reporter(commonReporter);
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
@@ -485,8 +468,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             .setEventHandler(reporter)
             .build();
 
-    return new StarlarkModuleLoadingContext(
-        makeFreshEvaluator(), evaluationContext, storedEventHandler);
+    return new LoadingContext(makeFreshEvaluator(), evaluationContext, storedEventHandler);
   }
 
   public ConfiguredRuleClassProvider getRuleClassProvider() {

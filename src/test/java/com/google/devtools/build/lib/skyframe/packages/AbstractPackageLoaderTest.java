@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code.COMPILE_ERROR;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainEvent;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainEvents;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static org.junit.Assert.assertThrows;
 
@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.packages.PackageLoader.StarlarkModuleLoadingContext;
+import com.google.devtools.build.lib.skyframe.packages.PackageLoader.LoadingContext;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader.StarlarkModuleLoadingException;
 import com.google.devtools.build.lib.util.ValueOrException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -126,12 +126,14 @@ public abstract class AbstractPackageLoaderTest {
     file("good2/BUILD", "sh_library(name = 'good2')");
     PackageIdentifier pkgId1 = PackageIdentifier.createInMainRepo(PathFragment.create("good1"));
     PackageIdentifier pkgId2 = PackageIdentifier.createInMainRepo(PathFragment.create("good2"));
-    PackageLoader.Result result;
+    ImmutableMap<PackageIdentifier, ValueOrException<Package, NoSuchPackageException>> pkgs;
+    ImmutableList<Event> events;
     try (PackageLoader pkgLoader = newPackageLoader()) {
-      result = pkgLoader.loadPackages(ImmutableList.of(pkgId1, pkgId2));
+      PackageLoader.Result<PackageIdentifier, Package, NoSuchPackageException> result =
+          pkgLoader.makeLoadingContext().loadPackages(ImmutableList.of(pkgId1, pkgId2));
+      pkgs = result.getLoadedValues();
+      events = result.getEvents();
     }
-    ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> pkgs =
-        result.getLoadedPackages();
 
     assertThat(pkgs.get(pkgId1).get().containsErrors()).isFalse();
     assertThat(pkgs.get(pkgId2).get().containsErrors()).isFalse();
@@ -140,7 +142,7 @@ public abstract class AbstractPackageLoaderTest {
     assertThat(pkgs.get(pkgId2).get().getTarget("good2").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
 
-    assertNoEvents(result.getEvents());
+    assertNoEvents(events);
     assertNoEvents(handler.getEvents());
   }
 
@@ -154,21 +156,26 @@ public abstract class AbstractPackageLoaderTest {
 
     PackageIdentifier missingPkgId = PackageIdentifier.createInMainRepo("missing");
 
-    PackageLoader.Result result;
+    ImmutableMap<PackageIdentifier, ValueOrException<Package, NoSuchPackageException>> pkgs;
+    ImmutableList<Event> events;
     try (PackageLoader pkgLoader = newPackageLoader()) {
-      result = pkgLoader.loadPackages(ImmutableList.of(badPkgId, goodPkgId, missingPkgId));
+      PackageLoader.Result<PackageIdentifier, Package, NoSuchPackageException> result =
+          pkgLoader
+              .makeLoadingContext()
+              .loadPackages(ImmutableList.of(badPkgId, goodPkgId, missingPkgId));
+      pkgs = result.getLoadedValues();
+      events = result.getEvents();
     }
 
-    Package goodPkg = result.getLoadedPackages().get(goodPkgId).get();
+    Package goodPkg = pkgs.get(goodPkgId).get();
     assertThat(goodPkg.containsErrors()).isFalse();
 
-    Package badPkg = result.getLoadedPackages().get(badPkgId).get();
+    Package badPkg = pkgs.get(badPkgId).get();
     assertThat(badPkg.containsErrors()).isTrue();
 
-    assertThrows(
-        NoSuchPackageException.class, () -> result.getLoadedPackages().get(missingPkgId).get());
+    assertThrows(NoSuchPackageException.class, () -> pkgs.get(missingPkgId).get());
 
-    assertContainsEvent(result.getEvents(), "invalidBUILDsyntax");
+    assertContainsEvent(events, "invalidBUILDsyntax");
     assertContainsEvent(handler.getEvents(), "invalidBUILDsyntax");
   }
 
@@ -176,16 +183,18 @@ public abstract class AbstractPackageLoaderTest {
   public void loadPackagesToleratesDuplicates() throws Exception {
     file("good1/BUILD", "sh_library(name = 'good1')");
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("good1"));
-    PackageLoader.Result result;
+    ImmutableMap<PackageIdentifier, ValueOrException<Package, NoSuchPackageException>> pkgs;
+    ImmutableList<Event> events;
     try (PackageLoader pkgLoader = newPackageLoader()) {
-      result = pkgLoader.loadPackages(ImmutableList.of(pkgId, pkgId));
+      PackageLoader.Result<PackageIdentifier, Package, NoSuchPackageException> result =
+          pkgLoader.makeLoadingContext().loadPackages(ImmutableList.of(pkgId, pkgId));
+      pkgs = result.getLoadedValues();
+      events = result.getEvents();
     }
-    ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> pkgs =
-        result.getLoadedPackages();
     assertThat(pkgs.get(pkgId).get().containsErrors()).isFalse();
     assertThat(pkgs.get(pkgId).get().getTarget("good1").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
-    assertNoEvents(result.getEvents());
+    assertNoEvents(events);
     assertNoEvents(handler.getEvents());
   }
 
@@ -250,12 +259,16 @@ public abstract class AbstractPackageLoaderTest {
     path("foo").createDirectoryAndParents();
     symlink("foo/infinitesymlinkpkg", path("foo/infinitesymlinkpkg/subdir"));
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo("foo/infinitesymlinkpkg");
-    PackageLoader.Result result;
+    ImmutableMap<PackageIdentifier, ValueOrException<Package, NoSuchPackageException>> pkgs;
+    ImmutableList<Event> events;
     try (PackageLoader pkgLoader = newPackageLoader()) {
-      result = pkgLoader.loadPackages(ImmutableList.of(pkgId));
+      PackageLoader.Result<PackageIdentifier, Package, NoSuchPackageException> result =
+          pkgLoader.makeLoadingContext().loadPackages(ImmutableList.of(pkgId));
+      pkgs = result.getLoadedValues();
+      events = result.getEvents();
     }
-    assertThrows(NoSuchPackageException.class, () -> result.getLoadedPackages().get(pkgId).get());
-    assertContainsEvent(result.getEvents(), "infinite symlink expansion detected");
+    assertThrows(NoSuchPackageException.class, () -> pkgs.get(pkgId).get());
+    assertContainsEvent(events, "infinite symlink expansion detected");
   }
 
   @Test
@@ -289,24 +302,25 @@ public abstract class AbstractPackageLoaderTest {
         """);
     Label fooLabel = Label.parseCanonicalUnchecked("//x:foo.bzl");
     Label barLabel = Label.parseCanonicalUnchecked("//y:bar.bzl");
-    ImmutableMap<Label, ValueOrException<Module, StarlarkModuleLoadingException>> result;
-    ImmutableList<Event> loadingContextEvents;
+    ImmutableMap<Label, ValueOrException<Module, StarlarkModuleLoadingException>> modules;
+    ImmutableList<Event> events;
     try (PackageLoader pkgLoader = newPackageLoader()) {
-      StarlarkModuleLoadingContext loadingContext = pkgLoader.makeStarlarkModuleLoadingContext();
-      result = loadingContext.loadModules(ImmutableList.of(fooLabel, barLabel));
-      loadingContextEvents = loadingContext.getEvents();
+      PackageLoader.Result<Label, Module, StarlarkModuleLoadingException> result =
+          pkgLoader.makeLoadingContext().loadModules(ImmutableList.of(fooLabel, barLabel));
+      modules = result.getLoadedValues();
+      events = result.getEvents();
     }
-    assertThat(result.keySet()).containsExactly(fooLabel, barLabel);
+    assertThat(modules.keySet()).containsExactly(fooLabel, barLabel);
 
-    assertThat(result.get(fooLabel).isPresent()).isTrue();
-    assertThat(result.get(fooLabel).get().getDocumentation()).isEqualTo("Module foo");
-    assertThat(result.get(fooLabel).get()).isSameInstanceAs(result.get(fooLabel).getUnchecked());
+    assertThat(modules.get(fooLabel).isPresent()).isTrue();
+    assertThat(modules.get(fooLabel).get().getDocumentation()).isEqualTo("Module foo");
+    assertThat(modules.get(fooLabel).get()).isSameInstanceAs(modules.get(fooLabel).getUnchecked());
 
-    assertThat(result.get(barLabel).isPresent()).isTrue();
-    assertThat(result.get(barLabel).get().getDocumentation()).isEqualTo("Module bar");
-    assertThat(result.get(barLabel).get()).isSameInstanceAs(result.get(barLabel).getUnchecked());
+    assertThat(modules.get(barLabel).isPresent()).isTrue();
+    assertThat(modules.get(barLabel).get().getDocumentation()).isEqualTo("Module bar");
+    assertThat(modules.get(barLabel).get()).isSameInstanceAs(modules.get(barLabel).getUnchecked());
 
-    assertNoEvents(loadingContextEvents);
+    assertNoEvents(events);
   }
 
   @Test
@@ -314,18 +328,19 @@ public abstract class AbstractPackageLoaderTest {
     file("x/BUILD");
     file("x/foo.bzl", "syntax error");
     Label fooLabel = Label.parseCanonicalUnchecked("//x:foo.bzl");
-    ImmutableMap<Label, ValueOrException<Module, StarlarkModuleLoadingException>> result;
-    ImmutableList<Event> loadingContextEvents;
+    ImmutableMap<Label, ValueOrException<Module, StarlarkModuleLoadingException>> modules;
+    ImmutableList<Event> events;
     try (PackageLoader pkgLoader = newPackageLoader()) {
-      StarlarkModuleLoadingContext loadingContext = pkgLoader.makeStarlarkModuleLoadingContext();
-      result = loadingContext.loadModules(ImmutableList.of(fooLabel));
-      loadingContextEvents = loadingContext.getEvents();
+      PackageLoader.Result<Label, Module, StarlarkModuleLoadingException> result =
+          pkgLoader.makeLoadingContext().loadModules(ImmutableList.of(fooLabel));
+      modules = result.getLoadedValues();
+      events = result.getEvents();
     }
 
-    assertThat(result.keySet()).containsExactly(fooLabel);
+    assertThat(modules.keySet()).containsExactly(fooLabel);
 
     ValueOrException<Module, StarlarkModuleLoadingException> valueOrException =
-        result.get(fooLabel);
+        modules.get(fooLabel);
     assertThat(valueOrException.isPresent()).isFalse();
     StarlarkModuleLoadingException exception =
         assertThrows(StarlarkModuleLoadingException.class, valueOrException::get);
@@ -337,8 +352,8 @@ public abstract class AbstractPackageLoaderTest {
         assertThrows(IllegalStateException.class, valueOrException::getUnchecked);
     assertThat(uncheckedException).hasCauseThat().isEqualTo(exception);
 
-    assertThat(handler.getEvents()).containsExactlyElementsIn(loadingContextEvents);
-    assertContainsEvent(loadingContextEvents, "syntax error");
+    assertThat(handler.getEvents()).containsExactlyElementsIn(events);
+    assertContainsEvent(events, "syntax error");
   }
 
   @Test
@@ -361,18 +376,19 @@ public abstract class AbstractPackageLoaderTest {
         def bar(): return foo
         """);
     Label fooLabel = Label.parseCanonicalUnchecked("//x:foo.bzl");
-    ImmutableMap<Label, ValueOrException<Module, StarlarkModuleLoadingException>> result;
-    ImmutableList<Event> loadingContextEvents;
+    ImmutableMap<Label, ValueOrException<Module, StarlarkModuleLoadingException>> modules;
+    ImmutableList<Event> events;
     try (PackageLoader pkgLoader = newPackageLoader()) {
-      StarlarkModuleLoadingContext loadingContext = pkgLoader.makeStarlarkModuleLoadingContext();
-      result = loadingContext.loadModules(ImmutableList.of(fooLabel));
-      loadingContextEvents = loadingContext.getEvents();
+      PackageLoader.Result<Label, Module, StarlarkModuleLoadingException> result =
+          pkgLoader.makeLoadingContext().loadModules(ImmutableList.of(fooLabel));
+      modules = result.getLoadedValues();
+      events = result.getEvents();
     }
 
-    assertThat(result.keySet()).containsExactly(fooLabel);
+    assertThat(modules.keySet()).containsExactly(fooLabel);
 
     ValueOrException<Module, StarlarkModuleLoadingException> valueOrException =
-        result.get(fooLabel);
+        modules.get(fooLabel);
     assertThat(valueOrException.isPresent()).isFalse();
     StarlarkModuleLoadingException exception =
         assertThrows(StarlarkModuleLoadingException.class, valueOrException::get);
@@ -384,44 +400,74 @@ public abstract class AbstractPackageLoaderTest {
         assertThrows(IllegalStateException.class, valueOrException::getUnchecked);
     assertThat(uncheckedException).hasCauseThat().isEqualTo(exception);
 
-    assertThat(loadingContextEvents).isEmpty();
+    assertThat(events).isEmpty();
   }
 
   @Test
   public void loadingContext_resetsLoadedEvents() throws Exception {
-    file("x/BUILD");
-    file("x/foo.bzl", "one syntax error");
-    file("y/BUILD");
-    file("y/bar.bzl", "another syntax error");
+    file("x/BUILD", "invalidSyntax_pkg_x");
+    file("x/foo.bzl", "invalidSyntax_foo_bzl");
+    file("y/BUILD", "invalidSyntax_pkg_y");
+    file("y/bar.bzl", "invalidSyntax_bar_bzl");
     Label fooLabel = Label.parseCanonicalUnchecked("//x:foo.bzl");
     Label barLabel = Label.parseCanonicalUnchecked("//y:bar.bzl");
-    ImmutableList<Event> loadingContextEventsAfterLoadingFoo;
-    ImmutableList<Event> loadingContextEventsAfterLoadingBar;
+    ImmutableList<Event> eventsAfterLoadingFooBzl;
+    ImmutableList<Event> eventsAfterLoadingPkgX;
+    ImmutableList<Event> eventsAfterLoadingBarBzl;
+    ImmutableList<Event> eventsAfterLoadingPkgY;
     try (PackageLoader pkgLoader = newPackageLoader()) {
-      StarlarkModuleLoadingContext loadingContext = pkgLoader.makeStarlarkModuleLoadingContext();
-      var unusedFooResult = loadingContext.loadModules(ImmutableList.of(fooLabel));
-      loadingContextEventsAfterLoadingFoo = loadingContext.getEvents();
-      var unusedBarResult = loadingContext.loadModules(ImmutableList.of(barLabel));
-      loadingContextEventsAfterLoadingBar = loadingContext.getEvents();
+      LoadingContext loadingContext = pkgLoader.makeLoadingContext();
+      eventsAfterLoadingFooBzl = loadingContext.loadModules(ImmutableList.of(fooLabel)).getEvents();
+      eventsAfterLoadingPkgX =
+          loadingContext
+              .loadPackages(
+                  ImmutableList.of(PackageIdentifier.createInMainRepo(PathFragment.create("x"))))
+              .getEvents();
+      eventsAfterLoadingPkgY =
+          loadingContext
+              .loadPackages(
+                  ImmutableList.of(PackageIdentifier.createInMainRepo(PathFragment.create("y"))))
+              .getEvents();
+      eventsAfterLoadingBarBzl = loadingContext.loadModules(ImmutableList.of(barLabel)).getEvents();
     }
-    assertContainsEvent(loadingContextEventsAfterLoadingFoo, "name 'one' is not defined");
-    assertDoesNotContainEvent(loadingContextEventsAfterLoadingFoo, "name 'another' is not defined");
+    assertContainsEvent(eventsAfterLoadingFooBzl, "invalidSyntax_foo_bzl");
+    assertDoesNotContainEvents(
+        eventsAfterLoadingFooBzl,
+        "invalidSyntax_pkg_x",
+        "invalidSyntax_pkg_y",
+        "invalidSyntax_bar_bzl");
 
-    assertDoesNotContainEvent(loadingContextEventsAfterLoadingBar, "name 'one' is not defined");
-    assertContainsEvent(loadingContextEventsAfterLoadingBar, "name 'another' is not defined");
+    assertContainsEvent(eventsAfterLoadingPkgX, "invalidSyntax_pkg_x");
+    assertDoesNotContainEvents(
+        eventsAfterLoadingPkgX,
+        "invalidSyntax_pkg_y",
+        "invalidSyntax_foo_bzl",
+        "invalidSyntax_bar_bzl");
+
+    assertContainsEvent(eventsAfterLoadingPkgY, "invalidSyntax_pkg_y");
+    assertDoesNotContainEvents(
+        eventsAfterLoadingPkgY,
+        "invalidSyntax_pkg_x",
+        "invalidSyntax_foo_bzl",
+        "invalidSyntax_bar_bzl");
+
+    assertContainsEvent(eventsAfterLoadingBarBzl, "invalidSyntax_bar_bzl");
+    assertDoesNotContainEvents(
+        eventsAfterLoadingBarBzl,
+        "invalidSyntax_pkg_x",
+        "invalidSyntax_pkg_y",
+        "invalidSyntax_foo_bzl");
   }
 
   @Test
   public void loadingContext_getRepositoryMapping_basicFunctionality() throws Exception {
     RepositoryMapping repositoryMapping;
-    ImmutableList<Event> loadingContextEvents;
     try (PackageLoader pkgLoader = newPackageLoader()) {
-      StarlarkModuleLoadingContext loadingContext = pkgLoader.makeStarlarkModuleLoadingContext();
+      LoadingContext loadingContext = pkgLoader.makeLoadingContext();
       repositoryMapping = loadingContext.getRepositoryMapping();
-      loadingContextEvents = loadingContext.getEvents();
     }
     assertThat(repositoryMapping.get("")).isEqualTo(RepositoryName.MAIN);
-    assertNoEvents(loadingContextEvents);
+    assertNoEvents(handler.getEvents());
   }
 
   protected Path path(String rootRelativePath) {

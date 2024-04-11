@@ -158,7 +158,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     RepositoryMapping repoMapping;
     try (PackageLoader pkgLoader = newPackageLoader()) {
       goodPkg = pkgLoader.loadPackage(pkgId);
-      repoMapping = pkgLoader.makeStarlarkModuleLoadingContext().getRepositoryMapping();
+      repoMapping = pkgLoader.makeLoadingContext().getRepositoryMapping();
     }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
@@ -182,7 +182,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     RepositoryMapping repoMapping;
     try (PackageLoader pkgLoader = newPackageLoader()) {
       goodPkg = pkgLoader.loadPackage(pkgId);
-      repoMapping = pkgLoader.makeStarlarkModuleLoadingContext().getRepositoryMapping();
+      repoMapping = pkgLoader.makeLoadingContext().getRepositoryMapping();
     }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
