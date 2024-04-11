@@ -111,7 +111,7 @@ Starting with Bazel 1.0, you can run any rule without Bash, except when:
 - you use `--run_under` or `--script_path`
 - the test rule itself requires Bash (because its executable is a shell script)
 
-#### Using sh_binary and sh_* rules, and ctx.actions.run_shell() without Bash {:#sh-rules-without-bash}
+#### Using sh\_binary and sh\_* rules, and ctx.actions.run_shell() without Bash {:#sh-rules-without-bash}
 
 You need Bash to build and test `sh_*` rules, and to build and test Starlark
 rules that use `ctx.actions.run_shell()` and `ctx.resolve_command()`. This
