@@ -107,4 +107,20 @@ EOF
   expect_not_log "Needle reached by path:"
 }
 
+function test_memory_transitive() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_library(name="a", srcs=["a.sh"], deps=["//b"])
+EOF
+
+  mkdir -p b
+  cat > b/BUILD <<'EOF'
+sh_library(name="b", srcs=["b.sh"], visibility=["//visibility:public"])
+EOF
+
+  bazel build --nobuild //a >& $TEST_log || fail "build failed"
+  bazel dump --memory=transitive,count:configured_target://a >& $TEST_log || fail "dump failed"
+  expect_log "InputFileConfiguredTarget: 2"
+}
+
 run_suite "Tests for 'bazel dump'"

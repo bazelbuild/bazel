@@ -80,7 +80,7 @@ public class MemoryAccountant implements ObjectGraphTraverser.ObjectReceiver {
   }
 
   @Override
-  public void objectFound(Object o, String context) {
+  public synchronized void objectFound(Object o, String context) {
     if (context == null) {
       if (o.getClass().isArray()) {
         context = "[] " + o.getClass().getComponentType().getName();
