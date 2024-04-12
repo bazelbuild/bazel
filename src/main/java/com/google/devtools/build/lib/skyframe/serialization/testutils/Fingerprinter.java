@@ -245,18 +245,15 @@ final class Fingerprinter {
       } else {
         out.append(", ");
       }
-      if (info instanceof PrimitiveInfo primitiveInfo) {
-        primitiveInfo.output(obj, out);
-      } else if (info instanceof ObjectInfo objectInfo) {
-        out.append(objectInfo.name()).append('=');
-        cycleOwnerIndex =
-            min(
-                cycleOwnerIndex,
-                outputFingerprintOrInlinedValue(objectInfo.getFieldValue(obj), out));
-      } else {
-        // TODO: b/297857068 - it should be possible to replace this with a pattern matching
-        // switch which won't require this line, but that's not yet supported.
-        throw new IllegalArgumentException("Unexpected FieldInfo type: " + info);
+      switch (info) {
+        case PrimitiveInfo primitiveInfo -> primitiveInfo.output(obj, out);
+        case ObjectInfo objectInfo -> {
+          out.append(objectInfo.name()).append('=');
+          cycleOwnerIndex =
+              min(
+                  cycleOwnerIndex,
+                  outputFingerprintOrInlinedValue(objectInfo.getFieldValue(obj), out));
+        }
       }
     }
     return cycleOwnerIndex;

@@ -274,15 +274,12 @@ public final class Dumper {
   }
 
   private void outputField(Object parent, FieldInfo info) {
-    if (info instanceof PrimitiveInfo primitiveInfo) {
-      primitiveInfo.output(parent, out);
-    } else if (info instanceof ObjectInfo objectInfo) {
-      out.append(objectInfo.name()).append('=');
-      outputObject(objectInfo.getFieldValue(parent));
-    } else {
-      // TODO: b/297857068 - it should be possible to replace this with a pattern matching switch
-      // which won't require this line, but that's not yet supported.
-      throw new IllegalArgumentException("Unexpected FieldInfo type: " + info);
+    switch (info) {
+      case PrimitiveInfo primitiveInfo -> primitiveInfo.output(parent, out);
+      case ObjectInfo objectInfo -> {
+        out.append(objectInfo.name()).append('=');
+        outputObject(objectInfo.getFieldValue(parent));
+      }
     }
   }
 
