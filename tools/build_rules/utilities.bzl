@@ -15,6 +15,8 @@
 
 """This rule exposes the source jar of a java_*_library rule as a label."""
 
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+
 def _java_library_srcs_impl(ctx):
     if len(ctx.attr.deps) != 1:
         fail("Only one deps value supported", "deps")
