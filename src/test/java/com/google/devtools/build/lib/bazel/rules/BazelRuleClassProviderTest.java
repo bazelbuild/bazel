@@ -223,7 +223,7 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
     assertThat(determineShellExecutable(OS.OPENBSD, null))
         .isEqualTo(PathFragment.create("/usr/local/bin/bash"));
     assertThat(determineShellExecutable(OS.WINDOWS, null))
-        .isEqualTo(PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"));
+        .isEqualTo(PathFragment.create("c:/msys64/usr/bin/bash.exe"));
   }
 
   @Test

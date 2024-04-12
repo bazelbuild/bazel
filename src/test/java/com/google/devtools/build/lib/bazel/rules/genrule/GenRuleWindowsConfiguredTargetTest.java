@@ -189,7 +189,7 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
     assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
 
     String expected = "echo \"Hello, Bash cmd.\" >" + messageArtifact.getExecPathString();
-    assertThat(shellAction.getArguments().get(0)).isEqualTo("c:/tools/msys64/usr/bin/bash.exe");
+    assertThat(shellAction.getArguments().get(0)).isEqualTo("c:/msys64/usr/bin/bash.exe");
     assertThat(shellAction.getArguments().get(1)).isEqualTo("-c");
     assertBashCommandEquals(expected, shellAction.getArguments().get(2));
   }

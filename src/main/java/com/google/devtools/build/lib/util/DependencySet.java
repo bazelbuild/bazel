@@ -282,7 +282,7 @@ public final class DependencySet {
               String.format(
                   "\"%1$s\" JVM flag is not set. Use the --host_jvm_args flag. "
                       + "For example: "
-                      + "\"--host_jvm_args=-D%1$s=c:/tools/msys64\".",
+                      + "\"--host_jvm_args=-D%1$s=c:/msys64\".",
                   jvmFlag));
         }
         value = value.replace('\\', '/');
