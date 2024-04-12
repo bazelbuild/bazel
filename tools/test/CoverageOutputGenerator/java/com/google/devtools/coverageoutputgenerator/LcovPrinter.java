@@ -38,30 +38,18 @@ class LcovPrinter {
     this.bufferedWriter = bufferedWriter;
   }
 
-  static boolean print(OutputStream outputStream, Coverage coverage) {
-    BufferedWriter bufferedWriter;
-    try (Writer fileWriter = new OutputStreamWriter(outputStream, UTF_8)) {
-      bufferedWriter = new BufferedWriter(fileWriter);
+  static void print(OutputStream outputStream, Coverage coverage) throws IOException {
+    try (Writer fileWriter = new OutputStreamWriter(outputStream, UTF_8);
+         BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);) {
       LcovPrinter lcovPrinter = new LcovPrinter(bufferedWriter);
       lcovPrinter.print(coverage);
-      bufferedWriter.close();
-    } catch (IOException exception) {
-      logger.log(Level.SEVERE, "Could not write to output file.");
-      return false;
     }
-    return true;
   }
 
-  private boolean print(Coverage coverage) {
-    try {
-      for (SourceFileCoverage sourceFile : coverage.getAllSourceFiles()) {
-        print(sourceFile);
-      }
-    } catch (IOException exception) {
-      logger.log(Level.SEVERE, "Could not write to output file.");
-      return false;
+  private void print(Coverage coverage) throws IOException {
+    for (SourceFileCoverage sourceFile : coverage.getAllSourceFiles()) {
+      print(sourceFile);
     }
-    return true;
   }
 
   /**
