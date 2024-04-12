@@ -28,16 +28,18 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
- * Handles package (sub-)directory entries which matches part or all of the glob pattern fragments.
+ * Handles package (sub-)directory entry which is also a directory and matches part or all of the
+ * glob pattern fragments.
  *
  * <p>Created by {@link PatternWithWildcardProducer} or {@link PatternWithoutWildcardProducer} after
- * they confirm that {@link #direntPath} matches part or all of the glob pattern fragments.
+ * they confirm that {@linkplain #direntPath the directory dirent} matches part or all of the glob
+ * pattern fragments. File dirents are handled inline within the two upstream producers.
  *
  * <p>Checks whether {@link #direntPath} is a qualified glob matching result, and add to result if
  * so. Before creating the next {@link FragmentProducer} also checks whether (1) there are pattern
  * fragment(s) left to match and (2) subpackage crossing exists .
  */
-final class DirentProducer implements StateMachine, Consumer<SkyValue> {
+final class DirectoryDirentProducer implements StateMachine, Consumer<SkyValue> {
 
   // -------------------- Input --------------------
   private final GlobDetail globDetail;
@@ -46,7 +48,6 @@ final class DirentProducer implements StateMachine, Consumer<SkyValue> {
   private final PathFragment direntPath;
 
   private final int fragmentIndex;
-  private final boolean isDir;
 
   // -------------------- Internal State --------------------
   private PackageLookupValue packageLookupValue = null;
@@ -55,11 +56,10 @@ final class DirentProducer implements StateMachine, Consumer<SkyValue> {
   // -------------------- Output --------------------
   private final FragmentProducer.ResultSink resultSink;
 
-  DirentProducer(
+  DirectoryDirentProducer(
       GlobDetail globDetail,
       PathFragment direntPath,
       int fragmentIndex,
-      boolean isDir,
       FragmentProducer.ResultSink resultSink,
       @Nullable Set<Pair<PathFragment, Integer>> visitedGlobSubTasks) {
     // Upstream logic should already have appended some dirent to the package fragment when
@@ -69,22 +69,12 @@ final class DirentProducer implements StateMachine, Consumer<SkyValue> {
     this.direntPath = direntPath;
     this.globDetail = globDetail;
     this.fragmentIndex = fragmentIndex;
-    this.isDir = isDir;
     this.resultSink = resultSink;
     this.visitedGlobSubTasks = visitedGlobSubTasks;
   }
 
   @Override
   public StateMachine step(Tasks tasks) {
-    if (!isDir) {
-      // The dirent is just a file, we need to check whether this is a glob matching before
-      // returning.
-      if (shouldAddResult(/* isDir= */ false, /* isSubpackage= */ false)) {
-        resultSink.acceptPathFragmentWithPackageFragment(direntPath);
-      }
-      return DONE;
-    }
-
     // Check whether the next directory path matches any `IgnoredPackagePrefix`.
     for (PathFragment ignoredPrefix : globDetail.ignoredPackagePrefixesPatterns()) {
       if (direntPath.startsWith(ignoredPrefix)) {
@@ -118,7 +108,7 @@ final class DirentProducer implements StateMachine, Consumer<SkyValue> {
       if (globDetail.globOperation().equals(Operation.SUBPACKAGES)) {
         // If this is a subpackages() call, we need to check whether this subpackage is a glob
         // matching before returning.
-        if (shouldAddResult(/* isDir= */ true, /* isSubpackage= */ true)) {
+        if (shouldAddResult(/* isSubpackage= */ true)) {
           resultSink.acceptPathFragmentWithPackageFragment(direntPath);
         }
       }
@@ -130,7 +120,7 @@ final class DirentProducer implements StateMachine, Consumer<SkyValue> {
 
   private StateMachine addResultsOrCreateNextFragmentProducer(Tasks tasks) {
     // Even for directory dirent, we need to check whether this path is a matching result.
-    if (shouldAddResult(/* isDir= */ true, /* isSubpackage= */ false)) {
+    if (shouldAddResult(/* isSubpackage= */ false)) {
       resultSink.acceptPathFragmentWithPackageFragment(direntPath);
     }
 
@@ -155,13 +145,13 @@ final class DirentProducer implements StateMachine, Consumer<SkyValue> {
   }
 
   /** Returns {@code true} if {@code path} can be added as a glob matching result. */
-  private boolean shouldAddResult(boolean isDir, boolean isSubpackage) {
+  private boolean shouldAddResult(boolean isSubpackage) {
     switch (globDetail.globOperation()) {
       case FILES:
-        return fragmentIndex == globDetail.patternFragments().size() - 1 && !isDir;
+        // The dirent is always a directory, so it can never match FILE operation.
+        return false;
       case SUBPACKAGES:
-        return isDir
-            && isSubpackage
+        return isSubpackage
             && allRemainPatternFragmentsDoubleStar(globDetail.patternFragments(), fragmentIndex);
       case FILES_AND_DIRS:
         return fragmentIndex == globDetail.patternFragments().size() - 1 && !isSubpackage;
