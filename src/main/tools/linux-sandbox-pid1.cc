@@ -18,6 +18,7 @@
  */
 
 #include "src/main/tools/linux-sandbox-pid1.h"
+#include "src/main/tools/linux-sandbox-options.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -252,6 +253,16 @@ static void MountFilesystems() {
           "tmpfs (you requested mounting %s in %s). Is your --output_base= "
           "below one of your --sandbox_tmpfs_path values?",
           opt.working_dir.c_str(), tmpfs_dir.c_str());
+    }
+  }
+
+  if (!opt.overlayfs_upperdir.empty() && !opt.overlayfs_workdir.empty()) {
+    const std::string overlayfs_opts =
+        "lowerdir=/tmp,upperdir=" + opt.overlayfs_upperdir + ",workdir="
+            + opt.overlayfs_workdir;
+    PRINT_DEBUG("overlayfs mount: %s", overlayfs_opts.c_str());
+    if (mount("overlay", "/tmp", "overlay", 0, overlayfs_opts.c_str()) < 0) {
+      DIE("mount(overlay, /tmp, overlay, 0, %s)", overlayfs_opts.c_str());
     }
   }
 

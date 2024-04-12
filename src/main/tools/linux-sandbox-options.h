@@ -68,6 +68,10 @@ struct Options {
   std::string sandbox_root;
   // Directory to use for cgroup control
   std::string cgroups_dir;
+  // The upperdir for the /tmp overlayfs (-F)
+  std::string overlayfs_upperdir;
+  // The workdir for the /tmp overlayfs (-f)
+  std::string overlayfs_workdir;
   // Command to run (--)
   std::vector<char *> args;
 };

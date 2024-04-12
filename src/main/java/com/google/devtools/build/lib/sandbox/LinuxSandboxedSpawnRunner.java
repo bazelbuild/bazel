@@ -248,62 +248,22 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // The directory that will be mounted as the hermetic /tmp, if any (otherwise null)
     Path sandboxTmp = null;
 
-    // These paths are paths that are visible for the processes running inside the sandbox. They
-    // can be different from paths from the point of view of the Bazel server because if we use
-    // hermetic /tmp and either the output base or a source root are under /tmp, they would be
-    // hidden by the newly mounted hermetic /tmp . So in that case, we make the sandboxed processes
-    // see the exec root, the source roots and the working directory of the action at constant
-    // locations under /tmp .
-
-    // Base directory for source roots; each source root is a sequentially numbered subdirectory.
-    Path withinSandboxSourceRoots = null;
-
-    // Working directory of the action; this is where the inputs (and only the inputs) of the action
-    // are visible.
-    Path withinSandboxWorkingDirectory = null;
-
-    // The exec root. Necessary because the working directory contains symlinks to the execroot.
-    Path withinSandboxExecRoot = execRoot;
-
-    boolean useHermeticTmp = useHermeticTmp();
-
-    if (useHermeticTmp) {
-      // The directory which will be mounted at /tmp in the sandbox
-      sandboxTmp = sandboxPath.getRelative("_hermetic_tmp");
-      withinSandboxSourceRoots = fileSystem.getPath(SLASH_TMP.getRelative(BAZEL_SOURCE_ROOTS));
-      withinSandboxWorkingDirectory =
-          fileSystem
-              .getPath(SLASH_TMP.getRelative(BAZEL_WORKING_DIRECTORY))
-              .getRelative(workspaceName);
-      withinSandboxExecRoot =
-          fileSystem.getPath(SLASH_TMP.getRelative(BAZEL_EXECROOT)).getRelative(workspaceName);
-    }
-
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot,
-            withinSandboxExecRoot,
+            execRoot,
             packageRoots,
-            withinSandboxSourceRoots);
+            null);
 
     sandboxExecRoot.createDirectoryAndParents();
-
-    if (useHermeticTmp) {
-      for (Root root : inputs.getSourceRootBindMounts().keySet()) {
-        createDirectoryWithinSandboxTmp(sandboxTmp, root.asPath());
-      }
-
-      createDirectoryWithinSandboxTmp(sandboxTmp, withinSandboxExecRoot);
-      createDirectoryWithinSandboxTmp(sandboxTmp, withinSandboxWorkingDirectory);
-    }
 
     SandboxOutputs outputs = helpers.getOutputs(spawn);
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
     ImmutableSet<Path> writableDirs =
         getWritableDirs(
-            sandboxExecRoot, useHermeticTmp ? withinSandboxExecRoot : sandboxExecRoot, environment);
+            sandboxExecRoot, sandboxExecRoot, environment);
     Duration timeout = context.getTimeout();
     SandboxOptions sandboxOptions = getSandboxOptions();
 
@@ -338,8 +298,15 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
     }
 
-    if (useHermeticTmp) {
-      commandLineBuilder.setWorkingDirectory(withinSandboxWorkingDirectory);
+    if (useHermeticTmp()) {
+      // The directory which will be mounted at /tmp in the sandbox
+      sandboxTmp = sandboxPath.getRelative("_hermetic_tmp");
+      Path sandboxTmpUpperdir = sandboxTmp.getRelative("upperdir");
+      sandboxTmpUpperdir.createDirectoryAndParents();
+      Path sandboxTmpWorkdir  = sandboxTmp.getRelative("workdir");
+      sandboxTmpWorkdir.createDirectoryAndParents();
+      commandLineBuilder.mountOverlayfsOnTmp(sandboxTmpUpperdir.getPathString(),
+          sandboxTmpWorkdir.getPathString());
     }
 
     if (!timeout.isZero()) {

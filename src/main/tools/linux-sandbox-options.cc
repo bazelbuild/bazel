@@ -102,7 +102,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   int c;
   bool source_specified = false;
   while ((c = getopt(args->size(), args->data(),
-                     ":W:T:t:il:L:w:e:M:m:S:h:pC:HnNRUPD:")) != -1) {
+                     ":W:T:t:il:L:w:e:M:m:S:h:pC:HnNRUPD:F:f:")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'W':
@@ -247,6 +247,14 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
           Usage(args->front(),
                 "Cannot write debug output to more than one file.");
         }
+        break;
+      case 'F':
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+        opt.overlayfs_upperdir.assign(optarg);
+        break;
+      case 'f':
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+        opt.overlayfs_workdir.assign(optarg);
         break;
       case '?':
         Usage(args->front(), "Unrecognized argument: -%c (%d)", optopt, optind);

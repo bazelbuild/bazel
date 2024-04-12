@@ -736,7 +736,7 @@ sh_test(
 EOF
 
   cat > pkg/tmp_test.sh <<EOF
-[[ ! -f "${temp_dir}/file" ]]
+[[ -f "${temp_dir}/file" ]]
 EOF
   chmod +x pkg/tmp_test.sh
 
