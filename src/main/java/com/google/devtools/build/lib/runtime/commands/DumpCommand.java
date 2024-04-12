@@ -19,6 +19,8 @@ import static java.util.stream.Collectors.toList;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -78,9 +80,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nullable;
 
 /** Implementation of the dump command. */
@@ -669,14 +672,14 @@ public class DumpCommand implements BlazeCommand {
     return memoryAccountant.getStats();
   }
 
-  private static CompletableFuture<Void> processTransitive(
+  private static ListenableFuture<Void> processTransitive(
       InMemoryGraph graph,
       SkyKey skyKey,
       MemoryMode mode,
       FieldCache fieldCache,
       MemoryAccountant memoryAccountant,
       ConcurrentIdentitySet seen,
-      Map<SkyKey, CompletableFuture<Void>> futureMap) {
+      Map<SkyKey, ListenableFuture<Void>> futureMap) {
     NodeEntry entry = graph.get(null, Reason.OTHER, skyKey);
     SkyValue value;
     ImmutableList<SkyKey> directDeps;
@@ -689,42 +692,47 @@ public class DumpCommand implements BlazeCommand {
       throw new IllegalStateException();
     }
 
-    return CompletableFuture.supplyAsync(
-            () -> {
-              // First we create list of futures this node depends on:
-              List<CompletableFuture<Void>> futures = new ArrayList<>();
+    Executor executor = ForkJoinPool.commonPool();
 
-              // We iterate over every direct dep,
+    // This returns a list of futures representing processing the direct deps of this node
+    ListenableFuture<ImmutableList<ListenableFuture<Void>>> scheduleDeps =
+        Futures.submit(
+            () -> {
+              List<ListenableFuture<Void>> depFutures = new ArrayList<>();
               for (SkyKey dep : directDeps) {
-                futures.add(
-                    // and if not already processed, we create a future for it
+                // If the processing of this dependency has not been scheduled, do so
+                depFutures.add(
                     futureMap.computeIfAbsent(
                         dep,
                         k ->
                             processTransitive(
                                 graph, dep, mode, fieldCache, memoryAccountant, seen, futureMap)));
               }
+              return ImmutableList.copyOf(depFutures);
+            },
+            executor);
 
-              return ImmutableList.copyOf(futures);
-            })
-        .thenCompose(
-            // Then we merge the futures representing the direct deps into one that fires when all
-            // of them are done,
-            futures -> CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[] {})))
-        .thenAcceptAsync(
-            // and once that's the case, we iterate over the object graph of that one.
-            done -> {
-              ObjectGraphTraverser traverser =
-                  new ObjectGraphTraverser(
-                      fieldCache,
-                      mode.reportTransient,
-                      seen,
-                      true,
-                      memoryAccountant,
-                      null,
-                      mode.needle);
-              traverser.traverse(value);
-            });
+    // This is a future that gets completed when the direct deps have all been processed...
+    ListenableFuture<List<Void>> processDeps =
+        Futures.transformAsync(scheduleDeps, Futures::allAsList, executor);
+
+    // ...and when that's the case, we can proceed with processing this node in turn.
+    return Futures.transform(
+        processDeps,
+        unused -> {
+          ObjectGraphTraverser traverser =
+              new ObjectGraphTraverser(
+                  fieldCache,
+                  mode.reportTransient,
+                  seen,
+                  true,
+                  memoryAccountant,
+                  null,
+                  mode.needle);
+          traverser.traverse(value);
+          return null;
+        },
+        executor);
   }
 
   private static Stats dumpRamTransitive(
