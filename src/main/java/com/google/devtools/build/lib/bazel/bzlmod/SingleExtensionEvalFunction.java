@@ -85,6 +85,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 
@@ -870,7 +871,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       repoMappingRecorder.mergeEntries(bzlLoadValue.getRecordedRepoMappings());
       try (Mutability mu =
           Mutability.create("module extension", usagesValue.getExtensionUniqueName())) {
-        StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+        StarlarkThread thread =
+            StarlarkThread.create(
+                mu,
+                starlarkSemantics,
+                /* contextDescription= */ "",
+                SymbolGenerator.create(extensionId));
         thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
         moduleContext = createContext(env, usagesValue, starlarkSemantics, extensionId);
         threadContext.storeInThread(thread);

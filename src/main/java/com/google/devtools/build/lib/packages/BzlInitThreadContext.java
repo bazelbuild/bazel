@@ -24,7 +24,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator;
 
 /**
  * Bazel application data for the Starlark thread that evaluates the top-level code in a .bzl (or
@@ -65,9 +64,8 @@ public final class BzlInitThreadContext extends BazelStarlarkContext
       byte[] transitiveDigest,
       RepositoryName toolsRepository,
       Optional<Label> networkAllowlistForTests,
-      ImmutableMap<String, Class<?>> fragmentNameToClass,
-      SymbolGenerator<?> symbolGenerator) {
-    super(BazelStarlarkContext.Phase.LOADING, symbolGenerator);
+      ImmutableMap<String, Class<?>> fragmentNameToClass) {
+    super(BazelStarlarkContext.Phase.LOADING);
     this.bzlFile = bzlFile;
     this.transitiveDigest = transitiveDigest;
     this.toolsRepository = toolsRepository;

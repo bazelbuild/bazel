@@ -858,15 +858,14 @@ public class BzlLoadFunction implements SkyFunction {
             transitiveDigest,
             ruleClassProvider.getToolsRepository(),
             ruleClassProvider.getNetworkAllowlistForTests(),
-            ruleClassProvider.getConfigurationFragmentMap(),
-            SymbolGenerator.create(label));
+            ruleClassProvider.getConfigurationFragmentMap());
 
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the Module and
     // BzlInitThreadContext.
     executeBzlFile(
         prog,
-        label,
+        key,
         module,
         loadMap,
         context,
@@ -1346,7 +1345,7 @@ public class BzlLoadFunction implements SkyFunction {
   /** Executes the compiled .bzl file defining the module to be loaded. */
   private static void executeBzlFile(
       Program prog,
-      Label label,
+      BzlLoadValue.Key key,
       Module module,
       Map<String, Module> loadedModules,
       BzlInitThreadContext context,
@@ -1354,8 +1353,11 @@ public class BzlLoadFunction implements SkyFunction {
       ExtendedEventHandler skyframeEventHandler,
       Label.RepoMappingRecorder repoMappingRecorder)
       throws BzlLoadFailedException, InterruptedException {
+    Label label = key.getLabel();
     try (Mutability mu = Mutability.create("loading", label)) {
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
       thread.setLoader(loadedModules::get);
       // This is needed so that any calls to `Label()` will have its used repo mapping entries
       // recorded. See #20721 for more details.

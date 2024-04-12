@@ -246,7 +246,9 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     ImmutableSet<PathFragment> ignoredPatterns = checkNotNull(ignoredPackagesValue).getPatterns();
 
     try (Mutability mu = Mutability.create("Starlark repository")) {
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       var repoMappingRecorder = new Label.RepoMappingRecorder();
       // For repos defined in Bzlmod, record any used repo mappings in the marker file.
@@ -258,10 +260,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
       }
 
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.LOADING, // ("fetch")
-              SymbolGenerator.create(key))
-          .storeInThread(thread);
+      new BazelStarlarkContext(BazelStarlarkContext.Phase.LOADING).storeInThread(thread); // "fetch"
 
       StarlarkRepositoryContext starlarkRepositoryContext =
           new StarlarkRepositoryContext(

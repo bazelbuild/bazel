@@ -21,7 +21,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator;
 
 /** Bazel application data for the Starlark thread that performs analysis of rules and aspects. */
 public class BazelRuleAnalysisThreadContext extends BazelStarlarkContext {
@@ -31,13 +30,10 @@ public class BazelRuleAnalysisThreadContext extends BazelStarlarkContext {
   /**
    * Constructs a {@link BazelRuleAnalysisThreadContext}.
    *
-   * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
-   *     compared using reference equality.
    * @param ruleContext is the {@link RuleContext} of the rule for analysis of a rule or aspect
    */
-  public BazelRuleAnalysisThreadContext(
-      SymbolGenerator<?> symbolGenerator, RuleContext ruleContext) {
-    super(Phase.ANALYSIS, symbolGenerator);
+  public BazelRuleAnalysisThreadContext(RuleContext ruleContext) {
+    super(Phase.ANALYSIS);
     this.ruleContext = ruleContext;
   }
 

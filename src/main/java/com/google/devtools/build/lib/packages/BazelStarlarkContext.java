@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator;
 
 /*
  * TODO(b/236456122): We should break this class up into separate classes for each kind of Starlark
@@ -36,12 +35,9 @@ import net.starlark.java.eval.SymbolGenerator;
  *   - Args.map_each
  *   - probably others
  *
- * BazelStarlarkContext itself could probably be deleted. The only thing common to almost all Bazel
- * Starlark environments is SymbolGenerator, which in principle could be used to uniquely identify
- * depsets or even StarlarkFunction, though in practice it doesn't have nearly that widespread usage
- * yet. SymbolGenerator could be promoted to a core feature of StarlarkThread if it reaches that
- * point. If we do keep BazelStarlarkContext around as a common base class of the other context
- * classes, it should be renamed BazelThreadContext for symmetry with BazelModuleContext.
+ * BazelStarlarkContext itself could probably be deleted. If we do keep BazelStarlarkContext around
+ * as a common base class of the other context classes, it should be renamed BazelThreadContext for
+ * symmetry with BazelModuleContext.
  *
  * Even if we can otherwise get rid of BazelStarlarkContext, it may still be handy to retain this
  * class as a static namespace for helper methods for storing and retrieving contexts on
@@ -96,31 +92,19 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
     thread.setUncheckedExceptionContext(this);
   }
 
-  // A generic counter for uniquely identifying symbols created in this Starlark evaluation.
-  private final SymbolGenerator<?> symbolGenerator;
-
   // TODO(b/236456122): Eliminate Phase, migrate analysisRuleLabel to a separate context class.
   private final Phase phase;
 
   /**
    * @param phase the phase to which this Starlark thread belongs
-   * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
-   *     compared using reference equality.
    */
-  // TODO(b/236456122): Consider taking an owner in place of a SymbolGenerator, and constructing
-  // the latter ourselves. Seems like we don't want to tempt anyone into sharing a SymbolGenerator.
-  public BazelStarlarkContext(Phase phase, SymbolGenerator<?> symbolGenerator) {
+  public BazelStarlarkContext(Phase phase) {
     this.phase = Preconditions.checkNotNull(phase);
-    this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
   }
 
   /** Returns the phase associated with this context. */
   public Phase getPhase() {
     return phase;
-  }
-
-  public SymbolGenerator<?> getSymbolGenerator() {
-    return symbolGenerator;
   }
 
   @Override

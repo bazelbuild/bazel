@@ -34,6 +34,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.eval.Tuple;
 
 /**
@@ -70,7 +71,10 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
 
   @Override
   public BuildLibraryOutput buildLibraries(
-      RuleContext ruleContext, boolean staticMode, boolean forDynamicLibrary)
+      RuleContext ruleContext,
+      boolean staticMode,
+      boolean forDynamicLibrary,
+      SymbolGenerator<?> symbolGenerator)
       throws RuleErrorException, InterruptedException {
     ruleContext.initStarlarkRuleContext();
     StarlarkRuleContext starlarkContext = ruleContext.getStarlarkRuleContext();
@@ -78,7 +82,8 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
 
     Object response = null;
     try (Mutability mu = Mutability.create("extra_link_time_library_build_libraries_function")) {
-      StarlarkThread thread = new StarlarkThread(mu, semantics, "build_library_func callback");
+      StarlarkThread thread =
+          StarlarkThread.create(mu, semantics, "build_library_func callback", symbolGenerator);
       response =
           Starlark.call(
               thread,

@@ -389,7 +389,7 @@ public final class CcLinkingHelper {
                         ? ImmutableList.of()
                         : ImmutableList.of(
                             CcLinkingContext.LinkOptions.of(
-                                ImmutableList.copyOf(linkopts), symbolGenerator)))
+                                ImmutableList.copyOf(linkopts), symbolGenerator.generate())))
                 .addLibraries(librariesToLink)
                 // additionalLinkerInputsBuilder not expected to be a big list for now.
                 .addNonCodeInputs(additionalLinkerInputsBuilder.build().toList())

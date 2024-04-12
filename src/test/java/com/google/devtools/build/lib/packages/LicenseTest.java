@@ -54,7 +54,7 @@ public class LicenseTest {
             input,
             FileOptions.DEFAULT,
             Module.create(),
-            new StarlarkThread(mutability, StarlarkSemantics.DEFAULT));
+            StarlarkThread.createTransient(mutability, StarlarkSemantics.DEFAULT));
     mutability.freeze();
     return Sequence.cast(parsedValue, String.class, "evalAsSequence() input");
   }

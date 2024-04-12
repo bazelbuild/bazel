@@ -1813,7 +1813,7 @@ public final class StarlarkEvaluationTest {
     try (Mutability mu = Mutability.create("test")) {
       StarlarkSemantics semantics =
           StarlarkSemantics.builder().setBool(StarlarkSemantics.ALLOW_RECURSION, true).build();
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
     assertThat(module.getGlobal("x")).isEqualTo(StarlarkInt.of(120));
@@ -1951,7 +1951,7 @@ public final class StarlarkEvaluationTest {
             "print('a', 'b', sep='x')");
     List<String> prints = new ArrayList<>();
     try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       thread.setPrintHandler((unused, msg) -> prints.add(msg));
       Starlark.execFile(input, FileOptions.DEFAULT, Module.create(), thread);
     }

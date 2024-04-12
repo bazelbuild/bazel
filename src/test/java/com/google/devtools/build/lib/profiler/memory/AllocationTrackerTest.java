@@ -199,7 +199,7 @@ public final class AllocationTrackerTest {
                 "sample", new SamplerValue(),
                 "myrule", new MyRuleFunction()));
     try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
   }

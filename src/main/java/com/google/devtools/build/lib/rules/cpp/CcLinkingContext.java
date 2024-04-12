@@ -43,7 +43,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator;
+import net.starlark.java.eval.SymbolGenerator.Symbol;
 
 /** Structure of CcLinkingContext. */
 public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
@@ -75,9 +75,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return linkOptions;
     }
 
-    public static LinkOptions of(
-        ImmutableList<String> linkOptions, SymbolGenerator<?> symbolGenerator) {
-      return new LinkOptions(linkOptions, symbolGenerator.generate());
+    public static LinkOptions of(ImmutableList<String> linkOptions, Symbol<?> symbol) {
+      return new LinkOptions(linkOptions, symbol);
     }
 
     @Override

@@ -67,7 +67,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -540,23 +539,21 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       // Call the Starlark function.
       Object result;
       try (Mutability mu = Mutability.create("eval_transition_function")) {
-        StarlarkThread thread = new StarlarkThread(mu, semantics);
-        thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
         // TODO(brandjon): If the resulting values of Starlark transitions ever evolve to be
         //  complex Starlark objects like structs as opposed to the ints, strings,
         //  etc they are today then we need a real symbol generator which is used
         //  to calculate equality between instances of Starlark objects. A candidate
         //  for transition instance uniqueness is the Rule and configuration that
         //  are used as inputs to the configuration.
-        SymbolGenerator<Object> dummySymbolGenerator = SymbolGenerator.createTransient();
-
+        StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
+        thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
         Dict<String, Object> previousSettingsDict =
             createBuildSettingsDict(previousSettings, optionInfoMap, mu);
 
         // Create a new {@link BazelStarlarkContext} for the new thread. We need to
         // create a new context every time because {@link BazelStarlarkContext}s
         // should be confined to a single thread.
-        new BazelStarlarkContext(Phase.ANALYSIS, dummySymbolGenerator).storeInThread(thread);
+        new BazelStarlarkContext(Phase.ANALYSIS).storeInThread(thread);
 
         result =
             Starlark.fastcall(

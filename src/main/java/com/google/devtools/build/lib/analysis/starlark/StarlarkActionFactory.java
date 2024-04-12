@@ -94,6 +94,7 @@ import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.SymbolGenerator;
 
 /** Provides a Starlark interface for all action creation needs. */
 public class StarlarkActionFactory implements StarlarkActionFactoryApi {
@@ -860,7 +861,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     @Override
     public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException {
       try (Mutability mu = Mutability.create("resource_set_builder_function")) {
-        StarlarkThread thread = new StarlarkThread(mu, semantics, "resource_set callback");
+        // Only numerical values are retained from the result, so a transient SymbolGenerator
+        // is fine.
+        StarlarkThread thread =
+            StarlarkThread.create(
+                mu, semantics, "resource_set callback", SymbolGenerator.createTransient());
         StarlarkInt inputInt = StarlarkInt.of(inputsSize);
         Object response =
             Starlark.call(

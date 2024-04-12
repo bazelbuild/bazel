@@ -859,7 +859,8 @@ public class AndroidCommon {
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder()
             .setOwner(label)
-            .addUserLinkFlags(ImmutableList.of(LinkOptions.of(linkOpts, symbolGenerator)))
+            .addUserLinkFlags(
+                ImmutableList.of(LinkOptions.of(linkOpts, symbolGenerator.generate())))
             .build();
 
     CcInfo linkoptsCcInfo = CcInfo.builder().setCcLinkingContext(ccLinkingContext).build();

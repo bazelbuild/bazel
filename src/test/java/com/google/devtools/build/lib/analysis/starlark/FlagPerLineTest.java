@@ -50,7 +50,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
   public void initArgs() throws Exception {
     args = Args.newArgs(mutability, getStarlarkSemantics());
     args.setParamFileFormat("flag_per_line");
-    thread = new StarlarkThread(mutability, getStarlarkSemantics());
+    thread = StarlarkThread.createTransient(mutability, getStarlarkSemantics());
   }
 
   @Test

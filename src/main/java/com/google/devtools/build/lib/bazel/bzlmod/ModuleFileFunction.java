@@ -67,6 +67,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -125,7 +126,7 @@ public class ModuleFileFunction implements SkyFunction {
     }
 
     if (skyKey.equals(ModuleFileValue.KEY_FOR_ROOT_MODULE)) {
-      return computeForRootModule(starlarkSemantics, env);
+      return computeForRootModule(starlarkSemantics, env, SymbolGenerator.create(skyKey));
     }
 
     ClientEnvironmentValue allowedYankedVersionsFromEnv =
@@ -173,7 +174,8 @@ public class ModuleFileFunction implements SkyFunction {
             /* printIsNoop= */ getModuleFileResult.yankedInfo != null,
             starlarkSemantics,
             starlarkEnv,
-            env.getListener());
+            env.getListener(),
+            SymbolGenerator.create(skyKey));
 
     // Perform some sanity checks.
     InterimModule module;
@@ -219,7 +221,8 @@ public class ModuleFileFunction implements SkyFunction {
   }
 
   @Nullable
-  private SkyValue computeForRootModule(StarlarkSemantics starlarkSemantics, Environment env)
+  private SkyValue computeForRootModule(
+      StarlarkSemantics starlarkSemantics, Environment env, SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
     RootedPath moduleFilePath = getModuleFilePath(workspaceRoot);
     if (env.getValue(FileValue.key(moduleFilePath)) == null) {
@@ -248,7 +251,8 @@ public class ModuleFileFunction implements SkyFunction {
         IGNORE_DEV_DEPS.get(env),
         starlarkSemantics,
         starlarkEnv,
-        env.getListener());
+        env.getListener(),
+        symbolGenerator);
   }
 
   public static RootedPath getModuleFilePath(Path workspaceRoot) {
@@ -264,7 +268,8 @@ public class ModuleFileFunction implements SkyFunction {
       boolean ignoreDevDeps,
       StarlarkSemantics starlarkSemantics,
       BazelStarlarkEnvironment starlarkEnv,
-      ExtendedEventHandler eventHandler)
+      ExtendedEventHandler eventHandler,
+      SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
     String moduleFileHash = new Fingerprint().addBytes(moduleFileContents).hexDigestAndReset();
     ModuleThreadContext moduleThreadContext =
@@ -277,7 +282,8 @@ public class ModuleFileFunction implements SkyFunction {
             /* printIsNoop= */ false,
             starlarkSemantics,
             starlarkEnv,
-            eventHandler);
+            eventHandler,
+            symbolGenerator);
     InterimModule module;
     try {
       module = moduleThreadContext.buildModule();
@@ -334,7 +340,8 @@ public class ModuleFileFunction implements SkyFunction {
       boolean printIsNoop,
       StarlarkSemantics starlarkSemantics,
       BazelStarlarkEnvironment starlarkEnv,
-      ExtendedEventHandler eventHandler)
+      ExtendedEventHandler eventHandler,
+      SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
     StarlarkFile starlarkFile =
         StarlarkFile.parse(ParserInput.fromUTF8(moduleFile.getContent(), moduleFile.getLocation()));
@@ -355,7 +362,9 @@ public class ModuleFileFunction implements SkyFunction {
           net.starlark.java.eval.Module.withPredeclared(
               starlarkSemantics, starlarkEnv.getStarlarkGlobals().getModuleToplevels());
       Program program = Program.compileFile(starlarkFile, predeclaredEnv);
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu, starlarkSemantics, /* contextDescription= */ "", symbolGenerator);
       context.storeInThread(thread);
       if (printIsNoop) {
         thread.setPrintHandler((t, msg) -> {});

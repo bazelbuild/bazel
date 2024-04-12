@@ -887,6 +887,8 @@ public class Package {
       PackageSettings DEFAULTS = new PackageSettings() {};
     }
 
+    private final SymbolGenerator<?> symbolGenerator;
+
     /**
      * The output instance for this builder. Needs to be instantiated and available with name info
      * throughout initialization. All other settings are applied during {@link #build}. See {@link
@@ -1067,7 +1069,8 @@ public class Package {
         // Maybe convert null -> LEGACY_OFF, assuming that's the correct default.
         @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
         @Nullable Globber globber) {
-      super(phase, symbolGenerator);
+      super(phase);
+      this.symbolGenerator = symbolGenerator;
 
       Metadata metadata = new Metadata();
       metadata.packageIdentifier = Preconditions.checkNotNull(id);
@@ -1106,6 +1109,10 @@ public class Package {
       addInputFile(
           new InputFile(
               pkg, metadata.buildFileLabel, Location.fromFile(filename.asPath().toString())));
+    }
+
+    SymbolGenerator<?> getSymbolGenerator() {
+      return symbolGenerator;
     }
 
     /** Retrieves this object from a Starlark thread. Returns null if not present. */

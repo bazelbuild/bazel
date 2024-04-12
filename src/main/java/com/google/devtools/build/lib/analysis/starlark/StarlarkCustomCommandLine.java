@@ -985,7 +985,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
       StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException, InterruptedException {
     try (Mutability mu = Mutability.create("map_each")) {
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      // This computation produces only a String list, which doesn't require reference semantics,
+      // so createTransient() is safe.
+      StarlarkThread thread = StarlarkThread.createTransient(mu, starlarkSemantics);
       // TODO(b/77140311): Error if we issue print statements.
       thread.setPrintHandler((th, msg) -> {});
       int count = originalValues.size();

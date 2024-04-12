@@ -68,9 +68,10 @@ public final class SymbolGenerator<T> {
     return new Symbol<>(owner, index++);
   }
 
+  /** Identifier for an object created by a uniquely defined Starlark thread. */
   // TODO(bazel-team): The name "Symbol", in the context of an interpreter, is a bit confusing.
   // Consider renaming to "Token" or similar.
-  private static final class Symbol<T> {
+  public static final class Symbol<T> {
     private final T owner;
     private final int index;
 

@@ -38,6 +38,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -91,7 +92,12 @@ public class ResolvedFileFunction implements SkyFunction {
 
         // execute
         try (Mutability mu = Mutability.create("resolved file", key.getPath())) {
-          StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+          StarlarkThread thread =
+              StarlarkThread.create(
+                  mu,
+                  starlarkSemantics,
+                  /* contextDescription= */ "",
+                  SymbolGenerator.create(skyKey));
           Starlark.execFileProgram(prog, module, thread);
         } catch (EvalException ex) {
           env.getListener().handle(Event.error(null, ex.getMessageWithStack()));

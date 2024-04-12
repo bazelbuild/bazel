@@ -47,7 +47,6 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
@@ -160,8 +159,7 @@ public final class BazelEvaluationTestCase {
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
             /* networkAllowlistForTests= */ Optional.empty(),
-            /* fragmentNameToClass= */ ImmutableMap.of(),
-            SymbolGenerator.createTransient())
+            /* fragmentNameToClass= */ ImmutableMap.of())
         .storeInThread(thread);
   }
 
@@ -183,7 +181,7 @@ public final class BazelEvaluationTestCase {
   public StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
       Mutability mu = Mutability.create("test");
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
       newThread(thread);
       this.thread = thread;

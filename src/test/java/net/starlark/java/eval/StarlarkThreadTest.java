@@ -84,7 +84,7 @@ public final class StarlarkThreadTest {
   public void testUniverseCanBeShadowed() throws Exception {
     Module module = Module.create();
     try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(ParserInput.fromLines("True = 123"), FileOptions.DEFAULT, module, thread);
     }
     assertThat(module.getGlobal("True")).isEqualTo(StarlarkInt.of(123));
