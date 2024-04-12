@@ -55,8 +55,9 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
         "eval/eval.bzl",
         definition,
         String.format("x = %s", code), // Should be placed here to execute during the loading phase
+        "Info = provider()",
         "def _impl(ctx):",
-        "  return struct(result = x)",
+        "  return Info(result = x)",
         "eval = rule(implementation = _impl)");
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter,
@@ -67,7 +68,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
         Root.fromPath(rootDirectory));
 
     ConfiguredTarget target = getConfiguredTarget("//eval");
-    return target.get("result");
+    return getStarlarkProvider(target, "Info").getValue("result");
   }
 
   /**
@@ -82,8 +83,9 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "eval/eval.bzl",
         """
+        Info = provider()
         def _impl(ctx):
-            return struct(result = ctx.attr.param)
+            return Info(result = ctx.attr.param)
 
         eval = rule(implementation = _impl, attrs = {"param": attr.string()})
         """);
@@ -96,7 +98,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
         Root.fromPath(rootDirectory));
 
     ConfiguredTarget target = getConfiguredTarget("//eval");
-    return target.get("result");
+    return getStarlarkProvider(target, "Info").getValue("result");
   }
 
   /**

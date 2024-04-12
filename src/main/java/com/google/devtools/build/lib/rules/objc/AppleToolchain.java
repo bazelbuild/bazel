@@ -118,9 +118,7 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
     return platformDeveloperFrameworkDir(configuration.getSingleArchPlatform());
   }
 
-  /**
-   * Base rule definition to be ancestor for rules which may require an xcode toolchain.
-   */
+  /** Base rule definition to be ancestor for rules which may require an Xcode toolchain. */
   public static class RequiresXcodeConfigRule implements RuleDefinition {
     private final RepositoryName toolsRepository;
 

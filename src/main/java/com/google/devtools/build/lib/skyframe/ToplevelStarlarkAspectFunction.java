@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -26,6 +27,8 @@ import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunctio
 import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.BuildTopLevelAspectsDetailsValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -46,7 +49,8 @@ import javax.annotation.Nullable;
 final class ToplevelStarlarkAspectFunction implements SkyFunction {
   @Nullable
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws InterruptedException, TopLevelStarlarkAspectFunctionException {
     TopLevelAspectsKey topLevelAspectsKey = (TopLevelAspectsKey) skyKey.argument();
 
     BuildTopLevelAspectsDetailsKey topLevelAspectsDetailsKey =
@@ -88,11 +92,18 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     ImmutableMap.Builder<AspectKey, AspectValue> valuesMap =
         ImmutableMap.builderWithExpectedSize(aspectsKeys.size());
     for (AspectKey aspectKey : aspectsKeys) {
-      AspectValue value = (AspectValue) result.get(aspectKey);
+      try {
+        AspectValue value =
+            (AspectValue) result.getOrThrow(aspectKey, ActionConflictException.class);
       if (value == null) {
         return null;
       }
       valuesMap.put(aspectKey, value);
+      } catch (ActionConflictException e) {
+        // Required in case of skymeld: the AspectKey isn't accessible from the BuildDriverKey.
+        throw new TopLevelStarlarkAspectFunctionException(
+            ActionConflictException.withAspectKeyInfo(e, aspectKey));
+      }
     }
     return new TopLevelAspectsValue(valuesMap.buildOrThrow());
   }
@@ -126,5 +137,11 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
             topLevelTargetKey);
     result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
+  }
+
+  private static class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
+    protected TopLevelStarlarkAspectFunctionException(ActionConflictException cause) {
+      super(cause, Transience.PERSISTENT);
+    }
   }
 }

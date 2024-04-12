@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -32,11 +31,8 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public final class RuleConfiguredTargetValue
+    extends BaseRuleConfiguredTargetValue<RuleConfiguredTarget>
     implements RuleConfiguredObjectValue, ConfiguredTargetValue {
-
-  // This variable is non-final because it may be clear()ed to save memory. It is null only after
-  // clear(true) is called.
-  @Nullable private RuleConfiguredTarget configuredTarget;
 
   /**
    * Operations accessing actions, for example, executing them, should be performed in the same
@@ -46,22 +42,11 @@ public final class RuleConfiguredTargetValue
   @Nullable // Null if deserialized.
   private final transient ImmutableList<ActionAnalysisMetadata> actions;
 
-  // May be null after clearing; because transitive packages are not tracked; or after
-  // deserialization.
-  @Nullable private transient NestedSet<Package> transitivePackages;
-
   public RuleConfiguredTargetValue(
       RuleConfiguredTarget configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
-    this.configuredTarget = Preconditions.checkNotNull(configuredTarget);
-    this.transitivePackages = transitivePackages;
+    super(configuredTarget, transitivePackages);
     // These are specifically *not* copied to save memory.
     this.actions = configuredTarget.getActions();
-  }
-
-  @Nullable // May be null after clearing.
-  @Override
-  public RuleConfiguredTarget getConfiguredTarget() {
-    return configuredTarget;
   }
 
   @Override
@@ -69,25 +54,11 @@ public final class RuleConfiguredTargetValue
     return checkNotNull(actions, "actions are not available on deserialized instances");
   }
 
-  @Nullable
-  @Override
-  public NestedSet<Package> getTransitivePackages() {
-    return transitivePackages;
-  }
-
-  @Override
-  public void clear(boolean clearEverything) {
-    if (clearEverything) {
-      configuredTarget = null;
-    }
-    transitivePackages = null;
-  }
-
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("actions", actions)
-        .add("configuredTarget", configuredTarget)
+        .add("configuredTarget", getConfiguredTarget())
         .toString();
   }
 }

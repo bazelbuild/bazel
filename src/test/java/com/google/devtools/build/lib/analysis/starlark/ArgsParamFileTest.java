@@ -53,7 +53,8 @@ public class ArgsParamFileTest extends BuildViewTestCase {
   @Before
   public void initArgs() throws Exception {
     args = Args.newArgs(Mutability.create(), getStarlarkSemantics());
-    StarlarkThread thread = new StarlarkThread(Mutability.create(), getStarlarkSemantics());
+    StarlarkThread thread =
+        StarlarkThread.createTransient(Mutability.create(), getStarlarkSemantics());
     args.addJoined(
         "--a",
         StarlarkList.of(/* mutability= */ null, "b", "c"),

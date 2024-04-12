@@ -62,7 +62,7 @@ import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.Structure;
 
 /** API documentation extractor for a compiled, loaded Starlark module. */
-final class ModuleInfoExtractor {
+public final class ModuleInfoExtractor {
   private final Predicate<String> isWantedQualifiedName;
   private final LabelRenderer labelRenderer;
 
@@ -220,25 +220,38 @@ final class ModuleInfoExtractor {
       // of traversed entities.
     }
 
-    protected void visitRule(String qualifiedName, StarlarkRuleFunction value)
+    protected void visitRule(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkRuleFunction value)
         throws ExtractionException {}
 
-    protected void visitMacroFunction(String qualifiedName, MacroFunction value) {}
+    protected void visitMacroFunction(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") MacroFunction value) {}
 
-    protected void visitProvider(String qualifiedName, StarlarkProvider value)
+    protected void visitProvider(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkProvider value)
         throws ExtractionException {}
 
-    protected void visitFunction(String qualifiedName, StarlarkFunction value)
+    protected void visitFunction(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkFunction value)
         throws ExtractionException {}
 
-    protected void visitAspect(String qualifiedName, StarlarkDefinedAspect aspect)
+    protected void visitAspect(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkDefinedAspect aspect)
         throws ExtractionException {}
 
-    protected void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
+    protected void visitModuleExtension(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") ModuleExtension moduleExtension)
         throws ExtractionException {}
 
     protected void visitRepositoryRule(
-        String qualifiedName, RepositoryRuleFunction repositoryRuleFunction)
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") RepositoryRuleFunction repositoryRuleFunction)
         throws ExtractionException {}
 
     private void recurseIntoStructure(

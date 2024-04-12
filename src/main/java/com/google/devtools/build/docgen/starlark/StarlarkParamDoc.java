@@ -87,14 +87,14 @@ public final class StarlarkParamDoc extends StarlarkDoc {
           "<b>Experimental</b>. This parameter is experimental and may change at any "
               + "time. Please do not depend on it. It may be enabled on an experimental basis by "
               + "setting <code>--"
-              + param.enableOnlyWithFlag()
+              + param.enableOnlyWithFlag().substring(1)
               + "</code> <br>";
     } else if (!param.disableWithFlag().isEmpty()) {
       prefixWarning =
           "<b>Deprecated</b>. This parameter is deprecated and will be removed soon. "
               + "Please do not depend on it. It is <i>disabled</i> with "
               + "<code>--"
-              + param.disableWithFlag()
+              + param.disableWithFlag().substring(1)
               + "</code>. Use this flag "
               + "to verify your code is compatible with its imminent removal. <br>";
     }

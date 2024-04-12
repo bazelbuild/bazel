@@ -336,7 +336,7 @@ bar_aspect = aspect(implementation = _aspect_impl,
 
 def _bar_impl(ctx):
     ctx.actions.write(content = "hello world", output = ctx.outputs.out)
-    return struct(files = depset(transitive = [dep[DummyProvider].dummies for dep in ctx.attr.deps]))
+    return DefaultInfo(files = depset(transitive = [dep[DummyProvider].dummies for dep in ctx.attr.deps]))
 
 bar_rule = rule(
     implementation = _bar_impl,
@@ -1014,7 +1014,7 @@ my_jpl_aspect = aspect(
 )
 
 def _jpl_rule_impl(ctx):
-  return struct()
+  return []
 
 my_jpl_rule = rule(
   attrs = {
@@ -1099,7 +1099,7 @@ intermediate_aspect = aspect(
 )
 
 def _int_rule_impl(ctx):
-  return struct()
+  return []
 
 intermediate_rule = rule(
   attrs = {
@@ -1119,7 +1119,7 @@ def _aspect_impl(target, ctx):
       mnemonic = 'MyAspect'
     )
 
-  return [struct()]
+  return []
 
 my_aspect = aspect(
   attr_aspects = ['deps', 'exports'],
@@ -1131,7 +1131,7 @@ my_aspect = aspect(
 )
 
 def _rule_impl(ctx):
-  return struct()
+  return []
 
 my_rule = rule(
   attrs = {

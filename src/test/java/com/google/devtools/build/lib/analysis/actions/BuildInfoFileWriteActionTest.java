@@ -68,7 +68,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
 
   private static Object exec(String... lines) throws Exception {
     try (Mutability mutability = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mutability, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mutability, StarlarkSemantics.DEFAULT);
       return Starlark.execFile(
           ParserInput.fromLines(lines),
           FileOptions.DEFAULT,

@@ -19,6 +19,9 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,8 +33,9 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
   private void writeRulesBzl(String type) throws Exception {
     scratch.file(
         "test/rules.bzl",
+        "MyRuleInfo = provider()",
         "def _my_rule_impl(ctx):",
-        "    return struct(value = ctx.attr._label_setting[SimpleRuleInfo].value)",
+        "    return MyRuleInfo(value = ctx.attr._label_setting[SimpleRuleInfo].value)",
         "",
         "my_rule = rule(",
         "    implementation = _my_rule_impl,",
@@ -81,7 +85,8 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
-    assertThat(b.get("value")).isEqualTo("default_value");
+    StarlarkInfo myRuleInfo = getStarlarkProvider(b, "MyRuleInfo");
+    assertThat(myRuleInfo.getValue("value")).isEqualTo("default_value");
   }
 
   @Test
@@ -112,7 +117,9 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
-    assertThat(b.get("value")).isEqualTo("default_value");
+    StarlarkProvider.Key myRuleInfo =
+        new StarlarkProvider.Key(Label.parseCanonical("//test:rules.bzl"), "MyRuleInfo");
+    assertThat(((StarlarkInfo) b.get(myRuleInfo)).getValue("value")).isEqualTo("default_value");
   }
 
   @Test
@@ -145,7 +152,10 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     useConfiguration("--//test:my_label_flag=//test:command_line");
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
-    assertThat(b.get("value")).isEqualTo("command_line_value");
+    StarlarkProvider.Key myRuleInfo =
+        new StarlarkProvider.Key(Label.parseCanonical("//test:rules.bzl"), "MyRuleInfo");
+    assertThat(((StarlarkInfo) b.get(myRuleInfo)).getValue("value"))
+        .isEqualTo("command_line_value");
   }
 
   @Test

@@ -112,22 +112,6 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
         """);
   }
 
-  private void writeEnvironmentRules(String... defaults) throws Exception {
-    StringBuilder defaultsBuilder = new StringBuilder();
-    for (String defaultEnv : defaults) {
-      defaultsBuilder.append("'").append(defaultEnv).append("', ");
-    }
-
-    write(
-        "buildenv/BUILD",
-        "environment_group(",
-        "    name = 'group',",
-        "    environments = [':one', ':two'],",
-        "    defaults = [" + defaultsBuilder + "])",
-        "environment(name = 'one')",
-        "environment(name = 'two')");
-  }
-
   @Test
   public void multiTargetBuild_success() throws Exception {
     writeMyRuleBzl();
@@ -276,33 +260,6 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
           () -> buildTarget("//foo:foo", "//foo:analysis_failure"));
       assertThat(getBuildResultListener().getBuiltTargets()).isEmpty();
     }
-  }
-
-  @Test
-  public void targetSkipped_consistentWithNonSkymeld() throws Exception {
-    writeEnvironmentRules();
-    write(
-        "foo/BUILD",
-        """
-        sh_library(
-            name = "good",
-            srcs = ["bar.sh"],
-            restricted_to = ["//buildenv:one"],
-        )
-
-        sh_library(
-            name = "bad",
-            srcs = ["bar.sh"],
-            compatible_with = ["//buildenv:two"],
-        )
-        """);
-    write("foo/bar.sh");
-    addOptions("--auto_cpu_environment_group=//buildenv:group", "--cpu=one");
-
-    buildTarget("//foo:all");
-    assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:good", "//foo:bad");
-    assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:good");
-    assertThat(getLabelsOfSkippedTargets()).containsExactly("//foo:bad");
   }
 
   @Test

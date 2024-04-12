@@ -23,6 +23,7 @@ import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
+import com.google.devtools.build.lib.analysis.util.AbstractMockJavaSupport;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
@@ -81,6 +82,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "bind(name = 'has_androidsdk', actual = '@bazel_tools//tools/android:always_false')",
         "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
         "local_repository(name = 'platforms', path = '" + bazelPlatformsWorkspace + "')",
+        "local_repository(name = 'internal_platforms_do_not_use', path = '"
+            + bazelPlatformsWorkspace
+            + "')",
         "local_repository(name = 'local_config_xcode', path = '" + xcodeWorkspace + "')",
         "local_repository(name = 'com_google_protobuf', path = '" + protobufWorkspace + "')",
         "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')",
@@ -108,6 +112,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "com_google_protobuf",
         "local_config_xcode",
         "platforms",
+        "internal_platforms_do_not_use",
         "rules_java",
         "rules_java_builtin",
         "build_bazel_apple_support");
@@ -158,27 +163,33 @@ public final class BazelAnalysisMock extends AnalysisMock {
     }
     config.create(
         "embedded_tools/tools/jdk/launcher_flag_alias.bzl",
-        "_providers = [CcInfo, cc_common.launcher_provider]",
-        "def _impl(ctx):",
-        "    if not ctx.attr._launcher:",
-        "      return None",
-        "    launcher = ctx.attr._launcher",
-        "    providers = [ctx.attr._launcher[p] for p in _providers]",
-        "    providers.append(DefaultInfo(files = launcher[DefaultInfo].files, runfiles ="
-            + " launcher[DefaultInfo].default_runfiles))",
-        "    return providers",
-        "launcher_flag_alias = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "        '_launcher': attr.label(",
-        "            default = configuration_field(",
-        "                fragment = 'java',",
-        "                name = 'launcher',",
-        "            ),",
-        "            providers = _providers,",
-        "        ),",
-        "    },",
-        ")");
+        """
+        _providers = [CcInfo, cc_common.launcher_provider]
+
+        def _impl(ctx):
+            if not ctx.attr._launcher:
+                return None
+            launcher = ctx.attr._launcher
+            providers = [ctx.attr._launcher[p] for p in _providers]
+            providers.append(DefaultInfo(
+                files = launcher[DefaultInfo].files,
+                runfiles = launcher[DefaultInfo].default_runfiles,
+            ))
+            return providers
+
+        launcher_flag_alias = rule(
+            implementation = _impl,
+            attrs = {
+                "_launcher": attr.label(
+                    default = configuration_field(
+                        fragment = "java",
+                        name = "launcher",
+                    ),
+                    providers = _providers,
+                ),
+            },
+        )
+        """);
     config.create(
         "embedded_tools/tools/jdk/BUILD",
         """
@@ -610,70 +621,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("embedded_tools/objcproto/empty.cc");
     config.create("embedded_tools/objcproto/well_known_type.proto");
 
-    config.create("rules_java_workspace/WORKSPACE", "workspace(name = 'rules_java')");
-    config.create("rules_java_workspace/MODULE.bazel", "module(name = 'rules_java')");
-    config.create("rules_java_workspace/java/BUILD");
-    config.create("rules_java_workspace/toolchains/BUILD");
-    java.nio.file.Path path =
-        Paths.get(runfiles.rlocation("rules_java/toolchains/java_toolchain_alias.bzl"));
-    if (Files.exists(path)) {
-      config.create(
-          "rules_java_workspace/toolchains/java_toolchain_alias.bzl",
-          MoreFiles.asCharSource(path, UTF_8).read());
-    }
-    config.create(
-        "rules_java_workspace/toolchains/local_java_repository.bzl",
-        """
-        def local_java_repository(**attrs):
-            pass
-        """);
-    config.create("rules_java_workspace/toolchains/jdk_build_file.bzl", "JDK_BUILD_TEMPLATE = ''");
-    config.create(
-        "rules_java_workspace/java/defs.bzl",
-        """
-        def java_binary(**attrs):
-            native.java_binary(**attrs)
-
-        def java_library(**attrs):
-            native.java_library(**attrs)
-
-        def java_import(**attrs):
-            native.java_import(**attrs)
-        """);
-    config.create(
-        "rules_java_workspace/java/repositories.bzl",
-        """
-        def rules_java_dependencies():
-            pass
-
-        def rules_java_toolchains():
-            native.register_toolchains("//java/toolchains/runtime:all")
-            native.register_toolchains("//java/toolchains/javac:all")
-        """);
-
-    config.create(
-        "rules_java_workspace/java/toolchains/runtime/BUILD",
-        """
-        toolchain_type(name = "toolchain_type")
-
-        toolchain(
-            name = "local_jdk",
-            toolchain = "@bazel_tools//tools/jdk:jdk",
-            toolchain_type = "@rules_java//java/toolchains/runtime:toolchain_type",
-        )
-        """);
-    config.create(
-        "rules_java_workspace/java/toolchains/javac/BUILD",
-        """
-        toolchain_type(name = "toolchain_type")
-
-        toolchain(
-            name = "javac_toolchain",
-            toolchain = "@bazel_tools//tools/jdk:toolchain",
-            toolchain_type = "@rules_java//java/toolchains/javac:toolchain_type",
-        )
-        """);
-
     config.create("third_party/bazel_rules/rules_proto/WORKSPACE");
     config.create("third_party/bazel_rules/rules_proto/MODULE.bazel", "module(name='rules_proto')");
 
@@ -691,6 +638,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
+    javaSupport().setupRulesJava(config, runfiles::rlocation);
     pySupport().setup(config);
     ShellConfiguration.injectShellExecutableFinder(
         BazelRuleClassProvider::getDefaultPathFromOptions, BazelRuleClassProvider.SHELL_EXECUTABLE);
@@ -847,17 +795,20 @@ public final class BazelAnalysisMock extends AnalysisMock {
         """);
     config.create(
         "embedded_tools/tools/build_defs/build_info/BUILD",
-        "load('//tools/build_defs/build_info:bazel_cc_build_info.bzl'," + " 'bazel_cc_build_info')",
-        "load('//tools/build_defs/build_info:bazel_java_build_info.bzl',"
-            + " 'bazel_java_build_info')",
-        "bazel_cc_build_info(",
-        "    name = 'cc_build_info',",
-        "    visibility = ['//visibility:public'],",
-        ")",
-        "bazel_java_build_info(",
-        "    name = 'java_build_info',",
-        "    visibility = ['//visibility:public'],",
-        ")");
+        """
+        load("//tools/build_defs/build_info:bazel_cc_build_info.bzl", "bazel_cc_build_info")
+        load("//tools/build_defs/build_info:bazel_java_build_info.bzl", "bazel_java_build_info")
+
+        bazel_cc_build_info(
+            name = "cc_build_info",
+            visibility = ["//visibility:public"],
+        )
+
+        bazel_java_build_info(
+            name = "java_build_info",
+            visibility = ["//visibility:public"],
+        )
+        """);
     config.create(
         "embedded_tools/tools/build_defs/repo/utils.bzl",
         """
@@ -953,6 +904,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public MockCcSupport ccSupport() {
     return BazelMockCcSupport.INSTANCE;
+  }
+
+  @Override
+  public AbstractMockJavaSupport javaSupport() {
+    return AbstractMockJavaSupport.BAZEL;
   }
 
   @Override

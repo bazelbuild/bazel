@@ -200,7 +200,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 .getStarlarkDefinedBuiltins()
                 .get("get_toolchain_global_make_variables");
     try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Dict<?, ?> makeVarsDict =
           (Dict<?, ?>)
               Starlark.call(

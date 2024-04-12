@@ -347,7 +347,7 @@ public final class StarlarkProviderTest {
     StarlarkInfo instance5;
     StarlarkInfo instance6;
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       // Instantiates provider with values of different types all in the same field.
       // Instance with an empty depset of string
       instance1 =
@@ -431,7 +431,7 @@ public final class StarlarkProviderTest {
             .build();
     StarlarkInfo instance;
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       instance =
           (StarlarkInfo)
               Starlark.call(
@@ -462,7 +462,7 @@ public final class StarlarkProviderTest {
             .build();
     StarlarkInfo instance;
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       instance =
           (StarlarkInfo)
               Starlark.call(
@@ -492,7 +492,7 @@ public final class StarlarkProviderTest {
             .build();
     StarlarkInfo instance;
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       instance =
           (StarlarkInfo)
               Starlark.call(
@@ -517,7 +517,7 @@ public final class StarlarkProviderTest {
             .build();
     StarlarkInfo instance;
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       instance =
           (StarlarkInfo)
               Starlark.call(
@@ -547,7 +547,7 @@ public final class StarlarkProviderTest {
             .build();
     StarlarkInfo instance;
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       instance =
           (StarlarkInfo)
               Starlark.call(
@@ -640,7 +640,7 @@ public final class StarlarkProviderTest {
   /** Instantiates a {@link StarlarkInfo} with fields a=1 (and nothing else). */
   private static StarlarkInfo instantiateWithA1(StarlarkCallable provider) throws Exception {
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Object result =
           Starlark.call(
               thread,
@@ -655,7 +655,7 @@ public final class StarlarkProviderTest {
   /** Instantiates a {@link StarlarkInfo} with fields a=1, b=2, c=3 (and nothing else). */
   private static StarlarkInfo instantiateWithA1B2C3(StarlarkCallable provider) throws Exception {
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Object result =
           Starlark.call(
               thread,

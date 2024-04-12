@@ -534,4 +534,63 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         .isEqualTo(CppConfiguration.DynamicMode.OFF);
     assertThat(getConfiguration(dep).getFragment(JavaConfiguration.class).getUseIjars()).isTrue();
   }
+
+  @Test
+  public void testPlatformExplicitInOutputDirAndDynamicBaseline_withExecConfigDep()
+      throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _impl(ctx):
+            return MyInfo(dep = ctx.attr.dep)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(cfg = 'exec'),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(
+            name = "test",
+            dep = ":dep",
+        )
+
+        my_rule(
+            name = "dep",
+        )
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(name = "alpha")
+        """);
+
+    useConfiguration(
+        "--compilation_mode=fastbuild",
+        "--platforms=//platforms:alpha",
+        "--host_platform=//platforms:alpha",
+        "--experimental_platform_in_output_dir",
+        "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+        "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha-override",
+        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    assertThat(getMnemonic(test)).contains("alpha-override-fastbuild");
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
+
+    ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
+
+    // The platform name override is used in dep with exec config
+    assertThat(getMnemonic(dep)).contains("alpha-override-opt-exec");
+    assertThat(getMnemonic(dep)).doesNotContain("-ST-");
+  }
 }

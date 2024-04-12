@@ -25,6 +25,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -79,13 +80,13 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.IncrementalArtifactConflictFinder;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -107,6 +108,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
 
@@ -193,6 +195,8 @@ public class RuleContext extends TargetContext
    */
   @Nullable private StarlarkRuleContext starlarkRuleContext;
 
+  private final Supplier<IncrementalArtifactConflictFinder> conflictFinder;
+
   /** The constructor is intentionally package private to be only used by {@link AspectContext}. */
   RuleContext(
       Builder builder,
@@ -212,7 +216,7 @@ public class RuleContext extends TargetContext
     this.attributes = attributes;
     this.features = computeFeatures();
     this.ruleClassNameForLogging = builder.getRuleClassNameForLogging();
-    this.actionOwnerSymbolGenerator = new SymbolGenerator<>(builder.actionOwnerSymbol);
+    this.actionOwnerSymbolGenerator = SymbolGenerator.create(builder.actionOwnerSymbol);
     this.reporter = builder.reporter;
     this.toolchainContexts = builder.toolchainContexts;
     this.execGroupCollection = execGroupCollection;
@@ -221,6 +225,7 @@ public class RuleContext extends TargetContext
         builder.transitivePackagesForRunfileRepoMappingManifest;
     this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
     this.prerequisitesCollection = prerequisitesCollection;
+    this.conflictFinder = builder.conflictFinder;
   }
 
   static RuleContext create(
@@ -1015,9 +1020,14 @@ public class RuleContext extends TargetContext
 
   private StarlarkThread createStarlarkThread(Mutability mutability) {
     AnalysisEnvironment env = getAnalysisEnvironment();
-    StarlarkThread thread = new StarlarkThread(mutability, env.getStarlarkSemantics());
+    StarlarkThread thread =
+        StarlarkThread.create(
+            mutability,
+            env.getStarlarkSemantics(),
+            /* contextDescription= */ "",
+            getSymbolGenerator());
     thread.setPrintHandler(Event.makeDebugPrintHandler(env.getEventHandler()));
-    new BazelRuleAnalysisThreadContext(getSymbolGenerator(), this).storeInThread(thread);
+    new BazelRuleAnalysisThreadContext(this).storeInThread(thread);
     return thread;
   }
 
@@ -1078,6 +1088,16 @@ public class RuleContext extends TargetContext
     } catch (EvalException e) {
       throw throwWithRuleError(e.getMessageWithStack());
     }
+  }
+
+  /**
+   * Returns the conflict finder if {@link
+   * com.google.devtools.build.lib.skyframe.ConflictCheckingMode#UPON_CONFIGURED_OBJECT_CREATION}
+   * and null otherwise.
+   */
+  @Nullable
+  public IncrementalArtifactConflictFinder getConflictFinder() {
+    return conflictFinder.get();
   }
 
   /**
@@ -1498,6 +1518,8 @@ public class RuleContext extends TargetContext
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
+
+    private Supplier<IncrementalArtifactConflictFinder> conflictFinder = () -> null;
     @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
     @Nullable private NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
 
@@ -1702,6 +1724,12 @@ public class RuleContext extends TargetContext
     public Builder setTransitivePackagesForRunfileRepoMappingManifest(
         @Nullable NestedSet<Package> packages) {
       this.transitivePackagesForRunfileRepoMappingManifest = packages;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setConflictFinder(Supplier<IncrementalArtifactConflictFinder> conflictFinder) {
+      this.conflictFinder = conflictFinder;
       return this;
     }
 

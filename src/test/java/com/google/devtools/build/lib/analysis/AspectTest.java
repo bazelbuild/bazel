@@ -767,7 +767,7 @@ public class AspectTest extends AnalysisTestCase {
         aspect1 = aspect(
             _aspect_impl,
             attr_aspects = ["deps"],
-            attrs = {"param": attr.string(values = ["a", "b"])}
+            attrs = {"param": attr.string(values = ["a", "b"])},
         )
         aspect2 = aspect(_aspect_impl, attr_aspects = ["deps"])
 
@@ -776,7 +776,7 @@ public class AspectTest extends AnalysisTestCase {
 
         injector1 = rule(
             _rule_impl,
-            attrs = {"deps": attr.label_list(aspects = [aspect1]), "param": attr.string()}
+            attrs = {"deps": attr.label_list(aspects = [aspect1]), "param": attr.string()},
         )
         injector2 = rule(_rule_impl, attrs = {"deps": attr.label_list(aspects = [aspect2])})
         null_rule = rule(_rule_impl, attrs = {"deps": attr.label_list()})
@@ -1304,26 +1304,31 @@ public class AspectTest extends AnalysisTestCase {
   public void conflictBetweenTargetAndAspect() throws Exception {
     scratch.file(
         "foo/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  outfile = ctx.actions.declare_file('conflict.out')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [outfile],",
-        "    progress_message = 'Action for aspect',",
-        "    command = 'echo \"aspect\" > ' + outfile.path,",
-        "  )",
-        "  return [OutputGroupInfo(files = [outfile])]",
-        "",
-        "def _rule_impl(ctx):",
-        "  outfile = ctx.actions.declare_file('conflict.out')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [outfile],",
-        "    progress_message = 'Action for target',",
-        "    command = 'echo \"target\" > ' + outfile.path,",
-        "  )",
-        "  return [DefaultInfo(files = depset([outfile]))]",
-        "my_aspect = aspect(implementation = _aspect_impl)",
-        "my_rule = rule(implementation = _rule_impl, attrs = {'deps' : attr.label_list(aspects ="
-            + " [my_aspect])})");
+        """
+        def _aspect_impl(target, ctx):
+            outfile = ctx.actions.declare_file("conflict.out")
+            ctx.actions.run_shell(
+                outputs = [outfile],
+                progress_message = "Action for aspect",
+                command = 'echo "aspect" > ' + outfile.path,
+            )
+            return [OutputGroupInfo(files = [outfile])]
+
+        def _rule_impl(ctx):
+            outfile = ctx.actions.declare_file("conflict.out")
+            ctx.actions.run_shell(
+                outputs = [outfile],
+                progress_message = "Action for target",
+                command = 'echo "target" > ' + outfile.path,
+            )
+            return [DefaultInfo(files = depset([outfile]))]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        my_rule = rule(
+            implementation = _rule_impl,
+            attrs = {"deps": attr.label_list(aspects = [my_aspect])},
+        )
+        """);
     scratch.file(
         "foo/BUILD",
         """

@@ -13,8 +13,12 @@ filegroup(
 
 java_library(
     name = "starlarkdocextract",
-    srcs = glob(["*.java"]),
+    srcs = [
+        "StarlarkDocExtract.java",
+        "StarlarkDocExtractRule.java",
+    ],
     deps = [
+        ":moduleinfoextractor",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/binary_file_write_action",
@@ -22,8 +26,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -40,5 +42,21 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "moduleinfoextractor",
+    srcs = ["ModuleInfoExtractor.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering:rendering_util",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )

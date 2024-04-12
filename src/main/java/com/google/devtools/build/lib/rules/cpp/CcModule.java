@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
@@ -1030,9 +1029,7 @@ public abstract class CcModule
           Depset.noneableCast(userLinkFlagsObject, String.class, "user_link_flags").toList();
       if (!userLinkFlagsFlattened.isEmpty()) {
         LinkOptions options =
-            LinkOptions.of(
-                userLinkFlagsFlattened,
-                BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator());
+            LinkOptions.of(userLinkFlagsFlattened, thread.getNextReferenceIdentitySymbol());
         optionsBuilder.add(options);
       }
     } else if (userLinkFlagsObject instanceof Sequence) {
@@ -1044,14 +1041,12 @@ public abstract class CcModule
               LinkOptions.of(
                   Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
                       .getImmutableList(),
-                  BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator()));
+                  thread.getNextReferenceIdentitySymbol()));
         } else if (options.get(0) instanceof Sequence) {
           for (Object optionObject : options) {
             ImmutableList<String> option =
                 Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
-            optionsBuilder.add(
-                LinkOptions.of(
-                    option, BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator()));
+            optionsBuilder.add(LinkOptions.of(option, thread.getNextReferenceIdentitySymbol()));
           }
         } else {
           throw Starlark.errorf(
@@ -1118,8 +1113,7 @@ public abstract class CcModule
           ccLinkingContextBuilder.addUserLinkFlags(
               ImmutableList.of(
                   CcLinkingContext.LinkOptions.of(
-                      userLinkFlags.getImmutableList(),
-                      BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator())));
+                      userLinkFlags.getImmutableList(), thread.getNextReferenceIdentitySymbol())));
         }
         @SuppressWarnings("unchecked")
         Sequence<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, Sequence.class);
@@ -1936,7 +1930,7 @@ public abstract class CcModule
                 featureConfiguration.getFeatureConfiguration(),
                 ccToolchainProvider,
                 fdoContext,
-                BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
+                thread.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
@@ -2421,7 +2415,7 @@ public abstract class CcModule
                 actualFeatureConfiguration,
                 ccToolchainProvider,
                 fdoContext,
-                BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
+                thread.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))

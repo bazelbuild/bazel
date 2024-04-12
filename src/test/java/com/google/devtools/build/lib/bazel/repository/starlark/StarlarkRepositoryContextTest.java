@@ -92,7 +92,7 @@ public final class StarlarkRepositoryContextTest {
   private Path workspaceFile;
   private StarlarkRepositoryContext context;
   private static final StarlarkThread thread =
-      new StarlarkThread(Mutability.create("test"), StarlarkSemantics.DEFAULT);
+      StarlarkThread.createTransient(Mutability.create("test"), StarlarkSemantics.DEFAULT);
 
   private static final String ONE_LINE_PATCH = "@@ -1,1 +1,2 @@\n line one\n+line two\n";
 

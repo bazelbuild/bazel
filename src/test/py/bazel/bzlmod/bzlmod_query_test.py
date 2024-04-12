@@ -30,6 +30,7 @@ class BzlmodQueryTest(test_base.TestBase):
     self.registries_work_dir = tempfile.mkdtemp(dir=self._test_cwd)
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main'))
+    self.main_registry.start()
     self.main_registry.createCcModule('aaa', '1.0', {'ccc': '1.2'}) \
       .createCcModule('aaa', '1.1') \
       .createCcModule('bbb', '1.0', {'aaa': '1.0'}, {'aaa': 'com_foo_bar_aaa'}) \
@@ -49,6 +50,10 @@ class BzlmodQueryTest(test_base.TestBase):
             'common --allow_yanked_versions=all',
         ],
     )
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def testQueryModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [

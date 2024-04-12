@@ -140,9 +140,9 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "test/transitions.bzl",
         """
         def _impl(settings, attr):
+            foo = settings["//command_line_option:foo"].replace("pre", "post")
             return {
-                "//command_line_option:foo":
-                    settings["//command_line_option:foo"].replace("pre", "post")
+                "//command_line_option:foo": foo,
             }
 
         my_transition = transition(
@@ -1792,10 +1792,15 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         """);
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True,"
-            + " allow_multiple=True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True, allow_multiple = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
         """
@@ -1840,10 +1845,15 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         """);
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True,"
-            + " allow_multiple=True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True, allow_multiple = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
         """
@@ -1892,10 +1902,15 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         """);
     scratch.file(
         "test/build_settings.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True,"
-            + " allow_multiple=True))");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True, allow_multiple = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
         """

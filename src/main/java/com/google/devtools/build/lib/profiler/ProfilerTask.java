@@ -25,7 +25,6 @@ public enum ProfilerTask {
   ACTION("action processing"),
   ACTION_CHECK("action dependency checking", Threshold.TEN_MILLIS),
   ACTION_LOCK("action resource lock", Threshold.TEN_MILLIS),
-  ACTION_RELEASE("action resource release", Threshold.TEN_MILLIS),
   ACTION_UPDATE("update action information", Threshold.TEN_MILLIS),
   ACTION_COMPLETE("complete action execution"),
   BZLMOD("bazel module processing"),

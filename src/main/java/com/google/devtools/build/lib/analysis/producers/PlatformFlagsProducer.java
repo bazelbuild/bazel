@@ -31,11 +31,11 @@ import javax.annotation.Nullable;
 public class PlatformFlagsProducer implements StateMachine, PlatformInfoProducer.ResultSink {
 
   interface ResultSink {
-    void acceptPlatformFlags(NativeAndStarlarkFlags flags);
+    void acceptPlatformFlags(Label platform, NativeAndStarlarkFlags flags);
 
-    void acceptPlatformFlagsError(InvalidPlatformException error);
+    void acceptPlatformFlagsError(Label platform, InvalidPlatformException error);
 
-    void acceptPlatformFlagsError(OptionsParsingException error);
+    void acceptPlatformFlagsError(Label platform, OptionsParsingException error);
   }
 
   // -------------------- Input --------------------
@@ -85,7 +85,7 @@ public class PlatformFlagsProducer implements StateMachine, PlatformInfoProducer
 
   @Override
   public void acceptPlatformInfoError(InvalidPlatformException error) {
-    sink.acceptPlatformFlagsError(error);
+    sink.acceptPlatformFlagsError(this.platformLabel, error);
   }
 
   private StateMachine parsePlatformFlags(Tasks tasks) {
@@ -113,7 +113,7 @@ public class PlatformFlagsProducer implements StateMachine, PlatformInfoProducer
       return;
     }
     if (exception != null) {
-      sink.acceptPlatformFlagsError(exception);
+      sink.acceptPlatformFlagsError(this.platformLabel, exception);
       return;
     }
     throw new IllegalStateException("Both value and exception are null");
@@ -123,7 +123,7 @@ public class PlatformFlagsProducer implements StateMachine, PlatformInfoProducer
     if (this.parsedFlags == null) {
       return DONE; // There was an error.
     }
-    sink.acceptPlatformFlags(this.parsedFlags);
+    sink.acceptPlatformFlags(this.platformLabel, this.parsedFlags);
     return this.runAfter;
   }
 }

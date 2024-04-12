@@ -114,7 +114,12 @@ public class WorkspaceFactory {
       Program prog = Program.compileFile(file, module);
 
       // create thread
-      StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mutability,
+              starlarkSemantics,
+              /* contextDescription= */ "",
+              builder.getSymbolGenerator());
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
       builder.storeInThread(thread);

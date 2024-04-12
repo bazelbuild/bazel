@@ -69,7 +69,7 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 
-  private List<String> getOutput(String queryExpression) throws Exception {
+  private ImmutableList<String> getOutput(String queryExpression) throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
@@ -88,7 +88,7 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             ct -> env.getFwdDeps(ImmutableList.of(ct)),
             LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);
-    return Arrays.asList(output.toString().split(System.lineSeparator()));
+    return ImmutableList.copyOf(output.toString().split(System.lineSeparator()));
   }
 
   /** Convenience method for easily injecting a config hash into an expected output sequence. */
@@ -207,12 +207,12 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         simple_rule(name = "tool_dep")
         """);
     writeFile("test/file.src");
-    List<String> output = getOutput("deps(//test:a)");
+    ImmutableList<String> output = getOutput("deps(//test:a)" + getDependencyCorrection());
     String firstNode = output.get(2);
     String configHash = firstNode.substring(firstNode.indexOf("(") + 1, firstNode.length() - 2);
     String toolNode = output.get(6);
     String execConfigHash = toolNode.substring(toolNode.indexOf("(") + 1, toolNode.length() - 2);
-    assertThat(getOutput("deps(//test:a)"))
+    assertThat(output)
         .isEqualTo(
             withConfigHash(
                 configHash,

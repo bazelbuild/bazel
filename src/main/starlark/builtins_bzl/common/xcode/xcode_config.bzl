@@ -101,7 +101,7 @@ xcode_config = rule(
     attrs = {
         "default": attr.label(
             doc = """\
-The default official version of xcode to use.
+The default official version of Xcode to use.
 The version specified by the provided `xcode_version` target is to be used if
 no `xcode_version` build flag is specified. This is required if any
 `versions` are set. This may not be set if `remote_versions` or
@@ -143,7 +143,7 @@ version. This may not be set if `versions` is set.
     doc = """\
 A single target of this rule can be referenced by the `--xcode_version_config`
 build flag to translate the `--xcode_version` flag into an accepted official
-xcode version. This allows selection of an official xcode version from a number
+Xcode version. This allows selection of an official Xcode version from a number
 of registered aliases.
 """,
     fragments = ["apple", "cpp"],
@@ -243,8 +243,8 @@ def _resolve_xcode_from_local_and_remote(
                 xcode_version_flag,
             )
             if (mutually_available_versions):
-                error += " Consider using one of [%s].", (
-                    ", ".join([version.version for version in mutually_available_versions])
+                error += " Consider using one of [{}].".format(
+                    ", ".join([version for version in mutually_available_versions]),
                 )
             print(error)
             return local_version_from_flag.xcode_version_properties, "LOCAL"
@@ -252,7 +252,7 @@ def _resolve_xcode_from_local_and_remote(
         elif remote_version_from_flag:
             print(("--xcode_version={version} specified, but it is not available locally. " +
                    "Your build will fail if any actions require a local Xcode. " +
-                   "If you believe you have '{version}' installed, try running '{command}'," +
+                   "If you believe you have '{version}' installed, try running {command}," +
                    "and then re-run your command. Locally available versions: {local_versions}. ")
                 .format(
                 version = xcode_version_flag,
@@ -267,7 +267,7 @@ def _resolve_xcode_from_local_and_remote(
             fail(
                 ("--xcode_version={0} specified, but '{0}' is not an available Xcode version." +
                  " Locally available versions: [{2}]. Remotely available versions: [{3}]. If" +
-                 " you believe you have '{0}' installed, try running '{1}', and then" +
+                 " you believe you have '{0}' installed, try running {1}, and then" +
                  " re-run your command.").format(
                     xcode_version_flag,
                     unavailable_xcode_message,

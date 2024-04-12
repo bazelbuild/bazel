@@ -39,6 +39,9 @@ def _rule_impl(ctx):
         proto_compiler = ctx.attr._proto_compiler.files_to_run
         protoc_opts = ctx.fragments.proto.experimental_protoc_opts
 
+    if ctx.attr.protoc_minimal_do_not_use:
+        proto_compiler = ctx.attr.protoc_minimal_do_not_use.files_to_run
+
     proto_lang_toolchain_info = ProtoLangToolchainInfo(
         out_replacement_format_flag = flag,
         output_files = ctx.attr.output_files,
@@ -141,6 +144,11 @@ This is used for .proto files that are already linked into proto runtimes, such 
         ),
         # TODO(b/311576642): add doc
         "toolchain_type": attr.label(),
+        # DO NOT USE. For Protobuf incremental changes only: b/305068148.
+        "protoc_minimal_do_not_use": attr.label(
+            cfg = "exec",
+            executable = True,
+        ),
     } | ({} if proto_common.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION else {
         "_proto_compiler": attr.label(
             cfg = "exec",

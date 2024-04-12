@@ -149,7 +149,7 @@ java_plugin = rule(
     _proxy,
     doc = """
 <p>
-  <code>java_plugin</code> defines plugins for the Java compiler run by Bazel. At the moment, the
+  <code>java_plugin</code> defines plugins for the Java compiler run by Bazel. The
   only supported kind of plugins are annotation processors. A <code>java_library</code> or
   <code>java_binary</code> rule can run plugins by depending on them via the <code>plugins</code>
   attribute. A <code>java_library</code> can also automatically export plugins to libraries that

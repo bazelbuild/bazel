@@ -28,7 +28,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
-/** A tuple containing information about a version of xcode and its properties. */
+/** A tuple containing information about a version of Xcode and its properties. */
 @Immutable
 public class XcodeVersionProperties extends NativeInfo implements XcodePropertiesApi {
   /** Starlark identifier for XcodeVersionProperties provider. */
@@ -51,10 +51,10 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   private final DottedVersion defaultMacosSdkVersion;
 
   /**
-   * Creates and returns a tuple representing no known xcode property information (defaults are used
+   * Creates and returns a tuple representing no known Xcode property information (defaults are used
    * where applicable).
    */
-  // TODO(bazel-team): The xcode version should be a well-defined value, either specified by the
+  // TODO(bazel-team): The Xcode version should be a well-defined value, either specified by the
   // user, evaluated on the local system, or set to a sensible default.
   // Unfortunately, until the local system evaluation hook is created, this constraint would break
   // some users.
@@ -67,7 +67,7 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   }
 
   /**
-   * Constructor for when only the xcode version is specified, but no property information is
+   * Constructor for when only the Xcode version is specified, but no property information is
    * specified.
    */
   public XcodeVersionProperties(Object xcodeVersion) {
@@ -116,7 +116,7 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     return PROVIDER;
   }
 
-  /** Returns the xcode version, or null if the xcode version is unknown. */
+  /** Returns the Xcode version, or null if the Xcode version is unknown. */
   @Nullable
   @Override
   public String getXcodeVersionString() {
@@ -126,42 +126,42 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     return null;
   }
 
-  /** Returns the default ios sdk version to use if this xcode version is in use. */
+  /** Returns the default iOS SDK version to use if this Xcode version is in use. */
   @Nullable
   @Override
   public String getDefaultIosSdkVersionString() {
     return defaultIosSdkVersion != null ? defaultIosSdkVersion.toString() : null;
   }
 
-  /** Returns the default visionOS sdk version to use if this xcode version is in use. */
+  /** Returns the default visionOS SDK version to use if this Xcode version is in use. */
   @Nullable
   @Override
   public String getDefaultVisionosSdkVersionString() {
     return defaultVisionosSdkVersion != null ? defaultVisionosSdkVersion.toString() : null;
   }
 
-  /** Returns the default watchos sdk version to use if this xcode version is in use. */
+  /** Returns the default watchOS SDK version to use if this Xcode version is in use. */
   @Nullable
   @Override
   public String getDefaultWatchosSdkVersionString() {
     return defaultWatchosSdkVersion != null ? defaultWatchosSdkVersion.toString() : null;
   }
 
-  /** Returns the default tvos sdk version to use if this xcode version is in use. */
+  /** Returns the default tvOS SDK version to use if this Xcode version is in use. */
   @Nullable
   @Override
   public String getDefaultTvosSdkVersionString() {
     return defaultTvosSdkVersion != null ? defaultTvosSdkVersion.toString() : null;
   }
 
-  /** Returns the default macosx sdk version to use if this xcode version is in use. */
+  /** Returns the default macOS SDK version to use if this Xcode version is in use. */
   @Nullable
   @Override
   public String getDefaultMacosSdkVersionString() {
     return defaultMacosSdkVersion != null ? defaultMacosSdkVersion.toString() : null;
   }
 
-  /** Returns the xcode version, or {@link Optional#absent} if the xcode version is unknown. */
+  /** Returns the Xcode version, or {@link Optional#absent} if the Xcode version is unknown. */
   public Optional<DottedVersion> getXcodeVersion() {
     return xcodeVersion;
   }

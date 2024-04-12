@@ -19,10 +19,12 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -74,6 +76,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.IncrementalArtifactConflictFinder;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -102,9 +105,13 @@ public final class ConfiguredTargetFactory {
   // in order to be accessible from the .view.skyframe package.
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
+  private final Supplier<IncrementalArtifactConflictFinder> conflictFinder;
 
-  public ConfiguredTargetFactory(ConfiguredRuleClassProvider ruleClassProvider) {
+  public ConfiguredTargetFactory(
+      ConfiguredRuleClassProvider ruleClassProvider,
+      Supplier<IncrementalArtifactConflictFinder> conflictFinder) {
     this.ruleClassProvider = ruleClassProvider;
+    this.conflictFinder = conflictFinder;
   }
 
   /**
@@ -326,6 +333,7 @@ public final class ConfiguredTargetFactory {
                         prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget),
                     starlarkExecTransition))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
+            .setConflictFinder(conflictFinder)
             .build();
 
     ImmutableList<NestedSet<AnalysisFailure>> analysisFailures =
@@ -600,6 +608,7 @@ public final class ConfiguredTargetFactory {
                         ImmutableList.of(configuredTarget)),
                     starlarkExecTransition))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
+            .setConflictFinder(conflictFinder)
             .build();
 
     // If allowing analysis failures, targets should be created as normal as possible, and errors
@@ -622,6 +631,12 @@ public final class ConfiguredTargetFactory {
             ruleContext,
             aspect.getParameters(),
             ruleClassProvider.getToolsRepository());
+
+    if (ruleContext.getConflictFinder() != null && configuredAspect != null) {
+      for (ActionAnalysisMetadata action : configuredAspect.getActions()) {
+        ruleContext.getConflictFinder().conflictCheckPerAction(action);
+      }
+    }
     if (configuredAspect == null) {
       return erroredConfiguredAspect(ruleContext, null);
     } else if (configuredAspect.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR) != null) {

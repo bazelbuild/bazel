@@ -102,47 +102,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcProviderLegacyName() throws Exception {
-    scratch.file(
-        "test/my_rule.bzl",
-        """
-        load('//myinfo:myinfo.bzl', 'MyInfo')
-        def _dep_rule_impl(ctx):
-           objc_provider = apple_common.new_objc_provider(strict_include=depset(['foo']))
-           return struct(foo = objc_provider)
-
-        def _root_rule_impl(ctx):
-           dep = ctx.attr.deps[0]
-           return MyInfo(
-              strict_include = dep.objc.strict_include,
-           )
-
-        root_rule = rule(implementation = _root_rule_impl,
-           attrs = {'deps': attr.label_list(providers = [['objc']]),
-        })
-        dep_rule = rule(implementation = _dep_rule_impl)
-        """);
-    scratch.file(
-        "test/BUILD",
-        """
-        load(':my_rule.bzl', 'root_rule', 'dep_rule')
-        root_rule(
-            name = 'test',
-            deps = [':dep'],
-        )
-        dep_rule(
-            name = 'dep',
-        )
-        """);
-
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//test:test");
-    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-    Depset strictIncludes = (Depset) myInfo.getValue("strict_include");
-
-    assertThat(strictIncludes.getSet(String.class).toList()).containsExactly("foo");
-  }
-
-  @Test
   public void testStarlarkProviderRetrievalNoneIfNoProvider() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(

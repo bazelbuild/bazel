@@ -206,10 +206,10 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testMissingCmdAttributeErrorOnNonWindowsPlatform() throws Exception {
-    scratch.overwriteFile(
-        "platforms/BUILD",
+    scratch.file(
+        "newplatforms/BUILD",
         "platform(name = 'nonwindows', constraint_values = ['@platforms//os:linux'])");
-    useConfiguration("--host_platform=//platforms:nonwindows");
+    useConfiguration("--host_platform=//newplatforms:nonwindows");
 
     checkError(
         "foo",

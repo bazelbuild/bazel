@@ -68,7 +68,13 @@ EOF
 toolchain_type(name = 'yolo')
 EOF
   mkdir override/host
-  touch override/host/BUILD
+  cat > override/host/BUILD <<EOF
+# Have to define the host platform.
+platform(
+    name = 'host',
+    visibility = ['//visibility:public'],
+)
+EOF
   cat > override/host/extension.bzl <<EOF
 def host_platform_repo(**kwargs):
   pass

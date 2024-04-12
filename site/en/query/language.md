@@ -163,15 +163,20 @@ cycles are treated are not specified and should not be relied upon.
 ### Implicit dependencies {:#implicit-dependencies}
 
 In addition to build dependencies that are defined explicitly in `BUILD` files,
-Bazel adds additional _implicit_ dependencies to rules. For example
-every Java rule implicitly depends on the JavaBuilder. Implicit dependencies
-are established using attributes that start with `$` and they
-cannot be overridden in `BUILD` files.
+Bazel adds additional _implicit_ dependencies to rules. Implicit dependencies
+may be defined by:
 
-Per default `bazel query` takes implicit dependencies into account
+- [Private attributes](/extending/rules#private_attributes_and_implicit_dependencies)
+- [Toolchain requirements](/extending/toolchains#writing-rules-toolchains)
+
+By default, `bazel query` takes implicit dependencies into account
 when computing the query result. This behavior can be changed with
-the `--[no]implicit_deps` option. Note that, as query does not consider
-configurations, potential toolchains are never considered.
+the `--[no]implicit_deps` option.
+
+Note that, as query does not consider configurations, potential toolchain
+**implementations** are not considered dependencies, only the
+required toolchain types. See
+[toolchain documentation](/extending/toolchains#writing-rules-toolchains).
 
 ### Soundness {:#soundness}
 

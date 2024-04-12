@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,9 +36,7 @@ public class TemplateVariableInfoTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         def _impl(ctx):
-            return struct(
-                providers = [ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo]],
-            )
+            return [ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo]]
 
         crule = rule(_impl, attrs = {"_cc_toolchain": attr.label(default = Label("//a:a"))})
         """);
@@ -69,8 +68,9 @@ public class TemplateVariableInfoTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         """
+        Info = provider()
         def _impl(ctx):
-            return struct(
+            return Info(
                 variables = ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo].variables,
             )
 
@@ -88,8 +88,9 @@ public class TemplateVariableInfoTest extends BuildViewTestCase {
         """);
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
 
+    StarlarkInfo info = getStarlarkProvider(ct, "Info");
     @SuppressWarnings("unchecked")
-    Map<String, String> makeVariables = (Map<String, String>) ct.get("variables");
+    Map<String, String> makeVariables = (Map<String, String>) info.getValue("variables");
     assertThat(makeVariables).containsKey("CC");
   }
 
@@ -98,8 +99,9 @@ public class TemplateVariableInfoTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         """
+        Info = provider()
         def _consumer_impl(ctx):
-            return struct(
+            return Info(
                 var = ctx.attr.supplier[platform_common.TemplateVariableInfo]
                     .variables[ctx.attr.var],
             )
@@ -136,8 +138,8 @@ public class TemplateVariableInfoTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget consumer = getConfiguredTarget("//a:consumer");
-    @SuppressWarnings("unchecked")
-    String value = (String) consumer.get("var");
+    StarlarkInfo info = getStarlarkProvider(consumer, "Info");
+    String value = info.getValue("var", String.class);
     assertThat(value).isEqualTo("ontop");
 
     ConfiguredTarget supplier = getConfiguredTarget("//a:supplier");

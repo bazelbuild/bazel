@@ -57,6 +57,33 @@ public record SkyfocusState(
       new SkyfocusState(
           false, ImmutableSet.of(), ImmutableSet.of(), null, null, Request.DO_NOTHING);
 
+  public SkyfocusState withEnabled(boolean val) {
+    return new SkyfocusState(
+        val, workingSet, verificationSet, options, buildConfiguration, request);
+  }
+
+  public SkyfocusState withWorkingSet(ImmutableSet<String> val) {
+    return new SkyfocusState(enabled, val, verificationSet, options, buildConfiguration, request);
+  }
+
+  public SkyfocusState withVerificationSet(ImmutableSet<SkyKey> val) {
+    return new SkyfocusState(enabled, workingSet, val, options, buildConfiguration, request);
+  }
+
+  public SkyfocusState withOptions(SkyfocusOptions val) {
+    return new SkyfocusState(
+        enabled, workingSet, verificationSet, val, buildConfiguration, request);
+  }
+
+  public SkyfocusState withBuildConfiguration(BuildConfigurationValue val) {
+    return new SkyfocusState(enabled, workingSet, verificationSet, options, val, request);
+  }
+
+  public SkyfocusState withRequest(Request val) {
+    return new SkyfocusState(
+        enabled, workingSet, verificationSet, options, buildConfiguration, val);
+  }
+
   public Request checkBuildConfigChanges(
       BuildConfigurationValue newConfig, Request originalRequest, EventHandler eventHandler)
       throws AbruptExitException {
@@ -64,12 +91,14 @@ public record SkyfocusState(
       return originalRequest;
     }
 
-    switch (options.handlingStrategy) {
+    return switch (options.handlingStrategy) {
       case WARN -> {
         eventHandler.handle(
             Event.warn(
                 "Skyfocus: detected changes to the build configuration, will be discarding the"
                     + " analysis cache."));
+
+        yield Request.RUN_FOCUS;
       }
       case STRICT ->
           throw new AbruptExitException(
@@ -82,8 +111,6 @@ public record SkyfocusState(
                               + " full reanalysis instead of failing the build.")
                       .setSkyfocus(Skyfocus.newBuilder().setCode(Code.CONFIGURATION_CHANGE).build())
                       .build()));
-    }
-
-    return Request.RUN_FOCUS;
+    };
   }
 }

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.config.ConfigGlobalLibrary;
 import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
@@ -160,8 +159,7 @@ public final class BazelEvaluationTestCase {
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
             /* networkAllowlistForTests= */ Optional.empty(),
-            /* fragmentNameToClass= */ ImmutableMap.of(),
-            new SymbolGenerator<>(new Object()))
+            /* fragmentNameToClass= */ ImmutableMap.of())
         .storeInThread(thread);
   }
 
@@ -183,7 +181,7 @@ public final class BazelEvaluationTestCase {
   public StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
       Mutability mu = Mutability.create("test");
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
       newThread(thread);
       this.thread = thread;

@@ -189,7 +189,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       env.putAll(StarlarkGlobalsImpl.INSTANCE.getUtilToplevelsForCquery());
       Module module = Module.withPredeclared(starlarkSemantics, env.buildOrThrow());
 
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, starlarkSemantics);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
       Object formatFn = module.getGlobal("format");
       if (formatFn == null) {
@@ -231,7 +231,8 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
     for (CqueryNode target : partialResult) {
       try {
         StarlarkThread thread =
-            new StarlarkThread(Mutability.create("cquery evaluation"), starlarkSemantics);
+            StarlarkThread.createTransient(
+                Mutability.create("cquery evaluation"), starlarkSemantics);
         thread.setMaxExecutionSteps(500_000L);
 
         // Invoke formatFn with `target` argument.

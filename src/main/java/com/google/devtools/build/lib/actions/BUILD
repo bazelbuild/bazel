@@ -507,6 +507,7 @@ java_library(
 java_library(
     name = "resource_manager",
     srcs = [
+        "MachineLoadProvider.java",
         "ResourceManager.java",
     ],
     deps = [
@@ -520,6 +521,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_pool",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
+        "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

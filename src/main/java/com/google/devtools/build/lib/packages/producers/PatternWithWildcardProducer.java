@@ -46,7 +46,8 @@ import javax.annotation.Nullable;
  * symlink dirents in a batch. The results are put in the {@link #symlinks} container. The {@link
  * #processSymlinks} method is invoked only once to handle all symlinks.
  *
- * <p>All matching dirents are handled by creating the {@link DirentProducer}s for each one of them.
+ * <p>All matching dirents are handled by creating the {@link DirectoryDirentProducer}s for each one
+ * of them.
  */
 final class PatternWithWildcardProducer
     implements StateMachine, Consumer<SkyValue>, SymlinkProducer.ResultSink {
@@ -117,7 +118,7 @@ final class PatternWithWildcardProducer
                 (SymlinkProducer.ResultSink) this));
         ++symlinksCount;
       } else {
-        enqueueDirentProducer(child, /* isDir= */ dirent.getType() == Dirent.Type.DIRECTORY, tasks);
+        handleDirent(child, dirent.getType() == Dirent.Type.DIRECTORY, tasks);
       }
     }
 
@@ -180,8 +181,7 @@ final class PatternWithWildcardProducer
 
       // When creating `DirentProducer` for symlinks, pass in the symlink path instead of the target
       // path.
-      enqueueDirentProducer(
-          symlinkKey.argument().getRootRelativePath(), symlinkValue.isDirectory(), tasks);
+      handleDirent(symlinkKey.argument().getRootRelativePath(), symlinkValue.isDirectory(), tasks);
     }
 
     // After all symlinks of dirents are processed, `symlinks` array list is useless and should be
@@ -190,9 +190,14 @@ final class PatternWithWildcardProducer
     return DONE;
   }
 
-  private void enqueueDirentProducer(PathFragment pathFragment, boolean isDir, Tasks tasks) {
-    tasks.enqueue(
-        new DirentProducer(
-            globDetail, pathFragment, fragmentIndex, isDir, resultSink, visitedGlobSubTasks));
+  private void handleDirent(PathFragment pathFragment, boolean isDir, Tasks tasks) {
+    if (isDir) {
+      tasks.enqueue(
+          new DirectoryDirentProducer(
+              globDetail, pathFragment, fragmentIndex, resultSink, visitedGlobSubTasks));
+    } else {
+      FragmentProducer.maybeAddFileMatchingToResult(
+          pathFragment, fragmentIndex, globDetail, resultSink);
+    }
   }
 }

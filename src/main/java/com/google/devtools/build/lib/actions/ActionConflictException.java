@@ -36,11 +36,11 @@ import javax.annotation.Nullable;
 /**
  * This exception is thrown when a conflict between actions is detected. It contains information
  * about the artifact for which the conflict is found, and data about the two conflicting actions
- * and their owners.
+ * and their owners. Non-final only for {@link WithAspectKeyInfo}.
  */
-public final class ActionConflictException extends AbstractSaneAnalysisException {
-
+public sealed class ActionConflictException extends AbstractSaneAnalysisException {
   private final Artifact artifact;
+  private final ActionAnalysisMetadata attemptedAction;
   private final boolean isPrefixConflict;
 
   private static final int MAX_DIFF_ARTIFACTS_TO_REPORT = 5;
@@ -52,6 +52,7 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
       ActionAnalysisMetadata attemptedAction) {
     return new ActionConflictException(
         artifact,
+        attemptedAction,
         createDetailedMessage(artifact, actionKeyContext, attemptedAction, previousAction),
         /* isPrefixConflict= */ false);
   }
@@ -68,6 +69,7 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
       ActionAnalysisMetadata secondAction) {
     return new ActionConflictException(
         firstArtifact,
+        firstAction,
         createPrefixDetailedMessage(
             firstArtifact,
             secondArtifact,
@@ -76,14 +78,28 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
         /* isPrefixConflict= */ true);
   }
 
-  private ActionConflictException(Artifact artifact, String message, boolean isPrefixConflict) {
+  public static ActionConflictException withAspectKeyInfo(
+      ActionConflictException e, ActionLookupKey aspectKey) {
+    return new WithAspectKeyInfo(e, aspectKey);
+  }
+
+  private ActionConflictException(
+      Artifact artifact,
+      ActionAnalysisMetadata attemptedAction,
+      String message,
+      boolean isPrefixConflict) {
     super(message);
     this.artifact = artifact;
+    this.attemptedAction = attemptedAction;
     this.isPrefixConflict = isPrefixConflict;
   }
 
   public Artifact getArtifact() {
     return artifact;
+  }
+
+  public ActionAnalysisMetadata getAttemptedAction() {
+    return attemptedAction;
   }
 
   private static String createDetailedMessage(
@@ -298,5 +314,29 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
         : owner.getAspectDescriptors().stream()
             .map(AspectDescriptor::getDescription)
             .collect(Collectors.joining(",", "[", "]"));
+  }
+
+  @Nullable
+  public ActionLookupKey getAspectKey() {
+    return null;
+  }
+
+  /**
+   * For skymeld.
+   *
+   * <p>We need to forward the AspectKey along so that it's available for the final conflict report.
+   */
+  private static final class WithAspectKeyInfo extends ActionConflictException {
+    private final ActionLookupKey aspectKey;
+
+    private WithAspectKeyInfo(ActionConflictException e, ActionLookupKey aspectKey) {
+      super(e.artifact, e.attemptedAction, e.getMessage(), e.isPrefixConflict);
+      this.aspectKey = aspectKey;
+    }
+
+    @Override
+    public ActionLookupKey getAspectKey() {
+      return aspectKey;
+    }
   }
 }

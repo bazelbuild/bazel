@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
+import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
@@ -842,6 +843,15 @@ public class CommandEnvironment {
 
     // Modules that are subscribed to CommandStartEvent may create pending exceptions.
     throwPendingException();
+
+    if (commandActuallyBuilds()) {
+      // Need to determine if Skyfocus will run for this command. If so, the evaluator
+      // will need to be configured to remember additional state (e.g. root keys) that it
+      // otherwise doesn't need to for a non-Skyfocus build. Alternately, it might reset
+      // the evaluator, which is why this runs before injecting precomputed values below.
+      skyframeExecutor.prepareForSkyfocus(
+          options.getOptions(SkyfocusOptions.class), reporter, runtime.getProductName());
+    }
   }
 
   /** Returns the name of the file system we are writing output to. */

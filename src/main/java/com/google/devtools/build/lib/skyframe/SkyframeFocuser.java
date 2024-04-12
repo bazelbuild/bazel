@@ -461,5 +461,4 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
         ImmutableSet.copyOf(keptDeps),
         ImmutableSet.copyOf(verificationSet));
   }
-
 }

@@ -448,7 +448,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     // setting --universe_scope we ensure only the transitioned version exists.
     helper.setUniverseScope("//test:buildme");
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
-    Set<CqueryNode> result = eval("deps(//test:buildme, 1)");
+    Set<CqueryNode> result = eval("deps(//test:buildme, 1)" + getDependencyCorrection());
     assertThat(result).hasSize(2);
 
     ImmutableList<CqueryNode> stableOrderList = ImmutableList.copyOf(result);
@@ -531,7 +531,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   public void testExecTransitionNotFilteredByNoToolDeps() throws Exception {
     createConfigRulesAndBuild();
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
-    assertThat(evalToListOfStrings("deps(//test:my_rule)"))
+    assertThat(evalToListOfStrings("deps(//test:my_rule)" + getDependencyCorrection()))
         .containsExactly("//test:my_rule", "//test:target_dep", "//test:dep");
   }
 

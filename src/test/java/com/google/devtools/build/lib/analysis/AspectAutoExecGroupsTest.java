@@ -55,7 +55,8 @@ public class AspectAutoExecGroupsTest extends BuildViewTestCase {
                 "_tool": attr.label(
                     default = "//toolchain:b_tool",
                     executable = True,
-                    cfg = "exec"),
+                    cfg = "exec",
+                ),
             },
         )
         """);

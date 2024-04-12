@@ -148,4 +148,23 @@ final class FragmentProducer implements StateMachine {
     return new PatternWithWildcardProducer(
         globDetail, base, fragmentIndex, resultSink, visitedGlobSubTasks);
   }
+
+  /**
+   * Attempts to add {@linkplain PathFragment the input file path} to {@linkplain ResultSink the
+   * result sink} if this is the last fragment in the glob expression and {@linkplain Operation glob
+   * operation} is {@link Operation#FILES} or {@link Operation#FILES_AND_DIRS}.
+   */
+  static void maybeAddFileMatchingToResult(
+      PathFragment pathFragment,
+      int fragmentIndex,
+      GlobDetail globDetail,
+      FragmentProducer.ResultSink resultSink) {
+    if (globDetail.globOperation().equals(Operation.SUBPACKAGES)) {
+      return;
+    }
+    if (fragmentIndex < globDetail.patternFragments().size() - 1) {
+      return;
+    }
+    resultSink.acceptPathFragmentWithPackageFragment(pathFragment);
+  }
 }

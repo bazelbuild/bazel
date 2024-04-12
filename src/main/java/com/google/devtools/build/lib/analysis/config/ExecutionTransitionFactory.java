@@ -242,6 +242,8 @@ public class ExecutionTransitionFactory
           options.underlying().get(CoreOptions.class).affectedByStarlarkTransition;
       coreOptions.executionInfoModifier =
           options.underlying().get(CoreOptions.class).executionInfoModifier;
+      coreOptions.overrideNamePlatformInOutputDirEntries =
+          options.underlying().get(CoreOptions.class).overrideNamePlatformInOutputDirEntries;
       return result;
     }
   }

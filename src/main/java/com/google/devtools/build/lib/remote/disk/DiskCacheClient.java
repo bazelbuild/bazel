@@ -329,11 +329,13 @@ public class DiskCacheClient implements RemoteCacheClient {
     Path temp = getTempPath();
 
     try {
-      try (FileOutputStream out = new FileOutputStream(temp.getPathFile())) {
+      try (OutputStream out = temp.getOutputStream()) {
         ByteStreams.copy(in, out);
         // Fsync temp before we rename it to avoid data loss in the case of machine
         // crashes (the OS may reorder the writes and the rename).
-        out.getFD().sync();
+        if (out instanceof FileOutputStream fos) {
+          fos.getFD().sync();
+        }
       }
       path.getParentDirectory().createDirectoryAndParents();
       temp.renameTo(path);

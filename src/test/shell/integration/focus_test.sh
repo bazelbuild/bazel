@@ -56,6 +56,7 @@ if "$is_windows"; then
 fi
 
 add_to_bazelrc "build --experimental_enable_skyfocus"
+add_to_bazelrc "build --genrule_strategy=local"
 
 function set_up() {
   # Ensure we always start with a fresh server so that the following
@@ -67,141 +68,6 @@ function set_up() {
   # not SerializationCheckingGraph. This env var disables
   # SerializationCheckingGraph from being used as the evaluator.
   export DONT_SANITY_CHECK_SERIALIZATION=1
-}
-
-function test_working_set_can_be_used_with_build_command() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule(
-  name = "g",
-  srcs = ["in.txt"],
-  outs = ["out.txt"],
-  cmd = "cp \$< \$@",
-)
-EOF
-
-  bazel build //${pkg}:g \
-    --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1 \
-    || "unexpected failure"
-  expect_log "Focusing on"
-}
-
-function test_correctly_rebuilds_with_working_set_containing_files() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule(
-  name = "g",
-  srcs = ["in.txt"],
-  outs = ["out.txt"],
-  cmd = "cp \$< \$@",
-)
-EOF
-
-  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
-
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
-  assert_contains "input" $out
-
-  echo "first change" >> ${pkg}/in.txt
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
-  assert_contains "first change" $out
-
-  echo "second change" >> ${pkg}/in.txt
-  bazel build //${pkg}:g
-  assert_contains "second change" $out
-}
-
-function test_correctly_rebuilds_with_working_set_containing_directories() {
-  # Setting directories in the working set works, because the rdep edges look like:
-  #
-  # FILE_STATE:[dir] -> FILE:[dir] -> FILE:[dir/BUILD], FILE:[dir/file.txt]
-  #
-  # ...and the FILE SkyKeys directly depend on their respective FILE_STATE SkyKeys,
-  # which are the nodes that are invalidated by SkyframeExecutor#handleDiffs
-  # at the start of every build, and are also kept by Skyfocus.
-  #
-  # In other words, defining a working set of directories will automatically
-  # include all the files under those directories for focusing.
-
-  local -r pkg=${FUNCNAME[0]}
-  mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule(
-  name = "g",
-  srcs = ["in.txt"],
-  outs = ["out.txt"],
-  cmd = "cp \$< \$@",
-)
-EOF
-
-  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
-
-  # Define working set to be a directory, not file
-  bazel build //${pkg}:g --experimental_working_set=${pkg}
-  assert_contains "input" $out
-
-  # Incrementally builds ${pkg}/in.txt file
-  echo "first change" >> ${pkg}/in.txt
-  bazel build //${pkg}:g
-  assert_contains "first change" $out
-
-  echo "second change" >> ${pkg}/in.txt
-  bazel build //${pkg}:g
-  assert_contains "second change" $out
-
-  # Incrementally builds new target in ${pkg}/BUILD file
-  cat >> ${pkg}/BUILD <<EOF
-genrule(
-  name = "another_genrule",
-  srcs = ["in.txt"],
-  outs = ["out2.txt"],
-  cmd = "cp \$< \$@",
-)
-EOF
-  bazel build //${pkg}:another_genrule || fail "expected build success"
-}
-
-function test_correctly_rebuilds_with_working_set_containing_directories_recursively() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir -p ${pkg}/a/b
-  echo "content_a" > ${pkg}/a/in.txt
-  echo "content_b" > ${pkg}/a/b/in.txt
-  cat > ${pkg}/a/BUILD <<EOF
-genrule(
-  name = "a",
-  srcs = ["in.txt", "//${pkg}/a/b"],
-  outs = ["out.txt"],
-  cmd = "cat \$(location in.txt) \$(location //${pkg}/a/b) > \$@",
-)
-EOF
-  cat > ${pkg}/a/b/BUILD <<EOF
-genrule(
-  name = "b",
-  srcs = ["in.txt"],
-  outs = ["out.txt"],
-  cmd = "cat \$(location in.txt) > \$@",
-  visibility = ["//visibility:public"],
-)
-EOF
-
-  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/a/out.txt
-
-  # Set only //a as the working set
-  bazel build //${pkg}/a --experimental_working_set=${pkg}/a
-  assert_contains "content_a" $out
-  assert_contains "content_b" $out
-
-  # File in //a/b edited, build succeeds.
-  echo "a change" >> ${pkg}/a/b/in.txt
-  bazel build //${pkg}/a &> "$TEST_log" || fail "expected build succeed"
-  assert_contains "a change" $out
 }
 
 function test_focus_command_prints_info_about_graph() {
@@ -295,94 +161,12 @@ EOF
   expect_not_log "FILE_STATE:[.\+]"
 }
 
-function test_builds_new_target_after_using_focus() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule(
-  name = "g",
-  srcs = ["in.txt"],
-  outs = ["g.txt"],
-  cmd = "cp \$< \$@",
-)
-genrule(
-  name = "g2",
-  srcs = ["in.txt"],
-  outs = ["g2.txt"],
-  cmd = "cp \$< \$@",
-)
-genrule(
-  name = "g3",
-  outs = ["g3.txt"],
-  cmd = "touch \$@",
-)
-EOF
-
-  bazel build //${pkg}:g
-  echo "a change" >> ${pkg}/in.txt
-
-  bazel build //${pkg}:g \
-    --experimental_working_set=${pkg}/in.txt
-  bazel build //${pkg}:g
-  bazel build //${pkg}:g2 || fail "cannot build //${pkg}:g2"
-  bazel build //${pkg}:g3 || fail "cannot build //${pkg}:g3"
-}
-
-function test_working_set_can_be_reduced_without_reanalysis() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input1" > ${pkg}/in.txt
-  echo "input2" > ${pkg}/in2.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule(
-  name = "g",
-  srcs = ["in.txt", "in2.txt"],
-  outs = ["g.txt"],
-  cmd = "cat \$(location in.txt) \$(location in2.txt) > \$@",
-)
-EOF
-
-  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/g.txt
-
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt
-  assert_contains "input1" $out
-  assert_contains "input2" $out
-  echo "a change" >> ${pkg}/in.txt
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt &> "$TEST_log"
-  assert_contains "a change" $out
-  expect_not_log "discarding analysis cache"
-}
-
-function test_working_set_expansion_causes_reanalysis() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input1" > ${pkg}/in.txt
-  echo "input2" > ${pkg}/in2.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule(
-  name = "g",
-  srcs = ["in.txt", "in2.txt"],
-  outs = ["g.txt"],
-  cmd = "cat \$(location in.txt) \$(location in2.txt) > \$@",
-)
-EOF
-
-  out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/g.txt
-
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
-  assert_contains "input1" $out
-  assert_contains "input2" $out
-  echo "a change" >> ${pkg}/in2.txt
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt &> "$TEST_log"
-  assert_contains "a change" $out
-  expect_log "discarding analysis cache"
-}
-
 function test_focus_emits_profile_data() {
+  if "$is_windows"; then
+    # TODO(b/332825970): fix this
+    return
+  fi
+
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -672,22 +456,6 @@ EOF
   expect_log "${pkg}"
 }
 
-function test_does_not_run_if_build_fails() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<EOF
-genrule() # error
-EOF
-
-  bazel build //${pkg}:g \
-    --experimental_working_set=${pkg}/in.txt &>$TEST_log \
-    && "expected build to fail"
-  expect_log "Error in genrule: genrule rule has no 'name' attribute"
-  expect_not_log "Focusing on .\+ roots, .\+ leafs"
-}
-
 function test_reanalysis_with_label_flag_change() {
   local -r pkg=${FUNCNAME[0]}
   mkdir -p ${pkg}
@@ -717,6 +485,7 @@ def _impl(ctx):
         inputs = [ctx.file.src],
         outputs = [out],
         command = " ".join(["cat", ctx.file.src.path, ">", out.path, "&&", "echo", _setting, ">>", out.path]),
+        execution_requirements = {"no-remote": "true"},
     )
 
     return [DefaultInfo(files = depset([out]))]
@@ -765,6 +534,11 @@ EOF
 }
 
 function test_changes_with_symlinks_are_detected() {
+  if "$is_windows"; then
+    # TODO(b/332825970): fix this
+    return
+  fi
+
   local -r pkg=${FUNCNAME[0]}
   mkdir -p ${pkg}/subdir
 
@@ -793,7 +567,7 @@ EOF
   # using the linked file in the working set should work, even though the
   # symlinks are used as the genrule inputs.
   bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/subdir/in.txt \
-    || "expected build to succeed"
+    || fail "expected build to succeed"
 
   echo "a change" >> ${pkg}/in.txt
   bazel build //${pkg}:g || fail "expected build to succeed"
@@ -819,6 +593,11 @@ EOF
 }
 
 function test_symlinks_as_working_set() {
+  if "$is_windows"; then
+    # TODO(b/332825970): fix this
+    return
+  fi
+
   local -r pkg=${FUNCNAME[0]}
   mkdir -p ${pkg}/subdir
 
@@ -842,7 +621,7 @@ EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g --experimental_working_set=${pkg}/single.symlink,${pkg}/dir.symlink \
-    || "expected build to succeed"
+    || fail "expected build to succeed"
 
   echo "a change" >> ${pkg}/in.txt
   bazel build //${pkg}:g || fail "expected build to succeed"

@@ -259,14 +259,16 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         .containsExactly(
             rootedPath("tools"), Boolean.TRUE,
             rootedPath("a2"), Boolean.TRUE);
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a1/b1/c1");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a1/b1/c2");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a1/b2/c1");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a1/b1/c2");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a2/b1/c1");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a2/b1/c2");
+    MoreAsserts.assertDoesNotContainEvents(
+        eventCollector,
+        "Loading package: a1/b1/c1",
+        "Loading package: a1/b1/c2",
+        "Loading package: a1/b2/c1",
+        "Loading package: a1/b1/c2",
+        "Loading package: a2/b1/c1",
+        "Loading package: a2/b1/c2",
+        "Loading package: a2/b2/c2");
     MoreAsserts.assertContainsEvent(eventCollector, "Loading package: a2/b2/c1");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a2/b2/c2");
   }
 
   private void initEvaluator() throws AbruptExitException, InterruptedException, IOException {

@@ -134,6 +134,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.build.skyframe.NotifyingHelper;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -973,6 +974,16 @@ public abstract class BuildIntegrationTestCase {
     }
   }
 
+  protected void assertContents(String expectedContents, String target) throws Exception {
+    assertContents(expectedContents, Iterables.getOnlyElement(getArtifacts(target)).getPath());
+  }
+
+  protected void assertContents(String expectedContents, Path path) throws Exception {
+    String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
+    // .indent(0) doesn't change the indentation, but normalizes all OS-specific endings.
+    assertThat(actualContents.indent(0).trim()).isEqualTo(expectedContents);
+  }
+
   protected String readContentAsLatin1String(Artifact artifact) throws IOException {
     return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
   }
@@ -1221,5 +1232,9 @@ public abstract class BuildIntegrationTestCase {
 
   protected Formatter getFormatterForLogging() {
     return new SimpleFormatter();
+  }
+
+  protected Set<SkyKey> getAllKeysInGraph() {
+    return getSkyframeExecutor().getEvaluator().getValues().keySet();
   }
 }

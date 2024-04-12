@@ -115,6 +115,7 @@ java_library(
         ":configured_target_key",
         ":configured_target_progress_receiver",
         ":configured_value_creation_exception",
+        ":conflict_checking_mode",
         ":consumed_artifacts_tracker",
         ":containing_package_lookup_function",
         ":containing_package_lookup_value",
@@ -171,6 +172,8 @@ java_library(
         ":rule_configured_target_value",
         ":sky_functions",
         ":sky_value_dirtiness_checker",
+        ":skyfocus",
+        ":skyfocus_options",
         ":skyfocus_state",
         ":skyframe_action_executor",
         ":skyframe_aware_action",
@@ -234,6 +237,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/additional_configuration_change_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
@@ -339,7 +343,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
@@ -605,7 +611,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -843,7 +848,6 @@ java_library(
     name = "build_driver_function",
     srcs = ["BuildDriverFunction.java"],
     deps = [
-        ":artifact_conflict_finder",
         ":aspect_completion_value",
         ":aspect_key_creator",
         ":build_driver_key",
@@ -1116,6 +1120,11 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "conflict_checking_mode",
+    srcs = ["ConflictCheckingMode.java"],
 )
 
 java_library(
@@ -2419,7 +2428,6 @@ java_library(
     srcs = ["SkyframeErrorProcessor.java"],
     deps = [
         ":action_artifact_cycle_reporter",
-        ":artifact_conflict_finder",
         ":artifact_nested_set_function",
         ":aspect_key_creator",
         ":build_driver_key",
@@ -3116,12 +3124,14 @@ java_library(
 java_library(
     name = "rule_configured_target_value",
     srcs = [
+        "BaseRuleConfiguredTargetValue.java",
         "NonRuleConfiguredTargetValue.java",
         "RuleConfiguredTargetValue.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",

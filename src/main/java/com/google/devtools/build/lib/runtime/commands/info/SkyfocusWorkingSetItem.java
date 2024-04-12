@@ -19,13 +19,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
-import com.google.devtools.build.lib.runtime.SkyfocusModule;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.util.TreeSet;
 
 /**
  * The info entry to print out the working set of files used for Skyfocus. See also {@link
- * com.google.devtools.build.lib.skyframe.SkyframeFocuser} and {@link SkyfocusModule}.
+ * com.google.devtools.build.lib.skyframe.SkyframeFocuser}.
  */
 public class SkyfocusWorkingSetItem extends InfoItem {
 

@@ -160,9 +160,8 @@ public final class Benchmarks {
 
       Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
       try (Mutability mu = Mutability.create("test")) {
-        StarlarkThread thread = new StarlarkThread(mu, semantics);
+        StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
         Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
-
       } catch (SyntaxError.Exception ex) {
         for (SyntaxError err : ex.errors()) {
           System.err.println(err); // includes location
@@ -245,7 +244,7 @@ public final class Benchmarks {
     Preconditions.checkState((budgetNanos >= 0) != (iterations >= 0));
 
     Mutability mu = Mutability.create("test");
-    StarlarkThread thread = new StarlarkThread(mu, semantics);
+    StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
 
     // Run for a fixed number of iterations?
     if (iterations >= 0) {

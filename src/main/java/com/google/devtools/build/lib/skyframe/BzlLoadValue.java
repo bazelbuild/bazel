@@ -104,7 +104,7 @@ public class BzlLoadValue implements SkyValue {
      * other keys to use {@code @_builtins}, but since no real repo by that name may be defined,
      * they won't evaluate to a successful result.)
      */
-    abstract Label getLabel();
+    public abstract Label getLabel();
 
     /** Returns true if this is a request for the special BUILD prelude file. */
     boolean isBuildPrelude() {
@@ -218,7 +218,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -273,7 +273,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -334,7 +334,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -365,7 +365,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 

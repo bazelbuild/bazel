@@ -164,7 +164,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
           Starlark.execFileProgram(
               bzlCompileValue.getProgram(),
               Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of()),
-              new StarlarkThread(mu, StarlarkSemantics.DEFAULT));
+              StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT));
       assertThat(val.toString()).isEqualTo("[-9223372036854775809, 9223372036854775808]");
     }
   }

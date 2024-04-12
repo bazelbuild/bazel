@@ -455,7 +455,7 @@ public class SkydocMain {
     // execute
     Module module = Module.withPredeclared(semantics, predeclaredSymbols);
     try (Mutability mu = Mutability.create("Skydoc")) {
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
       // We use the default print handler, which writes to stderr.
       thread.setLoader(imports::get);
       // Fake Bazel's "export" hack, by which provider symbols

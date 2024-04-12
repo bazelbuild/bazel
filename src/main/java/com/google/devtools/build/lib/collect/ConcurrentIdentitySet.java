@@ -30,9 +30,14 @@ import java.util.Arrays;
  * com.google.common.collect.Sets#newConcurrentHashSet} is approximately 32 fewer bytes per entry.
  */
 // TODO(b/17553173): Can this (perhaps with value equality) be used more widely to save memory?
-public final class ConcurrentIdentitySet {
+public final class ConcurrentIdentitySet implements Cloneable {
   private volatile Object[] data;
   private int size = 0;
+
+  private ConcurrentIdentitySet(Object[] data, int size) {
+    this.data = data;
+    this.size = size;
+  }
 
   /**
    * @param sizeHint how many elements to store without resizing
@@ -92,6 +97,11 @@ public final class ConcurrentIdentitySet {
   public void clear() {
     Arrays.fill(data, null);
     size = 0;
+  }
+
+  @Override
+  public ConcurrentIdentitySet clone() {
+    return new ConcurrentIdentitySet(data.clone(), size);
   }
 
   /** Requires synchronized (this). */

@@ -44,9 +44,6 @@ load(":common/cc/propeller_optimize.bzl", "propeller_optimize")
 load(":common/java/java_binary_deploy_jar.bzl", get_java_build_info = "get_build_info")
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
-load(":common/java/java_package_configuration.bzl", "java_package_configuration")
-load(":common/java/java_runtime.bzl", "java_runtime")
-load(":common/java/java_toolchain.bzl", "java_toolchain")
 load(":common/objc/apple_common.bzl", "apple_common")
 load(":common/objc/objc_common.bzl", "objc_common")
 
@@ -89,9 +86,6 @@ exported_rules = {
     "py_runtime": py_runtime,
     "cc_toolchain_alias": cc_toolchain_alias,
     "cc_toolchain": cc_toolchain,
-    "java_package_configuration": java_package_configuration,
-    "java_toolchain": java_toolchain,
-    "java_runtime": java_runtime,
     "fdo_prefetch_hints": fdo_prefetch_hints,
     "fdo_profile": fdo_profile,
     "memprof_profile": memprof_profile,

@@ -178,6 +178,7 @@ java_library(
     deps = [
         ":object_graph_traverser",
         ":shallow_object_size_computer",
+        "//third_party:guava",
     ],
 )
 
@@ -418,6 +419,20 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "blocker",
+    srcs = ["Blocker.java"],
+    add_exports = ["java.base/jdk.internal.misc"],
+)
+
+java_library(
+    name = "value_or_exception",
+    srcs = ["ValueOrException.java"],
+    deps = [
         "//third_party:guava",
     ],
 )

@@ -43,12 +43,14 @@ import net.starlark.java.eval.StarlarkValue;
 public class AppleConfiguration extends Fragment implements AppleConfigurationApi<PlatformType> {
   /** Environment variable name for the developer dir of the selected Xcode. */
   public static final String DEVELOPER_DIR_ENV_NAME = "DEVELOPER_DIR";
+
   /**
-   * Environment variable name for the xcode version. The value of this environment variable should
-   * be set to the version (for example, "7.2") of xcode to use when invoking part of the apple
+   * Environment variable name for the Xcode version. The value of this environment variable should
+   * be set to the version (for example, "7.2") of Xcode to use when invoking part of the apple
    * toolkit in action execution.
    */
   public static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
+
   /**
    * Environment variable name for the apple SDK version. If unset, uses the system default of the
    * host for the platform in the value of {@link #APPLE_SDK_PLATFORM_ENV_NAME}.
@@ -214,7 +216,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
 
   /**
    * Returns a map of environment variables that should be propagated for actions that require a
-   * version of xcode to be explicitly declared. Keys are variable names and values are their
+   * version of Xcode to be explicitly declared. Keys are variable names and values are their
    * corresponding values.
    */
   public static ImmutableMap<String, String> getXcodeVersionEnv(DottedVersion xcodeVersion) {
@@ -456,7 +458,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   }
 
   /**
-   * Returns the label of the xcode_config rule to use for resolving the exec system xcode version.
+   * Returns the label of the xcode_config rule to use for resolving the exec system Xcode version.
    */
   @StarlarkConfigurationField(
       name = "xcode_config_label",

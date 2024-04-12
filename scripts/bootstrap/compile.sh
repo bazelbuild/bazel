@@ -139,7 +139,8 @@ function java_compilation() {
   # additional arguments to be passed to javac.
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
-      -encoding UTF-8 ${BAZEL_JAVAC_OPTS} "@${paramfile}"
+      -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
+      ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
   log "Extracting helper classes for $name..."
   for f in ${library_jars} ; do

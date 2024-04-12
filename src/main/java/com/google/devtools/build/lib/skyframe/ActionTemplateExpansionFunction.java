@@ -183,7 +183,6 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   private void checkActionAndArtifactConflicts(
       ImmutableList<ActionAnalysisMetadata> actions, ActionTemplateExpansionKey key)
       throws ActionConflictException,
-          ActionConflictException,
           InterruptedException,
           Actions.ArtifactGeneratedByOtherRuleException {
     Actions.assignOwnersAndThrowIfConflict(actionKeyContext, actions, key);

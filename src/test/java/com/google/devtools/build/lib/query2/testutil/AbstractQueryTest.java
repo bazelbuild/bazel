@@ -781,9 +781,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "test/aspect.bzl",
         "def _aspect_impl(target, ctx):",
-        "   return struct()",
+        "   return []",
         "def _rule_impl(ctx):",
-        "   return struct()",
+        "   return []",
         "",
         "MyAspect = aspect(",
         "   implementation=_aspect_impl,",
@@ -2586,6 +2586,88 @@ public abstract class AbstractQueryTest<T> {
 
     assertThat(evalToString("deps(//donut:mysetting, 1)" + getDependencyCorrectionWithGen()))
         .isEqualTo("//donut:mysetting //donut:thief");
+  }
+
+  @Test
+  public void testStarlarkRuleToolchainDeps() throws Exception {
+    appendToWorkspace("register_toolchains('//bar:all')");
+    writeFile(
+        "foo/BUILD",
+        """
+        load(":foo.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        """);
+    writeFile(
+        "foo/foo.bzl",
+        """
+        def noop(ctx):
+          pass
+
+        my_rule = rule(
+          implementation = noop,
+          toolchains = ['//bar:bar_type'],
+        )
+        """);
+    writeFile(
+        "bar/BUILD",
+        """
+        load(":bar.bzl", "test_toolchain")
+
+        toolchain_type(name = "bar_type")
+        toolchain_type(name = "other_type")
+        test_toolchain(name = "bar_impl")
+        test_toolchain(name = "other_impl")
+
+        toolchain(
+            name = "bar_toolchain",
+            toolchain = ":bar_impl",
+            toolchain_type = ":bar_type",
+        )
+
+        toolchain(
+            name = "other_toolchain",
+            toolchain = ":other_impl",
+            toolchain_type = ":other_type",
+        )
+        """);
+    writeFile(
+        "bar/bar.bzl",
+        """
+        def _impl(ctx):
+            toolchain = platform_common.ToolchainInfo()
+            return [toolchain]
+
+        test_toolchain = rule(
+            implementation = _impl,
+        )
+        """);
+
+    // Use contains (instead of matching full string) because post-analysis query implementation
+    // will contain resolved toolchain, whereas pre-analysis query will not.
+    assertThat(evalToString("deps(//foo, 1)")).contains("//bar:bar_type");
+    // Test unbounded deps, too.
+    assertThat(evalToString("deps(//foo)")).contains("//bar:bar_type");
+
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+
+    assertThat(evalToString("deps(//foo, 1)")).doesNotContain("//bar:bar_type");
+    assertThat(evalToString("deps(//foo)")).doesNotContain("//bar:bar_type");
+  }
+
+  @Test
+  public void testNativeRuleToolchainDeps() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        """
+        cc_library(name = "cclib")
+        """);
+
+    assertThat(evalToString("deps(//foo:cclib)")).contains("//tools/cpp:toolchain_type");
+
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+
+    assertThat(evalToString("deps(//foo:cclib)")).doesNotContain("//tools/cpp:toolchain_type");
   }
 
   /**
