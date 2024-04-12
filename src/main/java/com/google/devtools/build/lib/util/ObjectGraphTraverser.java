@@ -285,6 +285,12 @@ public class ObjectGraphTraverser {
    * given {@link ObjectGraphTraverser} instance.
    */
   public void traverse(Object o) {
+    for (DomainSpecificTraverser traverser : fieldCache.domainSpecificTraversers) {
+      if (!traverser.admit(o)) {
+        return;
+      }
+    }
+
     queue.offer(new WorkItem(o, null, null));
     while (!queue.isEmpty()) {
       WorkItem workItem = queue.remove();

@@ -134,6 +134,8 @@ public class DumpCommand implements BlazeCommand {
       String needle,
       boolean reportTransient,
       boolean reportConfiguration,
+      boolean reportPrecomputed,
+      boolean reportWorkspaceStatus,
       String subject) {}
 
   /** Converter for {@link MemoryCollectionMode}. */
@@ -157,6 +159,8 @@ public class DumpCommand implements BlazeCommand {
       String needle = null;
       boolean reportTransient = true;
       boolean reportConfiguration = true;
+      boolean reportPrecomputed = true;
+      boolean reportWorkspaceStatus = true;
 
       for (String word : Splitter.on(",").split(items[0])) {
         if (word.startsWith("needle=")) {
@@ -173,6 +177,8 @@ public class DumpCommand implements BlazeCommand {
           case "bytes" -> displayMode = MemoryDisplayMode.BYTES;
           case "notransient" -> reportTransient = false;
           case "noconfig" -> reportConfiguration = false;
+          case "noprecomputed" -> reportPrecomputed = false;
+          case "noworkspacestatus" -> reportWorkspaceStatus = false;
           default -> throw new OptionsParsingException("Unrecognized word '" + word + "'");
         }
       }
@@ -200,6 +206,8 @@ public class DumpCommand implements BlazeCommand {
           needle,
           reportTransient,
           reportConfiguration,
+          reportPrecomputed,
+          reportWorkspaceStatus,
           items[2]);
     }
   }
@@ -756,7 +764,10 @@ public class DumpCommand implements BlazeCommand {
     }
 
     BuildObjectTraverser buildObjectTraverser =
-        new BuildObjectTraverser(dumpOptions.memory.reportConfiguration);
+        new BuildObjectTraverser(
+            dumpOptions.memory.reportConfiguration,
+            dumpOptions.memory.reportPrecomputed,
+            dumpOptions.memory.reportWorkspaceStatus);
     CollectionObjectTraverser collectionObjectTraverser = new CollectionObjectTraverser();
     FieldCache fieldCache =
         new FieldCache(ImmutableList.of(buildObjectTraverser, collectionObjectTraverser));

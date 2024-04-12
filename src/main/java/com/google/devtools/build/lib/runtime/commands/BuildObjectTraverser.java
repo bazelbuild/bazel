@@ -17,13 +17,17 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkLateBoundDefault;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.util.ObjectGraphTraverser.DomainSpecificTraverser;
 import com.google.devtools.build.lib.util.ObjectGraphTraverser.Traversal;
 import com.google.devtools.build.lib.vfs.Path;
@@ -34,9 +38,14 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 final class BuildObjectTraverser implements DomainSpecificTraverser {
   private final boolean reportConfiguration;
+  private final boolean reportPrecomputed;
+  private final boolean reportWorkspaceStatus;
 
-  public BuildObjectTraverser(boolean reportConfiguration) {
+  public BuildObjectTraverser(
+      boolean reportConfiguration, boolean reportPrecomputed, boolean reportWorkspaceStatus) {
     this.reportConfiguration = reportConfiguration;
+    this.reportPrecomputed = reportPrecomputed;
+    this.reportWorkspaceStatus = reportWorkspaceStatus;
   }
 
   @Override
@@ -62,8 +71,28 @@ final class BuildObjectTraverser implements DomainSpecificTraverser {
 
   @Override
   public boolean admit(Object o) {
+    if (!reportPrecomputed) {
+      if (o instanceof PrecomputedValue) {
+        return false;
+      }
+    }
+
+    if (!reportWorkspaceStatus) {
+      if (o instanceof WorkspaceStatusValue) {
+        return false;
+      }
+    }
+
     if (!reportConfiguration) {
       if (o instanceof BuildConfigurationValue) {
+        return false;
+      }
+
+      if (o instanceof PlatformMappingValue) {
+        return false;
+      }
+
+      if (o instanceof BaselineOptionsValue) {
         return false;
       }
 
