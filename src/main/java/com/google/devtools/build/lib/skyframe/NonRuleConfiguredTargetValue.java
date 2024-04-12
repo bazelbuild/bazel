@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -33,13 +31,8 @@ import javax.annotation.Nullable;
 @ThreadSafe
 // Reached via OutputFileConfiguredTarget.
 @AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
-public final class NonRuleConfiguredTargetValue implements ConfiguredTargetValue {
-  // These variables are only non-final because they may be clear()ed to save memory.
-  // configuredTarget is null only after it is cleared.
-  @Nullable private ConfiguredTarget configuredTarget;
-
-  // May be null either after clearing or because transitive packages are not tracked.
-  @Nullable private NestedSet<Package> transitivePackages;
+public final class NonRuleConfiguredTargetValue
+    extends BaseRuleConfiguredTargetValue<ConfiguredTarget> implements ConfiguredTargetValue {
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
@@ -51,39 +44,13 @@ public final class NonRuleConfiguredTargetValue implements ConfiguredTargetValue
 
   NonRuleConfiguredTargetValue(
       ConfiguredTarget configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
-    this.configuredTarget = Preconditions.checkNotNull(configuredTarget);
-    this.transitivePackages = transitivePackages;
-  }
-
-  @Nullable // May be null after clearing.
-  @Override
-  public ConfiguredTarget getConfiguredTarget() {
-    return configuredTarget;
-  }
-
-  @Nullable
-  @Override
-  public NestedSet<Package> getTransitivePackages() {
-    return transitivePackages;
-  }
-
-  @Override
-  public void clear(boolean clearEverything) {
-    if (configuredTarget != null
-        && configuredTarget.getConfigurationKey() != null
-        && configuredTarget.getConfigurationChecksum().equals(EMPTY_OPTIONS.checksum())) {
-      // Keep these to avoid the need to re-create them later, they are dependencies of the empty
-      // configuration key and will never change.
-      return;
-    }
-    if (clearEverything) {
-      configuredTarget = null;
-    }
-    transitivePackages = null;
+    super(configuredTarget, transitivePackages);
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this).add("configuredTarget", configuredTarget).toString();
+    return MoreObjects.toStringHelper(this)
+        .add("configuredTarget", getConfiguredTarget())
+        .toString();
   }
 }
