@@ -20,6 +20,7 @@ java_library(
     ]),
     data = [
         "//tools/jdk:srcs",
+        "@rules_java//java:rules",
         "@rules_java//toolchains:srcs",
     ],
     resources = [
