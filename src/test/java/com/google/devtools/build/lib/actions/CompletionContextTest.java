@@ -18,10 +18,10 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -55,7 +55,8 @@ public final class CompletionContextTest {
           /* expireAtEpochMilli= */ -1);
 
   private final ActionInputMap inputMap = new ActionInputMap(BugReporter.defaultInstance(), 0);
-  private final Map<Artifact, ImmutableCollection<Artifact>> treeExpansions = new HashMap<>();
+  private final Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeExpansions =
+      new HashMap<>();
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetExpansions =
       new HashMap<>();
   private Path execRoot;
@@ -83,14 +84,13 @@ public final class CompletionContextTest {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile1 = TreeFileArtifact.createTreeOutput(tree, "file1");
     TreeFileArtifact treeFile2 = TreeFileArtifact.createTreeOutput(tree, "file2");
-    inputMap.putTreeArtifact(
-        tree,
+    TreeArtifactValue treeValue =
         TreeArtifactValue.newBuilder(tree)
             .putChild(treeFile1, DUMMY_METADATA)
             .putChild(treeFile2, DUMMY_METADATA)
-            .build(),
-        /* depOwner= */ null);
-    treeExpansions.put(tree, ImmutableList.of(treeFile1, treeFile2));
+            .build();
+    inputMap.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
+    treeExpansions.put(tree, treeValue.getChildren());
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
     assertThat(visit(ctx, tree)).containsExactly(treeFile1, treeFile2).inOrder();

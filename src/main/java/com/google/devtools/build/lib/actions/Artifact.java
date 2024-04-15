@@ -23,7 +23,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -51,7 +50,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
@@ -221,6 +219,7 @@ public abstract class Artifact
      * <p>{@code artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()} must be true. Only
      * middlemen and tree artifacts are expanded.
      */
+    // TODO: b/239184359 - This is specifically for tree artifacts. Reflect that in the signature.
     void expand(Artifact artifact, Collection<? super Artifact> output);
 
     /**
@@ -256,48 +255,6 @@ public abstract class Artifact
 
     public MissingExpansionException(String message) {
       super(message);
-    }
-  }
-
-  /** Implementation of {@link ArtifactExpander} */
-  public static class ArtifactExpanderImpl implements ArtifactExpander {
-    private final Map<Artifact, ImmutableCollection<? extends Artifact>> expandedInputs;
-    private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
-    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
-
-    public ArtifactExpanderImpl(
-        Map<Artifact, ImmutableCollection<? extends Artifact>> expandedInputs,
-        Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
-        Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
-      this.expandedInputs = expandedInputs;
-      this.archivedTreeArtifacts = archivedTreeArtifacts;
-      this.expandedFilesets = expandedFilesets;
-    }
-
-    @Override
-    public void expand(Artifact artifact, Collection<? super Artifact> output) {
-      Preconditions.checkState(
-          artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(), artifact);
-      ImmutableCollection<? extends Artifact> result = expandedInputs.get(artifact);
-      if (result != null) {
-        output.addAll(result);
-      }
-    }
-
-    @Override
-    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
-        throws MissingExpansionException {
-      Preconditions.checkState(artifact.isFileset());
-      ImmutableList<FilesetOutputSymlink> filesetLinks = expandedFilesets.get(artifact);
-      if (filesetLinks == null) {
-        throw new MissingExpansionException("Missing expansion for fileset: " + artifact);
-      }
-      return filesetLinks;
-    }
-
-    @Override
-    public ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
-      return archivedTreeArtifacts.get(treeArtifact);
     }
   }
 
@@ -347,8 +304,8 @@ public abstract class Artifact
     }
 
     /**
-     * Same as {@link #create(ArtifactRoot, PathFragment, ActionLookupKeyOrOwner)} but includes the
-     * option to use a content-based path for this artifact (see {@link
+     * Same as {@link #create(ArtifactRoot, PathFragment, ActionLookupKey)} but includes the option
+     * to use a content-based path for this artifact (see {@link
      * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}).
      */
     public static DerivedArtifact create(

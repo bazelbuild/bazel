@@ -16,9 +16,10 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -50,12 +51,12 @@ public class CompletionContext {
 
   private final Path execRoot;
   private final ArtifactPathResolver pathResolver;
-  private final Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts;
+  private final Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> expandedTreeArtifacts;
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
   // Only contains the metadata for 'important' artifacts of the Target/Aspect that completed. Any
   // 'unimportant' artifacts produced by internal output groups (most importantly, _validation) will
   // not be included to avoid retaining many GB on the heap. This ActionInputMap must only be
-  // consulted with respect to known-important artifacts (eg. artifacts referenced in BEP).
+  // consulted with respect to known-important artifacts (e.g. artifacts referenced in BEP).
   private final ActionInputMap importantInputMap;
   private final boolean expandFilesets;
   private final boolean fullyResolveFilesetLinks;
@@ -63,14 +64,14 @@ public class CompletionContext {
   @VisibleForTesting
   public CompletionContext(
       Path execRoot,
-      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> expandedTreeArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       ArtifactPathResolver pathResolver,
       ActionInputMap importantInputMap,
       boolean expandFilesets,
       boolean fullyResolveFilesetLinks) {
     this.execRoot = execRoot;
-    this.expandedArtifacts = expandedArtifacts;
+    this.expandedTreeArtifacts = expandedTreeArtifacts;
     this.expandedFilesets = expandedFilesets;
     this.pathResolver = pathResolver;
     this.importantInputMap = importantInputMap;
@@ -79,7 +80,7 @@ public class CompletionContext {
   }
 
   public static CompletionContext create(
-      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> expandedTreeArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       boolean expandFilesets,
       boolean fullyResolveFilesetSymlinks,
@@ -91,11 +92,11 @@ public class CompletionContext {
     ArtifactPathResolver pathResolver =
         pathResolverFactory.shouldCreatePathResolverForArtifactValues()
             ? pathResolverFactory.createPathResolverForArtifactValues(
-                inputMap, expandedArtifacts, expandedFilesets, workspaceName)
+                inputMap, expandedTreeArtifacts, expandedFilesets, workspaceName)
             : ArtifactPathResolver.IDENTITY;
     return new CompletionContext(
         execRoot,
-        expandedArtifacts,
+        expandedTreeArtifacts,
         expandedFilesets,
         pathResolver,
         importantInputMap,
@@ -130,7 +131,7 @@ public class CompletionContext {
   /** Returns owner mappings for artifact expansions contained in {@code inputsOfInterest}. */
   public ActionInputDepOwners getDepOwners(Collection<ActionInput> inputsOfInterest) {
     ActionInputDepOwnerMap depOwners = new ActionInputDepOwnerMap(inputsOfInterest);
-    expandedArtifacts.forEach(
+    expandedTreeArtifacts.forEach(
         (tree, children) -> {
           for (Artifact child : children) {
             depOwners.addOwner(child, tree);
@@ -167,12 +168,12 @@ public class CompletionContext {
           // Expansion can be missing for omitted tree artifacts -- skip the whole tree.
           continue;
         }
-        for (Artifact expandedArtifact :
+        for (Artifact child :
             checkNotNull(
-                expandedArtifacts.get(artifact),
+                expandedTreeArtifacts.get(artifact),
                 "Missing expansion for tree artifact: %s",
                 artifact)) {
-          receiver.accept(expandedArtifact);
+          receiver.accept(child);
         }
       } else {
         receiver.accept(artifact);
@@ -224,7 +225,7 @@ public class CompletionContext {
   public interface PathResolverFactory {
     ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
-        Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets,
         String workspaceName);
 

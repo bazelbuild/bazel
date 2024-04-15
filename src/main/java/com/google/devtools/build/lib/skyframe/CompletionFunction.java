@@ -21,13 +21,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
@@ -187,9 +186,10 @@ public final class CompletionFunction<
       importantInputMap = new ActionInputMap(bugReporter, importantArtifacts.size());
     }
 
-    Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts = new HashMap<>();
+    // TODO: b/239184359 - Can we just get the tree artifacts from the ActionInputMap?
+    Map<Artifact, TreeArtifactValue> treeArtifacts = new HashMap<>();
+
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
-    Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
 
     ActionExecutionException firstActionExecutionException = null;
@@ -215,8 +215,7 @@ public final class CompletionFunction<
             builtArtifacts.add(input);
             ActionInputMapHelper.addToMap(
                 inputMap,
-                expandedArtifacts,
-                archivedTreeArtifacts,
+                treeArtifacts::put,
                 expandedFilesets,
                 topLevelFilesets,
                 input,
@@ -230,8 +229,7 @@ public final class CompletionFunction<
               // double-counting.
               ActionInputMapHelper.addToMap(
                   importantInputMap,
-                  expandedArtifacts,
-                  archivedTreeArtifacts,
+                  treeArtifacts::put,
                   expandedFilesets,
                   topLevelFilesets,
                   input,
@@ -259,7 +257,7 @@ public final class CompletionFunction<
 
     CompletionContext ctx =
         CompletionContext.create(
-            expandedArtifacts,
+            Maps.transformValues(treeArtifacts, TreeArtifactValue::getChildren),
             expandedFilesets,
             key.topLevelArtifactContext().expandFilesets(),
             key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),

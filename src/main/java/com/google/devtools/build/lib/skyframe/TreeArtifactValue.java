@@ -19,11 +19,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -333,7 +333,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return digest.clone();
   }
 
-  public ImmutableSet<TreeFileArtifact> getChildren() {
+  public ImmutableSortedSet<TreeFileArtifact> getChildren() {
     return childData.keySet();
   }
 
@@ -351,9 +351,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return Optional.ofNullable(materializationExecPath);
   }
 
-  @VisibleForTesting
   @Nullable
-  public ArchivedTreeArtifact getArchivedArtifactForTesting() {
+  public ArchivedTreeArtifact getArchivedArtifact() {
     return archivedRepresentation != null
         ? archivedRepresentation.archivedTreeFileArtifact()
         : null;
@@ -435,11 +434,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         null,
         EMPTY_MAP,
         0L,
-        /*archivedRepresentation=*/ null,
-        /*materializationExecPath=*/ null,
-        /*entirelyRemote=*/ false) {
+        /* archivedRepresentation= */ null,
+        /* materializationExecPath= */ null,
+        /* entirelyRemote= */ false) {
       @Override
-      public ImmutableSet<TreeFileArtifact> getChildren() {
+      public ImmutableSortedSet<TreeFileArtifact> getChildren() {
         throw new UnsupportedOperationException(toString());
       }
 

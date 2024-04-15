@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -35,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresen
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /** Static utilities for working with action inputs. */
@@ -44,8 +43,7 @@ final class ActionInputMapHelper {
 
   static void addToMap(
       ActionInputMapSink inputMap,
-      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
-      Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
+      BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       Artifact key,
@@ -54,8 +52,7 @@ final class ActionInputMapHelper {
       throws InterruptedException {
     addToMap(
         inputMap,
-        expandedArtifacts,
-        archivedTreeArtifacts,
+        treeArtifactConsumer,
         filesetsInsideRunfiles,
         topLevelFilesets,
         key,
@@ -70,8 +67,7 @@ final class ActionInputMapHelper {
    */
   static void addToMap(
       ActionInputMapSink inputMap,
-      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
-      Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
+      BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       Artifact key,
@@ -102,12 +98,7 @@ final class ActionInputMapHelper {
       runfilesArtifactValue.forEachTree(
           (treeArtifact, metadata) -> {
             expandTreeArtifactAndPopulateArtifactData(
-                treeArtifact,
-                metadata,
-                expandedArtifacts,
-                archivedTreeArtifacts,
-                inputMap,
-                /* depOwner= */ key);
+                treeArtifact, metadata, treeArtifactConsumer, inputMap, /* depOwner= */ key);
             consumer.accumulate(metadata);
           });
       // We have to cache the "digest" of the aggregating value itself, because the action cache
@@ -116,12 +107,7 @@ final class ActionInputMapHelper {
     } else if (value instanceof TreeArtifactValue) {
       TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
       expandTreeArtifactAndPopulateArtifactData(
-          key,
-          treeArtifactValue,
-          expandedArtifacts,
-          archivedTreeArtifacts,
-          inputMap,
-          /*depOwner=*/ key);
+          key, treeArtifactValue, treeArtifactConsumer, inputMap, /* depOwner= */ key);
       consumer.accumulate(treeArtifactValue);
     } else if (value instanceof ActionExecutionValue) {
       // Actions resulting from the expansion of an ActionTemplate consume only one of the files
@@ -133,12 +119,7 @@ final class ActionInputMapHelper {
         TreeArtifactValue treeArtifactValue =
             ((ActionExecutionValue) value).getTreeArtifactValue(treeArtifact);
         expandTreeArtifactAndPopulateArtifactData(
-            treeArtifact,
-            treeArtifactValue,
-            expandedArtifacts,
-            archivedTreeArtifacts,
-            inputMap,
-            treeArtifact);
+            treeArtifact, treeArtifactValue, treeArtifactConsumer, inputMap, treeArtifact);
         consumer.accumulate(treeArtifactValue);
       }
       FileArtifactValue metadata = ((ActionExecutionValue) value).getExistingFileArtifactValue(key);
@@ -217,8 +198,7 @@ final class ActionInputMapHelper {
   private static void expandTreeArtifactAndPopulateArtifactData(
       Artifact treeArtifact,
       TreeArtifactValue value,
-      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
-      Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
+      BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
       ActionInputMapSink inputMap,
       Artifact depOwner) {
     if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(value)) {
@@ -226,19 +206,16 @@ final class ActionInputMapHelper {
       return;
     }
 
-    expandedArtifacts.put(treeArtifact, value.getChildren());
+    treeArtifactConsumer.accept(treeArtifact, value);
     inputMap.putTreeArtifact((SpecialArtifact) treeArtifact, value, depOwner);
-    addArchivedTreeArtifactMaybe(
-        (SpecialArtifact) treeArtifact, value, archivedTreeArtifacts, inputMap, depOwner);
+    addArchivedTreeArtifactMaybe(value, inputMap, depOwner);
   }
 
   private static void addArchivedTreeArtifactMaybe(
-      SpecialArtifact treeArtifact,
       TreeArtifactValue value,
-      Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       ActionInputMapSink inputMap,
       Artifact depOwner) {
-    if (!value.getArchivedRepresentation().isPresent()) {
+    if (value.getArchivedRepresentation().isEmpty()) {
       return;
     }
 
@@ -247,6 +224,5 @@ final class ActionInputMapHelper {
         archivedRepresentation.archivedTreeFileArtifact(),
         archivedRepresentation.archivedFileValue(),
         depOwner);
-    archivedTreeArtifacts.put(treeArtifact, archivedRepresentation.archivedTreeFileArtifact());
   }
 }
