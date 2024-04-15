@@ -92,7 +92,7 @@ EOF
   bazel query //a:all >& $TEST_log || fail "query failed"
   bazel dump --memory=shallow,count:starlark_module://a:a.bzl >& $TEST_log \
     || fail "dump failed"
-  expect_log "^net.starlark.java.eval.Module: 1"  # Only a.bzl, not b.bzl
+  expect_log '"net.starlark.java.eval.Module": 1'  # Only a.bzl, not b.bzl
 }
 
 function test_memory_needle() {
@@ -120,7 +120,7 @@ EOF
 
   bazel build --nobuild //a >& $TEST_log || fail "build failed"
   bazel dump --memory=transitive,count:configured_target://a >& $TEST_log || fail "dump failed"
-  expect_log "InputFileConfiguredTarget: 2"
+  expect_log '^.*InputFileConfiguredTarget\": 2'
 }
 
 run_suite "Tests for 'bazel dump'"

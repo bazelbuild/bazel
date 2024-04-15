@@ -70,8 +70,10 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -611,15 +613,34 @@ public class DumpCommand implements BlazeCommand {
     throw new IllegalStateException();
   }
 
+  private static String jsonQuote(String s) {
+    try {
+      StringWriter writer = new StringWriter();
+      JsonWriter json = new JsonWriter(writer);
+      json.value(s);
+      json.flush();
+      return writer.toString();
+    } catch (IOException e) {
+      // StringWriter does no I/O
+      throw new IllegalStateException(e);
+    }
+  }
+
   private static void dumpRamByClass(Map<String, Long> memory, PrintStream out) {
+    out.print("{");
+
     ImmutableList<Map.Entry<String, Long>> sorted =
         memory.entrySet().stream()
             .sorted(Comparator.comparing(Map.Entry<String, Long>::getValue).reversed())
             .collect(ImmutableList.toImmutableList());
 
+    boolean first = true;
     for (Map.Entry<String, Long> entry : sorted) {
-      out.printf("%s: %s\n", entry.getKey(), entry.getValue());
+      out.printf("%s\n  %s: %d", first ? "" : ",", jsonQuote(entry.getKey()), entry.getValue());
+      first = false;
     }
+
+    out.println("\n}");
   }
 
   private static ConcurrentIdentitySet getBuiltinsSet(
