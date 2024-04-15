@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -62,7 +61,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -308,8 +306,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
-            .setBindMounts(
-                prepareAndGetBindMounts(blazeDirs, inputs, sandboxExecRootBase, sandboxTmp))
+            .setBindMounts(getBindMounts(blazeDirs, inputs, sandboxExecRootBase, sandboxTmp))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
             .setCreateNetworkNamespace(createNetworkNamespace ? NETNS_WITH_LOOPBACK : NO_NETNS)
@@ -396,73 +393,50 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return ImmutableSet.copyOf(writableDirs);
   }
 
-  private ImmutableList<BindMount> prepareAndGetBindMounts(
+  private ImmutableList<BindMount> getBindMounts(
       BlazeDirectories blazeDirs,
       SandboxInputs inputs,
       Path sandboxExecRootBase,
       @Nullable Path sandboxTmp)
-      throws UserExecException, IOException {
-    Path tmpPath = fileSystem.getPath(SLASH_TMP);
-    final SortedMap<Path, Path> userBindMounts = new TreeMap<>();
+      throws UserExecException {
+    Path tmpPath = fileSystem.getPath("/tmp");
+    final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
     SandboxHelpers.mountAdditionalPaths(
-        getSandboxOptions().sandboxAdditionalMounts, sandboxExecRootBase, userBindMounts);
+        getSandboxOptions().sandboxAdditionalMounts, sandboxExecRootBase, bindMounts);
 
     for (Path inaccessiblePath : getInaccessiblePaths()) {
       if (inaccessiblePath.isDirectory(Symlinks.NOFOLLOW)) {
-        userBindMounts.put(inaccessiblePath, inaccessibleHelperDir);
+        bindMounts.put(inaccessiblePath, inaccessibleHelperDir);
       } else {
-        userBindMounts.put(inaccessiblePath, inaccessibleHelperFile);
+        bindMounts.put(inaccessiblePath, inaccessibleHelperFile);
       }
     }
 
-    LinuxSandboxUtil.validateBindMounts(userBindMounts);
-
-    if (sandboxTmp == null) {
-      return userBindMounts.entrySet().stream()
-          .map(e -> BindMount.of(e.getKey(), e.getValue()))
-          .collect(toImmutableList());
-    }
-
-    SortedMap<Path, Path> bindMounts = new TreeMap<>();
-    for (var entry : userBindMounts.entrySet()) {
-      Path mountPoint = entry.getKey();
-      Path content = entry.getValue();
-      if (mountPoint.startsWith(tmpPath)) {
-        // sandboxTmp should be null if /tmp is an explicit mount point since useHermeticTmp()
-        // returns false in that case.
-        if (mountPoint.equals(tmpPath)) {
-          throw new IOException(
-              "Cannot mount /tmp explicitly with hermetic /tmp. Please file a bug at"
-                  + " https://github.com/bazelbuild/bazel/issues/new/choose.");
-        }
-        // We need to rewrite the mount point to be under the sandbox tmp directory, which will be
-        // mounted onto /tmp as the final mount.
-        mountPoint = sandboxTmp.getRelative(mountPoint.relativeTo(tmpPath));
-        mountPoint.createDirectoryAndParents();
-      }
-      bindMounts.put(mountPoint, content);
-    }
-
+    LinuxSandboxUtil.validateBindMounts(bindMounts);
     ImmutableList.Builder<BindMount> result = ImmutableList.builder();
     bindMounts.forEach((k, v) -> result.add(BindMount.of(k, v)));
 
-    // First mount the real exec root and the empty directory created as the working dir of the
-    // action under $SANDBOX/_tmp
-    result.add(BindMount.of(sandboxTmp.getRelative(BAZEL_EXECROOT), blazeDirs.getExecRootBase()));
-    result.add(BindMount.of(sandboxTmp.getRelative(BAZEL_WORKING_DIRECTORY), sandboxExecRootBase));
+    if (sandboxTmp != null) {
+      // First mount the real exec root and the empty directory created as the working dir of the
+      // action under $SANDBOX/_tmp
+      result.add(BindMount.of(sandboxTmp.getRelative(BAZEL_EXECROOT), blazeDirs.getExecRootBase()));
+      result.add(
+          BindMount.of(sandboxTmp.getRelative(BAZEL_WORKING_DIRECTORY), sandboxExecRootBase));
 
-    // Then mount the individual package roots under $SANDBOX/_tmp/bazel-source-roots
-    inputs
-        .getSourceRootBindMounts()
-        .forEach(
-            (withinSandbox, real) -> {
-              PathFragment sandboxTmpSourceRoot = withinSandbox.asPath().relativeTo(tmpPath);
-              result.add(BindMount.of(sandboxTmp.getRelative(sandboxTmpSourceRoot), real));
-            });
+      // Then mount the individual package roots under $SANDBOX/_tmp/bazel-source-roots
+      inputs
+          .getSourceRootBindMounts()
+          .forEach(
+              (withinSandbox, real) -> {
+                PathFragment sandboxTmpSourceRoot = withinSandbox.asPath().relativeTo(tmpPath);
+                result.add(BindMount.of(sandboxTmp.getRelative(sandboxTmpSourceRoot), real));
+              });
 
-    // Then mount $SANDBOX/_tmp at /tmp. At this point, even if the output base (and execroot) and
-    // individual source roots are under /tmp, they are accessible at /tmp/bazel-*
-    result.add(BindMount.of(tmpPath, sandboxTmp));
+      // Then mount $SANDBOX/_tmp at /tmp. At this point, even if the output base (and execroot)
+      // and individual source roots are under /tmp, they are accessible at /tmp/bazel-*
+      result.add(BindMount.of(tmpPath, sandboxTmp));
+    }
+
     return result.build();
   }
 
