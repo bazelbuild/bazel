@@ -157,7 +157,10 @@ public class PackageLookupFunction implements SkyFunction {
       for (Root root : pkgLocator.getPathEntries()) {
         message
             .append("\n - ")
-            .append(root.asPath().getRelative(packageKey.getPackageFragment()).getPathString());
+            .append(
+                pkgLocator.getPathEntries().size() == 1
+                    ? packageKey.getPackageFragment().getPathString()
+                    : root.asPath().getRelative(packageKey.getPackageFragment()).getPathString());
       }
       return message.toString();
     } else {

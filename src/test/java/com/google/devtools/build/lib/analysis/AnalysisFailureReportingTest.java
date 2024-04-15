@@ -114,7 +114,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
                     "BUILD file not found in any of the following"
                         + " directories. Add a BUILD file to a directory to mark it as a"
                         + " package.\n"
-                        + " - /workspace/bar",
+                        + " - bar",
                     Code.BUILD_FILE_MISSING)));
   }
 

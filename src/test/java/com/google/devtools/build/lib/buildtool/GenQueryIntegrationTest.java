@@ -202,7 +202,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
         Pattern.compile(
             "no such package 'dne': BUILD file not found in any of the following directories. Add a"
                 + " BUILD file to a directory to mark it as a package.\n"
-                + " - .*/dne"));
+                + " - dne"));
   }
 
   // Regression test for http://b/34132681
@@ -458,7 +458,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
         Pattern.compile(
             "no such package 'b': BUILD file not found in any of the following directories. Add a"
                 + " BUILD file to a directory to mark it as a package.\n"
-                + " - .*/b"));
+                + " - b"));
   }
 
   @Test
@@ -485,7 +485,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
         Pattern.compile(
             "no such package 'b': BUILD file not found in any of the following"
                 + " directories. Add a BUILD file to a directory to mark it as a package.\n"
-                + " - .*/b"));
+                + " - b"));
   }
 
   @Test

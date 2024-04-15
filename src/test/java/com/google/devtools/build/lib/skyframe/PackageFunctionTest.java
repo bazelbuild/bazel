@@ -1091,6 +1091,58 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPackageLoadingErrorOnMissingBuildFile_singlePackagePath() throws Exception {
+    scratch.file("foo/bar");
+
+    // There is no foo/BUILD file, but we enforce loading package 'foo'.
+    Exception ex = evaluatePackageToException("foo");
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "BUILD file not found in any of the following directories. "
+                + "Add a BUILD file to a directory to mark it as a package.\n"
+                // Print the package_path relative directory path if only a single `package_path` is
+                // provided.
+                + " - foo");
+    assertThat(ex).isInstanceOf(BuildFileNotFoundException.class);
+    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING, ExitCode.BUILD_FAILURE);
+  }
+
+  @Test
+  public void testPackageLoadingErrorOnMissingBuildFile_multiplePackagePath() throws Exception {
+    scratch.file("foo/bar");
+    Path otherRootDir = scratch.dir("/ws2");
+    scratch.file("/ws2/foo/bar");
+    getSkyframeExecutor()
+        .preparePackageLoading(
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(otherRootDir)),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
+            Options.getDefaults(PackageOptions.class),
+            Options.getDefaults(BuildLanguageOptions.class),
+            UUID.randomUUID(),
+            ImmutableMap.of(),
+            QuiescingExecutorsImpl.forTesting(),
+            tsgm);
+
+    // There is no foo/BUILD file under both `package_path`s foo directory, but we enforce loading
+    // package 'foo'.
+    Exception ex = evaluatePackageToException("foo");
+
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "BUILD file not found in any of the following directories. "
+                + "Add a BUILD file to a directory to mark it as a package.");
+    // Print the absolute directory paths if multiple `package_path`s are provided.
+    assertThat(ex).hasMessageThat().contains("- /workspace/foo");
+    assertThat(ex).hasMessageThat().contains("- /ws2/foo");
+    assertThat(ex).isInstanceOf(BuildFileNotFoundException.class);
+    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING, ExitCode.BUILD_FAILURE);
+  }
+
+  @Test
   public void testPackageLoadingErrorOnIOExceptionReadingBzlFile() throws Exception {
     scratch.file("foo/BUILD", "load('//foo:bzl.bzl', 'x')");
     Path fooBzlFilePath = scratch.file("foo/bzl.bzl");
