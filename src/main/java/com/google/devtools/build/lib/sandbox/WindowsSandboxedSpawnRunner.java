@@ -76,7 +76,6 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs readablePaths =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            context.getInputMetadataProvider(),
             execRoot,
             execRoot,
             packageRoots,

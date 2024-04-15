@@ -24,23 +24,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -74,7 +68,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link SandboxHelpers}. */
 @RunWith(JUnit4.class)
 public class SandboxHelpersTest {
-  private static final byte[] FAKE_DIGEST = new byte[] {1};
 
   private final Scratch scratch = new Scratch();
   private Path execRootPath;
@@ -102,79 +95,6 @@ public class SandboxHelpersTest {
   }
 
   @Test
-  public void processInputFiles_resolvesMaterializationPath_fileArtifact() throws Exception {
-    ArtifactRoot outputRoot =
-        ArtifactRoot.asDerivedRoot(execRootPath, ArtifactRoot.RootType.Output, "outputs");
-    Path sandboxSourceRoot = scratch.dir("/faketmp/sandbox-source-roots");
-
-    Artifact input = ActionsTestUtil.createArtifact(outputRoot, "a/a");
-    FileArtifactValue symlinkTargetMetadata =
-        FileArtifactValue.createForNormalFile(FAKE_DIGEST, null, 0L);
-    FileArtifactValue inputMetadata =
-        FileArtifactValue.createForResolvedSymlink(
-            PathFragment.create("b/b"), symlinkTargetMetadata, FAKE_DIGEST);
-
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.put(input, inputMetadata);
-
-    SandboxHelpers sandboxHelpers = new SandboxHelpers();
-    SandboxInputs inputs =
-        sandboxHelpers.processInputFiles(
-            inputMap(input),
-            inputMetadataProvider,
-            execRootPath,
-            execRootPath,
-            ImmutableList.of(),
-            sandboxSourceRoot);
-
-    assertThat(inputs.getFiles())
-        .containsEntry(
-            input.getExecPath(), RootedPath.toRootedPath(execRoot, PathFragment.create("b/b")));
-  }
-
-  @Test
-  public void processInputFiles_resolvesMaterializationPath_treeArtifact() throws Exception {
-    ArtifactRoot outputRoot =
-        ArtifactRoot.asDerivedRoot(execRootPath, ArtifactRoot.RootType.Output, "outputs");
-    Path sandboxSourceRoot = scratch.dir("/faketmp/sandbox-source-roots");
-    SpecialArtifact parent =
-        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-            outputRoot, "bin/config/other_dir/subdir");
-
-    TreeFileArtifact childA = TreeFileArtifact.createTreeOutput(parent, "a/a");
-    TreeFileArtifact childB = TreeFileArtifact.createTreeOutput(parent, "b/b");
-    FileArtifactValue childMetadata = FileArtifactValue.createForNormalFile(FAKE_DIGEST, null, 0L);
-    TreeArtifactValue parentMetadata =
-        TreeArtifactValue.newBuilder(parent)
-            .putChild(childA, childMetadata)
-            .putChild(childB, childMetadata)
-            .setMaterializationExecPath(PathFragment.create("materialized"))
-            .build();
-
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.put(parent, parentMetadata.getMetadata());
-
-    SandboxHelpers sandboxHelpers = new SandboxHelpers();
-    SandboxInputs inputs =
-        sandboxHelpers.processInputFiles(
-            inputMap(childA, childB),
-            inputMetadataProvider,
-            execRootPath,
-            execRootPath,
-            ImmutableList.of(),
-            sandboxSourceRoot);
-
-    assertThat(inputs.getFiles())
-        .containsEntry(
-            childA.getExecPath(),
-            RootedPath.toRootedPath(execRoot, PathFragment.create("materialized/a/a")));
-    assertThat(inputs.getFiles())
-        .containsEntry(
-            childB.getExecPath(),
-            RootedPath.toRootedPath(execRoot, PathFragment.create("materialized/b/b")));
-  }
-
-  @Test
   public void processInputFiles_materializesParamFile() throws Exception {
     SandboxHelpers sandboxHelpers = new SandboxHelpers();
     ParamFileActionInput paramFile =
@@ -186,12 +106,7 @@ public class SandboxHelpersTest {
 
     SandboxInputs inputs =
         sandboxHelpers.processInputFiles(
-            inputMap(paramFile),
-            new FakeActionInputFileCache(),
-            execRootPath,
-            execRootPath,
-            ImmutableList.of(),
-            null);
+            inputMap(paramFile), execRootPath, execRootPath, ImmutableList.of(), null);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("paramFile"), execRootedPath("paramFile"));
@@ -212,12 +127,7 @@ public class SandboxHelpersTest {
 
     SandboxInputs inputs =
         sandboxHelpers.processInputFiles(
-            inputMap(tool),
-            new FakeActionInputFileCache(),
-            execRootPath,
-            execRootPath,
-            ImmutableList.of(),
-            null);
+            inputMap(tool), execRootPath, execRootPath, ImmutableList.of(), null);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("_bin/say_hello"), execRootedPath("_bin/say_hello"));
@@ -263,12 +173,7 @@ public class SandboxHelpersTest {
               try {
                 var unused =
                     sandboxHelpers.processInputFiles(
-                        inputMap(input),
-                        new FakeActionInputFileCache(),
-                        customExecRoot,
-                        customExecRoot,
-                        ImmutableList.of(),
-                        null);
+                        inputMap(input), customExecRoot, customExecRoot, ImmutableList.of(), null);
                 finishProcessingSemaphore.release();
               } catch (IOException | InterruptedException e) {
                 throw new IllegalArgumentException(e);
@@ -276,12 +181,7 @@ public class SandboxHelpersTest {
             });
     var unused =
         sandboxHelpers.processInputFiles(
-            inputMap(input),
-            new FakeActionInputFileCache(),
-            customExecRoot,
-            customExecRoot,
-            ImmutableList.of(),
-            null);
+            inputMap(input), customExecRoot, customExecRoot, ImmutableList.of(), null);
     finishProcessingSemaphore.release();
     future.get();
 

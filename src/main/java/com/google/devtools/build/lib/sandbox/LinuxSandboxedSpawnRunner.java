@@ -266,7 +266,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            context.getInputMetadataProvider(),
             execRoot,
             withinSandboxExecRoot,
             packageRoots,
