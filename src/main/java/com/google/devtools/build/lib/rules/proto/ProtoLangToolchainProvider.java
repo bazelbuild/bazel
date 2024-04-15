@@ -29,7 +29,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.syntax.Location;
@@ -158,15 +157,9 @@ public abstract class ProtoLangToolchainProvider {
       try {
         return new AutoValue_ProtoLangToolchainProvider(
             provider.getValue("out_replacement_format_flag", String.class),
-            provider.getValue("plugin_format_flag") instanceof NoneType
-                ? null
-                : provider.getValue("plugin_format_flag", String.class),
-            provider.getValue("plugin") instanceof NoneType
-                ? null
-                : provider.getValue("plugin", FilesToRunProvider.class),
-            provider.getValue("runtime") instanceof NoneType
-                ? null
-                : provider.getValue("runtime", TransitiveInfoCollection.class),
+            provider.getNoneableValue("plugin_format_flag", String.class),
+            provider.getNoneableValue("plugin", FilesToRunProvider.class),
+            provider.getNoneableValue("runtime", TransitiveInfoCollection.class),
             ImmutableList.copyOf(
                 (StarlarkList<StarlarkInfo>) provider.getValue("provided_proto_sources")),
             provider.getValue("proto_compiler", FilesToRunProvider.class),

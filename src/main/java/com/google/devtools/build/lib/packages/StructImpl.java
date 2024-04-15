@@ -46,9 +46,28 @@ public abstract class StructImpl implements Info, Structure, StructApi {
    * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
    * EvalException} if the cast fails.
    */
+  @Nullable
   public final <T> T getValue(String key, Class<T> type) throws EvalException {
     Object obj = getValue(key);
     if (obj == null) {
+      return null;
+    }
+    try {
+      return type.cast(obj);
+    } catch (ClassCastException unused) {
+      throw Starlark.errorf(
+          "for %s field, got %s, want %s", key, Starlark.type(obj), Starlark.classType(type));
+    }
+  }
+
+  /**
+   * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
+   * EvalException} if the cast fails. If the value is {@link Starlark#NONE}, returns null.
+   */
+  @Nullable
+  public final <T> T getNoneableValue(String key, Class<T> type) throws EvalException {
+    Object obj = getValue(key);
+    if (obj == null || obj == Starlark.NONE) {
       return null;
     }
     try {

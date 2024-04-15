@@ -113,14 +113,6 @@ public final class CcToolchainProvider {
     return PathFragment.create(value.getValue(key, String.class));
   }
 
-  private static final <T> T nullIfNone(StarlarkInfo value, String key, Class<T> type)
-      throws EvalException {
-    if (value.getValue(key) == null || value.getValue(key) == Starlark.NONE) {
-      return null;
-    }
-    return value.getValue(key, type);
-  }
-
   private static final ImmutableList<PathFragment> convertStarlarkListToPathFragments(
       StarlarkInfo value, String key) throws EvalException {
     ImmutableList.Builder<PathFragment> pathFragments = ImmutableList.builder();
@@ -434,7 +426,7 @@ public final class CcToolchainProvider {
   /** Returns the grep-includes tool which is needing during linking because of linkstamping. */
   @Nullable
   public Artifact getGrepIncludes() throws EvalException {
-    return nullIfNone(value, "_grep_includes", Artifact.class);
+    return value.getNoneableValue("_grep_includes", Artifact.class);
   }
 
   /** Returns the tool that builds interface libraries from dynamic libraries. */
