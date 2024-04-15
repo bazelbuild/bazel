@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.Any;
@@ -149,6 +150,10 @@ public class CommandEnvironment {
 
   @GuardedBy("outputDirectoryHelperLock")
   private ActionOutputDirectoryHelper outputDirectoryHelper;
+
+  // List of flags and their values that were added by invocation policy. May contain multiple
+  // occurrences of the same flag.
+  ImmutableList<OptionAndRawValue> invocationPolicyFlags = ImmutableList.of();
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Nullable
@@ -441,6 +446,14 @@ public class CommandEnvironment {
 
   public OptionsParsingResult getOptions() {
     return options;
+  }
+
+  public void setInvocationPolicyFlags(ImmutableList<OptionAndRawValue> invocationPolicyFlags) {
+    this.invocationPolicyFlags = invocationPolicyFlags;
+  }
+
+  public ImmutableList<OptionAndRawValue> getInvocationPolicyFlags() {
+    return invocationPolicyFlags;
   }
 
   /**

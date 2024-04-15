@@ -273,7 +273,10 @@ public class BlazeRuntimeWrapper {
         new InvocationPolicyEnforcer(
             runtime.getModuleInvocationPolicy(), Level.FINE, /* conversionContext= */ null);
     try {
-      optionsPolicyEnforcer.enforce(optionsParser, commandAnnotation.name());
+      optionsPolicyEnforcer.enforce(
+          optionsParser,
+          commandAnnotation.name(),
+          /* invocationPolicyFlagListBuilder= */ ImmutableList.builder());
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }
