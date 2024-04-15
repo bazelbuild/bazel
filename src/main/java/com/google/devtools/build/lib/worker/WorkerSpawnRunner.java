@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -205,7 +204,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
                     PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
                 execRoot,
                 execRoot,
-                ImmutableList.of(),
                 null);
       }
       SandboxOutputs outputs = helpers.getOutputs(spawn);

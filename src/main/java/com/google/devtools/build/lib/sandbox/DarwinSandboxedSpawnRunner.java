@@ -226,7 +226,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot,
             execRoot,
-            ImmutableList.of(),
             null);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 

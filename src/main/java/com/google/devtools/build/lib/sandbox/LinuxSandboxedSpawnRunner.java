@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
@@ -128,7 +127,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Duration timeoutKillDelay;
   private final TreeDeleter treeDeleter;
   private final Reporter reporter;
-  private final ImmutableList<Root> packageRoots;
   private String cgroupsDir;
 
   /**
@@ -161,7 +159,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
     this.reporter = cmdEnv.getReporter();
-    this.packageRoots = cmdEnv.getPackageLocator().getPathEntries();
   }
 
   private boolean useHermeticTmp() {
@@ -214,7 +211,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot,
             execRoot,
-            packageRoots,
             null);
 
     SandboxOutputs outputs = helpers.getOutputs(spawn);

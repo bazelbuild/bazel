@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -99,7 +98,6 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot,
             execRoot,
-            ImmutableList.of(),
             null);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 

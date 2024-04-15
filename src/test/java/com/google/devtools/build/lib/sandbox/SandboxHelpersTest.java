@@ -105,8 +105,7 @@ public class SandboxHelpersTest {
             UTF_8);
 
     SandboxInputs inputs =
-        sandboxHelpers.processInputFiles(
-            inputMap(paramFile), execRootPath, execRootPath, ImmutableList.of(), null);
+        sandboxHelpers.processInputFiles(inputMap(paramFile), execRootPath, execRootPath, null);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("paramFile"), execRootedPath("paramFile"));
@@ -126,8 +125,7 @@ public class SandboxHelpersTest {
             PathFragment.create("_bin/say_hello"));
 
     SandboxInputs inputs =
-        sandboxHelpers.processInputFiles(
-            inputMap(tool), execRootPath, execRootPath, ImmutableList.of(), null);
+        sandboxHelpers.processInputFiles(inputMap(tool), execRootPath, execRootPath, null);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("_bin/say_hello"), execRootedPath("_bin/say_hello"));
@@ -173,15 +171,14 @@ public class SandboxHelpersTest {
               try {
                 var unused =
                     sandboxHelpers.processInputFiles(
-                        inputMap(input), customExecRoot, customExecRoot, ImmutableList.of(), null);
+                        inputMap(input), customExecRoot, customExecRoot, null);
                 finishProcessingSemaphore.release();
               } catch (IOException | InterruptedException e) {
                 throw new IllegalArgumentException(e);
               }
             });
     var unused =
-        sandboxHelpers.processInputFiles(
-            inputMap(input), customExecRoot, customExecRoot, ImmutableList.of(), null);
+        sandboxHelpers.processInputFiles(inputMap(input), customExecRoot, customExecRoot, null);
     finishProcessingSemaphore.release();
     future.get();
 
