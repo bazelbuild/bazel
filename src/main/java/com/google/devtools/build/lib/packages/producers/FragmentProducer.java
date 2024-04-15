@@ -149,22 +149,14 @@ final class FragmentProducer implements StateMachine {
         globDetail, base, fragmentIndex, resultSink, visitedGlobSubTasks);
   }
 
-  /**
-   * Attempts to add {@linkplain PathFragment the input file path} to {@linkplain ResultSink the
-   * result sink} if this is the last fragment in the glob expression and {@linkplain Operation glob
-   * operation} is {@link Operation#FILES} or {@link Operation#FILES_AND_DIRS}.
-   */
-  static void maybeAddFileMatchingToResult(
-      PathFragment pathFragment,
-      int fragmentIndex,
-      GlobDetail globDetail,
-      FragmentProducer.ResultSink resultSink) {
+  /** Returns if a matching path at the given pattern index should be added to the result. */
+  static boolean shouldAddFileMatchingToResult(int fragmentIndex, GlobDetail globDetail) {
     if (globDetail.globOperation().equals(Operation.SUBPACKAGES)) {
-      return;
+      return false;
     }
     if (fragmentIndex < globDetail.patternFragments().size() - 1) {
-      return;
+      return false;
     }
-    resultSink.acceptPathFragmentWithPackageFragment(pathFragment);
+    return true;
   }
 }

@@ -91,7 +91,9 @@ final class PatternWithoutWildcardProducer implements StateMachine, Consumer<Sky
       return new DirectoryDirentProducer(
           globDetail, filePath, fragmentIndex, resultSink, visitedGlobSubTasks);
     }
-    FragmentProducer.maybeAddFileMatchingToResult(filePath, fragmentIndex, globDetail, resultSink);
+    if (FragmentProducer.shouldAddFileMatchingToResult(fragmentIndex, globDetail)) {
+      resultSink.acceptPathFragmentWithPackageFragment(filePath);
+    }
     return DONE;
   }
 }
