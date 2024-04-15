@@ -82,7 +82,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             null);
 
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
-    writablePaths.addAll(getWritableDirs(execRoot, execRoot, environment));
+    writablePaths.addAll(getWritableDirs(execRoot, environment));
     for (ActionInput output : spawn.getOutputFiles()) {
       writablePaths.add(execRoot.getRelative(output.getExecPath()));
     }

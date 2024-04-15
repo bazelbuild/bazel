@@ -415,10 +415,6 @@ public final class SandboxHelpers {
       return symlinks;
     }
 
-    public Map<Root, Path> getSourceRootBindMounts() {
-      return sourceRootBindMounts;
-    }
-
     public ImmutableMap<VirtualActionInput, byte[]> getVirtualInputDigests() {
       return ImmutableMap.copyOf(virtualInputs);
     }
@@ -529,24 +525,6 @@ public final class SandboxHelpers {
 
         if (actionInput instanceof EmptyActionInput) {
           inputPath = null;
-        } else if (actionInput instanceof Artifact) {
-          Artifact inputArtifact = (Artifact) actionInput;
-          if (inputArtifact.isSourceArtifact() && sandboxSourceRoots != null) {
-            Root sourceRoot = inputArtifact.getRoot().getRoot();
-            if (!sourceRootToSandboxSourceRoot.containsKey(sourceRoot)) {
-              int next = sourceRootToSandboxSourceRoot.size();
-              sourceRootToSandboxSourceRoot.put(
-                  sourceRoot,
-                  Root.fromPath(sandboxSourceRoots.getRelative(Integer.toString(next))));
-            }
-
-            inputPath =
-                RootedPath.toRootedPath(
-                    sourceRootToSandboxSourceRoot.get(sourceRoot),
-                    inputArtifact.getRootRelativePath());
-          } else {
-            inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, inputArtifact.getExecPath());
-          }
         } else {
           PathFragment execPath = actionInput.getExecPath();
           if (execPath.isAbsolute()) {
