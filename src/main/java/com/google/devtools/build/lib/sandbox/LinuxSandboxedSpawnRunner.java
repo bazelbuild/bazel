@@ -59,6 +59,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeSet;
@@ -75,6 +76,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   // Since checking if sandbox is supported is expensive, we remember what we've checked.
   private static final Map<Path, Boolean> isSupportedMap = new HashMap<>();
+  private static final AtomicBoolean warnedAboutNonHermeticTmp = new AtomicBoolean();
 
   private static final AtomicBoolean warnedAboutUnsupportedModificationCheck = new AtomicBoolean();
 
@@ -205,6 +207,22 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return false;
     }
 
+    Optional<PathFragment> tmpfsPathUnderTmp =
+        getSandboxOptions().sandboxTmpfsPath.stream()
+            .filter(path -> path.startsWith(SLASH_TMP))
+            .findFirst();
+    if (tmpfsPathUnderTmp.isPresent()) {
+      if (warnedAboutNonHermeticTmp.compareAndSet(false, true)) {
+        reporter.handle(
+            Event.warn(
+                String.format(
+                    "Falling back to non-hermetic '/tmp' in sandbox due to '%s' being a tmpfs path",
+                    tmpfsPathUnderTmp.get())));
+      }
+
+      return false;
+    }
+
     return true;
   }
 
@@ -278,16 +296,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
       createDirectoryWithinSandboxTmp(sandboxTmp, withinSandboxExecRoot);
       createDirectoryWithinSandboxTmp(sandboxTmp, withinSandboxWorkingDirectory);
-
-      for (PathFragment pathFragment : getSandboxOptions().sandboxTmpfsPath) {
-        Path path = fileSystem.getPath(pathFragment);
-        if (path.startsWith(SLASH_TMP)) {
-          // tmpfs mount points must exist, which is usually the user's responsibility. But if the
-          // user requests a tmpfs mount under /tmp, we have to create it under the sandbox tmp
-          // directory.
-          createDirectoryWithinSandboxTmp(sandboxTmp, path);
-        }
-      }
     }
 
     SandboxOutputs outputs = helpers.getOutputs(spawn);

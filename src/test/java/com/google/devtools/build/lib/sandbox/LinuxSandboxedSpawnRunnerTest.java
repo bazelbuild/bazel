@@ -203,6 +203,27 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(args).doesNotContain("-m /tmp");
   }
 
+  @Test
+  public void hermeticTmp_sandboxTmpfsUnderTmp_tmpNotCreatedOrMounted() throws Exception {
+    runtimeWrapper.addOptions(
+        "--incompatible_sandbox_hermetic_tmp", "--sandbox_tmpfs_path=/tmp/subdir");
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
+    Spawn spawn = new SpawnBuilder().build();
+    SandboxedSpawn sandboxedSpawn = runner.prepareSpawn(spawn, createSpawnExecutionContext(spawn));
+
+    Path sandboxPath =
+        sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
+    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
+    assertThat(hermeticTmpPath.isDirectory()).isFalse();
+
+    assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
+    String args = String.join(" ", sandboxedSpawn.getArguments());
+    assertThat(args).contains("-w /tmp");
+    assertThat(args).contains("-e /tmp");
+    assertThat(args).doesNotContain("-m /tmp");
+  }
+
   private static LinuxSandboxedSpawnRunner setupSandboxAndCreateRunner(
       CommandEnvironment commandEnvironment) throws IOException {
     Path execRoot = commandEnvironment.getExecRoot();
