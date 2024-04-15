@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.charset.StandardCharsets;
@@ -462,7 +463,7 @@ public abstract class Args implements CommandLineArgsApi {
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
         }
-        vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(nestedSet);
+        vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(nestedSet, starlarkNestedSet.getElementClass());
       } else {
         Sequence<?> starlarkList = (Sequence) value;
         if (starlarkList.isEmpty() && omitIfEmpty) {
