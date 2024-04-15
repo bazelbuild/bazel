@@ -78,18 +78,25 @@ public final class Bazel {
           com.google.devtools.build.lib.network.NoOpConnectivityModule.class,
           com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class,
           com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule.class,
-          com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder
-              .PostGCMemoryUseRecorderModule.class,
-          com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
           com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
-          com.google.devtools.build.lib.metrics.MetricsModule.class,
           com.google.devtools.build.lib.runtime.ExecutionGraphModule.class,
           BazelBuiltinCommandModule.class,
           com.google.devtools.build.lib.includescanning.IncludeScanningModule.class,
           com.google.devtools.build.lib.skyframe.SkymeldModule.class,
           // This module needs to be registered after any module submitting tasks with its {@code
           // submit} method.
-          com.google.devtools.build.lib.runtime.BlockWaitingModule.class);
+          com.google.devtools.build.lib.runtime.BlockWaitingModule.class,
+          // Modules that are involved in the collection of heap-related metrics of a build. They
+          // need to be
+          // last in the modules order, so when the GCs happen at the end of the build, we mitigate
+          // the risk
+          // that objects are still held onto by the other modules. This is a quick fix for
+          // b/247613138.
+          // TODO(b/253394502): remove this when we have a better solution.
+          com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder
+              .PostGCMemoryUseRecorderModule.class,
+          com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
+          com.google.devtools.build.lib.metrics.MetricsModule.class);
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
