@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
@@ -103,7 +102,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private final SandboxHelpers helpers;
   private final Path execRoot;
-  private final ImmutableList<Root> packageRoots;
   private final boolean allowNetwork;
   private final ProcessWrapper processWrapper;
   private final Path sandboxBase;
@@ -134,7 +132,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     super(cmdEnv);
     this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
-    this.packageRoots = cmdEnv.getPackageLocator().getPathEntries();
     this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
     this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
@@ -229,7 +226,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot,
             execRoot,
-            packageRoots,
+            ImmutableList.of(),
             null);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 

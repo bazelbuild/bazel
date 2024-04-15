@@ -64,6 +64,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
@@ -94,7 +97,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   private final SandboxHelpers helpers;
   private final Path execRoot;
-  private final ImmutableList<Root> packageRoots;
+  private final WorkerPool workers;
   private final ExtendedEventHandler reporter;
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
@@ -106,7 +109,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
   public WorkerSpawnRunner(
       SandboxHelpers helpers,
       Path execRoot,
-      ImmutableList<Root> packageRoots,
       WorkerPool workers,
       ExtendedEventHandler reporter,
       LocalEnvProvider localEnvProvider,
@@ -118,7 +120,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Clock clock) {
     this.helpers = helpers;
     this.execRoot = execRoot;
-    this.packageRoots = packageRoots;
+    this.workers = checkNotNull(workers);
     this.reporter = reporter;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
@@ -203,7 +205,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                     PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
                 execRoot,
                 execRoot,
-                packageRoots,
+                ImmutableList.of(),
                 null);
       }
       SandboxOutputs outputs = helpers.getOutputs(spawn);

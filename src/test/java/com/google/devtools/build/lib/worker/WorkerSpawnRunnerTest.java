@@ -153,7 +153,6 @@ public class WorkerSpawnRunnerTest {
         new WorkerSpawnRunner(
             new SandboxHelpers(),
             execRoot,
-            ImmutableList.of(),
             WorkerTestUtils.createTestWorkerPool(worker),
             reporter,
             localEnvProvider,
@@ -556,7 +555,6 @@ public class WorkerSpawnRunnerTest {
     return new WorkerSpawnRunner(
         new SandboxHelpers(),
         fs.getPath("/execRoot"),
-        ImmutableList.of(),
         WorkerTestUtils.createTestWorkerPool(worker),
         reporter,
         localEnvProvider,
