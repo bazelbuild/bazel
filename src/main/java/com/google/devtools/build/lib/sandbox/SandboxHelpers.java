@@ -44,8 +44,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -244,9 +242,9 @@ public final class SandboxHelpers {
    */
   static Optional<PathFragment> getExpectedSymlinkDestination(
       PathFragment fragment, SandboxInputs inputs) {
-    RootedPath file = inputs.getFiles().get(fragment);
+    Path file = inputs.getFiles().get(fragment);
     if (file != null) {
-      return Optional.of(file.asPath().asFragment());
+      return Optional.of(file.asFragment());
     }
     return Optional.ofNullable(inputs.getSymlinks().get(fragment));
   }
@@ -382,31 +380,27 @@ public final class SandboxHelpers {
 
   /** Wrapper class for the inputs of a sandbox. */
   public static final class SandboxInputs {
-    private final Map<PathFragment, RootedPath> files;
+    private final Map<PathFragment, Path> files;
     private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
-    private final Map<Root, Path> sourceRootBindMounts;
 
     private static final SandboxInputs EMPTY_INPUTS =
-        new SandboxInputs(
-            ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
+        new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
 
     public SandboxInputs(
-        Map<PathFragment, RootedPath> files,
+        Map<PathFragment, Path> files,
         Map<VirtualActionInput, byte[]> virtualInputs,
-        Map<PathFragment, PathFragment> symlinks,
-        Map<Root, Path> sourceRootBindMounts) {
+        Map<PathFragment, PathFragment> symlinks) {
       this.files = files;
       this.virtualInputs = virtualInputs;
       this.symlinks = symlinks;
-      this.sourceRootBindMounts = sourceRootBindMounts;
     }
 
     public static SandboxInputs getEmptyInputs() {
       return EMPTY_INPUTS;
     }
 
-    public Map<PathFragment, RootedPath> getFiles() {
+    public Map<PathFragment, Path> getFiles() {
       return files;
     }
 
@@ -423,16 +417,10 @@ public final class SandboxHelpers {
      * included.
      */
     public SandboxInputs limitedCopy(Set<PathFragment> allowed) {
-      Map<PathFragment, RootedPath> limitedFiles = Maps.filterKeys(files, allowed::contains);
-      Map<PathFragment, PathFragment> limitedSymlinks =
-          Maps.filterKeys(symlinks, allowed::contains);
-      Set<Root> usedRoots =
-          new HashSet<>(Maps.transformValues(limitedFiles, RootedPath::getRoot).values());
-      Map<Root, Path> limitedSourceRoots =
-          Maps.filterKeys(sourceRootBindMounts, usedRoots::contains);
-
       return new SandboxInputs(
-          limitedFiles, ImmutableMap.of(), limitedSymlinks, limitedSourceRoots);
+          Maps.filterKeys(files, allowed::contains),
+          ImmutableMap.of(),
+          Maps.filterKeys(symlinks, allowed::contains));
     }
 
     @Override
@@ -446,27 +434,14 @@ public final class SandboxHelpers {
    * host filesystem where the input files can be found.
    *
    * @param inputMap the map of action inputs and where they should be visible in the action
-   * @param execRootPath the exec root from the point of view of the Bazel server
-   * @param withinSandboxExecRootPath the exec root from within the sandbox (different from {@code
-   *     execRootPath} because the sandbox does magic with fiile system namespaces)
+   * @param execRoot the exec root
    * @throws IOException if processing symlinks fails
    */
-  public SandboxInputs processInputFiles(
-      Map<PathFragment, ActionInput> inputMap,
-      Path execRootPath,
-      Path withinSandboxExecRootPath,
-      Path sandboxSourceRoots)
+  public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRoot)
       throws IOException, InterruptedException {
-    Root withinSandboxExecRoot = Root.fromPath(withinSandboxExecRootPath);
-    Root execRoot =
-        withinSandboxExecRootPath.equals(execRootPath)
-            ? withinSandboxExecRoot
-            : Root.fromPath(execRootPath);
-
-    Map<PathFragment, RootedPath> inputFiles = new TreeMap<>();
+    Map<PathFragment, Path> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
     Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
-    Map<Root, Root> sourceRootToSandboxSourceRoot = new TreeMap<>();
 
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       if (Thread.interrupted()) {
@@ -475,7 +450,7 @@ public final class SandboxHelpers {
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
       if (actionInput instanceof VirtualActionInput input) {
-        byte[] digest = input.atomicallyWriteRelativeTo(execRootPath);
+        byte[] digest = input.atomicallyWriteRelativeTo(execRoot);
         virtualInputs.put(input, digest);
       }
 
@@ -483,22 +458,14 @@ public final class SandboxHelpers {
         Path inputPath = execRoot.getRelative(actionInput.getExecPath());
         inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
       } else {
-        RootedPath inputPath;
-
-        if (actionInput instanceof EmptyActionInput) {
-          inputPath = null;
-        } else {
-          inputPath = RootedPath.toRootedPath(execRoot, actionInput.getExecPath());
-        }
-
+        Path inputPath =
+            actionInput instanceof EmptyActionInput
+                ? null
+                : execRoot.getRelative(actionInput.getExecPath());
         inputFiles.put(pathFragment, inputPath);
       }
     }
-
-    Map<Root, Path> sandboxRootToSourceRoot = new TreeMap<>();
-    sourceRootToSandboxSourceRoot.forEach((k, v) -> sandboxRootToSourceRoot.put(v, k.asPath()));
-
-    return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks, sandboxRootToSourceRoot);
+    return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks);
   }
 
   /** The file and directory outputs of a sandboxed spawn. */
