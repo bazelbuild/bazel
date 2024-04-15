@@ -938,7 +938,6 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 5,
 )
 
 sh_test(

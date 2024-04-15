@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.skyframe.SkyfocusState.Request;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -225,6 +226,158 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     assertThat(getSkyframeExecutor().getSkyfocusState().enabled()).isTrue();
     assertThat(getSkyframeExecutor().getSkyfocusState().request()).isNotEqualTo(Request.DO_NOTHING);
     assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isEmpty();
+  }
+
+  @Test
+  public void editingNonWorkingSet_inSameDir_failsTheBuild() throws Exception {
+    write("hello/x.txt", "x");
+    write("hello/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    addOptions("--experimental_working_set=hello/x.txt");
+    buildTarget("//hello/...");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+
+    write("hello/y.txt", "y2");
+    AbruptExitException e =
+        assertThrows(AbruptExitException.class, () -> buildTarget("//hello/..."));
+    assertThat(e).hasMessageThat().contains("detected changes outside of the working set");
+    assertThat(e).hasMessageThat().contains("hello/y.txt");
+
+    addOptions("--experimental_working_set=hello/x.txt,hello/y.txt");
+    buildTarget("//hello/...");
+    assertContents("x\ny2", "//hello:target");
+  }
+
+  @Test
+  public void editingNonWorkingSet_throughDep_failsTheBuild() throws Exception {
+    write("hello/x.txt", "x");
+    write("hello/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "dep",
+            srcs = ["x.txt"],
+            outs = ["dep.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        genrule(
+            name = "target",
+            srcs = ["dep.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    addOptions("--experimental_working_set=hello/y.txt");
+    buildTarget("//hello/...");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+
+    write("hello/x.txt", "x2");
+    AbruptExitException e =
+        assertThrows(AbruptExitException.class, () -> buildTarget("//hello/..."));
+    assertThat(e).hasMessageThat().contains("detected changes outside of the working set");
+    assertThat(e).hasMessageThat().contains("hello/x.txt");
+
+    addOptions("--experimental_working_set=hello/x.txt,hello/y.txt");
+    buildTarget("//hello/...");
+    assertContents("x2\ny", "//hello:target");
+  }
+
+  @Test
+  public void editingNonWorkingSet_inSiblingDir_failsTheBuild() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "//world:target"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    write("world/y.txt", "y");
+    write(
+        "world/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    addOptions("--experimental_working_set=hello/x.txt");
+    buildTarget("//hello/...");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+
+    write("world/y.txt", "y2");
+    AbruptExitException e =
+        assertThrows(AbruptExitException.class, () -> buildTarget("//hello/..."));
+    assertThat(e).hasMessageThat().contains("detected changes outside of the working set");
+    assertThat(e).hasMessageThat().contains("world/y.txt");
+
+    addOptions("--experimental_working_set=hello/x.txt,world/y.txt");
+    buildTarget("//hello/...");
+    assertContents("x\ny2", "//hello:target");
+  }
+
+  @Test
+  public void editingNonWorkingSet_inParentDir_failsTheBuild() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "//hello/world:target"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    write("hello/world/y.txt", "y");
+    write(
+        "hello/world/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    addOptions("--experimental_working_set=hello/world");
+    buildTarget("//hello/...");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+
+    write("hello/x.txt", "x2");
+    AbruptExitException e =
+        assertThrows(AbruptExitException.class, () -> buildTarget("//hello/..."));
+    assertThat(e).hasMessageThat().contains("detected changes outside of the working set");
+    assertThat(e).hasMessageThat().contains("hello/x.txt");
+
+    addOptions("--experimental_working_set=hello");
+    buildTarget("//hello/...");
+    assertContents("x2\ny", "//hello:target");
   }
 
   @Test
