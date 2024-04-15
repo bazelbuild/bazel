@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -83,7 +84,8 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
 
 /** Implementation of the dump command. */
@@ -679,25 +681,29 @@ public class DumpCommand implements BlazeCommand {
       FieldCache fieldCache,
       MemoryAccountant memoryAccountant,
       ConcurrentIdentitySet seen,
+      Executor executor,
       Map<SkyKey, ListenableFuture<Void>> futureMap) {
-    NodeEntry entry = graph.get(null, Reason.OTHER, skyKey);
-    SkyValue value;
-    ImmutableList<SkyKey> directDeps;
 
-    try {
-      value = entry.getValue();
-      directDeps = ImmutableList.copyOf(entry.getDirectDeps());
-    } catch (InterruptedException e) {
-      // This is ugly but will do for now
-      throw new IllegalStateException();
-    }
+    // This is awkward, but preferable to plumbing this through scheduleDeps and processDeps
+    SkyValue[] value = new SkyValue[1];
 
-    Executor executor = ForkJoinPool.commonPool();
+    // First get the SkyValue and the direct deps from the Skyframe graph. This happens in a future
+    // so that processTransitive() (which is called from computeIfAbsent()) doesn't throw a
+    // checked exception.
+    ListenableFuture<Iterable<SkyKey>> fetchNodeData =
+        Futures.submit(
+            () -> {
+              NodeEntry entry = graph.get(null, Reason.OTHER, skyKey);
+              value[0] = entry.getValue();
+              return entry.getDirectDeps();
+            },
+            executor);
 
     // This returns a list of futures representing processing the direct deps of this node
     ListenableFuture<ImmutableList<ListenableFuture<Void>>> scheduleDeps =
-        Futures.submit(
-            () -> {
+        Futures.transform(
+            fetchNodeData,
+            directDeps -> {
               List<ListenableFuture<Void>> depFutures = new ArrayList<>();
               for (SkyKey dep : directDeps) {
                 // If the processing of this dependency has not been scheduled, do so
@@ -706,7 +712,14 @@ public class DumpCommand implements BlazeCommand {
                         dep,
                         k ->
                             processTransitive(
-                                graph, dep, mode, fieldCache, memoryAccountant, seen, futureMap)));
+                                graph,
+                                dep,
+                                mode,
+                                fieldCache,
+                                memoryAccountant,
+                                seen,
+                                executor,
+                                futureMap)));
               }
               return ImmutableList.copyOf(depFutures);
             },
@@ -741,14 +754,31 @@ public class DumpCommand implements BlazeCommand {
       MemoryMode mode,
       FieldCache fieldCache,
       ImmutableList<MemoryAccountant.Measurer> measurers,
-      ConcurrentIdentitySet seen) {
+      ConcurrentIdentitySet seen)
+      throws InterruptedException {
+
     MemoryAccountant memoryAccountant = new MemoryAccountant(measurers);
+    ExecutorService executor =
+        Executors.newFixedThreadPool(
+            Runtime.getRuntime().availableProcessors(),
+            new ThreadFactoryBuilder().setNameFormat("dump-ram-%d").build());
+    ListenableFuture<Void> work =
+        processTransitive(
+            graph,
+            skyKey,
+            mode,
+            fieldCache,
+            memoryAccountant,
+            seen,
+            executor,
+            new ConcurrentHashMap<>());
     try {
-      processTransitive(
-              graph, skyKey, mode, fieldCache, memoryAccountant, seen, new ConcurrentHashMap<>())
-          .get();
-    } catch (InterruptedException | ExecutionException e) {
+      work.get();
+      executor.shutdown();
+    } catch (ExecutionException e) {
       throw new IllegalStateException(e);
+    } finally {
+      executor.shutdownNow();
     }
     return memoryAccountant.getStats();
   }
