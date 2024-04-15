@@ -812,16 +812,23 @@ class MethodLibrary {
                 "Deprecated. Causes an optional prefix containing this string to be added to the"
                     + " error message.",
             positional = false,
-            named = true)
+            named = true),
+        @Param(
+            name = "sep",
+            defaultValue = "\" \"",
+            named = true,
+            positional = false,
+            doc = "The separator string between the objects, default is space (\" \").")
       },
       extraPositionals =
           @Param(
               name = "args",
               doc =
                   "A list of values, formatted with debugPrint (which is equivalent to str by"
-                      + " default) and joined with spaces, that appear in the error message."),
+                      + " default) and joined with sep (defaults to \" \"), that appear in the"
+                      + " error message."),
       useStarlarkThread = true)
-  public void fail(Object msg, Object attr, Tuple args, StarlarkThread thread)
+  public void fail(Object msg, Object attr, String sep, Tuple args, StarlarkThread thread)
       throws EvalException {
     Printer printer = new Printer();
     boolean needSeparator = false;
@@ -832,14 +839,14 @@ class MethodLibrary {
     // msg acts like a leading element of args.
     if (msg != Starlark.NONE) {
       if (needSeparator) {
-        printer.append(" ");
+        printer.append(sep);
       }
       printer.debugPrint(msg, thread.getSemantics());
       needSeparator = true;
     }
     for (Object arg : args) {
       if (needSeparator) {
-        printer.append(" ");
+        printer.append(sep);
       }
       printer.debugPrint(arg, thread.getSemantics());
       needSeparator = true;
