@@ -393,24 +393,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     FileSystem fs = sandboxExecRoot.getFileSystem();
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
     writableDirs.add(fs.getPath("/tmp"));
-
-    if (sandboxExecRoot.equals(withinSandboxExecRoot)) {
-      return ImmutableSet.copyOf(writableDirs);
-    }
-
-    // If a writable directory is under the sandbox exec root, transform it so that its path will
-    // be the one that it will be available at after processing the bind mounts (this is how the
-    // sandbox interprets the corresponding arguments)
-    //
-    // Notably, this is usually the case for $TEST_TMPDIR because its default value is under the
-    // execroot.
-    return writableDirs.stream()
-        .map(
-            d ->
-                d.startsWith(sandboxExecRoot)
-                    ? withinSandboxExecRoot.getRelative(d.relativeTo(sandboxExecRoot))
-                    : d)
-        .collect(toImmutableSet());
+    return ImmutableSet.copyOf(writableDirs);
   }
 
   private ImmutableList<BindMount> prepareAndGetBindMounts(
