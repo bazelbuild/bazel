@@ -36,6 +36,7 @@ load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyIn
 load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
 load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
 load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
+load("@_builtins//:common/xcode/xcode_config_alias.bzl", "xcode_config_alias")
 load("@_builtins//:common/xcode/xcode_version.bzl", "xcode_version")
 load(":common/cc/fdo/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
 load(":common/cc/fdo/fdo_profile.bzl", "fdo_profile")
@@ -93,6 +94,7 @@ exported_rules = {
     "xcode_version": xcode_version,
     "available_xcodes": available_xcodes,
     "xcode_config": xcode_config,
+    "xcode_config_alias": xcode_config_alias,
 }
 
 # A list of Starlark functions callable from native rules implementation.

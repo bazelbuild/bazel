@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleToolchain;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
-import com.google.devtools.build.lib.rules.objc.XcodeConfigAlias.XcodeConfigAliasRule;
 import com.google.devtools.build.lib.rules.objc.XcodeConfigInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleBootstrap;
 
@@ -54,9 +53,9 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
     builder.addRuleDefinition(new EmptyRule("objc_import") {});
     builder.addRuleDefinition(new EmptyRule("objc_library") {});
-    builder.addRuleDefinition(new XcodeConfigAliasRule());
     builder.addRuleDefinition(new EmptyRule("available_xcodes") {});
     builder.addRuleDefinition(new EmptyRule("xcode_config") {});
+    builder.addRuleDefinition(new EmptyRule("xcode_config_alias") {});
     builder.addRuleDefinition(new EmptyRule("xcode_version") {});
 
     builder.addStarlarkBuiltinsInternal("AvailableXcodesInfo", AvailableXcodesInfo.PROVIDER);
