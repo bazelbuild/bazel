@@ -24,8 +24,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -34,6 +36,10 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,15 +59,43 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   private static final Label DEFAULT_TARGET_PLATFORM =
       Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform");
 
-  private BuildOptions defaultBuildOptions;
+  /** Extra options for this test. */
+  public static class DummyTestOptions extends FragmentOptions {
+    public DummyTestOptions() {}
+
+    @Option(
+        name = "internal_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "super secret",
+        metadataTags = {OptionMetadataTag.INTERNAL})
+    public String internalOption;
+  }
+
+  /** Test fragment. */
+  @RequiresOptions(options = {DummyTestOptions.class})
+  public static final class DummyTestOptionsFragment extends Fragment {
+    private final BuildOptions buildOptions;
+
+    public DummyTestOptionsFragment(BuildOptions buildOptions) {
+      this.buildOptions = buildOptions;
+    }
+
+    // Getter required to satisfy AutoCodec.
+    public BuildOptions getBuildOptions() {
+      return buildOptions;
+    }
+  }
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addConfigurationFragment(DummyTestFragment.class);
+    builder.addConfigurationFragment(DummyTestOptionsFragment.class);
     return builder.build();
   }
+
+  private BuildOptions defaultBuildOptions;
 
   @Before
   public void setDefaultBuildOptions() {
@@ -227,7 +261,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         "my_mapping_file",
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
-        "    --internal foo=something_new");
+        "    --internal_option=something_new");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -237,8 +271,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.get(DummyTestFragment.DummyTestOptions.class).internalFoo)
-        .isEqualTo("something_new");
+    assertThat(mapped.get(DummyTestOptions.class).internalOption).isEqualTo("something_new");
   }
 
   @Test
