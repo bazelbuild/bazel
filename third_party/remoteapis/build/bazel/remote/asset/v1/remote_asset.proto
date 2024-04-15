@@ -201,6 +201,11 @@ message FetchBlobRequest {
   //
   // Specified qualifier names *MUST* be unique.
   repeated Qualifier qualifiers = 5;
+
+  // The digest function the server must use to compute the digest.
+  //
+  // If unset, the server SHOULD default to SHA256.
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 6;
 }
 
 // A response message for
@@ -216,6 +221,8 @@ message FetchBlobResponse {
   //   requested an asset from a disallowed origin.
   // * `ABORTED`: The operation could not be completed, typically due to a
   //   failed consistency check.
+  // * `RESOURCE_EXHAUSTED`: There is insufficient quota of some resource to
+  //   perform the requested operation. The client may retry after a delay.
   google.rpc.Status status = 1;
 
   // The uri from the request that resulted in a successful retrieval, or from
@@ -232,6 +239,15 @@ message FetchBlobResponse {
   // The result of the fetch, if the status had code `OK`.
   // The digest of the file's contents, available for download through the CAS.
   build.bazel.remote.execution.v2.Digest blob_digest = 5;
+
+  // This field SHOULD be set to the digest function that was used by the server
+  // to compute [FetchBlobResponse.blob_digest].
+  // Clients could use this to determine whether the server honors
+  // [FetchBlobRequest.digest_function] that was set in the request.
+  //
+  // If unset, clients SHOULD default to use SHA256 regardless of the requested
+  // [FetchBlobRequest.digest_function].
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 6;
 }
 
 // A request message for
@@ -280,6 +296,11 @@ message FetchDirectoryRequest {
   //
   // Specified qualifier names *MUST* be unique.
   repeated Qualifier qualifiers = 5;
+
+  // The digest function the server must use to compute the digest.
+  //
+  // If unset, the server SHOULD default to SHA256.
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 6;
 }
 
 // A response message for
@@ -295,6 +316,8 @@ message FetchDirectoryResponse {
   //   requested an asset from a disallowed origin.
   // * `ABORTED`: The operation could not be completed, typically due to a
   //   failed consistency check.
+  // * `RESOURCE_EXHAUSTED`: There is insufficient quota of some resource to
+  //   perform the requested operation. The client may retry after a delay.
   google.rpc.Status status = 1;
 
   // The uri from the request that resulted in a successful retrieval, or from
@@ -312,6 +335,15 @@ message FetchDirectoryResponse {
   // the root digest of a directory tree, suitable for fetching via
   // [ContentAddressableStorage.GetTree].
   build.bazel.remote.execution.v2.Digest root_directory_digest = 5;
+
+  // This field SHOULD be set to the digest function that was used by the server
+  // to compute [FetchBlobResponse.root_directory_digest].
+  // Clients could use this to determine whether the server honors
+  // [FetchDirectoryRequest.digest_function] that was set in the request.
+  //
+  // If unset, clients SHOULD default to use SHA256 regardless of the requested
+  // [FetchDirectoryRequest.digest_function].
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 6;
 }
 
 // The Push service is complementary to the Fetch, and allows for
@@ -398,6 +430,15 @@ message PushBlobRequest {
   // indirectly referencing unavailable blobs.
   repeated build.bazel.remote.execution.v2.Digest references_blobs = 6;
   repeated build.bazel.remote.execution.v2.Digest references_directories = 7;
+
+  // The digest function that was used to compute the blob digest.
+  //
+  // If the digest function used is one of MD5, MURMUR3, SHA1, SHA256,
+  // SHA384, SHA512, or VSO, the client MAY leave this field unset. In
+  // that case the server SHOULD infer the digest function using the
+  // length of the action digest hash and the digest functions announced
+  // in the server's capabilities.
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 8;
 }
 
 // A response message for
@@ -438,6 +479,15 @@ message PushDirectoryRequest {
   // indirectly referencing unavailable blobs.
   repeated build.bazel.remote.execution.v2.Digest references_blobs = 6;
   repeated build.bazel.remote.execution.v2.Digest references_directories = 7;
+
+  // The digest function that was used to compute blob digests.
+  //
+  // If the digest function used is one of MD5, MURMUR3, SHA1, SHA256,
+  // SHA384, SHA512, or VSO, the client MAY leave this field unset. In
+  // that case the server SHOULD infer the digest function using the
+  // length of the action digest hash and the digest functions announced
+  // in the server's capabilities.
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 8;
 }
 
 // A response message for
