@@ -16,10 +16,10 @@
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
-load(":common/cc/fdo_prefetch_hints.bzl", "FdoPrefetchHintsInfo")
-load(":common/cc/fdo_profile.bzl", "FdoProfileInfo")
-load(":common/cc/memprof_profile.bzl", "MemProfProfileInfo")
-load(":common/cc/propeller_optimize.bzl", "PropellerOptimizeInfo")
+load(":common/cc/fdo/fdo_prefetch_hints.bzl", "FdoPrefetchHintsInfo")
+load(":common/cc/fdo/fdo_profile.bzl", "FdoProfileInfo")
+load(":common/cc/fdo/memprof_profile.bzl", "MemProfProfileInfo")
+load(":common/cc/fdo/propeller_optimize.bzl", "PropellerOptimizeInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
