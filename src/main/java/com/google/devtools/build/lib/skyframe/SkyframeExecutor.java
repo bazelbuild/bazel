@@ -3574,28 +3574,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Set<String> intersection = new TreeSet<>();
     Consumer<SkyKey> maybeAddToIntersection =
         (SkyKey k) -> {
-          if (verificationSet.contains(k)) {
-            @Nullable RootedPath rp;
-            // TODO: b/300214667 - switch to pattern matching when JDK 21 support lands.
-            if (k instanceof RootedPath) {
-              rp = (RootedPath) k;
-            } else if (k instanceof DirectoryListingStateValue.Key) {
-              rp = ((DirectoryListingStateValue.Key) k).argument();
-            } else {
-              throw new IllegalStateException(
-                  "Unhandled key type in verification set: " + k.getCanonicalName());
-            }
-
-            if (rp != null) {
-              // RootedPath#toString() prints square brackets around the components, but we don't
-              // want that.
-              StringBuilder path = new StringBuilder();
-              path.append(rp.getRoot());
-              path.append(FileSystems.getDefault().getSeparator());
-              path.append(rp.getRootRelativePath());
-              intersection.add(path.toString());
-            }
+          if (!verificationSet.contains(k)) {
+            return;
           }
+          RootedPath rp =
+              switch (k) {
+                case RootedPath r -> r;
+                case DirectoryListingStateValue.Key d -> d.argument();
+                default ->
+                    throw new IllegalStateException(
+                        "Unhandled key type in verification set: " + k.getCanonicalName());
+              };
+          // RootedPath#toString() prints square brackets around the components, but we don't
+          // want that.
+          intersection.add(
+              rp.getRoot() + FileSystems.getDefault().getSeparator() + rp.getRootRelativePath());
         };
 
     diff.changedKeysWithoutNewValues().forEach(maybeAddToIntersection);
