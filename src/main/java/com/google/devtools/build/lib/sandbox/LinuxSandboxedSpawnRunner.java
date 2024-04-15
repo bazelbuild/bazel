@@ -422,7 +422,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     LinuxSandboxUtil.validateBindMounts(bindMounts);
     ImmutableList.Builder<BindMount> result = ImmutableList.builder();
-    bindMounts.forEach((k, v) -> result.add(BindMount.of(k, v)));
 
     if (sandboxTmp != null) {
       // First mount the real exec root and the empty directory created as the working dir of the
@@ -445,6 +444,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       result.add(BindMount.of(tmpPath, sandboxTmp));
     }
 
+    bindMounts.forEach((k, v) -> result.add(BindMount.of(k, v)));
     return result.build();
   }
 
