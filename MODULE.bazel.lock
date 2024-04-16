@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "41e97ab73eab5fafef6cd8f9b4696823e31384219a6356a052cab52245e1193c",
+  "moduleFileHash": "080c971252e98bbf09df6fd2ca65329e56fb5dfd43b5816f85444b43bb141b68",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -83,7 +83,7 @@
                   "com.google.http-client:google-http-client-gson:1.42.0",
                   "com.google.http-client:google-http-client:1.42.0",
                   "com.google.j2objc:j2objc-annotations:1.3",
-                  "com.google.turbine:turbine:0.6.0",
+                  "com.google.turbine:turbine:0.5.0",
                   "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
                   "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
                   "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
@@ -635,7 +635,7 @@
         "rules_pkg": "rules_pkg@0.9.1",
         "io_bazel_skydoc": "stardoc@0.5.6",
         "zstd-jni": "zstd-jni@1.5.2-3.bcr.1",
-        "blake3": "blake3@1.3.3.bcr.1",
+        "blake3": "blake3@1.5.1.bcr.1",
         "sqlite3": "sqlite3@3.42.0.bcr.1",
         "zlib": "zlib@1.3",
         "rules_cc": "rules_cc@0.0.9",
@@ -1008,10 +1008,10 @@
         }
       }
     },
-    "blake3@1.3.3.bcr.1": {
+    "blake3@1.5.1.bcr.1": {
       "name": "blake3",
-      "version": "1.3.3.bcr.1",
-      "key": "blake3@1.3.3.bcr.1",
+      "version": "1.5.1.bcr.1",
+      "key": "blake3@1.5.1.bcr.1",
       "repoName": "blake3",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [],
@@ -1026,13 +1026,14 @@
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
-            "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.3.3.tar.gz"
+            "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.5.1.tar.gz"
           ],
-          "integrity": "sha256-J9K8TuWUW6dUNIWVIQQslJRj7nUU/xeq7zKOI++D/sA=",
-          "strip_prefix": "BLAKE3-1.3.3",
+          "integrity": "sha256-gizTf3AVLlmFQz0sUMj2suyDqvEaoxvp/nFIapF0Tzc=",
+          "strip_prefix": "BLAKE3-1.5.1",
           "remote_patches": {
-            "https://bcr.bazel.build/modules/blake3/1.3.3.bcr.1/patches/add_build_file.patch": "sha256-lKVoznUHSqWywOo27+g4J0csjL8lH3FEXjAFRJN5+Kw=",
-            "https://bcr.bazel.build/modules/blake3/1.3.3.bcr.1/patches/module_dot_bazel.patch": "sha256-4M/MRHdDFjS8iyVaKqy6QIc5Qea9pblUz7oj6I5aHfg="
+            "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/patches/add_build_file.patch": "sha256-BmZOqWOTfHup68uNZXOh2mP+b971CWY3QufbkIe6eEM=",
+            "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/patches/module_dot_bazel.patch": "sha256-dKnHpXqvNwW2m7vYxnfWEoBhphBysqbeBxAMVX3b5a0=",
+            "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/patches/fix_windows_arm_build_pr_389.patch": "sha256-9G3QDBp5OuyYP7vwPKjqK+uTUZmjhLpKSE7nshz8guc="
           },
           "remote_patch_strip": 0
         }
@@ -2883,7 +2884,7 @@
       "general": {
         "bzlTransitiveDigest": "tunTSmgwd2uvTzkCLtdbuCp0AI+WR+ftiPNqZ0rmcZk=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "41e97ab73eab5fafef6cd8f9b4696823e31384219a6356a052cab52245e1193c",
+          "@@//MODULE.bazel": "080c971252e98bbf09df6fd2ca65329e56fb5dfd43b5816f85444b43bb141b68",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "e6b22f35c7bce99c0677f24a19c7aee829f97e7b1b5cc31e600c7cc9b408a292"
         },
         "recordedDirentsInputs": {},
@@ -6003,7 +6004,7 @@
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
-                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.6.0\" }",
+                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.5.0\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
@@ -8583,7 +8584,7 @@
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
-                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.6.0\" }",
+                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.5.0\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
