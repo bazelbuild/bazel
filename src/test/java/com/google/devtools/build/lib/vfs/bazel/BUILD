@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load(":java_opt_binary.bzl", "java_opt_binary")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -44,7 +45,7 @@ java_test(
     ],
 )
 
-java_binary(
+java_opt_binary(
     name = "BazelHashFunctionsBenchmark",
     srcs = ["BazelHashFunctionsBenchmark.java"],
     main_class = "org.openjdk.jmh.Main",

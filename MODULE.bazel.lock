@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "080c971252e98bbf09df6fd2ca65329e56fb5dfd43b5816f85444b43bb141b68",
+  "moduleFileHash": "a46ff64f51b56ec85fed41a5464644ab6c23f3696a14f9cd171b38495a4cbe2f",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -39,7 +39,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 75,
+            "line": 76,
             "column": 22
           },
           "imports": {
@@ -168,7 +168,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 76,
+                "line": 77,
                 "column": 14
               }
             },
@@ -183,7 +183,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 199,
+                "line": 200,
                 "column": 19
               }
             },
@@ -198,7 +198,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 199,
+                "line": 200,
                 "column": 19
               }
             },
@@ -213,7 +213,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 199,
+                "line": 200,
                 "column": 19
               }
             },
@@ -228,7 +228,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 199,
+                "line": 200,
                 "column": 19
               }
             },
@@ -243,7 +243,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 199,
+                "line": 200,
                 "column": 19
               }
             },
@@ -258,7 +258,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 199,
+                "line": 200,
                 "column": 19
               }
             },
@@ -273,7 +273,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 199,
+                "line": 200,
                 "column": 19
               }
             },
@@ -288,7 +288,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 199,
+                "line": 200,
                 "column": 19
               }
             },
@@ -303,7 +303,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 199,
+                "line": 200,
                 "column": 19
               }
             },
@@ -331,7 +331,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 339,
+                "line": 340,
                 "column": 22
               }
             }
@@ -345,7 +345,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 220,
+            "line": 221,
             "column": 32
           },
           "imports": {
@@ -385,7 +385,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 254,
+            "line": 255,
             "column": 23
           },
           "imports": {},
@@ -399,7 +399,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 255,
+                "line": 256,
                 "column": 17
               }
             }
@@ -413,7 +413,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 257,
+            "line": 258,
             "column": 20
           },
           "imports": {
@@ -431,7 +431,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 258,
+                "line": 259,
                 "column": 10
               }
             }
@@ -445,7 +445,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 269,
+            "line": 270,
             "column": 33
           },
           "imports": {
@@ -476,7 +476,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 290,
+            "line": 291,
             "column": 29
           },
           "imports": {
@@ -493,7 +493,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 293,
+            "line": 294,
             "column": 20
           },
           "imports": {
@@ -512,7 +512,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 294,
+                "line": 295,
                 "column": 12
               }
             }
@@ -526,7 +526,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 306,
+            "line": 307,
             "column": 32
           },
           "imports": {
@@ -545,7 +545,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 314,
+            "line": 315,
             "column": 31
           },
           "imports": {
@@ -562,7 +562,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 317,
+            "line": 318,
             "column": 48
           },
           "imports": {
@@ -579,7 +579,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 361,
+            "line": 362,
             "column": 35
           },
           "imports": {
@@ -596,7 +596,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 364,
+            "line": 365,
             "column": 42
           },
           "imports": {
@@ -614,7 +614,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 367,
+            "line": 368,
             "column": 45
           },
           "imports": {
@@ -646,6 +646,7 @@
         "rules_python": "rules_python@0.28.0",
         "rules_testing": "rules_testing@0.6.0",
         "com_google_googletest": "googletest@1.14.0",
+        "with_cfg.bzl": "with_cfg.bzl@0.2.4",
         "remoteapis": "remoteapis@_",
         "googleapis": "googleapis@_",
         "apple_support": "apple_support@1.8.1",
@@ -1815,6 +1816,35 @@
         }
       }
     },
+    "with_cfg.bzl@0.2.4": {
+      "name": "with_cfg.bzl",
+      "version": "0.2.4",
+      "key": "with_cfg.bzl@0.2.4",
+      "repoName": "with_cfg.bzl",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [],
+      "extensionUsages": [],
+      "deps": {
+        "bazel_skylib": "bazel_skylib@1.5.0",
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "urls": [
+            "https://github.com/fmeum/with_cfg.bzl/releases/download/v0.2.4/with_cfg.bzl-v0.2.4.tar.gz"
+          ],
+          "integrity": "sha256-BqKxtWpYxHGrQNivFmxNUfCYLhxrxGN1uAWRWz/AZY4=",
+          "strip_prefix": "with_cfg.bzl-0.2.4",
+          "remote_patches": {
+            "https://bcr.bazel.build/modules/with_cfg.bzl/0.2.4/patches/module_dot_bazel_version.patch": "sha256-nMJ63F1h826i8AWSmXwz9pZYDwKfOnM5QdrZqyCLYMo="
+          },
+          "remote_patch_strip": 1
+        }
+      }
+    },
     "remoteapis@_": {
       "name": "remoteapis",
       "version": "",
@@ -2884,7 +2914,7 @@
       "general": {
         "bzlTransitiveDigest": "tunTSmgwd2uvTzkCLtdbuCp0AI+WR+ftiPNqZ0rmcZk=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "080c971252e98bbf09df6fd2ca65329e56fb5dfd43b5816f85444b43bb141b68",
+          "@@//MODULE.bazel": "a46ff64f51b56ec85fed41a5464644ab6c23f3696a14f9cd171b38495a4cbe2f",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "e6b22f35c7bce99c0677f24a19c7aee829f97e7b1b5cc31e600c7cc9b408a292"
         },
         "recordedDirentsInputs": {},
@@ -5389,7 +5419,7 @@
         "recordedFileInputs": {
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
-          "@@//maven_install.json": "112e83df70ed9983987adeadea45a3ac179484234285c832ed87514ca7499583"
+          "@@//maven_install.json": "0333a28500b745188bd05d1a64e2facce6883d600ab41b58a0d93c0fc402c893"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -6468,6 +6498,17 @@
               "downloaded_file_path": "v1/com/android/tools/common/30.1.3/common-30.1.3.jar"
             }
           },
+          "com_google_turbine_turbine_0_5_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "3bb883977330ec99dd11d8bba0c9c9084b356189807920903984215a466c81ac",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/turbine/turbine/0.5.0/turbine-0.5.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/turbine/turbine/0.5.0/turbine-0.5.0.jar"
+            }
+          },
           "io_grpc_grpc_auth_1_48_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -6906,17 +6947,6 @@
                 "https://repo1.maven.org/maven2/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.0/java-allocation-instrumenter-3.3.0.jar"
               ],
               "downloaded_file_path": "v1/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.0/java-allocation-instrumenter-3.3.0.jar"
-            }
-          },
-          "com_google_turbine_turbine_0_6_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "277b6d59934dc8af95675a6cf6f054e9f43e0708344b08ba2aa927a578174950",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/turbine/turbine/0.6.0/turbine-0.6.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/turbine/turbine/0.6.0/turbine-0.6.0.jar"
             }
           },
           "org_jetbrains_kotlin_kotlin_stdlib_jdk7_1_4_32": {
