@@ -644,6 +644,96 @@ EOF
   assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
+function test_hermetic_tmp_under_tmp {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p "${temp_dir}/workspace/a"
+  mkdir -p "${temp_dir}/package-path/b"
+  mkdir -p "${temp_dir}/repo/c"
+  mkdir -p "${temp_dir}/output-base"
+
+  cd "${temp_dir}/workspace"
+  cat > WORKSPACE <<EOF
+local_repository(name="repo", path="${temp_dir}/repo")
+EOF
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+)
+sh_binary(
+  name = "bin",
+  srcs = ["bin.sh"],
+  data = [":s", ":go", "//b:s", "//b:go", "@repo//c:s", "@repo//c:go"],
+)
+genrule(
+  name = "t",
+  tools = [":bin"],
+  srcs = [":s", ":go", "//b:s", "//b:go", "@repo//c:s", "@repo//c:go"],
+  outs = ["to"],
+  cmd = "\n".join([
+    "RUNFILES=$(location :bin).runfiles/_main",
+    "S=$(location :s); GO=$(location :go)",
+    "BS=$(location //b:s); BGO=$(location //b:go)",
+    "RS=$(location @repo//c:s); RGO=$(location @repo//c:go)",
+    "for i in $$S $$GO $$BS $$BGO $$RS $$RGO; do",
+    "  echo reading $$i",
+    "  cat $$i >> $@",
+    "done",
+    "for i in a/s a/go b/s b/go ../repo/c/s ../repo/c/go; do",
+    "  echo reading $$RUNFILES/$$i",
+    "  cat $$RUNFILES/$$i >> $@",
+    "done",
+  ]),
+)
+EOF
+
+  touch a/bin.sh
+  chmod +x a/bin.sh
+
+  touch ../repo/WORKSPACE
+  cat > ../repo/c/BUILD <<'EOF'
+exports_files(["s"])
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > ../package-path/b/BUILD <<'EOF'
+exports_files(["s"])
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  touch "a/s" "../package-path/b/s" "../repo/c/s"
+
+  cat WORKSPACE
+  bazel \
+    --output_base="${temp_dir}/output-base" \
+    build \
+    --incompatible_sandbox_hermetic_tmp \
+    --package_path="%workspace%:${temp_dir}/package-path" \
+    //a:t || fail "build failed"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
 
