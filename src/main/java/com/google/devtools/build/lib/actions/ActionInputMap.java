@@ -54,11 +54,11 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   /**
    * Trie-like data structure that mimics the filesystem for tree artifacts.
    *
-   * <p>It is too expensive to store the all tree children in the input map individually, so in
-   * order to find a child's metadata, we need to find the parent. Sometimes it is necessary to look
-   * up an input's metadata by exec path without even knowing whether it is a {@link
-   * TreeFileArtifact}, let alone how many directory levels up its parent is. This data structure
-   * supports efficient lookups in such cases.
+   * <p>It is too expensive to store all tree children in the input map individually, so in order to
+   * find a child's metadata, we need to find the parent. Sometimes it is necessary to look up an
+   * input's metadata by exec path without even knowing whether it is a {@link TreeFileArtifact},
+   * let alone how many directory levels up its parent is. This data structure supports efficient
+   * lookups in such cases.
    */
   static final class TrieArtifact {
 
