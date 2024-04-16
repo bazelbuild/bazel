@@ -365,6 +365,22 @@ class ModCommandTest(test_base.TestBase):
         'Wrong output in the show with some extensions and some usages query.',
     )
 
+  def testShowExtensionWithUnknownRepo(self):
+    _, _, stderr = self.RunBazel(
+        [
+            'mod',
+            'show_extension',
+            '@@unknown//foo:bar.bzl%x',
+        ],
+        allow_failure=True,
+        rstrip=True,
+    )
+    self.assertIn(
+        'ERROR: In extension argument @@unknown//foo:bar.bzl%x: No module with '
+        'the canonical repo name @@unknown exists in the dependency graph.',
+        '\n'.join(stderr),
+    )
+
   def testShowModuleAndExtensionReposFromBaseModule(self):
     _, stdout, _ = self.RunBazel(
         [
