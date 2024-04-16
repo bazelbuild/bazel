@@ -14,6 +14,7 @@
 
 """Legacy apple_common module"""
 
+load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
 load(":common/objc/linking_support.bzl", "AppleDebugOutputsInfo", "linking_support")
 
 native_apple_common = _builtins.internal.apple_common
@@ -22,14 +23,14 @@ apple_common = struct(
     apple_toolchain = lambda: native_apple_common.apple_toolchain(),
     platform_type = native_apple_common.platform_type,
     platform = native_apple_common.platform,
-    XcodeProperties = native_apple_common.XcodeProperties,
-    XcodeVersionConfig = native_apple_common.XcodeVersionConfig,
+    XcodeProperties = _builtins.internal.XcodeProperties,
+    XcodeVersionConfig = _builtins.internal.XcodeConfigInfo,
     Objc = native_apple_common.Objc,
     AppleDynamicFramework = native_apple_common.AppleDynamicFramework,
     AppleExecutableBinary = native_apple_common.AppleExecutableBinary,
     AppleDebugOutputs = AppleDebugOutputsInfo,
-    apple_host_system_env = lambda xcode_config: native_apple_common.apple_host_system_env(xcode_config),
-    target_apple_env = lambda *args: native_apple_common.target_apple_env(*args),
+    apple_host_system_env = apple_host_system_env,
+    target_apple_env = target_apple_env,
     new_objc_provider = lambda **kwargs: native_apple_common.new_objc_provider(**kwargs),
     new_dynamic_framework_provider = lambda **kwargs: native_apple_common.new_dynamic_framework_provider(**kwargs),
     new_executable_binary_provider = lambda **kwargs: native_apple_common.new_executable_binary_provider(**kwargs),

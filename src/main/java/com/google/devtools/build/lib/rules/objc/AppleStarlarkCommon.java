@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -24,11 +23,9 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
 import java.util.Map;
@@ -40,12 +37,7 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** A class that exposes apple rule implementation internals to Starlark. */
 public class AppleStarlarkCommon
-    implements AppleCommonApi<
-        ConstraintValueInfo,
-        StarlarkRuleContext,
-        CcInfo,
-        XcodeConfigInfo,
-        ApplePlatform> {
+    implements AppleCommonApi<ConstraintValueInfo, StarlarkRuleContext, CcInfo> {
 
   @VisibleForTesting
   public static final String BAD_KEY_ERROR =
@@ -91,12 +83,14 @@ public class AppleStarlarkCommon
 
   @Override
   public Provider getXcodeVersionPropertiesConstructor() {
-    return XcodeVersionProperties.PROVIDER;
+    // Implemented in builtin Starlark; this is just for docs.
+    throw new UnsupportedOperationException();
   }
 
   @Override
   public Provider getXcodeVersionConfigConstructor() {
-    return XcodeConfigInfo.PROVIDER;
+    // Implemented in builtin Starlark; this is just for docs.
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -115,17 +109,16 @@ public class AppleStarlarkCommon
   }
 
   @Override
-  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfo xcodeConfig) {
-    return AppleConfiguration.getXcodeVersionEnv(xcodeConfig.getXcodeVersion());
+  public ImmutableMap<String, String> getAppleHostSystemEnv(Object xcodeConfig) {
+    // Implemented in builtin Starlark; this is just for docs.
+    throw new UnsupportedOperationException();
   }
 
   @Override
   public ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigInfo xcodeConfigApi, ApplePlatform platformApi) {
-    XcodeConfigInfo xcodeConfig = xcodeConfigApi;
-    ApplePlatform platform = (ApplePlatform) platformApi;
-    return AppleConfiguration.appleTargetPlatformEnv(
-        platform, xcodeConfig.getSdkVersionForPlatform(platform));
+      Object xcodeConfigApi, Object platformApi) {
+    // Implemented in builtin Starlark; this is just for docs.
+    throw new UnsupportedOperationException();
   }
 
   @Override

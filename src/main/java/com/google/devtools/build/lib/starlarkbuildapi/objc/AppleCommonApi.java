@@ -20,10 +20,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
@@ -48,9 +46,7 @@ import net.starlark.java.eval.StarlarkValue;
 public interface AppleCommonApi<
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcInfoApiT extends CcInfoApi<?>,
-        XcodeConfigInfoApiT extends XcodeConfigInfoApi<?, ?>,
-        ApplePlatformApiT extends ApplePlatformApi>
+        CcInfoApiT extends CcInfoApi<?>>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -172,7 +168,6 @@ public interface AppleCommonApi<
   default void getAppleDebugOutputsConstructor() {
     throw new UnsupportedOperationException();
   }
-  ;
 
   @StarlarkMethod(
       name = "apple_host_system_env",
@@ -188,7 +183,7 @@ public interface AppleCommonApi<
             named = false,
             doc = "A provider containing information about the Xcode configuration."),
       })
-  ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfoApiT xcodeConfig);
+  ImmutableMap<String, String> getAppleHostSystemEnv(Object xcodeConfig);
 
   @StarlarkMethod(
       name = "target_apple_env",
@@ -205,8 +200,7 @@ public interface AppleCommonApi<
             doc = "A provider containing information about the Xcode configuration."),
         @Param(name = "platform", positional = true, named = false, doc = "The apple platform."),
       })
-  ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigInfoApiT xcodeConfig, ApplePlatformApiT platform);
+  ImmutableMap<String, String> getTargetAppleEnvironment(Object xcodeConfig, Object platform);
 
   @StarlarkMethod(
       name = "new_objc_provider",

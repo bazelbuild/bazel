@@ -29,7 +29,7 @@ def _xcode_config_alias_impl(ctx):
     xcode_config = ctx.attr._xcode_config
     return [
         xcode_config[apple_common.XcodeProperties],
-        xcode_config[_builtins.internal.apple_common.XcodeVersionConfig],
+        xcode_config[apple_common.XcodeVersionConfig],
     ]
 
 xcode_config_alias = rule(
