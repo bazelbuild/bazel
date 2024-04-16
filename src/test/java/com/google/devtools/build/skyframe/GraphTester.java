@@ -419,6 +419,10 @@ public class GraphTester {
     return ImmutableMap.copyOf(functionMap);
   }
 
+  public void putDelegateFunction(SkyFunctionName functionName) {
+    putSkyFunction(functionName, new DelegatingFunction());
+  }
+
   public void putSkyFunction(SkyFunctionName functionName, SkyFunction function) {
     functionMap.put(functionName, function);
   }
