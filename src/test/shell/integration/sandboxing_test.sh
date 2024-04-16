@@ -1042,6 +1042,10 @@ EOF
 }
 
 function test_changed_async_deleter_filesystem() {
+  if [ ! -d /dev/shm ]; then
+    return
+  fi
+
   mkdir pkg
   cat >pkg/BUILD <<'EOF'
 cc_library(
