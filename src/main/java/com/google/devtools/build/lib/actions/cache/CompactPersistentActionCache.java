@@ -85,7 +85,7 @@ public class CompactPersistentActionCache implements ActionCache {
     private final PersistentStringIndexer indexer;
     private long nextUpdateSecs;
 
-    public ActionMap(
+    ActionMap(
         ConcurrentMap<Integer, byte[]> map,
         PersistentStringIndexer indexer,
         Clock clock,
@@ -346,8 +346,8 @@ public class CompactPersistentActionCache implements ActionCache {
   @Override
   @Nullable
   public ActionCache.Entry get(String key) {
-    int index = indexer.getIndex(key);
-    if (index < 0) {
+    Integer index = indexer.getIndex(key);
+    if (index == null) {
       return null;
     }
     byte[] data = map.get(index);
@@ -366,7 +366,7 @@ public class CompactPersistentActionCache implements ActionCache {
   @Override
   public void put(String key, ActionCache.Entry entry) {
     // Encode record. Note that both methods may create new mappings in the indexer.
-    int index = indexer.getOrCreateIndex(key);
+    Integer index = indexer.getOrCreateIndex(key);
     byte[] content;
     try {
       content = encode(indexer, entry);
@@ -391,7 +391,10 @@ public class CompactPersistentActionCache implements ActionCache {
 
   @Override
   public void remove(String key) {
-    map.remove(indexer.getIndex(key));
+    Integer index = indexer.getIndex(key);
+    if (index != null) {
+      map.remove(index);
+    }
   }
 
   @Override
@@ -652,7 +655,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   private static String getStringForIndex(StringIndexer indexer, int index) throws IOException {
-    String path = (index >= 0 ? indexer.getStringForIndex(index) : null);
+    String path = index >= 0 ? indexer.getStringForIndex(index) : null;
     if (path == null) {
       throw new IOException("Corrupted string index");
     }

@@ -42,7 +42,6 @@ import javax.annotation.Nullable;
 @ConditionallyThreadSafe // Each instance must be instantiated with a different dataPath.
 final class PersistentStringIndexer implements StringIndexer {
 
-  private static final int NOT_FOUND = -1;
   private static final int INITIAL_ENTRIES = 10000;
 
   /** Instantiates and loads instance of the persistent string indexer. */
@@ -84,35 +83,35 @@ final class PersistentStringIndexer implements StringIndexer {
   }
 
   @Override
-  public int getOrCreateIndex(String s) {
+  public Integer getOrCreateIndex(String s) {
     Integer i = stringToInt.get(s);
-    if (i == null) {
-      s = StringCanonicalizer.intern(s);
-      synchronized (this) {
-        // First, make sure another thread hasn't just added the entry:
-        i = stringToInt.get(s);
-        if (i != null) {
-          return i;
-        }
-
-        int ind = intToString.size();
-        stringToInt.put(s, ind);
-        intToString.put(ind, s);
-        return ind;
+    if (i != null) {
+      return i;
+    }
+    s = StringCanonicalizer.intern(s);
+    synchronized (this) {
+      // First, make sure another thread hasn't just added the entry.
+      i = stringToInt.get(s);
+      if (i != null) {
+        return i;
       }
-    } else {
+
+      i = intToString.size();
+      stringToInt.put(s, i);
+      intToString.put(i, s);
       return i;
     }
   }
 
   @Override
-  public int getIndex(String s) {
-    return stringToInt.getOrDefault(s, NOT_FOUND);
+  @Nullable
+  public Integer getIndex(String s) {
+    return stringToInt.get(s);
   }
 
   @Override
   @Nullable
-  public String getStringForIndex(int i) {
+  public String getStringForIndex(Integer i) {
     return intToString.get(i);
   }
 
