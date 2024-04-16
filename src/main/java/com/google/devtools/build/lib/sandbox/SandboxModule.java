@@ -216,8 +216,13 @@ public final class SandboxModule extends BlazeModule {
         treeDeleter = new SynchronousTreeDeleter();
       }
     } else {
-      if (!(treeDeleter instanceof AsynchronousTreeDeleter)) {
+      if (!(treeDeleter instanceof AsynchronousTreeDeleter treeDeleter)
+          || !treeDeleter.getTrashBase().equals(trashBase)) {
+        if (treeDeleter != null) {
+          treeDeleter.shutdown();
+        }
         treeDeleter = new AsynchronousTreeDeleter(trashBase);
+        firstBuild = true;
       }
     }
     SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options);
