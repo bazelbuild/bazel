@@ -2633,8 +2633,7 @@ public abstract class CcModule
           "Cannot use experimental ExtraLinkTimeLibrary creation API outside of builtins");
     }
     boolean nonGlobalFunc = false;
-    if (buildLibraryFunc instanceof StarlarkFunction) {
-      StarlarkFunction fn = (StarlarkFunction) buildLibraryFunc;
+    if (buildLibraryFunc instanceof StarlarkFunction fn) {
       if (fn.getModule().getGlobal(fn.getName()) != fn) {
         nonGlobalFunc = true;
       }

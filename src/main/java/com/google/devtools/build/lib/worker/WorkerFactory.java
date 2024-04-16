@@ -254,10 +254,9 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     if (this == o) {
       return true;
     }
-    if (!(o instanceof WorkerFactory)) {
+    if (!(o instanceof WorkerFactory that)) {
       return false;
     }
-    WorkerFactory that = (WorkerFactory) o;
     return workerBaseDir.equals(that.workerBaseDir)
         && workerOptions.useCgroupsOnLinux == that.workerOptions.useCgroupsOnLinux
         && Objects.equals(this.hardenedSandboxOptions, that.hardenedSandboxOptions);

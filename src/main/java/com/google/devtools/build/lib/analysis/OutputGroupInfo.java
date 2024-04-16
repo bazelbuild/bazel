@@ -409,10 +409,9 @@ public abstract class OutputGroupInfo extends StructImpl
       if (this == o) {
         return true;
       }
-      if (!(o instanceof EmptyFiles)) {
+      if (!(o instanceof EmptyFiles other)) {
         return false;
       }
-      EmptyFiles other = (EmptyFiles) o;
       return groups.equals(other.groups);
     }
 

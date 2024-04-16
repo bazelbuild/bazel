@@ -88,10 +88,9 @@ public class XcodeVersionRuleData extends NativeInfo {
     if (other == null) {
       return false;
     }
-    if (!(other instanceof XcodeVersionRuleData)) {
+    if (!(other instanceof XcodeVersionRuleData otherData)) {
       return false;
     }
-    XcodeVersionRuleData otherData = (XcodeVersionRuleData) other;
     return (getVersion().equals(otherData.getVersion())
         && xcodeVersionProperties
             .getXcodeVersion()

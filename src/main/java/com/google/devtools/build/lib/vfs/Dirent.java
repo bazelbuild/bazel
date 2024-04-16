@@ -55,13 +55,12 @@ public final class Dirent implements Comparable<Dirent> {
 
   @Override
   public boolean equals(Object other) {
-    if (!(other instanceof Dirent)) {
+    if (!(other instanceof Dirent otherDirent)) {
       return false;
     }
     if (this == other) {
       return true;
     }
-    Dirent otherDirent = (Dirent) other;
     return name.equals(otherDirent.name) && type.equals(otherDirent.type);
   }
 

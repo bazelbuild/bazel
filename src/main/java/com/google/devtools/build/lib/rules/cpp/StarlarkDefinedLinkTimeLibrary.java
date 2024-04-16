@@ -98,10 +98,9 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
             + " in "
             + buildLibraryFunction.getLocation()
             + " should return (depset[CcLinkingContext], depset[File])";
-    if (!(response instanceof Tuple)) {
+    if (!(response instanceof Tuple responseTuple)) {
       throw new RuleErrorException(errorMsg);
     }
-    Tuple responseTuple = (Tuple) response;
     if (responseTuple.size() != 2) {
       throw new RuleErrorException(errorMsg);
     }
@@ -172,10 +171,9 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
 
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof Key)) {
+      if (!(other instanceof Key key)) {
         return false;
       }
-      Key key = (Key) other;
       return builderFunction.equals(key.builderFunction)
           && constantFields.equals(key.constantFields)
           && depsetFields.equals(key.depsetFields);

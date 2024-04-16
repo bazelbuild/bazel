@@ -276,10 +276,9 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
       if (o == this) {
         return true;
       }
-      if (!(o instanceof BuildTopLevelAspectsDetailsKey)) {
+      if (!(o instanceof BuildTopLevelAspectsDetailsKey that)) {
         return false;
       }
-      BuildTopLevelAspectsDetailsKey that = (BuildTopLevelAspectsDetailsKey) o;
       return hashCode == that.hashCode
           && topLevelAspectsClasses.equals(that.topLevelAspectsClasses)
           && topLevelAspectsParameters.equals(that.topLevelAspectsParameters);

@@ -762,13 +762,12 @@ public abstract class Artifact
     if (this == other) {
       return true;
     }
-    if (!(other instanceof Artifact)) {
+    if (!(other instanceof Artifact that)) {
       return false;
     }
     if (!getClass().equals(other.getClass())) {
       return false;
     }
-    Artifact that = (Artifact) other;
     return equalsWithoutOwner(that) && ownersEqual(that);
   }
 

@@ -194,8 +194,7 @@ public final class Profiler {
       }
       jsonWriter.name("pid").value(1);
 
-      if (this instanceof ActionTaskData) {
-        ActionTaskData actionTaskData = (ActionTaskData) this;
+      if (this instanceof ActionTaskData actionTaskData) {
         if (actionTaskData.primaryOutputPath != null) {
           // Primary outputs are non-mergeable, thus incompatible with slim profiles.
           jsonWriter.name("out").value(actionTaskData.primaryOutputPath);
@@ -909,7 +908,7 @@ public final class Profiler {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof ProfilerTaskType)) {
+      if (!(obj instanceof ProfilerTaskType that)) {
         return false;
       }
 
@@ -917,7 +916,6 @@ public final class Profiler {
         return true;
       }
 
-      var that = (ProfilerTaskType) obj;
       return Objects.equals(this.format, that.format);
     }
 

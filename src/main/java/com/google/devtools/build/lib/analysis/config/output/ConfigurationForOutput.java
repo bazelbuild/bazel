@@ -114,8 +114,7 @@ public class ConfigurationForOutput {
 
   @Override
   public boolean equals(Object o) {
-    if (o instanceof ConfigurationForOutput) {
-      ConfigurationForOutput other = (ConfigurationForOutput) o;
+    if (o instanceof ConfigurationForOutput other) {
       return other.skyKey.equals(skyKey)
           && other.configHash.equals(configHash)
           && other.fragments.equals(fragments)

@@ -95,10 +95,9 @@ public final class SkyFunctionName {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof SkyFunctionName)) {
+    if (!(obj instanceof SkyFunctionName other)) {
       return false;
     }
-    SkyFunctionName other = (SkyFunctionName) obj;
     return name.equals(other.name);
   }
 

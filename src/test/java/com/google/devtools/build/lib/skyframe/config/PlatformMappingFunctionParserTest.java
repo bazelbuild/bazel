@@ -486,10 +486,9 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
 
     @Override
     public boolean equals(Object o) {
-      if (o == null || !(o instanceof Key)) {
+      if (o == null || !(o instanceof Key other)) {
         return false;
       }
-      Key other = (Key) o;
       return Objects.equals(mainRepoMapping, other.mainRepoMapping)
           && Objects.equals(lines, other.lines);
     }

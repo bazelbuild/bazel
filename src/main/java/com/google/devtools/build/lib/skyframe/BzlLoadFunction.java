@@ -903,9 +903,8 @@ public class BzlLoadFunction implements SkyFunction {
     Label enclosingFileLabel = key.getLabel();
     RepositoryName repoName = enclosingFileLabel.getRepository();
 
-    if (key instanceof BzlLoadValue.KeyForWorkspace) {
+    if (key instanceof BzlLoadValue.KeyForWorkspace keyForWorkspace) {
       // Still during workspace file evaluation
-      BzlLoadValue.KeyForWorkspace keyForWorkspace = (BzlLoadValue.KeyForWorkspace) key;
       RepositoryMapping pureWorkspaceMapping;
       if (keyForWorkspace.getWorkspaceChunk() == 0) {
         // There is no previous workspace chunk
@@ -1393,8 +1392,7 @@ public class BzlLoadFunction implements SkyFunction {
     // TODO(adonovan): change the semantics; see b/65374671.
     thread.setPostAssignHook(
         (name, value) -> {
-          if (value instanceof StarlarkExportable) {
-            StarlarkExportable exp = (StarlarkExportable) value;
+          if (value instanceof StarlarkExportable exp) {
             if (!exp.isExported()) {
               exp.export(handler, label, name);
             }

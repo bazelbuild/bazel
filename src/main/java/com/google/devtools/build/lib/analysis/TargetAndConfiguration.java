@@ -40,11 +40,10 @@ public final class TargetAndConfiguration {
     if (this == that) {
       return true;
     }
-    if (!(that instanceof TargetAndConfiguration)) {
+    if (!(that instanceof TargetAndConfiguration thatNode)) {
       return false;
     }
 
-    TargetAndConfiguration thatNode = (TargetAndConfiguration) that;
     return thatNode.target.getLabel().equals(this.target.getLabel()) &&
         thatNode.configuration == this.configuration;
   }

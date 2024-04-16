@@ -503,8 +503,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       SkyValue value = skyKeyAndValue.getValue();
       SkyKey key = skyKeyAndValue.getKey();
       SkyFunctionName functionName = key.functionName();
-      if (value instanceof RuleConfiguredTargetValue) {
-        RuleConfiguredTargetValue ctValue = (RuleConfiguredTargetValue) value;
+      if (value instanceof RuleConfiguredTargetValue ctValue) {
         ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
         if (configuredTarget instanceof RuleConfiguredTarget) {
 
@@ -612,8 +611,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         continue;
       }
       try {
-        if (skyValue instanceof RuleConfiguredTargetValue) {
-          var configuredTarget = (RuleConfiguredTargetValue) skyValue;
+        if (skyValue instanceof RuleConfiguredTargetValue configuredTarget) {
           // Only dumps the value for non-delegating keys.
           if (configuredTarget.getConfiguredTarget().getLookupKey().equals(key)) {
             actionGraphDump.dumpConfiguredTarget(configuredTarget);

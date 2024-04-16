@@ -75,12 +75,11 @@ final class ActionInputMapHelper {
       Environment env,
       MetadataConsumerForMetrics consumer)
       throws InterruptedException {
-    if (value instanceof RunfilesArtifactValue) {
+    if (value instanceof RunfilesArtifactValue runfilesArtifactValue) {
       // Note: we don't expand the .runfiles/MANIFEST file into the inputs. The reason for that
       // being that the MANIFEST file contains absolute paths that don't work with remote execution.
       // Instead, the way the SpawnInputExpander expands runfiles is via the Runfiles class
       // which contains all artifacts in the runfiles tree minus the MANIFEST file.
-      RunfilesArtifactValue runfilesArtifactValue = (RunfilesArtifactValue) value;
       runfilesArtifactValue.forEachFile(
           (artifact, metadata) -> {
             inputMap.put(artifact, metadata, /* depOwner= */ key);
@@ -104,8 +103,7 @@ final class ActionInputMapHelper {
       // We have to cache the "digest" of the aggregating value itself, because the action cache
       // checker may want it.
       inputMap.putRunfilesMetadata(key, runfilesArtifactValue, /* depOwner= */ key);
-    } else if (value instanceof TreeArtifactValue) {
-      TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
+    } else if (value instanceof TreeArtifactValue treeArtifactValue) {
       expandTreeArtifactAndPopulateArtifactData(
           key, treeArtifactValue, treeArtifactConsumer, inputMap, /* depOwner= */ key);
       consumer.accumulate(treeArtifactValue);

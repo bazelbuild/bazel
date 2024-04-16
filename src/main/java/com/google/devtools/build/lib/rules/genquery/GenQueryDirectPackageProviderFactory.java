@@ -314,8 +314,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
         if (target == null) {
           try {
             Object o = TargetLoadingUtil.loadTarget(env, label);
-            if (o instanceof TargetAndErrorIfAny) {
-              TargetAndErrorIfAny targetAndErrorIfAny = (TargetAndErrorIfAny) o;
+            if (o instanceof TargetAndErrorIfAny targetAndErrorIfAny) {
               if (!targetAndErrorIfAny.isPackageLoadedSuccessfully()) {
                 throw BrokenQueryScopeException.of(targetAndErrorIfAny.getErrorLoadingTarget());
               }

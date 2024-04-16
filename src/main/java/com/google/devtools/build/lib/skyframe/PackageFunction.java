@@ -1511,10 +1511,9 @@ public abstract class PackageFunction implements SkyFunction {
         if (this == other) {
           return true;
         }
-        if (!(other instanceof PackageFunctionException.Builder)) {
+        if (!(other instanceof Builder otherBuilder)) {
           return false;
         }
-        PackageFunctionException.Builder otherBuilder = (PackageFunctionException.Builder) other;
         return Objects.equals(exceptionType, otherBuilder.exceptionType)
             && Objects.equals(packageIdentifier, otherBuilder.packageIdentifier)
             && Objects.equals(transience, otherBuilder.transience)

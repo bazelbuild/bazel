@@ -140,10 +140,9 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
       }
     }
     for (Object child : currentNode) {
-      if (!(child instanceof Object[])) {
+      if (!(child instanceof Object[] nextNode)) {
         continue;
       }
-      Object[] nextNode = (Object[]) child;
       if (findPathToArtifact(target, nextNode, path, seen)) {
         path.add(createInternal(nextNode));
         return true;

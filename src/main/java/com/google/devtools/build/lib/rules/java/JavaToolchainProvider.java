@@ -354,8 +354,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
     static JspecifyInfo fromStarlark(@Nullable StarlarkValue value) throws RuleErrorException {
       if (value == null || value == Starlark.NONE) {
         return null;
-      } else if (value instanceof StructImpl) {
-        StructImpl struct = (StructImpl) value;
+      } else if (value instanceof StructImpl struct) {
         try {
           return new AutoValue_JavaToolchainProvider_JspecifyInfo(
               JavaPluginData.wrap(struct.getValue("processor")),

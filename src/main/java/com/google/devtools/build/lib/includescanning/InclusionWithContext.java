@@ -101,10 +101,9 @@ class InclusionWithContext {
     if (o == this) {
       return true;
     }
-    if (!(o instanceof InclusionWithContext)) {
+    if (!(o instanceof InclusionWithContext that)) {
       return false;
     }
-    InclusionWithContext that = (InclusionWithContext) o;
     return Objects.equals(this.inclusion, that.inclusion)
         && (!this.inclusion.kind.isNext() || this.contextPathPos == that.contextPathPos)
         && this.contextKind == that.contextKind;

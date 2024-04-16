@@ -126,8 +126,7 @@ public class ResourceManager implements ResourceEstimator {
           worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_INTERRUPTED_EXCEPTION);
         } else if (e instanceof IOException) {
           worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_IO_EXCEPTION);
-        } else if (e instanceof UserExecException) {
-          UserExecException userExecException = (UserExecException) e;
+        } else if (e instanceof UserExecException userExecException) {
           if (userExecException.getFailureDetail().hasWorker()) {
             worker
                 .getStatus()

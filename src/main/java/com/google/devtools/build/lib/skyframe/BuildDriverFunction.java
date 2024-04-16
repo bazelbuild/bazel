@@ -230,8 +230,7 @@ public class BuildDriverFunction implements SkyFunction {
       }
     }
 
-    if (topLevelSkyValue instanceof ConfiguredTargetValue) {
-      ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) topLevelSkyValue;
+    if (topLevelSkyValue instanceof ConfiguredTargetValue configuredTargetValue) {
       ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
       // It's possible that this code path is triggered AFTER the analysis cache clean up and the
       // transitive packages for package root resolution is already cleared. In such a case, the

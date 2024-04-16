@@ -106,10 +106,9 @@ public final class BuildConfigurationKeyValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof BuildConfigurationKeyValue)) {
+    if (!(obj instanceof BuildConfigurationKeyValue that)) {
       return false;
     }
-    BuildConfigurationKeyValue that = (BuildConfigurationKeyValue) obj;
     return this.buildConfigurationKey.equals(that.buildConfigurationKey);
   }
 

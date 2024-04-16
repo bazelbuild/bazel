@@ -441,8 +441,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     analysisEnvironment.disable(target);
     Preconditions.checkNotNull(configuredTarget, target);
 
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
       return new RuleConfiguredTargetValue(ruleConfiguredTarget, transitivePackages);
     } else {
       // Expected 4 args, but got 3.
@@ -481,8 +480,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         state.targetAndConfigurationProducer = null;
       }
       result = state.targetAndConfigurationResult;
-      if (result instanceof TargetAndConfigurationError) {
-        var error = (TargetAndConfigurationError) result;
+      if (result instanceof TargetAndConfigurationError error) {
         switch (error.kind()) {
           case CONFIGURED_VALUE_CREATION:
             ConfiguredValueCreationException e = error.configuredValueCreation();

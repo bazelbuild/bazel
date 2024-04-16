@@ -69,8 +69,7 @@ public class PlatformFlagsProducer implements StateMachine, PlatformInfoProducer
   }
 
   private void acceptRepositoryMappingValue(SkyValue skyValue) {
-    if (skyValue instanceof RepositoryMappingValue) {
-      RepositoryMappingValue repositoryMappingValue = (RepositoryMappingValue) skyValue;
+    if (skyValue instanceof RepositoryMappingValue repositoryMappingValue) {
       this.platformRepositoryMapping = repositoryMappingValue.getRepositoryMapping();
       return;
     }

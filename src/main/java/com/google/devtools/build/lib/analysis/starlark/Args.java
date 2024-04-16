@@ -372,8 +372,7 @@ public abstract class Args implements CommandLineArgsApi {
       if (fn == Starlark.NONE) {
         return null;
       }
-      if (fn instanceof StarlarkFunction) {
-        StarlarkFunction sfn = (StarlarkFunction) fn;
+      if (fn instanceof StarlarkFunction sfn) {
         // Reject non-global functions, because arbitrary closures may cause large
         // analysis-phase data structures to remain live into the execution phase.
         // We require that the function is "global" as opposed to "not a closure"

@@ -91,8 +91,7 @@ public interface JavaGenJarsProvider
       return EMPTY;
     } else if (obj instanceof JavaGenJarsProvider) {
       return (JavaGenJarsProvider) obj;
-    } else if (obj instanceof StructImpl) {
-      StructImpl struct = (StructImpl) obj;
+    } else if (obj instanceof StructImpl struct) {
       return new AutoValue_JavaGenJarsProvider_NativeJavaGenJarsProvider(
           struct.getValue("enabled", Boolean.class),
           nullIfNone(struct.getValue("class_jar"), Artifact.class),

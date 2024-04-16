@@ -58,10 +58,9 @@ public final class IntVersion implements Version {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof IntVersion)) {
+    if (!(obj instanceof IntVersion other)) {
       return false;
     }
-    IntVersion other = (IntVersion) obj;
     return other.val == val;
   }
 

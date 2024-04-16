@@ -83,10 +83,9 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof OffsetTable)) {
+      if (!(o instanceof OffsetTable<?> that)) {
         return false;
       }
-      OffsetTable<?> that = (OffsetTable<?>) o;
       return Arrays.equals(this.keys, that.keys);
     }
 

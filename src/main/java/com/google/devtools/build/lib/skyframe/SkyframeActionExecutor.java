@@ -698,8 +698,7 @@ public final class SkyframeActionExecutor {
           eventPosted = true;
         }
 
-        if (action instanceof NotifyOnActionCacheHit) {
-          NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
+        if (action instanceof NotifyOnActionCacheHit notify) {
           ExtendedEventHandler contextEventHandler = selectEventHandler(action);
           ActionCachedContext context =
               new ActionCachedContext() {
@@ -894,11 +893,9 @@ public final class SkyframeActionExecutor {
       }
 
       Path primaryOutputPath = actionExecutionContext.getInputPath(action.getPrimaryOutput());
-      if (e instanceof LostInputsActionExecutionException) {
+      if (e instanceof LostInputsActionExecutionException lostInputsException) {
         // If inputs were lost during input discovery, then enrich the exception, informing action
         // rewinding machinery that these lost inputs are now Skyframe deps of the action.
-        LostInputsActionExecutionException lostInputsException =
-            (LostInputsActionExecutionException) e;
         lostInputsException.setFromInputDiscovery();
         enrichLostInputsException(
             primaryOutputPath, actionLookupData, fileOutErr, lostInputsException);

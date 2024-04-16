@@ -90,10 +90,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof LinkOptions)) {
+      if (!(obj instanceof LinkOptions that)) {
         return false;
       }
-      LinkOptions that = (LinkOptions) obj;
       if (!this.symbolForEquality.equals(that.symbolForEquality)) {
         return false;
       }
@@ -181,10 +180,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof Linkstamp)) {
+      if (!(obj instanceof Linkstamp other)) {
         return false;
       }
-      Linkstamp other = (Linkstamp) obj;
       return artifact.equals(other.artifact) && nestedDigest == other.nestedDigest;
     }
   }
@@ -355,10 +353,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
     @Override
     public boolean equals(Object otherObject) {
-      if (!(otherObject instanceof LinkerInput)) {
+      if (!(otherObject instanceof LinkerInput other)) {
         return false;
       }
-      LinkerInput other = (LinkerInput) otherObject;
       if (this == other) {
         return true;
       }
@@ -615,10 +612,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   @Override
   public boolean equals(Object otherObject) {
-    if (!(otherObject instanceof CcLinkingContext)) {
+    if (!(otherObject instanceof CcLinkingContext other)) {
       return false;
     }
-    CcLinkingContext other = (CcLinkingContext) otherObject;
     if (this == other) {
       return true;
     }

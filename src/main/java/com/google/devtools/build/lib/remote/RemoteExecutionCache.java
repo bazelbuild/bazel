@@ -80,8 +80,7 @@ public class RemoteExecutionCache extends RemoteCache {
         public boolean isRemote(RemoteActionExecutionContext context, Path path)
             throws IOException {
           var fs = path.getFileSystem();
-          if (fs instanceof RemoteActionFileSystem) {
-            var remoteActionFileSystem = (RemoteActionFileSystem) fs;
+          if (fs instanceof RemoteActionFileSystem remoteActionFileSystem) {
             if (remoteActionFileSystem.isRemote(path)) {
               if (context.getReadCachePolicy().allowDiskCache()) {
                 try (var inputStream = path.getInputStream()) {

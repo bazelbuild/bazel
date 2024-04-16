@@ -71,8 +71,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     if (supportFiles instanceof Depset) {
       supportFilesBuilder.addTransitive(
           Depset.cast(supportFiles, Artifact.class, "coverage_support_files"));
-    } else if (supportFiles instanceof Sequence) {
-      Sequence<?> supportFilesSequence = (Sequence<?>) supportFiles;
+    } else if (supportFiles instanceof Sequence<?> supportFilesSequence) {
       for (int i = 0; i < supportFilesSequence.size(); i++) {
         Object supportFilesElement = supportFilesSequence.get(i);
         if (supportFilesElement instanceof Depset) {

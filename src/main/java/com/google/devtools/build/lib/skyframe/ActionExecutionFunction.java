@@ -1046,8 +1046,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             actionForError);
         continue;
       }
-      if (retrievedMetadata instanceof TreeArtifactValue) {
-        TreeArtifactValue treeValue = (TreeArtifactValue) retrievedMetadata;
+      if (retrievedMetadata instanceof TreeArtifactValue treeValue) {
         inputData.putTreeArtifact((SpecialArtifact) input, treeValue, /* depOwner= */ null);
         treeValue
             .getArchivedRepresentation()
@@ -1082,12 +1081,11 @@ public final class ActionExecutionFunction implements SkyFunction {
     // See SkyframeAwareActionTest.testRaceConditionBetweenInputAcquisitionAndSkyframeDeps
     checkState(!env.valuesMissing(), action);
 
-    if (action instanceof SkyframeAwareAction) {
+    if (action instanceof SkyframeAwareAction skyframeAwareAction) {
       // Skyframe-aware actions should be executed unconditionally, i.e. bypass action cache
       // checking. See documentation of SkyframeAwareAction.
       checkState(action.executeUnconditionally(), action);
 
-      SkyframeAwareAction skyframeAwareAction = (SkyframeAwareAction) action;
       ImmutableList<? extends SkyKey> keys = skyframeAwareAction.getDirectSkyframeDependencies();
       SkyframeLookupResult values = env.getValuesAndExceptions(keys);
 

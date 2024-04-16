@@ -70,10 +70,9 @@ public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof Key)) {
+      if (!(obj instanceof Key that)) {
         return false;
       }
-      Key that = (Key) obj;
       return Objects.equals(this.configurationKey, that.configurationKey);
     }
 

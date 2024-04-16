@@ -196,10 +196,9 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     if (other == null) {
       return false;
     }
-    if (!(other instanceof XcodeVersionProperties)) {
+    if (!(other instanceof XcodeVersionProperties otherData)) {
       return false;
     }
-    XcodeVersionProperties otherData = (XcodeVersionProperties) other;
     return xcodeVersion.equals(otherData.getXcodeVersion())
         && defaultIosSdkVersion.equals(otherData.getDefaultIosSdkVersion())
         && defaultVisionosSdkVersion.equals(otherData.getDefaultVisionosSdkVersion())

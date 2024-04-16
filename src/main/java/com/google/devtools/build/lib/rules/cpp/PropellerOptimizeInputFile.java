@@ -57,11 +57,10 @@ public final class PropellerOptimizeInputFile implements HasFileType {
       return true;
     }
 
-    if (!(o instanceof PropellerOptimizeInputFile)) {
+    if (!(o instanceof PropellerOptimizeInputFile that)) {
       return false;
     }
 
-    PropellerOptimizeInputFile that = (PropellerOptimizeInputFile) o;
     return Objects.equals(this.ccArtifact, that.ccArtifact)
         && Objects.equals(this.ldArtifact, that.ldArtifact);
   }

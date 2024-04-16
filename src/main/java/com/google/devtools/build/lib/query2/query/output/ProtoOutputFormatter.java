@@ -180,8 +180,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
-    if (target instanceof Rule) {
-      Rule rule = (Rule) target;
+    if (target instanceof Rule rule) {
       Build.Rule.Builder rulePb =
           Build.Rule.newBuilder()
               .setName(labelPrinter.toString(rule.getLabel()))
@@ -274,8 +273,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
       targetPb.setType(RULE);
       targetPb.setRule(rulePb);
-    } else if (target instanceof OutputFile) {
-      OutputFile outputFile = (OutputFile) target;
+    } else if (target instanceof OutputFile outputFile) {
       Label label = outputFile.getLabel();
 
       Rule generatingRule = outputFile.getGeneratingRule();
@@ -289,8 +287,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
       targetPb.setType(GENERATED_FILE);
       targetPb.setGeneratedFile(output.build());
-    } else if (target instanceof InputFile) {
-      InputFile inputFile = (InputFile) target;
+    } else if (target instanceof InputFile inputFile) {
       Label label = inputFile.getLabel();
 
       Build.SourceFile.Builder input =
@@ -336,8 +333,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
       targetPb.setType(SOURCE_FILE);
       targetPb.setSourceFile(input.build());
-    } else if (target instanceof PackageGroup) {
-      PackageGroup packageGroup = (PackageGroup) target;
+    } else if (target instanceof PackageGroup packageGroup) {
       Build.PackageGroup.Builder packageGroupPb =
           Build.PackageGroup.newBuilder().setName(labelPrinter.toString(packageGroup.getLabel()));
       for (String containedPackage :
@@ -350,8 +346,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
       targetPb.setType(PACKAGE_GROUP);
       targetPb.setPackageGroup(packageGroupPb);
-    } else if (target instanceof EnvironmentGroup) {
-      EnvironmentGroup envGroup = (EnvironmentGroup) target;
+    } else if (target instanceof EnvironmentGroup envGroup) {
       Build.EnvironmentGroup.Builder envGroupPb =
           Build.EnvironmentGroup.newBuilder().setName(labelPrinter.toString(envGroup.getLabel()));
       for (Label env : envGroup.getEnvironments()) {

@@ -354,8 +354,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       List<RunfilesTree> runfilesTrees = new ArrayList<>();
 
       for (ActionInput input : spawn.getInputFiles().toList()) {
-        if (input instanceof VirtualActionInput) {
-          VirtualActionInput virtualActionInput = (VirtualActionInput) input;
+        if (input instanceof VirtualActionInput virtualActionInput) {
           Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
           if (outputPath.exists()) {
             outputPath.delete();

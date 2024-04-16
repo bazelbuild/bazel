@@ -62,10 +62,9 @@ public class IncludeScannerSupplier {
       if (this == other) {
         return true;
       }
-      if (!(other instanceof IncludeScannerParams)) {
+      if (!(other instanceof IncludeScannerParams that)) {
         return false;
       }
-      IncludeScannerParams that = (IncludeScannerParams) other;
       return this.quoteIncludePaths.equals(that.quoteIncludePaths)
           && this.includePaths.equals(that.includePaths)
           && this.frameworkIncludePaths.equals(that.frameworkIncludePaths);

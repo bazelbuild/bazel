@@ -260,8 +260,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       ImmutableCollection<? extends StarlarkSubruleApi> subrules) {
     ImmutableSet.Builder<StarlarkSubrule> uniqueSubrules = ImmutableSet.builder();
     for (StarlarkSubruleApi subruleApi : subrules) {
-      if (subruleApi instanceof StarlarkSubrule) {
-        StarlarkSubrule subrule = (StarlarkSubrule) subruleApi;
+      if (subruleApi instanceof StarlarkSubrule subrule) {
         uniqueSubrules.add(subrule).addAll(getTransitiveSubrules(subrule.getDeclaredSubrules()));
       }
     }

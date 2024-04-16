@@ -281,10 +281,9 @@ public final class PlatformMappingValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof PlatformMappingValue)) {
+    if (!(obj instanceof PlatformMappingValue that)) {
       return false;
     }
-    PlatformMappingValue that = (PlatformMappingValue) obj;
     return this.flagsToPlatforms.equals(that.flagsToPlatforms)
         && this.platformsToFlags.equals(that.platformsToFlags)
         && this.optionsClasses.equals(that.optionsClasses);

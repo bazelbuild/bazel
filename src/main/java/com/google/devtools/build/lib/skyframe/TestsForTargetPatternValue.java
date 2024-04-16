@@ -87,10 +87,9 @@ public final class TestsForTargetPatternValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TestsForTargetPatternKey)) {
+      if (!(obj instanceof TestsForTargetPatternKey other)) {
         return false;
       }
-      TestsForTargetPatternKey other = (TestsForTargetPatternKey) obj;
       return other.targets.equals(targets);
     }
   }

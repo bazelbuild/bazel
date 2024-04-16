@@ -216,8 +216,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       if (this == other) {
         return true;
       }
-      if (other instanceof Key) {
-        Key that = (Key) other;
+      if (other instanceof Key that) {
         // Compare roots last since that's the more expensive step.
         return this.kind == that.kind
             && Objects.equals(this.label, that.label)

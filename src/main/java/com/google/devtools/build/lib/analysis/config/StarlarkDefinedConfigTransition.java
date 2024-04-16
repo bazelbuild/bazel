@@ -329,8 +329,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       if (object == this) {
         return true;
       }
-      if (object instanceof AnalysisTestTransition) {
-        AnalysisTestTransition otherTransition = (AnalysisTestTransition) object;
+      if (object instanceof AnalysisTestTransition otherTransition) {
         return Objects.equals(otherTransition.getInputs(), this.getInputs())
             && Objects.equals(otherTransition.getOutputs(), this.getOutputs())
             && Objects.equals(otherTransition.changedSettings, this.changedSettings);
@@ -731,8 +730,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       if (object == this) {
         return true;
       }
-      if (object instanceof RegularTransition) {
-        RegularTransition otherTransition = (RegularTransition) object;
+      if (object instanceof RegularTransition otherTransition) {
         return Objects.equals(otherTransition.getInputs(), this.getInputs())
             && Objects.equals(otherTransition.getOutputs(), this.getOutputs())
             && Objects.equals(otherTransition.impl, this.impl);

@@ -373,8 +373,7 @@ public class ModuleFileFunction implements SkyFunction {
       }
       thread.setPostAssignHook(
           (name, value) -> {
-            if (value instanceof StarlarkExportable) {
-              StarlarkExportable exportable = (StarlarkExportable) value;
+            if (value instanceof StarlarkExportable exportable) {
               if (!exportable.isExported()) {
                 exportable.export(eventHandler, null, name);
               }

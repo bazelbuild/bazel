@@ -509,10 +509,9 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     if (this == o) {
       return true;
     }
-    if (!(o instanceof LtoBackendArtifacts)) {
+    if (!(o instanceof LtoBackendArtifacts that)) {
       return false;
     }
-    LtoBackendArtifacts that = (LtoBackendArtifacts) o;
     return Objects.equals(index, that.index)
         && bitcodeFile.equals(that.bitcodeFile)
         && Objects.equals(imports, that.imports)

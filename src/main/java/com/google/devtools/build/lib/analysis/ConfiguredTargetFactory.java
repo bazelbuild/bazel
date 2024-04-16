@@ -219,8 +219,7 @@ public final class ConfiguredTargetFactory {
     // Visibility, like all package groups, doesn't have a configuration
     NestedSet<PackageGroupContents> visibility =
         convertVisibility(prerequisiteMap, analysisEnvironment.getEventHandler(), target);
-    if (target instanceof OutputFile) {
-      OutputFile outputFile = (OutputFile) target;
+    if (target instanceof OutputFile outputFile) {
       TargetContext targetContext =
           new TargetContext(
               analysisEnvironment,
@@ -250,8 +249,7 @@ public final class ConfiguredTargetFactory {
       }
       Artifact artifact = rule.findArtifactByOutputLabel(outputFile.getLabel());
       return new OutputFileConfiguredTarget(targetContext, artifact, rule);
-    } else if (target instanceof InputFile) {
-      InputFile inputFile = (InputFile) target;
+    } else if (target instanceof InputFile inputFile) {
       TargetContext targetContext =
           new TargetContext(
               analysisEnvironment,
@@ -271,8 +269,7 @@ public final class ConfiguredTargetFactory {
                   .setConfiguration(config)
                   .build());
       return new InputFileConfiguredTarget(targetContext, artifact);
-    } else if (target instanceof PackageGroup) {
-      PackageGroup packageGroup = (PackageGroup) target;
+    } else if (target instanceof PackageGroup packageGroup) {
       TargetContext targetContext =
           new TargetContext(
               analysisEnvironment,

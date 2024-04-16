@@ -274,8 +274,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       boolean isSplit = false;
       if (trans instanceof SplitTransition || trans instanceof StarlarkDefinedConfigTransition) {
         isSplit = true;
-      } else if (trans instanceof TransitionFactory) {
-        TransitionFactory<?> tf = (TransitionFactory<?>) trans;
+      } else if (trans instanceof TransitionFactory<?> tf) {
         if (tf.isSplit()) {
           isSplit = true;
         }
@@ -308,9 +307,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         TransitionFactory<AttributeTransitionData> transitionFactory =
             (TransitionFactory<AttributeTransitionData>) trans;
         builder.cfg(transitionFactory);
-      } else if (trans instanceof StarlarkDefinedConfigTransition) {
-        StarlarkDefinedConfigTransition starlarkDefinedTransition =
-            (StarlarkDefinedConfigTransition) trans;
+      } else if (trans instanceof StarlarkDefinedConfigTransition starlarkDefinedTransition) {
         if (starlarkDefinedTransition.isForAnalysisTesting()) {
           builder.hasAnalysisTestTransition();
         } else {
@@ -382,8 +379,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     for (Object obj : list) {
       if (obj instanceof String) {
         result.add(StarlarkProviderIdentifier.forLegacy((String) obj));
-      } else if (obj instanceof Provider) {
-        Provider constructor = (Provider) obj;
+      } else if (obj instanceof Provider constructor) {
         if (!constructor.isExported()) {
           throw Starlark.errorf(
               "Providers should be top-level values in extension files that define them.");
@@ -813,10 +809,9 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof Descriptor)) {
+      if (!(o instanceof Descriptor that)) {
         return false;
       }
-      Descriptor that = (Descriptor) o;
       return Objects.equals(name, that.name)
           && Objects.equals(attributeFactory, that.attributeFactory);
     }

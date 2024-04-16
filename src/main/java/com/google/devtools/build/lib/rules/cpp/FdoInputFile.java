@@ -54,11 +54,10 @@ public final class FdoInputFile implements HasFileType {
       return true;
     }
 
-    if (!(o instanceof FdoInputFile)) {
+    if (!(o instanceof FdoInputFile that)) {
       return false;
     }
 
-    FdoInputFile that = (FdoInputFile) o;
     return Objects.equals(this.artifact, that.artifact)
         && Objects.equals(this.absolutePath, that.absolutePath);
   }

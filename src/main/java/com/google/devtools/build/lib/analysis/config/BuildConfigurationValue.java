@@ -312,11 +312,10 @@ public class BuildConfigurationValue
     if (this == other) {
       return true;
     }
-    if (!(other instanceof BuildConfigurationValue)) {
+    if (!(other instanceof BuildConfigurationValue otherVal)) {
       return false;
     }
     // Only considering arguments that are non-dependent and non-server-global.
-    BuildConfigurationValue otherVal = (BuildConfigurationValue) other;
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.workspaceName.equals(otherVal.workspaceName)
         && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout

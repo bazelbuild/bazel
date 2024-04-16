@@ -97,11 +97,10 @@ public abstract class LinkerInputs {
         return true;
       }
 
-      if (!(that instanceof SimpleLinkerInput)) {
+      if (!(that instanceof SimpleLinkerInput other)) {
         return false;
       }
 
-      SimpleLinkerInput other = (SimpleLinkerInput) that;
       return artifact.equals(other.artifact);
     }
 
@@ -236,11 +235,10 @@ public abstract class LinkerInputs {
         return true;
       }
 
-      if (!(that instanceof SolibLibraryToLink)) {
+      if (!(that instanceof SolibLibraryToLink thatSolib)) {
         return false;
       }
 
-      SolibLibraryToLink thatSolib = (SolibLibraryToLink) that;
       return solibSymlinkArtifact.equals(thatSolib.solibSymlinkArtifact)
           && libraryArtifact.equals(thatSolib.libraryArtifact);
     }

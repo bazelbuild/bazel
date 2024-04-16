@@ -545,13 +545,12 @@ public final class IncrementalArtifactConflictFinder {
         return;
       }
       for (SkyKey dep : directDeps) {
-        if (!(dep instanceof ActionLookupKey)) {
+        if (!(dep instanceof ActionLookupKey depKey)) {
           // The subgraph of dependencies of ActionLookupKeys never has a non-ActionLookupKey
           // depending on an ActionLookupKey. So we can skip any non-ActionLookupKeys in the
           // traversal as an optimization.
           continue;
         }
-        ActionLookupKey depKey = (ActionLookupKey) dep;
         if (dedupSet.add(depKey)) {
           exclusivePool.execute(
               new CheckForConflictsUnderKey(depKey, actionCheckingFutures, badActionMap, dedupSet));

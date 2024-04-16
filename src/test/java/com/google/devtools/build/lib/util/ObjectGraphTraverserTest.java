@@ -57,11 +57,10 @@ public class ObjectGraphTraverserTest {
 
     @Override
     public boolean equals(Object o) {
-      if (!(o instanceof Edge)) {
+      if (!(o instanceof Edge that)) {
         return false;
       }
 
-      Edge that = (Edge) o;
       return that.from == from && that.to == to && that.type == type;
     }
 

@@ -242,10 +242,9 @@ public abstract class InterimModule extends ModuleBase {
 
   private static RepoSpec maybeAppendAdditionalPatches(
       @Nullable RepoSpec repoSpec, @Nullable ModuleOverride override) {
-    if (!(override instanceof SingleVersionOverride)) {
+    if (!(override instanceof SingleVersionOverride singleVersion)) {
       return repoSpec;
     }
-    SingleVersionOverride singleVersion = (SingleVersionOverride) override;
     if (singleVersion.getPatches().isEmpty()) {
       return repoSpec;
     }

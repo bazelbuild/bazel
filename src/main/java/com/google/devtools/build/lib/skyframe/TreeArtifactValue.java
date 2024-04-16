@@ -234,10 +234,9 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof TreeArtifactCompositeFileArtifactValue)) {
+      if (!(o instanceof TreeArtifactCompositeFileArtifactValue that)) {
         return false;
       }
-      TreeArtifactCompositeFileArtifactValue that = (TreeArtifactCompositeFileArtifactValue) o;
       return Arrays.equals(digest, that.digest)
           && Objects.equals(materializationExecPath, that.materializationExecPath);
     }
@@ -394,11 +393,10 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       return true;
     }
 
-    if (!(other instanceof TreeArtifactValue)) {
+    if (!(other instanceof TreeArtifactValue that)) {
       return false;
     }
 
-    TreeArtifactValue that = (TreeArtifactValue) other;
     return Arrays.equals(digest, that.digest)
         && childData.equals(that.childData)
         && Objects.equals(archivedRepresentation, that.archivedRepresentation)

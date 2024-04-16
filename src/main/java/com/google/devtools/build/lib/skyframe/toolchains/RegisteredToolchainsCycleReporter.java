@@ -91,8 +91,7 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
                 ((SingleToolchainResolutionKey) input).toolchainType().toolchainType();
             return String.format("toolchain type %s", toolchainType);
           }
-          if (input instanceof ToolchainContextKey) {
-            ToolchainContextKey toolchainContextKey = (ToolchainContextKey) input;
+          if (input instanceof ToolchainContextKey toolchainContextKey) {
             String toolchainTypes =
                 toolchainContextKey.toolchainTypes().stream()
                     .map(ToolchainTypeRequirement::toolchainType)

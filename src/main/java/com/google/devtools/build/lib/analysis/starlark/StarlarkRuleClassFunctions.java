@@ -685,16 +685,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     TransitionFactory<RuleTransitionData> transitionFactory = null;
     if (!cfg.equals(Starlark.NONE)) {
-      if (cfg instanceof StarlarkDefinedConfigTransition) {
+      if (cfg instanceof StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
         // defined in Starlark via, cfg = transition
-        StarlarkDefinedConfigTransition starlarkDefinedConfigTransition =
-            (StarlarkDefinedConfigTransition) cfg;
         transitionFactory = new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition);
         hasStarlarkDefinedTransition = true;
-      } else if (cfg instanceof StarlarkExposedRuleTransitionFactory) {
+      } else if (cfg instanceof StarlarkExposedRuleTransitionFactory transition) {
         // only used for native Android transitions (platforms and feature flags)
-        StarlarkExposedRuleTransitionFactory transition =
-            (StarlarkExposedRuleTransitionFactory) cfg;
         transition.addToStarlarkRule(ruleDefinitionEnvironment, builder);
         transitionFactory = transition;
       } else {
@@ -1092,12 +1088,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       if (nameUnchecked == null) {
         throw Starlark.errorf("macro requires a `name` attribute");
       }
-      if (!(nameUnchecked instanceof String)) {
+      if (!(nameUnchecked instanceof String instanceName)) {
         throw Starlark.errorf(
             "Expected a String for attribute 'name'; got %s",
             nameUnchecked.getClass().getSimpleName());
       }
-      String instanceName = (String) nameUnchecked;
 
       MacroInstance macroInstance = new MacroInstance(macroClass, instanceName);
       try {

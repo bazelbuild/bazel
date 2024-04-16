@@ -344,8 +344,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (content instanceof String) {
       action =
           FileWriteAction.create(ruleContext, (Artifact) output, (String) content, isExecutable);
-    } else if (content instanceof Args) {
-      Args args = (Args) content;
+    } else if (content instanceof Args args) {
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
@@ -387,8 +386,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
     buildCommandLine(builder, arguments, getMainRepoMappingSupplier());
-    if (executableUnchecked instanceof Artifact) {
-      Artifact executable = (Artifact) executableUnchecked;
+    if (executableUnchecked instanceof Artifact executable) {
       FilesToRunProvider provider = context.getExecutableRunfiles(executable, "executable");
       if (provider == null) {
         if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
@@ -580,11 +578,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     // arg1 and arg2 will be $1 and $2, as a user expects.
     boolean pad = !arguments.isEmpty();
 
-    if (commandUnchecked instanceof String) {
+    if (commandUnchecked instanceof String command) {
       ImmutableMap<String, String> executionInfo =
           ImmutableMap.copyOf(TargetUtils.getExecutionInfo(ruleContext.getRule()));
       String helperScriptSuffix = String.format(".run_shell_%d.sh", runShellOutputCounter++);
-      String command = (String) commandUnchecked;
       PathFragment shExecutable =
           ShToolchain.getPathForPlatform(
               ruleContext.getConfiguration(),
@@ -600,14 +597,13 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         builder.setShellCommand(shExecutable, helperScript.getExecPathString(), pad);
         builder.addInput(helperScript);
       }
-    } else if (commandUnchecked instanceof Sequence) {
+    } else if (commandUnchecked instanceof Sequence<?> commandList) {
       if (getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_RUN_SHELL_COMMAND_STRING)) {
         throw Starlark.errorf(
             "'command' must be of type string. passing a sequence of strings as 'command'"
                 + " is deprecated. To temporarily disable this check,"
                 + " set --incompatible_run_shell_command_string=false.");
       }
-      Sequence<?> commandList = (Sequence<?>) commandUnchecked;
       if (!arguments.isEmpty()) {
         throw Starlark.errorf("'arguments' must be empty if 'command' is a sequence of strings");
       }
@@ -647,12 +643,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           stringArgs = ImmutableList.builder();
         }
         stringArgs.add((String) value);
-      } else if (value instanceof Args) {
+      } else if (value instanceof Args args) {
         if (stringArgs != null) {
           builder.addCommandLine(CommandLine.of(stringArgs.build()));
           stringArgs = null;
         }
-        Args args = (Args) value;
         ParamFileInfo paramFileInfo = args.getParamFileInfo();
         builder.addCommandLine(args.build(repoMappingSupplier), paramFileInfo);
       } else {
@@ -720,8 +715,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               : Depset.cast(toolsUnchecked, Object.class, "tools").toList();
 
       for (Object toolUnchecked : tools) {
-        if (toolUnchecked instanceof Artifact) {
-          Artifact artifact = (Artifact) toolUnchecked;
+        if (toolUnchecked instanceof Artifact artifact) {
           builder.addTool(artifact);
           FilesToRunProvider provider = context.getExecutableRunfiles(artifact, "executable");
           if (provider != null) {
@@ -940,8 +934,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           Starlark.type(fn));
     }
 
-    if (fn instanceof StarlarkFunction) {
-      StarlarkFunction sfn = (StarlarkFunction) fn;
+    if (fn instanceof StarlarkFunction sfn) {
 
       // Reject non-global functions, because arbitrary closures may cause large
       // analysis-phase data structures to remain live into the execution phase.

@@ -444,11 +444,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
-          if (!(toAddObject instanceof ObjcProvider)) {
+          if (!(toAddObject instanceof ObjcProvider objcProvider)) {
             throw Starlark.errorf(
                 AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject));
           } else {
-            ObjcProvider objcProvider = (ObjcProvider) toAddObject;
             this.addTransitiveAndPropagate(objcProvider);
           }
         }

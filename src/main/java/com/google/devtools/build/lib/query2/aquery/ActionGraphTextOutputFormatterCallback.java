@@ -113,8 +113,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
   private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
       throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
-    if (options.includeParamFiles && action instanceof ParameterFileWriteAction) {
-      ParameterFileWriteAction parameterFileWriteAction = (ParameterFileWriteAction) action;
+    if (options.includeParamFiles
+        && action instanceof ParameterFileWriteAction parameterFileWriteAction) {
 
       String fileContent = String.join(" \\\n    ", parameterFileWriteAction.getArguments());
       String paramFileName = action.getPrimaryOutput().getExecPathString();
@@ -191,8 +191,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       }
     }
 
-    if (action instanceof ActionExecutionMetadata) {
-      ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;
+    if (action instanceof ActionExecutionMetadata actionExecutionMetadata) {
       stringBuilder
           .append("  ActionKey: ")
           .append(actionExecutionMetadata.getKey(actionKeyContext, /*artifactExpander=*/ null))
@@ -234,8 +233,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("]\n");
     }
 
-    if (action instanceof AbstractAction) {
-      AbstractAction abstractAction = (AbstractAction) action;
+    if (action instanceof AbstractAction abstractAction) {
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
       Iterable<Map.Entry<String, String>> fixedEnvironment =
@@ -309,8 +307,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("}\n");
     }
 
-    if (action instanceof TemplateExpansionAction) {
-      TemplateExpansionAction templateExpansionAction = (TemplateExpansionAction) action;
+    if (action instanceof TemplateExpansionAction templateExpansionAction) {
       stringBuilder
           .append("  Template: ")
           .append(AqueryUtils.getTemplateContent(templateExpansionAction))
@@ -328,9 +325,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       stringBuilder.append("  ]\n");
     }
 
-    if (action instanceof AbstractFileWriteAction.FileContentsProvider) {
-      AbstractFileWriteAction.FileContentsProvider fileAction =
-          (AbstractFileWriteAction.FileContentsProvider) action;
+    if (action instanceof AbstractFileWriteAction.FileContentsProvider fileAction) {
       stringBuilder.append(String.format("  IsExecutable: %b\n", fileAction.makeExecutable()));
       if (options.includeFileWriteContents) {
         String contents = fileAction.getFileContents(eventHandler);

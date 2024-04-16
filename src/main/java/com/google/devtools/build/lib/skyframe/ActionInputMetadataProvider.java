@@ -75,14 +75,13 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   @Nullable
   @Override
   public FileArtifactValue getInputMetadata(ActionInput actionInput) throws IOException {
-    if (!(actionInput instanceof Artifact)) {
+    if (!(actionInput instanceof Artifact artifact)) {
       PathFragment inputPath = actionInput.getExecPath();
       PathFragment filesetKeyPath =
           inputPath.startsWith(execRoot) ? inputPath.relativeTo(execRoot) : inputPath;
       return filesetMapping.get(filesetKeyPath);
     }
 
-    Artifact artifact = (Artifact) actionInput;
     FileArtifactValue value;
 
     value = inputArtifactData.getInputMetadata(artifact);

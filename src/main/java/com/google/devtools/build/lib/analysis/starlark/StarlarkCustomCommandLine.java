@@ -1080,10 +1080,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof CommandLineItemMapEachAdaptor)) {
+      if (!(obj instanceof CommandLineItemMapEachAdaptor other)) {
         return false;
       }
-      CommandLineItemMapEachAdaptor other = (CommandLineItemMapEachAdaptor) obj;
       // Instance compare intentional
       // The normal implementation uses location + name of function,
       // which can conceivably conflict in tests

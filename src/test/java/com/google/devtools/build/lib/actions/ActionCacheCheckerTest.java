@@ -1627,10 +1627,9 @@ public class ActionCacheCheckerTest {
     @Override
     public FileArtifactValue getOutputMetadata(ActionInput input)
         throws IOException, InterruptedException {
-      if (!(input instanceof Artifact)) {
+      if (!(input instanceof Artifact output)) {
         return null;
       }
-      Artifact output = (Artifact) input;
 
       if (output.isTreeArtifact()) {
         TreeArtifactValue treeArtifactValue = getTreeArtifactValue((SpecialArtifact) output);

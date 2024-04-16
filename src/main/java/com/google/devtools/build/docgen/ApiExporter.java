@@ -159,8 +159,7 @@ public class ApiExporter {
 
   private static Value.Builder valueFromCallable(StarlarkCallable x) {
     // Starlark def statement?
-    if (x instanceof StarlarkFunction) {
-      StarlarkFunction fn = (StarlarkFunction) x;
+    if (x instanceof StarlarkFunction fn) {
       Signature sig = new Signature();
       sig.name = fn.getName();
       sig.doc = fn.getDocumentation();

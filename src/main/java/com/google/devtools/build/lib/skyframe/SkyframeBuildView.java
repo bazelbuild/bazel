@@ -1084,11 +1084,10 @@ public final class SkyframeBuildView {
     }
     Target target = labelTargetMap.get(label);
 
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       return TestType.NOT_TEST;
     }
 
-    Rule rule = (Rule) target;
     TestType fromExplicitFlagOrTag;
     if (buildDriverKeyTestContext.getTestStrategy().equals("exclusive")
         || TargetUtils.isExclusiveTestRule(rule)

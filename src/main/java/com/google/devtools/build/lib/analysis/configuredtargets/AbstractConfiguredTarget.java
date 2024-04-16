@@ -168,12 +168,11 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
 
   @Override
   public final Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-    if (!(key instanceof Provider)) {
+    if (!(key instanceof Provider constructor)) {
       throw Starlark.errorf(
           "Type Target only supports indexing by object constructors, got %s instead",
           Starlark.type(key));
     }
-    Provider constructor = (Provider) key;
     Object declaredProvider = get(constructor.getKey());
     if (declaredProvider != null) {
       return declaredProvider;
@@ -302,8 +301,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
     if (key instanceof String) {
       keyAsString = (String) key;
     } else if (key instanceof Provider.Key) {
-      if (key instanceof StarlarkProvider.Key) {
-        StarlarkProvider.Key k = (StarlarkProvider.Key) key;
+      if (key instanceof StarlarkProvider.Key k) {
         keyAsString = k.getExtensionLabel() + "%" + k.getExportedName();
       } else {
         keyAsString = key.toString();

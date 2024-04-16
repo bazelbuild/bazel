@@ -1306,8 +1306,8 @@ public class CustomCommandLine extends AbstractCommandLine {
       } else if (arg instanceof Iterable) {
         evalSimpleVectorArg((Iterable<?>) arg, builder, pathMapper, previousFlag);
       } else if (arg instanceof ArgvFragment) {
-        if (artifactExpander != null && arg instanceof TreeArtifactExpansionArgvFragment) {
-          TreeArtifactExpansionArgvFragment expansionArg = (TreeArtifactExpansionArgvFragment) arg;
+        if (artifactExpander != null
+            && arg instanceof TreeArtifactExpansionArgvFragment expansionArg) {
           expansionArg.eval(builder, artifactExpander);
         } else {
           i = ((ArgvFragment) arg).eval(arguments, i, builder, pathMapper);

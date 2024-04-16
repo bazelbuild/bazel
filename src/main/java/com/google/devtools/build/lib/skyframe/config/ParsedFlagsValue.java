@@ -117,10 +117,9 @@ public final class ParsedFlagsValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ParsedFlagsValue)) {
+    if (!(obj instanceof ParsedFlagsValue that)) {
       return false;
     }
-    ParsedFlagsValue that = (ParsedFlagsValue) obj;
     return this.flags.equals(that.flags);
   }
 

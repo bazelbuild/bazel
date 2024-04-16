@@ -1129,10 +1129,9 @@ public class RunCommand implements BlazeCommand {
    * code.
    */
   private static boolean isExecutableNonTestRule(Target target) {
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       return false;
     }
-    Rule rule = ((Rule) target);
     if (rule.getRuleClassObject().hasAttr("$is_executable", Type.BOOLEAN)) {
       return NonconfigurableAttributeMapper.of(rule).get("$is_executable", Type.BOOLEAN);
     }

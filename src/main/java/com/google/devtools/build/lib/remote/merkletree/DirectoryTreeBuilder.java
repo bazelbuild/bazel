@@ -152,8 +152,7 @@ class DirectoryTreeBuilder {
         tree,
         spawnScrubber,
         (input, path, currDir) -> {
-          if (input instanceof VirtualActionInput) {
-            VirtualActionInput virtualActionInput = (VirtualActionInput) input;
+          if (input instanceof VirtualActionInput virtualActionInput) {
             Digest d = digestUtil.compute(virtualActionInput);
             boolean childAdded =
                 currDir.addChild(

@@ -99,11 +99,10 @@ public class AndroidLibraryAarInfo extends NativeInfo
 
   @Override
   public boolean equals(Object object) {
-    if (!(object instanceof AndroidLibraryAarInfo)) {
+    if (!(object instanceof AndroidLibraryAarInfo other)) {
       return false;
     }
 
-    AndroidLibraryAarInfo other = (AndroidLibraryAarInfo) object;
     return Objects.equals(aar, other.aar)
         && transitiveAars.equals(other.transitiveAars)
         && transitiveAarArtifacts.equals(other.transitiveAarArtifacts);

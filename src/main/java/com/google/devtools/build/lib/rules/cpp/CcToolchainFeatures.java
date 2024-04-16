@@ -136,8 +136,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof Flag) {
-        Flag that = (Flag) object;
+      if (object instanceof Flag that) {
         return Iterables.elementsEqual(chunks, that.chunks);
       }
       return false;
@@ -268,8 +267,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof EnvEntry) {
-        EnvEntry that = (EnvEntry) object;
+      if (object instanceof EnvEntry that) {
         return Objects.equals(key, that.key)
             && Iterables.elementsEqual(valueChunks, that.valueChunks);
       }
@@ -455,8 +453,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof FlagGroup) {
-        FlagGroup that = (FlagGroup) object;
+      if (object instanceof FlagGroup that) {
         return Iterables.elementsEqual(expandables, that.expandables)
             && Objects.equals(iterateOverVariable, that.iterateOverVariable)
             && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
@@ -588,8 +585,7 @@ public class CcToolchainFeatures implements StarlarkValue {
 
     @Override
     public boolean equals(@Nullable Object object) {
-      if (object instanceof FlagSet) {
-        FlagSet that = (FlagSet) object;
+      if (object instanceof FlagSet that) {
         return Iterables.elementsEqual(actions, that.actions)
             && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
             && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets)
@@ -652,8 +648,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof WithFeatureSet) {
-        WithFeatureSet that = (WithFeatureSet) object;
+      if (object instanceof WithFeatureSet that) {
         return Iterables.elementsEqual(features, that.features)
             && Iterables.elementsEqual(notFeatures, that.notFeatures);
       }
@@ -735,8 +730,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof EnvSet) {
-        EnvSet that = (EnvSet) object;
+      if (object instanceof EnvSet that) {
         return Iterables.elementsEqual(actions, that.actions)
             && Iterables.elementsEqual(envEntries, that.envEntries)
             && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets);
@@ -870,8 +864,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof Feature) {
-        Feature that = (Feature) object;
+      if (object instanceof Feature that) {
         return name.equals(that.name)
             && Iterables.elementsEqual(flagSets, that.flagSets)
             && Iterables.elementsEqual(envSets, that.envSets)
@@ -1172,10 +1165,9 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (other == this) {
         return true;
       }
-      if (!(other instanceof ActionConfig)) {
+      if (!(other instanceof ActionConfig that)) {
         return false;
       }
-      ActionConfig that = (ActionConfig) other;
 
       return Objects.equals(configName, that.configName)
           && Objects.equals(actionName, that.actionName)
@@ -1436,8 +1428,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (object == this) {
         return true;
       }
-      if (object instanceof FeatureConfiguration) {
-        FeatureConfiguration that = (FeatureConfiguration) object;
+      if (object instanceof FeatureConfiguration that) {
         // Only compare actionConfigByActionName, enabledActionConfigActionnames and enabledFeatures
         // because enabledFeatureNames is based on the list of Features.
         return Objects.equals(actionConfigByActionName, that.actionConfigByActionName)

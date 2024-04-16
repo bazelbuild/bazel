@@ -149,8 +149,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   private Element createTargetElement(Document doc, Target target, LabelPrinter labelPrinter)
       throws InterruptedException {
     Element elem;
-    if (target instanceof Rule) {
-      Rule rule = (Rule) target;
+    if (target instanceof Rule rule) {
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr : rule.getAttributes()) {
@@ -195,8 +194,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         outputElem.setAttribute("name", feature);
         elem.appendChild(outputElem);
       }
-    } else if (target instanceof PackageGroup) {
-      PackageGroup packageGroup = (PackageGroup) target;
+    } else if (target instanceof PackageGroup packageGroup) {
       elem = doc.createElement("package-group");
       elem.setAttribute("name", packageGroup.getName());
       Element includes =
@@ -211,14 +209,12 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
               labelPrinter);
       packages.setAttribute("name", "packages");
       elem.appendChild(packages);
-    } else if (target instanceof OutputFile) {
-      OutputFile outputFile = (OutputFile) target;
+    } else if (target instanceof OutputFile outputFile) {
       elem = doc.createElement("generated-file");
       elem.setAttribute(
           "generating-rule", labelPrinter.toString(outputFile.getGeneratingRule().getLabel()));
-    } else if (target instanceof InputFile) {
+    } else if (target instanceof InputFile inputFile) {
       elem = doc.createElement("source-file");
-      InputFile inputFile = (InputFile) target;
       if (inputFile.getName().equals("BUILD")) {
         addStarlarkFilesToElement(doc, elem, inputFile, labelPrinter);
         addFeaturesToElement(doc, elem, inputFile);
@@ -227,8 +223,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       addPackageGroupsToElement(doc, elem, inputFile, labelPrinter);
-    } else if (target instanceof EnvironmentGroup) {
-      EnvironmentGroup envGroup = (EnvironmentGroup) target;
+    } else if (target instanceof EnvironmentGroup envGroup) {
       elem = doc.createElement("environment-group");
       elem.setAttribute("name", envGroup.getName());
       Element environments =
@@ -318,10 +313,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
           elem.appendChild(createValueElement(doc, elemType, elemValue, labelPrinter));
         }
       }
-    } else if (type instanceof Type.DictType) {
+    } else if (type instanceof Type.DictType<?, ?> dictType) {
       Set<Object> visitedValues = new HashSet<>();
       elem = doc.createElement("dict");
-      Type.DictType<?, ?> dictType = (Type.DictType<?, ?>) type;
       for (Object value : values) {
         for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
           if (visitedValues.add(entry.getKey())) {

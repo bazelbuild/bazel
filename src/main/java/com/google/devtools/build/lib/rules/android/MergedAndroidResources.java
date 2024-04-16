@@ -202,11 +202,10 @@ public class MergedAndroidResources extends ParsedAndroidResources {
 
   @Override
   public boolean equals(Object object) {
-    if (!super.equals(object) || !(object instanceof MergedAndroidResources)) {
+    if (!super.equals(object) || !(object instanceof MergedAndroidResources other)) {
       return false;
     }
 
-    MergedAndroidResources other = (MergedAndroidResources) object;
     return Objects.equals(mergedResources, other.mergedResources)
         && classJar.equals(other.classJar)
         && Objects.equals(aapt2RTxt, other.aapt2RTxt)

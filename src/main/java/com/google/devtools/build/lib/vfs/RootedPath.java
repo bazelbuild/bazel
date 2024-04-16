@@ -128,10 +128,9 @@ public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof RootedPath)) {
+    if (!(obj instanceof RootedPath other)) {
       return false;
     }
-    RootedPath other = (RootedPath) obj;
     return hashCode == other.hashCode
         && root.equals(other.root)
         && rootRelativePath.equals(other.rootRelativePath);

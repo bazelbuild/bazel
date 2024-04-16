@@ -475,10 +475,9 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof GroupedDeps)) {
+    if (!(other instanceof GroupedDeps that)) {
       return false;
     }
-    GroupedDeps that = (GroupedDeps) other;
     // Fast paths for inequality.
     if (this.size != that.size
         || this.elements.size() != that.elements.size()

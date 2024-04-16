@@ -170,10 +170,9 @@ public abstract class SkyValueDirtinessChecker {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof DirtyResult)) {
+      if (!(obj instanceof DirtyResult that)) {
         return false;
       }
-      DirtyResult that = (DirtyResult) obj;
       return this.isDirty == that.isDirty
           && Objects.equals(this.newValue, that.newValue)
           && Objects.equals(this.newMaxTransitiveSourceVersion, that.newMaxTransitiveSourceVersion);

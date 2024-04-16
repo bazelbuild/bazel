@@ -1123,10 +1123,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     Set<BuildConfigurationKey> cts = new HashSet<>();
     for (Map.Entry<SkyKey, SkyValue> e :
         skyframeExecutor.getEvaluator().getDoneValues().entrySet()) {
-      if (!(e.getKey() instanceof ConfiguredTargetKey)) {
+      if (!(e.getKey() instanceof ConfiguredTargetKey ctKey)) {
         continue;
       }
-      ConfiguredTargetKey ctKey = (ConfiguredTargetKey) e.getKey();
       if (parsed.equals(ctKey.getLabel())) {
         cts.add(ctKey.getConfigurationKey());
       }

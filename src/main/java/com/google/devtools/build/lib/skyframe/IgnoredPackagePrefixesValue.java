@@ -62,8 +62,7 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof IgnoredPackagePrefixesValue) {
-      IgnoredPackagePrefixesValue other = (IgnoredPackagePrefixesValue) obj;
+    if (obj instanceof IgnoredPackagePrefixesValue other) {
       return this.patterns.equals(other.patterns);
     }
     return false;

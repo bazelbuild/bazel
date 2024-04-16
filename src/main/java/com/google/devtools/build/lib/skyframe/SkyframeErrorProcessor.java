@@ -462,11 +462,9 @@ public final class SkyframeErrorProcessor {
     // cases like action conflict or execution-related errors.
     // TODO(b/249690006): Can we simplify things by moving aspects events here?
     if (errorKey.argument() instanceof TopLevelAspectsKey) {
-      if (exception instanceof TopLevelConflictException) {
-        TopLevelConflictException tlce = (TopLevelConflictException) exception;
+      if (exception instanceof TopLevelConflictException tlce) {
         actionConflicts = tlce.getTransitiveActionConflicts();
-      } else if (exception instanceof ActionConflictException) {
-        ActionConflictException ace = (ActionConflictException) exception;
+      } else if (exception instanceof ActionConflictException ace) {
         actionConflicts = ImmutableMap.of(ace.getAttemptedAction(), ace);
         aspectKeyForConflictReporting = ace.getAspectKey();
       } else if (isExecutionException(exception)) {
@@ -502,16 +500,13 @@ public final class SkyframeErrorProcessor {
     Label topLevelLabel = ctKey.getLabel();
     NestedSet<Cause> analysisRootCauses;
 
-    if (exception instanceof TopLevelConflictException) {
-      TopLevelConflictException tlce = (TopLevelConflictException) exception;
+    if (exception instanceof TopLevelConflictException tlce) {
       actionConflicts = tlce.getTransitiveActionConflicts();
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (exception instanceof ActionConflictException) {
-      ActionConflictException ace = (ActionConflictException) exception;
+    } else if (exception instanceof ActionConflictException ace) {
       actionConflicts = ImmutableMap.of(ace.getAttemptedAction(), ace);
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (exception instanceof ConfiguredValueCreationException) {
-      ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) exception;
+    } else if (exception instanceof ConfiguredValueCreationException ctCause) {
       // Previously, the nested set was de-duplicating loading root cause labels. Now that we
       // track Cause instances including a message, we get one event per label and message. In
       // order to keep backwards compatibility, we de-duplicate root cause labels here.
@@ -904,8 +899,7 @@ public final class SkyframeErrorProcessor {
     if (innerCause instanceof TestExecException) {
       throw (TestExecException) innerCause;
     }
-    if (cause instanceof ActionExecutionException) {
-      ActionExecutionException actionExecutionCause = (ActionExecutionException) cause;
+    if (cause instanceof ActionExecutionException actionExecutionCause) {
       String message = cause.getMessage();
       if (actionExecutionCause.getAction() != null) {
         message = actionExecutionCause.getAction().describe() + " failed: " + message;

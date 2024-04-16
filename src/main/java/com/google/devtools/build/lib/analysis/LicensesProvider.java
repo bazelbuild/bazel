@@ -83,10 +83,9 @@ public interface LicensesProvider extends Info {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TargetLicense)) {
+      if (!(obj instanceof TargetLicense other)) {
         return false;
       }
-      TargetLicense other = (TargetLicense) obj;
       return label.equals(other.label) && license.equals(other.license);
     }
 

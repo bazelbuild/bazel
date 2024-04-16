@@ -87,8 +87,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       if (this == object) {
         return true;
       }
-      if (object instanceof StringLiteralChunk) {
-        StringLiteralChunk that = (StringLiteralChunk) object;
+      if (object instanceof StringLiteralChunk that) {
         return text.equals(that.text);
       }
       return false;
@@ -128,8 +127,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       if (this == object) {
         return true;
       }
-      if (object instanceof VariableChunk) {
-        VariableChunk that = (VariableChunk) object;
+      if (object instanceof VariableChunk that) {
         return variableName.equals(that.variableName);
       }
       return false;
@@ -731,13 +729,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof LibraryToLinkValue)) {
+      if (!(obj instanceof LibraryToLinkValue other)) {
         return false;
       }
       if (this == obj) {
         return true;
       }
-      LibraryToLinkValue other = (LibraryToLinkValue) obj;
       return this.getTypeName().equals(other.getTypeName())
           && getIsWholeArchive() == other.getIsWholeArchive();
     }
@@ -768,13 +765,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
       @Override
       public boolean equals(Object obj) {
-        if (!(obj instanceof LibraryToLinkValueWithName)) {
+        if (!(obj instanceof LibraryToLinkValueWithName other)) {
           return false;
         }
         if (this == obj) {
           return true;
         }
-        LibraryToLinkValueWithName other = (LibraryToLinkValueWithName) obj;
         return this.name.equals(other.name) && super.equals(other);
       }
 
@@ -817,13 +813,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
       @Override
       public boolean equals(Object obj) {
-        if (!(obj instanceof ForVersionedDynamicLibrary)) {
+        if (!(obj instanceof ForVersionedDynamicLibrary other)) {
           return false;
         }
         if (this == obj) {
           return true;
         }
-        ForVersionedDynamicLibrary other = (ForVersionedDynamicLibrary) obj;
         return this.path.equals(other.path) && super.equals(other);
       }
 
@@ -935,13 +930,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
       @Override
       public boolean equals(Object obj) {
-        if (!(obj instanceof ForObjectFileGroup)) {
+        if (!(obj instanceof ForObjectFileGroup other)) {
           return false;
         }
         if (this == obj) {
           return true;
         }
-        ForObjectFileGroup other = (ForObjectFileGroup) obj;
         return this.objectFiles.equals(other.objectFiles) && super.equals(other);
       }
 
@@ -1480,13 +1474,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      */
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof MapVariables)) {
+      if (!(other instanceof MapVariables that)) {
         return false;
       }
       if (this == other) {
         return true;
       }
-      MapVariables that = (MapVariables) other;
       if (this.parent != that.parent) {
         return false;
       }
@@ -1532,13 +1525,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof SingleVariables)) {
+      if (!(other instanceof SingleVariables that)) {
         return false;
       }
       if (this == other) {
         return true;
       }
-      SingleVariables that = (SingleVariables) other;
       if (this.parent != that.parent) {
         return false;
       }

@@ -457,10 +457,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof AppleConfiguration)) {
+    if (!(obj instanceof AppleConfiguration that)) {
       return false;
     }
-    AppleConfiguration that = (AppleConfiguration) obj;
     return this.options.equals(that.options);
   }
 

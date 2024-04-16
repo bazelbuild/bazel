@@ -271,8 +271,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   @Nullable
   protected AndroidDeployInfo getAndroidDeployInfo(Artifact artifact) throws IOException {
     Action generatingAction = getGeneratingAction(artifact);
-    if (generatingAction instanceof AndroidDeployInfoAction) {
-      AndroidDeployInfoAction writeAction = (AndroidDeployInfoAction) generatingAction;
+    if (generatingAction instanceof AndroidDeployInfoAction writeAction) {
       return writeAction.getDeployInfo();
     }
     return null;

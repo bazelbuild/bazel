@@ -857,11 +857,10 @@ public final class RemoteModule extends BlazeModule {
       ByteStreamBuildEventArtifactUploader uploader, ConfiguredTarget configuredTarget) {
     // This will either dereference an alias chain, or return the final ConfiguredTarget.
     ConfiguredTarget actualConfiguredTarget = configuredTarget.getActual();
-    if (!(actualConfiguredTarget instanceof RuleConfiguredTarget)) {
+    if (!(actualConfiguredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget)) {
       return;
     }
 
-    RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) actualConfiguredTarget;
     for (ActionAnalysisMetadata action : ruleConfiguredTarget.getActions()) {
       boolean uploadLocalResults =
           Utils.shouldUploadLocalResultsToRemoteCache(remoteOptions, action.getExecutionInfo());

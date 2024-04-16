@@ -240,9 +240,8 @@ class NodeEntryVisitor {
     progressReceiver.enqueueing(key);
 
     var runnable = runnableMakerToUse.make(key);
-    if (quiescingExecutor instanceof MultiThreadPoolsQuiescingExecutor) {
-      MultiThreadPoolsQuiescingExecutor multiThreadPoolsQuiescingExecutor =
-          (MultiThreadPoolsQuiescingExecutor) quiescingExecutor;
+    if (quiescingExecutor
+        instanceof MultiThreadPoolsQuiescingExecutor multiThreadPoolsQuiescingExecutor) {
       ThreadPoolType threadPoolType;
       if (key instanceof CPUHeavySkyKey) {
         threadPoolType = ThreadPoolType.CPU_HEAVY;

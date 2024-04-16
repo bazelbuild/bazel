@@ -89,11 +89,10 @@ public class GlobsValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof GlobRequest)) {
+      if (!(obj instanceof GlobRequest other)) {
         return false;
       }
 
-      GlobRequest other = (GlobRequest) obj;
       return pattern.equals(other.pattern) && globOperation.equals(other.globOperation);
     }
 
@@ -205,10 +204,9 @@ public class GlobsValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof Key)) {
+      if (!(obj instanceof Key other)) {
         return false;
       }
-      Key other = (Key) obj;
       return packageIdentifier.equals(other.packageIdentifier)
           && packageRoot.equals(other.packageRoot)
           && globRequests.equals(other.globRequests);

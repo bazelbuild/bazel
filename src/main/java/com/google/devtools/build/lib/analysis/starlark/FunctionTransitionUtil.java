@@ -497,7 +497,7 @@ public final class FunctionTransitionUtil {
           Field field = def.getField();
           // TODO(b/153867317): check for crashing options types in this logic.
           Object convertedValue;
-          if (def.getType() == List.class && optionValue instanceof List) {
+          if (def.getType() == List.class && optionValue instanceof List<?> optionValueAsList) {
             // This is possible with Starlark code like "{ //command_line_option:foo: ["a", "b"] }".
             // In that case def.getType() == List.class while optionValue.type == StarlarkList.
             // Unfortunately we can't check the *element* types because OptionDefinition won't tell
@@ -507,7 +507,6 @@ public final class FunctionTransitionUtil {
             // generically safe way to do this. We convert its elements with .toString() with a ","
             // separator, which happens to work for most implementations. But that's not universally
             // guaranteed.
-            List<?> optionValueAsList = (List<?>) optionValue;
             if (optionValueAsList.isEmpty()) {
               convertedValue = ImmutableList.of();
             } else if (!def.allowsMultiple()) {

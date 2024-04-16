@@ -201,9 +201,8 @@ class JsonTraceFileWriter implements Runnable {
 
           if (slimProfile
               && eventCount > SLIM_PROFILE_EVENT_THRESHOLD
-              && data instanceof TaskData
+              && data instanceof TaskData taskData
               && isCandidateForMerging((TaskData) data)) {
-            TaskData taskData = (TaskData) data;
             eventsPerThread.putIfAbsent(taskData.threadId, new MergedEvent());
             TaskData mergedTaskData = eventsPerThread.get(taskData.threadId).maybeMerge(taskData);
             if (mergedTaskData != null) {

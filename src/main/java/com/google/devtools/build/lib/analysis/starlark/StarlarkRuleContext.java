@@ -633,9 +633,8 @@ public final class StarlarkRuleContext
     }
 
     // Normalize the return type
-    if (rawProviders instanceof Info) {
+    if (rawProviders instanceof Info info) {
       // Either an old-style struct or a single declared provider (not in a list)
-      Info info = (Info) rawProviders;
       if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
         throw Starlark.errorf(
             "Parent rule returned struct providers. Rules returning struct providers can't be"

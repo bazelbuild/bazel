@@ -55,15 +55,12 @@ public class FileSymlinkExceptionCodecTest {
       verifyDeserialization =
           (deserialized, subject) -> {
             assertThat(deserialized).hasMessageThat().isEqualTo(subject.getMessage());
-            if (deserialized instanceof FileSymlinkInfiniteExpansionException) {
-              FileSymlinkInfiniteExpansionException fsDeserialized =
-                  (FileSymlinkInfiniteExpansionException) deserialized;
+            if (deserialized instanceof FileSymlinkInfiniteExpansionException fsDeserialized) {
               FileSymlinkInfiniteExpansionException fsSubject =
                   (FileSymlinkInfiniteExpansionException) subject;
               assertThat(fsDeserialized.getPathToChain()).isEqualTo(fsSubject.getPathToChain());
               assertThat(fsDeserialized.getChain()).isEqualTo(fsSubject.getChain());
-            } else if (deserialized instanceof FileSymlinkCycleException) {
-              FileSymlinkCycleException fsDeserialized = (FileSymlinkCycleException) deserialized;
+            } else if (deserialized instanceof FileSymlinkCycleException fsDeserialized) {
               FileSymlinkCycleException fsSubject = (FileSymlinkCycleException) subject;
               assertThat(fsDeserialized.getPathToCycle()).isEqualTo(fsSubject.getPathToCycle());
               assertThat(fsDeserialized.getCycle()).isEqualTo(fsSubject.getCycle());

@@ -151,10 +151,9 @@ public final class AliasProvider implements TransitiveInfoProvider {
    * {@link #isAlias} on the configured target returns {@code false}.
    */
   public static boolean mayBeAlias(Target target) {
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       return false;
     }
-    Rule rule = (Rule) target;
     AdvertisedProviderSet providerSet = rule.getRuleClassObject().getAdvertisedProviders();
     return providerSet.canHaveAnyProvider()
         || providerSet.getBuiltinProviders().contains(AliasProvider.class);

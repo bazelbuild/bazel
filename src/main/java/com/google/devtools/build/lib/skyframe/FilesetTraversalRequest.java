@@ -104,10 +104,9 @@ public class FilesetTraversalRequest extends TraversalRequest {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof FilesetTraversalRequest)) {
+    if (!(o instanceof FilesetTraversalRequest other)) {
       return false;
     }
-    FilesetTraversalRequest other = (FilesetTraversalRequest) o;
     return root().equals(other.root())
         && isRootGenerated() == other.isRootGenerated()
         && crossPkgBoundaries() == other.crossPkgBoundaries()

@@ -664,11 +664,10 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       valuesMissing = true;
       return false;
     }
-    if (!(maybeWrappedValue instanceof ValueWithMetadata)) {
+    if (!(maybeWrappedValue instanceof ValueWithMetadata wrappedValue)) {
       resultCallback.acceptValue(depKey, maybeWrappedValue);
       return true;
     }
-    ValueWithMetadata wrappedValue = (ValueWithMetadata) maybeWrappedValue;
     if (!wrappedValue.hasError()) {
       resultCallback.acceptValue(depKey, wrappedValue.getValue());
       return true;
@@ -708,10 +707,9 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       valuesMissing = true;
       return null;
     }
-    if (!(maybeWrappedValue instanceof ValueWithMetadata)) {
+    if (!(maybeWrappedValue instanceof ValueWithMetadata wrappedValue)) {
       return maybeWrappedValue;
     }
-    ValueWithMetadata wrappedValue = (ValueWithMetadata) maybeWrappedValue;
     if (!wrappedValue.hasError()) {
       return wrappedValue.getValue();
     }

@@ -121,8 +121,7 @@ public final class BuildDriverKey implements SkyKey {
 
   @Override
   public boolean equals(Object other) {
-    if (other instanceof BuildDriverKey) {
-      BuildDriverKey otherBuildDriverKey = (BuildDriverKey) other;
+    if (other instanceof BuildDriverKey otherBuildDriverKey) {
       return actionLookupKey.equals(otherBuildDriverKey.actionLookupKey)
           && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext)
           && explicitlyRequested == otherBuildDriverKey.explicitlyRequested;

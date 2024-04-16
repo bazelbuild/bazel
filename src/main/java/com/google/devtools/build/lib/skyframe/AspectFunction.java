@@ -390,8 +390,7 @@ final class AspectFunction implements SkyFunction {
       if (!e.depReportedOwnError()) {
         env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       }
-      if (e.getCause() instanceof ConfiguredValueCreationException) {
-        ConfiguredValueCreationException cause = (ConfiguredValueCreationException) e.getCause();
+      if (e.getCause() instanceof ConfiguredValueCreationException cause) {
         throw new AspectFunctionException(
             new AspectCreationException(
                 cause.getMessage(), cause.getRootCauses(), cause.getDetailedExitCode()));
@@ -771,8 +770,8 @@ final class AspectFunction implements SkyFunction {
         view.createAnalysisEnvironment(key, events, env, configuration, starlarkBuiltinsValue);
 
     ConfiguredAspect configuredAspect;
-    if (aspect.getDefinition().applyToGeneratingRules() && associatedTarget instanceof OutputFile) {
-      OutputFile outputFile = (OutputFile) associatedTarget;
+    if (aspect.getDefinition().applyToGeneratingRules()
+        && associatedTarget instanceof OutputFile outputFile) {
       Label label = outputFile.getGeneratingRule().getLabel();
       return createAliasAspect(
           env, associatedTarget, key, aspect, key.withLabel(label), transitiveState);

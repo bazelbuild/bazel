@@ -375,11 +375,9 @@ public class AndroidManifest {
 
   @Override
   public boolean equals(Object object) {
-    if (!(object instanceof AndroidManifest)) {
+    if (!(object instanceof AndroidManifest other)) {
       return false;
     }
-
-    AndroidManifest other = (AndroidManifest) object;
 
     return manifest.equals(other.manifest)
         && Objects.equals(pkg, other.pkg)
