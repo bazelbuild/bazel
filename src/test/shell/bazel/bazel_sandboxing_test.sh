@@ -32,6 +32,14 @@ function set_up {
   sed -i.bak '/sandbox_tmpfs_path/d' "$bazelrc"
 }
 
+function assert_not_exists() {
+  path="$1"
+  [ ! -f "$path" ] && return 0
+
+  fail "Expected file '$path' to not exist, but it did"
+  return 1
+}
+
 function test_sandboxed_tooldir() {
   mkdir -p examples/genrule
 
@@ -309,6 +317,57 @@ EOF
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
+function setup_tmp_hermeticity_check() {
+  local -r tmpdir=$1
+
+  mkdir -p test
+  cat > test/BUILD <<'EOF'
+cc_binary(
+    name = "create_file",
+    srcs = ["create_file.cc"],
+)
+
+[
+    genrule(
+        name = "gen" + str(i),
+        outs = ["gen{}.txt".format(i)],
+        tools = [":create_file"],
+        cmd = """
+        path=$$($(location :create_file))
+        cp "$$path" $@
+        """,
+    )
+    for i in range(1, 3)
+]
+EOF
+  cat > test/create_file.cc <<EOF
+// Create a file in a fixed location only if it doesn't exist.
+// Then write its path to stdout.
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main() {
+  int fd = open("$tmpdir/bazel_was_here", O_CREAT | O_EXCL | O_WRONLY, 0600);
+  if (fd < 0) {
+    perror("open");
+    return 1;
+  }
+  if (write(fd, "HERMETIC\n", 9) != 9) {
+    perror("write");
+    return 1;
+  }
+  close(fd);
+  printf("$tmpdir/bazel_was_here\n");
+  return 0;
+}
+EOF
+}
+
 function test_add_mount_pair_tmp_source() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # Tests Linux-specific functionality
@@ -321,19 +380,26 @@ function test_add_mount_pair_tmp_source() {
   trap "rm -fr $mounted" EXIT
   echo GOOD > "$mounted/data.txt"
 
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
+
   mkdir -p pkg
-  cat > pkg/BUILD <<EOF
+  cat > pkg/BUILD <<'EOF'
 genrule(
     name = "gen",
     outs = ["gen.txt"],
-    # Verify that /tmp is still hermetic.
-    cmd = """[ ! -e "${mounted}/data.txt" ] && cp /etc/data.txt \$@""",
+    cmd = "cp /etc/data.txt $@",
 )
 EOF
 
   # This assumes the existence of /etc on the host system
-  bazel build --sandbox_add_mount_pair="$mounted:/etc" //pkg:gen || fail "build failed"
-  assert_contains GOOD bazel-bin/pkg/gen.txt
+  bazel build --sandbox_add_mount_pair="$mounted:/etc" \
+    //pkg:gen //test:all || fail "build failed"
+  assert_equals GOOD "$(cat bazel-bin/pkg/gen.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
 function test_add_mount_pair_tmp_target() {
@@ -348,20 +414,28 @@ function test_add_mount_pair_tmp_target() {
   trap "rm -fr $source_dir" EXIT
   echo BAD > "$source_dir/data.txt"
 
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
+
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
 genrule(
     name = "gen",
     outs = ["gen.txt"],
-    # Verify that /tmp is still hermetic.
-    cmd = """[ ! -e "${source_dir}/data.txt" ] && ls "$source_dir" > \$@""",
+    cmd = """ls "$source_dir" > \$@""",
 )
 EOF
 
 
   # This assumes the existence of /etc on the host system
-  bazel build --sandbox_add_mount_pair="/etc:$source_dir" //pkg:gen || fail "build failed"
+  bazel build --sandbox_add_mount_pair="/etc:$source_dir" \
+    //pkg:gen //test:all || fail "build failed"
   assert_contains passwd bazel-bin/pkg/gen.txt
+  assert_not_contains data.txt bazel-bin/pkg/gen.txt
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
 function test_add_mount_pair_tmp_target_and_source() {
@@ -376,22 +450,25 @@ function test_add_mount_pair_tmp_target_and_source() {
   trap "rm -fr $mounted" EXIT
   echo GOOD > "$mounted/data.txt"
 
-  local tmp_file=$(mktemp "/tmp/bazel_tmp.XXXXXXXX")
-  trap "rm $tmp_file" EXIT
-  echo BAD > "$tmp_file"
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
 genrule(
     name = "gen",
     outs = ["gen.txt"],
-    # Verify that /tmp is still hermetic.
-    cmd = """[ ! -e "${tmp_file}" ] && cp "$mounted/data.txt" \$@""",
+    cmd = """cp "$mounted/data.txt" \$@""",
 )
 EOF
 
-  bazel build --sandbox_add_mount_pair="$mounted" //pkg:gen || fail "build failed"
-  assert_contains GOOD bazel-bin/pkg/gen.txt
+  bazel build --sandbox_add_mount_pair="$mounted" \
+    //pkg:gen //test:all || fail "build failed"
+  assert_equals GOOD "$(cat bazel-bin/pkg/gen.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
 function test_symlink_with_output_base_under_tmp() {
@@ -534,13 +611,13 @@ function test_tmpfs_path_under_tmp() {
 
   create_workspace_with_default_repos WORKSPACE
 
-  local tmp_file=$(mktemp "/tmp/bazel_tmp.XXXXXXXX")
-  trap "rm $tmp_file" EXIT
-  echo BAD > "$tmp_file"
-
   local tmpfs=$(mktemp -d "/tmp/bazel_tmpfs.XXXXXXXX")
   trap "rm -fr $tmpfs" EXIT
   echo BAD > "$tmpfs/data.txt"
+
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
@@ -548,10 +625,9 @@ genrule(
     name = "gen",
     outs = ["gen.txt"],
     cmd = """
-# Verify that /tmp is still hermetic and that the tmpfs under /tmp exists, but is empty.
-[[ ! -e "${tmp_file}" ]]
-[[ -d /tmp/tmpfs ]]
-[[ ! -e /tmp/tmpfs/data.txt ]]
+# Verify that the tmpfs under /tmp exists and is empty.
+[[ -d "$tmpfs" ]]
+[[ ! -e "$tmpfs/data.txt" ]]
 # Verify that the tmpfs on /etc exists and is empty.
 [[ -d /etc ]]
 [[ -z "\$\$(ls -A /etc)" ]]
@@ -561,8 +637,11 @@ touch \$@
 EOF
 
   # This assumes the existence of /etc on the host system
-  bazel build --sandbox_tmpfs_path=/tmp/tmpfs --sandbox_tmpfs_path=/etc \
-    //pkg:gen || fail "build failed"
+  bazel build --sandbox_tmpfs_path="$tmpfs" --sandbox_tmpfs_path=/etc \
+    //pkg:gen //test:all || fail "build failed"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
