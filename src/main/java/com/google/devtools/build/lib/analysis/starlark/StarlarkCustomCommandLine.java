@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
@@ -53,7 +52,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -215,15 +213,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       features |= arg.joinWith != null ? HAS_JOIN_WITH : 0;
       features |= arg.formatJoined != null ? HAS_FORMAT_JOINED : 0;
       features |= arg.terminateWith != null ? HAS_TERMINATE_WITH : 0;
-      StringificationType stringificationType;
-      if (Label.class.equals(arg.nestedSetElementType)) {
-        stringificationType = StringificationType.LABEL;
-      } else if (FileApi.class.equals(arg.nestedSetElementType)) {
-        stringificationType = StringificationType.FILE;
-      } else {
-        stringificationType = StringificationType.DEFAULT;
-      }
-      arguments.add(VectorArg.create(features, stringificationType));
+      arguments.add(VectorArg.create(features, arg.nestedSetStringificationType));
       if (arg.mapEach != null) {
         arguments.add(arg.mapEach);
         arguments.add(arg.location);
@@ -497,9 +487,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // stringification behavior (which excludes custom mapEach functions, but those do not
       // support path mapping yet).
       if ((features & IS_NESTED_SET) != 0) {
-        fingerprint.addInt(stringificationType.ordinal());
         NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
+          // mapEach functions do not rely on default stringification behavior, so we can omit
+          // fingerprinting stringificationType here.
           CommandLineItemMapEachAdaptor commandLineItemMapFn =
               new CommandLineItemMapEachAdaptor(
                   mapEach,
@@ -519,6 +510,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
             commandLineItemMapFn.clearArtifactExpander();
           }
         } else {
+          fingerprint.addInt(stringificationType.ordinal());
           actionKeyContext.addNestedSetToFingerprint(fingerprint, values);
         }
       } else {
@@ -591,7 +583,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     static final class Builder {
       @Nullable private final Sequence<?> list;
       @Nullable private final NestedSet<?> nestedSet;
-      @Nullable private final Class<?> nestedSetElementType;
+      @Nullable private final StringificationType nestedSetStringificationType;
       private Location location;
       private String argName;
       private boolean expandDirectories;
@@ -607,13 +599,19 @@ public class StarlarkCustomCommandLine extends CommandLine {
       Builder(Sequence<?> list) {
         this.list = list;
         this.nestedSet = null;
-        this.nestedSetElementType = null;
+        this.nestedSetStringificationType = null;
       }
 
       Builder(NestedSet<?> nestedSet, Class<?> nestedSetElementType) {
         this.list = null;
         this.nestedSet = nestedSet;
-        this.nestedSetElementType = nestedSetElementType;
+        if (nestedSetElementType == FileApi.class) {
+          this.nestedSetStringificationType = StringificationType.FILE;
+        } else if (nestedSetElementType == Label.class) {
+          this.nestedSetStringificationType = StringificationType.LABEL;
+        } else {
+          this.nestedSetStringificationType = StringificationType.DEFAULT;
+        }
       }
 
       @CanIgnoreReturnValue
@@ -693,12 +691,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
       VectorArg vectorArg = (VectorArg) o;
       return features == vectorArg.features
-          && Objects.equal(stringificationType, vectorArg.stringificationType);
+          && stringificationType.equals(vectorArg.stringificationType);
     }
 
     @Override
     public int hashCode() {
-      return 31 * Integer.hashCode(features) + HashCodes.hashObject(stringificationType);
+      return 31 * Integer.hashCode(features) + stringificationType.hashCode();
     }
   }
 
@@ -896,13 +894,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
   }
 
   private static void addSingleObjectToFingerprint(Fingerprint fingerprint, Object object) {
-    if (object instanceof FileApi) {
-      fingerprint.addInt(StringificationType.FILE.ordinal());
-    } else if (object instanceof Label) {
-      fingerprint.addInt(StringificationType.LABEL.ordinal());
-    } else {
-      fingerprint.addInt(StringificationType.DEFAULT.ordinal());
-    }
+    StringificationType stringificationType =
+        switch (object) {
+          case FileApi ignored -> StringificationType.FILE;
+          case Label ignored -> StringificationType.LABEL;
+          default -> StringificationType.DEFAULT;
+        };
+    fingerprint.addInt(stringificationType.ordinal());
     fingerprint.addString(CommandLineItem.expandToCommandLine(object));
   }
 
