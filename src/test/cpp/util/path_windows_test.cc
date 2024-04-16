@@ -271,7 +271,7 @@ TEST(PathWindowsTest, TestMsysRootRetrieval) {
   ASSERT_FALSE(AsWindowsPath("/blah", &actual, &error));
   EXPECT_TRUE(error.find("Unix-style") != string::npos);
 
-  SetEnvironmentVariableA("BAZEL_SH", "c:/tools/msys64/usr/bin/bash.exe");
+  SetEnvironmentVariableA("BAZEL_SH", "c:/msys64/usr/bin/bash.exe");
   ASSERT_FALSE(AsWindowsPath("/blah", &actual, &error));
   EXPECT_TRUE(error.find("Unix-style") != string::npos);
 }
