@@ -19,9 +19,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
@@ -42,8 +40,7 @@ public class YankedVersionsFunction implements SkyFunction {
 
   @Override
   @Nullable
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws InterruptedException, YankedVersionsException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     var key = (YankedVersionsValue.Key) skyKey.argument();
     try (SilentCloseable c =
         Profiler.instance()
@@ -66,13 +63,6 @@ public class YankedVersionsFunction implements SkyFunction {
       // This should never happen since we obtain the registry URL from an already constructed
       // registry.
       throw new IllegalStateException(e);
-    }
-  }
-
-  static final class YankedVersionsException extends SkyFunctionException {
-
-    YankedVersionsException(ExternalDepsException cause) {
-      super(cause, Transience.TRANSIENT);
     }
   }
 }
