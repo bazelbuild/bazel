@@ -1041,6 +1041,25 @@ EOF
     || fail "Test //pkg:b didn't reuse runfiles file"
 }
 
+function test_changed_async_deleter_filesystem() {
+  mkdir pkg
+  cat >pkg/BUILD <<'EOF'
+cc_library(
+  name = "a",
+  srcs = [ "a.cc" ],
+)
+EOF
+  touch pkg/a.cc
+
+  bazel build //pkg:a \
+    || fail "Expected build to succeed"
+
+  bazel clean
+
+  bazel build --sandbox_base=/dev/shm //pkg:a \
+    || fail "Expected build to succeed"
+}
+
 function is_bazel() {
   [ $TEST_WORKSPACE == "_main" ]
 }
