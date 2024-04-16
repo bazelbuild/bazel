@@ -305,7 +305,7 @@ public interface ModuleArg {
         throws InvalidArgumentException {
       Optional<AugmentedModule> mod =
           depGraph.values().stream()
-              .filter(m -> moduleKeyToCanonicalNames.get(m.getKey()).equals(repoName()))
+              .filter(m -> repoName().equals(moduleKeyToCanonicalNames.get(m.getKey())))
               .findAny();
       if (mod.isPresent() && !includeUnused && warnUnused && !mod.get().isUsed()) {
         // Warn the user when unused modules are allowed and the specified version exists, but the
