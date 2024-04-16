@@ -26,6 +26,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -965,28 +967,26 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     @Override
-    public void expand(Artifact treeArtifact, Collection<? super Artifact> output) {
+    public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact) {
       checkArgument(treeArtifact.isTreeArtifact(), treeArtifact);
       TreeArtifactValue tree = inputArtifactData.getTreeMetadata(treeArtifact.getExecPath());
-      if (tree != null) {
-        output.addAll(tree.getChildren());
-      }
+      return tree == null ? ImmutableSortedSet.of() : tree.getChildren();
     }
 
     @Override
-    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
+    public ImmutableList<FilesetOutputSymlink> expandFileset(Artifact fileset)
         throws MissingExpansionException {
-      checkArgument(artifact.isFileset(), artifact);
-      ImmutableList<FilesetOutputSymlink> filesetLinks = expandedFilesets.get(artifact);
+      checkArgument(fileset.isFileset(), fileset);
+      ImmutableList<FilesetOutputSymlink> filesetLinks = expandedFilesets.get(fileset);
       if (filesetLinks == null) {
-        throw new MissingExpansionException("Missing expansion for fileset: " + artifact);
+        throw new MissingExpansionException("Missing expansion for fileset: " + fileset);
       }
       return filesetLinks;
     }
 
     @Override
     @Nullable
-    public ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+    public ArchivedTreeArtifact getArchivedTreeArtifact(Artifact treeArtifact) {
       checkArgument(treeArtifact.isTreeArtifact(), treeArtifact);
       TreeArtifactValue tree = inputArtifactData.getTreeMetadata(treeArtifact.getExecPath());
       return tree == null ? null : tree.getArchivedArtifact();

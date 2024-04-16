@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
@@ -28,10 +29,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -63,9 +65,10 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -130,7 +133,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Before
-  public final void createBuildFile() throws Exception {
+  public void createBuildFile() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
 
     scratch.file("myinfo/BUILD");
@@ -704,8 +707,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         (String) ev.eval(String.format("ruleContext.expand_location('$(%s)')", command)));
   }
 
-  private void assertMatches(String description, String expectedPattern, String computedValue)
-      throws Exception {
+  private static void assertMatches(
+      String description, String expectedPattern, String computedValue) {
     assertWithMessage(
             String.format(
                 "%s '%s' did not match pattern '%s'", description, computedValue, expectedPattern))
@@ -3481,25 +3484,17 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   private static ArtifactExpander createArtifactExpander(String dirRelativePath, String... files) {
-    return (artifact, output) -> {
+    return treeArtifact -> {
       Preconditions.checkArgument(
-          artifact.getRootRelativePath().equals(PathFragment.create(dirRelativePath)));
-      for (String file : files) {
-        output.add(
-            DerivedArtifact.create(
-                artifact.getRoot(),
-                artifact.getExecPath().getRelative(file),
-                (ActionLookupKey) artifact.getArtifactOwner()));
+          treeArtifact.getRootRelativePathString().equals(dirRelativePath), treeArtifact);
+      SpecialArtifact parent = (SpecialArtifact) treeArtifact;
+      if (!parent.hasGeneratingActionKey()) {
+        // Set a dummy generating action key so that we can create child TreeFileArtifacts.
+        parent.setGeneratingActionKey(ActionLookupData.create(parent.getArtifactOwner(), 0));
       }
-    };
-  }
-
-  private static ArtifactExpander createArtifactExpander(
-      Artifact directory, ImmutableList<Artifact> files) {
-    return (artifact, output) -> {
-      if (artifact.equals(directory)) {
-        output.addAll(files);
-      }
+      return Arrays.stream(files)
+          .map(f -> TreeFileArtifact.createTreeOutput(parent, f))
+          .collect(toImmutableSortedSet(Comparator.naturalOrder()));
     };
   }
 
@@ -3546,10 +3541,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(commandLine.arguments()).containsExactly("foo/dir");
 
     // Now ask for one with an expanded directory
-    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
-    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
     ArtifactExpander artifactExpander =
-        createArtifactExpander(directory, ImmutableList.of(file1, file2));
+        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
     assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2");
   }
@@ -3568,10 +3561,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
 
-    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
-    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
     ArtifactExpander artifactExpander =
-        createArtifactExpander(directory, ImmutableList.of(file1, file2));
+        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
     // First expanded, then not expanded (two separate calls)
     assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/dir");
@@ -3619,10 +3610,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Artifact directory = (Artifact) ev.eval("directory");
     CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
 
-    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
-    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
     ArtifactExpander artifactExpander =
-        createArtifactExpander(directory, ImmutableList.of(file1, file2));
+        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
     assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/file3");
   }

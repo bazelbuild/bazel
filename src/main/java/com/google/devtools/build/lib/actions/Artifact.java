@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
@@ -210,39 +211,37 @@ public abstract class Artifact
     return EXEC_PATH_COMPARATOR.compare(this, o);
   }
 
-  /** An object that can expand middleman and tree artifacts. */
+  /** Expands tree artifacts and filesets. */
   public interface ArtifactExpander {
 
     /**
-     * Expands the given artifact, and populates "output" with the result.
+     * Returns the expansion of the given {@linkplain SpecialArtifactType#TREE tree artifact}.
      *
-     * <p>{@code artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()} must be true. Only
-     * middlemen and tree artifacts are expanded.
+     * <p>If this expander does not have data for the given tree artifact, returns an empty set.
      */
-    // TODO: b/239184359 - This is specifically for tree artifacts. Reflect that in the signature.
-    void expand(Artifact artifact, Collection<? super Artifact> output);
+    ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact);
 
     /**
-     * Returns the expansion of Fileset for the given artifact.
+     * Returns the expansion of the given {@linkplain SpecialArtifactType#FILESET fileset artifact}.
      *
      * @param artifact {@code artifact.isFileset()} must be true.
      * @throws MissingExpansionException if the expander is missing data needed to expand provided
      *     fileset.
      */
-    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
+    default ImmutableList<FilesetOutputSymlink> expandFileset(Artifact fileset)
         throws MissingExpansionException {
-      throw new MissingExpansionException("Cannot expand fileset " + artifact);
+      throw new MissingExpansionException("Cannot expand fileset " + fileset);
     }
 
     /**
-     * Return an {@link ArchivedTreeArtifact} for a provided {@linkplain SpecialArtifact tree
-     * artifact} if one is available.
+     * Returns an {@link ArchivedTreeArtifact} for a provided {@linkplain SpecialArtifactType#TREE
+     * tree artifact} if one is available.
      *
      * <p>The {@linkplain ArchivedTreeArtifact archived tree artifact} can be used instead of the
      * tree artifact expansion.
      */
     @Nullable
-    default ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+    default ArchivedTreeArtifact getArchivedTreeArtifact(Artifact treeArtifact) {
       return null;
     }
   }
@@ -1319,7 +1318,7 @@ public abstract class Artifact
    */
   static void addExpandedArtifact(
       Artifact artifact,
-      Collection<? super Artifact> output,
+      List<? super Artifact> output,
       ArtifactExpander artifactExpander,
       Set<Artifact> emptyTreeArtifacts,
       boolean keepMiddlemanArtifacts) {
@@ -1331,11 +1330,11 @@ public abstract class Artifact
     }
 
     if (artifact.isTreeArtifact()) {
-      List<Artifact> expandedArtifacts = new ArrayList<>();
-      artifactExpander.expand(artifact, expandedArtifacts);
-      output.addAll(expandedArtifacts);
-      if (artifact.isTreeArtifact() && expandedArtifacts.isEmpty()) {
+      ImmutableSortedSet<TreeFileArtifact> children = artifactExpander.expandTreeArtifact(artifact);
+      if (children.isEmpty()) {
         emptyTreeArtifacts.add(artifact);
+      } else {
+        output.addAll(children);
       }
       return;
     }

@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -468,7 +469,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
 
           @Override
           public Action generate(ImmutableSet<StaticKeyAttributes> attributes)
-              throws InterruptedException, RuleErrorException {
+              throws RuleErrorException {
             try {
               CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
               CppLinkActionBuilder builder =
@@ -715,7 +716,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     return builder.build();
   }
 
-  private ResourceSet estimateResourceConsumptionLocal(
+  private static ResourceSet estimateResourceConsumptionLocal(
       RuleContext ruleContext, OS os, int inputsCount) throws Exception {
     NestedSet<Artifact> inputs = createInputs(ruleContext, inputsCount);
     try {
@@ -975,12 +976,10 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
-        (artifact, output) -> {
-          if (artifact.equals(testTreeArtifact)) {
-            output.add(library0);
-            output.add(library1);
-          }
-        };
+        artifact ->
+            artifact.equals(testTreeArtifact)
+                ? ImmutableSortedSet.of(library0, library1)
+                : ImmutableSortedSet.of();
 
     CppLinkActionBuilder builder =
         createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
@@ -1029,12 +1028,10 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
-        (artifact, output) -> {
-          if (artifact.equals(testTreeArtifact)) {
-            output.add(library0);
-            output.add(library1);
-          }
-        };
+        artifact ->
+            artifact.equals(testTreeArtifact)
+                ? ImmutableSortedSet.of(library0, library1)
+                : ImmutableSortedSet.of();
 
     Artifact objectFile = scratchArtifact("objectFile.o");
 

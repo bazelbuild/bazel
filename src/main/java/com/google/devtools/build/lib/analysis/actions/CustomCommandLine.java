@@ -54,8 +54,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -693,11 +691,8 @@ public class CustomCommandLine extends AbstractCommandLine {
 
     @Override
     void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander) {
-      Set<Artifact> expandedArtifacts = new TreeSet<>();
-      artifactExpander.expand(treeArtifact, expandedArtifacts);
-
-      for (Artifact expandedArtifact : expandedArtifacts) {
-        builder.add(expandedArtifact.getExecPathString());
+      for (TreeFileArtifact child : artifactExpander.expandTreeArtifact(treeArtifact)) {
+        builder.add(child.getExecPathString());
       }
     }
 

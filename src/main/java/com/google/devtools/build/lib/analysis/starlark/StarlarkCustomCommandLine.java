@@ -404,7 +404,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         if (isDirectory(object)) {
           Artifact artifact = (Artifact) object;
           if (artifact.isTreeArtifact()) {
-            artifactExpander.expand((Artifact) object, expandedValues);
+            expandedValues.addAll(artifactExpander.expandTreeArtifact(artifact));
           } else if (artifact.isFileset()) {
             expandFileset(artifactExpander, artifact, expandedValues, pathMapper);
           } else {
@@ -425,7 +425,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         throws CommandLineExpansionException {
       ImmutableList<FilesetOutputSymlink> expandedFileSet;
       try {
-        expandedFileSet = artifactExpander.getFileset(fileset);
+        expandedFileSet = artifactExpander.expandFileset(fileset);
       } catch (MissingExpansionException e) {
         throw new CommandLineExpansionException(
             String.format(
@@ -967,9 +967,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     public ImmutableList<FileApi> list(FileApi file) {
       Artifact artifact = (Artifact) file;
       if (artifact.isTreeArtifact()) {
-        List<Artifact> files = new ArrayList<>(1);
-        expander.expand((Artifact) file, files);
-        return ImmutableList.copyOf(files);
+        return ImmutableList.copyOf(expander.expandTreeArtifact(artifact));
       } else {
         return ImmutableList.of(file);
       }

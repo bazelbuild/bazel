@@ -23,13 +23,13 @@ import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,7 +37,7 @@ import org.junit.runners.JUnit4;
 /** Unit Test for {@link ActionKeyCacher}. */
 @RunWith(JUnit4.class)
 public class ActionKeyCacherTest {
-  private static final ArtifactExpander ARTIFACT_EXPANDER = (artifact, output) -> {};
+  private static final ArtifactExpander ARTIFACT_EXPANDER = artifact -> ImmutableSortedSet.of();
 
   private final ActionKeyCacher cacher;
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
@@ -179,10 +179,9 @@ public class ActionKeyCacherTest {
   }
 
   @Test
-  public void getKey_withoutExpander_skipsPrimedCache()
-      throws CommandLineExpansionException, InterruptedException, EvalException {
+  public void getKey_withoutExpander_skipsPrimedCache() throws Exception {
     String withExpander = cacher.getKey(actionKeyContext, ARTIFACT_EXPANDER);
-    String withoutExpander = cacher.getKey(actionKeyContext, /*artifactExpander=*/ null);
+    String withoutExpander = cacher.getKey(actionKeyContext, /* artifactExpander= */ null);
 
     verify(cacher).computeKey(eq(actionKeyContext), isNull(), any());
     assertThat(withExpander).isNotEqualTo(withoutExpander);

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -914,11 +914,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         if (OBJECT_FILES_FIELD_NAME.equals(field)) {
           ImmutableList.Builder<String> expandedObjectFiles = ImmutableList.builder();
           for (Artifact objectFile : objectFiles) {
-            if (objectFile.isTreeArtifact() && (expander != null)) {
-              List<Artifact> artifacts = new ArrayList<>();
-              expander.expand(objectFile, artifacts);
+            if (objectFile.isTreeArtifact() && expander != null) {
               expandedObjectFiles.addAll(
-                  Iterables.transform(artifacts, Artifact::getExecPathString));
+                  Collections2.transform(
+                      expander.expandTreeArtifact(objectFile), Artifact::getExecPathString));
             } else {
               expandedObjectFiles.add(objectFile.getExecPathString());
             }

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -22,21 +22,17 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.packages.util.MockJ2ObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import java.util.Collection;
 import org.junit.Before;
 
-/**
- * Setup for unit tests for j2objc transpilation.
- */
+/** Setup for unit tests for j2objc transpilation. */
 public class J2ObjcLibraryTest extends ObjcRuleTestCase {
-  protected static final ArtifactExpander DUMMY_ARTIFACT_EXPANDER =
-      new ArtifactExpander() {
-        @Override
-        public void expand(Artifact artifact, Collection<? super Artifact> output) {
-          SpecialArtifact parent = (SpecialArtifact) artifact;
-          output.add(TreeFileArtifact.createTreeOutput(parent, "children1"));
-          output.add(TreeFileArtifact.createTreeOutput(parent, "children2"));
-        }
+
+  static final ArtifactExpander DUMMY_ARTIFACT_EXPANDER =
+      treeArtifact -> {
+        SpecialArtifact parent = (SpecialArtifact) treeArtifact;
+        return ImmutableSortedSet.of(
+            TreeFileArtifact.createTreeOutput(parent, "children1"),
+            TreeFileArtifact.createTreeOutput(parent, "children2"));
       };
 
   /**

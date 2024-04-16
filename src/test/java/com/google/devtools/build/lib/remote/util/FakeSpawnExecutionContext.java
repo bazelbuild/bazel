@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.remote.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 
@@ -42,10 +41,6 @@ import javax.annotation.Nullable;
 public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   private boolean lockOutputFilesCalled;
-
-  private void artifactExpander(Artifact artifact, Collection<? super Artifact> output) {
-    output.add(artifact);
-  }
 
   private final Spawn spawn;
   private final InputMetadataProvider inputMetadataProvider;
@@ -112,7 +107,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public ArtifactExpander getArtifactExpander() {
-    return this::artifactExpander;
+    return treeArtifact -> ImmutableSortedSet.of();
   }
 
   @Override
@@ -140,7 +135,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
       PathFragment baseDirectory, boolean willAccessRepeatedly)
       throws ForbiddenActionInputException {
     return getSpawnInputExpander()
-        .getInputMapping(spawn, this::artifactExpander, inputMetadataProvider, baseDirectory);
+        .getInputMapping(spawn, getArtifactExpander(), inputMetadataProvider, baseDirectory);
   }
 
   @Override
