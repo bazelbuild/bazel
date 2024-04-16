@@ -210,7 +210,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
     PersistentStringIndexer indexer;
     try {
-      indexer = PersistentStringIndexer.newPersistentStringIndexer(indexFile, clock);
+      indexer = PersistentStringIndexer.create(indexFile, clock);
     } catch (IOException e) {
       return logAndThrowOrRecurse(
           cacheRoot,

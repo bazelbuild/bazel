@@ -206,10 +206,8 @@ java_11_library(
 java_library(
     name = "util",
     srcs = [
-        "AbstractIndexer.java",
         "AnsiStrippingOutputStream.java",
         "CPU.java",
-        "CanonicalStringIndexer.java",
         "ClassName.java",
         "DependencySet.java",
         "Either.java",
@@ -243,7 +241,6 @@ java_library(
     deps = [
         ":os",
         ":shell_escaper",
-        ":string",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",

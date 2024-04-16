@@ -71,7 +71,7 @@ public class PersistentStringIndexerTest {
   public final void createIndexer() throws Exception  {
     dataPath = scratch.resolve("/cache/test.dat");
     journalPath = scratch.resolve("/cache/test.journal");
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    psi = PersistentStringIndexer.create(dataPath, clock);
   }
 
   private void assertSize(int expected) {
@@ -160,7 +160,7 @@ public class PersistentStringIndexerTest {
     assertThat(journalPath.exists()).isFalse();
 
     // Now restore data from file and verify it.
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    psi = PersistentStringIndexer.create(dataPath, clock);
     assertThat(journalPath.exists()).isFalse();
     clock.advance(4);
     assertSize(10);
@@ -182,7 +182,7 @@ public class PersistentStringIndexerTest {
     assertThat(journalPath.exists()).isTrue();
 
     // Now restore data from file and verify it. All data should be restored from journal;
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    psi = PersistentStringIndexer.create(dataPath, clock);
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
     clock.advance(4);
@@ -208,7 +208,7 @@ public class PersistentStringIndexerTest {
     assertThat(journalPath.exists()).isTrue();
 
     // Now restore data from file and verify it. All data should be restored from journal;
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    psi = PersistentStringIndexer.create(dataPath, clock);
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
     assertThat(dataPath.getFileSize())
@@ -240,7 +240,7 @@ public class PersistentStringIndexerTest {
     assertThat(journalPath.exists()).isTrue();
 
     // Now restore data from file and verify it. All data should be restored from journal;
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    psi = PersistentStringIndexer.create(dataPath, clock);
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
     assertThat(dataPath.getFileSize())
@@ -257,8 +257,7 @@ public class PersistentStringIndexerTest {
     FileSystemUtils.writeContentAsLatin1(journalPath, "bogus content");
     IOException e =
         assertThrows(
-            IOException.class,
-            () -> psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock));
+            IOException.class, () -> psi = PersistentStringIndexer.create(dataPath, clock));
     assertThat(e).hasMessageThat().contains("too short: Only 13 bytes");
 
     journalPath.delete();
@@ -274,7 +273,7 @@ public class PersistentStringIndexerTest {
     byte[] journalContent = FileSystemUtils.readContent(journalPath);
 
     // Now restore data from file and verify it. All data should be restored from journal;
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    psi = PersistentStringIndexer.create(dataPath, clock);
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
 
@@ -282,9 +281,7 @@ public class PersistentStringIndexerTest {
     assertThat(dataPath.delete()).isTrue();
     FileSystemUtils.writeContent(journalPath,
         Arrays.copyOf(journalContent, journalContent.length - 1));
-    assertThrows(
-        EOFException.class,
-        () -> psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock));
+    assertThrows(EOFException.class, () -> psi = PersistentStringIndexer.create(dataPath, clock));
 
     // Corrupt the journal with a negative size value.
     byte[] journalCopy = journalContent.clone();
@@ -293,16 +290,13 @@ public class PersistentStringIndexerTest {
     FileSystemUtils.writeContent(journalPath,  journalCopy);
     e =
         assertThrows(
-            IOException.class,
-            () -> psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock));
+            IOException.class, () -> psi = PersistentStringIndexer.create(dataPath, clock));
     assertThat(e).hasMessageThat().contains("corrupt key length");
 
     // Now put back corrupted journal. We should get an error.
     journalContent[journalContent.length - 13] = 100;
     FileSystemUtils.writeContent(journalPath,  journalContent);
-    assertThrows(
-        IOException.class,
-        () -> psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock));
+    assertThrows(IOException.class, () -> psi = PersistentStringIndexer.create(dataPath, clock));
   }
 
   @Test
@@ -337,8 +331,7 @@ public class PersistentStringIndexerTest {
 
     IOException e =
         assertThrows(
-            IOException.class,
-            () -> psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock));
+            IOException.class, () -> psi = PersistentStringIndexer.create(dataPath, clock));
     assertThat(e).hasMessageThat().contains("Corrupted filename index has duplicate entry");
   }
 

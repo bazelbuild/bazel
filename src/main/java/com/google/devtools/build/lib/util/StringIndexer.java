@@ -13,40 +13,32 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-/**
- * An object that provides bidirectional String <-> unique integer mapping.
- */
+import javax.annotation.Nullable;
+
+/** Provides bidirectional string ⇔ unique integer mapping. */
 public interface StringIndexer {
 
-  /**
-   * Removes all mappings.
-   */
-  public void clear();
+  /** Removes all mappings. */
+  void clear();
+
+  /** Returns the number of strings in the index. */
+  int size();
 
   /**
-   * @return some measure of the size of the index.
+   * Creates new mapping for the given string if necessary and returns string index. Also, as a side
+   * effect, additional mappings may be created for various prefixes of the given string.
    */
-  public int size();
+  int getOrCreateIndex(String s);
 
   /**
-   * Creates new mapping for the given string if necessary and returns
-   * string index. Also, as a side effect, zero or more additional mappings
-   * may be created for various prefixes of the given string.
-   *
-   * @return a unique index.
+   * Returns the unique index for the given string if one was created via {@link #getOrCreateIndex},
+   * or else {@code -1}.
    */
-  public int getOrCreateIndex(String s);
+  int getIndex(String s);
 
   /**
-   * @return a unique index for the given string or -1 if string
-   *         was not added.
+   * Returns the string associated with the given index or {@code null} if it is not in the index.
    */
-  public int getIndex(String s);
-
-  /**
-   * @return string associated with the given index or null if
-   *         mapping does not exist.
-   */
-  public String getStringForIndex(int i);
-
+  @Nullable
+  String getStringForIndex(int i);
 }
