@@ -583,7 +583,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     static final class Builder {
       @Nullable private final Sequence<?> list;
       @Nullable private final NestedSet<?> nestedSet;
-      @Nullable private final StringificationType nestedSetStringificationType;
+      private final StringificationType nestedSetStringificationType;
       private Location location;
       private String argName;
       private boolean expandDirectories;
@@ -599,7 +599,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       Builder(Sequence<?> list) {
         this.list = list;
         this.nestedSet = null;
-        this.nestedSetStringificationType = null;
+        this.nestedSetStringificationType = StringificationType.DEFAULT;
       }
 
       Builder(NestedSet<?> nestedSet, Class<?> nestedSetElementType) {
