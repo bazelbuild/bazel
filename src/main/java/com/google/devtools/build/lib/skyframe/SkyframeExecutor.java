@@ -201,6 +201,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions.SkyfocusDumpOption;
+import com.google.devtools.build.lib.skyframe.SkyfocusOptions.SkyfocusHandlingStrategy;
 import com.google.devtools.build.lib.skyframe.SkyfocusState.Request;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
@@ -4035,17 +4036,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return;
     }
 
-    if (!skyfocusState.workingSet().isEmpty()) {
-      reporter.handle(
-          Event.warn(
-              "You are using the experimental Skyfocus feature. Feel free to test it, "
-                  + "but do not depend on it yet."));
-      reporter.handle(
-          Event.warn(
-              "Skyfocus: Changes not in the active working set will cause a build error."
-                  + " Run '"
-                  + productName
-                  + " info working_set' to print the set."));
+    reporter.handle(
+        Event.warn(
+            "--experimental_enable_skyfocus is enabled. "
+                + productName
+                + " will reclaim memory not needed to build the working set. Run '"
+                + productName
+                + " info working_set' to show the working set."));
+
+    if (skyfocusOptions.handlingStrategy.equals(SkyfocusHandlingStrategy.STRICT)) {
+      reporter.handle(Event.warn("Changes outside of the working set will cause a build error."));
     }
 
     ImmutableSet<String> newWorkingSet = ImmutableSet.copyOf(skyfocusOptions.workingSet);
