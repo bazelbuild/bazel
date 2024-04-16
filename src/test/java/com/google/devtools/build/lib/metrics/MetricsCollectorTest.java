@@ -72,7 +72,6 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
-        .addBlazeModule(new MetricsModule())
         .addBlazeModule(buildMetricsEventListener);
   }
 
@@ -95,9 +94,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @After
-  public void resetProfilers() throws Exception {
+  public void resetProfilers() {
     MemoryProfiler.instance().stop();
-    PostGCMemoryUseRecorder.get().reset();
   }
 
   @Test

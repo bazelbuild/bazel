@@ -76,6 +76,9 @@ import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
+import com.google.devtools.build.lib.metrics.MetricsModule;
+import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule;
+import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PostGCMemoryUseRecorderModule;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
 import com.google.devtools.build.lib.outputfilter.OutputFilteringModule;
@@ -634,6 +637,16 @@ public abstract class BuildIntegrationTestCase {
     } else {
       builder.addBlazeModule(getMockBazelRepositoryModule());
     }
+
+    // Modules that are involved in the collection of heap-related metrics of a
+    // build. They need to be last in the modules order, so when the GCs happen
+    // at the end of the build, we mitigate the risk that objects are still held
+    // onto by the other modules.
+    // TODO(b/253394502): remove this when we have a better solution.
+    builder.addBlazeModule(new PostGCMemoryUseRecorderModule());
+    builder.addBlazeModule(new GcAfterBuildModule());
+    builder.addBlazeModule(new MetricsModule());
+
     return builder;
   }
 
