@@ -805,6 +805,23 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof UnresolvedSymlinkArtifactValue)) {
+        return false;
+      }
+      UnresolvedSymlinkArtifactValue that = (UnresolvedSymlinkArtifactValue) o;
+      return Arrays.equals(digest, that.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(digest);
+    }
+
+    @Override
     public boolean wasModifiedSinceDigest(Path path) {
       try {
         var newMetadata = FileArtifactValue.createForUnresolvedSymlink(path);
