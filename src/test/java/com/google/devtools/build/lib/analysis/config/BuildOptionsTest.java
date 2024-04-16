@@ -22,17 +22,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.rules.java.JavaOptions;
-import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
-import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
-import java.util.AbstractMap;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -47,8 +46,67 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class BuildOptionsTest {
 
+  /** Extra options for this test. */
+  public static class DummyTestOptions extends FragmentOptions {
+    public DummyTestOptions() {}
+
+    @Option(
+        name = "str_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defVal")
+    public String strOption;
+
+    @Option(
+        name = "another_str_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defVal")
+    public String anotherStrOption;
+
+    @Option(
+        name = "bool_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public boolean boolOption;
+
+    @Option(
+        name = "list_option",
+        converter = CommaSeparatedOptionListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public List<String> listOption;
+
+    @Option(
+        name = "null_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public String nullOption;
+
+    @Option(
+        name = "accumulating_option",
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public List<String> accumulatingOption;
+  }
+
+  /** Extra options for this test. */
+  public static class SecondDummyTestOptions extends FragmentOptions {
+    @Option(
+        name = "second_str_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defVal")
+    public String strOption;
+  }
+
   private static final ImmutableList<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
-      ImmutableList.of(CoreOptions.class);
+      ImmutableList.of(DummyTestOptions.class);
 
   @Test
   public void optionSetCaching() {
@@ -68,18 +126,9 @@ public final class BuildOptionsTest {
   }
 
   @Test
-  public void cachingSpecialCases() throws Exception {
-    // You can add options here to test that their string representations are good.
-    String[] options = new String[] {"--run_under=//run_under"};
-    BuildOptions a = BuildOptions.of(BUILD_CONFIG_OPTIONS, options);
-    BuildOptions b = BuildOptions.of(BUILD_CONFIG_OPTIONS, options);
-    assertThat(b.toString()).isEqualTo(a.toString());
-  }
-
-  @Test
   public void optionsEquality() throws Exception {
-    String[] options1 = new String[] {"--compilation_mode=opt"};
-    String[] options2 = new String[] {"--compilation_mode=dbg"};
+    String[] options1 = new String[] {"--str_option=foo"};
+    String[] options2 = new String[] {"--str_option=bar"};
     // Distinct instances with the same values are equal:
     assertThat(BuildOptions.of(BUILD_CONFIG_OPTIONS, options1))
         .isEqualTo(BuildOptions.of(BUILD_CONFIG_OPTIONS, options1));
@@ -93,38 +142,28 @@ public final class BuildOptionsTest {
             BuildOptions.of(BUILD_CONFIG_OPTIONS, options1)
                 .equals(
                     BuildOptions.of(
-                        ImmutableList.of(CoreOptions.class, CppOptions.class), options1)))
+                        ImmutableList.of(DummyTestOptions.class, SecondDummyTestOptions.class),
+                        options1)))
         .isFalse();
   }
 
   @Test
   public void serialization() throws Exception {
     new SerializationTester(
-            BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8"),
-            BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8"),
+            BuildOptions.of(makeOptionsClassBuilder().build(), "--str_option=foo"),
+            BuildOptions.of(makeOptionsClassBuilder().build(), "--str_option=bar"),
+            BuildOptions.of(makeOptionsClassBuilder().add(SecondDummyTestOptions.class).build()),
             BuildOptions.of(
-                makeOptionsClassBuilder()
-                    .add(AndroidConfiguration.Options.class)
-                    .add(ProtoConfiguration.Options.class)
-                    .build()),
-            BuildOptions.of(
-                makeOptionsClassBuilder().add(JavaOptions.class).add(PythonOptions.class).build(),
-                "--cpu=k8",
-                "--compilation_mode=opt",
-                "--compiler=gcc",
-                "--copt=-Dfoo",
-                "--javacopt=--javacoption",
-                "--experimental_fix_deps_tool=fake",
-                "--build_python_zip=no",
-                "--python_version=PY2"))
+                makeOptionsClassBuilder().add(SecondDummyTestOptions.class).build(),
+                "--str_option=foo",
+                "--second_str_option=baz",
+                "--another_str_option=bar"))
         .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
         .runTests();
   }
 
   private static ImmutableList.Builder<Class<? extends FragmentOptions>> makeOptionsClassBuilder() {
-    return ImmutableList.<Class<? extends FragmentOptions>>builder()
-        .addAll(BUILD_CONFIG_OPTIONS)
-        .add(CppOptions.class);
+    return ImmutableList.<Class<? extends FragmentOptions>>builder().addAll(BUILD_CONFIG_OPTIONS);
   }
 
   @Test
@@ -193,47 +232,45 @@ public final class BuildOptionsTest {
         BuildOptions.of(
             BUILD_CONFIG_OPTIONS,
             OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build());
-    CoreOptions coreOptions = options.get(CoreOptions.class);
+    DummyTestOptions dummyTestOptions = options.get(DummyTestOptions.class);
     assertThrows(
-        UnsupportedOperationException.class,
-        () ->
-            coreOptions.commandLineBuildVariables.add(new AbstractMap.SimpleEntry<>("foo", "bar")));
+        UnsupportedOperationException.class, () -> dummyTestOptions.accumulatingOption.add("foo"));
   }
 
   @Test
   public void parsingResultTransform() throws Exception {
-    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--cpu=foo", "--stamp");
+    BuildOptions original =
+        BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo", "--bool_option");
 
     OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    parser.parse("--cpu=bar", "--nostamp");
+    parser.parse("--str_option=bar", "--nobool_option");
     parser.setStarlarkOptions(ImmutableMap.of("//custom:flag", "hello"));
 
     BuildOptions modified = original.applyParsingResult(parser);
 
-    assertThat(original.get(CoreOptions.class).cpu)
-        .isNotEqualTo(modified.get(CoreOptions.class).cpu);
-    assertThat(modified.get(CoreOptions.class).cpu).isEqualTo("bar");
-    assertThat(modified.get(CoreOptions.class).stampBinaries).isFalse();
+    assertThat(original.get(DummyTestOptions.class).strOption)
+        .isNotEqualTo(modified.get(DummyTestOptions.class).strOption);
+    assertThat(modified.get(DummyTestOptions.class).strOption).isEqualTo("bar");
+    assertThat(modified.get(DummyTestOptions.class).boolOption).isFalse();
     assertThat(modified.getStarlarkOptions().get(Label.parseCanonicalUnchecked("//custom:flag")))
         .isEqualTo("hello");
   }
 
   @Test
   public void parsingResultTransformNativeIgnored() throws Exception {
-    ImmutableList.Builder<Class<? extends FragmentOptions>> fragmentClassesBuilder =
-        ImmutableList.<Class<? extends FragmentOptions>>builder().add(CoreOptions.class);
+    // Only use the basic flags.
+    BuildOptions original = BuildOptions.of(makeOptionsClassBuilder().build());
 
-    BuildOptions original = BuildOptions.of(fragmentClassesBuilder.build());
-
-    fragmentClassesBuilder.add(CppOptions.class);
-
+    // Add another fragment with different flags.
     OptionsParser parser =
-        OptionsParser.builder().optionsClasses(fragmentClassesBuilder.build()).build();
-    parser.parse("--cxxopt=bar");
+        OptionsParser.builder()
+            .optionsClasses(makeOptionsClassBuilder().add(SecondDummyTestOptions.class).build())
+            .build();
+    parser.parse("--second_str_option=bar");
 
+    // The flags that are unknown to the original options should not be present.
     BuildOptions modified = original.applyParsingResult(parser);
-
-    assertThat(modified.contains(CppOptions.class)).isFalse();
+    assertThat(modified.contains(SecondDummyTestOptions.class)).isFalse();
   }
 
   @Test
@@ -251,24 +288,25 @@ public final class BuildOptionsTest {
     BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS);
 
     OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    parser.parse("--features=foo");
+    parser.parse("--list_option=foo");
 
     BuildOptions modified = original.applyParsingResult(parser);
 
-    assertThat(modified.get(CoreOptions.class).defaultFeatures).containsExactly("foo");
+    assertThat(modified.get(DummyTestOptions.class).listOption).containsExactly("foo");
   }
 
   @Test
   public void parsingResultMatch() throws Exception {
-    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--cpu=foo", "--stamp");
+    BuildOptions original =
+        BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo", "--bool_option");
 
     OptionsParser matchingParser =
         OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    matchingParser.parse("--cpu=foo", "--stamp");
+    matchingParser.parse("--str_option=foo", "--bool_option");
 
     OptionsParser notMatchingParser =
         OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    notMatchingParser.parse("--cpu=foo", "--nostamp");
+    notMatchingParser.parse("--str_option=foo", "--nobool_option");
 
     assertThat(original.matches(matchingParser)).isTrue();
     assertThat(original.matches(notMatchingParser)).isFalse();
@@ -295,32 +333,26 @@ public final class BuildOptionsTest {
 
   @Test
   public void parsingResultMatchMissingFragment() throws Exception {
-    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--cpu=foo");
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo");
 
     ImmutableList<Class<? extends FragmentOptions>> fragmentClasses =
-        ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(CoreOptions.class)
-            .add(CppOptions.class)
-            .build();
+        ImmutableList.of(DummyTestOptions.class, SecondDummyTestOptions.class);
 
     OptionsParser parser = OptionsParser.builder().optionsClasses(fragmentClasses).build();
-    parser.parse("--cpu=foo", "--cxxopt=bar");
+    parser.parse("--str_option=foo", "--second_str_option=bar");
 
     assertThat(original.matches(parser)).isTrue();
   }
 
   @Test
   public void parsingResultMatchEmptyNativeMatch() throws Exception {
-    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--cpu=foo");
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo");
 
     ImmutableList<Class<? extends FragmentOptions>> fragmentClasses =
-        ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(CoreOptions.class)
-            .add(CppOptions.class)
-            .build();
+        ImmutableList.of(DummyTestOptions.class, SecondDummyTestOptions.class);
 
     OptionsParser parser = OptionsParser.builder().optionsClasses(fragmentClasses).build();
-    parser.parse("--cxxopt=bar");
+    parser.parse("--second_str_option=bar");
 
     assertThat(original.matches(parser)).isFalse();
   }
@@ -334,12 +366,12 @@ public final class BuildOptionsTest {
 
     ImmutableList<Class<? extends FragmentOptions>> fragmentClasses =
         ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(CoreOptions.class)
-            .add(CppOptions.class)
+            .add(DummyTestOptions.class)
+            .add(SecondDummyTestOptions.class)
             .build();
 
     OptionsParser parser = OptionsParser.builder().optionsClasses(fragmentClasses).build();
-    parser.parse("--cxxopt=bar");
+    parser.parse("--second_str_option=bar");
     parser.setStarlarkOptions(ImmutableMap.of("//custom:flag", "hello"));
 
     assertThat(original.matches(parser)).isTrue();
@@ -363,7 +395,7 @@ public final class BuildOptionsTest {
     BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS);
 
     OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    parser.parse("--platform_suffix=foo"); // Note: platform_suffix is null by default.
+    parser.parse("--null_option=foo"); // Note: null_option is null by default.
 
     assertThat(original.matches(parser)).isFalse();
   }
