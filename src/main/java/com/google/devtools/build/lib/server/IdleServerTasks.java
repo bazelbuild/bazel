@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.server;
 import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.lang.management.ManagementFactory;
@@ -36,8 +36,17 @@ final class IdleServerTasks {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   enum IdleServerCleanupStrategy {
-    EAGER(0),
-    DELAYED(10);
+    /**
+     * The result of cleaning or --nokeep_state_after_build. Subsequent builds are not incremental.
+     * There is no delay to ensure that the cleanup tasks are done immediately.
+     */
+    NO_STATE_KEPT_AFTER_BUILD(0),
+
+    /**
+     * Subsequent builds are incremental, so give the {@code idle} function a non-trivial delay
+     * before embarking on the cleanup tasks.
+     */
+    STATE_KEPT_AFTER_BUILD(10);
 
     private final long delaySeconds;
 
@@ -65,8 +74,18 @@ final class IdleServerTasks {
             () -> {
               MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
               MemoryUsage before = memBean.getHeapMemoryUsage();
-              try (AutoProfiler p = GoogleAutoProfilerUtils.logged("Idle GC")) {
+              try (var p = GoogleAutoProfilerUtils.logged("Idle GC")) {
                 System.gc();
+              }
+              if (cleanupStrategy == IdleServerCleanupStrategy.NO_STATE_KEPT_AFTER_BUILD) {
+                // This takes multiple seconds for large builds, and maximally effective for builds
+                // that don't keep state.
+                //
+                // {@code busy} will ensure that the next command doesn't start until this future
+                // terminates.
+                try (var p = GoogleAutoProfilerUtils.logged("Idle interner shrinking")) {
+                  PooledInterner.shrinkAll();
+                }
               }
               MemoryUsage after = memBean.getHeapMemoryUsage();
               logger.atInfo().log(
@@ -81,8 +100,8 @@ final class IdleServerTasks {
   }
 
   /**
-   * Called by the main thread when the server gets to work.
-   * Should return quickly.
+   * Called by the main thread when the server gets to work. Should return quickly, but blocks on
+   * completing all {@code idle} futures from the previous command.
    */
   public void busy() {
     Preconditions.checkState(!executor.isShutdown());

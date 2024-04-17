@@ -103,12 +103,13 @@ public abstract class PooledInterner<T> implements Interner<T> {
   /**
    * Shrinks all interner instances' backing map to reclaim memory.
    *
+   * <p>This needs a prior GC to be effective.
+   *
    * <p>WARNING: This must not be called concurrently with any interning operations, because it
    * provides unsynchronized access to multiple mutable static interners.
    */
   @ThreadHostile
   public static final void shrinkAll() {
-    System.gc(); // Force gc to maximize shrinkage.
     instances.forEach(PooledInterner::shrink);
   }
 

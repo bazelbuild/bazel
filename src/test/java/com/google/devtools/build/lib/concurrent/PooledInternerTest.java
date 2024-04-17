@@ -112,11 +112,13 @@ public final class PooledInternerTest {
     assertThat(interner.size()).isEqualTo(1);
 
     PooledInterner.shrinkAll();
+    // Does nothing, because the reference is still held.
     assertThat(interner.size()).isEqualTo(1);
 
-    // Delete the only reference to interned object, and run GC. Without calling GC and
-    // PooledInterner#shrink, the size assertion below will fail.
+    // Delete the only reference to interned object, and run GC. Without GC, the assertion will
+    // fail.
     unusedKeyToIntern = null;
+    System.gc();
     PooledInterner.shrinkAll();
 
     assertThat(interner.size()).isEqualTo(0);

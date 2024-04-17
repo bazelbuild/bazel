@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
@@ -270,6 +271,11 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
             GoogleAutoProfilerUtils.logged(
                 "manual GC to clean up from --keep_state_after_build command")) {
           System.gc();
+        }
+        try (var profiler =
+            GoogleAutoProfilerUtils.logged(
+                "shrinking pooled interners after resetting evaluator")) {
+          PooledInterner.shrinkAll();
         }
         needGcAfterResettingEvaluator = false;
       }
