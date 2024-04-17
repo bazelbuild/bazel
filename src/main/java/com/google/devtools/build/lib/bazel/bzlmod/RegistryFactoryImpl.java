@@ -15,8 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
@@ -29,7 +27,6 @@ public class RegistryFactoryImpl implements RegistryFactory {
   private final Path workspacePath;
   private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
-  private final Cache<String, Registry> registries = Caffeine.newBuilder().build();
 
   public RegistryFactoryImpl(
       Path workspacePath,
@@ -55,17 +52,10 @@ public class RegistryFactoryImpl implements RegistryFactory {
           "Registry URL path is not valid -- did you mean to use file:///foo/bar "
               + "or file:///c:/foo/bar for Windows?");
     }
-    switch (uri.getScheme()) {
-      case "http":
-      case "https":
-      case "file":
-        return registries.get(
-            unresolvedUrl,
-            unused ->
-                new IndexRegistry(
-                    uri, unresolvedUrl, downloadManager, clientEnvironmentSupplier.get()));
-      default:
-        throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
-    }
+    return switch (uri.getScheme()) {
+      case "http", "https", "file" ->
+          new IndexRegistry(uri, unresolvedUrl, downloadManager, clientEnvironmentSupplier.get());
+      default -> throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
+    };
   }
 }

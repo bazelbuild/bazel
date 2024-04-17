@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
@@ -238,7 +239,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
                         ruleClassProvider.getBazelStarlarkEnvironment(),
-                        registryFactory,
                         rootPath,
                         ImmutableMap.of()))
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
@@ -247,8 +247,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
-                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
-                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
+                .put(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())

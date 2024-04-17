@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Optional;
 
 /** A database where module metadata is stored. */
-public interface Registry {
+public interface Registry extends SkyValue {
 
   /** The URL that uniquely identifies the registry. */
   String getUrl();
