@@ -13,22 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
-
 /**
- * Static singleton holder for the string interning pool.  Doesn't use {@link String#intern}
- * because that consumes permgen space.
+ * Just an indirection to {@code String#intern}.
+ *
+ * <p>TODO: b/335098503 - turn this down if String#intern sticks.
  */
 public final class StringCanonicalizer {
 
-  private static final Interner<String> interner = BlazeInterners.newWeakInterner();
-
-  private StringCanonicalizer() {
-  }
+  private StringCanonicalizer() {}
 
   /** Interns a String. */
   public static String intern(String arg) {
-    return interner.intern(arg);
+    return arg.intern();
   }
 }
