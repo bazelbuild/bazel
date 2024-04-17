@@ -17,8 +17,6 @@ import org.openjdk.jmh.annotations.Threads;
 
 @BenchmarkMode(Mode.Throughput)
 @State(Scope.Benchmark)
-// Realistic usage within Bazel will hash files on multiple threads.
-@Threads(4)
 public class BazelHashFunctionsBenchmark {
 
   static {
@@ -36,33 +34,35 @@ public class BazelHashFunctionsBenchmark {
     }
   }
 
+  public enum Size {
+    B,
+    KB,
+    MB,
+    GB;
+
+    final int bytes;
+
+    Size() {
+      bytes = 1 << (ordinal() * 10);
+    }
+  }
+
   @Param({"BLAKE3", "SHA2_256"})
   public HashFunctionType type;
 
-  @Param({"1", "16", "128", "512", "1024", "4096", "16384", "1048576"})
-  public int size;
+  @Param({"B", "KB", "MB", "GB"})
+  public Size size;
 
   private byte[] data;
 
   @Setup(Level.Iteration)
   public void setup() {
-    data = new byte[size];
+    data = new byte[size.bytes];
     new SecureRandom().nextBytes(data);
   }
 
   @Benchmark
   public HashCode hashBytesOneShot() {
     return type.hashFunction.hashBytes(data);
-  }
-
-  private static final int CHUNK_SIZE = 4096;
-
-  @Benchmark
-  public HashCode hashBytesChunks() {
-    Hasher hasher = type.hashFunction.newHasher();
-    for (int pos = 0; pos < data.length; pos += CHUNK_SIZE) {
-      hasher.putBytes(data, pos, Math.min(CHUNK_SIZE, data.length - pos));
-    }
-    return hasher.hash();
   }
 }
