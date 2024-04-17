@@ -76,7 +76,7 @@ URLs are tried in order until one succeeds, so you should list local mirrors fir
 If all downloads fail, the rule will fail."""
 
 def _get_all_urls(ctx):
-    """Returns all urls provided via the url or urls attributes.
+    """Returns all urls provided via the url, urls and remote_patches attributes.
 
     Also checks that at least one url is provided."""
     if not ctx.attr.url and not ctx.attr.urls:
@@ -87,6 +87,8 @@ def _get_all_urls(ctx):
         all_urls = ctx.attr.urls
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
+    if hasattr(ctx.attr, "remote_patches") and ctx.attr.remote_patches:
+        all_urls = all_urls + ctx.attr.remote_patches.keys()
 
     return all_urls
 
