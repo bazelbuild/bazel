@@ -1169,7 +1169,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         && isAttributeValueExplicitlySpecified("distribs")) {
       return NonconfigurableAttributeMapper.of(this).get("distribs", BuildType.DISTRIBUTIONS);
     } else {
-      return pkg.getPackageArgs().distribs();
+      return License.DEFAULT_DISTRIB;
     }
   }
 

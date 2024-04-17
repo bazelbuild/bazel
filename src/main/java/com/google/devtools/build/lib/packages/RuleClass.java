@@ -2374,8 +2374,7 @@ public class RuleClass implements RuleClassData {
             /* explicit= */ false);
 
       } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
-        rule.setAttributeValue(
-            attr, pkgBuilder.getPartialPackageArgs().distribs(), /* explicit= */ false);
+        rule.setAttributeValue(attr, License.DEFAULT_DISTRIB, /* explicit= */ false);
       }
       // Don't store default values, querying materializes them at read time.
     }

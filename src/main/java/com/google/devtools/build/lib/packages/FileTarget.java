@@ -71,7 +71,7 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
 
   @Override
   public Set<DistributionType> getDistributions() {
-    return getPackage().getPackageArgs().distribs();
+    return License.DEFAULT_DISTRIB;
   }
 
   /**
