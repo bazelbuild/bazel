@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -73,6 +74,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
@@ -3259,7 +3261,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         CommandLineExpansionException.class,
         () ->
             commandLine.addToFingerprint(
-                actionKeyContext, /* artifactExpander= */ null, new Fingerprint()));
+                actionKeyContext,
+                /* artifactExpander= */ null,
+                PathMapper.NOOP,
+                new Fingerprint()));
   }
 
   @Test
@@ -3689,10 +3694,14 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             """);
 
     assertThat(getArguments(commandLine1, PathMapper.NOOP))
-        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+            .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1, PathMapper.NOOP))
+            .isEqualTo(getDigest(commandLine2, PathMapper.NOOP));
+
     assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
-        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+            .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+            .isNotEqualTo(getDigest(commandLine2, NON_TRIVIAL_PATH_MAPPER));
   }
 
   @Test
@@ -3725,46 +3734,49 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     assertThat(getArguments(commandLine1, PathMapper.NOOP))
         .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1, PathMapper.NOOP))
+            .isEqualTo(getDigest(commandLine2, PathMapper.NOOP));
+
     assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
         .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getDigest(commandLine2, NON_TRIVIAL_PATH_MAPPER));
   }
 
   @Test
-  public void starlarkCustomCommandLineKeyComputation_complexMapEach() throws Exception {
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringMapEachWithUniquify()
+      throws Exception {
     setRuleContext(createRuleContext("//foo:mixed_cfgs"));
 
     CommandLine commandLine1 =
         getCommandLine(
             """
             def _map_each(x):
-              return x.root.path
+              return x.field.root.path
             args = ruleContext.actions.args()
-            args.add_all(
-              depset(ruleContext.files.srcs + ruleContext.files.tools),
-              map_each=_map_each,
-              uniquify=True,
-            )
+            d = depset([struct(field = f) for f in ruleContext.files.srcs + ruleContext.files.tools])
+            args.add_all(d, map_each = _map_each, uniquify = True)
             """);
     CommandLine commandLine2 =
         getCommandLine(
             """
+            def _map_each(x):
+              return x.field
             args = ruleContext.actions.args()
-            args.add_all(
-              depset([f.root.path for f in ruleContext.files.srcs + ruleContext.files.tools]),
-              uniquify=True,
-            )
+            d = depset([struct(field = f.root.path) for f in ruleContext.files.srcs + ruleContext.files.tools])
+            args.add_all(d, map_each = _map_each, uniquify = True)
             """);
 
     assertThat(getArguments(commandLine1, PathMapper.NOOP))
         .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
 
     List<String> arguments1 = getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER);
     List<String> arguments2 = getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER);
     assertThat(arguments1).isNotEqualTo(arguments2);
     assertThat(arguments1.size()).isNotEqualTo(arguments2.size());
-
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getDigest(commandLine2, NON_TRIVIAL_PATH_MAPPER));
   }
 
   private static ArtifactExpander createArtifactExpander(String dirRelativePath, String... files) {
@@ -3784,13 +3796,24 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   private String getDigest(CommandLine commandLine)
       throws CommandLineExpansionException, InterruptedException {
-    return getDigest(commandLine, /*artifactExpander=*/ null);
+    return getDigest(commandLine, /* artifactExpander= */ null, PathMapper.NOOP);
   }
 
   private String getDigest(CommandLine commandLine, ArtifactExpander artifactExpander)
       throws CommandLineExpansionException, InterruptedException {
+    return getDigest(commandLine, artifactExpander, PathMapper.NOOP);
+  }
+
+  private String getDigest(CommandLine commandLine, PathMapper pathMapper)
+      throws CommandLineExpansionException, InterruptedException {
+    return getDigest(commandLine, /* artifactExpander= */ null, pathMapper);
+  }
+
+  private String getDigest(
+      CommandLine commandLine, ArtifactExpander artifactExpander, PathMapper pathMapper)
+      throws CommandLineExpansionException, InterruptedException {
     Fingerprint fingerprint = new Fingerprint();
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(actionKeyContext, artifactExpander, pathMapper, fingerprint);
     return fingerprint.hexDigestAndReset();
   }
 
@@ -3805,7 +3828,17 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   private static final PathMapper NON_TRIVIAL_PATH_MAPPER =
-      path -> path.subFragment(0, 1).getChild("cfg").getRelative(path.subFragment(2));
+      new PathMapper() {
+        @Override
+        public PathFragment map(PathFragment path) {
+          return path.subFragment(0, 1).getChild("cfg").getRelative(path.subFragment(2));
+        }
+
+        @Override
+        public void addToFingerprint(Fingerprint fp) {
+          fp.addUUID(UUID.fromString("329ae19b-5aa8-4945-97ef-9d07f9f6997a"));
+        }
+      };
 
   private List<String> getArguments(CommandLine commandLine, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {

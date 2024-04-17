@@ -1359,6 +1359,7 @@ public class CustomCommandLine extends AbstractCommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
+      PathMapper pathMapper,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();

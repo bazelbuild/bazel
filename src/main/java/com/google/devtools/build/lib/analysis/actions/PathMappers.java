@@ -58,33 +58,6 @@ public final class PathMappers {
           "Mock action");
 
   /**
-   * Actions that support path mapping should call this method from {@link
-   * Action#getKey(ActionKeyContext, ArtifactExpander)}.
-   *
-   * <p>Compared to {@link #create(AbstractAction, OutputPathsMode)}, this method does not flatten
-   * nested sets and thus can't result in memory regressions.
-   *
-   * @param mnemonic the mnemonic of the action
-   * @param executionInfo the execution info of the action
-   * @param outputPathsMode the value of {@link CoreOptions#outputPathsMode}
-   * @param fingerprint the fingerprint to add to
-   */
-  public static void addToFingerprint(
-      String mnemonic,
-      Map<String, String> executionInfo,
-      OutputPathsMode outputPathsMode,
-      Fingerprint fingerprint) {
-    // Creating a new PathMapper instance can be expensive, but isn't needed here: Whether and
-    // how path mapping applies to the action only depends on the output paths mode and the action
-    // inputs, which are already part of the action key.
-    OutputPathsMode effectiveOutputPathsMode =
-        getEffectiveOutputPathsMode(outputPathsMode, mnemonic, executionInfo);
-    if (effectiveOutputPathsMode == OutputPathsMode.STRIP) {
-      fingerprint.addString(StrippingPathMapper.GUID);
-    }
-  }
-
-  /**
    * Actions that support path mapping should call this method when creating their {@link Spawn}.
    *
    * <p>The returned {@link PathMapper} has to be passed to {@link
@@ -97,9 +70,9 @@ public final class PathMappers {
    * <p>Note: This method flattens nested sets and should thus not be called from methods that are
    * executed in the analysis phase.
    *
-   * <p>Actions calling this method should also call {@link #addToFingerprint(String, Map,
-   * OutputPathsMode, Fingerprint)} from {@link Action#getKey(ActionKeyContext, ArtifactExpander)}
-   * to ensure correct incremental builds.
+   * <p>Actions calling this method should also call {@link
+   * PathMapper#addToFingerprint(Fingerprint)} from their {@link Action#getKey(ActionKeyContext,
+   * ArtifactExpander)} to ensure correct incremental builds.
    *
    * @param action the {@link AbstractAction} for which a {@link Spawn} is to be created
    * @param outputPathsMode the value of {@link CoreOptions#outputPathsMode}
@@ -107,17 +80,37 @@ public final class PathMappers {
    *     PathMapper#NOOP} if path mapping is not applicable to the action.
    */
   public static PathMapper create(AbstractAction action, OutputPathsMode outputPathsMode) {
+    return createInternal(action, outputPathsMode, /* forFingerprint= */ false);
+  }
+
+  /**
+   * Actions that support path mapping should call this method from {@link
+   * Action#getKey(ActionKeyContext, ArtifactExpander)}.
+   *
+   * <p>Compared to {@link #create(AbstractAction, OutputPathsMode)}, this method does not flatten
+   * and iterate over the set of inputs and thus avoids memory and CPU regressions.
+   *
+   * @param action the {@link AbstractAction} for which a {@link Spawn} is to be created
+   * @param outputPathsMode the value of {@link CoreOptions#outputPathsMode}
+   */
+  public static PathMapper createForFingerprint(
+      AbstractAction action, OutputPathsMode outputPathsMode) {
+    return createInternal(action, outputPathsMode, /* forFingerprint= */ true);
+  }
+
+  private static PathMapper createInternal(
+      AbstractAction action, OutputPathsMode outputPathsMode, boolean forFingerprint) {
     if (getEffectiveOutputPathsMode(
             outputPathsMode, action.getMnemonic(), action.getExecutionInfo())
         != OutputPathsMode.STRIP) {
       return PathMapper.NOOP;
     }
-    return StrippingPathMapper.tryCreate(action).orElse(PathMapper.NOOP);
+    return StrippingPathMapper.tryCreate(action, forFingerprint).orElse(PathMapper.NOOP);
   }
 
   /**
-   * Helper method to simplify calling {@link #create(SpawnAction, OutputPathsMode)} for actions
-   * that store the configuration directly.
+   * Helper method to simplify calling {@link #create} for actions that store the configuration
+   * directly.
    *
    * @param configuration the configuration
    * @return the value of

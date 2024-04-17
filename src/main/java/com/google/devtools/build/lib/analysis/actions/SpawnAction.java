@@ -370,11 +370,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    PathMapper pathMapper = PathMappers.createForFingerprint(this, outputPathsMode);
+    commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp, pathMapper);
     fp.addString(mnemonic);
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
-    PathMappers.addToFingerprint(getMnemonic(), getExecutionInfo(), outputPathsMode, fp);
+    pathMapper.addToFingerprint(fp);
   }
 
   @Override

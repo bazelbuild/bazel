@@ -82,8 +82,8 @@ import net.starlark.java.syntax.Location;
  * Starlark rule is analyzed, its {@code Args} are built into a {@code StarlarkCustomCommandLine}.
  * This is retained in Skyframe, so care is taken to be as compact as possible. At this point, the
  * {@linkplain #arguments representation} is just a "recipe" to compute the full command line later
- * on. Additionally, {@link #addToFingerprint} supports computing a fingerprint without actually
- * constructing the expanded command line.
+ * on. Additionally, {@link CommandLine#addToFingerprint} supports computing a fingerprint without
+ * actually constructing the expanded command line.
  *
  * <p>Second, right before an action executes, {@link #expand(ArtifactExpander, PathMapper)} is
  * called to "preprocess" the recipe into a {@link PreprocessedCommandLine}. This step includes
@@ -460,7 +460,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int argi,
         ActionKeyContext actionKeyContext,
         Fingerprint fingerprint,
-        @Nullable ArtifactExpander artifactExpander)
+        @Nullable ArtifactExpander artifactExpander,
+        PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
       StarlarkCallable mapEach = null;
       Location location = null;
@@ -484,9 +485,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       //   below;
       // * the paths and possibly the digests of all input artifacts as well as the path mapping
       //   mode, which are fingerprinted by SpawnAction.
-      // It is thus safe to use PathMapper.NOOP below for anything that relies on the default
-      // stringification behavior (which excludes custom mapEach functions, but those do not
-      // support path mapping yet).
+      // It is thus safe to ignore pathMapper below for anything that relies on the default
+      // stringification behavior (which excludes custom mapEach functions).
       if ((features & IS_NESTED_SET) != 0) {
         NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
@@ -498,18 +498,21 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   location,
                   starlarkSemantics,
                   (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null,
-                  PathMapper.NOOP);
+                  pathMapper);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
           } finally {
-            // The cache holds an entry for a NestedSet for every (map_fn, hasArtifactExpanderBit).
+            // The cache holds an entry for a NestedSet for every (map_fn, hasArtifactExpanderBit,
+            // pathMapperCacheKey).
             // Clearing the artifactExpander itself saves us from storing the contents of it in the
             // cache keys (it is no longer needed after we evaluate the value).
             // NestedSet cache is cleared after every build, which means that the artifactExpander
             // for a given action, if present, cannot change within the lifetime of the fingerprint
             // cache (we call getKey with artifactExpander to check action key, when we are ready to
             // execute the action in case of a cache miss).
-            commandLineItemMapFn.clearArtifactExpander();
+            // The same applies to the PathMapper instance retained in the
+            // CommandLineItemMapEachAdaptor.
+            commandLineItemMapFn.clearInitializationState();
           }
         } else {
           fingerprint.addInt(stringificationType.ordinal());
@@ -519,7 +522,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int count = (Integer) arguments.get(argi++);
         List<Object> maybeExpandedValues =
             maybeExpandDirectories(
-                artifactExpander, arguments.subList(argi, argi + count), PathMapper.NOOP);
+                artifactExpander, arguments.subList(argi, argi + count), pathMapper);
         argi += count;
         if (mapEach != null) {
           // TODO(b/160181927): If artifactExpander == null (which happens in the analysis phase)
@@ -534,7 +537,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
               fingerprint::addString,
               location,
               artifactExpander,
-              PathMapper.NOOP,
+              pathMapper,
               starlarkSemantics);
         } else {
           for (Object value : maybeExpandedValues) {
@@ -970,6 +973,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
+      PathMapper pathMapper,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
@@ -986,7 +990,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if (arg instanceof VectorArg) {
         argi =
             ((VectorArg) arg)
-                .addToFingerprint(arguments, argi, actionKeyContext, fingerprint, artifactExpander);
+                .addToFingerprint(
+                    arguments, argi, actionKeyContext, fingerprint, artifactExpander, pathMapper);
       } else if (arg == SingleFormattedArg.MARKER) {
         argi = SingleFormattedArg.addToFingerprint(arguments, argi, fingerprint);
       } else {
@@ -1098,7 +1103,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
      */
     private final boolean hasArtifactExpander;
 
-    private final PathMapper pathMapper;
+    private final Object pathMapperCacheKey;
+
+    @Nullable private PathMapper pathMapper;
 
     @Nullable private ArtifactExpander artifactExpander;
 
@@ -1112,6 +1119,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.location = location;
       this.starlarkSemantics = starlarkSemantics;
       this.hasArtifactExpander = artifactExpander != null;
+      this.pathMapperCacheKey = pathMapper.cacheKey();
       this.artifactExpander = artifactExpander;
       this.pathMapper = pathMapper;
     }
@@ -1135,8 +1143,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         return ImmutableList.of(object);
       }
 
-      return VectorArg.expandDirectories(
-          artifactExpander, ImmutableList.of(object), PathMapper.NOOP);
+      return VectorArg.expandDirectories(artifactExpander, ImmutableList.of(object), pathMapper);
     }
 
     @Override
@@ -1149,8 +1156,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // which can conceivably conflict in tests
       // We only compare presence of artifactExpander vs absence of it since the nestedset
       // fingerprint cache is emptied after every build, therefore if the artifact expander is
-      // provided, it will be the same.
-      return mapFn == other.mapFn && hasArtifactExpander == other.hasArtifactExpander;
+      // provided, it will be the same. For the same reason, we use the in-memory cache key of
+      // the path mapper.
+      return mapFn == other.mapFn
+          && hasArtifactExpander == other.hasArtifactExpander
+          && pathMapperCacheKey.equals(other.pathMapperCacheKey);
     }
 
     @Override
@@ -1158,7 +1168,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // Force use of identityHashCode, in case the callable uses a custom hash function. (As of
       // this writing, only providers seem to have a custom hashCode, and those shouldn't be used
       // as map_each functions, but doesn't hurt to be safe...).
-      return 31 * System.identityHashCode(mapFn) + Boolean.hashCode(hasArtifactExpander);
+      return pathMapperCacheKey.hashCode()
+          + 31
+              * (Boolean.hashCode(hasArtifactExpander) + 31 * (System.identityHashCode(mapFn) + 1));
     }
 
     @Override
@@ -1169,15 +1181,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     /**
-     * Clears the artifact expander in order not to prolong the lifetime of it unnecessarily.
+     * Clears the artifact expander and path mapper in order not to prolong the lifetime of it
+     * unnecessarily.
      *
      * <p>Although this operation technically changes this object, it can be called after we add the
-     * object to a {@link HashSet}. Clearing the artifactExpander does not affect the result of
-     * {@link #equals} or {@link #hashCode}. Please note that once we call this function, we can no
-     * longer call {@link #expandToCommandLine}.
+     * object to a {@link HashSet}. Clearing the artifactExpander and pathMapper does not affect the
+     * result of {@link #equals} or {@link #hashCode}. Please note that once we call this function,
+     * we can no longer call {@link #expandToCommandLine}.
      */
-    void clearArtifactExpander() {
+    void clearInitializationState() {
       artifactExpander = null;
+      pathMapper = null;
     }
   }
 

@@ -124,6 +124,7 @@ public abstract class CommandLine {
   public abstract void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
+      PathMapper pathMapper,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException;
 

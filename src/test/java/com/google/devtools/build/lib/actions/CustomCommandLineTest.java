@@ -683,7 +683,7 @@ public final class CustomCommandLineTest {
     Map<String, CustomCommandLine> digests = new HashMap<>();
     for (CustomCommandLine commandLine : commandLines) {
       Fingerprint fingerprint = new Fingerprint();
-      commandLine.addToFingerprint(actionKeyContext, /* artifactExpander= */ null, fingerprint);
+      commandLine.addToFingerprint(actionKeyContext, /* artifactExpander= */ null, pathMapper, fingerprint);
       String digest = fingerprint.hexDigestAndReset();
       CustomCommandLine previous = digests.putIfAbsent(digest, commandLine);
       if (previous != null) {

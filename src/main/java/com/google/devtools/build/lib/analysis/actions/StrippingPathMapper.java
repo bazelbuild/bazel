@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLine.ArgChunk;
 import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -80,7 +83,7 @@ import javax.annotation.Nullable;
  * accordingly. The executor is responsible for remapping action inputs and outputs to match.
  */
 public final class StrippingPathMapper {
-  static final String GUID = "8eb2ad5a-85d4-435b-858f-5c192e91997d";
+  private static final String GUID = "8eb2ad5a-85d4-435b-858f-5c192e91997d";
 
   private static final String FIXED_CONFIG_SEGMENT = "cfg";
 
@@ -89,17 +92,21 @@ public final class StrippingPathMapper {
    * supports it.
    *
    * @param action the action to potentially strip paths from
+   * @param forFingerprint whether the instance is created for {@link SpawnAction#getKey}
    * @return a {@link StrippingPathMapper} if the action supports it, else {@link Optional#empty()}.
    */
-  static Optional<PathMapper> tryCreate(AbstractAction action) {
+  static Optional<PathMapper> tryCreate(AbstractAction action, boolean forFingerprint) {
     // This is expected to always be "bazel-out", but we don't want to hardcode it here.
     PathFragment outputRoot = action.getPrimaryOutput().getExecPath().subFragment(0, 1);
     // Additional artifacts to map are not part of the action's inputs, but may still lead to
     // path collisions after stripping. It is thus important to include them in this check.
-    if (isPathStrippable(
-        Iterables.concat(
-            action.getInputs().toList(), action.getAdditionalArtifactsForPathMapping().toList()),
-        outputRoot)) {
+    // FIXME: What about additional inputs?
+    if (forFingerprint
+        || isPathStrippable(
+            Iterables.concat(
+                action.getInputs().toList(),
+                action.getAdditionalArtifactsForPathMapping().toList()),
+            outputRoot)) {
       return Optional.of(
           create(action.getMnemonic(), action instanceof StarlarkAction, outputRoot));
     }
@@ -172,6 +179,11 @@ public final class StrippingPathMapper {
           }
         }
         return MapFn.DEFAULT;
+      }
+
+      @Override
+      public void addToFingerprint(Fingerprint fp) {
+        fp.addString(GUID);
       }
 
       private boolean isSupportedInputType(ActionInput artifact) {
