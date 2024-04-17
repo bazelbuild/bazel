@@ -608,6 +608,17 @@ public final class CppConfiguration extends Fragment
     return fdoPath;
   }
 
+  @StarlarkMethod(
+      name = "fdo_path",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public String getFdoPathForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return fdoPath == null ? null : fdoPath.toString();
+  }
+
   @StarlarkConfigurationField(name = "fdo_optimize", doc = "The label specified in --fdo_optimize")
   public Label getFdoOptimizeLabel() {
     return fdoOptimizeLabel;
@@ -621,12 +632,53 @@ public final class CppConfiguration extends Fragment
     return csFdoAbsolutePath;
   }
 
+  @StarlarkMethod(
+      name = "cs_fdo_path",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public String getCsFdoPathForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return csFdoAbsolutePath == null ? null : csFdoAbsolutePath.toString();
+  }
+
   public PathFragment getPropellerOptimizeAbsoluteCCProfile() {
     return propellerOptimizeAbsoluteCCProfile;
   }
 
+  @StarlarkMethod(
+      name = "propeller_optimize_absolute_cc_profile",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public String getPropellerOptimizeAbsoluteCcProfileForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    if (getPropellerOptimizeAbsoluteCCProfile() == null) {
+      return null;
+    }
+    return getPropellerOptimizeAbsoluteCCProfile().toString();
+  }
+
   public PathFragment getPropellerOptimizeAbsoluteLdProfile() {
     return propellerOptimizeAbsoluteLdProfile;
+  }
+
+  @StarlarkMethod(
+      name = "propeller_optimize_absolute_ld_profile",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  public String getPropellerOptimizeAbsoluteLdProfileForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    if (getPropellerOptimizeAbsoluteLdProfile() == null) {
+      return null;
+    }
+    return getPropellerOptimizeAbsoluteLdProfile().toString();
   }
 
   @Nullable

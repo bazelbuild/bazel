@@ -7703,7 +7703,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                 cc_toolchain = toolchain,
             )
             fdo_context = toolchain._fdo_context
-            branch_fdo_profile = fdo_context.branch_fdo_profile()
+            branch_fdo_profile = fdo_context.branch_fdo_profile
             lto_backend_artifacts = cc_common.create_lto_backend_artifacts(
                 ctx = ctx,
                 lto_output_root_prefix = ctx.label.package,
@@ -7736,12 +7736,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ImmutableList.of(
             "library_to_link.shared_non_lto_backends()",
             "library_to_link.pic_shared_non_lto_backends()",
-            "lto_backend_artifacts_info.lto_backend_artifacts.object_file()",
-            "lto_backend_artifacts_info.fdo_context.branch_fdo_profile()",
-            "lto_backend_artifacts_info.branch_fdo_profile.auto_fdo()",
-            "lto_backend_artifacts_info.branch_fdo_profile.auto_xbinary_fdo()",
-            "lto_backend_artifacts_info.branch_fdo_profile.llvm_fdo()",
-            "lto_backend_artifacts_info.branch_fdo_profile.llvm_cs_fdo()");
+            "lto_backend_artifacts_info.lto_backend_artifacts.object_file()");
     scratch.overwriteFile(
         "a/BUILD",
         """
