@@ -57,7 +57,18 @@ import java.util.concurrent.CountDownLatch;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
-/** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
+/**
+ * A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}.
+ *
+ * <p>The base {@link SkyFunctionEnvironment} class batch prefetches previously requested deps
+ * during environment creation.
+ *
+ * <p>The {@link SkipsBatchPrefetch} subclass skips batch prefetching, so that it is more efficient
+ * to create the environment when the number of previously requested deps is extremely large.
+ */
+// TODO: b/324948927 - Instead of having individual `SkyKey`s overriding the `skipsBatchPrefetch`
+// method, some method similar to QueryableGraph#getLookupHint() when creating the environment to
+// know whether batch prefetch should happen.
 public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     implements SkyframeLookupResult, ExtendedEventHandler {
 
@@ -109,7 +120,7 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    * from done nodes. In some cases, values may be {@link #NULL_MARKER} (see {@link #batchPrefetch}
    * for more details).
    *
-   * <p>In {@link PartialReevaluation}, this map is not exhaustive. It populates as the {@link
+   * <p>In {@link SkipsBatchPrefetch}, this map is not exhaustive. It populates as the {@link
    * SkyFunction} re-requests dep values, and will contain {@link #PENDING_MARKER}s when a key is
    * about to be requested from the graph.
    */
@@ -165,9 +176,8 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC
             ? firstNonNull(maxTransitiveSourceVersionSoFar, evaluatorContext.getMinimalVersion())
             : null;
-
-    return skyKey.supportsPartialReevaluation()
-        ? new SkyFunctionEnvironment.PartialReevaluation(
+    return skyKey.skipsBatchPrefetch()
+        ? new SkyFunctionEnvironment.SkipsBatchPrefetch(
             skyKey, previouslyRequestedDeps, oldDeps, evaluatorContext, maxTransitiveSourceVersion)
         : new SkyFunctionEnvironment(
             skyKey,
@@ -1099,11 +1109,12 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   /**
-   * The environment for a partial reevaluation differs from a regular environment in the following
-   * ways:
+   * The environment that skips eagerly batch prefetching previously requested deps during creation.
+   * Instead, their values are read from the graph on demand, in the same way as newly requested
+   * deps.
    *
-   * <p>Previously requested deps are not eagerly prefetched, for performance reasons. Instead,
-   * their values are read from the graph on demand, in the same way as newly requested deps.
+   * <p>This subclass is created if the {@link SkyKey} supports partial reevaluation or opts to skip
+   * batch prefetching previously requested deps values.
    *
    * <p>The {@link #ensurePreviouslyRequestedDepsFetched} method, which gets called prior to node
    * completion, isn't a no-op, because they weren't prefetched. They're needed for version, error,
@@ -1113,9 +1124,9 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    * when the evaluator checks for a newly requested done dep to which the current node is being
    * added as an rdep, to ensure that dep's key gets delivered to this node's mailbox.
    */
-  private static final class PartialReevaluation extends SkyFunctionEnvironment {
+  private static final class SkipsBatchPrefetch extends SkyFunctionEnvironment {
 
-    private PartialReevaluation(
+    private SkipsBatchPrefetch(
         SkyKey skyKey,
         GroupedDeps previouslyRequestedDeps,
         Set<SkyKey> oldDeps,
