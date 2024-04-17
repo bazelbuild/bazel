@@ -90,14 +90,11 @@ final class PersistentStringIndexer implements StringIndexer {
     }
     s = StringCanonicalizer.intern(s);
     synchronized (this) {
-      // First, make sure another thread hasn't just added the entry.
-      i = stringToInt.get(s);
-      if (i != null) {
-        return i;
+      i = stringToInt.size();
+      Integer existing = stringToInt.putIfAbsent(s, i);
+      if (existing != null) {
+        return existing; // Another thread won the race.
       }
-
-      i = intToString.size();
-      stringToInt.put(s, i);
       intToString.put(i, s);
       return i;
     }
