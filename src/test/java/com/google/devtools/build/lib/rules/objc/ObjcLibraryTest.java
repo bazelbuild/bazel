@@ -1310,7 +1310,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertContainsSublist(
         removeConfigFragment(removeConfigFragment(compileAction.getArguments())),
         ImmutableList.copyOf(
-            Interspersing.beforeEach("-isystem", rootedIncludePaths("package/foo/bar"))));
+            Iterables.concat(
+                Iterables.transform(
+                    rootedIncludePaths("package/foo/bar"),
+                    element -> ImmutableList.of("-isystem", element)))));
   }
 
   @Test

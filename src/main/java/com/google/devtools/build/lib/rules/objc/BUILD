@@ -27,7 +27,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

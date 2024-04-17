@@ -14,24 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
-import java.io.Serializable;
 
 /**
  * Utility class for resolving items for the Apple toolchain (such as common tool flags, and paths).
@@ -50,9 +37,6 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
   public static final String DEVELOPER_FRAMEWORK_PATH = "/Developer/Library/Frameworks";
   @VisibleForTesting
   public static final String SYSTEM_FRAMEWORK_PATH = "/System/Library/Frameworks";
-
-  /** XcodeConfig attribute name for Apple rules that take an xcode_config parameter */
-  public static final String XCODE_CONFIG_ATTR_NAME = ":xcode_config";
 
   /** Returns the platform directory inside of Xcode for a platform name. */
   public static String platformDir(String platformName) {
@@ -79,17 +63,6 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
   public static String platformDeveloperFrameworkDir(ApplePlatform platform) {
     String platformDir = platformDir(platform.getNameInPlist());
     return platformDir + "/Developer/Library/Frameworks";
-  }
-
-  /** The default label of the build-wide {@code xcode_config} configuration rule. */
-  public static LabelLateBoundDefault<AppleConfiguration> getXcodeConfigLabel(
-      RepositoryName toolsRepository) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        AppleConfiguration.class,
-        Label.parseCanonicalUnchecked(
-            toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL),
-        (Attribute.LateBoundDefault.Resolver<AppleConfiguration, Label> & Serializable)
-            (rule, attributes, appleConfig) -> appleConfig.getXcodeConfigLabel());
   }
 
   @Override
@@ -119,32 +92,5 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
   @Override
   public String platformFrameworkDirFromConfig(AppleConfiguration configuration) {
     return platformDeveloperFrameworkDir(configuration.getSingleArchPlatform());
-  }
-
-  /** Base rule definition to be ancestor for rules which may require an Xcode toolchain. */
-  public static class RequiresXcodeConfigRule implements RuleDefinition {
-    private final RepositoryName toolsRepository;
-
-    public RequiresXcodeConfigRule(RepositoryName toolsRepository) {
-      this.toolsRepository = toolsRepository;
-    }
-
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr(XCODE_CONFIG_ATTR_NAME, LABEL)
-                  .allowedRuleClasses("xcode_config")
-                  .checkConstraints()
-                  .value(getXcodeConfigLabel(toolsRepository)))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$requires_xcode_config")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
   }
 }
