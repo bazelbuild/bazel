@@ -185,7 +185,7 @@ public interface PathMapper {
       name = "mapped_root",
       category = DocCategory.BUILTIN,
       doc = "A root for files that have been subject to path mapping")
-  final class MappedArtifactRoot implements FileRootApi, Comparable<FileRootApi> {
+  final class MappedArtifactRoot implements FileRootApi, Comparable<MappedArtifactRoot> {
     private final PathFragment mappedRootExecPath;
 
     public MappedArtifactRoot(PathFragment mappedRootExecPath) {
@@ -198,11 +198,8 @@ public interface PathMapper {
     }
 
     @Override
-    public int compareTo(FileRootApi otherRoot) {
-      if (otherRoot instanceof MappedArtifactRoot mapped) {
-        return mappedRootExecPath.compareTo(mapped.mappedRootExecPath);
-      }
-      return mappedRootExecPath.compareTo(PathFragment.create(otherRoot.getExecPathString()));
+    public int compareTo(MappedArtifactRoot otherRoot) {
+      return mappedRootExecPath.compareTo(otherRoot.mappedRootExecPath);
     }
 
     @Override

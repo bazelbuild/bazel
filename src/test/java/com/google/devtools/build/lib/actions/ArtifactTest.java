@@ -18,9 +18,11 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
+import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
+import com.google.common.testing.EquivalenceTester;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -41,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -55,6 +58,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
@@ -618,42 +622,92 @@ public final class ArtifactTest {
       };
 
   @Test
-  public void mappedArtifact_sourceArtifact() throws IOException {
+  public void mappedArtifact() {
     StarlarkSemantics semantics = PATH_MAPPER.storeIn(StarlarkSemantics.DEFAULT);
 
     Root sourceRoot = Root.fromPath(scratch.getFileSystem().getPath("/some/path"));
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(sourceRoot);
-    Artifact artifact =
-        ActionsTestUtil.createArtifact(root, scratch.file("/some/path/path/to/pkg/file"));
-
-    assertThat(artifact.getExecPathStringForStarlark(semantics)).isEqualTo("path/to/pkg/file");
-    assertThat(artifact.getDirnameForStarlark(semantics)).isEqualTo("path/to/pkg");
-    assertThat(artifact.getRootForStarlark(semantics)).isSameInstanceAs(root);
-    // Verify both equals and compareTo implementations give the same result.
-    assertThat(artifact.getRootForStarlark(semantics)).isEqualTo(root);
-    assertThat(root).isEqualTo(artifact.getRootForStarlark(semantics));
-  }
-
-  @Test
-  public void mappedArtifact_derivedArtifact() throws IOException {
-    StarlarkSemantics semantics = PATH_MAPPER.storeIn(StarlarkSemantics.DEFAULT);
+    ArtifactRoot sourceArtifactRoot = ArtifactRoot.asSourceRoot(sourceRoot);
+    Artifact sourceArtifact1 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            sourceArtifactRoot, PathFragment.create("path/to/pkg/file1"));
+    Artifact sourceArtifact2 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            sourceArtifactRoot, PathFragment.create("path/to/pkg/file2"));
 
     Path execRoot = scratch.getFileSystem().getPath("/some/path");
-    ArtifactRoot root =
+    ArtifactRoot outputArtifactRoot =
         ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "output", "k8-opt", "bin");
-    Artifact artifact =
-        ActionsTestUtil.createArtifact(
-            root, scratch.file("/some/path/output/k8-opt/bin/path/to/pkg/file"));
+    Artifact outputArtifact1 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            outputArtifactRoot, PathFragment.create("output/k8-opt/bin/path/to/pkg/file1"));
+    Artifact outputArtifact2 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            outputArtifactRoot, PathFragment.create("output/k8-opt/bin/path/to/pkg/file2"));
 
-    assertThat(artifact.getExecPathStringForStarlark(semantics))
-        .isEqualTo("output/1084027401/path/to/pkg/file");
-    assertThat(artifact.getDirnameForStarlark(semantics))
-        .isEqualTo("output/1084027401/path/to/pkg");
-    assertThat(artifact.getRootForStarlark(semantics).getExecPathString())
-        .isEqualTo("output/1084027401");
-    // Verify both equals implementations give the same result.
-    assertThat(artifact.getRootForStarlark(semantics)).isNotEqualTo(root);
-    assertThat(root).isNotEqualTo(artifact.getRootForStarlark(semantics));
+    assertThat(sourceArtifact1.getExecPathStringForStarlark(semantics))
+        .isEqualTo("path/to/pkg/file1");
+    assertThat(sourceArtifact1.getDirnameForStarlark(semantics)).isEqualTo("path/to/pkg");
+
+    FileRootApi mappedSourceRoot1 = sourceArtifact1.getRootForStarlark(semantics);
+    assertThat(mappedSourceRoot1.getExecPathString()).isEqualTo("");
+
+    assertThat(sourceArtifact2.getExecPathStringForStarlark(semantics))
+        .isEqualTo("path/to/pkg/file2");
+    assertThat(sourceArtifact2.getDirnameForStarlark(semantics)).isEqualTo("path/to/pkg");
+
+    FileRootApi mappedSourceRoot2 = sourceArtifact1.getRootForStarlark(semantics);
+    assertThat(mappedSourceRoot2.getExecPathString()).isEqualTo("");
+
+    assertThat(outputArtifact1.getExecPathStringForStarlark(semantics))
+        .isEqualTo("output/3540078408/path/to/pkg/file1");
+    assertThat(outputArtifact1.getDirnameForStarlark(semantics))
+        .isEqualTo("output/3540078408/path/to/pkg");
+
+    FileRootApi mappedOutputRoot1 = outputArtifact1.getRootForStarlark(semantics);
+    assertThat(mappedOutputRoot1.getExecPathString()).isEqualTo("output/3540078408");
+
+    assertThat(outputArtifact2.getExecPathStringForStarlark(semantics))
+        .isEqualTo("output/3540078409/path/to/pkg/file2");
+    assertThat(outputArtifact2.getDirnameForStarlark(semantics))
+        .isEqualTo("output/3540078409/path/to/pkg");
+
+    FileRootApi mappedOutputRoot2 = outputArtifact2.getRootForStarlark(semantics);
+    assertThat(mappedOutputRoot2.getExecPathString()).isEqualTo("output/3540078409");
+
+    // Starlark equality uses Object#equals.
+    new EqualsTester()
+        .addEqualityGroup(mappedSourceRoot1, mappedSourceRoot2, sourceArtifactRoot)
+        .addEqualityGroup(mappedOutputRoot1)
+        .addEqualityGroup(mappedOutputRoot2)
+        .addEqualityGroup(outputArtifactRoot)
+        .testEquals();
+
+    var starlarkCompare =
+        new Equivalence<Comparable>() {
+          @Override
+          protected boolean doEquivalent(Comparable a, Comparable b) {
+            // Compare a and b in both directions as the implementations of compareTo may be
+            // different.
+            return Starlark.ORDERING.compare(a, b) == 0 && Starlark.ORDERING.compare(b, a) == 0;
+          }
+
+          @Override
+          protected int doHash(Comparable comparable) {
+            return 0;
+          }
+        };
+
+    ClassCastException e =
+        assertThrows(
+            ClassCastException.class,
+            () -> Starlark.ORDERING.compare(mappedOutputRoot1, outputArtifactRoot));
+    assertThat(e).hasMessageThat().isEqualTo("unsupported comparison: mapped_root <=> root");
+
+    EquivalenceTester.of(starlarkCompare)
+        .addEquivalenceGroup((Comparable) mappedSourceRoot1, (Comparable) mappedSourceRoot2)
+        .addEquivalenceGroup((Comparable) mappedOutputRoot1)
+        .addEquivalenceGroup((Comparable) mappedOutputRoot2)
+        .test();
   }
 
   private static SpecialArtifact createTreeArtifact(ArtifactRoot root, String relativePath) {
