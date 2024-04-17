@@ -46,3 +46,5 @@ def transition_java_language_8_filegroup(name, files, visibility):
         files = files,
         visibility = visibility,
     )
+
+BZLMOD_ENABLED = str(Label("@bazel_tools//:foo")).startswith("@@")

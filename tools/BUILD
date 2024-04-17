@@ -1,3 +1,5 @@
+load(":build_defs.bzl", "BZLMOD_ENABLED")
+
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -94,5 +96,5 @@ sh_binary(
 
 alias(
     name = "host_platform",
-    actual = "@platforms//host",
+    actual = "@platforms//host" if BZLMOD_ENABLED else "@internal_platforms_do_not_use//host",
 )
