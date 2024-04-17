@@ -93,7 +93,8 @@ public final class StrippingPathMapper implements PathMapper {
   private final boolean isJavaAction;
   private final ExceptionlessMapFn<Object> structuredArgStripper;
   private final StringStripper argStripper;
-  private final MappedArtifactRoot strippedArtifactRoot;
+  private final ArtifactRoot outputArtifactRoot;
+  private final MappedArtifactRoot strippedOutputArtifactRoot;
 
   private StrippingPathMapper(Artifact primaryOutput, String mnemonic, boolean isStarlarkAction) {
     // This is expected to always be "(bazel|blaze)-out".
@@ -118,7 +119,8 @@ public final class StrippingPathMapper implements PathMapper {
             || mnemonic.equals("JavacTurbine")
             || mnemonic.equals("Turbine")
             || mnemonic.equals("JavaResourceJar");
-    this.strippedArtifactRoot = new MappedArtifactRoot(map(primaryOutput.getRoot().getExecPath()));
+    this.outputArtifactRoot = primaryOutput.getRoot();
+    this.strippedOutputArtifactRoot = new MappedArtifactRoot(map(outputArtifactRoot.getExecPath()));
   }
 
   /**
@@ -195,19 +197,12 @@ public final class StrippingPathMapper implements PathMapper {
 
   @Override
   public FileRootApi mapRoot(Artifact artifact) {
-    // This override avoids allocating a new MappedArtifactRoot for every artifact.
-    ArtifactRoot root = artifact.getRoot();
-    // ArtifactRoot#isLegacy returns true for the roots of derived outputs without
-    // --experimental_sibling_repository_layout, which path mapping doesn't support anyway.
-    if (root.isLegacyOutput()) {
-      return strippedArtifactRoot;
-    } else if (root.isLegacy()) {
-      // root is a middleman, which should be very rare in command lines.
-      return PathMapper.super.mapRoot(artifact);
-    } else {
-      // Source roots are not mapped.
-      return root;
+    if (artifact.getRoot() == outputArtifactRoot) {
+      // The mapped root's path does not depend on the artifact, so we can share an instance.
+      return strippedOutputArtifactRoot;
     }
+    // Fall back for source roots as well as middleman artifacts, which should be very rare.
+    return PathMapper.super.mapRoot(artifact);
   }
 
   @Override

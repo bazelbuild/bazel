@@ -675,10 +675,12 @@ public final class ArtifactTest {
     assertThat(mappedOutputRoot2.getExecPathString()).isEqualTo("output/3540078409");
 
     // Starlark equality uses Object#equals.
+    // Mapped roots are always distinct from non-mapped roots, even if their paths are equal.
     new EqualsTester()
-        .addEqualityGroup(mappedSourceRoot1, mappedSourceRoot2, sourceArtifactRoot)
+        .addEqualityGroup(mappedSourceRoot1, mappedSourceRoot2)
         .addEqualityGroup(mappedOutputRoot1)
         .addEqualityGroup(mappedOutputRoot2)
+        .addEqualityGroup(sourceRoot)
         .addEqualityGroup(outputArtifactRoot)
         .testEquals();
 

@@ -259,10 +259,6 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
     return rootType == RootType.Output || rootType == RootType.Middleman;
   }
 
-  public boolean isLegacyOutput() {
-    return rootType == RootType.Output;
-  }
-
   @Override
   public int compareTo(ArtifactRoot o) {
     return root.compareTo(o.root);

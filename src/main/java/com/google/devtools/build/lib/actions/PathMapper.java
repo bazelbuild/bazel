@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLine.ArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
@@ -40,6 +42,11 @@ import net.starlark.java.eval.StarlarkSemantics;
  * part (e.g. "k8-fastbuild") from exec paths to allow for cross-configuration cache hits.
  */
 public interface PathMapper {
+  LoadingCache<ArtifactRoot, MappedArtifactRoot> mappedSourceRoots =
+      Caffeine.newBuilder()
+          .weakKeys()
+          .build(sourceRoot -> new MappedArtifactRoot(sourceRoot.getExecPath()));
+
   /**
    * Retrieve the {@link PathMapper} instance stored in the given {@link StarlarkSemantics} via
    * {@link #storeIn(StarlarkSemantics)}.
@@ -122,19 +129,26 @@ public interface PathMapper {
     return MapFn.DEFAULT;
   }
 
+  /**
+   * Returns a {@link FileRootApi} representing the new root of the given artifact after mapping.
+   *
+   * <p>All objects returned by this method must be {@link Comparable} among each other.
+   */
   default FileRootApi mapRoot(Artifact artifact) {
+    ArtifactRoot root = artifact.getRoot();
+    if (root.isSourceRoot()) {
+      // Source roots' paths are never mapped, but we still need to wrap them in a
+      // MappedArtifactRoot to ensure correct Starlark comparison behavior.
+      return mappedSourceRoots.get(root);
+    }
     // It would *not* be correct to just apply #map to the exec path of the root: The root part of
     // the mapped exec path of this artifact may depend on its complete exec path as well as on e.g.
     // the digest of the artifact.
     PathFragment execPath = artifact.getExecPath();
     PathFragment mappedExecPath = map(execPath);
-    if (mappedExecPath.equals(execPath)) {
-      return artifact.getRoot();
-    }
     // map never changes the root-relative part of the exec path, so we can remove that suffix to
     // get the mapped root part.
-    int rootRelativeSegmentCount =
-        execPath.segmentCount() - artifact.getRoot().getExecPath().segmentCount();
+    int rootRelativeSegmentCount = execPath.segmentCount() - root.getExecPath().segmentCount();
     PathFragment mappedRootExecPath =
         mappedExecPath.subFragment(0, mappedExecPath.segmentCount() - rootRelativeSegmentCount);
     return new MappedArtifactRoot(mappedRootExecPath);
