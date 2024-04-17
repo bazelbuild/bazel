@@ -106,7 +106,9 @@ public final class RunCommandLineTest {
     RunCommandLine.LinuxFormatter underTest = new RunCommandLine.LinuxFormatter();
     String result =
         underTest.formatScriptPathCommandLine(
-            /* runUnderPrefix= */ null, ImmutableList.of("executable", "argv1", "arg w spaces"));
+            "/bin/bash",
+            /* runUnderPrefix= */ null,
+            ImmutableList.of("executable", "argv1", "arg w spaces"));
     assertThat(result).isEqualTo("executable argv1 'arg w spaces'");
   }
 
@@ -115,9 +117,25 @@ public final class RunCommandLineTest {
     RunCommandLine.LinuxFormatter underTest = new RunCommandLine.LinuxFormatter();
     String result =
         underTest.formatScriptPathCommandLine(
+            "/bin/bash",
             "unescaped run-under prefix &&",
             ImmutableList.of("executable", "argv1", "arg w spaces"));
-    assertThat(result).isEqualTo("unescaped run-under prefix && executable argv1 'arg w spaces'");
+    assertThat(result)
+        .isEqualTo(
+            "/bin/bash -c 'unescaped run-under prefix && executable argv1 '\\''arg w spaces'\\'''");
+  }
+
+  @Test
+  public void
+      windowsFormatter_formatScriptPathCommandLine_runUnderPrefixPrependedToEscapedCommand() {
+    RunCommandLine.WindowsFormatter underTest = new RunCommandLine.WindowsFormatter();
+    String result =
+        underTest.formatScriptPathCommandLine(
+            "/bin/bash",
+            /* runUnderPrefix= */ "echo hello &&",
+            ImmutableList.of("C:/executable", "argv1", "arg w spaces"));
+    // TODO: https://github.com/bazelbuild/bazel/issues/21940 - Fix escaping.
+    assertThat(result).isEqualTo("/bin/bash -c 'echo hello && C:\\executable argv1 arg w spaces'");
   }
 
   @Test
@@ -125,7 +143,9 @@ public final class RunCommandLineTest {
     RunCommandLine.WindowsFormatter underTest = new RunCommandLine.WindowsFormatter();
     String result =
         underTest.formatScriptPathCommandLine(
-            /* runUnderPrefix= */ null, ImmutableList.of("C:/executable", "argv1", "arg w spaces"));
+            "/bin/bash",
+            /* runUnderPrefix= */ null,
+            ImmutableList.of("C:/executable", "argv1", "arg w spaces"));
     // TODO: https://github.com/bazelbuild/bazel/issues/21940 - Fix escaping.
     assertThat(result).isEqualTo("C:\\executable argv1 arg w spaces");
   }

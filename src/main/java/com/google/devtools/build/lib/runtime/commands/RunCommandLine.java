@@ -98,7 +98,7 @@ class RunCommandLine {
   }
 
   /** Returns the command arguments including residue. */
-  ImmutableList<String> getArgs(@Nullable String shExecutable) {
+  ImmutableList<String> getArgs(String shExecutable) {
     return formatter().formatArgv(shExecutable, runUnderPrefix, argsWithResidue);
   }
 
@@ -111,8 +111,8 @@ class RunCommandLine {
     return formatter().formatArgv(shExecutable, runUnderPrefix, argsWithoutResidue);
   }
 
-  String getScriptPathCommandLine() {
-    return formatter().formatScriptPathCommandLine(runUnderPrefix, argsWithResidue);
+  String getScriptPathCommandLine(@Nullable String shExecutable) {
+    return formatter().formatScriptPathCommandLine(shExecutable, runUnderPrefix, argsWithResidue);
   }
 
   private static Formatter formatter() {
@@ -123,7 +123,8 @@ class RunCommandLine {
     ImmutableList<String> formatArgv(
         @Nullable String shExecutable, @Nullable String runUnderPrefix, ImmutableList<String> args);
 
-    String formatScriptPathCommandLine(@Nullable String runUnderPrefix, ImmutableList<String> args);
+    String formatScriptPathCommandLine(
+        String shExecutable, @Nullable String runUnderPrefix, ImmutableList<String> args);
   }
 
   @VisibleForTesting
@@ -149,7 +150,7 @@ class RunCommandLine {
 
     @Override
     public String formatScriptPathCommandLine(
-        @Nullable String runUnderPrefix, ImmutableList<String> args) {
+        String shExecutable, @Nullable String runUnderPrefix, ImmutableList<String> args) {
       StringBuilder command = new StringBuilder();
       if (runUnderPrefix != null) {
         command.append(runUnderPrefix).append(" ");
@@ -160,7 +161,12 @@ class RunCommandLine {
         }
         command.append(ShellEscaper.escapeString(args.get(i)));
       }
-      return command.toString();
+
+      if (runUnderPrefix == null) {
+        return command.toString();
+      } else {
+        return shExecutable + " -c " + ShellEscaper.escapeString(command.toString());
+      }
     }
   }
 
@@ -201,7 +207,7 @@ class RunCommandLine {
 
     @Override
     public String formatScriptPathCommandLine(
-        @Nullable String runUnderPrefix, ImmutableList<String> args) {
+        String shExecutable, @Nullable String runUnderPrefix, ImmutableList<String> args) {
       StringBuilder command = new StringBuilder();
       if (runUnderPrefix != null) {
         command.append(runUnderPrefix).append(" ");
@@ -213,7 +219,11 @@ class RunCommandLine {
           command.append(" ").append(args.get(i));
         }
       }
-      return command.toString();
+      if (runUnderPrefix == null) {
+        return command.toString();
+      } else {
+        return shExecutable + " -c " + ShellEscaper.escapeString(command.toString());
+      }
     }
   }
 

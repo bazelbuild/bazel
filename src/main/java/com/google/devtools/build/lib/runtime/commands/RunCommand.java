@@ -615,7 +615,7 @@ public class RunCommand implements BlazeCommand {
             shExecutable,
             runCommandLine.getWorkingDir().getPathString(),
             runCommandLine.getEnvironment(),
-            runCommandLine.getScriptPathCommandLine());
+            runCommandLine.getScriptPathCommandLine(shExecutable));
     if (runOptions.emitScriptPathInExecRequest) {
       execRequest.setScriptPath(
           CommandProtos.ScriptPath.newBuilder()

@@ -542,6 +542,33 @@ EOF
   expect_log "why hello there friend"
 }
 
+function test_run_under_script_script_path() {
+  if $is_windows; then
+    # TODO: https://github.com/bazelbuild/bazel/issues/21940 - Fix escaping, etc
+    # so that this test works on windows.
+    return
+  fi
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "$pkg"
+  cat > $pkg/BUILD <<'EOF'
+sh_binary(
+  name = 'greetings',
+  srcs = [':greetings.sh'],
+)
+EOF
+  cat > "$pkg/greetings.sh" <<'EOF'
+#!/bin/sh
+echo "hello there $@"
+EOF
+  chmod +x "$pkg/greetings.sh"
+  bazel run --script_path="${TEST_TMPDIR}/script.sh" \
+      --run_under="echo -n 'why ' &&" \
+      -- "//$pkg:greetings" friend \
+      >"$TEST_log" || fail "expected build to succeed"
+  "${TEST_TMPDIR}/script.sh" >"$TEST_log" || fail "expected run script to succeed"
+  expect_log "why hello there friend"
+}
+
 function test_run_under_label() {
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
