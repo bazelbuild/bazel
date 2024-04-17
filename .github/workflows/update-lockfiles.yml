@@ -25,6 +25,9 @@ jobs:
         uses: iancha1992/continuous-integration/actions/update-lockfile@updatelockfile_PRs
         with:
           release-branch: ${{ github.base_ref }}
+          is-prod: False
+          pr_number: ${{ github.event.number }}
+
   print-job:
     runs-on: ubuntu-latest
     steps:
