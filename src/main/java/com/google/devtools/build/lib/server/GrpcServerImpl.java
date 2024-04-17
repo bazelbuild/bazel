@@ -428,6 +428,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     return server;
   }
 
+  // Suppress ErrorProne warnings for hardcoding "[::1]" and "127.0.0.1" instead of
+  // InetAddress.getLoopbackAddress().
+  @SuppressWarnings("AddressSelection")
   @Override
   public void serve() throws AbruptExitException {
     Preconditions.checkState(!serving);
