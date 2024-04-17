@@ -118,7 +118,7 @@ public class FakeRegistry implements Registry {
     }
 
     @Override
-    public Registry getRegistryWithUrl(String url) {
+    public Registry createRegistry(String url) {
       return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }
   }

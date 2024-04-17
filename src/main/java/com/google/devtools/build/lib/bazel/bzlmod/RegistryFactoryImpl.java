@@ -38,7 +38,7 @@ public class RegistryFactoryImpl implements RegistryFactory {
   }
 
   @Override
-  public Registry getRegistryWithUrl(String unresolvedUrl) throws URISyntaxException {
+  public Registry createRegistry(String unresolvedUrl) throws URISyntaxException {
     URI uri = new URI(unresolvedUrl.replace("%workspace%", workspacePath.getPathString()));
     if (uri.getScheme() == null) {
       throw new URISyntaxException(

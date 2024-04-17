@@ -37,7 +37,7 @@ public class RegistryFunction implements SkyFunction {
       throws InterruptedException, RegistryException {
     RegistryKey key = (RegistryKey) skyKey.argument();
     try {
-      return registryFactory.getRegistryWithUrl(key.getUrl());
+      return registryFactory.createRegistry(key.getUrl());
     } catch (URISyntaxException e) {
       throw new RegistryException(
           ExternalDepsException.withCauseAndMessage(
