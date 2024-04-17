@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.ModCommand;
@@ -265,6 +266,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
         .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+        .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
         .addSkyFunction(
             SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
             new ModuleExtensionRepoMappingEntriesFunction());

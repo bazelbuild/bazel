@@ -111,6 +111,10 @@ public class ModuleFileFunction implements SkyFunction {
     this.builtinModules = builtinModules;
   }
 
+  private static class State implements Environment.SkyKeyComputeState {
+    GetModuleFileResult getModuleFileResult;
+  }
+
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -145,28 +149,47 @@ public class ModuleFileFunction implements SkyFunction {
 
     ModuleFileValue.Key moduleFileKey = (ModuleFileValue.Key) skyKey;
     ModuleKey moduleKey = moduleFileKey.getModuleKey();
-    GetModuleFileResult getModuleFileResult;
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
-      getModuleFileResult =
-          getModuleFile(moduleKey, moduleFileKey.getOverride(), allowedYankedVersions, env);
+    State state = env.getState(State::new);
+    if (state.getModuleFileResult == null) {
+      try (SilentCloseable c =
+          Profiler.instance()
+              .profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
+        state.getModuleFileResult = getModuleFile(moduleKey, moduleFileKey.getOverride(), env);
+      }
+      if (state.getModuleFileResult == null) {
+        return null;
+      }
     }
-    if (getModuleFileResult == null) {
-      return null;
+    Optional<String> yankedInfo;
+    if (state.getModuleFileResult.registry != null) {
+      YankedVersionsValue yankedVersionsValue =
+          (YankedVersionsValue)
+              env.getValue(
+                  YankedVersionsValue.Key.create(
+                      moduleKey.getName(), state.getModuleFileResult.registry.getUrl()));
+      if (yankedVersionsValue == null) {
+        return null;
+      }
+      yankedInfo =
+          YankedVersionsUtil.getYankedInfo(moduleKey, yankedVersionsValue, allowedYankedVersions);
+    } else {
+      yankedInfo = Optional.empty();
     }
     String moduleFileHash =
-        new Fingerprint().addBytes(getModuleFileResult.moduleFile.getContent()).hexDigestAndReset();
+        new Fingerprint()
+            .addBytes(state.getModuleFileResult.moduleFile.getContent())
+            .hexDigestAndReset();
 
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
-            getModuleFileResult.moduleFile,
-            getModuleFileResult.registry,
+            state.getModuleFileResult.moduleFile,
+            state.getModuleFileResult.registry,
             moduleKey,
             // Dev dependencies should always be ignored if the current module isn't the root module
             /* ignoreDevDeps= */ true,
             builtinModules,
             // We try to prevent most side effects of yanked modules, in particular print().
-            /* printIsNoop= */ getModuleFileResult.yankedInfo != null,
+            /* printIsNoop= */ yankedInfo.isPresent(),
             starlarkSemantics,
             env.getListener());
 
@@ -193,7 +216,7 @@ public class ModuleFileFunction implements SkyFunction {
           module.getVersion());
     }
 
-    if (getModuleFileResult.yankedInfo != null) {
+    if (yankedInfo.isPresent()) {
       // Yanked modules should not have observable side effects such as adding dependency
       // requirements, so we drop those from the constructed module. We do have to preserve the
       // compatibility level as it influences the set of versions the yanked version can be updated
@@ -205,7 +228,7 @@ public class ModuleFileFunction implements SkyFunction {
               .setVersion(module.getVersion())
               .setCompatibilityLevel(module.getCompatibilityLevel())
               .setRegistry(module.getRegistry())
-              .setYankedInfo(Optional.of(getModuleFileResult.yankedInfo))
+              .setYankedInfo(yankedInfo)
               .build(),
           moduleFileHash);
     }
@@ -373,19 +396,13 @@ public class ModuleFileFunction implements SkyFunction {
 
   private static class GetModuleFileResult {
     ModuleFile moduleFile;
-    // `yankedInfo` is non-null if and only if the module has been yanked and hasn't been
-    // allowlisted.
-    @Nullable String yankedInfo;
     // `registry` can be null if this module has a non-registry override.
     @Nullable Registry registry;
   }
 
   @Nullable
   private GetModuleFileResult getModuleFile(
-      ModuleKey key,
-      @Nullable ModuleOverride override,
-      Optional<ImmutableSet<ModuleKey>> allowedYankedVersions,
-      Environment env)
+      ModuleKey key, @Nullable ModuleOverride override, Environment env)
       throws ModuleFileFunctionException, InterruptedException {
     // If there is a non-registry override for this module, we need to fetch the corresponding repo
     // first and read the module file from there.
@@ -462,10 +479,6 @@ public class ModuleFileFunction implements SkyFunction {
         }
         result.moduleFile = moduleFile.get();
         result.registry = registry;
-        result.yankedInfo =
-            YankedVersionsUtil.getYankedInfo(
-                    registry, key, allowedYankedVersions, env.getListener())
-                .orElse(null);
         return result;
       } catch (IOException e) {
         throw errorf(

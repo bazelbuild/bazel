@@ -156,6 +156,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                     new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())
