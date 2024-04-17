@@ -74,7 +74,7 @@ public class SandboxStash {
   private final String workspaceName;
   private final Path sandboxBase;
 
-  private final Map<Path, String> stashPathToRunfilesDir = new ConcurrentHashMap<>();
+  private static final Map<Path, String> stashPathToRunfilesDir = new ConcurrentHashMap<>();
 
   private static final int POOL_SIZE = 96;
   // TODO: shutdown
@@ -84,6 +84,8 @@ public class SandboxStash {
 
   private final Map<Path, StashContents> pathToContents = new ConcurrentHashMap<>();
   private final Map<Path, Long> pathToLastModified = new ConcurrentHashMap<>();
+
+  public static Map<String, Integer> statistics = new ConcurrentHashMap<>();
 
   public SandboxStash(String workspaceName, Path sandboxBase) {
     this.workspaceName = workspaceName;

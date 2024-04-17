@@ -84,6 +84,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         SandboxStash.takeStashedSandbox(sandboxPath, mnemonic, getEnvironment(), outputs);
     sandboxExecRoot.createDirectoryAndParents();
     if (stashContents != null) {
+      SandboxStash.statistics.putIfAbsent("reused_stashes", 0);
+      SandboxStash.statistics.put("reused_stashes", SandboxStash.statistics.get("reused_stashes") + 1);
       // When reusing an old sandbox, we do a full traversal of the parent directory of
       // `sandboxExecRoot`. This will use what we computed above, delete anything unnecessary, and
       // update `inputsToCreate`/`dirsToCreate` if something can be left without changes (e.g., a,
@@ -99,11 +101,14 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
           treeDeleter,
           stashContents);
       oldStashContents = stashContents;
+    } else {
+      SandboxStash.statistics.putIfAbsent("stashes_from_scratch", 0);
+      SandboxStash.statistics.put("stashes_from_scratch", SandboxStash.statistics.get("stashes_from_scratch") + 1);
     }
     Map<PathFragment, StashContents> stashContentsMap = new HashMap<>();
     for (var entry : Iterables.concat(
         inputs.getFiles().entrySet().stream().map(
-            x -> Map.entry(x.getKey(), x.getValue().asPath().asFragment())).collect(ImmutableList.toImmutableList()), inputs.getSymlinks().entrySet()))  {
+            x -> Map.entry(x.getKey(), x.getValue() == null ? PathFragment.EMPTY_FRAGMENT : x.getValue().asPath().asFragment())).collect(ImmutableList.toImmutableList()), inputs.getSymlinks().entrySet()))  {
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = true;
       if (!stashContentsMap.containsKey(parent)) {
@@ -160,6 +165,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   @Override
   protected void copyFile(Path source, Path target) throws IOException {
+    SandboxStash.statistics.putIfAbsent("symlinks", 0);
+    SandboxStash.statistics.put("symlinks", SandboxStash.statistics.get("symlinks") + 1);
     target.createSymbolicLink(source);
   }
 
