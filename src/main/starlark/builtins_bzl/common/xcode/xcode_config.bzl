@@ -14,7 +14,7 @@
 
 """Rule definition for the xcode_config rule."""
 
-load(":common/xcode/providers.bzl", "AvailableXcodesInfo", "XcodeVersionPropertiesInfo", "XcodeVersionRuleInfo")
+load(":common/xcode/providers.bzl", "AvailableXcodesInfo", "XcodeVersionInfo", "XcodeVersionPropertiesInfo", "XcodeVersionRuleInfo")
 load(":common/xcode/semantics.bzl", "unavailable_xcode_message")
 
 def _xcode_config_impl(ctx):
@@ -75,21 +75,21 @@ def _xcode_config_impl(ctx):
     else:
         visionos_minimum_os = visionos_sdk_version
 
-    xcode_versions = _builtins.internal.XcodeConfigInfo(
-        iosMinimumOsVersion = str(ios_minimum_os),
-        visionosSdkVersion = str(visionos_sdk_version),
-        visionosMinimumOsVersion = str(visionos_minimum_os),
-        watchosSdkVersion = str(watchos_sdk_version),
-        watchosMinimumOsVersion = str(watchos_minimum_os),
-        iosSdkVersion = str(ios_sdk_version),
-        tvosSdkVersion = str(tvos_sdk_version),
-        tvosMinimumOsVersion = str(tvos_minimum_os),
-        macosSdkVersion = str(macos_sdk_version),
-        macosMinimumOsVersion = str(macos_minimum_os),
-        xcodeVersion = xcode_version_properties.xcode_version,
+    xcode_versions = XcodeVersionInfo(
+        ios_sdk_version = str(ios_sdk_version),
+        ios_minimum_os_version = str(ios_minimum_os),
+        visionos_sdk_version = str(visionos_sdk_version),
+        visionos_minimum_os_version = str(visionos_minimum_os),
+        watchos_sdk_version = str(watchos_sdk_version),
+        watchos_minimum_os_version = str(watchos_minimum_os),
+        tvos_sdk_version = str(tvos_sdk_version),
+        tvos_minimum_os_version = str(tvos_minimum_os),
+        macos_sdk_version = str(macos_sdk_version),
+        macos_minimum_os_version = str(macos_minimum_os),
+        xcode_version = xcode_version_properties.xcode_version,
         availability = availability,
-        xcodeVersionFlag = apple_fragment.xcode_version_flag,
-        includeXcodeExecutionInfo = apple_fragment.include_xcode_exec_requirements,
+        xcode_version_flag = apple_fragment.xcode_version_flag,
+        include_xcode_execution_info = apple_fragment.include_xcode_exec_requirements,
     )
     return [
         DefaultInfo(runfiles = ctx.runfiles()),

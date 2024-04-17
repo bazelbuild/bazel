@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleToolchain;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
-import com.google.devtools.build.lib.rules.objc.XcodeConfigInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleBootstrap;
 
 /** Rules for Objective-C support in Bazel. */
@@ -54,8 +53,6 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new EmptyRule("xcode_config") {});
     builder.addRuleDefinition(new EmptyRule("xcode_config_alias") {});
     builder.addRuleDefinition(new EmptyRule("xcode_version") {});
-
-    builder.addStarlarkBuiltinsInternal("XcodeConfigInfo", XcodeConfigInfo.PROVIDER);
 
     builder.addStarlarkBuiltinsInternal("apple_common", new AppleStarlarkCommon());
     builder.addStarlarkBootstrap(new AppleBootstrap());

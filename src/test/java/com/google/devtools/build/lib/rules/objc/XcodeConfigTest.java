@@ -32,8 +32,11 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Starlark;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,6 +44,12 @@ import org.junit.runners.JUnit4;
 /** Unit tests for the {@code xcode_config} rule. */
 @RunWith(JUnit4.class)
 public class XcodeConfigTest extends BuildViewTestCase {
+  private static final Provider.Key XCODE_VERSION_INFO_PROVIDER_KEY =
+      new StarlarkProvider.Key(
+          Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl"),
+          "XcodeVersionInfo");
+
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   @Test
   public void testEmptyConfig_noVersionFlag() throws Exception {
@@ -61,7 +70,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
-    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertAvailability("unknown");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -197,7 +206,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version=8.4", "--xcode_version_config=//xcode:foo");
     assertXcodeVersion("8.4");
-    assertAvailability(XcodeConfigInfo.Availability.BOTH);
+    assertAvailability("both");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -215,7 +224,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version=5.1.2", "--xcode_version_config=//xcode:foo");
     assertXcodeVersion("5.1.2");
-    assertAvailability(XcodeConfigInfo.Availability.REMOTE);
+    assertAvailability("remote");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN,
@@ -239,7 +248,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration(
         "--experimental_prefer_mutual_xcode=true", "--xcode_version_config=//xcode:foo");
     assertXcodeVersion("5.1.2");
-    assertAvailability(XcodeConfigInfo.Availability.BOTH);
+    assertAvailability("both");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -254,7 +263,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version=8.4", "--xcode_version_config=//xcode:foo");
     assertXcodeVersion("8.4");
-    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertAvailability("local");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN,
@@ -276,7 +285,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version_config=//xcode:foo");
     assertXcodeVersion("8.4");
-    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertAvailability("local");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN,
@@ -299,7 +308,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version_config=//xcode:foo");
     assertXcodeVersion("10.0.0.10C504");
-    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertAvailability("local");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN,
@@ -322,7 +331,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version_config=//xcode:foo");
     assertXcodeVersion("10.0.0.10C504");
-    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertAvailability("local");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN,
@@ -348,7 +357,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version_config=//xcode:foo");
     assertXcodeVersion("10");
-    assertAvailability(XcodeConfigInfo.Availability.BOTH);
+    assertAvailability("both");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -367,7 +376,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration(
         "--xcode_version_config=//xcode:foo", "--experimental_prefer_mutual_xcode=false");
     assertXcodeVersion("8.4");
-    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertAvailability("local");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -386,7 +395,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration(
         "--xcode_version_config=//xcode:foo", "--experimental_prefer_mutual_xcode=false");
     assertXcodeVersion("10");
-    assertAvailability(XcodeConfigInfo.Availability.BOTH);
+    assertAvailability("both");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -404,7 +413,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration(
         "--xcode_version_config=//xcode:foo", "--experimental_prefer_mutual_xcode=false");
     assertXcodeVersion("10.0.0.10C504");
-    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertAvailability("local");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -433,7 +442,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
-  public void xcodeVersionConfig_isFunction() throws Exception {
+  public void xcodeVersionConfigConstructor() throws Exception {
     scratch.file(
         "foo/extension.bzl",
         """
@@ -441,20 +450,20 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
         def _impl(ctx):
             return [result(xcode_version = apple_common.XcodeVersionConfig(
-                iosSdkVersion = "1.1",
-                iosMinimumOsVersion = "1.2",
-                watchosSdkVersion = "1.3",
-                watchosMinimumOsVersion = "1.4",
-                tvosSdkVersion = "1.5",
-                tvosMinimumOsVersion = "1.6",
-                macosSdkVersion = "1.7",
-                macosMinimumOsVersion = "1.8",
-                visionosSdkVersion = "1.9",
-                visionosMinimumOsVersion = "1.10",
-                xcodeVersion = "1.11",
+                ios_sdk_version = "1.1",
+                ios_minimum_os_version = "1.2",
+                watchos_sdk_version = "1.3",
+                watchos_minimum_os_version = "1.4",
+                tvos_sdk_version = "1.5",
+                tvos_minimum_os_version = "1.6",
+                macos_sdk_version = "1.7",
+                macos_minimum_os_version = "1.8",
+                visionos_sdk_version = "1.9",
+                visionos_minimum_os_version = "1.10",
+                xcode_version = "1.11",
                 availability = "UNKNOWN",
-                xcodeVersionFlag = "0.0",
-                includeXcodeExecutionInfo = False,
+                xcode_version_flag = "0.0",
+                include_xcode_execution_info = False,
             ))]
 
         my_rule = rule(_impl, attrs = {"dep": attr.label()})
@@ -472,23 +481,80 @@ public class XcodeConfigTest extends BuildViewTestCase {
         (StructImpl)
             myRuleTarget.get(
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
-    assertThat(info.getValue("xcode_version"))
-        .isEqualTo(
-            new XcodeConfigInfo(
-                DottedVersion.fromStringUnchecked("1.1"),
-                DottedVersion.fromStringUnchecked("1.2"),
-                DottedVersion.fromStringUnchecked("1.3"),
-                DottedVersion.fromStringUnchecked("1.4"),
-                DottedVersion.fromStringUnchecked("1.5"),
-                DottedVersion.fromStringUnchecked("1.6"),
-                DottedVersion.fromStringUnchecked("1.7"),
-                DottedVersion.fromStringUnchecked("1.8"),
-                DottedVersion.fromStringUnchecked("1.9"),
-                DottedVersion.fromStringUnchecked("1.10"),
-                DottedVersion.fromStringUnchecked("1.11"),
-                XcodeConfigInfo.Availability.UNKNOWN,
-                /* xcodeVersionFlag= */ "",
-                /* includeXcodeExecutionInfo= */ false));
+    StructImpl actual = info.getValue("xcode_version", StructImpl.class);
+    assertThat(
+            callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.IOS_DEVICE)
+                .toString())
+        .isEqualTo("1.1");
+    assertThat(
+            callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.IOS_SIMULATOR)
+                .toString())
+        .isEqualTo("1.1");
+    assertThat(
+            callProviderMethod(
+                    actual, "minimum_os_for_platform_type", ApplePlatform.PlatformType.IOS)
+                .toString())
+        .isEqualTo("1.2");
+    assertThat(
+            callProviderMethod(
+                    actual, "minimum_os_for_platform_type", ApplePlatform.PlatformType.CATALYST)
+                .toString())
+        .isEqualTo("1.2");
+    assertThat(
+            callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.WATCHOS_DEVICE)
+                .toString())
+        .isEqualTo("1.3");
+    assertThat(
+            callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.WATCHOS_SIMULATOR)
+                .toString())
+        .isEqualTo("1.3");
+    assertThat(
+            callProviderMethod(
+                    actual, "minimum_os_for_platform_type", ApplePlatform.PlatformType.WATCHOS)
+                .toString())
+        .isEqualTo("1.4");
+    assertThat(
+            callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.TVOS_DEVICE)
+                .toString())
+        .isEqualTo("1.5");
+    assertThat(
+            callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.TVOS_SIMULATOR)
+                .toString())
+        .isEqualTo("1.5");
+    assertThat(
+            callProviderMethod(
+                    actual, "minimum_os_for_platform_type", ApplePlatform.PlatformType.TVOS)
+                .toString())
+        .isEqualTo("1.6");
+    assertThat(
+            callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.MACOS).toString())
+        .isEqualTo("1.7");
+    assertThat(
+            callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.CATALYST)
+                .toString())
+        .isEqualTo("1.7");
+    assertThat(
+            callProviderMethod(
+                    actual, "minimum_os_for_platform_type", ApplePlatform.PlatformType.MACOS)
+                .toString())
+        .isEqualTo("1.8");
+    assertThat(
+            callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.VISIONOS_DEVICE)
+                .toString())
+        .isEqualTo("1.9");
+    assertThat(
+            callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.VISIONOS_SIMULATOR)
+                .toString())
+        .isEqualTo("1.9");
+    assertThat(
+            callProviderMethod(
+                    actual, "minimum_os_for_platform_type", ApplePlatform.PlatformType.VISIONOS)
+                .toString())
+        .isEqualTo("1.10");
+    assertThat(callProviderMethod(actual, "xcode_version").toString()).isEqualTo("1.11");
+    assertThat(callProviderMethod(actual, "availability")).isEqualTo("unknown");
+    assertThat(callProviderMethod(actual, "execution_info"))
+        .isEqualTo(ImmutableMap.of("requires-darwin", "", "supports-xcode-requirements-set", ""));
   }
 
   @Test
@@ -500,20 +566,20 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
         def _impl(ctx):
             return [result(xcode_version = apple_common.XcodeVersionConfig(
-                iosSdkVersion = "not a valid dotted version",
-                iosMinimumOsVersion = "1.2",
-                watchosSdkVersion = "1.3",
-                watchosMinimumOsVersion = "1.4",
-                tvosSdkVersion = "1.5",
-                tvosMinimumOsVersion = "1.6",
-                macosSdkVersion = "1.7",
-                macosMinimumOsVersion = "1.8",
-                visionosSdkVersion = "1.9",
-                visionosMinimumOsVersion = "1.10",
-                xcodeVersion = "1.11",
+                ios_sdk_version = "not a valid dotted version",
+                ios_minimum_os_version = "1.2",
+                watchos_sdk_version = "1.3",
+                watchos_minimum_os_version = "1.4",
+                tvos_sdk_version = "1.5",
+                tvos_minimum_os_version = "1.6",
+                macos_sdk_version = "1.7",
+                macos_minimum_os_version = "1.8",
+                visionos_sdk_version = "1.9",
+                visionos_minimum_os_version = "1.10",
+                xcode_version = "1.11",
                 availability = "UNKNOWN",
-                xcodeVersionFlag = "0.0",
-                includeXcodeExecutionInfo = False,
+                xcode_version_flag = "0.0",
+                include_xcode_execution_info = False,
             ))]
 
         my_rule = rule(_impl, attrs = {"dep": attr.label()})
@@ -540,20 +606,20 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
         def _impl(ctx):
             xcode_version = apple_common.XcodeVersionConfig(
-                iosSdkVersion = "1.1",
-                iosMinimumOsVersion = "1.2",
-                watchosSdkVersion = "1.3",
-                watchosMinimumOsVersion = "2.4",
-                tvosSdkVersion = "1.5",
-                tvosMinimumOsVersion = "1.6",
-                macosSdkVersion = "1.7",
-                macosMinimumOsVersion = "1.8",
-                visionosSdkVersion = "1.9",
-                visionosMinimumOsVersion = "1.10",
-                xcodeVersion = "1.11",
+                ios_sdk_version = "1.1",
+                ios_minimum_os_version = "1.2",
+                watchos_sdk_version = "1.3",
+                watchos_minimum_os_version = "2.4",
+                tvos_sdk_version = "1.5",
+                tvos_minimum_os_version = "1.6",
+                macos_sdk_version = "1.7",
+                macos_minimum_os_version = "1.8",
+                visionos_sdk_version = "1.9",
+                visionos_minimum_os_version = "1.10",
+                xcode_version = "1.11",
                 availability = "UNKNOWN",
-                xcodeVersionFlag = "0.0",
-                includeXcodeExecutionInfo = False,
+                xcode_version_flag = "0.0",
+                include_xcode_execution_info = False,
             )
             return [result(
                 xcode_version = xcode_version.xcode_version(),
@@ -782,7 +848,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=5.1.2", "--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
-    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertAvailability("unknown");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -797,7 +863,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=5", "--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
-    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertAvailability("unknown");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -812,7 +878,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=valid_version", "--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
-    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertAvailability("unknown");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -893,7 +959,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
-    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertAvailability("unknown");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -965,7 +1031,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     assertXcodeVersion("5.1.2");
     assertIosSdkVersion("7.1");
-    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertAvailability("unknown");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -1012,7 +1078,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
-    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertAvailability("unknown");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -1072,7 +1138,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=6", "--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("6.4");
-    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertAvailability("unknown");
     assertHasRequirements(
         ImmutableList.of(
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
@@ -1138,7 +1204,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "--macos_sdk_version=15.6");
 
     assertXcodeVersion("6.4");
-    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertAvailability("unknown");
     ImmutableMap<ApplePlatform, String> platformToVersion =
         ImmutableMap.<ApplePlatform, String>builder()
             .put(ApplePlatform.IOS_SIMULATOR, "15.3")
@@ -1652,7 +1718,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=5.1.2");
     getConfiguredTarget("//xcode:foo");
     assertXcodeVersion("5.1.2");
-    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertAvailability("local");
   }
 
   @Test
@@ -1677,7 +1743,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "--xcode_version=0.0-unstable", "--experimental_include_xcode_execution_requirements=true");
     getConfiguredTarget("//xcode:foo");
 
-    assertAvailability(XcodeConfigInfo.Availability.REMOTE);
+    assertAvailability("remote");
     assertHasRequirementsWithValues(
         ImmutableMap.of(
             ExecutionRequirements.REQUIRES_XCODE + ":0.0", "",
@@ -1694,7 +1760,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "--xcode_version=0.0-unstable", "--experimental_include_xcode_execution_requirements=true");
     getConfiguredTarget("//xcode:foo");
 
-    assertAvailability(XcodeConfigInfo.Availability.REMOTE);
+    assertAvailability("remote");
     assertHasRequirementsWithValues(
         ImmutableMap.of(
             ExecutionRequirements.REQUIRES_XCODE + ":0.0", "",
@@ -1711,7 +1777,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "--xcode_version=0.0", "--experimental_include_xcode_execution_requirements=true");
     getConfiguredTarget("//xcode:foo");
 
-    assertAvailability(XcodeConfigInfo.Availability.BOTH);
+    assertAvailability("both");
     assertHasRequirementsWithValues(
         ImmutableMap.of(ExecutionRequirements.REQUIRES_XCODE + ":0.0", ""));
     assertDoesNotHaveRequirements(
@@ -1720,14 +1786,15 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   private DottedVersion getSdkVersionForPlatform(ApplePlatform platform) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget("//xcode:foo");
-    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
-    return provider.getSdkVersionForPlatform(platform);
+    StructImpl provider = (StructImpl) xcodeConfig.get(XCODE_VERSION_INFO_PROVIDER_KEY);
+    return (DottedVersion) callProviderMethod(provider, "sdk_version_for_platform", platform);
   }
 
   private DottedVersion getMinimumOsVersionForPlatform(ApplePlatform platform) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget("//xcode:foo");
-    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
-    return provider.getMinimumOsForPlatformType(platform.getType());
+    StructImpl provider = (StructImpl) xcodeConfig.get(XCODE_VERSION_INFO_PROVIDER_KEY);
+    return (DottedVersion)
+        callProviderMethod(provider, "minimum_os_for_platform_type", platform.getType());
   }
 
   private void assertXcodeVersion(String version) throws Exception {
@@ -1736,19 +1803,20 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   private void assertXcodeVersion(String version, String providerTargetLabel) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
-    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
-    assertThat(provider.getXcodeVersion()).isEqualTo(DottedVersion.fromString(version));
+    StructImpl provider = (StructImpl) xcodeConfig.get(XCODE_VERSION_INFO_PROVIDER_KEY);
+    assertThat(callProviderMethod(provider, "xcode_version"))
+        .isEqualTo(DottedVersion.fromString(version));
   }
 
-  private void assertAvailability(XcodeConfigInfo.Availability availability) throws Exception {
+  private void assertAvailability(String availability) throws Exception {
     assertAvailability(availability, "//xcode:foo");
   }
 
-  private void assertAvailability(
-      XcodeConfigInfo.Availability availability, String providerTargetLabel) throws Exception {
+  private void assertAvailability(String availability, String providerTargetLabel)
+      throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
-    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
-    assertThat(provider.getAvailability()).isEqualTo(availability);
+    StructImpl provider = (StructImpl) xcodeConfig.get(XCODE_VERSION_INFO_PROVIDER_KEY);
+    assertThat(callProviderMethod(provider, "availability")).isEqualTo(availability);
   }
 
   private void assertHasRequirements(List<String> executionRequirements) throws Exception {
@@ -1758,9 +1826,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
   private void assertHasRequirements(List<String> executionRequirements, String providerTargetLabel)
       throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
-    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
+    StructImpl provider = (StructImpl) xcodeConfig.get(XCODE_VERSION_INFO_PROVIDER_KEY);
     for (String requirement : executionRequirements) {
-      assertThat(requirement).isIn(provider.getExecutionRequirements().keySet());
+      assertThat(requirement).isIn(getExecutionInfo(provider).keySet());
     }
   }
 
@@ -1771,9 +1839,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
   private void assertDoesNotHaveRequirements(
       List<String> executionRequirements, String providerTargetLabel) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
-    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
+    StructImpl provider = (StructImpl) xcodeConfig.get(XCODE_VERSION_INFO_PROVIDER_KEY);
     for (String requirement : executionRequirements) {
-      assertThat(requirement).isNotIn(provider.getExecutionRequirements().keySet());
+      assertThat(requirement).isNotIn(getExecutionInfo(provider));
     }
   }
 
@@ -1785,17 +1853,34 @@ public class XcodeConfigTest extends BuildViewTestCase {
   private void assertHasRequirementsWithValues(
       Map<String, String> executionRequirements, String providerTargetLabel) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
-    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
+    StructImpl provider = (StructImpl) xcodeConfig.get(XCODE_VERSION_INFO_PROVIDER_KEY);
     for (Map.Entry<String, String> requirement : executionRequirements.entrySet()) {
-      assertThat(requirement.getKey()).isIn(provider.getExecutionRequirements().keySet());
-      assertThat(provider.getExecutionRequirements().getOrDefault(requirement.getKey(), ""))
-          .isEqualTo(requirement.getValue());
+      Dict<String, Object> actual = getExecutionInfo(provider);
+      assertThat(requirement.getKey()).isIn(actual.keySet());
+      assertThat(actual.getOrDefault(requirement.getKey(), "")).isEqualTo(requirement.getValue());
     }
   }
 
   private void assertIosSdkVersion(String version) throws Exception {
     assertThat(getSdkVersionForPlatform(ApplePlatform.IOS_SIMULATOR))
         .isEqualTo(DottedVersion.fromString(version));
+  }
+
+  private Object callProviderMethod(StructImpl provider, String methodName, Object... positional)
+      throws Exception {
+    return Starlark.call(
+        ev.getStarlarkThread(),
+        provider.getValue(methodName),
+        ImmutableList.copyOf(positional),
+        ImmutableMap.of());
+  }
+
+  private Dict<String, Object> getExecutionInfo(StructImpl provider) throws Exception {
+    return Dict.cast(
+        callProviderMethod(provider, "execution_info"),
+        String.class,
+        Object.class,
+        "execution_info");
   }
 
   /** Returns a ConfiguredAttributeMapper bound to the given rule with the target configuration. */

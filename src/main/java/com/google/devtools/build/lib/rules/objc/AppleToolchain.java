@@ -51,6 +51,9 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
   @VisibleForTesting
   public static final String SYSTEM_FRAMEWORK_PATH = "/System/Library/Frameworks";
 
+  /** XcodeConfig attribute name for Apple rules that take an xcode_config parameter */
+  public static final String XCODE_CONFIG_ATTR_NAME = ":xcode_config";
+
   /** Returns the platform directory inside of Xcode for a platform name. */
   public static String platformDir(String platformName) {
     return developerDir() + "/Platforms/" + platformName + ".platform";
@@ -130,7 +133,7 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(
-              attr(XcodeConfigInfo.XCODE_CONFIG_ATTR_NAME, LABEL)
+              attr(XCODE_CONFIG_ATTR_NAME, LABEL)
                   .allowedRuleClasses("xcode_config")
                   .checkConstraints()
                   .value(getXcodeConfigLabel(toolsRepository)))

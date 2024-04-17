@@ -16,7 +16,7 @@
 
 load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
 load(":common/objc/linking_support.bzl", "AppleDebugOutputsInfo", "linking_support")
-load(":common/xcode/providers.bzl", "XcodeVersionPropertiesInfo")
+load(":common/xcode/providers.bzl", "XcodeVersionInfo", "XcodeVersionPropertiesInfo")
 
 native_apple_common = _builtins.internal.apple_common
 
@@ -25,7 +25,7 @@ apple_common = struct(
     platform_type = native_apple_common.platform_type,
     platform = native_apple_common.platform,
     XcodeProperties = XcodeVersionPropertiesInfo,
-    XcodeVersionConfig = _builtins.internal.XcodeConfigInfo,
+    XcodeVersionConfig = XcodeVersionInfo,
     Objc = native_apple_common.Objc,
     AppleDynamicFramework = native_apple_common.AppleDynamicFramework,
     AppleExecutableBinary = native_apple_common.AppleExecutableBinary,
