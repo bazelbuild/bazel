@@ -27,6 +27,9 @@ source ${CURRENT_DIR}/../sandboxing_test_utils.sh \
 function set_up {
   add_to_bazelrc "build --spawn_strategy=sandboxed"
   add_to_bazelrc "build --genrule_strategy=sandboxed"
+
+  # Enabled in testenv.sh.tmpl, but not in Bazel by default.
+  sed -i.bak '/sandbox_tmpfs_path/d' "$bazelrc"
 }
 
 function test_sandboxed_tooldir() {
@@ -314,8 +317,6 @@ function test_add_mount_pair_tmp_source() {
 
   create_workspace_with_default_repos WORKSPACE
 
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
-
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $mounted" EXIT
   echo GOOD > "$mounted/data.txt"
@@ -342,8 +343,6 @@ function test_add_mount_pair_tmp_target() {
   fi
 
   create_workspace_with_default_repos WORKSPACE
-
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
   local source_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $source_dir" EXIT
@@ -372,8 +371,6 @@ function test_add_mount_pair_tmp_target_and_source() {
   fi
 
   create_workspace_with_default_repos WORKSPACE
-
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $mounted" EXIT
@@ -404,8 +401,6 @@ function test_symlink_with_output_base_under_tmp() {
   fi
 
   create_workspace_with_default_repos WORKSPACE
-
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
@@ -442,8 +437,6 @@ function test_symlink_to_directory_with_output_base_under_tmp() {
   fi
 
   create_workspace_with_default_repos WORKSPACE
-
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
@@ -493,8 +486,6 @@ function test_tmpfs_path_under_tmp() {
   fi
 
   create_workspace_with_default_repos WORKSPACE
-
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
   local tmp_file=$(mktemp "/tmp/bazel_tmp.XXXXXXXX")
   trap "rm $tmp_file" EXIT
