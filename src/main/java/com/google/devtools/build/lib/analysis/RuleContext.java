@@ -1829,11 +1829,6 @@ public class RuleContext extends TargetContext
         ConfiguredTargetAndData prerequisite, Attribute attribute) {
       String ruleClass = prerequisite.getRuleClass();
       if (!ruleClass.isEmpty()) {
-        String reason =
-            attribute.getValidityPredicate().checkValid(target.getAssociatedRule(), ruleClass);
-        if (reason != null) {
-          reportBadPrerequisite(attribute, prerequisite, reason, false);
-        }
         validateRuleDependency(prerequisite, attribute);
         return;
       }

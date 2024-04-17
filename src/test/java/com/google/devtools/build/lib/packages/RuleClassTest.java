@@ -31,7 +31,6 @@ import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
-import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
@@ -1102,65 +1100,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
           .copy("attr").mandatory())
           .add(attr("tags", STRING_LIST))
           .build();
-  }
-
-  @Test
-  public void testValidityChecker() throws Exception {
-    Rule dep1 =
-        createRule(
-            new RuleClass.Builder("dep1class", RuleClassType.NORMAL, false)
-                .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-                .add(attr("tags", STRING_LIST))
-                .build(),
-            "dep1",
-            ImmutableMap.of());
-    Rule dep2 =
-        createRule(
-            new RuleClass.Builder("dep2class", RuleClassType.NORMAL, false)
-                .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-                .add(attr("tags", STRING_LIST))
-                .build(),
-            "dep2",
-            ImmutableMap.of());
-
-    ValidityPredicate checker =
-        new ValidityPredicate() {
-          @Override
-          public String checkValid(Rule from, String toRuleClass) {
-            assertThat(from.getName()).isEqualTo("top");
-            switch (toRuleClass) {
-              case "dep1class":
-                return "pear";
-              case "dep2class":
-                return null;
-              default:
-                fail("invalid dependency");
-                return null;
-            }
-          }
-        };
-
-    RuleClass topClass = new RuleClass.Builder("top", RuleClassType.NORMAL, false)
-        .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-        .add(attr("tags", STRING_LIST))
-        .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType()
-              .validityPredicate(checker))
-        .build();
-
-    Rule topRule = createRule(topClass, "top", ImmutableMap.of());
-
-    assertThat(
-            topClass
-                .getAttributeByName("deps")
-                .getValidityPredicate()
-                .checkValid(topRule, dep1.getRuleClass()))
-        .isEqualTo("pear");
-    assertThat(
-            topClass
-                .getAttributeByName("deps")
-                .getValidityPredicate()
-                .checkValid(topRule, dep2.getRuleClass()))
-        .isNull();
   }
 
   @Test
