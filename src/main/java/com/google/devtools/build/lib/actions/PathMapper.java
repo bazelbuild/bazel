@@ -14,13 +14,17 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLine.ArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -118,6 +122,24 @@ public interface PathMapper {
     return MapFn.DEFAULT;
   }
 
+  default FileRootApi mapRoot(Artifact artifact) {
+    // It would *not* be correct to just apply #map to the exec path of the root: The root part of
+    // the mapped exec path of this artifact may depend on its complete exec path as well as on e.g.
+    // the digest of the artifact.
+    PathFragment execPath = artifact.getExecPath();
+    PathFragment mappedExecPath = map(execPath);
+    if (mappedExecPath.equals(execPath)) {
+      return artifact.getRoot();
+    }
+    // map never changes the root-relative part of the exec path, so we can remove that suffix to
+    // get the mapped root part.
+    int rootRelativeSegmentCount =
+        execPath.segmentCount() - artifact.getRoot().getExecPath().segmentCount();
+    PathFragment mappedRootExecPath =
+        mappedExecPath.subFragment(0, mappedExecPath.segmentCount() - rootRelativeSegmentCount);
+    return new MappedArtifactRoot(mappedRootExecPath);
+  }
+
   /**
    * Returns {@code true} if the mapper is known to map all paths identically.
    *
@@ -142,8 +164,77 @@ public interface PathMapper {
   default void addToFingerprint(Fingerprint fp) {}
 
   /** A {@link PathMapper} that doesn't change paths. */
-  PathMapper NOOP = execPath -> execPath;
+  PathMapper NOOP =
+      new PathMapper() {
+        @Override
+        public PathFragment map(PathFragment execPath) {
+          return execPath;
+        }
+
+        @Override
+        public FileRootApi mapRoot(Artifact artifact) {
+          return artifact.getRoot();
+        }
+      };
 
   StarlarkSemantics.Key<PathMapper> SEMANTICS_KEY =
       new StarlarkSemantics.Key<>("path_mapper", PathMapper.NOOP);
+
+  /** A {@link FileRootApi} returned by {@link PathMapper#mapRoot(Artifact)}. */
+  @StarlarkBuiltin(
+      name = "mapped_root",
+      category = DocCategory.BUILTIN,
+      doc = "A root for files that have been subject to path mapping")
+  final class MappedArtifactRoot implements FileRootApi, Comparable<FileRootApi> {
+    private final PathFragment mappedRootExecPath;
+
+    public MappedArtifactRoot(PathFragment mappedRootExecPath) {
+      this.mappedRootExecPath = mappedRootExecPath;
+    }
+
+    @Override
+    public String getExecPathString() {
+      return mappedRootExecPath.getPathString();
+    }
+
+    @Override
+    public int compareTo(FileRootApi otherRoot) {
+      if (otherRoot instanceof MappedArtifactRoot mapped) {
+        return mappedRootExecPath.compareTo(mapped.mappedRootExecPath);
+      }
+      return mappedRootExecPath.compareTo(PathFragment.create(otherRoot.getExecPathString()));
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      // Per the contract of PathMapper#map, mapped roots never have exec paths that are equal to
+      // exec paths of non-mapped roots, that is, of instances of ArtifactRoot. Thus, it is correct
+      // for both equals implementations to return false if the other object is not an instance of
+      // the respective class.
+      if (!(obj instanceof MappedArtifactRoot other)) {
+        return false;
+      }
+      return mappedRootExecPath.equals(other.mappedRootExecPath);
+    }
+
+    @Override
+    public int hashCode() {
+      return mappedRootExecPath.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return mappedRootExecPath + " [mapped]";
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append("<mapped root>");
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+  }
 }
