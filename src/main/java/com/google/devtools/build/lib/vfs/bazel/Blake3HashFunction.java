@@ -25,6 +25,8 @@ import java.nio.charset.Charset;
 
 /** A {@link HashFunction} for BLAKE3. */
 public final class Blake3HashFunction implements HashFunction {
+  public static final Blake3HashFunction INSTANCE = new Blake3HashFunction();
+
   @Override
   public int bits() {
     return 256;

@@ -28,7 +28,7 @@ public final class BazelHashFunctions {
     if (JniLoader.isJniAvailable()) {
       try {
         Security.addProvider(new Blake3Provider());
-        hashFunction = DigestHashFunction.register(new Blake3HashFunction(), "BLAKE3");
+        hashFunction = DigestHashFunction.register(Blake3HashFunction.INSTANCE, "BLAKE3");
       } catch (UnsatisfiedLinkError ignored) {
         // This can happen if bazel was compiled manually (with compile.sh),
         // on windows. In that case jni is available, but missing the blake3
