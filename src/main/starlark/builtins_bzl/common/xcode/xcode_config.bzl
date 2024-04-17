@@ -14,28 +14,28 @@
 
 """Rule definition for the xcode_config rule."""
 
-load(":common/objc/apple_common.bzl", "apple_common")
+load(":common/xcode/providers.bzl", "AvailableXcodesInfo", "XcodeVersionPropertiesInfo", "XcodeVersionRuleInfo")
 load(":common/xcode/semantics.bzl", "unavailable_xcode_message")
 
 def _xcode_config_impl(ctx):
     apple_fragment = ctx.fragments.apple
     cpp_fragment = ctx.fragments.cpp
 
-    explicit_default_version = ctx.attr.default[_builtins.internal.XcodeVersionRuleData] if ctx.attr.default else None
+    explicit_default_version = ctx.attr.default[XcodeVersionRuleInfo] if ctx.attr.default else None
     explicit_versions = [
-        target[_builtins.internal.XcodeVersionRuleData]
+        target[XcodeVersionRuleInfo]
         for target in ctx.attr.versions
     ] if ctx.attr.versions else []
     remote_versions = [
         target
-        for target in ctx.attr.remote_versions[_builtins.internal.AvailableXcodesInfo].available_versions
+        for target in ctx.attr.remote_versions[AvailableXcodesInfo].available_versions
     ] if ctx.attr.remote_versions else []
     local_versions = [
         target
-        for target in ctx.attr.local_versions[_builtins.internal.AvailableXcodesInfo].available_versions
+        for target in ctx.attr.local_versions[AvailableXcodesInfo].available_versions
     ] if ctx.attr.local_versions else []
 
-    local_default_version = ctx.attr.local_versions[_builtins.internal.AvailableXcodesInfo].default_version if ctx.attr.local_versions else None
+    local_default_version = ctx.attr.local_versions[AvailableXcodesInfo].default_version if ctx.attr.local_versions else None
     xcode_version_properties = None
     availability = "unknown"
 
@@ -108,7 +108,7 @@ no `xcode_version` build flag is specified. This is required if any
 `local_versions` is set.
 """,
             flags = ["NONCONFIGURABLE"],
-            providers = [[_builtins.internal.XcodeVersionRuleData]],
+            providers = [[XcodeVersionRuleInfo]],
         ),
         "versions": attr.label_list(
             doc = """\
@@ -119,7 +119,7 @@ target will be used. This may not be set if `remote_versions` or
 `local_versions` is set.
 """,
             flags = ["NONCONFIGURABLE"],
-            providers = [[_builtins.internal.XcodeVersionRuleData]],
+            providers = [[XcodeVersionRuleInfo]],
         ),
         "remote_versions": attr.label(
             doc = """\
@@ -128,7 +128,7 @@ These are used along with `remote_versions` to select a mutually available
 version. This may not be set if `versions` is set.
 """,
             flags = ["NONCONFIGURABLE"],
-            providers = [[_builtins.internal.AvailableXcodesInfo]],
+            providers = [[AvailableXcodesInfo]],
         ),
         "local_versions": attr.label(
             doc = """\
@@ -137,7 +137,7 @@ These are used along with `local_versions` to select a mutually available
 version. This may not be set if `versions` is set.
 """,
             flags = ["NONCONFIGURABLE"],
-            providers = [[_builtins.internal.AvailableXcodesInfo]],
+            providers = [[AvailableXcodesInfo]],
         ),
     },
     doc = """\
@@ -164,7 +164,7 @@ def _use_available_xcodes(explicit_default_version, explicit_versions, local_ver
 def _duplicate_alias_error(alias, versions):
     labels_containing_alias = []
     for version in versions:
-        if alias in version.aliases or (str(version.version) == alias):
+        if alias in version.aliases or (version.xcode_version_properties.xcode_version == alias):
             labels_containing_alias.append(str(version.label))
     return "'{}' is registered to multiple labels ({}) in a single xcode_config rule".format(
         alias,
@@ -181,11 +181,12 @@ def _aliases_to_xcode_version(versions):
                 fail(_duplicate_alias_error(alias, versions))
             else:
                 version_map[alias] = version
-        if str(version.version) not in version.aliases:  # only add the version if it's not also an alias
-            if str(version.version) in version_map:
-                fail(_duplicate_alias_error(str(version.version), versions))
+        version_string = version.xcode_version_properties.xcode_version
+        if version_string not in version.aliases:  # only add the version if it's not also an alias
+            if version_string in version_map:
+                fail(_duplicate_alias_error(version_string, versions))
             else:
-                version_map[str(version.version)] = version
+                version_map[version_string] = version
     return version_map
 
 def _resolve_xcode_from_local_and_remote(
@@ -205,8 +206,9 @@ def _resolve_xcode_from_local_and_remote(
     # We don't make this assumption for remote xcode_versions.
     mutually_available_versions = {}
     for version in local_versions:
-        if str(version.version) in remote_alias_to_version_map:
-            mutually_available_versions[str(version.version)] = remote_alias_to_version_map[str(version.version)]
+        version_string = version.xcode_version_properties.xcode_version
+        if version_string in remote_alias_to_version_map:
+            mutually_available_versions[version_string] = remote_alias_to_version_map[version_string]
 
     # We'd log an event here if we could!!
     if xcode_version_flag:
@@ -215,7 +217,7 @@ def _resolve_xcode_from_local_and_remote(
         availability = "BOTH"
 
         if remote_version_from_flag and local_version_from_flag:
-            local_version_from_remote_versions = remote_alias_to_version_map.get(str(local_version_from_flag.version))
+            local_version_from_remote_versions = remote_alias_to_version_map.get(local_version_from_flag.xcode_version_properties.xcode_version)
             if local_version_from_remote_versions:
                 return remote_version_from_flag.xcode_version_properties, availability
             else:
@@ -229,8 +231,8 @@ def _resolve_xcode_from_local_and_remote(
                      " to continue using dynamic execution. If you really did intend to use" +
                      " local version {1}, please specify it fully with --xcode_version={1}.").format(
                         xcode_version_flag,
-                        local_version_from_flag.version,
-                        remote_version_from_flag.version,
+                        local_version_from_flag.xcode_version_properties.xcode_version,
+                        remote_version_from_flag.xcode_version_properties.xcode_version,
                         remote_version_from_flag.aliases,
                     ),
                 )
@@ -271,8 +273,8 @@ def _resolve_xcode_from_local_and_remote(
                  " re-run your command.").format(
                     xcode_version_flag,
                     unavailable_xcode_message,
-                    ", ".join([str(version.version) for version in local_versions]),
-                    ", ".join([str(version.version) for version in remote_versions]),
+                    ", ".join([version.xcode_version_properties.xcode_version for version in local_versions]),
+                    ", ".join([version.xcode_version_properties.xcode_version for version in remote_versions]),
                 ),
             )
 
@@ -286,20 +288,20 @@ def _resolve_xcode_from_local_and_remote(
             ("Using a local Xcode version, '{}', since there are no" +
              " remotely available Xcodes on this machine. Consider downloading one of the" +
              " remotely available Xcode versions ({}) in order to get the best build" +
-             " performance.").format(local_default_version.version, ", ".join([str(version.version) for version in remote_versions])),
+             " performance.").format(local_default_version.xcode_version_properties.xcode_version, ", ".join([version.xcode_version_properties.xcode_version for version in remote_versions])),
         )
         local_version = local_default_version
         availability = "LOCAL"
-    elif (str(local_default_version.version) in remote_alias_to_version_map):
+    elif (local_default_version.xcode_version_properties.xcode_version in remote_alias_to_version_map):
         #  If the local default version is also available remotely, use it.
         availability = "BOTH"
-        local_version = remote_alias_to_version_map.get(str(local_default_version.version))
+        local_version = remote_alias_to_version_map.get(local_default_version.xcode_version_properties.xcode_version)
     else:
         # If an alias of the local default version is available remotely, use it.
         for version_number in local_default_version.aliases:
             if version_number in remote_alias_to_version_map:
                 availability = "BOTH"
-                local_version = remote_alias_to_version_map.get(str(version_number))
+                local_version = remote_alias_to_version_map.get(version_number)
                 break
 
     if local_version:
@@ -308,17 +310,20 @@ def _resolve_xcode_from_local_and_remote(
     # The local default is not available remotely.
     if prefer_mutual_xcode:
         # If we prefer a mutually available version, the newest one.
-        newest_version = _builtins.internal.apple_common.dotted_version("0.0")
+        newest_version = "0.0"
         default_version = None
         for _, version in mutually_available_versions.items():
-            if version.version.compare_to(newest_version) > 0:
+            if _compare_version_strings(version.xcode_version_properties.xcode_version, newest_version) > 0:
                 default_version = version
-                newest_version = default_version.version
+                newest_version = default_version.xcode_version_properties.xcode_version
 
         return default_version.xcode_version_properties, "BOTH"
     else:
         # Use the local default
         return local_default_version.xcode_version_properties, "LOCAL"
+
+def _compare_version_strings(first, second):
+    return _builtins.internal.apple_common.dotted_version(first).compare_to(_builtins.internal.apple_common.dotted_version(second))
 
 def _resolve_explicitly_defined_version(
         explicit_versions,
@@ -334,7 +339,7 @@ def _resolve_explicitly_defined_version(
     if not explicit_versions:
         if explicit_default_version:
             fail("default label must be contained in versions attribute")
-        return apple_common.XcodeProperties(version = None)
+        return XcodeVersionPropertiesInfo(xcode_version = None)
 
     if not explicit_default_version:
         fail("if any versions are specified, a default version must be specified")
@@ -350,7 +355,7 @@ def _resolve_explicitly_defined_version(
                  "If you believe you have '{0}' installed, try running \"bazel shutdown\", and then " +
                  "re-run your command.").format(xcode_version_flag),
             )
-    return alias_to_versions.get(str(explicit_default_version.version)).xcode_version_properties
+    return alias_to_versions.get(explicit_default_version.xcode_version_properties.xcode_version).xcode_version_properties
 
 def _dotted_version_or_default(field, default):
     return _builtins.internal.apple_common.dotted_version(field) or default

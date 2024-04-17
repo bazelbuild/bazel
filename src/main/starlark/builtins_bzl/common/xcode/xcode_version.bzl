@@ -14,11 +14,11 @@
 
 """Rule definition for the xcode_version rule."""
 
-load(":common/objc/apple_common.bzl", "apple_common")
+load(":common/xcode/providers.bzl", "XcodeVersionPropertiesInfo", "XcodeVersionRuleInfo")
 
 def _xcode_version_impl(ctx):
-    xcode_version_properties = apple_common.XcodeProperties(
-        version = ctx.attr.version,
+    xcode_version_properties = XcodeVersionPropertiesInfo(
+        xcode_version = ctx.attr.version,
         default_ios_sdk_version = ctx.attr.default_ios_sdk_version,
         default_visionos_sdk_version = ctx.attr.default_visionos_sdk_version,
         default_watchos_sdk_version = ctx.attr.default_watchos_sdk_version,
@@ -27,9 +27,9 @@ def _xcode_version_impl(ctx):
     )
     return [
         xcode_version_properties,
-        _builtins.internal.XcodeVersionRuleData(
+        XcodeVersionRuleInfo(
             label = ctx.label,
-            xcode_properties = xcode_version_properties,
+            xcode_version_properties = xcode_version_properties,
             aliases = ctx.attr.aliases,
         ),
         DefaultInfo(runfiles = ctx.runfiles()),

@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
+import net.starlark.java.eval.Sequence;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,6 +30,16 @@ import org.junit.runners.JUnit4;
 /** Unit tests for the {@code available_xcodes} rule. */
 @RunWith(JUnit4.class)
 public final class AvailableXcodesTest extends BuildViewTestCase {
+  private static final Provider.Key AVAILABLE_XCODES_PROVIDER_KEY =
+      new StarlarkProvider.Key(
+          Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl"),
+          "AvailableXcodesInfo");
+
+  private static final Provider.Key XCODE_VERSION_PROPERTIES_PROVIDER_KEY =
+      new StarlarkProvider.Key(
+          Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl"),
+          "XcodeVersionPropertiesInfo");
+
   @Test
   public void testXcodeVersionCanBeReadFromNative() throws Exception {
     scratch.file(
@@ -62,23 +76,25 @@ public final class AvailableXcodesTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget nativeTarget = getConfiguredTarget("//examples/apple:my_xcodes");
-    AvailableXcodesInfo availableXcodesInfo = nativeTarget.get(AvailableXcodesInfo.PROVIDER);
+    StructImpl availableXcodesInfo = (StructImpl) nativeTarget.get(AVAILABLE_XCODES_PROVIDER_KEY);
     ConfiguredTarget version8 = getConfiguredTarget("//examples/apple:xcode_8");
-    XcodeVersionProperties version8properties = version8.get(XcodeVersionProperties.PROVIDER);
+    StructImpl version8properties =
+        (StructImpl) version8.get(XCODE_VERSION_PROPERTIES_PROVIDER_KEY);
     ConfiguredTarget version9 = getConfiguredTarget("//examples/apple:xcode_9");
-    XcodeVersionProperties version9properties = version9.get(XcodeVersionProperties.PROVIDER);
-    assertThat(availableXcodesInfo.getAvailableVersions()).hasSize(2);
-    assertThat(
-            Iterables.get(availableXcodesInfo.getAvailableVersions(), 0)
-                .getXcodeVersionProperties())
+    StructImpl version9properties =
+        (StructImpl) version9.get(XCODE_VERSION_PROPERTIES_PROVIDER_KEY);
+    Sequence<StructImpl> availableVersions =
+        Sequence.cast(
+            availableXcodesInfo.getValue("available_versions"),
+            StructImpl.class,
+            "available_versions");
+    assertThat(availableVersions).hasSize(2);
+    assertThat(availableVersions.get(0).getValue("xcode_version_properties"))
         .isEqualTo(version8properties);
-    assertThat(
-            Iterables.get(availableXcodesInfo.getAvailableVersions(), 1)
-                .getXcodeVersionProperties())
+    assertThat(availableVersions.get(1).getValue("xcode_version_properties"))
         .isEqualTo(version9properties);
-    assertThat(availableXcodesInfo.getDefaultVersion().getVersion().toString()).isEqualTo("8");
-    assertThat(availableXcodesInfo.getDefaultVersion().getXcodeVersionProperties())
-        .isEqualTo(version8properties);
+    StructImpl defaultVersion = availableXcodesInfo.getValue("default_version", StructImpl.class);
+    assertThat(defaultVersion.getValue("xcode_version_properties")).isEqualTo(version8properties);
   }
 
   @Test

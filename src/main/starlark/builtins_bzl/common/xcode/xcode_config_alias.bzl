@@ -24,11 +24,12 @@ people who want to get data this rule provides should depend on that one.
 """
 
 load(":common/objc/apple_common.bzl", "apple_common")
+load(":common/xcode/providers.bzl", "XcodeVersionPropertiesInfo")
 
 def _xcode_config_alias_impl(ctx):
     xcode_config = ctx.attr._xcode_config
     return [
-        xcode_config[apple_common.XcodeProperties],
+        xcode_config[XcodeVersionPropertiesInfo],
         xcode_config[apple_common.XcodeVersionConfig],
     ]
 

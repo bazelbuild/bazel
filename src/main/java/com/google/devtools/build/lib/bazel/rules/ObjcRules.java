@@ -21,9 +21,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AvailableXcodesInfo;
-import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
-import com.google.devtools.build.lib.rules.apple.XcodeVersionRuleData;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleToolchain;
@@ -58,10 +55,7 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new EmptyRule("xcode_config_alias") {});
     builder.addRuleDefinition(new EmptyRule("xcode_version") {});
 
-    builder.addStarlarkBuiltinsInternal("AvailableXcodesInfo", AvailableXcodesInfo.PROVIDER);
     builder.addStarlarkBuiltinsInternal("XcodeConfigInfo", XcodeConfigInfo.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("XcodeProperties", XcodeVersionProperties.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("XcodeVersionRuleData", XcodeVersionRuleData.PROVIDER);
 
     builder.addStarlarkBuiltinsInternal("apple_common", new AppleStarlarkCommon());
     builder.addStarlarkBootstrap(new AppleBootstrap());

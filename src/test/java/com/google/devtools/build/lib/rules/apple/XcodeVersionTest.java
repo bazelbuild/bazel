@@ -32,6 +32,10 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public final class XcodeVersionTest extends BuildViewTestCase {
+  private static final Provider.Key XCODE_VERSION_PROPERTIES_PROVIDER_KEY =
+      new StarlarkProvider.Key(
+          Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl"),
+          "XcodeVersionPropertiesInfo");
 
   @Test
   public void testXcodeVersionCanBeReadFromStarlark() throws Exception {
@@ -115,11 +119,12 @@ public final class XcodeVersionTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget nativeTarget = getConfiguredTarget("//examples/apple:my_xcode");
-    XcodeVersionProperties xcodeProperties = nativeTarget.get(XcodeVersionProperties.PROVIDER);
-    assertThat(xcodeProperties.getXcodeVersion().get().toString()).isEqualTo("8");
-    assertThat(xcodeProperties.getDefaultIosSdkVersion().toString()).isEqualTo("9.0");
-    assertThat(xcodeProperties.getDefaultWatchosSdkVersion().toString()).isEqualTo("9.1");
-    assertThat(xcodeProperties.getDefaultTvosSdkVersion().toString()).isEqualTo("9.2");
-    assertThat(xcodeProperties.getDefaultMacosSdkVersion().toString()).isEqualTo("9.3");
+    StructImpl xcodeProperties =
+        (StructImpl) nativeTarget.get(XCODE_VERSION_PROPERTIES_PROVIDER_KEY);
+    assertThat(xcodeProperties.getValue("xcode_version")).isEqualTo("8");
+    assertThat(xcodeProperties.getValue("default_ios_sdk_version")).isEqualTo("9.0");
+    assertThat(xcodeProperties.getValue("default_watchos_sdk_version")).isEqualTo("9.1");
+    assertThat(xcodeProperties.getValue("default_tvos_sdk_version")).isEqualTo("9.2");
+    assertThat(xcodeProperties.getValue("default_macos_sdk_version")).isEqualTo("9.3");
   }
 }

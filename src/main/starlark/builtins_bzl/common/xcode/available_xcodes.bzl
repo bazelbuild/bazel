@@ -14,17 +14,19 @@
 
 """Rule definition for the available_xcodes rule."""
 
+load(":common/xcode/providers.bzl", "AvailableXcodesInfo", "XcodeVersionRuleInfo")
+
 def _available_xcodes_impl(ctx):
     available_versions = [
-        target[_builtins.internal.XcodeVersionRuleData]
+        target[XcodeVersionRuleInfo]
         for target in ctx.attr.versions
     ]
-    default_version = ctx.attr.default[_builtins.internal.XcodeVersionRuleData]
+    default_version = ctx.attr.default[XcodeVersionRuleInfo]
 
     return [
-        _builtins.internal.AvailableXcodesInfo(
-            default = default_version,
-            versions = available_versions,
+        AvailableXcodesInfo(
+            available_versions = available_versions,
+            default_version = default_version,
         ),
     ]
 
@@ -33,12 +35,12 @@ available_xcodes = rule(
         "default": attr.label(
             doc = "The default Xcode version for this platform.",
             mandatory = True,
-            providers = [[_builtins.internal.XcodeVersionRuleData]],
+            providers = [[XcodeVersionRuleInfo]],
             flags = ["NONCONFIGURABLE"],
         ),
         "versions": attr.label_list(
             doc = "The Xcode versions that are available on this platform.",
-            providers = [[_builtins.internal.XcodeVersionRuleData]],
+            providers = [[XcodeVersionRuleInfo]],
             flags = ["NONCONFIGURABLE"],
         ),
     },
@@ -48,4 +50,5 @@ to indicate the remotely and locally available Xcode versions. This allows
 selection of an official Xcode version from the collectively available Xcodes.
         """,
     implementation = _available_xcodes_impl,
+    provides = [AvailableXcodesInfo],
 )
