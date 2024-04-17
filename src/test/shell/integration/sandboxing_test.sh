@@ -29,6 +29,9 @@ disable_bzlmod
 function set_up() {
   add_to_bazelrc "build --spawn_strategy=sandboxed"
   add_to_bazelrc "build --genrule_strategy=sandboxed"
+
+  # Enabled in testenv.sh.tmpl, but not in Bazel by default.
+  sed -i.bak '/sandbox_tmpfs_path/d' "$bazelrc"
 }
 
 function tear_down() {
@@ -693,7 +696,6 @@ EOF
 }
 
 function test_read_non_hermetic_tmp {
-  sed -i.bak '/sandbox_tmpfs_path/d' "$bazelrc"
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
@@ -748,7 +750,6 @@ function test_read_hermetic_tmp_user_override {
     echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
     return 0
   fi
-  sed -i.bak '/sandbox_tmpfs_path/d' "$bazelrc"
 
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
@@ -772,7 +773,6 @@ EOF
 }
 
 function test_write_non_hermetic_tmp {
-  sed -i.bak '/sandbox_tmpfs_path/d' "$bazelrc"
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
@@ -828,7 +828,6 @@ function test_write_hermetic_tmp_user_override {
     echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
     return 0
   fi
-  sed -i.bak '/sandbox_tmpfs_path/d' "$bazelrc"
 
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
