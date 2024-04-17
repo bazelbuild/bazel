@@ -98,7 +98,6 @@ java_binary(
         "-Dcom.android.tools.r8.allowAllDesugaredInput",
         "-Dcom.android.tools.r8.noCfMarkerForDesugaredCode",
         "-Dcom.android.tools.r8.lambdaClassFieldsNotFinal",
-        "-Dcom.android.tools.r8.createSingletonsForStatelessLambdas",
     ],
     main_class = "com.google.devtools.build.android.r8.Desugar",
     visibility = ["//src/test/java/com/google/devtools/build/android/r8:__pkg__"],
