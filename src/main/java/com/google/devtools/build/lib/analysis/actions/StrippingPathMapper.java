@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.ArgChunk;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
@@ -29,7 +30,7 @@ import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -66,12 +67,11 @@ import javax.annotation.Nullable;
  *
  * <ol>
  *   <li>"Qualifying" actions strip config paths from their command lines. An action qualifies if
- *       its implementation logic uses {@link PathMappers#create(Action, OutputPathsMode)} as
- *       described in its javadocs and has its mnemonic listed in {@link
- *       PathMappers#SUPPORTED_MNEMONICS}. Such an action must pass the {@link PathMapper} to all
- *       structured command line constructions. If any unstructured command line arguments refer to
- *       artifact paths, custom handling needs to be added to {@code mapCustomStarlarkArgv} or
- *       {@code getMapFn} below.
+ *       its implementation logic uses {@link PathMappers#create} as described in its javadocs and
+ *       has its mnemonic listed in {@link PathMappers#SUPPORTED_MNEMONICS}. Such an action must
+ *       pass the {@link PathMapper} to all structured command line constructions. If any
+ *       unstructured command line arguments refer to artifact paths, custom handling needs to be
+ *       added to {@code mapCustomStarlarkArgv} or {@code getMapFn} below.
  *   <li>A supporting executor strips paths from qualifying actions' inputs and outputs before
  *       staging for execution by taking {@link Spawn#getPathMapper()} into account.
  * </ol>
@@ -79,40 +79,30 @@ import javax.annotation.Nullable;
  * <p>So an action is responsible for declaring that it strips paths and adjusting its command line
  * accordingly. The executor is responsible for remapping action inputs and outputs to match.
  */
-public final class StrippingPathMapper {
-  static final String GUID = "8eb2ad5a-85d4-435b-858f-5c192e91997d";
+public final class StrippingPathMapper implements PathMapper {
+  public static final String GUID = "8eb2ad5a-85d4-435b-858f-5c192e91997d";
 
   private static final String FIXED_CONFIG_SEGMENT = "cfg";
 
-  /**
-   * Creates a new {@link PathMapper} that strips config prefixes if the particular action instance
-   * supports it.
-   *
-   * @param action the action to potentially strip paths from
-   * @return a {@link StrippingPathMapper} if the action supports it, else {@link Optional#empty()}.
-   */
-  static Optional<PathMapper> tryCreate(AbstractAction action) {
-    // This is expected to always be "bazel-out", but we don't want to hardcode it here.
-    PathFragment outputRoot = action.getPrimaryOutput().getExecPath().subFragment(0, 1);
-    // Additional artifacts to map are not part of the action's inputs, but may still lead to
-    // path collisions after stripping. It is thus important to include them in this check.
-    if (isPathStrippable(
-        Iterables.concat(
-            action.getInputs().toList(), action.getAdditionalArtifactsForPathMapping().toList()),
-        outputRoot)) {
-      return Optional.of(
-          create(action.getMnemonic(), action instanceof StarlarkAction, outputRoot));
-    }
-    return Optional.empty();
-  }
+  private final PathFragment outputRoot;
+  private final String mnemonic;
+  private final boolean isStarlarkAction;
+  private final boolean isJavaAction;
+  private final ExceptionlessMapFn<Object> structuredArgStripper;
+  private final StringStripper argStripper;
+  private final ArtifactRoot outputArtifactRoot;
+  private final MappedArtifactRoot strippedOutputArtifactRoot;
 
-  private static PathMapper create(
-      String mnemonic, boolean isStarlarkAction, PathFragment outputRoot) {
-    final StringStripper argStripper = new StringStripper(outputRoot.getPathString());
-    final ExceptionlessMapFn<Object> structuredArgStripper =
+  private StrippingPathMapper(Artifact primaryOutput, String mnemonic, boolean isStarlarkAction) {
+    // This is expected to always be "(bazel|blaze)-out".
+    this.outputRoot = primaryOutput.getExecPath().subFragment(0, 1);
+    this.mnemonic = mnemonic;
+    this.isStarlarkAction = isStarlarkAction;
+    this.argStripper = new StringStripper(outputRoot.getPathString());
+    this.structuredArgStripper =
         (object, args) -> {
-          if (object instanceof String string) {
-            args.accept(argStripper.strip(string));
+          if (object instanceof String str) {
+            args.accept(this.argStripper.strip(str));
           } else {
             args.accept(CommandLineItem.expandToCommandLine(object));
           }
@@ -121,65 +111,98 @@ public final class StrippingPathMapper {
     // limitation of the native implementation of location expansion: The output is just a list of
     // strings, not a structured command line that would allow transparent path mapping.
     // Instead, reimplement location expansion in Starlark and have it return an Args object.
-    final boolean isJavaAction =
+    this.isJavaAction =
         mnemonic.equals("Javac")
             || mnemonic.equals("JavacTurbine")
             || mnemonic.equals("Turbine")
             || mnemonic.equals("JavaResourceJar");
-    return new PathMapper() {
-      @Override
-      public String getMappedExecPathString(ActionInput artifact) {
-        if (isSupportedInputType(artifact) && isOutputPath(artifact, outputRoot)) {
-          return strip(artifact.getExecPath()).getPathString();
-        } else {
-          return artifact.getExecPathString();
-        }
-      }
+    this.outputArtifactRoot = primaryOutput.getRoot();
+    this.strippedOutputArtifactRoot = new MappedArtifactRoot(map(outputArtifactRoot.getExecPath()));
+  }
 
-      @Override
-      public PathFragment map(PathFragment execPath) {
-        return isOutputPath(execPath, outputRoot) ? strip(execPath) : execPath;
-      }
+  /**
+   * Creates a new {@link PathMapper} that strips config prefixes if the particular action instance
+   * supports it.
+   *
+   * @param action the action to potentially strip paths from
+   * @param isStarlarkAction whether the action is a Starlark action
+   * @return a {@link StrippingPathMapper} if the action supports it, else {@link Optional#empty()}.
+   */
+  static Optional<PathMapper> tryCreate(AbstractAction action, boolean isStarlarkAction) {
+    PathFragment outputRoot = action.getPrimaryOutput().getExecPath().subFragment(0, 1);
+    // Additional artifacts to map are not part of the action's inputs, but may still lead to
+    // path collisions after stripping. It is thus important to include them in this check.
+    if (isPathStrippable(
+        Iterables.concat(
+            action.getInputs().toList(), action.getAdditionalArtifactsForPathMapping().toList()),
+        outputRoot)) {
+      return Optional.of(
+          new StrippingPathMapper(
+              action.getPrimaryOutput(), action.getMnemonic(), isStarlarkAction));
+    }
+    return Optional.empty();
+  }
 
-      @Override
-      public ArgChunk mapCustomStarlarkArgs(ArgChunk chunk) {
-        if (!isStarlarkAction) {
-          return chunk;
-        }
-        // Add your favorite Starlark mnemonic that needs custom arg processing here.
-        if (!mnemonic.contains("Android")
-            && !mnemonic.equals("MergeManifests")
-            && !mnemonic.equals("StarlarkRClassGenerator")
-            && !mnemonic.equals("StarlarkAARGenerator")
-            && !mnemonic.equals("JetifySrcs")
-            && !mnemonic.equals("Desugar")) {
-          return chunk;
-        }
+  @Override
+  public String getMappedExecPathString(ActionInput artifact) {
+    if (isSupportedInputType(artifact) && isOutputPath(artifact, outputRoot)) {
+      return strip(artifact.getExecPath()).getPathString();
+    } else {
+      return artifact.getExecPathString();
+    }
+  }
 
-        // TODO: b/327187486 - This materializes strings when totalArgLength() is called. Can it
-        //  compute the total arg length without creating garbage strings?
-        Iterable<String> args = chunk.arguments();
-        return new SimpleArgChunk(
-            () -> new CustomStarlarkArgsIterator(args.iterator(), argStripper));
-      }
+  @Override
+  public PathFragment map(PathFragment execPath) {
+    return isOutputPath(execPath, outputRoot) ? strip(execPath) : execPath;
+  }
 
-      @Override
-      public ExceptionlessMapFn<Object> getMapFn(@Nullable String previousFlag) {
-        if (isJavaAction) {
-          if (Objects.equals(previousFlag, "--javacopts")
-              || Objects.equals(previousFlag, "--resources")) {
-            return structuredArgStripper;
-          }
-        }
-        return MapFn.DEFAULT;
-      }
+  @Override
+  public ArgChunk mapCustomStarlarkArgs(ArgChunk chunk) {
+    if (!isStarlarkAction) {
+      return chunk;
+    }
+    // Add your favorite Starlark mnemonic that needs custom arg processing here.
+    if (!mnemonic.contains("Android")
+        && !mnemonic.equals("MergeManifests")
+        && !mnemonic.equals("StarlarkRClassGenerator")
+        && !mnemonic.equals("StarlarkAARGenerator")
+        && !mnemonic.equals("JetifySrcs")
+        && !mnemonic.equals("Desugar")) {
+      return chunk;
+    }
 
-      private boolean isSupportedInputType(ActionInput artifact) {
-        return artifact instanceof DerivedArtifact
-            || artifact instanceof ParamFileActionInput
-            || artifact instanceof BasicActionInput;
+    // TODO: b/327187486 - This materializes strings when totalArgLength() is called. Can it
+    //  compute the total arg length without creating garbage strings?
+    Iterable<String> args = chunk.arguments();
+    return new SimpleArgChunk(() -> new CustomStarlarkArgsIterator(args.iterator(), argStripper));
+  }
+
+  @Override
+  public ExceptionlessMapFn<Object> getMapFn(@Nullable String previousFlag) {
+    if (isJavaAction) {
+      if (Objects.equals(previousFlag, "--javacopts")
+          || Objects.equals(previousFlag, "--resources")) {
+        return structuredArgStripper;
       }
-    };
+    }
+    return MapFn.DEFAULT;
+  }
+
+  @Override
+  public FileRootApi mapRoot(Artifact artifact) {
+    if (artifact.getRoot() == outputArtifactRoot) {
+      // The mapped root's path does not depend on the artifact, so we can share an instance.
+      return strippedOutputArtifactRoot;
+    }
+    // Fall back for source roots as well as middleman artifacts, which should be very rare.
+    return PathMapper.super.mapRoot(artifact);
+  }
+
+  private boolean isSupportedInputType(ActionInput artifact) {
+    return artifact instanceof DerivedArtifact
+        || artifact instanceof ParamFileActionInput
+        || artifact instanceof BasicActionInput;
   }
 
   private static final class CustomStarlarkArgsIterator implements Iterator<String> {
@@ -286,22 +309,18 @@ public final class StrippingPathMapper {
    */
   private static boolean isPathStrippable(
       Iterable<? extends ActionInput> actionInputs, PathFragment outputRoot) {
-    // For qualifying action types, check that no inputs or outputs would clash if paths were
-    // removed, e.g. "bazel-out/k8-fastbuild/foo" and "bazel-out/host/foo".
+    // For qualifying action types, check that no inputs or outputs would clash if config segments
+    // were removed, e.g. "bazel-out/k8-fastbuild/bin/foo" and
+    // "bazel-out/k8-fastbuild-ST-1234/bin/foo".
     //
-    // A more clever algorithm could remap these with custom prefixes - "bazel-out/1/foo" and
-    // "bazel-out/2/foo" - if experience shows that would help.
-    //
-    // Another approach could keep host paths intact (since the "host" path prefix doesn't vary
-    // with configurations). While this would help more action instances qualify, it also blocks
-    // caching the same action in host and target configurations. This could be mitigated by
-    // stripping the host prefix *only* when the entire action is in the host configuration.
+    // A more clever algorithm could remap these with custom prefixes - "bazel-out/1/bin/foo" and
+    // "bazel-out/2/bin/foo" - if experience shows that would help.
     HashMap<PathFragment, ActionInput> rootRelativePaths = new HashMap<>();
     for (ActionInput input : actionInputs) {
       if (!isOutputPath(input, outputRoot)) {
         continue;
       }
-      // For "bazel-out/k8-fastbuild/foo/bar", get "foo/bar".
+      // For "bazel-out/k8-fastbuild/bin/foo/bar", get "bin/foo/bar".
       if (!rootRelativePaths
           .computeIfAbsent(input.getExecPath().subFragment(2), k -> input)
           .equals(input)) {
@@ -328,6 +347,4 @@ public final class StrippingPathMapper {
         .getRelative(FIXED_CONFIG_SEGMENT)
         .getRelative(execPath.subFragment(2));
   }
-
-  private StrippingPathMapper() {}
 }

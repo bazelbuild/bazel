@@ -175,7 +175,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   @Override
   public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
-    return commandLines.allArguments(PathMappers.create(this, outputPathsMode));
+    return commandLines.allArguments(
+        PathMappers.create(this, outputPathsMode, this instanceof StarlarkAction));
   }
 
   @Override
@@ -339,7 +340,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       boolean envResolved,
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
-    PathMapper pathMapper = PathMappers.create(this, outputPathsMode);
+    PathMapper pathMapper =
+        PathMappers.create(this, outputPathsMode, this instanceof StarlarkAction);
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
             actionExecutionContext.getArtifactExpander(),
@@ -370,11 +372,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    commandLines.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fp);
     fp.addString(mnemonic);
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
-    PathMappers.addToFingerprint(getMnemonic(), getExecutionInfo(), outputPathsMode, fp);
+    PathMappers.addToFingerprint(this, actionKeyContext, outputPathsMode, fp);
   }
 
   @Override
