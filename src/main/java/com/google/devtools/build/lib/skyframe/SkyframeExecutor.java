@@ -129,6 +129,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -4153,6 +4154,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .withRequest(Request.DO_NOTHING)
             .withVerificationSet(focusResult.getVerificationSet());
 
+    // Now that the graph has dropped nodes, run a GC to reclaim some memory.
+    System.gc();
+    // Next, shrink the interners' backing maps - which now have larger
+    // capacities than necessary - and reclaim some more memory.
+    PooledInterner.shrinkAll();
+
     dumpSkyfocusKeys(dumpKeysOption, reporter, focusResult, graph, skyFunctionCountBefore);
 
     reportReductions(
@@ -4170,9 +4177,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Long::toString);
 
     if (skyfocusState.options().dumpPostGcStats) {
-      System.gc();
-      // Users may skip heap size reporting, which triggers slow manual GCs, in place of faster
-      // focusing.
       reportReductions(
           reporter, "Heap", beforeHeap, getHeapSize(), StringUtilities::prettyPrintBytes);
     }
