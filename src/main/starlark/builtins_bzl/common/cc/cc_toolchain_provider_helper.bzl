@@ -18,7 +18,6 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_toolchain_info.bzl", "CcToolchainInfo")
-load(":common/cc/fdo/fdo_context.bzl", "create_fdo_context")
 load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
@@ -183,7 +182,7 @@ def get_cc_toolchain_provider(ctx, attributes):
     )
     tool_paths = _compute_tool_paths(toolchain_config_info, tools_directory)
     toolchain_features = cc_internal.cc_toolchain_features(toolchain_config_info = toolchain_config_info, tools_directory = tools_directory)
-    fdo_context = create_fdo_context(
+    fdo_context = cc_internal.fdo_context(
         ctx = ctx,
         configuration = ctx.configuration,
         cpp_config = ctx.fragments.cpp,

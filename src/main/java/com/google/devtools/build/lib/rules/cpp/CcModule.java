@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -116,6 +115,7 @@ public abstract class CcModule
     implements CcModuleApi<
         StarlarkActionFactory,
         Artifact,
+        FdoContext,
         FeatureConfigurationForStarlark,
         CcCompilationContext,
         LtoBackendArtifacts,
@@ -980,7 +980,7 @@ public abstract class CcModule
       Artifact bitcodeFile,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       Info ccToolchainInfo,
-      StructImpl fdoContextStruct,
+      FdoContext fdoContext,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
@@ -1002,7 +1002,7 @@ public abstract class CcModule
             CppLinkActionBuilder.newActionConstruction(ruleContext),
             featureConfigurationForStarlark.getFeatureConfiguration(),
             ccToolchain,
-            new FdoContext(fdoContextStruct),
+            fdoContext,
             usePic,
             shouldCreatePerObjectDebugInfo,
             Sequence.cast(argv, String.class, "argv"));

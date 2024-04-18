@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -474,7 +473,7 @@ public final class CcToolchainProvider {
   }
 
   public FdoContext getFdoContext() throws EvalException {
-    return new FdoContext(value.getValue("_fdo_context", StructImpl.class));
+    return value.getValue("_fdo_context", FdoContext.class);
   }
 
   // Not all of CcToolchainProvider is exposed to Starlark, which makes implementing deep equality

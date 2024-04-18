@@ -250,8 +250,7 @@ public class CppHelper {
   public static String getFdoBuildStamp(
       CppConfiguration cppConfiguration,
       FdoContext fdoContext,
-      FeatureConfiguration featureConfiguration)
-      throws EvalException {
+      FeatureConfiguration featureConfiguration) {
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     if (branchFdoProfile != null) {
 
