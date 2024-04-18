@@ -137,9 +137,7 @@ public interface OutputService {
   void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, EnvironmentalExecException, InterruptedException;
 
-  /**
-   * @return the BatchStat instance or null.
-   */
+  @Nullable
   BatchStat getBatchStatter();
 
   /**
