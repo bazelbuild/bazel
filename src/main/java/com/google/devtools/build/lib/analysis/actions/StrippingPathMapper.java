@@ -135,7 +135,7 @@ public final class StrippingPathMapper implements PathMapper {
     PathFragment outputRoot = action.getPrimaryOutput().getExecPath().subFragment(0, 1);
     // Additional artifacts to map are not part of the action's inputs, but may still lead to
     // path collisions after stripping. It is thus important to include them in this check.
-    // FIXME: What about additional inputs?
+    // FIXME: Is this correct?
     if (forFingerprint
         || isPathStrippable(
             Iterables.concat(

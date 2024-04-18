@@ -229,6 +229,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     fp.addInt(classpathMode.ordinal());
     PathMapper pathMapper =
         PathMappers.createForFingerprint(this, PathMappers.getOutputPathsMode(configuration));
+    pathMapper.addToFingerprint(fp);
     executableLine.addToFingerprint(actionKeyContext, artifactExpander, pathMapper, fp);
     flagLine.addToFingerprint(actionKeyContext, artifactExpander, pathMapper, fp);
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
@@ -236,7 +237,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
     getEnvironment().addTo(fp);
     fp.addStringMap(executionInfo);
-    pathMapper.addToFingerprint(fp);
   }
 
   /**

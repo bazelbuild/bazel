@@ -70,6 +70,11 @@ public interface PathMapper {
    */
   @CheckReturnValue
   default StarlarkSemantics storeIn(StarlarkSemantics semantics) {
+    // This in particular covers the case where the semantics do not have a path mapper yet and this
+    // is NOOP.
+    if (semantics.get(SEMANTICS_KEY) == this) {
+      return semantics;
+    }
     return new StarlarkSemantics(semantics.toBuilder().set(SEMANTICS_KEY, this).build()) {
       // The path mapper doesn't affect which fields or methods are available on any given Starlark
       // object; it just affects the behavior of certain methods on Artifact. We thus preserve the
