@@ -116,7 +116,12 @@ def _apple_crosstool_transition_impl(settings, attr):
         settings["//command_line_option:apple_crosstool_top"]
     )
     if cpu == settings["//command_line_option:cpu"] and crosstools_are_equal:
-        # No changes necessary.
+        # No changes necessary if --cpu and --crosstool_top already match
+        # --apple_platform_type.
+        return {}
+    if semantics.cpu_to_platform(cpu) == "@" + str(settings["//command_line_option:platforms"][0]):
+        # No changes necessary if --platforms already matches
+        # --apple_platform_type.
         return {}
 
     # Ensure platforms aren't set so that platform mapping can take place.
